@@ -2430,6 +2430,12 @@ bool MythUIButtonList::keyPressEvent(QKeyEvent *e)
         {
             ShowSearchDialog();
         }
+        else if (action == "0" || action == "1" || action == "2" || action == "3" ||
+                 action == "4" || action == "5" || action == "6" || action == "7" ||
+                 action == "8" || action == "9")
+        {
+            SetItemCurrent((int) ((GetCount() * (action.toInt() / 10.0))));
+        }
         else
             handled = false;
     }
