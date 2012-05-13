@@ -5,6 +5,7 @@
 // MythTV
 #include <mythcorecontext.h>
 #include <mythdialogbox.h>
+#include <mythuifilebrowser.h>
 
 // MythMusic
 #include "musicplayer.h"
@@ -35,6 +36,7 @@ bool GeneralSettings::Create()
         return false;
 
     UIUtilE::Assign(this, m_musicLocation, "musiclocation", &err);
+    UIUtilW::Assign(this, m_findLocation, "findlocation", &err);
     UIUtilE::Assign(this, m_musicAudioDevice, "musicaudiodevice", &err);
     UIUtilE::Assign(this, m_musicDefaultUpmix, "musicdefaultupmix", &err);
     UIUtilE::Assign(this, m_musicCDDevice, "musiccddevice", &err);
@@ -42,7 +44,7 @@ bool GeneralSettings::Create()
     UIUtilE::Assign(this, m_ignoreID3Tags, "ignoreid3tags", &err);
     UIUtilE::Assign(this, m_tagEncoding, "tagencoding", &err);
     UIUtilE::Assign(this, m_allowTagWriting, "allowtagwriting", &err);
-    UIUtilE::Assign(this, m_resetDBButton, "resetdatabase", &err);
+    UIUtilW::Assign(this, m_resetDBButton, "resetdatabase", &err);
     UIUtilE::Assign(this, m_saveButton, "save", &err);
     UIUtilE::Assign(this, m_cancelButton, "cancel", &err);
 
@@ -75,6 +77,9 @@ bool GeneralSettings::Create()
     int allowTagWriting = gCoreContext->GetNumSetting("AllowTagWriting", 1);
     if (allowTagWriting == 1)
         m_allowTagWriting->SetCheckState(MythUIStateType::Full);
+
+    if (m_findLocation)
+        connect(m_findLocation, SIGNAL(Clicked()), this, SLOT(slotLocationPressed()));
 
     if (m_resetDBButton)
         connect(m_resetDBButton, SIGNAL(Clicked()), this, SLOT(slotResetDB()));
@@ -164,6 +169,27 @@ void GeneralSettings::slotDoResetDB(bool ok)
     }
 }
 
+void GeneralSettings::slotLocationPressed(void)
+{
+    // need to remove the trailing '/' or else the file browser gets confused
+    QString location = m_musicLocation->GetText();
+    if (location.endsWith('/'))
+        location.chop(1);
+
+    MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
+    MythUIFileBrowser *fb = new MythUIFileBrowser(popupStack, location);
+
+    fb->SetTypeFilter(QDir::AllDirs | QDir::Readable);
+
+    if (fb->Create())
+    {
+        fb->SetReturnEvent(this, "locationchange");
+        popupStack->AddScreen(fb);
+    }
+    else
+        delete fb;
+}
+
 void GeneralSettings::slotSave(void)
 {
     // get the starting directory from the settings and remove all multiple
@@ -196,3 +222,14 @@ void GeneralSettings::slotSave(void)
 
     Close();
 }
+
+void GeneralSettings::customEvent(QEvent *event)
+{
+    if (event->type() == DialogCompletionEvent::kEventType)
+    {
+        DialogCompletionEvent *dce = (DialogCompletionEvent*)(event);
+        if (dce->GetId() == "locationchange")
+            m_musicLocation->SetText(dce->GetResultText());
+    }
+}
+

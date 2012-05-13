@@ -19,6 +19,10 @@
         <textedit name="musiclocation" from="basetextedit">
             <area>650,70,550,50</area>
         </textedit>
+        <button name="findlocation" from="basesearchbutton">
+            <position>1205,80</position>
+        </button>
+
 
         <textarea name="musiccddevice_label" from="basetextarea">
             <area>140,130,500,50</area>
