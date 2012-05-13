@@ -102,8 +102,7 @@ MusicPlayer::~MusicPlayer()
 {
     if (m_cdWatcher)
     {
-        m_cdWatcher->stop();
-        m_cdWatcher->wait();
+        stopCDWatcher();
         delete m_cdWatcher;
     }
 
@@ -847,8 +846,22 @@ void MusicPlayer::loadPlaylist(void)
     m_currentMetadata = NULL;
 
     // now we have the playlist loaded we can start the cd watcher
+    startCDWatcher();
+}
+
+void MusicPlayer::startCDWatcher(void)
+{
     if (m_cdWatcher)
         m_cdWatcher->start();
+}
+
+void MusicPlayer::stopCDWatcher(void )
+{
+    if (m_cdWatcher)
+    {
+        m_cdWatcher->stop();
+        m_cdWatcher->wait();
+    }
 }
 
 void MusicPlayer::moveTrackUpDown(bool moveUp, int whichTrack)
@@ -1391,96 +1404,101 @@ CDWatcherThread::CDWatcherThread(const QString &dev)
 void CDWatcherThread::run()
 {
 #ifdef HAVE_CDIO
+    m_stopped = false;
+
     while (!m_stopped)
     {
-        // lock all_music and cd_status_changed while running thread
-        QMutexLocker locker(getLock());
-
-        m_cdStatusChanged = false;
-
-        CdDecoder *decoder = new CdDecoder("cda", NULL, NULL, NULL);
-        decoder->setDevice(m_cdDevice);
-        int numTracks = decoder->getNumCDAudioTracks();
-        bool redo = false;
-
-        if (numTracks != gMusicData->all_music->getCDTrackCount())
+        if (gMusicData->initialized)
         {
-            m_cdStatusChanged = true;
-            LOG(VB_GENERAL, LOG_NOTICE, QString("CD status has changed."));
-        }
+            // lock all_music and cd_status_changed while running thread
+            QMutexLocker locker(getLock());
 
-        if (numTracks == 0)
-        {
-            // No CD, or no recognizable CD
-            gMusicData->all_music->clearCDData();
-            gMusicData->all_playlists->clearCDList();
-        }
-        else if (numTracks > 0)
-        {
-            // Check the last track to see if it's changed
-            Metadata *checker = decoder->getLastMetadata();
-            if (checker)
+            m_cdStatusChanged = false;
+
+            CdDecoder *decoder = new CdDecoder("cda", NULL, NULL, NULL);
+            decoder->setDevice(m_cdDevice);
+            int numTracks = decoder->getNumCDAudioTracks();
+            bool redo = false;
+
+            if (numTracks != gMusicData->all_music->getCDTrackCount())
             {
-                if (!gMusicData->all_music->checkCDTrack(checker))
+                m_cdStatusChanged = true;
+                LOG(VB_GENERAL, LOG_NOTICE, QString("CD status has changed."));
+            }
+
+            if (numTracks == 0)
+            {
+                // No CD, or no recognizable CD
+                gMusicData->all_music->clearCDData();
+                gMusicData->all_playlists->clearCDList();
+            }
+            else if (numTracks > 0)
+            {
+                // Check the last track to see if it's changed
+                Metadata *checker = decoder->getLastMetadata();
+                if (checker)
                 {
-                    redo = true;
-                    m_cdStatusChanged = true;
-                    gMusicData->all_music->clearCDData();
-                    gMusicData->all_playlists->clearCDList();
+                    if (!gMusicData->all_music->checkCDTrack(checker))
+                    {
+                        redo = true;
+                        m_cdStatusChanged = true;
+                        gMusicData->all_music->clearCDData();
+                        gMusicData->all_playlists->clearCDList();
+                    }
+                    else
+                        m_cdStatusChanged = false;
+                    delete checker;
                 }
                 else
-                    m_cdStatusChanged = false;
-                delete checker;
-            }
-            else
-            {
-                LOG(VB_GENERAL, LOG_ERR, "The cddecoder said it had audio tracks, "
-                                         "but it won't tell me about them");
-            }
-        }
-
-        int tracks = decoder->getNumTracks();
-        bool setTitle = false;
-
-        for (int actual_tracknum = 1;
-            redo && actual_tracknum <= tracks; actual_tracknum++)
-        {
-            Metadata *track = decoder->getMetadata(actual_tracknum);
-            if (track)
-            {
-                gMusicData->all_music->addCDTrack(*track);
-
-                if (!setTitle)
                 {
-
-                    QString parenttitle = " ";
-                    if (track->FormatArtist().length() > 0)
-                    {
-                        parenttitle += track->FormatArtist();
-                        parenttitle += " ~ ";
-                    }
-
-                    if (track->Album().length() > 0)
-                        parenttitle += track->Album();
-                    else
-                    {
-                        parenttitle = " " + QObject::tr("Unknown");
-                        LOG(VB_GENERAL, LOG_INFO, "Couldn't find your "
-                        " CD. It may not be in the freedb database.\n"
-                        "    More likely, however, is that you need to delete\n"
-                        "    ~/.cddb and ~/.cdserverrc and restart MythMusic.");
-                    }
-                    gMusicData->all_music->setCDTitle(parenttitle);
-                    setTitle = true;
+                    LOG(VB_GENERAL, LOG_ERR, "The cddecoder said it had audio tracks, "
+                                            "but it won't tell me about them");
                 }
-                delete track;
             }
+
+            int tracks = decoder->getNumTracks();
+            bool setTitle = false;
+
+            for (int actual_tracknum = 1;
+                redo && actual_tracknum <= tracks; actual_tracknum++)
+            {
+                Metadata *track = decoder->getMetadata(actual_tracknum);
+                if (track)
+                {
+                    gMusicData->all_music->addCDTrack(*track);
+
+                    if (!setTitle)
+                    {
+
+                        QString parenttitle = " ";
+                        if (track->FormatArtist().length() > 0)
+                        {
+                            parenttitle += track->FormatArtist();
+                            parenttitle += " ~ ";
+                        }
+
+                        if (track->Album().length() > 0)
+                            parenttitle += track->Album();
+                        else
+                        {
+                            parenttitle = " " + QObject::tr("Unknown");
+                            LOG(VB_GENERAL, LOG_INFO, "Couldn't find your "
+                            " CD. It may not be in the freedb database.\n"
+                            "    More likely, however, is that you need to delete\n"
+                            "    ~/.cddb and ~/.cdserverrc and restart MythMusic.");
+                        }
+                        gMusicData->all_music->setCDTitle(parenttitle);
+                        setTitle = true;
+                    }
+                    delete track;
+                }
+            }
+
+            delete decoder;
+
+            if (m_cdStatusChanged)
+                gPlayer->sendCDChangedEvent();
         }
-
-        delete decoder;
-
-        if (m_cdStatusChanged)
-            gPlayer->sendCDChangedEvent();
 
         usleep(1000000);
     }

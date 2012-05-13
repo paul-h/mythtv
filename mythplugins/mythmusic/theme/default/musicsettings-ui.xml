@@ -83,6 +83,12 @@
             <position>410,415</position>
         </checkbox>
 
+
+        <button name="resetdatabase" from="basebutton">
+            <position>15,550</position>
+            <value>Reset DB</value>
+        </button>
+
         <textarea name="helptext" from="basetextarea">
             <area>10,445,780,100</area>
             <cutdown>yes</cutdown>

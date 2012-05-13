@@ -12,76 +12,81 @@
         </textarea>
 
         <textarea name="musiclocation_label" from="basetextarea">
-            <area>140,100,500,50</area>
+            <area>140,70,500,50</area>
             <align>right,vcenter</align>
             <value>Directory to hold music:</value>
         </textarea> 
         <textedit name="musiclocation" from="basetextedit">
-            <area>650,100,550,50</area>
+            <area>650,70,550,50</area>
         </textedit>
 
         <textarea name="musiccddevice_label" from="basetextarea">
-            <area>140,160,500,50</area>
+            <area>140,130,500,50</area>
             <align>right,vcenter</align>
             <value>CD device:</value>
         </textarea>
         <textedit name="musiccddevice" from="basetextedit">
-            <area>650,160,280,50</area>
+            <area>650,130,280,50</area>
         </textedit>
 
         <textarea name="musicaudiodevice_label" from="basetextarea">
-            <area>140,220,500,50</area>
+            <area>140,190,500,50</area>
             <align>right,vcenter</align>
             <value>Audio device:</value>
         </textarea>
         <textedit name="musicaudiodevice" from="basetextedit">
-            <area>650,220,280,50</area>
+            <area>650,190,280,50</area>
         </textedit>
 
         <textarea name="musicdefaultupmix_label" from="basetextarea">
-            <area>140,275,500,40</area>
+            <area>140,245,500,40</area>
             <align>right,vcenter</align>
             <value>Convert stereo to 5.1 sound:</value>
         </textarea>
         <checkbox name="musicdefaultupmix" from="basecheckbox">
-            <position>650,280</position>
+            <position>650,250</position>
         </checkbox>
 
         <textarea name="nonid3filenameformat_label" from="basetextarea">
-            <area>140,320,500,50</area>
+            <area>140,290,500,50</area>
             <align>right,vcenter</align>
             <value>Filename Format:</value>
         </textarea>
         <textedit name="nonid3filenameformat" from="basetextedit">
-            <area>650,320,550,50</area>
+            <area>650,290,550,50</area>
         </textedit>
 
         <textarea name="ignoreid3tags_label" from="basetextarea">
-            <area>140,375,500,40</area>
+            <area>140,345,500,40</area>
             <align>right,vcenter</align>
             <value>Ignore ID3 Tags:</value>
         </textarea>
         <checkbox name="ignoreid3tags" from="basecheckbox">
-            <position>650,380</position>
+            <position>650,350</position>
         </checkbox>
 
         <textarea name="tagencoding_label" from="basetextarea">
-            <area>140,420,500,40</area>
+            <area>140,390,500,40</area>
             <align>right,vcenter</align>
             <value>Tag Encoding:</value>
         </textarea>
         <buttonlist name="tagencoding" from="baseselector">
-            <position>650,420</position>
+            <position>650,390</position>
         </buttonlist>
 
         <textarea name="allowtagwriting_label" from="basetextarea">
-            <area>140,470,500,40</area>
+            <area>140,440,500,40</area>
             <align>right,vcenter</align>
             <value>Allow metadata to be written to tags:</value>
         </textarea>
         <checkbox name="allowtagwriting" from="basecheckbox">
-            <position>650,475</position>
+            <position>650,445</position>
         </checkbox>
+
+        <button name="resetdatabase" from="basewidebutton">
+            <position>650,490</position>
+            <value>Reset music database</value>
+        </button>
 
         <textarea name="helptext" from="basetextarea">
             <area>100,540,1080,100</area>

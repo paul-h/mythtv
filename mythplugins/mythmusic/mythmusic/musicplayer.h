@@ -64,6 +64,8 @@ class MusicPlayer : public QObject, public MythObservable
     void removeVisual(MainVisual *visual);
 
     void setCDDevice(const QString &dev) { m_CDdevice = dev; }
+    void startCDWatcher(void);
+    void stopCDWatcher(void);
 
     void      toggleMute(void);
     MuteState getMuteState(void) const;
@@ -130,7 +132,6 @@ class MusicPlayer : public QObject, public MythObservable
     Metadata    *getCurrentMetadata(void);
     Metadata    *getNextMetadata(void);
     Metadata    *getDisplayMetadata(void) { return &m_displayMetadata; }
-    void         refreshMetadata(void);
     void         sendMetadataChangedEvent(int trackID);
     void         sendTrackStatsChangedEvent(int trackID);
     void         sendAlbumArtChangedEvent(int trackID);

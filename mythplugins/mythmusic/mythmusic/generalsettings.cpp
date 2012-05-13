@@ -4,6 +4,10 @@
 
 // MythTV
 #include <mythcorecontext.h>
+#include <mythdialogbox.h>
+
+// MythMusic
+#include "musicplayer.h"
 
 #include "generalsettings.h"
 
@@ -38,6 +42,7 @@ bool GeneralSettings::Create()
     UIUtilE::Assign(this, m_ignoreID3Tags, "ignoreid3tags", &err);
     UIUtilE::Assign(this, m_tagEncoding, "tagencoding", &err);
     UIUtilE::Assign(this, m_allowTagWriting, "allowtagwriting", &err);
+    UIUtilE::Assign(this, m_resetDBButton, "resetdatabase", &err);
     UIUtilE::Assign(this, m_saveButton, "save", &err);
     UIUtilE::Assign(this, m_cancelButton, "cancel", &err);
 
@@ -71,6 +76,9 @@ bool GeneralSettings::Create()
     if (allowTagWriting == 1)
         m_allowTagWriting->SetCheckState(MythUIStateType::Full);
 
+    if (m_resetDBButton)
+        connect(m_resetDBButton, SIGNAL(Clicked()), this, SLOT(slotResetDB()));
+
     connect(m_saveButton, SIGNAL(Clicked()), this, SLOT(slotSave()));
     connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(Close()));
 
@@ -101,6 +109,10 @@ bool GeneralSettings::Create()
                  "to the file and permissions must be set "
                  "accordingly. Features such as ID3 playcounts "
                  "and ratings depend on this being enabled."));
+    m_resetDBButton->SetHelpText(tr("This will clear all the MythMusic database tables allowing "
+                 "for a fresh start.\nNOTE: You may lose any manual or automatic changes made to "
+                 "a tracks metadata like rating or playcount unless you told MythMusic to "
+                 "write those to the tag."));
     m_cancelButton->SetHelpText(tr("Exit without saving settings"));
     m_saveButton->SetHelpText(tr("Save settings and Exit"));
 
@@ -109,6 +121,47 @@ bool GeneralSettings::Create()
     SetFocusWidget(m_musicLocation);
 
     return true;
+}
+
+void GeneralSettings::slotResetDB(void)
+{
+    ShowOkPopup(tr("Are you sure you want to reset the music database?"),
+                this, SLOT(slotDoResetDB(bool)), true);
+}
+
+void GeneralSettings::slotDoResetDB(bool ok)
+{
+    if (ok)
+    {
+        gPlayer->stop(true);
+
+        MSqlQuery query(MSqlQuery::InitCon());
+
+        query.prepare("TRUNCATE music_albumart");
+        query.exec();
+        query.prepare("TRUNCATE music_albums");
+        query.exec();
+        query.prepare("TRUNCATE music_artists");
+        query.exec();
+        query.prepare("TRUNCATE music_directories");
+        query.exec();
+        query.prepare("TRUNCATE music_genres");
+        query.exec();
+        query.prepare("TRUNCATE music_playlists");
+        query.exec();
+        query.prepare("TRUNCATE music_songs");
+        query.exec();
+        query.prepare("TRUNCATE music_stats");
+        query.exec();
+
+        gPlayer->stopCDWatcher();
+        delete gMusicData;
+        gMusicData = new MusicData;
+        gPlayer->startCDWatcher();
+
+        ShowOkPopup(tr("Music database has been cleared.\n"
+                      "You must now scan, rip or import some tracks."));
+    }
 }
 
 void GeneralSettings::slotSave(void)
