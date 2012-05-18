@@ -114,7 +114,8 @@ bool GeneralSettings::Create()
                  "to the file and permissions must be set "
                  "accordingly. Features such as ID3 playcounts "
                  "and ratings depend on this being enabled."));
-    m_resetDBButton->SetHelpText(tr("This will clear all the MythMusic database tables allowing "
+    if (m_resetDBButton)
+        m_resetDBButton->SetHelpText(tr("This will clear all the MythMusic database tables allowing "
                  "for a fresh start.\nNOTE: You may lose any manual or automatic changes made to "
                  "a tracks metadata like rating or playcount unless you told MythMusic to "
                  "write those to the tag."));
