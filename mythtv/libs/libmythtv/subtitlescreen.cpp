@@ -167,7 +167,7 @@ SubtitleFormat::~SubtitleFormat(void)
     for (int i = 0; i < m_cleanup.size(); ++i)
     {
         m_cleanup[i]->DeleteAllChildren();
-        delete m_cleanup[i];
+        m_cleanup[i]->deleteLater();
         m_cleanup[i] = NULL; // just to be safe
     }
 }
@@ -200,12 +200,12 @@ void SubtitleFormat::CreateProviderDefault(const QString &family,
         static const char *cc708Fonts[] = {
             "FreeMono",        // default
             "FreeMono",        // mono serif
-            "DejaVu Serif",    // prop serif
+            "Droid Serif",     // prop serif
             "Droid Sans Mono", // mono sans
-            "Liberation Sans", // prop sans
+            "Droid Sans",      // prop sans
             "Purisa",          // casual
-            "URW Chancery L",  // cursive
-            "Impact"           // capitals
+            "TeX Gyre Chorus", // cursive
+            "Droid Serif"      // small caps, QFont::SmallCaps will be applied
         };
         font->GetFace()->setFamily(cc708Fonts[attr.font_tag & 0x7]);
     }
@@ -303,6 +303,9 @@ void SubtitleFormat::Load(const QString &family,
         dynamic_cast<MythUIShape *>(negParent->GetChild(prefix));
     if (!testBG)
         testBG = negBG;
+    if (family == kSubFamily708 &&
+        (attr.font_tag & 0x7) == k708AttrFontSmallCaps)
+        resultFont->GetFace()->setCapitalization(QFont::SmallCaps);
     m_fontMap[prefix] = resultFont;
     m_shapeMap[prefix] = resultBG;
     LOG(VB_VBI, LOG_DEBUG,
