@@ -226,7 +226,6 @@ class SmartPLResultViewer : public MythScreenType
     MythUIText *m_positionText;
 };
 
-
 class SmartPLOrderByDialog: public MythScreenType
 {
   Q_OBJECT
@@ -310,5 +309,4 @@ class SmartPLDateDialog: public MythScreenType
     MythUIButton     *m_cancelButton;
     MythUIButton     *m_okButton;
 };
-
 #endif
