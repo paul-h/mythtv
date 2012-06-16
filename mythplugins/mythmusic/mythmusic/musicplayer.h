@@ -43,6 +43,7 @@ class MusicPlayerEvent : public MythEvent
         static Type AlbumArtChangedEvent;
         static Type CDChangedEvent;
         static Type PlaylistChangedEvent;
+        static Type PlayedTracksChangedEvent;
 };
 
 class MusicPlayer : public QObject, public MythObservable
@@ -53,7 +54,14 @@ class MusicPlayer : public QObject, public MythObservable
      MusicPlayer(QObject *parent, const QString &dev);
     ~MusicPlayer(void);
 
-    void switchPlayMode(bool playStreams);
+    enum PlayMode
+    {
+      PLAYMODE_TRACKS = 0,
+      PLAYMODE_RADIO,
+    };
+
+    void setPlayMode(PlayMode mode);
+    PlayMode getPlayMode(void) { return m_playMode; }
 
     void playFile(const Metadata &meta);
 
@@ -108,6 +116,7 @@ class MusicPlayer : public QObject, public MythObservable
 
     void         loadPlaylist(void);
     Playlist    *getPlaylist(void) { return m_currentPlaylist; }
+    StreamList  *getStreamList(void) { return gMusicData->all_streams->getStreams(); }
 
     // these add and remove tracks from the active playlist
     void         removeTrack(int trackID);
@@ -115,7 +124,7 @@ class MusicPlayer : public QObject, public MythObservable
 
     void         moveTrackUpDown(bool moveUp, int whichTrack);
 
-    QList<Metadata> getPlayedTracksList(void) { return m_playedList; }
+    QList<Metadata*> &getPlayedTracksList(void) { return m_playedList; }
 
     int          getCurrentTrackPos(void) { return m_currentTrack; }
     bool         setCurrentTrackPos(int pos);
@@ -131,7 +140,7 @@ class MusicPlayer : public QObject, public MythObservable
 
     Metadata    *getCurrentMetadata(void);
     Metadata    *getNextMetadata(void);
-    Metadata    *getDisplayMetadata(void) { return &m_displayMetadata; }
+
     void         sendMetadataChangedEvent(int trackID);
     void         sendTrackStatsChangedEvent(int trackID);
     void         sendAlbumArtChangedEvent(int trackID);
@@ -172,6 +181,8 @@ class MusicPlayer : public QObject, public MythObservable
 
     ResumeMode  getResumeMode(void) { return m_resumeMode; }
 
+    void getBufferStatus(int *bufferAvailable, int *bufferSize);
+
   protected:
     void customEvent(QEvent *event);
 
@@ -192,7 +203,6 @@ class MusicPlayer : public QObject, public MythObservable
 
     Metadata    *m_currentMetadata;
     Metadata    *m_oneshotMetadata;
-    Metadata     m_displayMetadata;
 
     AudioOutput    *m_output;
     DecoderHandler *m_decoderHandler;
@@ -201,6 +211,7 @@ class MusicPlayer : public QObject, public MythObservable
 
     QString      m_CDdevice;
 
+    PlayMode     m_playMode;
     bool         m_isPlaying;
     bool         m_isAutoplay;
     bool         m_canShowPlayer;
@@ -220,10 +231,11 @@ class MusicPlayer : public QObject, public MythObservable
     // cd stuff
     CDWatcherThread *m_cdWatcher;
 
-    // streaming stuff
-    bool             m_isStreaming;
-    QList<Metadata>  m_playedList;
-    int              m_lastTrackStart;
+    // radio stuff
+    QList<Metadata*>  m_playedList;
+    int               m_lastTrackStart;
+    int               m_bufferAvailable;
+    int               m_bufferSize;
 };
 
 Q_DECLARE_METATYPE(MusicPlayer::RepeatMode);
