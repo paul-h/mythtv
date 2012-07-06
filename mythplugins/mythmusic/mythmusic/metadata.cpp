@@ -77,6 +77,7 @@ Metadata::Metadata(int lid, QString lstation, QString lchannel, QString lurl,
             m_albumArt(NULL),
             m_id(lid),
             m_filename(lurl),
+            m_fileSize(0),
             m_changed(false),
             m_station(lstation),
             m_channel(lchannel),
@@ -125,6 +126,7 @@ Metadata& Metadata::operator=(const Metadata &rhs)
     m_genreid = rhs.m_genreid;
     m_albumArt = NULL;
     m_format = rhs.m_format;
+    m_fileSize = rhs.m_fileSize;
     m_changed = rhs.m_changed;
     m_station = rhs.m_station;
     m_channel = rhs.m_channel;
@@ -213,6 +215,12 @@ bool Metadata::isInDatabase()
     bool retval = false;
 
     QString sqldir = m_filename.section('/', 0, -2);
+
+    // Filename is the absolute path, we want the relative path
+    QString musicdir = gCoreContext->GetSetting("MusicLocation");
+    if (sqldir.startsWith(musicdir))
+        sqldir.remove(0, musicdir.length());
+    
     QString sqlfilename = m_filename.section('/', -1);
 
     MSqlQuery query(MSqlQuery::InitCon());
@@ -222,7 +230,7 @@ bool Metadata::isInDatabase()
     "music_songs.year, music_songs.track, music_songs.length, "
     "music_songs.song_id, music_songs.rating, music_songs.numplays, "
     "music_songs.lastplay, music_albums.compilation, music_songs.format, "
-    "music_songs.track_count "
+    "music_songs.track_count, music_songs.size "
     "FROM music_songs "
     "LEFT JOIN music_directories "
     "ON music_songs.directory_id=music_directories.directory_id "
@@ -254,6 +262,7 @@ bool Metadata::isInDatabase()
         m_compilation = (query.value(12).toInt() > 0);
         m_format = query.value(13).toString();
         m_trackCount = query.value(14).toInt();
+        m_fileSize = (quint64)query.value(15).toULongLong();
 
         retval = true;
     }
@@ -439,16 +448,16 @@ void Metadata::dumpToDatabase()
     if (m_id < 1)
     {
         strQuery = "INSERT INTO music_songs ( directory_id,"
-                   " artist_id, album_id,  name,         genre_id,"
-                   " year,      track,     length,       filename,"
-                   " rating,    format,    date_entered, date_modified,"
-                   " numplays,  track_count) "
+                   " artist_id, album_id,    name,         genre_id,"
+                   " year,      track,       length,       filename,"
+                   " rating,    format,      date_entered, date_modified,"
+                   " numplays,  track_count, size) "
                    "VALUES ( "
                    " :DIRECTORY, "
-                   " :ARTIST,   :ALBUM,    :TITLE,       :GENRE,"
-                   " :YEAR,     :TRACKNUM, :LENGTH,      :FILENAME,"
-                   " :RATING,   :FORMAT,   :DATE_ADD,    :DATE_MOD,"
-                   " :PLAYCOUNT,:TRACKCOUNT );";
+                   " :ARTIST,   :ALBUM,      :TITLE,       :GENRE,"
+                   " :YEAR,     :TRACKNUM,   :LENGTH,      :FILENAME,"
+                   " :RATING,   :FORMAT,     :DATE_ADD,    :DATE_MOD,"
+                   " :PLAYCOUNT,:TRACKCOUNT, :SIZE );";
     }
     else
     {
@@ -467,6 +476,7 @@ void Metadata::dumpToDatabase()
                    ", date_modified = :DATE_MOD "
                    ", numplays = :PLAYCOUNT "
                    ", track_count = :TRACKCOUNT "
+                   ", size = :SIZE "
                    "WHERE song_id= :ID ;";
     }
 
@@ -492,6 +502,7 @@ void Metadata::dumpToDatabase()
         query.bindValue(":ID", m_id);
 
     query.bindValue(":TRACKCOUNT", m_trackCount);
+    query.bindValue(":SIZE", (quint64)m_fileSize);
 
     if (!query.exec())
         MythDB::DBError("Metadata::dumpToDatabase - updating music_songs",
@@ -777,6 +788,11 @@ void Metadata::toMap(MetadataMap &metadataMap, const QString &prefix)
         m_dateadded, kDateFull | kSimplify | kAddYear);
 
     metadataMap[prefix + "playcount"] = QString::number(m_playcount);
+
+    QLocale locale = gCoreContext->GetQLocale();
+    QString tmpSize = locale.toString(m_fileSize *
+                                      (1.0 / (1024.0 * 1024.0)), 'f', 2);
+    metadataMap[prefix + "filesize"] = tmpSize;
 
     // FIXME we should use Filename() here but that will slow things down because of the hunt for the file
     metadataMap[prefix + "filename"] = m_filename;
@@ -1117,7 +1133,8 @@ void AllMusic::resync()
                      "music_songs.track, music_songs.length, music_songs.directory_id, "
                      "CONCAT_WS('/', music_directories.path, music_songs.filename) AS filename, "
                      "music_songs.rating, music_songs.numplays, music_songs.lastplay, music_songs.date_entered, "
-                     "music_albums.compilation, music_songs.format, music_songs.track_count "
+                     "music_albums.compilation, music_songs.format, music_songs.track_count, "
+                     "music_songs.size "
                      "FROM music_songs "
                      "LEFT JOIN music_directories ON music_songs.directory_id=music_directories.directory_id "
                      "LEFT JOIN music_artists ON music_songs.artist_id=music_artists.artist_id "
@@ -1167,6 +1184,7 @@ void AllMusic::resync()
                 mdata->setArtistId(query.value(1).toInt());
                 mdata->setAlbumId(query.value(4).toInt());
                 mdata->setTrackCount(query.value(19).toInt());
+                mdata->setFileSize((quint64)query.value(20).toULongLong());
 
                 //  Don't delete mdata, as PtrList now owns it
                 m_all_music.append(mdata);

@@ -30,7 +30,7 @@ HEADERS += \
     NzmqtApp.h \
     common/Tools.h
 
-LIBS += -lzmq
+LIBS += -lmythzmq
 LIBS += $${LATE_LIBS}
 
 INCLUDEPATH += \
@@ -41,6 +41,6 @@ QMAKE_LIBDIR += \
     ../../zeromq/src/.libs
 
 inc.files += ../include/nzmqt/nzmqt.hpp
-inc.path  = $${PREFIX}/include/
+inc.path  = $${PREFIX}/include/mythtv/nzmqt/
 
 INSTALLS += inc

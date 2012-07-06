@@ -430,6 +430,8 @@ void ImportMusicDialog::addPressed()
             }
         }
 
+        meta->setFileSize((quint64)QFileInfo(saveFilename).size());
+        
         // update the database
         meta->dumpToDatabase();
 
