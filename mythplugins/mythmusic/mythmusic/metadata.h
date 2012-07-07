@@ -118,6 +118,7 @@ class Metadata
                    m_channel(""),
                    m_logoUrl(""),
                    m_metaFormat("")
+
     {
         checkEmptyFields();
     }
