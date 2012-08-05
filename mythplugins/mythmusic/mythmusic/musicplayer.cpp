@@ -108,6 +108,7 @@ MusicPlayer::~MusicPlayer()
     {
         stopCDWatcher();
         delete m_cdWatcher;
+        m_cdWatcher = NULL;
     }
 
     if (!hasClient())
@@ -290,6 +291,12 @@ void MusicPlayer::stop(bool stopAll)
         m_output->removeListener(this);
         delete m_output;
         m_output = NULL;
+    }
+
+    if (stopAll && m_cdWatcher)
+    {
+        m_cdWatcher->stop();
+        m_cdWatcher->wait();
     }
 
     // because we don't actually stop the audio output we have to fake a Stopped
