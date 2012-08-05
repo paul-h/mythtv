@@ -2087,11 +2087,20 @@ bool SmartPLDateDialog::Create(void)
         return false;
     }
 
+    m_fixedRadio->SetCheckState(true);
+    m_nowRadio->SetCheckState(false);
+
     m_daySpin->SetRange(1, 31, 1);
     m_monthSpin->SetRange(1, 12, 1);
     m_yearSpin->SetRange(1900, 2099, 1);
     m_addDaysSpin->SetRange(-9999, 9999, 1);
 
+    QDate now = QDate::currentDate();
+    m_daySpin->SetValue(now.day());
+    m_monthSpin->SetValue(now.month());
+    m_yearSpin->SetValue(now.year());
+
+    m_addDaysSpin->SetValue(0);
 
     connect(m_fixedRadio, SIGNAL(toggled(bool)), this, SLOT(fixedCheckToggled(bool)));
     connect(m_nowRadio, SIGNAL(toggled(bool)), this, SLOT(nowCheckToggled(bool)));
@@ -2194,6 +2203,24 @@ void SmartPLDateDialog::fixedCheckToggled(bool on)
 
     m_nowRadio->SetCheckState(!on);
     m_addDaysSpin->SetEnabled(!on);
+
+    valueChanged();
+
+    m_updating = false;
+}
+
+void SmartPLDateDialog::nowCheckToggled(bool on)
+{
+    if (m_updating)
+        return;
+
+    m_updating = true;
+    m_daySpin->SetEnabled(!on);
+    m_monthSpin->SetEnabled(!on);
+    m_yearSpin->SetEnabled(!on);
+
+    m_fixedRadio->SetCheckState(!on);
+    m_addDaysSpin->SetEnabled(on);
 
     valueChanged();
 
