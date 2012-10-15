@@ -1,0 +1,27 @@
+set output '/home/mythtv/test.png'
+set xdata time
+set ticslevel 0
+#set ticscale 2 1
+set tics scale 2
+set mxtics default
+set mytics 2
+set mztics default
+set mx2tics default
+set my2tics default
+set mcbtics default
+set xtics border mirror norotate autofreq
+set ytics border mirror norotate autofreq 
+set ztics border nomirror norotate autofreq 
+set nox2tics
+set noy2tics
+set grid xtics nomxtics ytics nomytics noztics nomztics nox2tics nomx2tics noy2tics nomy2tics nocbtics nomcbtics
+set grid layerdefault
+set cbtics border mirror norotate autofreq 
+set timefmt x "%Y%m%d%H%M%S"
+cd '/var/log/wmr928'
+set terminal png font 'lsans' 7 nocrop size 610, 300
+set format x "%a\n%d.%b"
+set title "Line Chart for Temperature from 20070929000000 to 20070930000000" 0.000000,0.000000  font ""
+set format y "%.1f oC"
+set xrange [ "20070929000000" : "20070930000000" ] noreverse nowriteback
+plot 'th0-day1' using 1:2 with lines title "temp", 'th0-day1' using 1:5 with lines title "dew point", 'wind0-day1' using 1:8 with lines title "wind chill"

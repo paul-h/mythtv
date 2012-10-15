@@ -280,6 +280,7 @@ netvision
 news
 weather
 zoneminder
+mythwmr928
 "
 
 CONFIG_LIST="
@@ -359,6 +360,9 @@ MythNews related options:
 
 MythWeather related options:
   --enable-mythweather     build the mythweather plugin [$weather]
+
+MythWmr928 related options:
+  --enable-mythwmr928      build the mythwmr928 plugin [$mythwmr928]
 
 MythZoneMinder related options:
   --enable-mythzoneminder  build the mythzoneminder plugin [$zoneminder]
@@ -770,6 +774,13 @@ if enabled weather ; then
   echo "SUBDIRS += mythweather" >> ./config.pro
 else
   echo "        MythWeather    plugin will not be built"
+fi
+
+if enabled mythwmr928 ; then
+  echo "        MythWmr928     plugin will be built"
+  echo "SUBDIRS += mythwmr928" >> ./config.pro
+else
+  echo "        MythWmr928     plugin will not be built"
 fi
 
 if enabled zoneminder ; then

@@ -1,0 +1,29 @@
+set output '%OUTPUT%'
+set xdata time
+set ticslevel 0
+#set ticscale 2 1
+set tics scale 2
+set mxtics default
+set mytics 2
+set mztics default
+set mx2tics default
+set my2tics default
+set mcbtics default
+set xtics border mirror norotate autofreq
+set ytics border mirror norotate autofreq 
+set ztics border nomirror norotate autofreq 
+set nox2tics
+set noy2tics
+set grid xtics nomxtics ytics nomytics noztics nomztics nox2tics nomx2tics noy2tics nomy2tics nocbtics nomcbtics
+set grid layerdefault
+set cbtics border mirror norotate autofreq 
+set timefmt x "%Y%m%d%H%M%S"
+cd '%DATADIR%'
+set terminal png font '%FONTNAME%' %FONTSIZE% nocrop size %XSIZE%, %YSIZE%
+set style line 1 lw 2
+set format x "%XFORMAT%"
+%ADDITIONAL%
+set title "Line Chart for Humidity from %STARTTIME% to %ENDTIME%" offset 0.000000,0.000000 font ""
+set format y "%g %%"
+set xrange [ "%XRANGEFROM%" : "%XRANGETO%" ] noreverse nowriteback
+plot 'th0-%RES%' using 1:8 with lines title "humidity" ls 1

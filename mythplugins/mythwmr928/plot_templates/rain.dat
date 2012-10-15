@@ -1,0 +1,37 @@
+set output '%OUTPUT%'
+set xdata time
+set ticslevel 0
+#set ticscale 2 1
+set tics scale 2
+set mxtics default
+set mytics 2
+set mztics default
+set mx2tics default
+set my2tics default
+set mcbtics default
+set xtics border mirror norotate autofreq
+set ytics border mirror norotate autofreq 
+set ztics border nomirror norotate autofreq 
+set nox2tics
+set noy2tics
+set grid xtics nomxtics ytics nomytics noztics nomztics nox2tics nomx2tics noy2tics nomy2tics nocbtics nomcbtics
+set grid layerdefault
+set cbtics border mirror norotate autofreq 
+set timefmt x "%Y%m%d%H%M%S"
+cd '%DATADIR%'
+set terminal png font '%FONTNAME%' %FONTSIZE% nocrop size %XSIZE%, %YSIZE%
+set format x "%XFORMAT%"
+%ADDITIONAL%
+set style line 2 lw 2
+set my2tics 2
+set grid y2tics nomy2tics
+set title "Min/max Chart for Rain Rate and Bar Chart for Rain Fall from %STARTTIME% to %ENDTIME%" offset 0.000000,0.000000 font ""
+set format y "%g mm/h"
+set format y2 "%g mm"
+set ytics border nomirror norotate autofreq
+set y2tics border nomirror norotate autofreq
+set yrange [0:]
+set y2range [0:]
+set boxwidth 0.7 relative
+set xrange [ "%XRANGEFROM%" : "%XRANGETO%" ] noreverse nowriteback
+plot 'rain0-%RES%' using 1:5 axis x1y2 with boxes fs solid 0.5 title "rain fall [mm]", 'rain0-%RES%' using 1:2:3:4 axis x1y1 with yerrorbars title "min/ave/max rain rate [mm/h]" ls 2

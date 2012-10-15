@@ -1,0 +1,39 @@
+<mythmenu name="WMR928">
+
+   <button>
+      <type>WEATHER</type>
+      <text>Current Conditions</text>
+      <action>WMR_CURRENTCOND</action>
+   </button>
+
+   <button>
+      <type>WEATHER</type>
+      <text>Temperature</text>
+      <action>WMR_TEMPERATURE</action>
+   </button>
+
+   <button>
+      <type>WEATHER</type>
+      <text>Humidity</text>
+      <action>WMR_HUMIDITY</action>
+   </button>
+
+   <button>
+      <type>WEATHER</type>
+      <text>Pressure</text>
+      <action>WMR_PRESSURE</action>
+   </button>
+
+   <button>
+      <type>WEATHER</type>
+      <text>Wind</text>
+      <action>WMR_WIND</action>
+   </button>
+
+   <button>
+      <type>WEATHER</type>
+      <text>Rain</text>
+      <action>WMR_RAIN</action>
+   </button>
+
+</mythmenu>
