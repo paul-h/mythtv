@@ -24,6 +24,10 @@ typedef enum MythSystemMask {
     kMSAutoCleanup        = 0x00004000, ///< automatically delete if 
                                         ///  backgrounded
     kMSLowExitVal         = 0x00008000, ///< allow exit values 0-127 only
+    kMSDisableUDPListener = 0x00010000, ///< disable MythMessage UDP listener
+                                        ///  for the duration of application.
+    kMSPropagateLogs      = 0x00020000, ///< add arguments for MythTV log 
+                                        ///  propagation
 } MythSystemFlag;
 
 #ifdef __cplusplus
@@ -152,7 +156,7 @@ class MBASE_PUBLIC MythSystemPrivate : public QObject, public ReferenceCounter
         virtual void Signal(int sig) = 0;
         virtual void JumpAbort(void) = 0;
 
-        virtual bool ParseShell(const QString cmd, QString &abscmd,
+        virtual bool ParseShell(const QString &cmd, QString &abscmd,
                                 QStringList &args) = 0;
 
     protected:

@@ -105,6 +105,23 @@ void MythSystem::SetCommand(const QString &command,
 
     ProcessFlags(flags);
 
+    // add logging arguments
+    if (GetSetting("PropagateLogs"))
+    {
+        if (m_args.isEmpty())
+        {
+            m_command += logPropagateArgs;
+            if (!logPropagateQuiet())
+                m_command += " --quiet";
+        }
+        else
+        {
+            m_args << logPropagateArgList;
+            if (!logPropagateQuiet())
+                m_args << "--quiet";
+        }
+    }
+
     // check for execute rights
     if (!GetSetting("UseShell") && access(command.toUtf8().constData(), X_OK))
     {
@@ -297,6 +314,7 @@ void MythSystem::ProcessFlags(uint flags)
         m_settings["BlockInputDevs"] = !(flags & kMSDontBlockInputDevs);
         m_settings["DisableDrawing"] = !(flags & kMSDontDisableDrawing);
         m_settings["ProcessEvents"]  = flags & kMSProcessEvents;
+        m_settings["DisableUDP"]     = flags & kMSDisableUDPListener;
     }
 
     if( flags & kMSStdIn )
@@ -319,6 +337,8 @@ void MythSystem::ProcessFlags(uint flags)
         m_settings["AnonLog"] = true;
     if( flags & kMSLowExitVal )
         m_settings["OnlyLowExitVal"] = true;
+    if( flags & kMSPropagateLogs )
+        m_settings["PropagateLogs"] = true;
 }
 
 QByteArray  MythSystem::Read(int size)
@@ -361,6 +381,16 @@ void MythSystem::HandlePreRun()
         QCoreApplication::sendEvent(gCoreContext->GetGUIObject(), &event);
     }
 
+    // This needs to be a send event so that the listener is disabled
+    // immediately instead of after existing events are processed, since the
+    // listen server must be terminated before the spawned application tries
+    // to start its own
+    if( GetSetting("DisableUDP") )
+    {
+        QEvent event(MythEvent::kDisableUDPListenerEventType);
+        QCoreApplication::sendEvent(gCoreContext->GetGUIObject(), &event);
+    }
+
     // This needs to be a send event so that the MythUI m_drawState change is
     // flagged immediately instead of after existing events are processed
     // since this function could be called inside one of those events.
@@ -379,6 +409,14 @@ void MythSystem::HandlePostRun()
     {
         QEvent *event = new QEvent(MythEvent::kPopDisableDrawingEventType);
         QCoreApplication::postEvent(gCoreContext->GetGUIObject(), event);
+    }
+
+    // This needs to be a post event so we do not try to start listening on
+    // the UDP ports before the child application has stopped and terminated
+    if( GetSetting("DisableUDP") )
+    {
+        QEvent event(MythEvent::kEnableUDPListenerEventType);
+        QCoreApplication::sendEvent(gCoreContext->GetGUIObject(), &event);
     }
 
     // This needs to be a post event so that the MythUI unlocks input devices
