@@ -3,36 +3,42 @@
    <button>
       <type>WEATHER</type>
       <text>Current Conditions</text>
+      <description>Show current weather conditions</description>
       <action>WMR_CURRENTCOND</action>
    </button>
 
    <button>
       <type>WEATHER</type>
       <text>Temperature</text>
+      <description>Show temperature charts for last 24 hours, last week and last month</description>
       <action>WMR_TEMPERATURE</action>
    </button>
 
    <button>
       <type>WEATHER</type>
       <text>Humidity</text>
+      <description>Show humidity charts for last 24 hours, last week and last month</description>
       <action>WMR_HUMIDITY</action>
    </button>
 
    <button>
       <type>WEATHER</type>
       <text>Pressure</text>
+      <description>Show pressure charts for last 24 hours, last week and last month</description>
       <action>WMR_PRESSURE</action>
    </button>
 
    <button>
       <type>WEATHER</type>
       <text>Wind</text>
+      <description>Show wind speed charts for last 24 hours, last week and last month</description>
       <action>WMR_WIND</action>
    </button>
 
    <button>
       <type>WEATHER</type>
       <text>Rain</text>
+      <description>Show rainfall charts for last 24 hours, last week and last month</description>
       <action>WMR_RAIN</action>
    </button>
 
