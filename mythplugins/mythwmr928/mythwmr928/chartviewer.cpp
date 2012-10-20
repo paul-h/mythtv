@@ -63,19 +63,15 @@ ChartViewer::~ChartViewer()
 
 bool ChartViewer::Create(void)
 {
-    bool foundtheme = false;
-
     // Load the theme for this screen
-    foundtheme = LoadWindowFromXML("wmr928-ui.xml", "chartviewer", this);
-
-    if (!foundtheme)
+    if (!LoadWindowFromXML("wmr928-ui.xml", "chartviewer", this))
         return false;
 
     bool err = false;
 
-    UIUtilE::Assign(this, m_titleText, "title_text", &err);
-    UIUtilE::Assign(this, m_timeText, "time_text", &err);
-    UIUtilE::Assign(this, m_dateText, "date_text", &err);
+    UIUtilW::Assign(this, m_titleText, "title_text");
+    UIUtilW::Assign(this, m_timeText, "time_text");
+    UIUtilW::Assign(this, m_dateText, "date_text");
     UIUtilE::Assign(this, m_chartImage, "chart_image", &err);
     UIUtilE::Assign(this, m_chartList, "chart_list", &err);
 
@@ -107,12 +103,12 @@ void ChartViewer::updateTime(void)
 {
     QString s = QTime::currentTime().toString(m_timeFormat);
 
-    if (s != m_timeText->GetText())
+    if (m_timeText && s != m_timeText->GetText())
         m_timeText->SetText(s);
 
     s = QDateTime::currentDateTime().toString("dddd\ndd MMM yyyy");
 
-    if (s != m_dateText->GetText())
+    if (m_dateText && s != m_dateText->GetText())
         m_dateText->SetText(s);
 }
 
@@ -136,7 +132,8 @@ void ChartViewer::updateCharts()
 
 void ChartViewer::getTempCharts(void)
 {
-    m_titleText->SetText("Temperature Charts");
+    if (m_titleText)
+        m_titleText->SetText("Temperature Charts");
 
     if (class WMRClient *wmr = WMRClient::get())
     {
@@ -199,7 +196,8 @@ void ChartViewer::getTempCharts(void)
 
 void ChartViewer::getWindCharts(void)
 {
-    m_titleText->SetText("Wind Speed Charts");
+    if (m_titleText)
+        m_titleText->SetText("Wind Speed Charts");
 
     if (class WMRClient *wmr = WMRClient::get())
     {
@@ -262,7 +260,8 @@ void ChartViewer::getWindCharts(void)
 
 void ChartViewer::getHumidityCharts(void)
 {
-    m_titleText->SetText("Humidity Charts");
+    if (m_titleText)
+        m_titleText->SetText("Humidity Charts");
 
     if (class WMRClient *wmr = WMRClient::get())
     {
@@ -325,7 +324,8 @@ void ChartViewer::getHumidityCharts(void)
 
 void ChartViewer::getPressureCharts(void)
 {
-    m_titleText->SetText("Barometric Pressure Charts");
+    if (m_titleText)
+        m_titleText->SetText("Barometric Pressure Charts");
 
     if (class WMRClient *wmr = WMRClient::get())
     {
@@ -400,7 +400,8 @@ void ChartViewer::getPressureCharts(void)
 
 void ChartViewer::getRainCharts(void)
 {
-    m_titleText->SetText("Rain Charts");
+    if (m_titleText)
+        m_titleText->SetText("Rain Charts");
 
     if (class WMRClient *wmr = WMRClient::get())
     {
