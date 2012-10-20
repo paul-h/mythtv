@@ -42,8 +42,6 @@ public:
     void getCurrentCond(void);
 
   private:
-    MythUIText* GetMythUIText(const QString &name, bool optional = false);
-
     bool        m_metric;
 
     QString     m_timeFormat;

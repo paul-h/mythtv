@@ -28,6 +28,8 @@
 #include "currentcond.h"
 #include "wmrclient.h"
 
+#define LOC      QString("CurrentCond: ")
+
 const int COND_UPDATE_TIME = 1000 * 10; // update the current conditions every 10 seconds
 const int TIME_UPDATE_TIME = 1000 * 1;    // update the time every 1 second
 
@@ -55,55 +57,40 @@ CurrentCond::~CurrentCond()
     delete m_updateTimer;
 }
 
-MythUIText* CurrentCond::GetMythUIText(const QString &name, bool optional)
-{
-    MythUIText *text = dynamic_cast<MythUIText *> (GetChild(name));
-
-    if (!optional && !text)
-        throw name;
-
-    return text;
-}
-
 bool CurrentCond::Create(void)
 {
-    bool foundtheme = false;
-
     // Load the theme for this screen
-    foundtheme = LoadWindowFromXML("wmr928-ui.xml", "currentconditions", this);
-
-    if (!foundtheme)
+    if (!LoadWindowFromXML("wmr928-ui.xml", "currentconditions", this))
         return false;
 
-    try
+    bool err = false;
+
+    UIUtilW::Assign(this, m_time_text,   "time_text");
+    UIUtilW::Assign(this, m_date_text,   "date_text");
+
+    UIUtilE::Assign(this, m_outsideTemp, "outside_temp", &err);
+    UIUtilE::Assign(this, m_outsideHum,  "outside_hum",  &err);
+    UIUtilE::Assign(this, m_outsideDew,  "outside_dew",  &err);
+
+    UIUtilE::Assign(this, m_insideTemp,  "inside_temp",  &err);
+    UIUtilE::Assign(this, m_insideHum,   "inside_hum",   &err);
+    UIUtilE::Assign(this, m_insideDew,   "inside_dew",   &err);
+
+    UIUtilE::Assign(this, m_windSpeed,   "wind_speed",   &err);
+    UIUtilE::Assign(this, m_windGust,    "wind_gust",    &err);
+    UIUtilE::Assign(this, m_windDir,     "wind_dir",     &err);
+
+    UIUtilE::Assign(this, m_rainRate,    "rain_rate",    &err);
+    UIUtilE::Assign(this, m_rainYest,    "rain_yest",    &err);
+    UIUtilE::Assign(this, m_rainTotal,   "rain_total",   &err);
+
+    UIUtilE::Assign(this, m_pressure,    "pressure",     &err);
+    UIUtilE::Assign(this, m_sealevel,    "pressure_sealevel", &err);
+
+    if (err)
     {
-        m_time_text = GetMythUIText("time_text");
-        m_date_text = GetMythUIText("date_text");
-
-        m_outsideTemp = GetMythUIText("outside_temp");
-        m_outsideHum = GetMythUIText("outside_hum");
-        m_outsideDew = GetMythUIText("outside_dew");
-
-        m_insideTemp = GetMythUIText("inside_temp");
-        m_insideHum = GetMythUIText("inside_hum");
-        m_insideDew = GetMythUIText("inside_dew");
-
-        m_windSpeed = GetMythUIText("wind_speed");
-        m_windGust = GetMythUIText("wind_gust");
-        m_windDir = GetMythUIText("wind_dir");
-
-        m_rainRate = GetMythUIText("rain_rate");
-        m_rainYest = GetMythUIText("rain_yest");
-        m_rainTotal = GetMythUIText("rain_total");
-
-        m_pressure = GetMythUIText("pressure");
-        m_sealevel = GetMythUIText("pressure_sealevel");
-    }
-    catch (const QString name)
-    {
-        LOG(VB_GENERAL, LOG_ERR, QString("Theme is missing a critical theme element ('%1')")
-                                         .arg(name));
-        Close();
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Cannot load screen 'currentconditions'");
+        return false;
     }
 
     m_timeTimer->start(TIME_UPDATE_TIME);
@@ -118,12 +105,12 @@ void CurrentCond::updateTime(void)
 {
     QString s = QTime::currentTime().toString(m_timeFormat);
 
-    if (s != m_time_text->GetText())
+    if (m_time_text && s != m_time_text->GetText())
         m_time_text->SetText(s);
 
     s = QDateTime::currentDateTime().toString("dddd\ndd MMM yyyy");
 
-    if (s != m_date_text->GetText())
+    if (m_date_text && s != m_date_text->GetText())
         m_date_text->SetText(s);
 }
 
