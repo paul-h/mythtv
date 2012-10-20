@@ -1,0 +1,278 @@
+<mythuitheme>
+
+    <window name="currentconditions">
+
+        <group name="PageHeading" from="basePageHeading">
+            <group name="Heading">
+                <textarea name="text">
+                    <value>Current Conditions</value>
+                </textarea>
+            </group>
+        </group>
+
+       <group name="details">
+            <area>100,100,-100,-100</area>
+
+            <shape name="background" from="basewidgetshape">
+                <area>0,0,100%,100%</area>
+            </shape>
+
+            <textarea name="title1" from="basetextarea">
+                <area>160,200,350,30</area>
+                <font>mymediumbold</font>
+                <value>Outside Temperature</value>
+            </textarea>
+
+            <textarea name="title2" from="title1">
+                <position>160,260</position>
+                <value>Outside Humidity</value>
+            </textarea>
+
+            <textarea name="title3" from="title1">
+                <position>160,320</position>
+                <value>Outside Dew Point</value>
+            </textarea>
+
+            <textarea name="title4" from="title1">
+                <position>160,380</position>
+                <value>Inside Temperature</value>
+            </textarea>
+
+            <textarea name="title5" from="title1">
+                <position>160,440</position>
+                <value>Inside Humidity</value>
+            </textarea>
+
+            <textarea name="title6" from="title1">
+                <position>160,500</position>
+                <value>Inside Dew Point</value>
+            </textarea>
+
+            <textarea name="title7" from="title1">
+                <position>160,560</position>
+                <value>Pressure</value>
+            </textarea>
+
+            <textarea name="outside_temp" from="basetextarea">
+                <area>540,200,230,30</area>
+                <font>mymedium</font>
+                <value></value>
+            </textarea>
+
+            <textarea name="outside_hum" from="outside_temp">
+                <position>540,260</position>
+            </textarea>
+
+            <textarea name="outside_dew" from="outside_temp">
+                <position>540,320</position>
+            </textarea>
+
+            <textarea name="inside_temp" from="outside_temp">
+                <position>540,380</position>
+            </textarea>
+
+            <textarea name="inside_hum" from="outside_temp">
+                <position>540,440</position>
+            </textarea>
+
+            <textarea name="inside_dew" from="outside_temp">
+                <position>540,500</position>
+            </textarea>
+
+            <textarea name="pressure" from="outside_temp">
+                <position>540,560</position>
+            </textarea>
+
+            <textarea name="title8" from="title1">
+                <position>840,200</position>
+                <value>Wind Speed</value>
+            </textarea>
+
+            <textarea name="title9" from="title1">
+                <position>840,260</position>
+                <value>Wind Gust</value>
+            </textarea>
+
+            <textarea name="title10" from="title1">
+                <position>840,320</position>
+                <value>Wind Direction</value>
+            </textarea>
+
+            <textarea name="title11" from="title1">
+                <position>840,380</position>
+                <value>Rain Rate</value>
+            </textarea>
+
+            <textarea name="title12" from="title1">
+                <position>840,440</position>
+                <value>Rain Yesterday</value>
+            </textarea>
+
+            <textarea name="title13" from="title1">
+                <position>840,500</position>
+                <value>Rain Total</value>
+            </textarea>
+
+            <textarea name="title14" from="title1">
+                <position>840,560</position>
+                <value>Sea Level Pressure</value>
+            </textarea>
+
+            <textarea name="wind_speed" from="outside_temp">
+                <position>1220,200</position>
+                <value></value>
+            </textarea>
+
+            <textarea name="wind_gust" from="outside_temp">
+                <position>1220,260</position>
+                <value></value>
+            </textarea>
+
+            <textarea name="wind_dir" from="outside_temp">
+                <position>1220,320</position>
+                <value></value>
+            </textarea>
+
+            <textarea name="rain_rate" from="outside_temp">
+                <position>1220,380</position>
+                <value></value>
+            </textarea>
+
+            <textarea name="rain_yest" from="outside_temp">
+                <position>1220,440</position>
+                <value></value>
+            </textarea>
+
+            <textarea name="rain_total" from="outside_temp">
+                <position>1220,500</position>
+                <value></value>
+            </textarea>
+
+            <textarea name="pressure_sealevel" from="outside_temp">
+                <position>1220,560</position>
+                <value></value>
+            </textarea>
+    <!--
+            <imagetype name="tempgauge">
+                <area>100,100,70,200</area>
+                <filename>temperature.png</filename>
+            </imagetype>
+    -->
+        </group>
+    </window>
+
+    <window name="chartviewer">
+
+        <group name="PageHeading" from="basePageHeading">
+            <group name="Heading">
+                <textarea name="text">
+                    <value>Chart View</value>
+                </textarea>
+            </group>
+        </group>
+
+        <textarea name="title_text">
+            <area>0,10,1280,50</area>
+            <font>baselarge</font>
+            <align>allcenter</align>
+            <value></value>
+        </textarea>
+
+        <shape name="top_background" from="basebackground">
+            <area>35,65,1210,180</area>
+        </shape>
+
+        <textarea name="date_text" from="basetextarea">
+            <area>40,10,200,80</area>
+            <font>basesmall</font>
+            <multiline>yes</multiline>
+            <value></value>
+        </textarea>
+
+        <textarea name="time_text" from="basetextarea">
+            <area>1040,10,200,40</area>
+            <font>basesmall</font>
+            <align>right</align>
+            <value></value>
+        </textarea>
+
+        <buttonlist name="chart_list">
+            <area>145,75,1200,160</area>
+            <layout>horizontal</layout>
+            <spacing>9</spacing>
+            <buttonarea>45,0,1100,160</buttonarea>
+            <statetype name="buttonitem">
+                <state name="active">
+                    <area>0,0,220,160</area>
+                    <imagetype name="buttonbackground">
+                        <area>0,0,220,160</area>
+                        <gradient start="#505050" end="#000000" alpha="200" />
+                    </imagetype>
+                    <textarea name="buttontext" from="basetextarea">
+                        <area>5,130,210,30</area>
+                        <font>basesmallpurple</font>
+                        <align>hcenter,top</align>
+                    </textarea>
+                    <imagetype name="buttonimage">
+                        <area>10,10,200,115</area>
+                        <preserveaspect>false</preserveaspect>
+                        <filename>mv_browse_nocover.png</filename>
+                    </imagetype>
+                </state>
+                <state name="selectedactive" from="active">
+                    <imagetype name="buttonbackground">
+                        <gradient start="#52CA38" end="#349838" alpha="255" />
+                    </imagetype>
+                    <textarea name="buttontext">
+                        <font>basesmall</font>
+                    </textarea>
+
+                </state>
+            </statetype>
+            <statetype name="upscrollarrow">
+                <position>0,45</position>
+                <state type="on">
+                    <imagetype name="upon">
+                        <filename>left_arrow.png</filename>
+                    </imagetype>
+                </state>
+                <state type="off">
+                    <imagetype name="upon">
+                        <filename>left_arrow_off.png</filename>
+                    </imagetype>
+                </state>
+            </statetype>
+            <statetype name="downscrollarrow">
+                <position>960,45</position>
+                <state type="on">
+                    <imagetype name="dnon">
+                        <filename>right_arrow.png</filename>
+                    </imagetype>
+                </state>
+                <state type="off">
+                    <imagetype name="upon">
+                        <filename>right_arrow_off.png</filename>
+                    </imagetype>
+                </state>
+            </statetype>
+        </buttonlist>
+
+        <shape name="track_info_background" from="basebackground">
+            <area>35,250,1210,450</area>
+        </shape>
+
+        <textarea name="nochart" from="basetextarea">
+            <area>45,215,1185,415</area>
+            <align>allcenter</align>
+            <font>basemedium</font>
+            <value>Chart Not Available</value>
+        </textarea>
+
+        <imagetype name="chart_image">
+            <area>45,260,1190,430</area>
+            <filename></filename>
+        </imagetype>
+
+  </window>
+
+</mythuitheme>

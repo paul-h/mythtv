@@ -1,6 +1,6 @@
 include ( ../../mythconfig.mak )
 include ( ../../settings.pro )
- 
+
 QMAKE_STRIP = echo
 
 TARGET = themenop
@@ -18,7 +18,10 @@ widefiles.files = default-wide/*.xml default-wide/images/*.png
 menufiles.path = $${PREFIX}/share/mythtv/
 menufiles.files = menus/*.xml
 
-INSTALLS += defaultfiles widefiles menufiles
+steppesfiles.path = $${PREFIX}/share/mythtv/themes/Steppes
+steppesfiles.files = Steppes/*.xml
+
+INSTALLS += defaultfiles widefiles menufiles steppesfiles
 
 # Input
 SOURCES += ../../themedummy.c
