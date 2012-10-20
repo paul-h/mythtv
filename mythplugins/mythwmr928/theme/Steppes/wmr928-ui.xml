@@ -165,113 +165,64 @@
 
         <group name="PageHeading" from="basePageHeading">
             <group name="Heading">
-                <textarea name="text">
-                    <value>Chart View</value>
+                <textarea name="title_text" from="text">
+                    <value></value>
                 </textarea>
             </group>
         </group>
 
-        <textarea name="title_text">
-            <area>0,10,1280,50</area>
-            <font>baselarge</font>
-            <align>allcenter</align>
-            <value></value>
-        </textarea>
+        <group name="list">
+            <area>150,50,-150,250</area>
 
-        <shape name="top_background" from="basebackground">
-            <area>35,65,1210,180</area>
-        </shape>
+            <buttonlist name="chart_list" from="itemsList">
+                <area>50,0,-50,-20</area>
+                <layout>grid</layout>
+                <align>center</align>
 
-        <textarea name="date_text" from="basetextarea">
-            <area>40,10,200,80</area>
-            <font>basesmall</font>
-            <multiline>yes</multiline>
-            <value></value>
-        </textarea>
+                <statetype name="buttonitem">
+                    <area>10,10,350,100%</area>
+                    <state name="inactive">
+                        <area>0,0,350,100%</area>
+                        <imagetype name="buttonimage">
+                            <area>20,20,-20,150</area>
+                            <preserveaspect>false</preserveaspect>
+                        </imagetype>
+                        <textarea name="buttontext">
+                            <area>0,170,100%,-5</area>
+                            <align>hcenter,vcenter</align>
+                            <font>mymedium</font>
+                            <multiline>yes</multiline>
+                            <alpha>210</alpha>
+                        </textarea>
+                    </state>
+                    <state name="active" from="inactive" />
+                    <state name="selectedinactive" from="inactive" />
+                    <state name="selectedactive" from="active">
+                        <statetype name="status" from="itemsSelectedState" />
+                    </state>
+                </statetype>
+            </buttonlist>
+        </group>
 
-        <textarea name="time_text" from="basetextarea">
-            <area>1040,10,200,40</area>
-            <font>basesmall</font>
-            <align>right</align>
-            <value></value>
-        </textarea>
+        <group name="chart">
+            <area>100,320,-100,-100</area>
 
-        <buttonlist name="chart_list">
-            <area>145,75,1200,160</area>
-            <layout>horizontal</layout>
-            <spacing>9</spacing>
-            <buttonarea>45,0,1100,160</buttonarea>
-            <statetype name="buttonitem">
-                <state name="active">
-                    <area>0,0,220,160</area>
-                    <imagetype name="buttonbackground">
-                        <area>0,0,220,160</area>
-                        <gradient start="#505050" end="#000000" alpha="200" />
-                    </imagetype>
-                    <textarea name="buttontext" from="basetextarea">
-                        <area>5,130,210,30</area>
-                        <font>basesmallpurple</font>
-                        <align>hcenter,top</align>
-                    </textarea>
-                    <imagetype name="buttonimage">
-                        <area>10,10,200,115</area>
-                        <preserveaspect>false</preserveaspect>
-                        <filename>mv_browse_nocover.png</filename>
-                    </imagetype>
-                </state>
-                <state name="selectedactive" from="active">
-                    <imagetype name="buttonbackground">
-                        <gradient start="#52CA38" end="#349838" alpha="255" />
-                    </imagetype>
-                    <textarea name="buttontext">
-                        <font>basesmall</font>
-                    </textarea>
+            <shape name="bottombackground" from="basewidgetshape">
+                <area>0,0,100%,100%</area>
+            </shape>
 
-                </state>
-            </statetype>
-            <statetype name="upscrollarrow">
-                <position>0,45</position>
-                <state type="on">
-                    <imagetype name="upon">
-                        <filename>left_arrow.png</filename>
-                    </imagetype>
-                </state>
-                <state type="off">
-                    <imagetype name="upon">
-                        <filename>left_arrow_off.png</filename>
-                    </imagetype>
-                </state>
-            </statetype>
-            <statetype name="downscrollarrow">
-                <position>960,45</position>
-                <state type="on">
-                    <imagetype name="dnon">
-                        <filename>right_arrow.png</filename>
-                    </imagetype>
-                </state>
-                <state type="off">
-                    <imagetype name="upon">
-                        <filename>right_arrow_off.png</filename>
-                    </imagetype>
-                </state>
-            </statetype>
-        </buttonlist>
+            <textarea name="nochart" from="basetextarea">
+                <area>50,50,-50,-50</area>
+                <align>allcenter</align>
+                <font>myextralarge</font>
+                <value>Chart Not Available</value>
+            </textarea>
 
-        <shape name="track_info_background" from="basebackground">
-            <area>35,250,1210,450</area>
-        </shape>
-
-        <textarea name="nochart" from="basetextarea">
-            <area>45,215,1185,415</area>
-            <align>allcenter</align>
-            <font>basemedium</font>
-            <value>Chart Not Available</value>
-        </textarea>
-
-        <imagetype name="chart_image">
-            <area>45,260,1190,430</area>
-            <filename></filename>
-        </imagetype>
+            <imagetype name="chart_image">
+                <area>10,10,-10,-10</area>
+                <filename></filename>
+            </imagetype>
+        </group>
 
   </window>
 
