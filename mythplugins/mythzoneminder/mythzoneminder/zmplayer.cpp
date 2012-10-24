@@ -176,7 +176,7 @@ void ZMPlayer::getEventInfo()
     m_cameraText->SetText(event->monitorName);
     m_dateText->SetText(
         MythDate::toString(
-            event->startTime, MythDate::kDateTimeFull | MythDate::kSimplify | MythDate::kOverrideUTC));
+            event->startTime, MythDate::kDateTimeFull | MythDate::kSimplify));
 
     // get frames data
     m_frameList->clear();

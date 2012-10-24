@@ -207,7 +207,7 @@ void ZMEvents::updateUIList()
         item->SetText(
             MythDate::toString(
                 event->startTime,
-                MythDate::kDateTimeFull | MythDate::kSimplify| MythDate::kOverrideUTC), "time");
+                MythDate::kDateTimeFull | MythDate::kSimplify), "time");
         item->SetText(event->length, "length");
     }
 
