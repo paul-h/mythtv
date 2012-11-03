@@ -1032,6 +1032,8 @@ void MythDownloadManager::downloadFinished(MythDownloadInfo *dlInfo)
         request.setRawHeader("User-Agent",
                              "MythDownloadManager v" MYTH_BINARY_VERSION);
 
+        dlInfo->m_bytesReceived = 0;
+
         switch (dlInfo->m_requestType)
         {
             case kRequestPost :
