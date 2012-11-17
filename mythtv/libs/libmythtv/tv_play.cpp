@@ -3497,7 +3497,8 @@ bool TV::eventFilter(QObject *o, QEvent *e)
 
     if (e->type() == MythEvent::MythEventMessage ||
         e->type() == MythEvent::MythUserMessage  ||
-        e->type() == MythEvent::kUpdateTvProgressEventType)
+        e->type() == MythEvent::kUpdateTvProgressEventType ||
+        e->type() == MythMediaEvent::kEventType)
     {
         customEvent(e);
         return true;
@@ -9000,6 +9001,40 @@ void TV::customEvent(QEvent *e)
     {
         OSDHideEvent *ce = reinterpret_cast<OSDHideEvent*>(e);
         HandleOSDClosed(ce->GetFunctionalType());
+        return;
+    }
+
+    // Stop DVD playback cleanly when the DVD is ejected
+    if (e->type() == MythMediaEvent::kEventType)
+    {
+        PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+        TVState state = mctx->GetState();
+        if (state != kState_WatchingDVD)
+        {
+            ReturnPlayerLock(mctx);
+            return;
+        }
+
+        MythMediaEvent *me = static_cast<MythMediaEvent*>(e);
+        MythMediaDevice *device = me->getDevice();
+
+        QString filename = mctx->buffer->GetFilename();
+
+        if (device && filename.endsWith(device->getDevicePath()) &&
+            (device->getStatus() == MEDIASTAT_OPEN))
+        {
+            LOG(VB_GENERAL, LOG_NOTICE,
+                "DVD has been ejected, exiting playback");
+
+            for (uint i = 0; mctx && (i < player.size()); i++)
+            {
+                PlayerContext *ctx = GetPlayer(mctx, i);
+                PrepareToExitPlayer(ctx, __LINE__, kBookmarkAuto);
+            }
+
+            SetExitPlayer(true, true);
+        }
+        ReturnPlayerLock(mctx);
         return;
     }
 
