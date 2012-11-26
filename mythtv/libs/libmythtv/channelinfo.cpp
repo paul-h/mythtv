@@ -29,18 +29,41 @@ ChannelInfo::ChannelInfo(const ChannelInfo &other)
 {
     Init();
 
-    channum = other.channum;
-    callsign = other.callsign;
-    name = other.name;
-    icon = other.icon;
-    chanid = other.chanid;
+    // Channel table
+    chanid        = other.chanid;
+    channum       = other.channum;
+    freqid        = other.freqid;
+    sourceid      = other.sourceid;
+    callsign      = other.callsign;
+    name          = other.name;
+    icon          = other.icon;
+    finetune      = other.finetune;
+    videofilters  = other.videofilters;
+    xmltvid       = other.xmltvid;
+    recpriority   = other.recpriority;
+    contrast      = other.contrast;
+    brightness    = other.brightness;
+    colour        = other.colour;
+    hue           = other.hue;
+    tvformat      = other.tvformat;
+    visible       = other.visible;
+    outputfilters = other.outputfilters;
+    useonairguide = other.useonairguide;
+    mplexid       = (other.mplexid == 32767) ? 0 : other.mplexid;
+    serviceid     = other.serviceid;
     atsc_major_chan = other.atsc_major_chan;
-    atsc_minor_chan = other.atsc_major_chan;
-    mplexid = other.mplexid == 32767 ? 0 : other.mplexid;
-    sourceid = other.sourceid;
-    cardid  = other.cardid;
-    groupid = other.groupid;
-    visible = other.visible;
+    atsc_minor_chan = other.atsc_minor_chan;
+    last_record   = other.last_record;
+    default_authority = other.default_authority;
+    commmethod    = other.commmethod;
+    tmoffset      = other.tmoffset;
+    iptvid        = other.iptvid;
+
+    // Not in channel table
+    m_groupIdList = other.m_groupIdList;
+    m_cardIdList  = other.m_cardIdList;
+    old_xmltvid   = other.old_xmltvid;
+    m_sourcename  = other.m_sourcename;
 }
 
 ChannelInfo::ChannelInfo(
@@ -48,7 +71,7 @@ ChannelInfo::ChannelInfo(
     uint _chanid, uint _major_chan, uint _minor_chan,
     uint _mplexid, bool _visible,
     const QString &_name, const QString &_icon,
-    uint _sourceid, uint _cardid, uint _grpid)
+    uint _sourceid)
 {
     Init();
 
@@ -61,27 +84,48 @@ ChannelInfo::ChannelInfo(
     atsc_minor_chan = _minor_chan;
     mplexid = (_mplexid == 32767) ? 0 : _mplexid;
     sourceid = _sourceid;
-    cardid = _cardid;
-    groupid = _grpid;
     visible = _visible;
 }
 
 ChannelInfo &ChannelInfo::operator=(const ChannelInfo &other)
 {
     Init();
-    
-    channum    = other.channum;
-    callsign   = other.callsign;
-    name       = other.name;
-    icon       = other.icon;
-    chanid     = other.chanid;
+
+    // Channel table
+    chanid        = other.chanid;
+    channum       = other.channum;
+    freqid        = other.freqid;
+    sourceid      = other.sourceid;
+    callsign      = other.callsign;
+    name          = other.name;
+    icon          = other.icon;
+    finetune      = other.finetune;
+    videofilters  = other.videofilters;
+    xmltvid       = other.xmltvid;
+    recpriority   = other.recpriority;
+    contrast      = other.contrast;
+    brightness    = other.brightness;
+    colour        = other.colour;
+    hue           = other.hue;
+    tvformat      = other.tvformat;
+    visible       = other.visible;
+    outputfilters = other.outputfilters;
+    useonairguide = other.useonairguide;
+    mplexid       = (other.mplexid == 32767) ? 0 : other.mplexid;
+    serviceid     = other.serviceid;
     atsc_major_chan = other.atsc_major_chan;
     atsc_minor_chan = other.atsc_minor_chan;
-    mplexid    = (other.mplexid == 32767) ? 0 : other.mplexid;
-    sourceid   = other.sourceid;
-    cardid     = other.cardid;
-    groupid      = other.groupid;
-    visible    = other.visible;
+    last_record   = other.last_record;
+    default_authority = other.default_authority;
+    commmethod    = other.commmethod;
+    tmoffset      = other.tmoffset;
+    iptvid        = other.iptvid;
+
+    // Not in channel table
+    m_groupIdList = other.m_groupIdList;
+    m_cardIdList  = other.m_cardIdList;
+    old_xmltvid   = other.old_xmltvid;
+    m_sourcename  = other.m_sourcename;
 
     return *this;
 }
@@ -89,8 +133,8 @@ ChannelInfo &ChannelInfo::operator=(const ChannelInfo &other)
 void ChannelInfo::Init()
 {
     chanid = 0;
-    // channum = QString();
-    freqid = 0;
+//  channum = QString();
+//  freqid = QString(); May be overloaded to a non-frequency identifier
     sourceid = 0;
 
 //  callsign = QString();
@@ -117,16 +161,16 @@ void ChannelInfo::Init()
     atsc_major_chan = 0;
     atsc_minor_chan = 0;
 
-    QDateTime last_record;
+    last_record = QDateTime();
 
 //  default_authority = QString();
     commmethod = -1;
     tmoffset = 0;
     iptvid = 0;
 
-    // Following not in database
-    groupid = -1;
-    cardid = -1;
+    m_cardIdList.clear();
+    m_groupIdList.clear();
+    m_sourcename.clear();
 }
 
 QString ChannelInfo::GetFormatted(const ChannelFormat &format) const
@@ -174,7 +218,58 @@ void ChannelInfo::ToMap(InfoMap& infoMap)
     infoMap["mplexid"] = QString().setNum(mplexid);
     infoMap["channelvisible"] = visible ? QObject::tr("Yes") : QObject::tr("No");
 
-    infoMap["channelgroupname"] = ChannelGroup::GetChannelGroupName(groupid);
+    if (!GetGroupIds().isEmpty())
+        infoMap["channelgroupname"] = ChannelGroup::GetChannelGroupName(GetGroupIds().first());
+}
+
+void ChannelInfo::LoadCardIds()
+{
+    if (chanid && m_cardIdList.isEmpty())
+    {
+        MSqlQuery query(MSqlQuery::InitCon());
+        query.prepare("SELECT capturecard.cardid FROM channel "
+            "JOIN cardinput   ON cardinput.sourceid = channel.sourceid "
+            "JOIN capturecard ON cardinput.cardid = capturecard.cardid "
+            "WHERE chanid = :CHANID");
+        query.bindValue(":CHANID", chanid);
+        
+        if (!query.exec())
+            MythDB::DBError("ChannelInfo::GetCardIds()", query);
+        else
+        {
+            while(query.next())
+            {
+                AddCardId(query.value(0).toUInt());
+            }
+        }
+    }
+}
+
+void ChannelInfo::LoadGroupIds()
+{
+    if (chanid && m_groupIdList.isEmpty())
+    {
+        MSqlQuery query(MSqlQuery::InitCon());
+        query.prepare("SELECT grpid FROM channelgroup "
+                      "WHERE chanid = :CHANID");
+        query.bindValue(":CHANID", chanid);
+
+        if (!query.exec())
+            MythDB::DBError("ChannelInfo::GetCardIds()", query);
+        else if (query.size() == 0)
+        {
+            // HACK Avoid re-running this query each time for channels
+            //      which don't belong to any group
+            AddGroupId(0);
+        }
+        else
+        {
+            while(query.next())
+            {
+                AddGroupId(query.value(0).toUInt());
+            }
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////

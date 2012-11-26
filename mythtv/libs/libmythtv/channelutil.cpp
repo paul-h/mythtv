@@ -2097,6 +2097,8 @@ IPTVTuningData ChannelUtil::GetIPTVTuningData(uint chanid)
     return tuning;
 }
 
+// TODO This should be modified to load a complete channelinfo object including
+//      all fields from the database
 ChannelInfoList ChannelUtil::GetChannelsInternal(
     uint sourceid, bool vis_only, bool include_disconnected,
     const QString &grp, uint changrpid)
@@ -2109,7 +2111,9 @@ ChannelInfoList ChannelUtil::GetChannelsInternal(
         "SELECT channum, callsign, channel.chanid, "
         "       atsc_major_chan, atsc_minor_chan, "
         "       name, icon, mplexid, visible, "
-        "       channel.sourceid, cardinput.cardid, channelgroup.grpid "
+        "       channel.sourceid, GROUP_CONCAT(DISTINCT cardinput.cardid),"
+        "       GROUP_CONCAT(DISTINCT channelgroup.grpid), "
+        "       xmltvid "
         "FROM channel "
         "LEFT JOIN channelgroup ON channel.chanid     = channelgroup.chanid "
         " %1  JOIN cardinput    ON cardinput.sourceid = channel.sourceid "
@@ -2139,8 +2143,10 @@ ChannelInfoList ChannelUtil::GetChannelsInternal(
         cond = " AND ";
     }
 
+    qstr += " GROUP BY chanid";
+
     if (!grp.isEmpty())
-        qstr += QString(" GROUP BY %1 ").arg(grp);
+        qstr += QString(", %1").arg(grp);
 
     query.prepare(qstr);
     if (!query.exec())
@@ -2164,11 +2170,22 @@ ChannelInfoList ChannelUtil::GetChannelsInternal(
             query.value(8).toBool(),                      /* visible    */
             query.value(5).toString(),                    /* name       */
             query.value(6).toString(),                    /* icon       */
-            query.value(9).toUInt(),                      /* sourceid   */
-            query.value(11).toUInt(),                     /* cardid     */
-            query.value(10).toUInt());                    /* grpid      */
+            query.value(9).toUInt());                     /* sourceid   */
 
+        chan.xmltvid = query.value(12).toString();        /* xmltvid    */
+
+        QStringList cardIDs = query.value(11).toString().split(",");
+        QString cardid;
+        while (!cardIDs.isEmpty())
+                chan.AddCardId(cardIDs.takeFirst().toUInt());
+
+        QStringList groupIDs = query.value(10).toString().split(",");
+        QString groupid;
+        while (!groupIDs.isEmpty())
+                chan.AddCardId(groupIDs.takeFirst().toUInt());
+        
         list.push_back(chan);
+
     }
 
     return list;
