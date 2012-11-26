@@ -49,11 +49,13 @@ Q_DECLARE_METATYPE ( QStringList * );
 Q_DECLARE_METATYPE ( const char * );
 Q_DECLARE_METATYPE ( char * );
 Q_DECLARE_METATYPE ( int * );
+Q_DECLARE_METATYPE ( QHostAddress );
 static int x0 = qRegisterMetaType< const QStringList * >();
 static int x1 = qRegisterMetaType< QStringList * >();
 static int x2 = qRegisterMetaType< const char * >();
 static int x3 = qRegisterMetaType< char * >();
 static int x4 = qRegisterMetaType< int * >();
+static int x5 = qRegisterMetaType< QHostAddress >();
 
 static QString to_sample(const QByteArray &payload)
 {
@@ -916,7 +918,7 @@ void MythSocket::ReadReal(char *data, int size, int max_wait_ms, int *ret)
     }
     *ret = m_tcpSocket->read(data, size);
 
-    if ((t.elapsed() > 50) || (*ret < size))
+    if (t.elapsed() > 50)
     {
         LOG(VB_GENERAL, LOG_INFO,
             QString("ReadReal(?, %1, %2) -> %3 took %4 ms")
