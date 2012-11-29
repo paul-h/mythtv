@@ -2132,10 +2132,9 @@ int AvFormatDecoder::ScanStreams(bool novideo)
                         .arg(ff_codec_type_string(enc->codec_type))
                         .arg(open_val));
                 //av_close_input_file(ic); // causes segfault
-                //ic = NULL;
-                //scanerror = -1;
-                //break;
-                continue;
+                ic = NULL;
+                scanerror = -1;
+                break;
             }
             else
             {
