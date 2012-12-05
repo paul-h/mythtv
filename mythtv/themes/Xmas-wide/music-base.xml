@@ -498,7 +498,7 @@
                     <type>roundbox</type>
                     <cornerradius>3</cornerradius>
                     <fill style="gradient">
-                        <gradient start="#e8e262" end="#fe9735" alpha="50"/>
+                        <gradient start="#ff0000" end="#dd0000" alpha="50"/>
                     </fill>
                 </shape>
 
@@ -600,7 +600,7 @@
                     <type>roundbox</type>
                     <cornerradius>3</cornerradius>
                     <fill style="gradient">
-                        <gradient start="#e8e262" end="#fe9735" alpha="255" />
+                        <gradient start="#ff0000" end="#dd0000" alpha="200" />
                     </fill>
                 </shape>
                 <textarea name="buttontext">
@@ -613,7 +613,7 @@
                     <type>roundbox</type>
                     <cornerradius>3</cornerradius>
                     <fill style="gradient">
-                        <gradient start="#e8e262" end="#fe9735" alpha="150" />
+                        <gradient start="#ff0000" end="#dd0000" alpha="150" />
                     </fill>
                 </shape>
 
@@ -781,7 +781,6 @@
     <group name="basesmallinfopanel">
         <shape name="trackinfo_background" from="basebackground">
             <area>15,0,1250,50</area>
-            <fill color="#000000" alpha="50" />
         </shape>
 
         <imagetype name="coverart">
@@ -826,7 +825,6 @@
     <group name="baseplaylistpanel">
         <shape name="playlist_background" from="basebackground">
             <area>15,0,1250,265</area>
-            <fill color="#000000" alpha="50" />
         </shape>
 
         <buttonlist name="currentplaylist" from="basebuttonlist2">

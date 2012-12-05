@@ -57,10 +57,10 @@
         <color>#FFFFFF</color>
     </fontdef>
     <fontdef name="basesmall_normal" from="basesmall">
-        <color>#9999cc</color>
+        <color>#ffffff</color>
     </fontdef>
     <fontdef name="basesmall_normal_inactive" from="basesmall">
-        <color>#666666</color>
+        <color>#cccccc</color>
     </fontdef>
     <fontdef name="basesmall_warning_selected" from="basesmallbold">
         <color>#dddd44</color>
@@ -224,7 +224,7 @@
             <state name="selectedinactive" from="active">
                 <shape name="background">
                     <fill style="gradient">
-                        <gradient start="#52CA38" end="#349838" alpha="100" />
+                        <gradient start="#ff0000" end="#440000" alpha="150" />
                     </fill>
                 </shape>
                 <textarea name="buttontext">
@@ -286,8 +286,8 @@
                 <shape name="selectbar">
                     <area>20,0,1156,30</area>
                     <type>roundbox</type>
-                    <line color="#00FF00" alpha="255" width="1" />
-                    <fill color="#43b038" alpha="128" />
+                    <line color="#ff0000" alpha="255" width="1" />
+                    <fill color="#ff0000" alpha="128" />
                     <cornerradius>4</cornerradius>
                 </shape>
                 <textarea name="buttontext">
@@ -305,8 +305,8 @@
                <shape name="selectbar">
                     <area>28,0,1144,30</area>
                     <type>roundbox</type>
-                    <line color="#00FF00" alpha="100" width="1" />
-                    <fill color="#43b038" alpha="50" />
+                    <line color="#ff0000" alpha="100" width="1" />
+                    <fill color="#dd0000" alpha="50" />
                     <cornerradius>4</cornerradius>
                 </shape>
             </state>

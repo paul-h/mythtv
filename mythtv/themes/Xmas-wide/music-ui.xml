@@ -145,7 +145,6 @@
 
         <shape name="browser_background" from="basebackground">
             <area>15,15,1250,370</area>
-            <fill color="#000000" alpha="50" />
         </shape>
 
         <!-- optional - shows path to current item -->
@@ -187,7 +186,6 @@
 
         <shape name="browser_background" from="basebackground">
             <area>15,15,1250,370</area>
-            <fill color="#000000" alpha="50" />
         </shape>
 
         <!-- optional - shows path to current item -->
@@ -230,7 +228,6 @@
 
         <shape name="playlist_background" from="basebackground">
             <area>15,15,1250,370</area>
-            <fill color="#000000" alpha="50" />
         </shape>
 
         <buttonlist name="field_list" from="baseselector">
