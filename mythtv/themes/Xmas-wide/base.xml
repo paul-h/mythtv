@@ -54,7 +54,7 @@
 
     <!-- State variations on small font -->
     <fontdef name="basesmall_normal_selected" from="basesmallbold">
-        <color>#FFFFFF</color>
+        <color>#ffffff</color>
     </fontdef>
     <fontdef name="basesmall_normal" from="basesmall">
         <color>#ffffff</color>
@@ -63,10 +63,10 @@
         <color>#cccccc</color>
     </fontdef>
     <fontdef name="basesmall_warning_selected" from="basesmallbold">
-        <color>#dddd44</color>
+        <color>#ffff00</color>
     </fontdef>
     <fontdef name="basesmall_warning" from="basesmall">
-        <color>#bbbb33</color>
+        <color>#ffff00</color>
     </fontdef>
     <fontdef name="basesmall_favourite_selected" from="basesmallbold">
         <color>#dddd44</color>
@@ -84,16 +84,16 @@
         <color>#700700</color>
     </fontdef>
     <fontdef name="basesmall_disabled_selected" from="basesmallbold">
-        <color>#888888</color>
+        <color>#f0f0f0</color>
     </fontdef>
     <fontdef name="basesmall_disabled" from="basesmall">
-        <color>#666666</color>
+        <color>#b0b0b0</color>
     </fontdef>
     <fontdef name="basesmall_running_selected" from="basesmallbold">
         <color>#00FF00</color>
     </fontdef>
     <fontdef name="basesmall_running" from="basesmall">
-        <color>#11DD11</color>
+        <color>#00DD00</color>
     </fontdef>
     <fontdef name="basesmall_textedit" from="basesmall">
         <color>#000000</color>
