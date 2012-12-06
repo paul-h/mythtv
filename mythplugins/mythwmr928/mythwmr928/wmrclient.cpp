@@ -15,7 +15,7 @@
 // myth
 #include <mythcontext.h>
 #include <mythdialogs.h>
-#include <mythtv/util.h>
+#include <mythtimer.h>
 #include <mythimage.h>
 
 // wmr928
