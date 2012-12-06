@@ -9,10 +9,9 @@
             <value>Current Conditions</value>
         </textarea>
 
-        <imagetype name="image1">
+        <shape name="topbackground" from="basebackground">
             <area>25,75,1230,110</area>
-            <filename>trans-cr-background.png</filename>
-        </imagetype>
+        </shape>
 
         <textarea name="date_text" from="basetextarea">
             <area>50,80,200,80</area>
@@ -29,10 +28,9 @@
             <value></value>
         </textarea>
 
-        <imagetype name="bottomimage">
+        <shape name="bottombackground" from="basebackground">
             <area>25,220,1230,475</area>
-            <filename>cr-background.png</filename>
-        </imagetype>
+        </shape>
 
         <textarea name="title1" from="basetextarea">
             <area>120,260,250,30</area>
