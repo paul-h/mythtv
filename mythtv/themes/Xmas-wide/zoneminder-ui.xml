@@ -111,12 +111,6 @@
             <align>right</align>
         </textarea>
 
-        <textarea name="label" from="basetextarea">
-            <area>449,110,400,40</area>
-            <font>basesmallyellow</font>
-            <value>Status</value>
-        </textarea>
-
         <textarea name="status_text" from="basetextarea">
             <area>440,130,400,40</area>
             <align>allcenter</align>
@@ -144,26 +138,24 @@
 
         <textarea name="label1" from="basetextarea">
             <area>70,220,130,30</area>
-            <font>basesmallyellow</font>
+            <align>left,vcenter</align>
+            <font>basesmall</font>
             <value>Camera</value>
         </textarea>
 
-        <textarea name="label2" from="basetextarea">
+        <textarea name="label2" from="label1">
             <area>390,220,130,30</area>
-            <font>basesmallyellow</font>
             <value>Function</value>
         </textarea>
 
-        <textarea name="label3" from="basetextarea">
+        <textarea name="label3" from="label1">
             <area>710,220,130,30</area>
-            <font>basesmallyellow</font>
             <value>Source</value>
         </textarea>
 
-        <textarea name="label4" from="basetextarea">
+        <textarea name="label4" from="label1">
             <area>1110,220,100,30</area>
-            <font>basesmallyellow</font>
-            <align>right</align>
+            <align>right,vcenter</align>
             <value>Events</value>
         </textarea>
 
@@ -210,7 +202,7 @@
                 <state name="selectedactive" from="active">
                     <shape name="buttonbackground">
                         <fill style="gradient">
-                            <gradient start="#52CA38" end="#349838" alpha="255" />
+                            <gradient start="#ff0000" end="#440000" alpha="255" />
                         </fill>
                     </shape>
 
@@ -424,7 +416,7 @@
                 <state name="selectedactive" from="active">
                     <shape name="buttonbackground">
                         <fill style="gradient">
-                            <gradient start="#52CA38" end="#349838" alpha="255" />
+                            <gradient start="#ff0000" end="#440000" alpha="255" />
                         </fill>
                     </shape>
 
@@ -444,7 +436,7 @@
                <state name="selectedinactive" from="active">
                     <shape name="buttonbackground">
                         <fill style="gradient">
-                            <gradient start="#52CA38" end="#349838" alpha="100" />
+                            <gradient start="#ff0000" end="#440000" alpha="100" />
                         </fill>
                     </shape>
 
@@ -543,7 +535,7 @@
                 <state name="selectedactive" from="active">
                     <shape name="buttonbackground">
                         <fill style="gradient">
-                            <gradient start="#52CA38" end="#349838" alpha="255" />
+                            <gradient start="#ff0000" end="#440000" alpha="255" />
                         </fill>
                     </shape>
 
@@ -554,7 +546,7 @@
                <state name="selectedinactive" from="active">
                     <shape name="buttonbackground">
                         <fill style="gradient">
-                            <gradient start="#52CA38" end="#349838" alpha="100" />
+                            <gradient start="#ff0000" end="#440000" alpha="100" />
                         </fill>
                     </shape>
 
@@ -615,7 +607,7 @@
                 <state name="selectedactive" from="active">
                     <shape name="buttonbackground">
                         <fill style="gradient">
-                            <gradient start="#52CA38" end="#349838" alpha="255" />
+                            <gradient start="#ff0000" end="#440000" alpha="255" />
                         </fill>
                     </shape>
 
@@ -626,7 +618,7 @@
                <state name="selectedinactive" from="active">
                     <shape name="buttonbackground">
                         <fill style="gradient">
-                            <gradient start="#52CA38" end="#349838" alpha="100" />
+                            <gradient start="#ff0000" end="#440000" alpha="100" />
                         </fill>
                     </shape>
 
