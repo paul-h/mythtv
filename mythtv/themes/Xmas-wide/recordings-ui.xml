@@ -11,77 +11,163 @@
         </textarea>
 
         <clock name="clock">
-            <area>850,10,410,30</area>
+            <area>850,5,410,30</area>
             <font>basesmall_normal</font>
             <align>vcenter,right</align>
             <template>%DATE% %TIME%</template>
         </clock>
 
-        <imagetype name="listbackground">
-            <filename>reclist_background.png</filename>
-            <position>0,60</position>
-        </imagetype>
+        <shape name="groupbackground" from="basebackground">
+            <area>20,70,320,310</area>
+        </shape>
+
+        <shape name="progbackground" from="basebackground">
+            <area>360,70,900,310</area>
+        </shape>
+
+        <shape name="detailsbackground" from="basebackground">
+            <area>20,400,1240,300</area>
+        </shape>
 
         <buttonlist name="recgroups">
             <arrange>stack</arrange>
-            <area>364,30,634,40</area>
-            <align>hcenter</align>
-            <scrollstyle>center</scrollstyle>
+            <align>top,hcenter</align>
+            <spacing>0</spacing>
+            <scrollstyle>free</scrollstyle>
             <wrapstyle>items</wrapstyle>
             <layout>horizontal</layout>
-            <buttonarea>0,0,100%,100%</buttonarea>
+
+            <area>370,30,880,46</area>
+            <buttonarea>25,0,-25,100%</buttonarea>
+
             <statetype name="buttonitem">
+                <area>0,0,400,100%</area>
+                <minsize>50,100%</minsize>
+
                 <state name="selectedinactive">
-                    <area>0,0,300,100%</area>
-                    <textarea name="buttontext">
-                        <area>10,2,-10,-5</area>
-                        <align>center</align>
-                        <font>basemedium</font>
-                        <alpha>200</alpha>
-                    </textarea>
+                    <area>0,5,100%,-5</area>
+                    <minsize>50,100%</minsize>
+                    <group name="areagroup">
+                        <area>0,0,100%,100%</area>
+                        <minsize>50,100%</minsize>
+
+                        <shape name="recGroupShape">
+                            <area>0,0,100%,100%</area>
+                            <minsize>50,100%</minsize>
+                            <type>roundbox</type>
+                            <cornerradius>15</cornerradius>
+                            <line color="#cc0000" alpha="100" width="3" />
+                            <fill style="gradient">
+                                <gradient start="#aa0000" end="#ff0000" alpha="200" direction="vertical" />
+                                <line color="#ff0000" width="3" />
+                            </fill>
+                        </shape>
+                        <textarea name="buttontext">
+                            <area>15,5,-15,-5</area>
+                            <minsize>50,100%</minsize>
+                            <extraleading>4</extraleading>
+                            <align>center</align>
+                            <cutdown>yes</cutdown>
+                            <font>basesmall</font>
+                            <alpha>255</alpha>
+                        </textarea>
+                    </group>
                 </state>
+
+                <state name="selectedactive" from="selectedinactive" />
+
                 <state name="inactive" from="selectedinactive">
-                    <textarea name="buttontext">
-                        <area>0,0,0,0</area>
-                    </textarea>
+                    <area>0,0,100%,100%</area>
+                    <group name="areagroup">
+                        <area>0,5,100%,-5</area>
+                        <minsize>50,100%</minsize>
+                        <shape name="recGroupShape">
+                            <area>0,0,100%,100%</area>
+                            <minsize>50,100%</minsize>
+                            <type>roundbox</type>
+                            <fill color="#aa0000" alpha="120" />
+                            <line color="#cc0000" width="3" />
+                            <cornerradius>15</cornerradius>
+                        </shape>
+                    </group>
                 </state>
+
+                <state name="active" from="inactive" />
+
             </statetype>
+
             <statetype name="upscrollarrow">
-                <area>0,0,0,0</area>
+                <position>0,50%-16</position>
+                <showempty>yes</showempty>
+                <state type="full">
+                    <imagetype name="lefton">
+                        <filename>left_arrow-sel.png</filename>
+                    </imagetype>
+                </state>
             </statetype>
             <statetype name="downscrollarrow">
-                <area>0,0,0,0</area>
+                <position>100%-32,50%-16</position>
+                <showempty>yes</showempty>
+                <state type="full">
+                    <imagetype name="righton">
+                        <filename>right_arrow-sel.png</filename>
+                    </imagetype>
+                </state>
             </statetype>
+
         </buttonlist>
 
-        <buttonlist name="groups">
-            <area>46,100,300,300</area>
-            <buttonarea>0,0,250,250</buttonarea>
-            <spacing>4</spacing>
-            <scrollstyle>center</scrollstyle>
-            <wrapstyle>items</wrapstyle>
+        <buttonlist name="groups" from="basebuttonlist2">
+            <area>25,44,300,350</area>
+            <buttonarea>0,36,250,270</buttonarea>
+            <spacing>0</spacing>
+            <wrapstyle>captive</wrapstyle>
             <searchposition>-1,390</searchposition>
             <triggerevent context="Global" action="ESCAPE">LEFT</triggerevent>
             <statetype name="buttonitem">
-                <state name="active">
-                    <textarea name="name">
-                        <area>10,0,300,30</area>
+                <state name="active" >
+                    <area>5,0,300,30</area>
+                    <textarea name="buttontext">
+                        <area>0,0,100%,30</area>
                         <font>basesmall_normal</font>
                         <cutdown>yes</cutdown>
                         <align>left,vcenter</align>
                     </textarea>
                 </state>
-                <state name="selectedinactive" from="active" />
+                <state name="selectedinactive" from="active">
+                    <shape name="selectbar">
+                        <area>0,0,100%,30</area>
+                    </shape>
+                    <textarea name="buttontext">
+                        <area>0,0,100%,30</area>
+                        <font>basesmall_normal</font>
+                        <cutdown>yes</cutdown>
+                        <align>left,vcenter</align>
+                    </textarea>
+                </state>
                 <state name="selectedactive" from="active">
-                    <textarea name="name">
-                        <font>basesmall_normal_selected</font>
+                    <shape name="selectbar">
+                        <area>0,0,100%,30</area>
+                    </shape>
+                    <textarea name="buttontext">
+                        <area>0,0,100%,30</area>
+                        <font>basesmall_normal</font>
+                        <cutdown>yes</cutdown>
+                        <align>left,vcenter</align>
                     </textarea>
                 </state>
             </statetype>
+            <statetype name="upscrollarrow">
+                <position>240,310</position>
+            </statetype>
+            <statetype name="downscrollarrow">
+                <position>270,310</position>
+            </statetype>
+
         </buttonlist>
 
         <buttonlist name="recordings" from="basebuttonlist2">
-            <area>364,44,880,350</area>
+            <area>370,44,870,350</area>
             <buttonarea>0,36,880,270</buttonarea>
             <wrapstyle>captive</wrapstyle>
             <spacing>0</spacing>
@@ -89,7 +175,7 @@
             <triggerevent context="Global" action="MENU">RIGHT</triggerevent>
             <statetype name="buttonitem">
                 <state name="active">
-                <area>0,0,100%,30</area>
+                <area>0,0,880,30</area>
                 <statetype name="status">
                     <position>0,2</position>
                     <state name="disabled">
@@ -152,12 +238,12 @@
                 </state>
                 <state name="selectedinactive" from="active">
                     <shape name="selectbar">
-                        <area>26,0,854,30</area>
+                        <area>0,0,100%,30</area>
                     </shape>
                 </state>
                 <state name="selectedactive" from="active">
                     <shape name="selectbar">
-                        <area>26,0,854,30</area>
+                        <area>0,0,100%,30</area>
                     </shape>
                     <textarea name="titlesubtitle" from="buttontext">
                         <area>32,2,656,28</area>
@@ -180,35 +266,35 @@
                 </state>
             </statetype>
             <statetype name="upscrollarrow">
-                <position>850,0</position>
+                <position>810,310</position>
             </statetype>
             <statetype name="downscrollarrow">
-                <position>850,328</position>
+                <position>840,310</position>
             </statetype>
         </buttonlist>
 
         <imagetype name="autoexpire">
             <filename>autoexpire.png</filename>
-            <position>988,670</position>
+            <position>988,660</position>
         </imagetype>
 
         <imagetype name="commflagged">
             <filename>commflagged.png</filename>
-            <position>1024,670</position>
+            <position>1024,660</position>
         </imagetype>
 
         <imagetype name="bookmark">
             <filename>bookmark.png</filename>
-            <position>1060,670</position>
+            <position>1060,660</position>
         </imagetype>
 
         <imagetype name="cutlist">
             <filename>cutlist.png</filename>
-            <position>1094,670</position>
+            <position>1094,660</position>
         </imagetype>
 
         <statetype name="audioprops">
-            <position>1128,670</position>
+            <position>1128,660</position>
             <showempty>yes</showempty>
             <state name="stereo">
                 <imagetype name="stereo">
@@ -233,7 +319,7 @@
         </statetype>
 
         <statetype name="subtitletypes">
-            <position>1162,670</position>
+            <position>1162,660</position>
             <showempty>yes</showempty>
             <state name="cc">
                 <imagetype name="cc">
@@ -253,7 +339,7 @@
         </statetype>
 
         <statetype name="videoprops">
-            <position>1196,670</position>
+            <position>1196,660</position>
             <showempty>yes</showempty>
             <state name="hd1080">
                 <imagetype name="hd1080">
@@ -284,18 +370,18 @@
 
         <imagetype name="processing">
             <filename>processing.png</filename>
-            <position>1230,670</position>
+            <position>1230,660</position>
         </imagetype>
 
         <textarea name="title" from="basetextarea">
-            <area>24,400,700,40</area>
+            <area>30,400,700,40</area>
             <font>baselarge</font>
             <cutdown>yes</cutdown>
             <align>vcenter</align>
         </textarea>
 
         <textarea name="channel" from="basetextarea">
-            <area>24,444,256,30</area>
+            <area>30,444,256,30</area>
         </textarea>
 
         <textarea name="timedate" from="basetextarea">
@@ -308,7 +394,7 @@
         </textarea>
 
         <textarea name="description" from="basetextarea">
-            <area>24,484,890,220</area>
+            <area>30,484,890,220</area>
             <multiline>yes</multiline>
             <cutdown>yes</cutdown>
             <template>%"|SUBTITLE|" %%(|STARS|) %%DESCRIPTION%</template>
