@@ -282,7 +282,7 @@
                     <align>vcenter</align>
                 </textarea>
             </state>
-            <state name="selectedactive" from="active">
+            <state name="selectedactive">
                 <shape name="selectbar">
                     <area>20,0,1156,30</area>
                     <type>roundbox</type>
@@ -301,7 +301,7 @@
                     <align>vcenter</align>
                 </textarea>
             </state>
-            <state name="selectedinactive" from="active" >
+            <state name="selectedinactive" >
                <shape name="selectbar">
                     <area>28,0,1144,30</area>
                     <type>roundbox</type>
@@ -1186,7 +1186,7 @@
     <window name="backgroundwindow">
         <imagetype name="backimg">
             <area>0,0,1280,720</area>
-            <filepattern low="0" high="10">ui/snow-%1.png</filepattern>
+            <filepattern low="1" high="10">ui/snow-%1.png</filepattern>
             <delay>150</delay>
         </imagetype>
 
