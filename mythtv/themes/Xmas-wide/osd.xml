@@ -6,7 +6,7 @@
     <window name="program_info">
         <fontdef name="small" face="Droid Sans">
             <pixelsize>22</pixelsize>
-            <color>#EEEEEE</color>
+            <color>#00ff00</color>
         </fontdef>
         <fontdef name="medium" from="small">
             <pixelsize>28</pixelsize>
@@ -16,22 +16,24 @@
             <weight>bold</weight>
         </fontdef>
         <area>50,0,1180,720</area>
-        <imagetype name="background1">
+        <shape name="background1">
             <area>0,0,1180,124</area>
-            <filename>osd/prog_top.png</filename>
-        </imagetype>
-        <imagetype name="background2">
+                <type>roundbox</type>
+                <fill color="#330000" alpha="120" />
+                <line color="#ff0000" alpha="255" width="2" />
+                <cornerradius>12</cornerradius>
+        </shape>
+        <shape name="background2" from="background1">
             <area>0,520,1180,200</area>
-            <filename>osd/prog_bot.png</filename>
-        </imagetype>
+        </shape>
         <textarea name="title">
             <font>large</font>
             <area>20,40,860,70</area>
             <align>left,bottom</align>
         </textarea>
         <shape name="divider1">
-            <area>890,20,2,100</area>
-            <fill color="#FFFFFF" alpha="200" />
+            <area>890,2,2,120</area>
+            <fill color="#ff0000" alpha="200" />
         </shape>
         <textarea name="starttime">
             <area>880,40,280,70</area>
@@ -40,8 +42,8 @@
             <align>hcenter,bottom</align>
         </textarea>
         <shape name="divider2">
-            <area>890,520,2,180</area>
-            <fill color="#FFFFFF" alpha="200" />
+            <area>890,522,2,296</area>
+            <fill color="#ff0000" alpha="200" />
         </shape>
         <statetype name="tvstate">
             <state name="WatchingLiveTV">
@@ -131,17 +133,21 @@
     <window name="osd_status">
         <fontdef name="medium" face="Droid Sans">
             <pixelsize>28</pixelsize>
-            <color>#EEEEEE</color>
+            <color>#00ff00</color>
             <weight>bold</weight>
         </fontdef>
         <area>50,520,1180,100</area>
-        <imagetype name="background1">
+        <shape name="background1">
             <area>0,0,1180,100</area>
-            <filename>osd/info.png</filename>
-        </imagetype>
+            <type>roundbox</type>
+            <fill color="#330000" alpha="120" />
+            <line color="#ff0000" alpha="255" width="2" />
+            <cornerradius>12</cornerradius>
+        </shape>
+
         <shape name="divider1">
-            <area>890,0,2,95</area>
-            <fill color="#FFFFFF" alpha="200" />
+            <area>890,2,2,96</area>
+            <fill color="#ff0000" alpha="200" />
         </shape>
         <textarea name="title">
             <font>medium</font>
@@ -263,11 +269,11 @@
     <window name="MythPopupBox">
         <fontdef name="basesmall" face="Droid Sans">
             <pixelsize>22</pixelsize>
-            <color>#EEEEEE</color>
+            <color>#00ff00</color>
             <weight>bold</weight>
         </fontdef>
         <fontdef name="basesmall_normal_inactive" from="basesmall">
-            <color>#666666</color>
+            <color>#cccc</color>
         </fontdef>
         <area>-1,-1,500,500</area>
         <imagetype name="backimg">
@@ -334,14 +340,14 @@
                 <state name="selectedactive" from="active">
                     <shape name="background">
                         <fill style="gradient">
-                            <gradient start="#52CA38" end="#349838" alpha="255" />
+                            <gradient start="#ff0000" end="#440000" alpha="255" />
                         </fill>
                     </shape>
                 </state>
                 <state name="selectedinactive" from="active">
                     <shape name="background">
                         <fill style="gradient">
-                            <gradient start="#52CA38" end="#349838" alpha="100" />
+                            <gradient start="#ff0000" end="#440000" alpha="150" />
                         </fill>
                     </shape>
                     <textarea name="buttontext">
