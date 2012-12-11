@@ -171,12 +171,12 @@
             <layout>horizontal</layout>
             <style>reveal</style>
             <imagetype name="background">
-                <area>0,0,100%,100%</area>
-                <filename>osd/progressbar_bg.png</filename>
+                <area>4,3,100%-4,100%-3</area>
+                <filename>mm_progress-bg.png</filename>
             </imagetype>
             <imagetype name="progressimage">
                 <area>0,0,100%,100%</area>
-                <filename>osd/progressbar_fill.png</filename>
+                <filename>mm_progress-fg.png</filename>
             </imagetype>
         </progressbar>
     </window>
