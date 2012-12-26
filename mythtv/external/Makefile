@@ -1,6 +1,6 @@
 include ../config.mak
 
-SUBDIRS = FFmpeg zeromq nzmqt qjson
+SUBDIRS = FFmpeg zeromq nzmqt qjson libmythbluray
 
 ifdef CONFIG_HDHOMERUN
     SUBDIRS += libhdhomerun
@@ -26,11 +26,6 @@ FFmpeg-all FFmpeg-install FFmpeg-uninstall FFmpeg-clean FFmpeg-distclean:
 zeromq-all:	zeromq/Makefile
 	${MAKE} -C zeromq all
 
-zeromq/Makefile:	zeromq/configure
-	(cd zeromq ; \
-	 ./configure --without-documentation --prefix=${PREFIX} \
-	             --includedir=${PREFIX}/include/mythtv/zeromq)
-
 zeromq-install zeromq-uninstall zeromq-clean zeromq-distclean:
 	${MAKE} -C zeromq ${@:zeromq-%=%} DESTDIR=${INSTALL_ROOT}
 
@@ -53,4 +48,7 @@ qjson-install qjson-uninstall qjson-clean qjson-distclean:
 libhdhomerun-all libhdhomerun-clean libhdhomerun-distclean libhdhomerun-install libhdhomerun-uninstall:
 	${MAKE} -C libhdhomerun -f Makefile.lib ${@:libhdhomerun-%=%}
 	${MAKE} -C libhdhomerun -f Makefile.app ${@:libhdhomerun-%=%}
+
+libmythbluray-all libmythbluray-clean libmythbluray-distclean libmythbluray-install libmythbluray-uninstall:
+	${MAKE} -C libmythbluray ${@:libmythbluray-%=%}
 
