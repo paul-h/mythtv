@@ -144,7 +144,6 @@
             <line color="#ff0000" alpha="255" width="2" />
             <cornerradius>12</cornerradius>
         </shape>
-
         <shape name="divider1">
             <area>890,2,2,96</area>
             <fill color="#ff0000" alpha="200" />
@@ -184,7 +183,7 @@
     <window name="browse_info">
         <fontdef name="small" face="Droid Sans">
             <pixelsize>22</pixelsize>
-            <color>#EEEEEE</color>
+            <color>#00ff00</color>
         </fontdef>
         <fontdef name="medium" from="small">
             <pixelsize>28</pixelsize>
@@ -194,13 +193,16 @@
             <pixelsize>34</pixelsize>
         </fontdef>
         <area>50,520,1180,100</area>
-        <imagetype name="background1">
+        <shape name="background1">
             <area>0,0,1180,100</area>
-            <filename>osd/info.png</filename>
-        </imagetype>
+            <type>roundbox</type>
+            <fill color="#330000" alpha="120" />
+            <line color="#ff0000" alpha="255" width="2" />
+            <cornerradius>12</cornerradius>
+        </shape>
         <shape name="divider1">
-            <area>890,0,2,95</area>
-            <fill color="#FFFFFF" alpha="200" />
+            <area>890,2,2,96</area>
+            <fill color="#ff0000" alpha="200" />
         </shape>
         <textarea name="title">
             <font>medium</font>
@@ -233,14 +235,17 @@
     <window name="osd_input">
         <fontdef name="medium" face="Droid Sans">
             <pixelsize>28</pixelsize>
-            <color>#EEEEEE</color>
+            <color>#00ff00</color>
             <weight>bold</weight>
         </fontdef>
         <area>50,124,200,80</area>
-        <imagetype name="background">
+        <shape name="background">
             <area>0,0,200,80</area>
-            <filename>osd/input.png</filename>
-        </imagetype>
+            <type>roundbox</type>
+            <fill color="#330000" alpha="120" />
+            <line color="#ff0000" alpha="255" width="2" />
+            <cornerradius>12</cornerradius>
+        </shape>
         <textarea name="osd_number_entry">
             <font>medium</font>
             <area>20,20,160,40</area>
@@ -251,14 +256,17 @@
     <window name="osd_message">
         <fontdef name="medium" face="Droid Sans">
             <pixelsize>28</pixelsize>
-            <color>#EEEEEE</color>
+            <color>#00ff00</color>
             <weight>bold</weight>
         </fontdef>
         <area>680,124,550,80</area>
-        <imagetype name="background">
+        <shape name="background1">
             <area>0,0,550,80</area>
-            <filename>osd/message.png</filename>
-        </imagetype>
+            <type>roundbox</type>
+            <fill color="#330000" alpha="120" />
+            <line color="#ff0000" alpha="255" width="2" />
+            <cornerradius>12</cornerradius>
+        </shape>
         <textarea name="message_text">
             <font>medium</font>
             <area>20,20,510,40</area>
@@ -466,11 +474,13 @@
             <weight>bold</weight>
         </fontdef>
         <area>100,-1,500,500</area>
-        <imagetype name="backimg">
+        <shape name="background">
             <area>0,0,500,500</area>
-            <filename>mythdialogbox-background.png</filename>
-        </imagetype>
-
+            <type>roundbox</type>
+            <fill color="#330000" alpha="120" />
+            <line color="#ff0000" alpha="255" width="2" />
+            <cornerradius>12</cornerradius>
+        </shape>
         <textarea name="title">
             <font>basesmall</font>
             <area>12,14,470,85</area>
