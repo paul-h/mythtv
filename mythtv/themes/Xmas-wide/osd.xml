@@ -18,10 +18,10 @@
         <area>50,0,1180,720</area>
         <shape name="background1">
             <area>0,0,1180,124</area>
-                <type>roundbox</type>
-                <fill color="#330000" alpha="120" />
-                <line color="#ff0000" alpha="255" width="2" />
-                <cornerradius>12</cornerradius>
+            <type>roundbox</type>
+            <fill color="#330000" alpha="120" />
+            <line color="#ff0000" alpha="255" width="2" />
+            <cornerradius>12</cornerradius>
         </shape>
         <shape name="background2" from="background1">
             <area>0,520,1180,200</area>
@@ -276,11 +276,13 @@
             <color>#cccc</color>
         </fontdef>
         <area>-1,-1,500,500</area>
-        <imagetype name="backimg">
+        <shape name="background1">
             <area>0,0,500,500</area>
-            <filename>mythdialogbox-background.png</filename>
-        </imagetype>
-
+            <type>roundbox</type>
+            <fill color="#000000" alpha="200" />
+            <line color="#ff0000" alpha="255" width="2" />
+            <cornerradius>12</cornerradius>
+        </shape>
         <textarea name="messagearea">
             <font>basesmall</font>
             <area>12,14,470,210</area>
@@ -391,17 +393,20 @@
     <window name="osd_program_editor">
         <fontdef name="medium" face="Droid Sans">
             <pixelsize>28</pixelsize>
-            <color>#EEEEEE</color>
+            <color>#00ff00</color>
             <weight>bold</weight>
         </fontdef>
         <area>50,520,1180,100</area>
-        <imagetype name="background1">
+        <shape name="background1">
             <area>0,0,1180,100</area>
-            <filename>osd/info.png</filename>
-        </imagetype>
+            <type>roundbox</type>
+            <fill color="#330000" alpha="120" />
+            <line color="#ff0000" alpha="255" width="2" />
+            <cornerradius>12</cornerradius>
+        </shape>
         <shape name="divider1">
-            <area>890,0,2,95</area>
-            <fill color="#FFFFFF" alpha="200" />
+            <area>890,2,2,96</area>
+            <fill color="#ff0000" alpha="255" />
         </shape>
         <textarea name="title">
             <font>medium</font>
@@ -436,20 +441,20 @@
                 <alphapulse min="180" max="255" change="4" />
             </shape>
             <shape name="cuttoright">
-                <area>0,4,3,30</area>
-                <fill color="#FF0000" alpha="255" />
+                <area>0,2,3,34</area>
+                <fill color="#ffff00" alpha="255" />
             </shape>
             <shape name="cuttoleft">
-                <area>0,4,3,30</area>
-                <fill color="#FF0000" alpha="255" />
+                <area>0,2,3,34</area>
+                <fill color="#ffff00" alpha="255" />
             </shape>
             <shape name="keeptoright">
-                <area>0,4,3,30</area>
-                <fill color="#00FF00" alpha="255" />
+                <area>0,2,3,34</area>
+                <fill color="#00ffff" alpha="255" />
             </shape>
             <shape name="keeptoleft">
-                <area>0,4,3,30</area>
-                <fill color="#00FF00" alpha="255" />
+                <area>0,2,3,34</area>
+                <fill color="#00ffff" alpha="255" />
             </shape>
         </editbar>
     </window>
