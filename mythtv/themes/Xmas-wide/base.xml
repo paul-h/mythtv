@@ -309,6 +309,16 @@
                     <fill color="#dd0000" alpha="50" />
                     <cornerradius>4</cornerradius>
                 </shape>
+                <textarea name="buttontext">
+                    <area>34,2,1156,24</area>
+                    <font>base_normal_selected</font>
+                    <font state="disabled">basesmall_disabled_selected</font>
+                    <font state="error">basesmall_error_selected</font>
+                    <font state="warning">basesmall_warning_selected</font>
+                    <font state="normal">basesmall_normal_selected</font>
+                    <font state="running">basesmall_running_selected</font>
+                    <align>vcenter</align>
+                </textarea>
             </state>
         </statetype>
         <statetype name="upscrollarrow">
