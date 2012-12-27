@@ -386,6 +386,7 @@
 
         <textarea name="timedate" from="basetextarea">
             <area>364,444,480,30</area>
+            <template>%startdate%%| startyear%, %starttime% </template>
         </textarea>
 
         <textarea name="filesize_str" from="basetextarea">
