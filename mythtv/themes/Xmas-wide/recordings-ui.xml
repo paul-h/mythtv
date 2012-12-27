@@ -4,6 +4,11 @@
 
     <window name ="watchrecordings">
 
+        <imagetype name="fanart">
+            <area>0,0,100%,100%</area>
+            <filename />
+        </imagetype>
+
         <textarea name="pagetitle" from="basetextarea">
             <area>20,4,570,40</area>
             <font>baselarge</font>
@@ -401,8 +406,14 @@
             <template>%"|SUBTITLE|" %%(|STARS|) %%DESCRIPTION%</template>
         </textarea>
 
-        <imagetype name="preview">
+        <imagetype name="preview" depends="!coverart">
             <area>920,410,320,240</area>
+            <preserveaspect>true</preserveaspect>
+        </imagetype>
+
+        <imagetype name="coverart" >
+            <area>920,410,320,240</area>
+            <filename />
             <preserveaspect>true</preserveaspect>
         </imagetype>
 
