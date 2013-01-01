@@ -1796,7 +1796,7 @@ int AvFormatDecoder::ScanStreams(bool novideo)
     tracks[kTrackTypeRawText].clear();
     if (!novideo)
     {
-        // we won't rescan video streams
+        // we will rescan video streams
         tracks[kTrackTypeVideo].clear();
         selectedTrack[kTrackTypeVideo].av_stream_index = -1;
     }
@@ -2046,7 +2046,6 @@ int AvFormatDecoder::ScanStreams(bool novideo)
         for(;;)
         {
             AVCodec *codec = NULL;
-            selectedTrack[kTrackTypeVideo].av_stream_index == -1;
             LOG(VB_PLAYBACK, LOG_INFO, LOC +
                 "Trying to select best video track");
 
@@ -2945,7 +2944,18 @@ void AvFormatDecoder::HandleGopStart(
             PosMapEntry entry = {framesRead, framesRead, startpos};
 
             QMutexLocker locker(&m_positionMapLock);
+            // Create a dummy positionmap entry for frame 0 so that
+            // seeking will work properly.  (See
+            // DecoderBase::FindPosition() which subtracts
+            // DecoderBase::indexOffset from each frame number.)
+            if (m_positionMap.empty())
+            {
+                PosMapEntry dur = {0, 0, 0};
+                m_positionMap.push_back(dur);
+            }
             m_positionMap.push_back(entry);
+            m_frameToDurMap[framesRead] = totalDuration / 1000;
+            m_durToFrameMap[m_frameToDurMap[framesRead]] = framesRead;
         }
 
 #if 0
