@@ -354,6 +354,8 @@ AvFormatDecoder::AvFormatDecoder(MythPlayer *parent,
 
     cc608_build_parity_table(cc608_parity_table);
 
+    m_h264_parser->use_I_forKeyframes(false);
+
     LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("PlayerFlags: 0x%1")
         .arg(playerFlags, 0, 16));
 }
@@ -2954,8 +2956,11 @@ void AvFormatDecoder::HandleGopStart(
                 m_positionMap.push_back(dur);
             }
             m_positionMap.push_back(entry);
-            m_frameToDurMap[framesRead] = totalDuration / 1000;
-            m_durToFrameMap[m_frameToDurMap[framesRead]] = framesRead;
+            if (trackTotalDuration)
+            {
+                m_frameToDurMap[framesRead] = totalDuration / 1000;
+                m_durToFrameMap[m_frameToDurMap[framesRead]] = framesRead;
+            }
         }
 
 #if 0
@@ -3241,7 +3246,9 @@ bool AvFormatDecoder::PreProcessVideoPacket(AVStream *curstream, AVPacket *pkt)
     if (on_frame)
         framesRead++;
 
-    totalDuration += av_q2d(curstream->time_base) * pkt->duration * 1000000; // usec
+    if (trackTotalDuration)
+        totalDuration +=
+            av_q2d(curstream->time_base) * pkt->duration * 1000000; // usec
 
     justAfterChange = false;
 

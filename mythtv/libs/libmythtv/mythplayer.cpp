@@ -4093,9 +4093,9 @@ void MythPlayer::HandleArbSeek(bool right)
     if (deleteMap.GetSeekAmount() == -2)
     {
         uint64_t framenum = deleteMap.GetNearestMark(framesPlayed, right);
-        if (right && (framenum > (int64_t)framesPlayed))
+        if (right && (framenum > framesPlayed))
             DoFastForward(framenum - framesPlayed, kInaccuracyNone);
-        else if (!right && ((int64_t)framesPlayed > framenum))
+        else if (!right && (framesPlayed > framenum))
             DoRewind(framesPlayed - framenum, kInaccuracyNone);
     }
     else
@@ -4711,7 +4711,7 @@ void MythPlayer::calcSliderPos(osdInfo &info, bool paddedFields)
     }
     else if (IsWatchingInprogress())
     {
-        total_frames = player_ctx->recorder->GetFramesWritten();
+        total_frames = -1;
         islive = true;
     }
     else
@@ -4812,6 +4812,24 @@ void MythPlayer::calcSliderPos(osdInfo &info, bool paddedFields)
         info.text[relPrefix + "remainingtime"] = islive ? QString() : text3;
         info.text[relPrefix + "behindtime"] = islive ? text3 : QString();
     }
+}
+
+// If position == -1, it signifies that we are computing the current
+// duration of an in-progress recording.  In this case, we fetch the
+// current frame rate and frame count from the recorder.
+uint64_t MythPlayer::TranslatePositionFrameToMs(uint64_t position,
+                                                bool use_cutlist) const
+{
+    float frameRate = GetFrameRate();
+    if (position == (uint64_t)-1)
+    {
+        float recorderFrameRate = player_ctx->recorder->GetFrameRate();
+        if (recorderFrameRate > 0)
+            frameRate = recorderFrameRate;
+        position = player_ctx->recorder->GetFramesWritten();
+    }
+    return deleteMap.TranslatePositionFrameToMs(position, frameRate,
+                                                use_cutlist);
 }
 
 int MythPlayer::GetNumChapters()
