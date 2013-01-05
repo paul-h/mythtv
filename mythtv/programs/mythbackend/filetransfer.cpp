@@ -171,7 +171,7 @@ int FileTransfer::WriteBlock(int size)
     {
         int request = size - tot;
 
-        if (sock->Read(buf, (uint)request, 25 /*ms */) != request)
+        if (sock->Read(buf, (uint)request, 100 /*ms */) != request)
             break;
 
         ret = rbuffer->Write(buf, request);
