@@ -282,4 +282,65 @@
 
   </window>
 
+      <window name="customchartdialog">
+        <area>-1,-1,500,500</area>
+
+        <imagetype name="backimg">
+            <area>0,0,100%,100%</area>
+            <filename>mythdialogbox-background.png</filename>
+        </imagetype>
+
+        <textarea name="label" from="basetextarea">
+            <area>20,10,100%-20,60</area>
+            <font>baselarge</font>
+            <multiline>yes</multiline>
+            <align>allcenter</align>
+            <value>Custom Chart Parameters</value>
+        </textarea>
+
+        <textarea name="daylbl"  from="basetextarea">
+            <area>90,70,170,30</area>
+            <align>left,vcenter</align>
+            <position>50,125</position>
+            <value>Day</value>
+        </textarea>
+
+        <spinbox name="day" from="basespinbox">
+            <position>50,153</position>
+        </spinbox>
+
+        <textarea name="monthlbl"  from="daylbl">
+            <position>200,125</position>
+            <value>Month</value>
+        </textarea>
+
+        <spinbox name="month" from="basespinbox">
+            <position>200,153</position>
+        </spinbox>
+
+        <textarea name="yearlbl"  from="daylbl">
+            <position>350,125</position>
+            <value>Year</value>
+        </textarea>
+
+        <spinbox name="year" from="basespinbox">
+            <position>350,153</position>
+        </spinbox>
+
+        <textarea name="periodlabel" from="basetextarea">
+            <area>58,255,90,30</area>
+            <align>right,vcenter</align>
+            <value>Period:</value>
+        </textarea>
+
+        <buttonlist name="period" from="baseselector">
+            <position>155,250</position>
+        </buttonlist>
+
+        <button name="ok" from="basebutton">
+            <position>50%-77,420</position>
+            <value>OK</value>
+        </button>
+    </window>
+
 </mythuitheme>

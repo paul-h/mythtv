@@ -49,6 +49,9 @@ public:
     void getRainCharts(void);
 
     void chartChanged(MythUIButtonListItem *item);
+    void chartClicked(MythUIButtonListItem *item);
+
+    void doCustomChart(QDate date, int period);
 
   private:
     void initChartList(void);
@@ -70,6 +73,43 @@ public:
     MythImage         *m_7daysImage;
     MythImage         *m_4weeksImage;
     MythImage         *m_customImage;
+
+    QDate              m_customDate;
+    int                m_customPeriod;
+};
+
+class CustomChartDialog: public MythScreenType
+{
+  Q_OBJECT
+
+  public:
+
+    CustomChartDialog(MythScreenStack *parent);
+    ~CustomChartDialog();
+
+    bool Create(void);
+
+    QDate getStartDate(void);
+    void setStartDate(const QDate &date);
+
+    int getPeriod(void);
+    void setPeriod(int period);
+
+  signals:
+    void changed(QDate date, int period);
+
+  protected slots:
+    void okPressed(void);
+
+  private:
+
+    MythUISpinBox    *m_daySpin;
+    MythUISpinBox    *m_monthSpin;
+    MythUISpinBox    *m_yearSpin;
+
+    MythUIButtonList *m_periodSelector;
+
+    MythUIButton     *m_okButton;
 };
 
 #endif

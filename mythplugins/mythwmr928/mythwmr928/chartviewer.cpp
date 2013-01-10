@@ -22,6 +22,8 @@
 #include <mythdbcon.h>
 #include <mythuihelper.h>
 #include <mythuitext.h>
+#include <mythuispinbox.h>
+#include <mythuibutton.h>
 #include <mythuiimage.h>
 #include <mythuibuttonlist.h>
 #include <mythmainwindow.h>
@@ -84,6 +86,9 @@ bool ChartViewer::Create(void)
     connect(m_chartList, SIGNAL(itemSelected(MythUIButtonListItem*)),
             this, SLOT(chartChanged(MythUIButtonListItem *)));
 
+    connect(m_chartList, SIGNAL(itemClicked(MythUIButtonListItem*)),
+            this, SLOT(chartClicked(MythUIButtonListItem *)));
+
     BuildFocusList();
 
     SetFocusWidget(m_chartList);
@@ -92,6 +97,9 @@ bool ChartViewer::Create(void)
 
     m_timeTimer->start(TIME_UPDATE_TIME);
     m_updateTimer->start(100);
+
+    m_customDate = QDate::currentDate().addDays(-365);
+    m_customPeriod = 28;
 
     updateCharts();
     updateTime();
@@ -187,8 +195,7 @@ void ChartViewer::getTempCharts(void)
            }
         }
 
-        // custom chart
-//        wmr->getTempChart(m_chartImage->GetSize(true), m_24hrsImage);
+        doCustomChart(m_customDate, m_customPeriod);
     }
 
     chartChanged(m_chartList->GetItemCurrent());
@@ -251,8 +258,7 @@ void ChartViewer::getWindCharts(void)
            }
         }
 
-        // custom chart
-//        wmr->getTempChart(m_chartImage->GetSize(true), m_24hrsImage);
+        doCustomChart(m_customDate, m_customPeriod);
     }
 
     chartChanged(m_chartList->GetItemCurrent());
@@ -315,8 +321,7 @@ void ChartViewer::getHumidityCharts(void)
            }
         }
 
-        // custom chart
-//        wmr->getTempChart(m_chartImage->GetSize(true), m_24hrsImage);
+        doCustomChart(m_customDate, m_customPeriod);
     }
 
     chartChanged(m_chartList->GetItemCurrent());
@@ -379,20 +384,7 @@ void ChartViewer::getPressureCharts(void)
            }
         }
 
-        // custom chart
-        startTime = QDateTime::currentDateTime().addDays(-28);
-        wmr->getChart("baro", startTime, endTime, "hour1", chartSize, &m_customImage);
-
-        if (m_customImage)
-        {
-           item = m_chartList->GetItemAt(3);
-           if (item)
-           {
-               MythImage *image = GetMythMainWindow()->GetCurrentPainter()->GetFormatImage();
-               image->Assign(*m_customImage);
-               item->SetImage(image);
-           }
-        }
+        doCustomChart(m_customDate, m_customPeriod);
     }
 
     chartChanged(m_chartList->GetItemCurrent());
@@ -455,8 +447,7 @@ void ChartViewer::getRainCharts(void)
            }
         }
 
-        // custom chart
-//        wmr->getTempChart(m_chartImage->GetSize(true), m_24hrsImage);
+        doCustomChart(m_customDate, m_customPeriod);
     }
 
     chartChanged(m_chartList->GetItemCurrent());
@@ -554,4 +545,218 @@ void ChartViewer::chartChanged(MythUIButtonListItem *item)
             m_chartImage->Load();
         }
     }
+}
+
+void ChartViewer::chartClicked(MythUIButtonListItem* item)
+{
+    (void) item;
+
+    MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
+    CustomChartDialog *dlg = new CustomChartDialog(popupStack);
+
+    if (!dlg->Create())
+    {
+        delete dlg;
+        return;
+    }
+
+    dlg->setStartDate(m_customDate);
+    dlg->setPeriod(m_customPeriod);
+
+    connect(dlg, SIGNAL(changed(QDate, int)), SLOT(doCustomChart(QDate, int)));
+
+    popupStack->AddScreen(dlg);
+}
+
+void ChartViewer::doCustomChart(QDate date, int period)
+{
+    m_customDate = date;
+    m_customPeriod = period;
+
+    if (class WMRClient *wmr = WMRClient::get())
+    {
+        QDateTime startTime(date);
+        QDateTime endTime = startTime.addDays(period);
+        QSize chartSize = m_chartImage->GetArea().size();
+        QString range;
+        QString chartType;
+
+        // choose which chart type we want based on the current chart and range
+        if (m_chartType == "temp")
+        {
+            if (period == 1 || period == 7)
+                chartType = "temp";
+            else
+                chartType = "temp-minmax";
+        }
+        else if (m_chartType == "wind")
+            if (period == 1 || period == 7)
+                chartType = "wind";
+            else
+                chartType = "wind-minmax";
+        else if (m_chartType == "pressure")
+            if (period == 1 || period == 7)
+                chartType = "baro";
+            else
+                chartType = "baro-minmax";
+        else if (m_chartType == "humidity")
+            if (period == 1 || period == 7)
+                chartType = "hum";
+            else
+                chartType = "hum-minmax";
+        else if (m_chartType == "rain")
+            chartType = "rain";
+
+        switch (period)
+        {
+            case 1:
+                range = "min10";
+                break;
+            case 7:
+                range = "min10";
+                break;
+            case 28:
+                range = "day1";
+                break;
+            case 365:
+                range = "day1";
+                break;
+            default:
+                range = "min10";
+                break;
+        }
+
+        wmr->getChart(chartType, startTime, endTime, range, chartSize, &m_customImage);
+
+        if (m_customImage)
+        {
+            MythUIButtonListItem *item = m_chartList->GetItemAt(3);
+            if (item)
+            {
+                MythImage *image = GetMythMainWindow()->GetCurrentPainter()->GetFormatImage();
+                image->Assign(*m_customImage);
+                item->SetImage(image);
+            }
+        }
+
+        chartChanged(m_chartList->GetItemCurrent());
+    }
+}
+
+/*
+---------------------------------------------------------------------
+*/
+
+CustomChartDialog::CustomChartDialog(MythScreenStack *parent)
+                 :MythScreenType(parent, "CustomChartDialog"),
+                  m_daySpin(NULL), m_monthSpin(NULL), m_yearSpin(NULL),
+                  m_periodSelector(NULL), m_okButton(NULL)
+{
+}
+
+bool CustomChartDialog::Create(void)
+{
+    if (!LoadWindowFromXML("wmr928-ui.xml", "customchartdialog", this))
+        return false;
+
+    bool err = false;
+
+    UIUtilE::Assign(this, m_daySpin,      "day",     &err);
+    UIUtilE::Assign(this, m_monthSpin,    "month",   &err);
+    UIUtilE::Assign(this, m_yearSpin,     "year",    &err);
+    UIUtilE::Assign(this, m_periodSelector,  "period",  &err);
+    UIUtilE::Assign(this, m_okButton,     "ok",      &err);
+
+    if (err)
+    {
+        LOG(VB_GENERAL, LOG_ERR, "Cannot load screen 'customchartdialog'");
+        return false;
+    }
+
+    m_daySpin->SetRange(1, 31, 1);
+    m_monthSpin->SetRange(1, 12, 1);
+    m_yearSpin->SetRange(1900, 2099, 1);
+
+    QDate now = QDate::currentDate();
+    m_daySpin->SetValue(now.day());
+    m_monthSpin->SetValue(now.month());
+    m_yearSpin->SetValue(now.year());
+
+    new MythUIButtonListItem(m_periodSelector, "Day");
+    new MythUIButtonListItem(m_periodSelector, "Week");
+    new MythUIButtonListItem(m_periodSelector, "Month");
+    new MythUIButtonListItem(m_periodSelector, "Year");
+
+    connect(m_okButton, SIGNAL(Clicked()), this, SLOT(okPressed()));
+
+    BuildFocusList();
+
+    return true;
+}
+
+CustomChartDialog::~CustomChartDialog(void)
+{
+}
+
+QDate CustomChartDialog::getStartDate(void)
+{
+    QDate dtResult;
+
+    int day = m_daySpin->GetIntValue();
+    int month = m_monthSpin->GetIntValue();
+    int year = m_yearSpin->GetIntValue();
+
+    dtResult.setYMD(year, month,day);
+
+    return dtResult;
+}
+
+void CustomChartDialog::setStartDate(const QDate &date)
+{
+    m_daySpin->SetValue(date.day());
+    m_monthSpin->SetValue(date.month());
+    m_yearSpin->SetValue(date.year());
+}
+
+int CustomChartDialog::getPeriod(void )
+{
+    QString period = m_periodSelector->GetValue();
+    int days = 1;
+
+    if (period == "Day")
+        days = 1;
+    else if (period == "Week")
+        days = 7;
+    else if (period == "Month")
+        days = 28;
+    else if (period == "Year")
+        days = 365;
+
+    return days;
+}
+
+void CustomChartDialog::setPeriod(int period)
+{
+    QString sPeriod = "Day";
+
+    if (period == 1)
+        sPeriod = "Day";
+    else if (period == 7)
+        sPeriod = "Week";
+    else if (period == 28)
+       sPeriod = "Month";
+    else if (period == 365)
+        sPeriod = "Year";
+
+    m_periodSelector->SetValue(sPeriod);
+}
+
+void CustomChartDialog::okPressed(void )
+{
+    QDate date = getStartDate();
+    int period = getPeriod();
+
+    emit changed(date, period);
+
+    Close();
 }
