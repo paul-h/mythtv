@@ -549,7 +549,8 @@ void ChartViewer::chartChanged(MythUIButtonListItem *item)
 
 void ChartViewer::chartClicked(MythUIButtonListItem* item)
 {
-    (void) item;
+    if (!item || item->GetText() != "Custom Chart")
+        return;
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
     CustomChartDialog *dlg = new CustomChartDialog(popupStack);
