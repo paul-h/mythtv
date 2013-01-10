@@ -211,10 +211,12 @@
             <statetype name="buttonitem">
                 <state name="active">
                     <area>0,0,220,160</area>
-                    <imagetype name="buttonbackground">
+                    <shape name="buttonbackground">
                         <area>0,0,220,160</area>
-                        <gradient start="#505050" end="#000000" alpha="200" />
-                    </imagetype>
+                        <fill style="gradient">
+                            <gradient start="#505050" end="#000000" alpha="200" />
+                        </fill>
+                    </shape>
                     <textarea name="buttontext" from="basetextarea">
                         <area>5,130,210,30</area>
                         <font>basesmallpurple</font>
@@ -223,13 +225,15 @@
                     <imagetype name="buttonimage">
                         <area>10,10,200,115</area>
                         <preserveaspect>false</preserveaspect>
-                        <filename>mv_browse_nocover.png</filename>
+                        <filename>preview.png</filename>
                     </imagetype>
                 </state>
                 <state name="selectedactive" from="active">
-                    <imagetype name="buttonbackground">
-                        <gradient start="#52CA38" end="#349838" alpha="255" />
-                    </imagetype>
+                    <shape name="buttonbackground">
+                        <fill style="gradient">
+                            <gradient start="#52CA38" end="#349838" alpha="255" />
+                        </fill>
+                    </shape>
                     <textarea name="buttontext">
                         <font>basesmall</font>
                     </textarea>
@@ -237,28 +241,28 @@
                 </state>
             </statetype>
             <statetype name="upscrollarrow">
-                <position>0,45</position>
+                <position>0,65</position>
                 <state type="on">
                     <imagetype name="upon">
-                        <filename>left_arrow.png</filename>
+                        <filename>ui/left_arrow-sel.png</filename>
                     </imagetype>
                 </state>
                 <state type="off">
                     <imagetype name="upon">
-                        <filename>left_arrow_off.png</filename>
+                        <filename>ui/left_arrow-reg.png</filename>
                     </imagetype>
                 </state>
             </statetype>
             <statetype name="downscrollarrow">
-                <position>960,45</position>
+                <position>960,65</position>
                 <state type="on">
                     <imagetype name="dnon">
-                        <filename>right_arrow.png</filename>
+                        <filename>ui/right_arrow-sel.png</filename>
                     </imagetype>
                 </state>
                 <state type="off">
                     <imagetype name="upon">
-                        <filename>right_arrow_off.png</filename>
+                        <filename>ui/right_arrow-reg.png</filename>
                     </imagetype>
                 </state>
             </statetype>
