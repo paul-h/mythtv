@@ -1132,6 +1132,8 @@ void MythPlayer::ReleaseNextVideoFrame(VideoFrame *buffer,
         videoOutput->ReleaseFrame(buffer);
 
     detect_letter_box->Detect(buffer);
+    if (allpaused)
+        CheckAspectRatio(buffer);
 }
 
 /** \fn MythPlayer::ClearDummyVideoFrame(VideoFrame*)
@@ -1189,7 +1191,11 @@ bool MythPlayer::HasReachedEof(void) const
         return true;
     if (GetEditMode())
         return false;
-    return (framesPlayed >= deleteMap.GetLastFrame());
+    if (livetv)
+        return false;
+    if (!deleteMap.IsEmpty() && framesPlayed >= deleteMap.GetLastFrame())
+        return true;
+    return false;
 }
 
 VideoFrame *MythPlayer::GetCurrentFrame(int &w, int &h)
@@ -2424,9 +2430,15 @@ bool MythPlayer::Rewind(float seconds)
     if (rewindtime <= 0)
     {
         float current = ComputeSecs(framesPlayed, true);
-        float dest = current + seconds;
+        float dest = current - seconds;
+        if (dest < 0)
+        {
+            if (CalcRWTime(framesPlayed + 1) < 0)
+                return true;
+            dest = 0;
+        }
         uint64_t target = FindFrame(dest, true);
-        rewindtime = target - framesPlayed;
+        rewindtime = framesPlayed - target;
     }
     return (uint64_t)rewindtime >= framesPlayed;
 }
@@ -2927,6 +2939,9 @@ void MythPlayer::EventLoop(void)
                 LOG(VB_PLAYBACK, LOG_INFO,
                     QString("waiting for no video frames %1")
                     .arg(videoOutput->ValidVideoFrames()));
+            LOG(VB_PLAYBACK, LOG_INFO,
+                QString("HasReachedEof() at framesPlayed=%1 totalFrames=%2")
+                .arg(framesPlayed).arg(GetCurrentFrameCount()));
             Pause();
             SetPlaying(false);
             return;
@@ -3708,7 +3723,6 @@ bool MythPlayer::IsNearEnd(void)
     margin = (long long) (margin * audio.GetStretchFactor());
     bool watchingTV = IsWatchingInprogress();
 
-    framesRead = decoder->GetFramesRead();
     framesRead = framesPlayed;
 
     if (!player_ctx->IsPIP() &&
@@ -4695,14 +4709,18 @@ uint64_t MythPlayer::GetCurrentFrameCount(void) const
 uint64_t MythPlayer::FindFrame(float offset, bool use_cutlist) const
 {
     uint64_t length_ms = TranslatePositionFrameToMs(totalFrames, use_cutlist);
-    uint64_t offset_ms = offset * 1000 + 0.5;
+    uint64_t position_ms;
     if (signbit(offset))
-        offset_ms += length_ms;
-    if (offset_ms < 0)
-        offset_ms = 0;
-    if (offset_ms > length_ms)
-        offset_ms = length_ms;
-    return TranslatePositionMsToFrame(offset_ms, use_cutlist);
+    {
+        uint64_t offset_ms = -offset * 1000 + 0.5;
+        position_ms = (offset_ms > length_ms) ? 0 : length_ms - offset_ms;
+    }
+    else
+    {
+        position_ms = offset * 1000 + 0.5;
+        position_ms = min(position_ms, length_ms);
+    }
+    return TranslatePositionMsToFrame(position_ms, use_cutlist);
 }
 
 void MythPlayer::calcSliderPos(osdInfo &info, bool paddedFields)
@@ -4721,7 +4739,6 @@ void MythPlayer::calcSliderPos(osdInfo &info, bool paddedFields)
     info.values.insert("progbefore", 0);
     info.values.insert("progafter",  0);
 
-    uint64_t frames_played = framesPlayed;
     uint64_t total_frames = totalFrames;
     int playbackLen = 0;
     bool fixed_playbacklen = false;
