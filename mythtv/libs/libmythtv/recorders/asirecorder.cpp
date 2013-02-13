@@ -65,6 +65,14 @@ void ASIRecorder::SetOption(const QString &name, int value)
         DTVRecorder::SetOption(name, value);
 }
 
+void ASIRecorder::StartNewFile(void)
+{
+    // Make sure the first things in the file are a PAT & PMT
+    HandleSingleProgramPAT(_stream_data->PATSingleProgram(), true);
+    HandleSingleProgramPMT(_stream_data->PMTSingleProgram(), true);
+}
+
+
 void ASIRecorder::run(void)
 {
     if (!Open())
@@ -93,7 +101,7 @@ void ASIRecorder::run(void)
     {
         const ProgramAssociationTable *pat = m_channel->GetGeneratedPAT();
         const ProgramMapTable         *pmt = m_channel->GetGeneratedPMT();
-        _stream_data->ResetMPEG(pat->ProgramNumber(0));
+        _stream_data->Reset(pat->ProgramNumber(0));
         _stream_data->HandleTables(MPEG_PAT_PID, *pat);
         _stream_data->HandleTables(pat->ProgramPID(0), *pmt);
     }
@@ -102,12 +110,7 @@ void ASIRecorder::run(void)
     if (m_channel && (m_channel->GetSIStandard() == "dvb"))
         _stream_data->AddListeningPID(DVB_TDT_PID);
 
-    // Make sure the first things in the file are a PAT & PMT
-    bool tmp = _wait_for_keyframe_option;
-    _wait_for_keyframe_option = false;
-    HandleSingleProgramPAT(_stream_data->PATSingleProgram());
-    HandleSingleProgramPMT(_stream_data->PMTSingleProgram());
-    _wait_for_keyframe_option = tmp;
+    StartNewFile();
 
     _stream_data->AddAVListener(this);
     _stream_data->AddWritingListener(this);
