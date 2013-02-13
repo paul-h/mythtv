@@ -424,26 +424,27 @@
             <multiline>yes</multiline>
             <align>allcenter</align>
         </textarea>
-
+<!--
         <progressbar name="usedbar">
-            <area>14,664,536,38</area>
+            <area>20,673,536,25</area>
             <layout>horizontal</layout>
             <style>reveal</style>
             <imagetype name="background">
+                <area>0,0,100%,25</area>
                 <filename>progressbar_background.png</filename>
             </imagetype>
             <imagetype name="progressimage">
-                <area>0,0,100%,100%</area>
+                <area>0,0,100%,25</area>
                 <filename>progressbar_fill2.png</filename>
             </imagetype>
         </progressbar>
 
         <textarea name="freereport">
-            <area>24,666,526,34</area>
-            <align>center</align>
-            <font>basemedium</font>
+            <area>20,673,536,25</area>
+            <align>allcenter</align>
+            <font>basesmall</font>
         </textarea>
-
+-->
     </window>
 
     <window name="groupselector">
