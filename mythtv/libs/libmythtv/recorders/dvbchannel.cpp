@@ -216,7 +216,7 @@ bool DVBChannel::Open(DVBChannel *who)
     ReturnMasterLock(master); // if we're the master we don't need this lock..
 
     QString devname = CardUtil::GetDeviceName(DVB_DEV_FRONTEND, device);
-    QByteArray devn = devname.toAscii();
+    QByteArray devn = devname.toLatin1();
 
     for (int tries = 1; ; ++tries)
     {
@@ -462,7 +462,7 @@ bool DVBChannel::CheckCodeRate(DTVCodeRate rate) const
 }
 
 /**
- *  \brief Return true if modulation is supported modulation on the frontend
+ *  \brief Return true iff modulation is supported modulation on the frontend
  */
 bool DVBChannel::CheckModulation(DTVModulation modulation) const
 {
