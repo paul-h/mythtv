@@ -1790,7 +1790,6 @@ int AvFormatDecoder::ScanStreams(bool novideo)
     bool unknownbitrate = false;
     int scanerror = 0;
     bitrate       = 0;
-    fps           = 0;
 
     tracks[kTrackTypeAttachment].clear();
     tracks[kTrackTypeAudio].clear();
@@ -1803,6 +1802,7 @@ int AvFormatDecoder::ScanStreams(bool novideo)
         // we will rescan video streams
         tracks[kTrackTypeVideo].clear();
         selectedTrack[kTrackTypeVideo].av_stream_index = -1;
+        fps = 0;
     }
     map<int,uint> lang_sub_cnt;
     uint subtitleStreamCount = 0;
@@ -3126,10 +3126,8 @@ int AvFormatDecoder::H264PreProcessPkt(AVStream *stream, AVPacket *pkt)
         }
 
         current_aspect = get_aspect(*m_h264_parser);
-        uint  width  = m_h264_parser->pictureWidth();
-        uint  height = m_h264_parser->pictureHeight();
-        if (height == 1088 && current_height == 1080)
-            height = 1080;
+        uint  width  = m_h264_parser->pictureWidthCropped();
+        uint  height = m_h264_parser->pictureHeightCropped();
         float seqFPS = m_h264_parser->frameRate();
 
         bool res_changed = ((width  != (uint)current_width) ||
