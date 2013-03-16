@@ -3019,6 +3019,9 @@ void AvFormatDecoder::MpegPreProcessPkt(AVStream *stream, AVPacket *pkt)
             uint  height = seq->height() >> context->lowres;
             current_aspect = seq->aspect(context->codec_id ==
                                          AV_CODEC_ID_MPEG1VIDEO);
+            if (stream->sample_aspect_ratio.num)
+                current_aspect = av_q2d(stream->sample_aspect_ratio) *
+                    width / height;
             if (aspect_override > 0.0f)
                 current_aspect = aspect_override;
             float seqFPS = seq->fps();
@@ -4634,7 +4637,7 @@ bool AvFormatDecoder::GetFrame(DecodeType decodetype)
             }
 
             int retval = 0;
-            if (!ic || ((retval = av_read_frame(ic, pkt)) < 0))
+            if (!ic || ((retval = ReadPacket(ic, pkt)) < 0))
             {
                 if (retval == -EAGAIN)
                     continue;
@@ -4807,6 +4810,11 @@ bool AvFormatDecoder::GetFrame(DecodeType decodetype)
         delete pkt;
 
     return true;
+}
+
+int AvFormatDecoder::ReadPacket(AVFormatContext *ctx, AVPacket *pkt)
+{
+    return av_read_frame(ctx, pkt);
 }
 
 bool AvFormatDecoder::HasVideo(const AVFormatContext *ic)
