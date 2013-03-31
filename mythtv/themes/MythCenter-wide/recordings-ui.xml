@@ -23,11 +23,11 @@
         </clock>
 
         <shape name="groupbackground" from="basebackground">
-            <area>20,70,320,310</area>
+            <area>20,80,330,310</area>
         </shape>
 
         <shape name="progbackground" from="basebackground">
-            <area>360,70,900,310</area>
+            <area>360,80,900,310</area>
         </shape>
 
         <shape name="detailsbackground" from="basebackground">
@@ -42,7 +42,7 @@
             <wrapstyle>items</wrapstyle>
             <layout>horizontal</layout>
 
-            <area>370,30,880,46</area>
+            <area>370,35,880,46</area>
             <buttonarea>25,0,-25,100%</buttonarea>
 
             <statetype name="buttonitem">
@@ -122,17 +122,17 @@
         </buttonlist>
 
         <buttonlist name="groups" from="basebuttonlist2">
-            <area>25,44,300,350</area>
-            <buttonarea>0,36,250,270</buttonarea>
+            <area>25,54,305,350</area>
+            <buttonarea>0,36,255,270</buttonarea>
             <spacing>0</spacing>
             <wrapstyle>captive</wrapstyle>
             <searchposition>-1,390</searchposition>
             <triggerevent context="Global" action="ESCAPE">LEFT</triggerevent>
             <statetype name="buttonitem">
                 <state name="active" >
-                    <area>5,0,300,30</area>
+                    <area>5,0,305,30</area>
                     <textarea name="buttontext">
-                        <area>0,0,100%,30</area>
+                        <area>3,0,100%-6,30</area>
                         <font>basesmall_normal</font>
                         <cutdown>yes</cutdown>
                         <align>left,vcenter</align>
@@ -143,7 +143,7 @@
                         <area>0,0,100%,30</area>
                     </shape>
                     <textarea name="buttontext">
-                        <area>0,0,100%,30</area>
+                        <area>3,0,100%-6,30</area>
                         <font>basesmall_normal</font>
                         <cutdown>yes</cutdown>
                         <align>left,vcenter</align>
@@ -154,8 +154,8 @@
                         <area>0,0,100%,30</area>
                     </shape>
                     <textarea name="buttontext">
-                        <area>0,0,100%,30</area>
-                        <font>basesmall_normal</font>
+                        <area>3,0,100%-6,30</area>
+                        <font>basesmall_normal_selected</font>
                         <cutdown>yes</cutdown>
                         <align>left,vcenter</align>
                     </textarea>
@@ -171,7 +171,7 @@
         </buttonlist>
 
         <buttonlist name="recordings" from="basebuttonlist2">
-            <area>370,44,870,350</area>
+            <area>370,54,870,350</area>
             <buttonarea>0,36,880,270</buttonarea>
             <wrapstyle>captive</wrapstyle>
             <spacing>0</spacing>
@@ -378,7 +378,7 @@
         </imagetype>
 
         <textarea name="title" from="basetextarea">
-            <area>30,400,700,40</area>
+            <area>30,400,800,40</area>
             <font>baselarge</font>
             <cutdown>yes</cutdown>
             <align>vcenter</align>
@@ -389,19 +389,21 @@
         </textarea>
 
         <textarea name="timedate" from="basetextarea">
-            <area>364,444,480,30</area>
+            <area>295,444,415,30</area>
+            <align>hcenter</align>
             <template>%startdate%%| startyear%, %starttime% </template>
         </textarea>
 
         <textarea name="filesize_str" from="basetextarea">
-            <area>710,444,190,30</area>
+            <area>715,444,185,30</area>
             <align>right</align>
         </textarea>
 
         <textarea name="description" from="basetextarea">
-            <area>30,484,890,220</area>
+            <area>30,484,885,200</area>
             <multiline>yes</multiline>
-            <cutdown>yes</cutdown>
+            <scroll direction="vertical" />
+            <cutdown>no</cutdown>
             <template>%"|SUBTITLE|" %%(|STARS|) %%DESCRIPTION%</template>
         </textarea>
 
@@ -424,27 +426,26 @@
             <multiline>yes</multiline>
             <align>allcenter</align>
         </textarea>
-<!--
+
         <progressbar name="usedbar">
-            <area>20,673,536,25</area>
+            <area>20,45,330,28</area>
             <layout>horizontal</layout>
             <style>reveal</style>
             <imagetype name="background">
-                <area>0,0,100%,25</area>
+                <area>0,0,100%,28</area>
                 <filename>progressbar_background.png</filename>
             </imagetype>
             <imagetype name="progressimage">
-                <area>0,0,100%,25</area>
+                <area>0,0,100%,28</area>
                 <filename>progressbar_fill2.png</filename>
             </imagetype>
         </progressbar>
 
         <textarea name="freereport">
-            <area>20,673,536,25</area>
-            <align>allcenter</align>
-            <font>basesmall</font>
+            <area>20,45,330,28</area>
+            <align>center</align>
+            <font>basesmaller</font>
         </textarea>
--->
     </window>
 
     <window name="groupselector">
