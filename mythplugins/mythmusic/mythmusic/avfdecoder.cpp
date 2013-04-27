@@ -29,6 +29,7 @@
 #include <audiooutput.h>
 #include <audiooutpututil.h>
 #include <mythlogging.h>
+#include <decoderhandler.h>
 
 using namespace std;
 
@@ -40,6 +41,7 @@ using namespace std;
 #include "metaiooggvorbis.h"
 #include "metaiomp4.h"
 #include "metaiowavpack.h"
+#include "decoderhandler.h"
 
 extern "C" {
 #include "libavformat/avio.h"
@@ -68,11 +70,39 @@ static int WriteFunc(void *opaque, uint8_t *buf, int buf_size)
 
 static int64_t SeekFunc(void *opaque, int64_t offset, int whence)
 {
-    (void)opaque;
-    (void)offset;
-    (void)whence;
-    // we dont support seeking while streaming
-    return -1;
+    QIODevice *io = (QIODevice*)opaque;
+
+    if (whence == AVSEEK_SIZE)
+    {
+        return io->size();
+    }
+    else if (whence == SEEK_SET)
+    {
+        if (offset <= io->size())
+            return io->seek(offset);
+        else
+            return -1;
+    }
+    else if (whence == SEEK_END)
+    {
+        int64_t newPos = io->size() + offset;
+        if (newPos >= 0 && newPos <= io->size())
+            return io->seek(newPos);
+        else
+            return -1;
+    }
+    else if (whence == SEEK_CUR)
+    {
+        int64_t newPos = io->pos() + offset;
+        if (newPos >= 0 && newPos < io->size())
+            return io->seek(newPos);
+        else
+            return -1;
+    }
+    else
+        return -1;
+
+     return -1;
 }
 
 static void myth_av_log(void *ptr, int level, const char* fmt, va_list vl)
@@ -142,9 +172,8 @@ static void myth_av_log(void *ptr, int level, const char* fmt, va_list vl)
     string_lock.unlock();
 }
 
-avfDecoder::avfDecoder(const QString &file, DecoderFactory *d, QIODevice *i,
-                       AudioOutput *o) :
-    Decoder(d, i, o),
+avfDecoder::avfDecoder(const QString &file, DecoderFactory *d, AudioOutput *o) :
+    Decoder(d, o),
     inited(false),              user_stop(false),
     stat(0),                    output_buf(NULL),
     output_at(0),               bks(0),
@@ -154,8 +183,8 @@ avfDecoder::avfDecoder(const QString &file, DecoderFactory *d, QIODevice *i,
     m_sampleFmt(FORMAT_NONE),   m_channels(0),
     seekTime(-1.0),             devicename(""),
     m_inputFormat(NULL),        m_inputContext(NULL),
-    m_codec(NULL),
-    m_audioDec(NULL),           m_inputIsFile(false),
+    m_codec(NULL),              m_audioDec(NULL),
+    m_inputIsFile(false),
     m_buffer(NULL),             m_byteIOContext(NULL),
     errcode(0)
 {
@@ -213,7 +242,7 @@ bool avfDecoder::initialize()
 
     output()->PauseUntilBuffered();
 
-    m_inputIsFile = !input()->isSequential();
+    m_inputIsFile = (dynamic_cast<QFile*>(input()) != NULL);
 
     if (m_inputContext)
         avformat_free_context(m_inputContext);
@@ -236,7 +265,8 @@ bool avfDecoder::initialize()
                                              &ReadFunc, &WriteFunc, &SeekFunc);
         filename = "stream";
 
-        m_byteIOContext->seekable = 0;
+        // we can only seek in files streamed using MusicSGIODevice
+        m_byteIOContext->seekable = (dynamic_cast<MusicSGIODevice*>(input()) != NULL) ? 1 : 0;
 
         // probe the stream
         AVProbeData probe_data;
@@ -390,7 +420,7 @@ bool avfDecoder::initialize()
 
 void avfDecoder::seek(double pos)
 {
-    if (m_inputIsFile)
+    if (m_inputIsFile || (m_byteIOContext && m_byteIOContext->seekable))
         seekTime = pos;
 }
 
@@ -400,7 +430,6 @@ void avfDecoder::deinit()
     freq = bitrate = 0;
     stat = m_channels = 0;
     m_sampleFmt = FORMAT_NONE;
-    setInput(0);
     setOutput(0);
 
     // Cleanup here
@@ -582,20 +611,18 @@ const QString &avfDecoderFactory::description() const
     return desc;
 }
 
-Decoder *avfDecoderFactory::create(const QString &file, QIODevice *input,
-                                  AudioOutput *output, bool deletable)
+Decoder *avfDecoderFactory::create(const QString &file, AudioOutput *output, bool deletable)
 {
     if (deletable)
-        return new avfDecoder(file, this, input, output);
+        return new avfDecoder(file, this, output);
 
     static avfDecoder *decoder = 0;
     if (!decoder)
     {
-        decoder = new avfDecoder(file, this, input, output);
+        decoder = new avfDecoder(file, this, output);
     }
     else
     {
-        decoder->setInput(input);
         decoder->setOutput(output);
     }
 
