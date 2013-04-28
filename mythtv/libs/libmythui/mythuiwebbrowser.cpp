@@ -1151,17 +1151,27 @@ void MythUIWebBrowser::ZoomOut(void)
 
 /** \fn MythUIWebBrowser::SetZoom(float)
  *  \brief Set the text size to specific size
- *  \param zoom The size to use. Useful values are between 0.2 and 5.0
+ *  \param zoom The size to use. Useful values are between 0.3 and 5.0
  */
 void MythUIWebBrowser::SetZoom(float zoom)
 {
     if (!m_browser)
         return;
 
+    if (zoom < 0.3)
+        zoom = 0.3;
+
+    if (zoom > 5.0)
+        zoom = 5.0;
+
     m_zoom = zoom;
     m_browser->setZoomFactor(m_zoom);
     ResetScrollBars();
     UpdateBuffer();
+
+    slotStatusBarMessage(tr("Zoom: %1%").arg(m_zoom * 100));
+
+    gCoreContext->SaveSetting("WebBrowserZoomLevel", QString("%1").arg(m_zoom));
 }
 
 void MythUIWebBrowser::SetDefaultSaveDirectory(const QString &saveDir)
