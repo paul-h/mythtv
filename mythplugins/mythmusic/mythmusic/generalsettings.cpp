@@ -9,6 +9,7 @@
 
 // MythMusic
 #include "musicplayer.h"
+#include "musicdata.h"
 
 #include "generalsettings.h"
 

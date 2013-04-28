@@ -1490,7 +1490,7 @@ void CDWatcherThread::run()
 
             m_cdStatusChanged = false;
 
-            CdDecoder *decoder = new CdDecoder("cda", NULL, NULL, NULL);
+            CdDecoder *decoder = new CdDecoder("cda", NULL, NULL);
             decoder->setDevice(m_cdDevice);
             int numTracks = decoder->getNumCDAudioTracks();
             bool redo = false;
@@ -1510,7 +1510,7 @@ void CDWatcherThread::run()
             else if (numTracks > 0)
             {
                 // Check the last track to see if it's changed
-                Metadata *checker = decoder->getLastMetadata();
+                MusicMetadata *checker = decoder->getLastMetadata();
                 if (checker)
                 {
                     if (!gMusicData->all_music->checkCDTrack(checker))

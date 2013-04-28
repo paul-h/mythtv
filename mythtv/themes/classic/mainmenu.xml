@@ -90,7 +90,7 @@
         <type>WEBPAGE</type>
         <text>Email</text>
         <description>View email</description>
-        <action>MEDIA WebBrowser https://skyid.sky.com/signin/email/</action>
+        <action>MEDIA WebBrowser http://www.anviltoolhire.co.uk:2095/3rdparty/roundcube/?_task=mail</action>
     </button>
 
     <button>

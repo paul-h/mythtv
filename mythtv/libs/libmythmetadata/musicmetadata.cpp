@@ -266,8 +266,8 @@ bool MusicMetadata::isInDatabase()
 void MusicMetadata::dumpToDatabase()
 {
     // remove the music dir if it is present
-    if (m_filename.startsWith(gMusicData->musicDir))
-        m_filename.remove(0, gMusicData->musicDir.length());
+    if (m_filename.startsWith(getMusicDirectory()))
+        m_filename.remove(0, getMusicDirectory().length());
 
     QString sqldir = m_filename.section('/', 0, -2);
     QString sqlfilename = m_filename.section('/', -1);
