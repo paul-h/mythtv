@@ -69,26 +69,17 @@
             <position>650,350</position>
         </checkbox>
 
-        <textarea name="tagencoding_label" from="basetextarea">
-            <area>140,390,500,40</area>
-            <align>right,vcenter</align>
-            <value>Tag Encoding:</value>
-        </textarea>
-        <buttonlist name="tagencoding" from="baseselector">
-            <position>650,390</position>
-        </buttonlist>
-
         <textarea name="allowtagwriting_label" from="basetextarea">
-            <area>140,440,500,40</area>
+            <area>140,390,500,40</area>
             <align>right,vcenter</align>
             <value>Allow metadata to be written to tags:</value>
         </textarea>
         <checkbox name="allowtagwriting" from="basecheckbox">
-            <position>650,445</position>
+            <position>650,395</position>
         </checkbox>
 
         <button name="resetdatabase" from="basewidebutton">
-            <position>650,490</position>
+            <position>650,440</position>
             <value>Reset music database</value>
         </button>
 
