@@ -30,6 +30,8 @@ const QStringList StorageGroup::kSpecialGroups = QStringList()
     << "Fanart"
     << "Screenshots"
     << "Banners"
+    << "Music"
+    << "MusicArt"
     ;
 
 /****************************************************************************/
