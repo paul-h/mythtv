@@ -244,7 +244,7 @@ void BrowserApi::customEvent(QEvent *e)
         MythEvent *me = (MythEvent *)e;
         QString message = me->Message();
 
-        if (message.left(13) != "MUSIC_CONTROL")
+        if (!message.startsWith("MUSIC_CONTROL"))
             return;
 
         QStringList tokens = message.simplified().split(" ");
@@ -1516,6 +1516,12 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
         if (m_inputToggled)
         {
             m_browser->keyPressEvent(event);
+
+            if (m_inputToggled)
+                slotStatusBarMessage(tr("Sending key presses to web page"));
+            else
+                slotStatusBarMessage(tr("Sending key presses to MythTV"));
+
             return true;
         }
 
