@@ -229,13 +229,11 @@ static void runScan(void)
     }
 
     // force a complete reload of the tracks and playlists
-    gPlayer->stopCDWatcher();
     gPlayer->stop(true);
     delete gMusicData;
 
     gMusicData = new MusicData;
     loadMusic();
-    gPlayer->startCDWatcher();
 
     delete fscan;
 }

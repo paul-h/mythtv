@@ -152,10 +152,8 @@ void GeneralSettings::slotDoResetDB(bool ok)
         query.prepare("TRUNCATE music_stats");
         query.exec();
 
-        gPlayer->stopCDWatcher();
         delete gMusicData;
         gMusicData = new MusicData;
-        gPlayer->startCDWatcher();
 
         ShowOkPopup(tr("Music database has been cleared.\n"
                       "You must now scan, rip or import some tracks."));
