@@ -255,7 +255,7 @@ MusicMetadata *MusicMetadata::createFromID(int trackid)
     "music_songs.year, music_songs.track, music_songs.length, "
     "music_songs.song_id, music_songs.rating, music_songs.numplays, "
     "music_songs.lastplay, music_albums.compilation, music_songs.format, "
-    "music_songs.track_count, music_songs.size, "
+    "music_songs.track_count, music_songs.size, music_songs.date_entered, "
     "CONCAT_WS('/', music_directories.path, music_songs.filename) AS filename "
     "FROM music_songs "
     "LEFT JOIN music_directories ON music_songs.directory_id=music_directories.directory_id "
@@ -285,7 +285,9 @@ MusicMetadata *MusicMetadata::createFromID(int trackid)
         mdata->m_format = query.value(13).toString();
         mdata->m_trackCount = query.value(14).toInt();
         mdata->m_fileSize = (quint64)query.value(15).toULongLong();
-        mdata->m_filename = query.value(16).toString();
+        mdata->m_dateadded = query.value(16).toDateTime();
+        mdata->m_filename = query.value(17).toString();
+
         return mdata;
     }
 
@@ -303,6 +305,10 @@ void MusicMetadata::reloadMetadata(void)
 
         return;
     }
+
+    *this = *mdata;
+
+    delete mdata;
 
     m_directoryid = -1;
     m_artistid = -1;
@@ -1318,6 +1324,10 @@ void AllMusic::clearCDData(void)
 {
     while (!m_cdData.empty())
     {
+        MusicMetadata *mdata = m_cdData.back();
+        if (music_map.contains(mdata->ID()))
+            music_map.remove(mdata->ID());
+
         delete m_cdData.back();
         m_cdData.pop_back();
     }

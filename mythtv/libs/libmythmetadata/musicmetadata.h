@@ -20,7 +20,6 @@ using namespace std;
 
 class AllMusic;
 class AlbumArtImages;
-//class PlaylistContainer;
 class MetaIO;
 
 enum ImageType
@@ -191,6 +190,8 @@ class META_PUBLIC MusicMetadata
     void setRepo(RepoType repo) { m_id = (m_id & METADATA_ID_MASK) | (repo << METADATA_REPO_SHIFT); }
 
     bool isCDTrack(void) const { return ID_TO_REPO(m_id) == RT_CD; }
+    bool isDBTrack(void) const { return ID_TO_REPO(m_id) == RT_Database; }
+    bool isRadio(void) const { return ID_TO_REPO(m_id) == RT_Radio; }
 
     QString Filename(bool find = true) const;
     void setFilename(const QString &lfilename) { m_filename = lfilename; }
@@ -375,6 +376,7 @@ class META_PUBLIC AllMusic
     bool        cleanOutThreads();
 
     MetadataPtrList *getAllMetadata(void) { return &m_all_music; }
+    MetadataPtrList *getAllCDMetadata(void) { return &m_cdData; }
 
     bool isValidID(int an_id);
 
