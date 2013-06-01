@@ -104,7 +104,10 @@ class MBASE_PUBLIC MythSystem : public QObject
     // FIXME: This should only be in the constructor
     bool SetIOPrio(int prio);
 
+    // FIXME: Forks, should be called Start() for consistency with MThread.
+    // FIXME: Do we need this call at all?
     void Run(time_t timeout = 0);
+    // FIXME: This should just return a bool telling us if we hit the timeout.
     uint Wait(time_t timeout = 0);
 
     int Write(const QByteArray&);
@@ -136,6 +139,7 @@ class MBASE_PUBLIC MythSystem : public QObject
 
     // FIXME: Rename "GetExitStatus" and document that this does not
     //        block until an exit status exists.
+    // FIXME: Document what this actually returns.
     uint GetStatus(void)             { return m_status; }
     // FIXME Make private.
     void SetStatus(uint status)      { m_status = status; }
