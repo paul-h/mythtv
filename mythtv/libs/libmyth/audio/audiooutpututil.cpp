@@ -15,6 +15,8 @@ extern "C" {
 
 #define LOC QString("AOUtil: ")
 
+#define ISALIGN(x) (((unsigned long)x & 0xf) == 0)
+
 #if ARCH_X86
 static int has_sse2 = -1;
 
@@ -53,24 +55,25 @@ static av_always_inline av_const long int lrintf(float x)
 }
 #endif /* HAVE_LRINTF */
 
-static inline float clipcheck(float f) {
+static inline float clipcheck(float f)
+{
     if (f > 1.0f) f = 1.0f;
     else if (f < -1.0f) f = -1.0f;
     return f;
 }
 
 /*
- All toFloat variants require 16 byte aligned input and output buffers on x86
+ All toFloat variants require 16 byte aligned input and output buffers on x86 for SSE optimised operation
  The SSE code processes 16 bytes at a time and leaves any remainder for the C
  - there is no remainder in practice */
 
 static int toFloat8(float *out, uchar *in, int len)
 {
     int i = 0;
-    float f = 1.0f / ((1<<7) - 1);
+    float f = 1.0f / ((1<<7));
 
 #if ARCH_X86
-    if (sse_check() && len >= 16)
+    if (sse_check() && len >= 16 && ISALIGN(in) && ISALIGN(out))
     {
         int loops = len >> 4;
         i = loops << 4;
@@ -131,13 +134,19 @@ static int toFloat8(float *out, uchar *in, int len)
   The SSE code processes 16 bytes at a time and leaves any remainder for the C
   - there is no remainder in practice */
 
+static inline uchar clip_uchar(int a)
+{
+    if (a&(~0xFF)) return (-a)>>31;
+    else           return a;
+}
+
 static int fromFloat8(uchar *out, float *in, int len)
 {
     int i = 0;
-    float f = (1<<7) - 1;
+    float f = (1<<7);
 
 #if ARCH_X86
-    if (sse_check() && len >= 16 && ((unsigned long)out & 0xf) == 0)
+    if (sse_check() && len >= 16 && ISALIGN(in) && ISALIGN(out))
     {
         int loops = len >> 4;
         i = loops << 4;
@@ -178,17 +187,17 @@ static int fromFloat8(uchar *out, float *in, int len)
     }
 #endif //ARCH_x86
     for (;i < len; i++)
-        *out++ = lrintf(clipcheck(*in++) * f) + 0x80;
+        *out++ = clip_uchar(lrintf(*in++ * f) + 0x80);
     return len;
 }
 
 static int toFloat16(float *out, short *in, int len)
 {
     int i = 0;
-    float f = 1.0f / ((1<<15) - 1);
+    float f = 1.0f / ((1<<15));
 
 #if ARCH_X86
-    if (sse_check() && len >= 16)
+    if (sse_check() && len >= 16 && ISALIGN(in) && ISALIGN(out))
     {
         int loops = len >> 4;
         i = loops << 4;
@@ -236,13 +245,19 @@ static int toFloat16(float *out, short *in, int len)
     return len << 2;
 }
 
+static inline short clip_short(int a)
+{
+    if ((a+0x8000) & ~0xFFFF) return (a>>31) ^ 0x7FFF;
+    else                      return a;
+}
+
 static int fromFloat16(short *out, float *in, int len)
 {
     int i = 0;
-    float f = (1<<15) - 1;
+    float f = (1<<15);
 
 #if ARCH_X86
-    if (sse_check() && len >= 16 && ((unsigned long)out & 0xf) == 0)
+    if (sse_check() && len >= 16 && ISALIGN(in) && ISALIGN(out))
     {
         int loops = len >> 4;
         i = loops << 4;
@@ -278,7 +293,7 @@ static int fromFloat16(short *out, float *in, int len)
     }
 #endif //ARCH_x86
     for (;i < len;i++)
-        *out++ = lrintf(clipcheck(*in++) * f);
+        *out++ = clip_short(lrintf(*in++ * f));
     return len << 1;
 }
 
@@ -286,14 +301,14 @@ static int toFloat32(AudioFormat format, float *out, int *in, int len)
 {
     int i = 0;
     int bits = AudioOutputSettings::FormatToBits(format);
-    float f = 1.0f / ((uint)(1<<(bits-1)) - 128);
+    float f = 1.0f / ((uint)(1<<(bits-1)));
     int shift = 32 - bits;
 
     if (format == FORMAT_S24LSB)
         shift = 0;
 
 #if ARCH_X86
-    if (sse_check() && len >= 16)
+    if (sse_check() && len >= 16 && ISALIGN(in) && ISALIGN(out))
     {
         int loops = len >> 4;
         i = loops << 4;
@@ -342,14 +357,14 @@ static int fromFloat32(AudioFormat format, int *out, float *in, int len)
 {
     int i = 0;
     int bits = AudioOutputSettings::FormatToBits(format);
-    float f = (uint)(1<<(bits-1)) - 128;
+    float f = (uint)(1<<(bits-1));
     int shift = 32 - bits;
 
     if (format == FORMAT_S24LSB)
         shift = 0;
 
 #if ARCH_X86
-    if (sse_check() && len >= 16 && ((unsigned long)out & 0xf) == 0)
+    if (sse_check() && len >= 16 && ISALIGN(in) && ISALIGN(out))
     {
         float o = 1, mo = -1;
         int loops = len >> 4;
@@ -414,7 +429,7 @@ static int fromFloatFLT(float *out, float *in, int len)
     int i = 0;
 
 #if ARCH_X86
-    if (sse_check() && len >= 16 && ((unsigned long)in & 0xf) == 0)
+    if (sse_check() && len >= 16 && ISALIGN(in) && ISALIGN(out))
     {
         int loops = len >> 4;
         float o = 1, mo = -1;
@@ -698,7 +713,7 @@ int AudioOutputUtil::DecodeAudio(AVCodecContext *ctx,
 {
     AVFrame frame;
     int got_frame = 0;
-    int ret, ret2;
+    int ret;
     char error[AV_ERROR_MAX_STRING_SIZE];
 
     data_size = 0;
@@ -746,7 +761,7 @@ void _DeinterleaveSample(AudioDataType *out, const AudioDataType *in, int channe
 
     for (int i = 0; i < channels; i++)
     {
-        outp[i] = out + (i * channels * frames);
+        outp[i] = out + (i * frames);
     }
 
     for (int i = 0; i < frames; i++)
@@ -792,7 +807,7 @@ void _InterleaveSample(AudioDataType *out, const AudioDataType *in, int channels
         // We're given an array of int, calculate pointers to each row
         for (int i = 0; i < channels; i++)
         {
-            my_inp[i] = in + (i * channels * frames);
+            my_inp[i] = in + (i * frames);
         }
     }
     else

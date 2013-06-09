@@ -296,31 +296,40 @@ static void startAppearWiz(void)
     int curW = gCoreContext->GetNumSetting("GuiWidth", 0);
     int curH = gCoreContext->GetNumSetting("GuiHeight", 0);
 
-    MythSystemLegacy *wizard = new MythSystemLegacy(
-        GetInstallPrefix() + "/bin/mythscreenwizard",
-        QStringList(),
-        kMSDisableUDPListener | kMSPropagateLogs);
-    wizard->Run();
+    bool isWindowed =
+            (gCoreContext->GetNumSetting("RunFrontendInWindow", 0) == 1);
 
     bool reload = false;
 
-    if (!wizard->Wait())
+    if (isWindowed)
+        ShowOkPopup(QObject::tr("The ScreenSetupWizard cannot be used while "
+                              "mythfrontend is operating in windowed mode."));
+    else
     {
-        // no reported errors, check for changed geometry parameters
-        gCoreContext->ClearSettingsCache("GuiOffsetX");
-        gCoreContext->ClearSettingsCache("GuiOffsetY");
-        gCoreContext->ClearSettingsCache("GuiWidth");
-        gCoreContext->ClearSettingsCache("GuiHeight");
+        MythSystemLegacy *wizard = new MythSystemLegacy(
+            GetInstallPrefix() + "/bin/mythscreenwizard",
+            QStringList(),
+            kMSDisableUDPListener | kMSPropagateLogs);
+        wizard->Run();
 
-        if ((curX != gCoreContext->GetNumSetting("GuiOffsetX", 0)) ||
-            (curY != gCoreContext->GetNumSetting("GuiOffsetY", 0)) ||
-            (curW != gCoreContext->GetNumSetting("GuiWidth", 0)) ||
-            (curH != gCoreContext->GetNumSetting("GuiHeight", 0)))
-                reload = true;
+        if (!wizard->Wait())
+        {
+            // no reported errors, check for changed geometry parameters
+            gCoreContext->ClearSettingsCache("GuiOffsetX");
+            gCoreContext->ClearSettingsCache("GuiOffsetY");
+            gCoreContext->ClearSettingsCache("GuiWidth");
+            gCoreContext->ClearSettingsCache("GuiHeight");
+
+            if ((curX != gCoreContext->GetNumSetting("GuiOffsetX", 0)) ||
+                (curY != gCoreContext->GetNumSetting("GuiOffsetY", 0)) ||
+                (curW != gCoreContext->GetNumSetting("GuiWidth", 0)) ||
+                (curH != gCoreContext->GetNumSetting("GuiHeight", 0)))
+                    reload = true;
+        }
+
+        delete wizard;
+        wizard = NULL;
     }
-
-    delete wizard;
-    wizard = NULL;
 
     if (reload)
         GetMythMainWindow()->JumpTo("Reload Theme");
@@ -1669,15 +1678,6 @@ int main(int argc, char **argv)
                    .arg(port));
     }
 
-#ifdef __linux__
-#ifdef CONFIG_BINDINGS_PYTHON
-    HardwareProfile *profile = new HardwareProfile();
-    if (profile && profile->NeedsUpdate())
-        profile->SubmitProfile();
-    delete profile;
-#endif
-#endif
-
     if (!RunMenu(themedir, themename) && !resetTheme(themedir, themename))
     {
         return GENERIC_EXIT_NO_THEME;
@@ -1693,6 +1693,15 @@ int main(int argc, char **argv)
 
     PreviewGeneratorQueue::CreatePreviewGeneratorQueue(
         PreviewGenerator::kRemote, 50, 60);
+
+    HouseKeeper *housekeeping = new HouseKeeper();
+#ifdef __linux__
+ #ifdef CONFIG_BINDINGS_PYTHON
+    housekeeping->RegisterTask(new HardwareProfileTask());
+ #endif
+#endif
+    housekeeping->Start();
+
 
     if (cmdline.toBool("runplugin"))
     {
@@ -1734,6 +1743,8 @@ int main(int argc, char **argv)
     int ret = qApp->exec();
 
     PreviewGeneratorQueue::TeardownPreviewGeneratorQueue();
+
+    delete housekeeping;
 
     if (themeUpdateChecker)
         delete themeUpdateChecker;

@@ -51,7 +51,7 @@ class MPUBLIC AudioOutput : public VolumeBase, public OutputListeners
 
     AudioOutput() :
         VolumeBase(),             OutputListeners(),
-        lastError(QString::null), lastWarn(QString::null) {}
+        lastError(QString::null), lastWarn(QString::null), pulsewassuspended(false) {}
 
     virtual ~AudioOutput();
 
@@ -132,9 +132,9 @@ class MPUBLIC AudioOutput : public VolumeBase, public OutputListeners
     virtual int readOutputData(unsigned char *read_buffer,
                                int max_length) = 0;
 
-    virtual bool IsUpmixing(void) = 0;
-    virtual bool ToggleUpmix(void) = 0;
-    virtual bool CanUpmix(void) = 0;
+    virtual bool IsUpmixing(void)   { return false; }
+    virtual bool ToggleUpmix(void)  { return false; }
+    virtual bool CanUpmix(void)     { return false; }
     bool PulseStatus(void) { return pulsewassuspended; }
 
   protected:
