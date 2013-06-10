@@ -1226,7 +1226,7 @@ int AudioOutputBase::CopyWithUpmix(char *buffer, int frames, uint &org_waud)
     int bpf   = bytes_per_frame;
     int off   = 0;
 
-    if (!needs_upmix)
+    if (!needs_upmix || !upmixer)
     {
         int num  = len;
 
@@ -1400,9 +1400,16 @@ bool AudioOutputBase::AddData(void *in_buffer, int in_len,
     // Calculate amount of free space required in ringbuffer
     if (processing)
     {
+        int sampleSize = AudioOutputSettings::SampleSize(format);
+        if (sampleSize <= 0)
+        {
+            // Would lead to division by zero (or unexpected results if negative)
+            VBERROR("Sample size is <= 0, AddData returning false");
+            return false;
+        }
+
         // Final float conversion space requirement
-        len = sizeof(*src_in_buf) /
-            AudioOutputSettings::SampleSize(format) * len;
+        len = sizeof(*src_in_buf) / sampleSize * len;
 
         // Account for changes in number of channels
         if (needs_downmix)
@@ -1754,6 +1761,10 @@ int AudioOutputBase::GetAudioData(uchar *buffer, int size, bool full_buffer,
     int bdiff = kAudioRingBufferSize - raud;
 
     int obytes = output_settings->SampleSize(output_format);
+
+    if (obytes <= 0)
+        return 0;
+
     bool fromFloats = processing && !enc && output_format != FORMAT_FLT;
 
     // Scale if necessary
