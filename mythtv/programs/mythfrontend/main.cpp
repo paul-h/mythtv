@@ -113,6 +113,9 @@ static void resetAllKeys(void);
 void handleSIGUSR1(void);
 void handleSIGUSR2(void);
 
+#if CONFIG_DARWIN
+static bool gLoaded = false;
+#endif
 
 namespace
 {
@@ -1118,7 +1121,7 @@ static int internal_play_media(const QString &mrl, const QString &plot,
 
     pginfo->SetProgramInfoType(pginfo->DiscoverProgramInfoType());
 
-    int64_t pos = 0;
+    bool bookmarkPresent = false;
 
     if (pginfo->IsVideoDVD())
     {
@@ -1130,11 +1133,7 @@ static int internal_play_media(const QString &mrl, const QString &plot,
             if (dvd->GetNameAndSerialNum(name, serialid))
             {
                 QStringList fields = pginfo->QueryDVDBookmark(serialid);
-                if (!fields.empty())
-                {
-                    QStringList::Iterator it = fields.begin();
-                    pos = (int64_t)((*++it).toLongLong() & 0xffffffffLL);
-                }
+                bookmarkPresent = (fields.count() > 0);
             }
         }
         else
@@ -1147,9 +1146,9 @@ static int internal_play_media(const QString &mrl, const QString &plot,
         delete dvd;
     }
     else if (pginfo->IsVideo())
-        pos = pginfo->QueryBookmark();
+        bookmarkPresent = (pginfo->QueryBookmark() > 0);
 
-    if (useBookmark && pos > 0)
+    if (useBookmark && bookmarkPresent)
     {
         MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
         BookmarkDialog *bookmarkdialog = new BookmarkDialog(pginfo, mainStack);
@@ -1234,7 +1233,7 @@ static int reloadTheme(void)
         menu->Close();
     }
 #if CONFIG_DARWIN
-    GetMythMainWindow()->Init(OPENGL_PAINTER);
+    GetMythMainWindow()->Init(gLoaded ? OPENGL_PAINTER : QT_PAINTER);
 #else
     GetMythMainWindow()->Init();
 #endif
@@ -1618,7 +1617,7 @@ int main(int argc, char **argv)
 
     MythMainWindow *mainWindow = GetMythMainWindow();
 #if CONFIG_DARWIN
-    mainWindow->Init(OPENGL_PAINTER);
+    mainWindow->Init(QT_PAINTER);
 #else
     mainWindow->Init();
 #endif
@@ -1678,11 +1677,17 @@ int main(int argc, char **argv)
                    .arg(port));
     }
 
+#if CONFIG_DARWIN
+    GetMythMainWindow()->SetEffectsEnabled(false);
+    GetMythMainWindow()->Init(OPENGL_PAINTER);
+    GetMythMainWindow()->ReinitDone();
+    GetMythMainWindow()->SetEffectsEnabled(true);
+    gLoaded = true;
+#endif
     if (!RunMenu(themedir, themename) && !resetTheme(themedir, themename))
     {
         return GENERIC_EXIT_NO_THEME;
     }
-
     ThemeUpdateChecker *themeUpdateChecker = NULL;
     if (gCoreContext->GetNumSetting("ThemeUpdateNofications", 1))
         themeUpdateChecker = new ThemeUpdateChecker();
