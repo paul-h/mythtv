@@ -62,6 +62,7 @@ using namespace std;
 #include "mythlogging.h"
 #include "mythmiscutil.h"
 #include "icringbuffer.h"
+#include "audiooutput.h"
 
 extern "C" {
 #include "vbitext/vbi.h"
@@ -2676,8 +2677,9 @@ void MythPlayer::JumpToProgram(void)
     TVState desiredState = player_ctx->GetState();
     bool isInProgress =
         desiredState == kState_WatchingRecording || kState_WatchingLiveTV;
-    if (!subfn.isEmpty() && GetSubReader())
-        GetSubReader()->LoadExternalSubtitles(subfn, isInProgress);
+    if (GetSubReader())
+        GetSubReader()->LoadExternalSubtitles(subfn, isInProgress &&
+                                              !subfn.isEmpty());
 
     if (!player_ctx->buffer->IsOpen())
     {
@@ -2939,8 +2941,12 @@ void MythPlayer::EventLoop(void)
             return;
         }
 
-        if (eof != kEofStateDelayed ||
-            (videoOutput && videoOutput->ValidVideoFrames() < 1))
+        bool videoDrained =
+            videoOutput && videoOutput->ValidVideoFrames() < 1;
+        bool audioDrained =
+            !audio.GetAudioOutput() ||
+            audio.GetAudioOutput()->GetAudioBufferedTime() < 100;
+        if (eof != kEofStateDelayed || (videoDrained && audioDrained))
         {
             if (eof == kEofStateDelayed)
                 LOG(VB_PLAYBACK, LOG_INFO,
@@ -3087,15 +3093,18 @@ void MythPlayer::UnpauseDecoder(void)
         return;
     }
 
-    int tries = 0;
-    unpauseDecoder = true;
-    while (decoderThread && !killdecoder && (tries++ < 100) &&
-          !decoderThreadUnpause.wait(&decoderPauseLock, 100))
+    if (!IsInStillFrame())
     {
-        LOG(VB_GENERAL, LOG_WARNING, LOC +
-            "Waited 100ms for decoder to unpause");
+        int tries = 0;
+        unpauseDecoder = true;
+        while (decoderThread && !killdecoder && (tries++ < 100) &&
+              !decoderThreadUnpause.wait(&decoderPauseLock, 100))
+        {
+            LOG(VB_GENERAL, LOG_WARNING, LOC +
+                "Waited 100ms for decoder to unpause");
+        }
+        unpauseDecoder = false;
     }
-    unpauseDecoder = false;
     decoderPauseLock.unlock();
 }
 
