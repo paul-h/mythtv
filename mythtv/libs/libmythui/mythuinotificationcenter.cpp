@@ -13,6 +13,7 @@
 #include <QTimer>
 
 #include "mythcorecontext.h"
+#include "mythmainwindow.h"
 
 #include "mythuinotificationcenter.h"
 #include "mythuinotificationcenter_private.h"
@@ -45,7 +46,10 @@ MythUINotificationScreen::MythUINotificationScreen(MythScreenStack *stack,
       m_created(false),         m_content(kNone),   m_update(kAll),
       m_artworkImage(NULL),     m_titleText(NULL),  m_originText(NULL),
       m_descriptionText(NULL),  m_extraText(NULL),  m_progresstextText(NULL),
-      m_progressBar(NULL),      m_index(0),         m_timer(new QTimer(this))
+      m_progressBar(NULL),      m_errorState(NULL), m_index(0),
+      m_timer(new QTimer(this)),
+      m_visibility(MythNotification::kAll),
+      m_priority(MythNotification::kDefault)
 {
     // Set timer if need be
     SetSingleShotTimer(m_duration);
@@ -61,7 +65,10 @@ MythUINotificationScreen::MythUINotificationScreen(MythScreenStack *stack,
       m_update(kAll),
       m_artworkImage(NULL),     m_titleText(NULL),  m_originText(NULL),
       m_descriptionText(NULL),  m_extraText(NULL),  m_progresstextText(NULL),
-      m_progressBar(NULL),      m_index(0),         m_timer(new QTimer(this))
+      m_progressBar(NULL),      m_errorState(NULL), m_index(0),
+      m_timer(new QTimer(this)),
+      m_visibility(MythNotification::kAll),
+      m_priority(MythNotification::kDefault)
 {
     SetNotification(notification);
     connect(m_timer, SIGNAL(timeout()), this, SLOT(ProcessTimer()));
@@ -75,7 +82,10 @@ MythUINotificationScreen::MythUINotificationScreen(MythScreenStack *stack,
       m_created(false),         m_content(kNone),   m_update(kAll),
       m_artworkImage(NULL),     m_titleText(NULL),  m_originText(NULL),
       m_descriptionText(NULL),  m_extraText(NULL),  m_progresstextText(NULL),
-      m_progressBar(NULL),      m_timer(new QTimer(this))
+      m_progressBar(NULL),      m_errorState(NULL),
+      m_timer(new QTimer(this)),
+      m_visibility(MythNotification::kAll),
+      m_priority(MythNotification::kDefault)
 {
     *this = s;
     connect(m_timer, SIGNAL(timeout()), this, SLOT(ProcessTimer()));
@@ -95,6 +105,13 @@ void MythUINotificationScreen::SetNotification(MythNotification &notification)
 {
     bool update = notification.type() == MythNotification::Update;
     m_update = kNone;
+
+    MythErrorNotification *error =
+        dynamic_cast<MythErrorNotification*>(&notification);
+    if (error)
+    {
+        m_update |= kError;
+    }
 
     MythImageNotification *img =
         dynamic_cast<MythImageNotification*>(&notification);
@@ -151,7 +168,7 @@ void MythUINotificationScreen::SetNotification(MythNotification &notification)
     m_priority      = notification.GetPriority();
 
     // Set timer if need be
-    SetSingleShotTimer(m_duration);
+    SetSingleShotTimer(m_duration, update);
 }
 
 bool MythUINotificationScreen::Create(void)
@@ -190,8 +207,6 @@ bool MythUINotificationScreen::Create(void)
     if (!foundtheme) // If we cannot load the theme for any reason ...
         return false;
 
-    // The xml should contain an <imagetype> named 'coverart', if it doesn't
-    // then we cannot display the image and may as well abort
     m_artworkImage      = dynamic_cast<MythUIImage*>(GetChild("image"));
     m_titleText         = dynamic_cast<MythUIText*>(GetChild("title"));
     m_originText        = dynamic_cast<MythUIText*>(GetChild("origin"));
@@ -199,6 +214,7 @@ bool MythUINotificationScreen::Create(void)
     m_extraText         = dynamic_cast<MythUIText*>(GetChild("extra"));
     m_progresstextText  = dynamic_cast<MythUIText*>(GetChild("progress_text"));
     m_progressBar       = dynamic_cast<MythUIProgressBar*>(GetChild("progress"));
+    m_errorState        = dynamic_cast<MythUIStateType*>(GetChild("errorstate"));
 
     // store original position
     m_position      = GetPosition();
@@ -313,9 +329,10 @@ void MythUINotificationScreen::Init(void)
         m_progressBar->SetVisible((m_content & kDuration) != 0);
 
     }
-    if (m_progresstextText)
+
+    if (m_errorState)
     {
-        m_progresstextText->SetVisible((m_content & kDuration) != 0);
+        m_errorState->DisplayState(m_update & kError ? "error" : "ok");
     }
 
     // No field will be refreshed the next time unless specified otherwise
@@ -453,7 +470,7 @@ MythUINotificationScreen &MythUINotificationScreen::operator=(const MythUINotifi
     return *this;
 }
 
-void MythUINotificationScreen::SetSingleShotTimer(int s)
+void MythUINotificationScreen::SetSingleShotTimer(int s, bool update)
 {
     // only registered application can display non-expiring notification
     if (m_id > 0 && s < 0)
@@ -462,6 +479,10 @@ void MythUINotificationScreen::SetSingleShotTimer(int s)
     int ms = s * 1000;
     ms = ms <= DEFAULT_DURATION ? DEFAULT_DURATION : ms;
 
+    if (!update)
+    {
+        m_creation = MythDate::current();
+    }
     m_expiry = MythDate::current().addMSecs(ms);
 
     m_timer->stop();
@@ -469,6 +490,28 @@ void MythUINotificationScreen::SetSingleShotTimer(int s)
     m_timer->start(ms);
 }
 
+// Public event handling
+bool MythUINotificationScreen::keyPressEvent(QKeyEvent *event)
+{
+    QStringList actions;
+    bool handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
+
+    for (int i = 0; i < actions.size() && !handled; i++)
+    {
+        QString action = actions[i];
+
+        if (action == "ESCAPE")
+        {
+            if (MythDate::current() < m_creation.addMSecs(MIN_LIFE))
+                return true; // was updated less than 1s ago, ignore
+        }
+    }
+    if (!handled)
+    {
+        handled = MythScreenType::keyPressEvent(event);
+    }
+    return handled;
+}
 
 /////////////////////// NCPrivate
 
@@ -478,6 +521,7 @@ NCPrivate::NCPrivate()
     m_screenStack = new MythNotificationScreenStack(GetMythMainWindow(),
                                                     "mythuinotification",
                                                     this);
+    m_originalScreenStack = m_screenStack;
 }
 
 NCPrivate::~NCPrivate()
@@ -492,6 +536,7 @@ NCPrivate::~NCPrivate()
 
     QMutexLocker lock(&m_lock);
 
+    DeleteUnregistered();
     DeleteAllRegistrations();
     DeleteAllScreens();
 
@@ -503,7 +548,7 @@ NCPrivate::~NCPrivate()
     m_notifications.clear();
 
     delete m_screenStack;
-    m_screenStack = NULL;
+    m_originalScreenStack = m_screenStack = NULL;
 }
 
 /**
@@ -553,6 +598,7 @@ void NCPrivate::ScreenDeleted(void)
             {
                 // we're in the middle of being deleted
                 m_registrations.remove(screen->m_id);
+                m_unregistered.remove(screen->m_id);
             }
             else
             {
@@ -581,7 +627,7 @@ void NCPrivate::ScreenStackDeleted(void)
     m_screenStack = NULL;
 }
 
-bool NCPrivate::Queue(MythNotification &notification)
+bool NCPrivate::Queue(const MythNotification &notification)
 {
     QMutexLocker lock(&m_lock);
 
@@ -651,6 +697,7 @@ void NCPrivate::ProcessQueue(void)
             {
                 LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("ProcessQueue: couldn't create required screen"));
+                delete n;
                 continue; // something is wrong ; ignore
             }
             if (id > 0)
@@ -670,6 +717,7 @@ void NCPrivate::ProcessQueue(void)
             if (!screen->Create())
             {
                 delete screen;
+                delete n;
                 continue;
             }
             created = true;
@@ -686,6 +734,8 @@ void NCPrivate::ProcessQueue(void)
         delete n;
     }
     m_notifications.clear();
+
+    DeleteUnregistered();
 }
 
 /**
@@ -751,19 +801,9 @@ void NCPrivate::UnRegister(void *from, int id, bool closeimemdiately)
             .arg(id));
     }
 
-    if (m_registrations.contains(id))
-    {
-        MythUINotificationScreen *screen = m_registrations[id];
-        if (screen != NULL)
-        {
-            // mark the screen for deletion if no timer is set
-            if (screen->m_duration <= 0 || closeimemdiately)
-            {
-                m_deletedScreens.append(screen);
-            }
-        }
-        m_registrations.remove(id);
-    }
+    // queue the de-registration
+    m_unregistered[id] = closeimemdiately;
+
     m_clients.remove(id);
 
     // Tell the GUI thread we have something to process
@@ -775,10 +815,12 @@ void NCPrivate::DeleteAllRegistrations(void)
 {
     QMap<int, MythUINotificationScreen*>::iterator it = m_registrations.begin();
 
-    for (; it != m_registrations.end();)
+    for (; it != m_registrations.end(); ++it)
     {
-        m_deletedScreens.append(*it);
-        it = m_registrations.erase(it);
+        if (*it)
+        {
+            m_deletedScreens.append(*it);
+        }
     }
     m_registrations.clear();
 }
@@ -792,7 +834,67 @@ void NCPrivate::DeleteAllScreens(void)
         // we remove the screen from the list before deleting the screen
         // so the MythScreenType::Exiting() signal won't process it a second time
         m_deletedScreens.removeLast();
-        screen->GetScreenStack()->PopScreen(screen, true, true);
+        if (m_screenStack == NULL &&
+            screen->GetScreenStack() == m_originalScreenStack)
+        {
+            // our screen stack got deleted already and all its children
+            // would have been marked for deletion during the
+            // ScreenStack destruction but not yet deleted as the event loop may
+            // not be running; so we can leave the screen alone.
+            // However for clarity, call deleteLater()
+            // as it is safe to call deleteLater more than once
+            screen->deleteLater();
+        }
+        else if (screen->GetScreenStack() == m_screenStack)
+        {
+            screen->GetScreenStack()->PopScreen(screen, true, true);
+        }
+        else if (screen->GetScreenStack() == NULL)
+        {
+            // this screen was never added to a screen stack, delete it now
+            delete screen;
+        }
+    }
+}
+
+void NCPrivate::DeleteUnregistered(void)
+{
+    QMap<int,bool>::iterator it = m_unregistered.begin();
+    bool needdelete = false;
+
+    for (; it != m_unregistered.end(); ++it)
+    {
+        int id = it.key();
+        bool closeimemdiately = it.value();
+        MythUINotificationScreen *screen = NULL;
+
+        if (m_registrations.contains(id))
+        {
+            screen = m_registrations[id];
+            if (screen != NULL && !m_suspended.contains(id))
+            {
+                // mark the screen for deletion if no timer is set
+                if (screen->m_duration <= 0 || closeimemdiately)
+                {
+                    m_deletedScreens.append(screen);
+                    needdelete = true;
+                }
+            }
+            m_registrations.remove(id);
+        }
+
+        if (m_suspended.contains(id))
+        {
+            // screen had been suspended, delete suspended screen
+            delete screen;
+            m_suspended.removeAll(id);
+        }
+    }
+    m_unregistered.clear();
+
+    if (needdelete)
+    {
+        DeleteAllScreens();
     }
 }
 
@@ -937,30 +1039,37 @@ void NCPrivate::GetNotificationScreens(QList<MythScreenType*> &_screens)
     _screens = list;
 }
 
-/////////////////////// MythUINotificationCenter
+int NCPrivate::DisplayedNotifications(void) const
+{
+    return m_screens.size();
+}
 
-MythUINotificationCenter *MythUINotificationCenter::g_singleton = NULL;
-QMutex MythUINotificationCenter::g_lock;
+int NCPrivate::QueuedNotifications(void) const
+{
+    return m_notifications.size();
+}
+
+bool NCPrivate::RemoveFirst(void)
+{
+    QMutexLocker lock(&m_lock);
+
+    if (m_screens.isEmpty())
+        return false;
+
+    MythUINotificationScreen *screen = m_screens.first();
+    if (MythDate::current() < screen->m_creation.addMSecs(MIN_LIFE))
+        return false;
+
+    // simulate time-out
+    screen->ProcessTimer();
+    return true;
+}
+
+/////////////////////// MythUINotificationCenter
 
 MythUINotificationCenter *MythUINotificationCenter::GetInstance(void)
 {
-    QMutexLocker lock(&g_lock);
-
-    if (g_singleton)
-        return g_singleton;
-
-    const bool isGuiThread =
-        QThread::currentThread() == QCoreApplication::instance()->thread();
-
-    if (!isGuiThread)
-    {
-        LOG(VB_GENERAL, LOG_ERR, LOC + "Constructor not called from GUI thread");
-    }
-    else
-    {
-        g_singleton = new MythUINotificationCenter();
-    }
-    return g_singleton;
+    return GetNotificationCenter();
 }
 
 MythUINotificationCenter::MythUINotificationCenter()
@@ -987,16 +1096,9 @@ MythUINotificationCenter::~MythUINotificationCenter()
 
     delete d;
     d = NULL;
-
-    // if we're deleting global instancce; set g_singleton to 0
-    // in practice this is always the case
-    if (this == g_singleton)
-    {
-        g_singleton = NULL;
-    }
 }
 
-bool MythUINotificationCenter::Queue(MythNotification &notification)
+bool MythUINotificationCenter::Queue(const MythNotification &notification)
 {
     return d->Queue(notification);
 }
@@ -1017,36 +1119,28 @@ void MythUINotificationCenter::ProcessQueue(void)
 
 int MythUINotificationCenter::Register(void *from)
 {
-    // Just in case we got deleted half-way while GUI thread was quitting
-    if (!g_singleton)
-        return false;
-
     return d->Register(from);
 }
 
 void MythUINotificationCenter::UnRegister(void *from, int id, bool closeimemdiately)
 {
-    // Just in case we got deleted half-way while GUI thread was quitting
-    if (!g_singleton)
-        return;
-
     d->UnRegister(from, id, closeimemdiately);
 }
 
-QDateTime MythUINotificationCenter::ScreenExpiryTime(MythScreenType *screen)
+QDateTime MythUINotificationCenter::ScreenExpiryTime(const MythScreenType *screen)
 {
-    MythUINotificationScreen *s =
-        dynamic_cast<MythUINotificationScreen*>(screen);
+    const MythUINotificationScreen *s =
+        dynamic_cast<const MythUINotificationScreen*>(screen);
 
     if (!s)
         return QDateTime();
     return s->m_expiry;
 }
 
-bool MythUINotificationCenter::ScreenCreated(MythScreenType *screen)
+bool MythUINotificationCenter::ScreenCreated(const MythScreenType *screen)
 {
-    MythUINotificationScreen *s =
-        dynamic_cast<MythUINotificationScreen*>(screen);
+    const MythUINotificationScreen *s =
+        dynamic_cast<const MythUINotificationScreen*>(screen);
 
     if (!s)
         return true;;
@@ -1072,11 +1166,26 @@ void MythUINotificationCenter::UpdateScreen(MythScreenType *screen)
     }
 }
 
+int MythUINotificationCenter::DisplayedNotifications(void) const
+{
+    return d->DisplayedNotifications();
+}
+
+int MythUINotificationCenter::QueuedNotifications(void) const
+{
+    return d->QueuedNotifications();
+}
+
+bool MythUINotificationCenter::RemoveFirst(void)
+{
+    return d->RemoveFirst();
+}
+
 void ShowNotificationError(const QString &msg,
                            const QString &from,
                            const QString &detail,
-                           const PNMask priority,
-                           const VNMask visibility)
+                           const VNMask visibility,
+                           const MythNotification::Priority priority)
 {
     MythErrorNotification n(msg, from, detail);
     n.SetPriority(priority);
@@ -1088,8 +1197,8 @@ void ShowNotificationError(const QString &msg,
 void ShowNotification(const QString &msg,
                       const QString &from,
                       const QString &detail,
-                      const PNMask priority,
-                      const VNMask visibility)
+                      const VNMask visibility,
+                      const MythNotification::Priority priority)
 {
     MythNotification n(msg, from, detail);
     n.SetPriority(priority);

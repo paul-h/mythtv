@@ -22,10 +22,13 @@
 #include "mythuitext.h"
 #include "mythuiprogressbar.h"
 #include "mythuinotificationcenter.h"
+#include "mythuistatetype.h"
 
 // Forward declarations
 class MythUINotificationScreen;
 class MythNotificationScreenStack;
+
+#define MIN_LIFE 1000
 
 class NCPrivate : public QObject
 {
@@ -43,7 +46,7 @@ public:
      * Queue() is thread-safe and can be called from anywhere.
      * Typical use would be MythUINotificationCenter::GetInstance()->Queue(notification)
      */
-    bool Queue(MythNotification &notification);
+    bool Queue(const MythNotification &notification);
 
     /**
      * returns the MythUINotificationCenter singleton
@@ -76,12 +79,12 @@ public:
      * Return when the given screen is going to expire
      * will return an invalid QDateTime if screen isn't a MythUINotificationScreen
      */
-    QDateTime ScreenExpiryTime(MythScreenType *screen);
+    QDateTime ScreenExpiryTime(const MythScreenType *screen);
     /**
      * Return true if ::Create() has been called on screen.
      * will always return true should screen not be a MythUINotificationScreen
      */
-    bool ScreenCreated(MythScreenType *screen);
+    bool ScreenCreated(const MythScreenType *screen);
     /**
      * Return the list of notification screens being currently displayed.
      * The list contains pointer of existing screen's copies, with ::Create()
@@ -93,6 +96,19 @@ public:
      * ::Create() has been called for it already
      */
     void UpdateScreen(MythScreenType *screen);
+    /**
+     * Returns number of notifications currently displayed
+     */
+    int DisplayedNotifications(void) const;
+    /**
+     * Returns number of notifications currently queued
+     */
+    int QueuedNotifications(void) const;
+    /**
+     * Will remove the oldest notification from the stack
+     * return true if a screen was removed; or false if nothing was done
+     */
+    bool RemoveFirst(void);
     /**
      * ProcessQueue will be called by the GUI event handler and will process
      * all queued MythNotifications and delete screens marked to be deleted
@@ -108,16 +124,19 @@ private:
                                            int id = -1);
     void DeleteAllRegistrations(void);
     void DeleteAllScreens(void);
+    void DeleteUnregistered(void);
     int InsertScreen(MythUINotificationScreen *screen);
     int RemoveScreen(MythUINotificationScreen *screen);
     void RefreshScreenPosition(int from = 0);
 
+    MythNotificationScreenStack            *m_originalScreenStack;
     MythNotificationScreenStack            *m_screenStack;
     QList<MythNotification*>                m_notifications;
     QList<MythUINotificationScreen*>        m_screens;
     QList<MythUINotificationScreen*>        m_deletedScreens;
     QMap<int, MythUINotificationScreen*>    m_registrations;
     QList<int>                              m_suspended;
+    QMap<int,bool>                          m_unregistered;
     QMap<int, void*>                        m_clients;
     QMutex                                  m_lock;
     int                                     m_currentId;
@@ -138,6 +157,8 @@ public:
 
     virtual ~MythUINotificationScreen();
 
+    bool keyPressEvent(QKeyEvent *event);
+
     // These two methods are declared by MythScreenType and their signatures
     // should not be changed
     virtual bool Create(void);
@@ -150,7 +171,7 @@ public:
     void UpdateMetaData(const DMAP &data);
     void UpdatePlayback(float progress, const QString &text);
 
-    void SetSingleShotTimer(int s);
+    void SetSingleShotTimer(int s, bool update = false);
 
     // UI methods
     void AdjustYPosition(void);
@@ -163,6 +184,7 @@ public:
         kDuration   = 1 << 1,
         kMetaData   = 1 << 2,
         kStyle      = 1 << 3,
+        kError      = 1 << 4,
         kAll        = ~kNone,
     };
 
@@ -175,35 +197,36 @@ public slots:
     void ProcessTimer(void);
 
 public:
-    int                 m_id;
-    QImage              m_image;
-    QString             m_imagePath;
-    QString             m_title;
-    QString             m_origin;
-    QString             m_description;
-    QString             m_extra;
-    int                 m_duration;
-    float               m_progress;
-    QString             m_progresstext;
-    bool                m_fullscreen;
-    bool                m_added;
-    bool                m_created;
-    uint32_t            m_content;
-    uint32_t            m_update;
-    MythUIImage        *m_artworkImage;
-    MythUIText         *m_titleText;
-    MythUIText         *m_originText;
-    MythUIText         *m_descriptionText;
-    MythUIText         *m_extraText;
-    MythUIText         *m_progresstextText;
-    MythUIProgressBar  *m_progressBar;
-    QDateTime           m_expiry;
-    int                 m_index;
-    MythPoint           m_position;
-    QTimer             *m_timer;
-    QString             m_style;
-    VNMask              m_visibility;
-    PNMask              m_priority;
+    int                         m_id;
+    QImage                      m_image;
+    QString                     m_imagePath;
+    QString                     m_title;
+    QString                     m_origin;
+    QString                     m_description;
+    QString                     m_extra;
+    int                         m_duration;
+    float                       m_progress;
+    QString                     m_progresstext;
+    bool                        m_fullscreen;
+    bool                        m_added;
+    bool                        m_created;
+    uint32_t                    m_content;
+    uint32_t                    m_update;
+    MythUIImage                *m_artworkImage;
+    MythUIText                 *m_titleText;
+    MythUIText                 *m_originText;
+    MythUIText                 *m_descriptionText;
+    MythUIText                 *m_extraText;
+    MythUIText                 *m_progresstextText;
+    MythUIProgressBar          *m_progressBar;
+    MythUIStateType            *m_errorState;
+    QDateTime                   m_creation, m_expiry;
+    int                         m_index;
+    MythPoint                   m_position;
+    QTimer                     *m_timer;
+    QString                     m_style;
+    VNMask                      m_visibility;
+    MythNotification::Priority  m_priority;
 };
 
 //// class MythScreenNotificationStack

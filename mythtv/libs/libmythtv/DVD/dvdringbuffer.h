@@ -43,6 +43,10 @@ class MTV_PUBLIC MythDVDContext : public ReferenceCounter
     int      GetFPS()               const { return (m_pci.pci_gi.e_eltm.frame_u & 0x80) ? 30 : 25; }
 
   protected:
+    MythDVDContext(const dsi_t& dsi, const pci_t& pci);
+
+  private:
+    // Default constructor should not be called
     MythDVDContext();
 
   protected:
@@ -105,6 +109,7 @@ class MTV_PUBLIC DVDRingBuffer : public RingBuffer
     bool PGCLengthChanged(void);
     bool CellChanged(void);
     virtual bool IsInStillFrame(void)   const { return m_still > 0;             }
+    bool IsStillFramePending(void) const { return dvdnav_get_next_still_flag(m_dvdnav) > 0; }
     bool AudioStreamsChanged(void) const { return m_audioStreamsChanged; }
     bool IsWaiting(void) const           { return m_dvdWaiting;          }
     int  NumPartsInTitle(void)     const { return m_titleParts;          }
@@ -164,6 +169,7 @@ class MTV_PUBLIC DVDRingBuffer : public RingBuffer
     bool GoToMenu(const QString str);
     void GoToNextProgram(void);
     void GoToPreviousProgram(void);
+    bool GoBack(void);
 
     virtual void IgnoreWaitStates(bool ignore) { m_skipstillorwait = ignore; }
     void AudioStreamsChanged(bool change) { m_audioStreamsChanged = change; }

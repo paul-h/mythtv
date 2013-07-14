@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QRegion>
 #include <QMap>
+#include <QHash>
 #include <QList>
 #include <QFont>
 #include <QColor>
@@ -135,7 +136,7 @@ class MUI_PUBLIC MythUIType : public QObject, public XMLParseBase
     virtual QRegion GetDirtyArea(void) const;
 
     bool IsVisible(bool recurse = false) const;
-    void SetVisible(bool visible);
+    virtual void SetVisible(bool visible);
 
     void MoveTo(QPoint destXY, QPoint speedXY);
     //FIXME: make mode enum
