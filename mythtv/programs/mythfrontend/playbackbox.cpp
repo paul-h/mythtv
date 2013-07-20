@@ -2423,7 +2423,7 @@ void PlaybackBox::ShowGroupPopup()
 
     if (m_playList.size())
     {
-        m_popupMenu->AddItem(tr("Playlist options"), NULL, createPlaylistMenu());
+        m_popupMenu->AddItem(tr("Playlist Options"), NULL, createPlaylistMenu());
     }
     else if (!m_player)
     {
@@ -3305,7 +3305,7 @@ void PlaybackBox::ShowActionPopup(const ProgramInfo &pginfo)
                                  SLOT(togglePlayListItem()));
         if (m_playList.size())
         {
-            m_popupMenu->AddItem(tr("Playlist options"), NULL, createPlaylistMenu());
+            m_popupMenu->AddItem(tr("Playlist Options"), NULL, createPlaylistMenu());
         }
     }
 
