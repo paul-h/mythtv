@@ -855,6 +855,13 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
         else
             HandleDownloadFile(listline, pbs);
     }
+    else if (command == "CHANGE_STORAGE_GROUP")
+    {
+        if (listline.size() < 4)
+            LOG(VB_GENERAL, LOG_ERR, QString("Bad %1 command").arg(command));
+        else
+            HandleChangeStorageGroup(listline, pbs);
+    }
     else if (command == "REFRESH_BACKEND")
     {
         LOG(VB_GENERAL, LOG_INFO ,"Reloading backend settings");
@@ -5057,6 +5064,274 @@ void MainServer::HandleDownloadFile(const QStringList &command,
 
     if (pbssock)
         SendResponse(pbssock, retlist);
+}
+
+class DoChangeStorageGroup : public QRunnable
+{
+  public:
+    DoChangeStorageGroup(QList<ProgramInfo> &pginfoList, QString group) :
+        m_pginfoList(pginfoList), m_group(group), m_totalBytes(0), m_totalBytesCopied(0)
+    {
+    }
+
+    void run(void)
+    {
+        for (int x = 0; x < m_pginfoList.count(); x++)
+        {
+            ProgramInfo pginfo = m_pginfoList.at(x);
+
+            QString usedBy;
+            if (pginfo.QueryIsInUse(usedBy))
+            {
+                LOG(VB_GENERAL, LOG_WARNING, QString("Cannot move recording it is in use by %1").arg(usedBy));
+                MythEvent me(QString("CHANGE_RECORDING_GROUP ERROR INUSE %1").arg(usedBy));
+                gCoreContext->dispatch(me);
+                continue;
+            }
+
+            // get the new filename
+            StorageGroup sg(m_group, gCoreContext->GetHostName());
+            QString newDir = sg.FindNextDirMostFree();
+            QString newFile(newDir + "/" + pginfo.GetBasename());
+            LOG(VB_FILE, LOG_INFO, QString("New File Name is: %1").arg(newFile));
+
+            // get the old filename
+            StorageGroup sg1(pginfo.GetStorageGroup(), pginfo.GetHostname());
+            QString oldFile = sg1.FindFile(pginfo.GetBasename());
+            LOG(VB_FILE, LOG_INFO, QString("Old File Name is: %1").arg(oldFile));
+
+            // sanity check - make sure they aren't the same file
+            if (newFile == oldFile)
+            {
+                QString errMessage = "Cannot copy a file to itself!";
+                MythEvent me("CHANGE_RECORDING_GROUP ERROR", errMessage);
+                gCoreContext->dispatch(me);
+                return;
+            }
+
+            // sanity check - make sure the recording file exists
+            if (!QFile::exists(oldFile))
+            {
+                QString errMessage = "Cannot find the recording file";
+                MythEvent me("CHANGE_RECORDING_GROUP ERROR", errMessage);
+                gCoreContext->dispatch(me);
+                return;
+            }
+
+            QFileInfo finfo(oldFile);
+            m_totalBytes = finfo.size();
+            m_totalBytesCopied = 0;
+
+            // find any associated files (preview images etc)
+            QDir d;
+            QFileInfoList list;
+            QString oldDir(finfo.absolutePath());
+            QFileInfo fi;
+            QStringList filter(finfo.fileName() + ".*");
+
+            d.setPath(oldDir);
+            if (d.exists())
+                list = d.entryInfoList(filter, QDir::Files, QDir::Name);
+
+            for (int i = 0; i < list.size(); ++i)
+            {
+                fi = list.at(i);
+                LOG(VB_FILE, LOG_INFO, QString("found file: %1").arg(fi.fileName()));
+
+                m_totalBytes += fi.size();
+            }
+
+            // copy the recording over
+            QDateTime recStartTime = pginfo.GetRecordingStartTime();
+            QDateTime recEndTime = pginfo.GetRecordingEndTime();
+            QString message = QObject::tr("Moving - ");
+            message += pginfo.GetTitle() + "\n";
+            message += QString("%1 - %2")
+                .arg(MythDate::toString(recStartTime, MythDate::kDateTimeFull | MythDate::kSimplify))
+                .arg(MythDate::toString(recEndTime, MythDate::kTime));
+            MythEvent me("CHANGE_RECORDING_GROUP COPY_RECORDING_START", message);
+            gCoreContext->dispatch(me);
+
+            if (!DoCopyFile(oldFile, newFile))
+            {
+                QString errMessage = "Copy Failed - "
+                                    "Could not move the recording to the new storage group.";
+                LOG(VB_GENERAL, LOG_ERR, errMessage);
+                MythEvent me("CHANGE_RECORDING_GROUP ERROR", errMessage);
+                gCoreContext->dispatch(me);
+
+                return;
+            }
+
+            // remove the old recording
+            QFile::remove(oldFile);
+
+            // copy any associated files
+            for (int i = 0; i < list.size(); ++i)
+            {
+                fi = list.at(i);
+                QString oldFile(fi.absolutePath() + '/' + fi.fileName());
+                QString newFile(newDir + '/' + fi.fileName());
+                LOG(VB_FILE, LOG_INFO, QString("copying file from %1 to %2").arg(oldFile).arg(newFile));
+                DoCopyFile(oldFile, newFile);
+            }
+
+            // remove any associated files
+            for (int i = 0; i < list.size(); ++i)
+            {
+                fi = list.at(i);
+                QString delFile(fi.absolutePath() + '/' + fi.fileName());
+                LOG(VB_FILE, LOG_INFO, QString("deleting file %1").arg(delFile));
+                QFile::remove(delFile);
+            }
+
+            RecordingInfo ri(pginfo);
+            ri.ApplyStorageGroupChange(m_group);
+
+            MythEvent me2(QString("CHANGE_RECORDING_GROUP COPY_RECORDING_FINISHED"));
+            gCoreContext->dispatch(me2);
+        }
+    }
+
+    bool DoCopyFile(const QString &srcURL, const QString &destURL)
+    {
+        if (srcURL.isEmpty())
+        {
+            LOG(VB_GENERAL, LOG_ERR, "Missing source file name");
+            return false;
+        }
+
+        if (destURL.isEmpty())
+        {
+            LOG(VB_GENERAL, LOG_ERR, "Missing destination file name");
+            return false;
+        }
+
+        const int readSize = 2 * 1024 * 1024;
+        char *buf = new char[readSize];
+        if (!buf)
+        {
+            LOG(VB_GENERAL, LOG_ERR, "ERROR, unable to allocate copy buffer ");
+            return false;
+        }
+
+        LOG(VB_GENERAL, LOG_INFO, QString("Copying %1 to %2").arg(srcURL).arg(destURL));
+        RingBuffer *srcRB = RingBuffer::Create(srcURL, false);
+        if (!srcRB)
+        {
+            LOG(VB_GENERAL, LOG_ERR, "ERROR, couldn't create Read RingBuffer");
+            delete[] buf;
+            return false;
+        }
+
+        if (!srcRB->IsOpen())
+        {
+            LOG(VB_GENERAL, LOG_ERR, "ERROR, srcRB is not open");
+            delete[] buf;
+            delete srcRB;
+            return false;
+        }
+
+        RingBuffer *destRB = RingBuffer::Create(destURL, true);
+        if (!destRB)
+        {
+            LOG(VB_GENERAL, LOG_ERR, "ERROR, couldn't create Write RingBuffer");
+            delete[] buf;
+            delete srcRB;
+            return false;
+        }
+
+        if (!destRB->IsOpen())
+        {
+            LOG(VB_GENERAL, LOG_ERR, "ERROR, destRB is not open");
+            delete[] buf;
+            delete srcRB;
+            delete destRB;
+            return false;
+        }
+
+        long long fileBytesCopied = 0;
+        int percentComplete = 0;
+        bool ok = true;
+        int r;
+        int ret;
+        while (ok && ((r = srcRB->Read(buf, readSize)) > 0))
+        {
+            ret = destRB->Write(buf, r);
+            if (ret < 0)
+            {
+                LOG(VB_GENERAL, LOG_ERR,
+                        QString("ERROR, couldn't write at offset %1")
+                                .arg(fileBytesCopied));
+                ok = false;
+            }
+            else
+            {
+                fileBytesCopied += ret;
+                m_totalBytesCopied += ret;
+            }
+
+            percentComplete = m_totalBytesCopied * 100 / m_totalBytes;
+            if ((percentComplete % 5) == 0)
+            {
+                LOG(VB_GENERAL, LOG_INFO,
+                    QString("%1 bytes copied, %2%% complete")
+                            .arg(fileBytesCopied).arg(percentComplete));
+
+                MythEvent me(QString("CHANGE_RECORDING_GROUP PROGRESS %1").arg(percentComplete));
+                gCoreContext->dispatch(me);
+            }
+        }
+
+        LOG(VB_GENERAL, LOG_INFO,
+            QString("Wrote %1 bytes total").arg(fileBytesCopied));
+
+        LOG(VB_GENERAL, LOG_INFO, "Waiting for write buffer to flush");
+
+        delete[] buf;
+        delete srcRB;
+        delete destRB;
+
+        return ok;
+    }
+
+  private:
+    QList<ProgramInfo> m_pginfoList;
+    QString m_group;
+    long long m_totalBytes;
+    long long m_totalBytesCopied;
+};
+
+void MainServer::HandleChangeStorageGroup(const QStringList &command,
+                                          PlaybackSock *pbs)
+{
+    QList<ProgramInfo> pginfoList;
+
+    QString newGroup = command[1];
+
+    for (int x = 2; x < command.count(); x += 2)
+    {
+        QString chanid = command[x];
+        QString starttime = command[x + 1];
+        QDateTime recstartts = MythDate::fromTime_t(starttime.toULongLong());
+        ProgramInfo pginfo(chanid.toUInt(), recstartts);
+
+        if (pginfo.GetChanID())
+            pginfoList.append(pginfo);
+    }
+
+    MythSocket *pbssock = NULL;
+    if (pbs)
+        pbssock = pbs->getSocket();
+
+    QStringList retlist;
+
+    retlist << "OK";
+
+    if (pbssock)
+        SendResponse(pbssock, retlist);
+
+    MThreadPool::globalInstance()->start(new DoChangeStorageGroup(pginfoList, newGroup), "ChangeStorageGroup");
 }
 
 void MainServer::HandleSetSetting(QStringList &tokens,
