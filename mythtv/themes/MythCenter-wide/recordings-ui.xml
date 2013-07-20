@@ -418,6 +418,12 @@
             <preserveaspect>true</preserveaspect>
         </imagetype>
 
+        <textarea name="storagegroup" from="basetextarea">
+            <area>920,410,320,30</area>
+            <align>hcenter, top</align>
+            <font>basesmaller</font>
+        </textarea>
+
         <textarea name="norecordings">
             <area>20,74,760,300</area>
             <font>basemedium</font>
