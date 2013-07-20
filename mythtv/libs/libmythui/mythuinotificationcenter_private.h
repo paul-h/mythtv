@@ -172,10 +172,12 @@ public:
     void UpdatePlayback(float progress, const QString &text);
 
     void SetSingleShotTimer(int s, bool update = false);
+    void SetErrorState(void);
 
     // UI methods
     void AdjustYPosition(void);
     void AdjustIndex(int by, bool set=false);
+    void SetIndex(int value);
     int  GetHeight(void);
 
     enum Content {
@@ -184,7 +186,7 @@ public:
         kDuration   = 1 << 1,
         kMetaData   = 1 << 2,
         kStyle      = 1 << 3,
-        kError      = 1 << 4,
+        kNoArtwork  = 1 << 4,
         kAll        = ~kNone,
     };
 
@@ -212,6 +214,7 @@ public:
     bool                        m_created;
     uint32_t                    m_content;
     uint32_t                    m_update;
+    MythNotification::Type      m_type;
     MythUIImage                *m_artworkImage;
     MythUIText                 *m_titleText;
     MythUIText                 *m_originText;
@@ -220,6 +223,7 @@ public:
     MythUIText                 *m_progresstextText;
     MythUIProgressBar          *m_progressBar;
     MythUIStateType            *m_errorState;
+    MythUIStateType            *m_mediaState;
     QDateTime                   m_creation, m_expiry;
     int                         m_index;
     MythPoint                   m_position;
@@ -227,6 +231,7 @@ public:
     QString                     m_style;
     VNMask                      m_visibility;
     MythNotification::Priority  m_priority;
+    bool                        m_refresh;
 };
 
 //// class MythScreenNotificationStack
@@ -258,6 +263,11 @@ public:
         MythScreenStack::CheckDeletes();
     }
 
+    static const int kFadeVal = 20;
+
+    virtual void PopScreen(MythScreenType *screen, bool allowFade = true,
+                           bool deleteScreen = true);
+    virtual MythScreenType *GetTopScreen(void) const;
 private:
     NCPrivate *m_owner;
 
