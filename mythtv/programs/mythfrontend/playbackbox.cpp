@@ -18,6 +18,7 @@
 #include "mythuistatetype.h"
 #include "mythuicheckbox.h"
 #include "mythuitextedit.h"
+#include "mythprogressdialog.h"
 #include "mythuispinbox.h"
 #include "mythdialogbox.h"
 #include "recordinginfo.h"
@@ -406,6 +407,8 @@ PlaybackBox::PlaybackBox(MythScreenStack *parent, QString name,
       // General m_popupMenu support
       m_menuDialog(NULL),
       m_popupMenu(NULL),
+      m_progressDialog(NULL),
+
       m_doToggleMenu(true),
       // Main Recording List support
       m_progsInDB(0),
@@ -2744,6 +2747,115 @@ MythMenu* PlaybackBox::createPlaylistMenu(void)
     return menu;
 }
 
+void PlaybackBox::doPlaylistChangeStorageGroup(void)
+{
+    showStorageGroupChanger();
+}
+
+void PlaybackBox::showStorageGroupChanger(void)
+{
+    ProgramInfo *pginfo = CurrentItem();
+
+    // dont bother showing the dialog if there is only one storage group
+    QStringList storageGroups(StorageGroup::getRecordingsGroups());
+    if (storageGroups.size() < 2)
+    {
+        ShowOkPopup(tr("There are no other storage groups available to move the recording to!!"));
+        return;
+    }
+
+    // remove the recordings current storage group from the list
+    storageGroups.removeAll(pginfo->GetStorageGroup());
+
+    QStringList groupNames;
+    QStringList displayNames;
+    QString selected = "";
+
+    QStringListIterator it(storageGroups);
+    while (it.hasNext())
+    {
+        QString group = it.next();
+        displayNames.append(group);
+        groupNames.append(group);
+    }
+
+    selected = pginfo->GetPlaybackGroup();
+
+    QString label = tr("Select Storage Group");
+
+    label = CreateProgramInfoString(*pginfo);
+
+    GroupSelector *pgChanger = new GroupSelector(m_popupStack, label,
+                                                 displayNames, groupNames,
+                                                 selected);
+
+    if (pgChanger->Create())
+    {
+        connect(pgChanger, SIGNAL(result(QString)),
+                SLOT(setStorageGroup(QString)));
+        m_popupStack->AddScreen(pgChanger);
+    }
+    else
+        delete pgChanger;
+}
+
+class SendChangeSGroupMessage : public QRunnable
+{
+  public:
+    SendChangeSGroupMessage(QList<ProgramInfo> &pginfoList, QString group) :
+        m_pginfoList(pginfoList), m_group(group)
+    {
+    }
+
+    void run(void)
+    {
+        QStringList strlist;
+        strlist << "CHANGE_STORAGE_GROUP";
+        strlist << m_group;
+        for (int x = 0; x < m_pginfoList.count(); x++)
+        {
+            ProgramInfo pginfo = m_pginfoList.at(x);
+            strlist << QString::number(pginfo.GetChanID());
+            strlist << QString::number(pginfo.GetRecordingStartTime().toTime_t());
+        }
+
+        gCoreContext->SendReceiveStringList(strlist);
+    }
+
+  private:
+    QList<ProgramInfo> m_pginfoList;
+    QString m_group;
+};
+
+void PlaybackBox::setStorageGroup(QString group)
+{
+    QList<ProgramInfo> pginfoList;
+
+    if (m_playList.size() > 0)
+    {
+        QStringList::Iterator it;
+        ProgramInfo *tmpItem;
+
+        for (it = m_playList.begin(); it != m_playList.end(); ++it )
+        {
+            tmpItem = FindProgramInUILists(*it);
+            if (tmpItem)
+            {
+                pginfoList.append(*tmpItem);
+            }
+        }
+        doClearPlaylist();
+    }
+    else
+    {
+        ProgramInfo *pginfo = CurrentItem();
+        pginfoList.append(*pginfo);
+    }
+
+    MThreadPool::globalInstance()->start(
+        new SendChangeSGroupMessage(pginfoList, group), "ChangeStorageGroup");
+}
+
 MythMenu* PlaybackBox::createPlaylistStorageMenu()
 {
     QString label = tr("There is %n item(s) in the playlist. Actions affect "
@@ -2753,6 +2865,7 @@ MythMenu* PlaybackBox::createPlaylistStorageMenu()
 
     menu->AddItem(tr("Change Recording Group"), SLOT(ShowRecGroupChangerUsePlaylist()));
     menu->AddItem(tr("Change Playback Group"), SLOT(ShowPlayGroupChangerUsePlaylist()));
+    menu->AddItem(tr("Change Storage Group"), SLOT(doPlaylistChangeStorageGroup()));
     menu->AddItem(tr("Disable Auto Expire"), SLOT(doPlaylistExpireSetOff()));
     menu->AddItem(tr("Enable Auto Expire"), SLOT(doPlaylistExpireSetOn()));
     menu->AddItem(tr("Mark As Watched"), SLOT(doPlaylistWatchedSetOn()));
@@ -2966,6 +3079,7 @@ MythMenu* PlaybackBox::createStorageMenu()
     MythMenu *menu = new MythMenu(title, this, "slotmenu");
     menu->AddItem(tr("Change Recording Group"), SLOT(ShowRecGroupChanger()));
     menu->AddItem(tr("Change Playback Group"), SLOT(ShowPlayGroupChanger()));
+    menu->AddItem(tr("Change Storage Group"), SLOT(showStorageGroupChanger()));
     menu->AddItem(autoExpireText, SLOT(toggleAutoExpire()));
     menu->AddItem(preserveText, SLOT(togglePreserveEpisode()));
 
@@ -4229,6 +4343,62 @@ void PlaybackBox::customEvent(QEvent *event)
         {
             QString recGroup = me->ExtraData(0);
             displayRecGroup(recGroup);
+        }
+        else if (message.startsWith("CHANGE_RECORDING_GROUP"))
+        {
+            QStringList tokens = message.simplified().split(" ");
+            if (tokens.size() >= 2)
+            {
+                if (tokens[1] == "ERROR" && me->ExtraDataCount() > 0)
+                {
+                    if (m_progressDialog)
+                    {
+                        m_progressDialog->Close();
+                        m_progressDialog = 0;
+                    }
+
+                    ShowOkPopup(me->ExtraData(0));
+                }
+                else if (tokens[1] == "COPY_RECORDING_START")
+                {
+                    // show the progress dialog
+                    QString msg;
+                    if (me->ExtraDataCount() > 0)
+                        msg = me->ExtraData(0);
+
+                    m_progressDialog = new MythUIProgressDialog(msg, m_popupStack, "filecopyprogress");
+
+                    if (m_progressDialog->Create())
+                    {
+                        m_popupStack->AddScreen(m_progressDialog);
+                        m_progressDialog->SetProgress(0);
+                        m_progressDialog->SetTotal(100);
+                    }
+                    else
+                    {
+                        delete m_progressDialog;
+                        m_progressDialog = NULL;
+                    }
+                }
+                else if (tokens[1] == "COPY_RECORDING_FINISHED")
+                {
+                    // hide progress dialog
+                    if (m_progressDialog)
+                    {
+                        m_progressDialog->Close();
+                        m_progressDialog = NULL;
+                    }
+                }
+                else if (tokens[1] == "PROGRESS" && tokens.size() == 3)
+                {
+                    // update progress dialog
+                    if (m_progressDialog)
+                    {
+                        uint progress = tokens[2].toUInt();
+                        m_progressDialog->SetProgress(progress);
+                    }
+                }
+            }
         }
     }
     else

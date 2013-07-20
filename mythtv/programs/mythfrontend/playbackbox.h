@@ -44,6 +44,7 @@ class MythUITextEdit;
 class MythUIButton;
 class MythDialogBox;
 class MythMenu;
+class MythUIProgressDialog;
 
 typedef QMap<QString,ProgramList>       ProgramMap;
 typedef QMap<QString,QString>           Str2StrMap;
@@ -151,6 +152,7 @@ class PlaybackBox : public ScheduleCommon
     void upcomingScheduled();
     void details();
     void StopSelected(void);
+    void showStorageGroupChanger();
     void showMetadataEditor();
     void showGroupFilter();
     void showRecGroupPasswordChanger();
@@ -206,6 +208,7 @@ class PlaybackBox : public ScheduleCommon
     void setGroupFilter(const QString &newRecGroup);
     void setRecGroup(QString newRecGroup);
     void setPlayGroup(QString newPlayGroup);
+    void setStorageGroup(QString group);
 
     void saveRecMetadata(const QString &newTitle, const QString &newSubtitle,
                          const QString &newDescription, const QString &newInetref,
@@ -242,6 +245,7 @@ class PlaybackBox : public ScheduleCommon
     void doClearPlaylist();
     void PlaylistDeleteForgetHistory(void) { PlaylistDelete(true); }
     void PlaylistDelete(bool forgetHistory = false);
+    void doPlaylistChangeStorageGroup();
     void doPlaylistExpireSetting(bool turnOn);
     void doPlaylistExpireSetOn()      { doPlaylistExpireSetting(true);  }
     void doPlaylistExpireSetOff()     { doPlaylistExpireSetting(false); }
@@ -383,6 +387,7 @@ class PlaybackBox : public ScheduleCommon
     MythDialogBox      *m_menuDialog;
     MythMenu           *m_popupMenu;
     MythScreenStack    *m_popupStack;
+    MythUIProgressDialog *m_progressDialog;
 
     bool m_doToggleMenu;
 
