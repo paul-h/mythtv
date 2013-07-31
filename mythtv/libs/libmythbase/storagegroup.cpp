@@ -21,17 +21,17 @@ QMutex                 StorageGroup::s_groupToUseLock;
 QHash<QString,QString> StorageGroup::s_groupToUseCache;
 
 const QStringList StorageGroup::kSpecialGroups = QStringList()
-    << "LiveTV"
+    << QT_TRANSLATE_NOOP("(StorageGroups)", "LiveTV")
 //    << "Thumbnails"
-    << "DB Backups"
-    << "Videos"
-    << "Trailers"
-    << "Coverart"
-    << "Fanart"
-    << "Screenshots"
-    << "Banners"
-    << "Music"
-    << "MusicArt"
+    <<  QT_TRANSLATE_NOOP("(StorageGroups)", "DB Backups")
+    <<  QT_TRANSLATE_NOOP("(StorageGroups)", "Videos")
+    <<  QT_TRANSLATE_NOOP("(StorageGroups)", "Trailers")
+    <<  QT_TRANSLATE_NOOP("(StorageGroups)", "Coverart")
+    <<  QT_TRANSLATE_NOOP("(StorageGroups)", "Fanart")
+    <<  QT_TRANSLATE_NOOP("(StorageGroups)", "Screenshots")
+    <<  QT_TRANSLATE_NOOP("(StorageGroups)", "Banners")
+    <<  QT_TRANSLATE_NOOP("(StorageGroups)", "Music")
+    <<  QT_TRANSLATE_NOOP("(StorageGroups)", "MusicArt")
     ;
 
 /****************************************************************************/

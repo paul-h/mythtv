@@ -1067,7 +1067,7 @@ int NativeArchive::importRecording(const QDomElement &itemNode,
         {
             // delete any records for this recordings
             query.prepare("DELETE FROM recordedmarkup "
-                          "WHERE chanid = CHANID AND starttime = STARTTIME;");
+                          "WHERE chanid = :CHANID AND starttime = :STARTTIME;");
                 query.bindValue(":CHANID", chanID);
                 query.bindValue(":STARTTIME", startTime);
             query.exec();
@@ -1120,7 +1120,7 @@ int NativeArchive::importRecording(const QDomElement &itemNode,
         {
             // delete any records for this recordings
             query.prepare("DELETE FROM recordedseek "
-                          "WHERE chanid = CHANID AND starttime = STARTTIME;");
+                          "WHERE chanid = :CHANID AND starttime = :STARTTIME;");
                 query.bindValue(":CHANID", chanID);
                 query.bindValue(":STARTTIME", startTime);
             query.exec();
