@@ -72,6 +72,11 @@ void MythUtilCommandLineParser::LoadArguments(void)
                 ->SetGroup("Recording Markup")
                 ->SetRequiredChild(QStringList("chanid") << "starttime")
 
+        // recordingutils.cpp
+        << add("--checkrecordings", "checkrecordings", false,
+                "Check all recordings exist and have a seektable etc.", "")
+                ->SetGroup("Recording Utils")
+
         // backendutils.cpp
         << add("--resched", "resched", false,
                 "Trigger a run of the recording scheduler on the existing "
@@ -177,11 +182,15 @@ void MythUtilCommandLineParser::LoadArguments(void)
     add("--fullscreen", "fullscreen", false, "(optional) display notification in full screen mode", "")
         ->SetChildOf("notification");
     add("--error", "error", false, "(optional) set notification to be displayed as an error", "")
-    ->SetChildOf("notification");
+        ->SetChildOf("notification");
     add("--visibility", "visibility", 0, "(optional) bitmask indicating where to show the notification", "")
-    ->SetChildOf("notification");
+        ->SetChildOf("notification");
     add("--type", "type", "type", "(optional) type of notification (normal, error, warning, check", "")
-    ->SetChildOf("notification");
+        ->SetChildOf("notification");
+
+    // recordingutils.cpp
+    add("--fixseektable", "fixseektable", false, "(optional) fix the seektable if missing for a recording", "")
+        ->SetChildOf("checkrecordings");
 
     // Generic Options used by more than one utility
     addRecording();
