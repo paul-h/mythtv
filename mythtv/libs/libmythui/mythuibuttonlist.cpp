@@ -1330,7 +1330,7 @@ void MythUIButtonList::CalculateButtonPositions(void)
     if (it < m_itemList.begin())
         it = m_itemList.begin();
 
-    int curItem = GetItemPos(*it);
+    int curItem = it < m_itemList.end() ? GetItemPos(*it) : 0;
 
     while (it < m_itemList.end() && button < (int)m_itemsVisible)
     {
@@ -2528,7 +2528,7 @@ void MythUIButtonList::customEvent(QEvent *event)
         {
             const int loginterval = (cur < 1000 ? 100 : 500);
             if (cur > 200 && cur % loginterval == 0)
-                LOG(VB_GENERAL, LOG_INFO,
+                LOG(VB_GUI, LOG_INFO,
                     QString("Build background buttonlist item %1").arg(cur));
             emit itemLoaded(GetItemAt(cur));
         }
@@ -3389,14 +3389,11 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
     else
         state = m_parent->m_active ? "active" : "inactive";
 
-    if (!button->DisplayState(state) && state == "inactive")
-    {
+    if (state == "inactive" && !button->GetState(state))
         state = "active";
-        button->DisplayState(state);
-    }
 
     MythUIGroup *buttonstate = dynamic_cast<MythUIGroup *>
-                               (button->GetCurrentState());
+                               (button->GetState(state));
 
     if (!buttonstate)
     {
@@ -3405,7 +3402,6 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
         return;
     }
 
-    buttonstate->SetVisible(true);
     buttonstate->Reset();
 
     MythUIText *buttontext = dynamic_cast<MythUIText *>
@@ -3568,6 +3564,10 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
 
         ++state_it;
     }
+
+    // There is no need to check the return value here, since we already
+    // checked that the state exists with GetState() earlier
+    button->DisplayState(state);
 }
 
 //---------------------------------------------------------
