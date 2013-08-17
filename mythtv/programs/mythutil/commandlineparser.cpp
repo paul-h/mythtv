@@ -185,7 +185,7 @@ void MythUtilCommandLineParser::LoadArguments(void)
         ->SetChildOf("notification");
     add("--visibility", "visibility", 0, "(optional) bitmask indicating where to show the notification", "")
         ->SetChildOf("notification");
-    add("--type", "type", "type", "(optional) type of notification (normal, error, warning, check", "")
+    add("--type", "type", "type", "(optional) type of notification (normal, error, warning, check, busy", "")
         ->SetChildOf("notification");
 
     // recordingutils.cpp

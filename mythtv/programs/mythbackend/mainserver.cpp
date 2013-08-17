@@ -2466,7 +2466,10 @@ void MainServer::DoHandleStopRecording(
 
             if (num > 0)
             {
-                (*encoderList)[num]->StopRecording();
+                if (encoderList->contains(num))
+                {
+                    (*encoderList)[num]->StopRecording();
+                }
                 if (m_sched)
                     m_sched->UpdateRecStatus(&recinfo);
             }
