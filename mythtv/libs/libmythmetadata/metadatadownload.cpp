@@ -375,36 +375,13 @@ MetadataLookupList MetadataDownload::readMXML(QString MXMLpath,
     {
         QByteArray mxmlraw;
         QDomElement item;
-        if (MXMLpath.startsWith("myth://"))
-        {
-            RemoteFile *rf = new RemoteFile(MXMLpath);
-            if (rf && rf->isOpen())
-            {
-                bool loaded = rf->SaveAs(mxmlraw);
-                if (loaded)
-                {
-                    QDomDocument doc;
-                    if (doc.setContent(mxmlraw, true))
-                    {
-                        lookup->SetStep(kLookupData);
-                        QDomElement root = doc.documentElement();
-                        item = root.firstChildElement("item");
-                    }
-                    else
-                        LOG(VB_GENERAL, LOG_ERR,
-                            QString("Corrupt or invalid MXML file."));
-                }
-            }
+        RemoteFile *rf = new RemoteFile(MXMLpath);
 
-            delete rf;
-            rf = NULL;
-        }
-        else
+        if (rf->isOpen())
         {
-            QFile file(MXMLpath);
-            if (file.open(QIODevice::ReadOnly))
+            bool loaded = rf->SaveAs(mxmlraw);
+            if (loaded)
             {
-                mxmlraw = file.readAll();
                 QDomDocument doc;
                 if (doc.setContent(mxmlraw, true))
                 {
@@ -413,11 +390,15 @@ MetadataLookupList MetadataDownload::readMXML(QString MXMLpath,
                     item = root.firstChildElement("item");
                 }
                 else
+                {
                     LOG(VB_GENERAL, LOG_ERR,
                         QString("Corrupt or invalid MXML file."));
-                file.close();
+                }
             }
         }
+
+        delete rf;
+        rf = NULL;
 
         MetadataLookup *tmp = ParseMetadataItem(item, lookup, passseas);
         list.append(tmp);
@@ -437,39 +418,19 @@ MetadataLookupList MetadataDownload::readNFO(QString NFOpath,
         QString("Matching NFO file found. Parsing %1 for metadata...")
                .arg(NFOpath));
 
+    bool error = false;
+
     if (lookup->GetType() == kMetadataVideo)
     {
         QByteArray nforaw;
         QDomElement item;
-        if (NFOpath.startsWith("myth://"))
-        {
-            RemoteFile *rf = new RemoteFile(NFOpath);
-            if (rf && rf->isOpen())
-            {
-                bool loaded = rf->SaveAs(nforaw);
-                if (loaded)
-                {
-                    QDomDocument doc;
-                    if (doc.setContent(nforaw, true))
-                    {
-                        lookup->SetStep(kLookupData);
-                        item = doc.documentElement();
-                    }
-                    else
-                        LOG(VB_GENERAL, LOG_ERR,
-                            QString("PIRATE ERROR: Invalid NFO file found."));
-                }
-            }
+        RemoteFile *rf = new RemoteFile(NFOpath);
 
-            delete rf;
-            rf = NULL;
-        }
-        else
+        if (rf->isOpen())
         {
-            QFile file(NFOpath);
-            if (file.open(QIODevice::ReadOnly))
+            bool loaded = rf->SaveAs(nforaw);
+            if (loaded)
             {
-                nforaw = file.readAll();
                 QDomDocument doc;
                 if (doc.setContent(nforaw, true))
                 {
@@ -477,16 +438,24 @@ MetadataLookupList MetadataDownload::readNFO(QString NFOpath,
                     item = doc.documentElement();
                 }
                 else
+                {
                     LOG(VB_GENERAL, LOG_ERR,
-                        QString("PIRATE ERROR: Invalid NFO file found."));
-                file.close();
+                        QString("Invalid NFO file found."));
+                    error = true;
+                }
             }
         }
 
-        MetadataLookup *tmp = ParseMetadataMovieNFO(item, lookup);
-        list.append(tmp);
-        // MetadataLookup is owned by the MetadataLookupList returned
-        tmp->DecrRef();
+        delete rf;
+        rf = NULL;
+
+        if (!error)
+        {
+            MetadataLookup *tmp = ParseMetadataMovieNFO(item, lookup);
+            list.append(tmp);
+            // MetadataLookup is owned by the MetadataLookupList returned
+            tmp->DecrRef();
+        }
     }
 
     return list;
@@ -540,7 +509,12 @@ MetadataLookupList MetadataDownload::handleMovie(MetadataLookup *lookup)
         nfo = getNFOPath(lookup->GetFilename());
     }
 
-    if (mxml.isEmpty() && nfo.isEmpty())
+    if (!mxml.isEmpty())
+        list = readMXML(mxml, lookup);
+    else if (!nfo.isEmpty())
+        list = readNFO(nfo, lookup);
+
+    if (list.isEmpty())
     {
         QString cmd = GetMovieGrabber();
 
@@ -571,10 +545,6 @@ MetadataLookupList MetadataDownload::handleMovie(MetadataLookup *lookup)
         }
         list = runGrabber(cmd, args, lookup);
     }
-    else if (!mxml.isEmpty())
-        list = readMXML(mxml, lookup);
-    else if (!nfo.isEmpty())
-        list = readNFO(nfo, lookup);
 
     return list;
 }
@@ -739,25 +709,19 @@ QString MetadataDownload::getMXMLPath(QString filename)
     xmlname = filename.left(filename.size() - ext.size()) + "mxml";
     QUrl xurl(xmlname);
 
-    if (xmlname.startsWith("myth://"))
+    if (RemoteFile::isLocal(xmlname) ||
+        (xmlname.startsWith("myth://") &&
+         qurl.host().toLower() != gCoreContext->GetHostName().toLower() &&
+         !gCoreContext->IsThisHost(qurl.host())))
     {
-        if (qurl.host().toLower() != gCoreContext->GetHostName().toLower() &&
-            (!gCoreContext->IsThisHost(qurl.host())))
-        {
-            if (RemoteFile::Exists(xmlname))
-                ret = xmlname;
-        }
-        else
-        {
-            StorageGroup sg;
-            QString fn = sg.FindFile(xurl.path());
-            if (!fn.isEmpty() && QFile::exists(fn))
-                ret = xmlname;
-        }
+        if (RemoteFile::Exists(xmlname))
+            ret = xmlname;
     }
     else
     {
-        if (QFile::exists(xmlname))
+        StorageGroup sg;
+        QString fn = sg.FindFile(xurl.path());
+        if (!fn.isEmpty() && QFile::exists(fn))
             ret = xmlname;
     }
 
@@ -773,25 +737,19 @@ QString MetadataDownload::getNFOPath(QString filename)
     nfoname = filename.left(filename.size() - ext.size()) + "nfo";
     QUrl nurl(nfoname);
 
-    if (nfoname.startsWith("myth://"))
+    if (RemoteFile::isLocal(nfoname) ||
+        (nfoname.startsWith("myth://") &&
+         qurl.host().toLower() != gCoreContext->GetHostName().toLower() &&
+         !gCoreContext->IsThisHost(qurl.host())))
     {
-        if (qurl.host().toLower() != gCoreContext->GetHostName().toLower() &&
-            (!gCoreContext->IsThisHost(qurl.host())))
-        {
-            if (RemoteFile::Exists(nfoname))
-                ret = nfoname;
-        }
-        else
-        {
-            StorageGroup sg;
-            QString fn = sg.FindFile(nurl.path());
-            if (!fn.isEmpty() && QFile::exists(fn))
-                ret = nfoname;
-        }
+        if (RemoteFile::Exists(nfoname))
+            ret = nfoname;
     }
     else
     {
-        if (QFile::exists(nfoname))
+        StorageGroup sg;
+        QString fn = sg.FindFile(nurl.path());
+        if (!fn.isEmpty() && QFile::exists(fn))
             ret = nfoname;
     }
 

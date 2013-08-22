@@ -130,6 +130,7 @@ void MetadataImageDownload::run()
         DownloadMap downloads = lookup->GetDownloads();
         DownloadMap downloaded;
 
+        bool errored = false;
         for (DownloadMap::iterator i = downloads.begin();
                 i != downloads.end(); ++i)
         {
@@ -147,8 +148,7 @@ void MetadataImageDownload::run()
                         LOG(VB_GENERAL, LOG_ERR,
                             QString("Metadata Image Download: Unable to create "
                                     "path %1, aborting download.").arg(path));
-                        QCoreApplication::postEvent(m_parent,
-                                    new ImageDLFailureEvent(lookup));
+                        errored = true;
                         continue;
                     }
                 QString finalfile = path + "/" + filename;
@@ -180,8 +180,7 @@ void MetadataImageDownload::run()
                                 .arg(oldurl).arg(download->size()));
                         delete download;
                         download = NULL;
-                        QCoreApplication::postEvent(m_parent,
-                                    new ImageDLFailureEvent(lookup));
+                        errored = true;
                         continue;
                     }
 
@@ -189,13 +188,15 @@ void MetadataImageDownload::run()
                     {
                         off_t size = dest_file.write(*download,
                                                      download->size());
+                        dest_file.close();
                         if (size != download->size())
                         {
+                            // File creation failed for some reason, delete it
+                            RemoteFile::DeleteFile(finalfile);
                             LOG(VB_GENERAL, LOG_ERR,
                                 QString("Image Download: Error Writing Image "
                                         "to file: %1").arg(finalfile));
-                            QCoreApplication::postEvent(m_parent,
-                                        new ImageDLFailureEvent(lookup));
+                            errored = true;
                         }
                         else
                             downloaded.insert(type, info);
@@ -260,8 +261,7 @@ void MetadataImageDownload::run()
                                 .arg(oldurl).arg(download->size()));
                         delete download;
                         download = NULL;
-                        QCoreApplication::postEvent(m_parent,
-                                    new ImageDLFailureEvent(lookup));
+                        errored = true;
                         continue;
                     }
 
@@ -277,25 +277,26 @@ void MetadataImageDownload::run()
                                         .arg(finalfile));
                             delete outFile;
                             outFile = NULL;
-                            QCoreApplication::postEvent(m_parent,
-                                        new ImageDLFailureEvent(lookup));
+                            errored = true;
                         }
                         else
                         {
                             off_t written = outFile->Write(*download,
                                                            download->size());
+                            delete outFile;
+                            outFile = NULL;
                             if (written != download->size())
                             {
+                                // File creation failed for some reason, delete it
+                                RemoteFile::DeleteFile(finalfile);
+
                                 LOG(VB_GENERAL, LOG_ERR,
                                     QString("Image Download: Error Writing Image "
                                             "to file: %1").arg(finalfile));
-                                QCoreApplication::postEvent(m_parent,
-                                        new ImageDLFailureEvent(lookup));
+                                errored = true;
                             }
                             else
                                 downloaded.insert(type, info);
-                            delete outFile;
-                            outFile = NULL;
                         }
                     }
                     else
@@ -305,13 +306,15 @@ void MetadataImageDownload::run()
                         {
                             off_t size = dest_file.write(*download,
                                                          download->size());
+                            dest_file.close();
                             if (size != download->size())
                             {
+                                // File creation failed for some reason, delete it
+                                RemoteFile::DeleteFile(resolvedFN);
                                 LOG(VB_GENERAL, LOG_ERR,
                                     QString("Image Download: Error Writing Image "
                                             "to file: %1").arg(finalfile));
-                                QCoreApplication::postEvent(m_parent,
-                                            new ImageDLFailureEvent(lookup));
+                                errored = true;
                             }
                             else
                                 downloaded.insert(type, info);
@@ -323,6 +326,11 @@ void MetadataImageDownload::run()
                 else
                     downloaded.insert(type, info);
             }
+        }
+        if (errored)
+        {
+            QCoreApplication::postEvent(m_parent,
+                    new ImageDLFailureEvent(lookup));
         }
         lookup->SetDownloads(downloaded);
         QCoreApplication::postEvent(m_parent, new ImageDLEvent(lookup));
