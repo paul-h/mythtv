@@ -640,9 +640,10 @@ bool LoggerThread::logConsole(LoggingItem *item)
 ///        the queue to be flushed.
 void LoggerThread::stop(void)
 {
-    QMutexLocker qLock(&logQueueMutex);
+    logQueueMutex.lock();
     flush(1000);
     m_aborted = true;
+    logQueueMutex.unlock();
     m_waitNotEmpty->wakeAll();
 }
 
@@ -800,7 +801,7 @@ void logPropagateCalc(void)
         logPropagateArgList << "--quiet";
     }
 
-    if (!logPropagateOpts.dblog)
+    if (logPropagateOpts.dblog)
     {
         logPropagateArgs += " --enable-dblog";
         logPropagateArgList << "--enable-dblog";
