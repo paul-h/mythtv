@@ -6053,6 +6053,10 @@ void MainServer::DeletePBS(PlaybackSock *sock)
 
 void MainServer::connectionClosed(MythSocket *socket)
 {
+    // we're in the middle of stopping, prevent deadlock
+    if (m_stopped)
+        return;
+
     sockListLock.lockForWrite();
 
     // make sure these are not actually deleted in the callback
