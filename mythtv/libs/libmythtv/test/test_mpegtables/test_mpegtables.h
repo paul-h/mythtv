@@ -15,7 +15,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
 #include <QtTest/QtTest>
@@ -190,6 +190,7 @@ class TestMPEGTables: public QObject
         /* pick just the ContentIdentifierDescriptor from the event_information_section */
         DVBContentIdentifierDescriptor descriptor(&eit_data[407]);
 
+        QCOMPARE (descriptor.CRIDCount(),  (size_t) 2);
         QCOMPARE (descriptor.ContentId(),  QString("eventis.nl/00000000-0000-1000-0604-0000000E0711"));
 
         /* FIXME hack to test the case of no hash in the CRID until we support more then one CRID per descriptor */
@@ -201,5 +202,6 @@ class TestMPEGTables: public QObject
         };
         DVBContentIdentifierDescriptor descriptor2(cid_data);
         QCOMPARE (descriptor2.ContentId(), QString("eventis.nl/00000000-0000-1000-0608-000000003F9C"));
+        QCOMPARE (descriptor.ContentId(1), QString("eventis.nl/00000000-0000-1000-0608-000000003F9C"));
     }
 };

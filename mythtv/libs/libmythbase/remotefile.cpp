@@ -259,6 +259,7 @@ bool RemoteFile::Open(void)
                     .arg(path));
                 return false;
             }
+            SetBlocking();
             return true;
         }
         // local mode, read only
@@ -406,9 +407,25 @@ bool RemoteFile::Exists(const QString &url, struct stat *fileinfo)
 {
     if (isLocal(url))
     {
+       LOG(VB_FILE, LOG_INFO,
+           QString("RemoteFile::Exists(): looking for local file: %1").arg(url));
+
         QFileInfo info(url);
+        if (info.exists())
+        {
+            if (stat(url.toLocal8Bit().constData(), fileinfo) == -1)
+            {
+                LOG(VB_FILE, LOG_ERR,
+                    QString("RemoteFile::Exists(): failed to stat file: %1").arg(url) + ENO);
+            }
+        }
+
         return info.exists() && info.isFile();
     }
+
+    LOG(VB_FILE, LOG_INFO,
+        QString("RemoteFile::Exists(): looking for remote file: %1").arg(url));
+
     QUrl qurl(url);
     QString filename = qurl.path();
     QString sgroup   = qurl.userName();
@@ -891,4 +908,17 @@ QDateTime RemoteFile::LastModified(const QString &url)
     return result;
 }
 
+/** \fn RemoteFile::SetBlocking(void)
+ *  \brief Set write blocking mode for the ThreadedFileWriter instance
+ *  \return old mode value
+ *  \param false if not blocking, true if blocking
+ */
+bool RemoteFile::SetBlocking(bool block)
+{
+    if (fileWriter)
+    {
+        return fileWriter->SetBlocking(block);
+    }
+    return true;
+}
 /* vim: set expandtab tabstop=4 shiftwidth=4: */
