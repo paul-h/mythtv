@@ -54,6 +54,11 @@ DVDStream::DVDStream(const QString& filename)
 
 DVDStream::~DVDStream()
 {
+<<<<<<< HEAD
+=======
+    KillReadAheadThread();
+
+>>>>>>> upstream/master
     rwlock.lockForWrite();
 
     if (m_reader)
@@ -269,7 +274,11 @@ long long DVDStream::Seek(long long pos, int whence, bool has_lock)
     return pos;
 }
 
+<<<<<<< HEAD
 //virtual 
+=======
+//virtual
+>>>>>>> upstream/master
 long long DVDStream::GetReadPosition(void)  const
 {
     poslock.lockForRead();

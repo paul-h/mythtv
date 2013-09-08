@@ -933,7 +933,8 @@ int MythPlayer::OpenFile(uint retries)
         MythTimer peekTimer; peekTimer.start();
         while (player_ctx->buffer->Peek(testbuf, testreadsize) != testreadsize)
         {
-            if (peekTimer.elapsed() > 1000 || bigTimer.elapsed() > timeout)
+            // NB need to allow for streams encountering network congestion
+            if (peekTimer.elapsed() > 5000  || bigTimer.elapsed() > timeout)
             {
                 LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("OpenFile(): Could not read first %1 bytes of '%2'")
@@ -4999,8 +5000,7 @@ InteractiveTV *MythPlayer::GetInteractiveTV(void)
     {
         QMutexLocker locker1(&osdLock);
         QMutexLocker locker2(&itvLock);
-        if (osd)
-            interactiveTV = new InteractiveTV(this);
+        interactiveTV = new InteractiveTV(this);
     }
 #endif // USING_MHEG
     return interactiveTV;
