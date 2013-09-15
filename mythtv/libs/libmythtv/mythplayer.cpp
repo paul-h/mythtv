@@ -933,8 +933,7 @@ int MythPlayer::OpenFile(uint retries)
         MythTimer peekTimer; peekTimer.start();
         while (player_ctx->buffer->Peek(testbuf, testreadsize) != testreadsize)
         {
-            // NB need to allow for streams encountering network congestion
-            if (peekTimer.elapsed() > 5000  || bigTimer.elapsed() > timeout)
+            if (peekTimer.elapsed() > 1000 || bigTimer.elapsed() > timeout)
             {
                 LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("OpenFile(): Could not read first %1 bytes of '%2'")
@@ -3153,6 +3152,7 @@ void MythPlayer::DecoderEnd(void)
         LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to stop decoder loop.");
     else
         LOG(VB_PLAYBACK, LOG_INFO, LOC + "Exited decoder loop.");
+    SetDecoder(NULL);
 }
 
 void MythPlayer::DecoderPauseCheck(void)
@@ -3317,7 +3317,9 @@ bool MythPlayer::DecoderGetFrame(DecodeType decodetype, bool unsafe)
             {
                 LOG(VB_GENERAL, LOG_ERR, LOC +
                     "Decoder timed out waiting for free video buffers.");
-                videobuf_retries = 0;
+                // We've tried for 20 seconds now, give up so that we don't
+                // get stuck permanently in this state
+                SetErrored("Decoder timed out waiting for free video buffers.");
             }
             return false;
         }
