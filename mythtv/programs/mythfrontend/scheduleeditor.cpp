@@ -43,7 +43,7 @@
 
 #define ENUM_TO_QVARIANT(a) qVariantFromValue(static_cast<int>(a))
 
-static const QString _Location = QObject::tr("Schedule Editor");
+//static const QString _Location = QObject::tr("Schedule Editor");
 
 // Define the strings inserted into the recordfilter table in the
 // database.  This should make them available to the translators.
@@ -1112,7 +1112,7 @@ void SchedFilterEditor::Load()
     for (idx = 0; idx < end; ++idx)
     {
         button = m_filtersList->GetItemAt(idx);
-        int filterid = qVariantValue<int>(button->GetData());
+        int filterid = button->GetData().value<int>();
         button->setChecked(m_recordingRule->m_filter & (1 << filterid) ?
                            MythUIButtonListItem::FullChecked :
                            MythUIButtonListItem::NotChecked);
@@ -1142,7 +1142,7 @@ void SchedFilterEditor::Save()
     {
         if ((button = m_filtersList->GetItemAt(idx)) &&
             button->state() == MythUIButtonListItem::FullChecked)
-            filter_mask |= (1 << qVariantValue<uint32_t>(button->GetData()));
+            filter_mask |= (1 << button->GetData().value<uint32_t>());
     }
     m_recordingRule->m_filter = filter_mask;
 }
@@ -1687,12 +1687,12 @@ void MetadataOptions::OnArtworkSearchDone(MetadataLookup *lookup)
         m_busyPopup = NULL;
     }
 
-    VideoArtworkType type = qVariantValue<VideoArtworkType>(lookup->GetData());
+    VideoArtworkType type = lookup->GetData().value<VideoArtworkType>();
     ArtworkList list = lookup->GetArtwork(type);
 
     if (list.isEmpty())
     {
-        MythWarningNotification n(tr("No image found"), _Location);
+        MythWarningNotification n(tr("No image found"), tr("Schedule Editor"));
         GetNotificationCenter()->Queue(n);
         return;
     }
@@ -1942,7 +1942,7 @@ void MetadataOptions::customEvent(QEvent *levent)
             m_busyPopup = NULL;
         }
         MythErrorNotification n(tr("Failed to retrieve image(s)"),
-                                _Location,
+                                tr("Schedule Editor"),
                                 tr("Check logs"));
         GetNotificationCenter()->Queue(n);
     }

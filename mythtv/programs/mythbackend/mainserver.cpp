@@ -11,7 +11,7 @@ using namespace std;
 #include <fcntl.h>
 #include "mythconfig.h"
 
-#ifndef USING_MINGW
+#ifndef _WIN32
 #include <sys/ioctl.h>
 #endif
 
@@ -20,9 +20,9 @@ using namespace std;
 #  include <sys/vfs.h>
 #else // if !__linux__
 #  include <sys/param.h>
-#  ifndef USING_MINGW
+#  ifndef _WIN32
 #    include <sys/mount.h>
-#  endif // USING_MINGW
+#  endif // _WIN32
 #endif // !__linux__
 
 #include <QCoreApplication>
@@ -425,16 +425,6 @@ void MainServer::NewConnection(int socketDescriptor)
 
 void MainServer::readyRead(MythSocket *sock)
 {
-    sockListLock.lockForRead();
-    PlaybackSock *testsock = GetPlaybackBySock(sock);
-    bool expecting_reply = testsock && testsock->isExpectingReply();
-    sockListLock.unlock();
-    if (expecting_reply)
-    {
-        LOG(VB_GENERAL, LOG_INFO, "readyRead ignoring, expecting reply");
-        return;
-    }
-
     threadPool.startReserved(
         new ProcessRequestRunnable(*this, sock),
         "ProcessRequest", PRT_TIMEOUT);
@@ -3167,7 +3157,7 @@ void MainServer::HandleQueryFileExists(QStringList &slist, PlaybackSock *pbs)
             retlist << QString::number(fileinfo.st_gid);
             retlist << QString::number(fileinfo.st_rdev);
             retlist << QString::number(fileinfo.st_size);
-#ifdef USING_MINGW
+#ifdef _WIN32
             retlist << "0"; // st_blksize
             retlist << "0"; // st_blocks
 #else
@@ -6522,6 +6512,9 @@ void MainServer::reconnectTimeout(void)
         }
     }
 
+    // Calling SendReceiveStringList() with callbacks enabled is asking for
+    // trouble, our reply might be swallowed by readyRead
+    masterServerSock->SetReadyReadCallbackEnabled(false);
     if (!masterServerSock->SendReceiveStringList(strlist, 1) ||
         (strlist[0] == "ERROR"))
     {
@@ -6543,6 +6536,7 @@ void MainServer::reconnectTimeout(void)
         masterServerReconnect->start(kMasterServerReconnectTimeout);
         return;
     }
+    masterServerSock->SetReadyReadCallbackEnabled(true);
 
     masterServer = new PlaybackSock(this, masterServerSock, server,
                                     kPBSEvents_Normal);

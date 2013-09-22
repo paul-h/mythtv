@@ -20,7 +20,7 @@
 #include <algorithm>
 using namespace std;
 
-#ifdef USING_MINGW
+#ifdef _WIN32
 #include <winsock2.h>
 #include <unistd.h>
 #else
@@ -309,10 +309,7 @@ bool MythCoreContext::SafeConnectToMasterServer(bool blockingClient,
                                                 bool openEventSocket)
 {
     QMutexLocker locker(&d->m_sockLock);
-    bool success = true;
-
-    if (!d->m_serverSock || !d->m_serverSock->IsConnected())
-        success = ConnectToMasterServer(blockingClient, openEventSocket);
+    bool success = ConnectToMasterServer(blockingClient, openEventSocket);
 
     return success;
 }
@@ -561,15 +558,7 @@ void MythCoreContext::BlockShutdown(void)
     strlist << "BLOCK_SHUTDOWN";
     d->m_serverSock->SendReceiveStringList(strlist);
 
-    if (!d->m_eventSock || !d->m_eventSock->IsConnected())
-        return;
-
     d->m_blockingClient = true;
-
-    strlist.clear();
-    strlist << "BLOCK_SHUTDOWN";
-
-    d->m_eventSock->SendReceiveStringList(strlist);
 }
 
 void MythCoreContext::AllowShutdown(void)
@@ -583,15 +572,7 @@ void MythCoreContext::AllowShutdown(void)
     strlist << "ALLOW_SHUTDOWN";
     d->m_serverSock->SendReceiveStringList(strlist);
 
-    if (!d->m_eventSock || !d->m_eventSock->IsConnected())
-        return;
-
     d->m_blockingClient = false;
-
-    strlist.clear();
-    strlist << "ALLOW_SHUTDOWN";
-
-    d->m_eventSock->SendReceiveStringList(strlist);
 }
 
 bool MythCoreContext::IsBlockingClient(void) const
@@ -629,7 +610,7 @@ bool MythCoreContext::BackendIsRunning(void)
 {
 #if CONFIG_DARWIN || (__FreeBSD__) || defined(__OpenBSD__)
     const char *command = "ps -axc | grep -i mythbackend | grep -v grep > /dev/null";
-#elif defined USING_MINGW
+#elif defined _WIN32
     const char *command = "%systemroot%\\system32\\tasklist.exe "
        " | %systemroot%\\system32\\find.exe /i \"mythbackend.exe\" ";
 #else

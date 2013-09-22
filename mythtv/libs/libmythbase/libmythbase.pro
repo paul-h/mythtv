@@ -61,7 +61,7 @@ unix {
     HEADERS += mythsystemunix.h
 }
 
-mingw {
+mingw | win32-msvc* {
     SOURCES += mythsystemwindows.cpp
     HEADERS += mythsystemwindows.h
 }
@@ -135,6 +135,22 @@ using_libudf {
 using_x11:DEFINES += USING_X11
 
 mingw:LIBS += -lws2_32
+
+win32-msvc* {
+
+    LIBS += -lws2_32
+    EXTRA_LIBS += -lzlib
+    DEFINES += NOLOGSERVER
+
+    # we need to make sure version.h is generated.
+
+    versionTarget.target  = version.h
+    versionTarget.depends = FORCE
+    versionTarget.commands = powershell -noprofile -executionpolicy bypass -File ..\..\version.ps1 ..\..
+
+    PRE_TARGETDEPS += version.h
+    QMAKE_EXTRA_TARGETS += versionTarget
+}
 
 QT += xml sql network
 

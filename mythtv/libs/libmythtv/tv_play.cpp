@@ -97,7 +97,7 @@ using namespace std;
         osd->HideWindow(WINDOW); \
     ReturnOSDLock(CTX, osd); }
 
-static const QString _Location = TV::tr("TV Player");
+//static const QString _Location = TV::tr("TV Player");
 
 const int  TV::kInitFFRWSpeed                = 0;
 const uint TV::kInputKeysMax                 = 6;
@@ -2355,7 +2355,7 @@ void TV::HandleStateChange(PlayerContext *mctx, PlayerContext *ctx)
         if (buffer && !buffer->GetLastError().isEmpty())
         {
             ShowNotificationError(tr("Can't start playback"),
-                                  _Location, buffer->GetLastError());
+                                  TV::tr( "TV Player" ), buffer->GetLastError());
             delete buffer;
             buffer = NULL;
         }
@@ -2410,7 +2410,7 @@ void TV::HandleStateChange(PlayerContext *mctx, PlayerContext *ctx)
             if (ctx->IsPlayerErrored())
             {
                 ShowNotificationError(ctx->player->GetError(),
-                                      _Location,
+                                      TV::tr( "TV Player" ),
                                       buffer->GetFilename());
                 // We're going to display this error as notification
                 // no need to display it later as popup
@@ -9213,7 +9213,7 @@ void TV::customEvent(QEvent *e)
             reinterpret_cast<DialogCompletionEvent*>(e);
         if (dce->GetData().userType() == qMetaTypeId<MenuNodeTuple>())
         {
-            MenuNodeTuple data = qVariantValue<MenuNodeTuple>(dce->GetData());
+            MenuNodeTuple data = dce->GetData().value<MenuNodeTuple>();
             if (dce->GetResult() == -1) // menu exit/back
                 PlaybackMenuShow(data.m_menu, data.m_node.parentNode(),
                                  data.m_node);
@@ -11064,8 +11064,7 @@ QDomElement MenuBase::GetRoot(void) const
 
 QString MenuBase::Translate(const QString &text) const
 {
-    return qApp->translate(m_translationContext, text.toUtf8(), NULL,
-                           QCoreApplication::UnicodeUTF8);
+    return qApp->translate(m_translationContext, text.toUtf8(), NULL);
 }
 
 bool MenuBase::Show(const QDomNode &node,
