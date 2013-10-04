@@ -32,7 +32,6 @@
 #include "recordingprofile.h"
 #include "mythdisplay.h"
 #include "DisplayRes.h"
-#include "uitypes.h"
 #include "cardutil.h"
 #include "themeinfo.h"
 #include "mythdirs.h"
@@ -2569,8 +2568,10 @@ static HostComboBox *ThemePainter()
     gc->addSelection(QCoreApplication::translate("(Common)", "Auto", "Automatic"),
                      AUTO_PAINTER);
 #ifdef USING_OPENGL
-    gc->addSelection(QCoreApplication::translate("(Common)", "OpenGL"),
+    gc->addSelection(QCoreApplication::translate("(Common)", "OpenGL 1"),
                      OPENGL_PAINTER);
+    gc->addSelection(QCoreApplication::translate("(Common)", "OpenGL 2"),
+                     OPENGL2_PAINTER);
 #endif
 #ifdef _WIN32
     gc->addSelection(QCoreApplication::translate("(Common)", "Direct3D"),

@@ -1,13 +1,13 @@
+
+#include "galleryviewhelper.h"
+
 // Qt headers
 #include <QFile>
 
 // MythTV headers
 #include "mythcontext.h"
 #include "storagegroup.h"
-
-#include "galleryviewhelper.h"
-
-
+#include "imageutils.h"
 
 /** \fn     GalleryViewHelper::GalleryViewHelper(MythScreenType *)
  *  \brief  Constructor
@@ -17,11 +17,11 @@ GalleryViewHelper::GalleryViewHelper(MythScreenType *parent)
 {
     m_parent = parent;
 
-    m_sgName    = gCoreContext->GetSetting("GalleryStorageGroupName");
+    m_sgName    = IMAGE_STORAGE_GROUP;
     m_sgDirList = StorageGroup::getGroupDirs(m_sgName, "");
 
     m_dbHelper = new GalleryDatabaseHelper();
-    m_thumbGenThread = new GalleryThumbGenThread();
+    m_thumbGenThread = new ImageThumbGenThread();
     m_fileHelper  = new GalleryFileHelper();
 
     connect(m_thumbGenThread,  SIGNAL(ThumbnailCreated(ImageMetadata *, int)),
@@ -136,10 +136,10 @@ void GalleryViewHelper::LoadTreeData()
     // Clear the list so that it can be populated with new data.
     m_currentNode->deleteAllChildren();
 
-    // If the parentId is not one of the directories in the storage group
+    // If the parent is a root directory
     // then add a additional directory at the beginning of the list that
     // is of the type kUpDirectory so that the user can navigate one level up.
-    if (!m_dbHelper->GetStorageDirIDs().contains(id))
+    if (id > 0)
     {
         m_dbHelper->LoadParentDirectory(dirList, id);
         LoadTreeNodeData(dirList, m_currentNode);
