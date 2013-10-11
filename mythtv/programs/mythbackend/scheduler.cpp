@@ -2715,11 +2715,9 @@ void Scheduler::HandleIdleShutdown(
 
                 if (idleIter != reclist.end())
                 {
-                    if (curtime.secsTo
-                        ((*idleIter)->GetRecordingStartTime()) -
-                        prerollseconds <
-                        (idleWaitForRecordingTime * 60) +
-                        idleTimeoutSecs)
+                    if ((curtime.secsTo((*idleIter)->GetRecordingStartTime()) -
+                        prerollseconds) <
+                        ((idleWaitForRecordingTime * 60) + idleTimeoutSecs))
                     {
                         LOG(VB_GENERAL, LOG_NOTICE, "Blocking shutdown because "
                                                     "a recording is due to "
@@ -2730,15 +2728,15 @@ void Scheduler::HandleIdleShutdown(
 
                 // If we're due to grab guide data, then block shutdown
                 if (gCoreContext->GetNumSetting("MythFillGrabberSuggestsTime") &&
-                    gCoreContext->GetNumSetting("MythFillEnabled")
-                )
+                    gCoreContext->GetNumSetting("MythFillEnabled"))
                 {
                     QString str = gCoreContext->GetSetting("MythFillSuggestedRunTime");
-                    QDateTime guideRunTime = QDateTime::fromString(str);
+                    QDateTime guideRunTime = MythDate::fromString(str);
 
-                    if ((guideRunTime > MythDate::current()) &&
-                        curtime.secsTo(guideRunTime) <
-                        (idleWaitForRecordingTime * 60))
+                    if (guideRunTime.isValid() &&
+                        (guideRunTime > MythDate::current()) &&
+                        (curtime.secsTo(guideRunTime) <
+                        (idleWaitForRecordingTime * 60)))
                     {
                         LOG(VB_GENERAL, LOG_NOTICE, "Blocking shutdown because "
                                                     "mythfilldatabase is due to "
@@ -2891,7 +2889,7 @@ void Scheduler::ShutdownServer(int prerollseconds, QDateTime &idleSince)
 
         // Check if we need to wake up to grab guide date before the next recording
         QString str = gCoreContext->GetSetting("MythFillSuggestedRunTime");
-        QDateTime guideRefreshTime = QDateTime::fromString(str);
+        QDateTime guideRefreshTime = MythDate::fromString(str);
 
         if (gCoreContext->GetNumSetting("MythFillGrabberSuggestsTime") &&
             guideRefreshTime.isValid() &&
@@ -5135,7 +5133,7 @@ bool Scheduler::WasStartedAutomatically()
                 "Close to auto-start time, AUTO-Startup assumed");
 
             QString str = gCoreContext->GetSetting("MythFillSuggestedRunTime");
-            QDateTime guideRunTime = QDateTime::fromString(str);
+            QDateTime guideRunTime = MythDate::fromString(str);
             if (guideRunTime.secsTo(MythDate::current()) <
                 max(startupSecs, 15 * 60))
             {
