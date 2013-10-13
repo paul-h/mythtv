@@ -57,7 +57,7 @@
 
 // wmr928d server address and port
 // FIXME
-#define WMR928SERVER "192.168.1.20"
+#define WMR928SERVER "192.168.1.30"
 #define WMR928PORT   5555
 
 // max image file size we can handle
