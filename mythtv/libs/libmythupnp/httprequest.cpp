@@ -959,7 +959,8 @@ long HTTPRequest::GetParameters( QString sParams, QStringMap &mapParams  )
                 sName  = QUrl::fromPercentEncoding(sName.toUtf8());
                 sValue = QUrl::fromPercentEncoding(sValue.toUtf8());
 
-                mapParams.insert( sName.trimmed(), sValue );
+                // Make Parameter Names all lower case
+                mapParams.insert( sName.trimmed().toLower(), sValue );
                 nCount++;
             }
         }
@@ -1222,8 +1223,7 @@ void HTTPRequest::ProcessRequestLine( const QString &sLine )
             m_sResourceUrl = m_sBaseUrl; // Save complete url without parameters
 
             // Process any Query String Parameters
-            QString sQueryStr = (QUrl::fromPercentEncoding(tokens[1].toUtf8()))
-                                     .section( '?', 1, 1 );
+            QString sQueryStr = tokens[1].section( '?', 1, 1 );
 
             if (sQueryStr.length() > 0)
                 GetParameters( sQueryStr, m_mapParams );
