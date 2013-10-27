@@ -17,6 +17,7 @@
 
 #include "datacontracts/programList.h"
 #include "datacontracts/encoderList.h"
+#include "datacontracts/recRule.h"
 #include "datacontracts/recRuleList.h"
 #include "datacontracts/titleInfoList.h"
 
@@ -193,6 +194,8 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
         virtual bool               EnableRecordSchedule  ( uint             RecordId   ) = 0;
 
         virtual bool               DisableRecordSchedule ( uint             RecordId   ) = 0;
+
+        virtual QString            RecStatusToString     ( int              RecStatus  ) = 0;
 
 };
 

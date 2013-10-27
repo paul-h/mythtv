@@ -1,7 +1,24 @@
 
-function isValidObject(variable)
+function getChild(element, name)
 {
-    return ((typeof variable === 'object') && (variable != null));
+    if (!isValidObject(element))
+        return;
+
+    var children = element.children;
+    for (var i = 0; i < children.length; i++)
+    {
+        if (children[i].name == name)
+            return children[i];
+    }
+}
+
+function getChildValue(element, name)
+{
+    var child = getChild(element, name);
+    if (isValidObject(child))
+        return child.value;
+
+    return "";
 }
 
 function toggleVisibility(layer, show)
@@ -61,10 +78,10 @@ function toggleClass(element, className)
 {
     class_array = element.className.split(" ");
 
-    if (class_array.length > 0 &&
-        class_array[class_array.length - 1] == className)
+    var index = class_array.lastIndexOf(className);
+    if (index >= 0)
     {
-        class_array.pop();
+        class_array.splice(index,1);
     }
     else
     {
@@ -114,19 +131,10 @@ function hideDetail(parent)
 var selectedElement;
 var chanID = "";
 var startTime = "";
-function showRecMenu(parent)
+function showMenu(parent, menuName)
 {
     hideDetail(parent);
-    var menu = document.getElementById('recMenu');
-    // Reset visibility
-    if (checkVisibility(menu))
-    {
-        toggleVisibility(menu);
-
-        // Reset any currently selected program
-        if (isValidObject(selectedElement))
-            toggleClass(selectedElement, "programSelected");
-    }
+    hideMenu(menuName);
 
     if (selectedElement === parent)
     {
@@ -138,6 +146,8 @@ function showRecMenu(parent)
     var values = parentID.split("_", 2);
     chanID = values[0];
     startTime = values[1];
+
+    var menu = document.getElementById(menuName);
 
     // Toggle the "programSelected" class on the program div, this gives the
     // user visual feedback on which one the menu relates to
@@ -153,7 +163,71 @@ function showRecMenu(parent)
     moveToPosition(menu, parent);
 }
 
+function hideMenu(menuName)
+{
+    var menu = document.getElementById(menuName);
+    // Reset visibility
+    if (checkVisibility(menu))
+    {
+        toggleVisibility(menu);
+
+        // Reset any currently selected program
+        if (isValidObject(selectedElement))
+            toggleClass(selectedElement, "programSelected");
+    }
+}
+
 function recordProgram(chanID, startTime, type)
 {
-    
+    hideMenu("recMenu");
+    var url = "/tv/dvr.qsp?action=simpleRecord&chanID=" + chanID + "&startTime=" + startTime + "&type=" + type;
+    var ajaxRequest = $.ajax( url )
+                            .done(function()
+                            {
+                                var response = ajaxRequest.responseText.split("#");
+                                recRuleChanged( response[0], response[1] );
+                            });
+}
+
+function checkRecordingStatus(chanID, startTime)
+{
+    var url = "/tv/dvr.qsp?action=checkRecStatus&chanID=" + chanID + "&startTime=" + startTime;
+    var ajaxRequest = $.ajax( url ).done(function()
+                            {
+                                var response = ajaxRequest.responseText.split("#");
+                                var id = response[0] + "_" + response[1];
+                                var layer = document.getElementById(id);
+                                toggleClass(layer, "programScheduling");
+                                // toggleClass(layer, response[2]);
+                                var popup = document.getElementById(id + "_schedpopup");
+                                toggleVisibility(popup);
+                                // HACK: Easiest way to ensure that everything
+                                //       on the page is correctly updated for now
+                                //       is to reload
+                                reloadContent();
+                            });
+}
+
+function recRuleChanged(chandID, startTime)
+{
+    var layer = document.getElementById(chanID + "_" + startTime);
+    toggleClass(layer, "programScheduling");
+    var popup = document.getElementById(chanID + "_" + startTime + "_schedpopup");
+    toggleVisibility(popup);
+
+    setTimeout(function(){checkRecordingStatus(chanID, startTime)}, 2500);
+}
+
+function deleteRecRule(chandID, startTime)
+{
+    var layer = document.getElementById(chanID + "_" + startTime);
+    var recRuleID = getChildValue(layer, "recordid");
+    hideMenu("editRecMenu");
+    var url = "/tv/dvr.qsp?action=deleteRecRule&recRuleID=" + recRuleID + "&chanID=" + chanID + "&startTime=" + startTime;
+    var ajaxRequest = $.ajax( url )
+                            .done(function()
+                            {
+                                var response = ajaxRequest.responseText.split("#");
+                                recRuleChanged( response[0], response[1] );
+                            });
 }

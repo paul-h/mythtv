@@ -588,6 +588,9 @@ ProgramInfo::ProgramInfo(
     title(_title),
     subtitle(_subtitle),
     description(_description),
+    season(_season),
+    episode(_episode),
+    totalepisodes(_totalepisodes),
     syndicatedepisode(_syndicatedepisode),
     category(_category),
     director(),
@@ -651,10 +654,6 @@ ProgramInfo::ProgramInfo(
     dupin(kDupsInAll),
     dupmethod(kDupCheckSubDesc),
 
-    season(_season),
-    episode(_episode),
-    totalepisodes(_totalepisodes),
-
     // everything below this line is not serialized
     availableStatus(asAvailable),
     spread(-1),
@@ -698,17 +697,6 @@ ProgramInfo::ProgramInfo(
                 recstatus = rsOtherRecording;
             else if (s.recstatus == rsTuning)
                 recstatus = rsOtherTuning;
-        }
-
-        // Stop recording keys on chanid (and recstarts).  If the
-        // recording is running, override the chanid, so we can stop
-        // it from any matching program.  Remove this hack when we
-        // replace chanid/recstartts as the primary key for the
-        // recorded and related tables with something better.
-        if (s.recstatus == rsRecording ||
-            s.recstatus == rsTuning)
-        {
-            chanid = s.chanid;
         }
     }
 }

@@ -38,9 +38,11 @@
 #include "encoderlink.h"
 #include "remoteutil.h"
 #include "mythdate.h"
+#include "recordinginfo.h"
 
 #include "serviceUtil.h"
 #include <mythscheduler.h>
+#include "scheduler.h"
 
 extern QMap<int, EncoderLink *> tvList;
 extern AutoExpire  *expirer;
@@ -858,6 +860,7 @@ DTC::RecRule* Dvr::GetRecordSchedule( uint      nRecordId,
                                       bool      bMakeOverride )
 {
     RecordingRule rule;
+    QDateTime dStartTime = dStartTimeRaw.toUTC();
 
     if (nRecordId > 0)
     {
@@ -870,10 +873,10 @@ DTC::RecRule* Dvr::GetRecordSchedule( uint      nRecordId,
         if (!rule.LoadTemplate(sTemplate))
             throw QString("Template does not exist.");
     }
-    else if (nChanId > 0 && dStartTimeRaw.isValid())
+    else if (nChanId > 0 && dStartTime.isValid())
     {
         RecordingInfo::LoadStatus status;
-        RecordingInfo info(nChanId, dStartTimeRaw, false, 0, &status);
+        RecordingInfo info(nChanId, dStartTime, false, 0, &status);
         if (status != RecordingInfo::kFoundProgram)
             throw QString("Program does not exist.");
         RecordingRule *pRule = info.GetRecordingRule();
@@ -935,3 +938,8 @@ bool Dvr::DisableRecordSchedule( uint nRecordId )
     return bResult;
 }
 
+QString Dvr::RecStatusToString(int RecStatus)
+{
+    RecStatusType type = static_cast<RecStatusType>(RecStatus);
+    return toString(type);
+}

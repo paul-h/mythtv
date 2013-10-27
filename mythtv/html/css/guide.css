@@ -8,6 +8,7 @@
     float:left;
 }
 
+/* Guide Navigation */
 .navigateBox
 {
     float: right;
@@ -18,6 +19,38 @@
     font-weight: bold;
 }
 
+.pageLeft, .pageRight
+{
+    background-color: rgba(26, 26, 26, 0.5);
+    color: rgba(255, 255, 255, 0.5);
+    width: 30px;
+    height: 40px;
+    position: fixed;
+    font-size: 2.2em;
+    font-weight: bold;
+    z-index: 15;
+    top: 50%;
+}
+
+.pageLeft
+{
+    left: 200px;
+    border-radius: 0px 10px 10px 0px;
+}
+
+.pageRight
+{
+    right: 0px;
+    border-radius: 10px 0px 0px 10px;
+}
+
+.pageLeft:hover, .pageRight:hover
+{
+    background-color: rgba(26, 26, 26, 1.0);
+    color: rgba(255, 255, 255, 1.0);
+}
+
+/* Guide Grid */
 .guideGrid
 {
     width: 100%;
@@ -92,6 +125,8 @@
 .guideGrid .channelIcon
 {
     margin: 5px 5px 1px 5px;
+    border-radius: 5px;
+    overflow: hidden;
 }
 
 .guideGrid .channelText
@@ -103,6 +138,7 @@
 {
     float: left;
     height: 100%;
+    overflow: visible;
 }
 
 .guideGrid .programBoxInner
@@ -111,6 +147,8 @@
     height: 100%;
     background-color: #666666;
     border-radius: 10px;
+    position: relative;
+    overflow: visible;
 }
 
 .guideGrid .programStartsOffScreen
@@ -139,7 +177,7 @@
     border-bottom-right-radius: 0px;
     white-space: nowrap;
     text-overflow: ellipsis;
-    z-index: 5;
+    z-index: 4;
     position:relative;
 }
 
@@ -155,7 +193,7 @@
 .guideGrid .programDescription
 {
     position:relative;
-    z-index:5; /* We want this to appear above the black veil */
+    z-index:1;
 }
 
 .guideGrid .programSubtitle
@@ -164,7 +202,7 @@
     font-weight: bold;
     font-size: 0.8em;
     margin-right:5px;
-    z-index:5; /* We want this to appear above the black veil */
+    z-index:1;
 }
 
 .guideGrid .programArrow
@@ -173,19 +211,32 @@
     font-weight: bold;
 }
 
-.guideGrid .programWillRecord
+.guideGrid .programWillRecord .programHeader
 {
     background-color:#37912F;
 }
 
-.guideGrid .programRecording
+.guideGrid .programRecording .programHeader
 {
     background-color:#00CC00;
 }
 
-.guideGrid .programOtherShowing
+.guideGrid .programEarlierShowing .programHeader,
+.guideGrid .programLaterShowing .programHeader,
+.guideGrid .programOtherShowing .programHeader
 {
     border:2px #37912F dashed;
+}
+
+.guideGrid .programConflicting .programHeader,
+.guideGrid .programRecorderFailed .programHeader,
+{
+    background-color:#CC0000;
+}
+
+.guideGrid .programScheduling .programHeader
+{
+    background-color:#045FB4;
 }
 
 .guideGrid .programSelected
@@ -193,16 +244,35 @@
     border:2px #045FB4 solid;
 }
 
+.guideGrid .programSchedPopup
+{
+    display: none;
+    background-color: rgba(26, 26, 26, 0.9);
+    border-radius: 8px;
+    width:110px;
+    height:30px;
+    padding:8px;
+    top: 50%;
+    left: 50%;
+    margin-top: -15px;
+    margin-left: -50px;
+    font-weight: bold;
+    position: absolute;
+    z-index: 10;
+    white-space: nowrap;
+}
+
 .guideGrid .relentlessMarchOfTime
 {
-    background-color: rgba(51, 51, 78, 0.7);
+    background-color: rgba(26, 26, 26, 0.7);
     border-radius: 10px;
-    z-index: 1;
+    z-index: 5;
     height: 80px;
     margin-left:2px;
 }
 
-#recMenu
+/* Recording Menu */
+.guideMenu
 {
     background-color: rgba(51, 51, 51, 0.85);
     border: 2px #045FB4 solid;
@@ -210,22 +280,32 @@
     display: none;
     z-index: 99;
     position: absolute;
-    padding: 5px;
 }
 
-#recMenu .button
+.guideMenu .button
 {
     background-color:#444444;
-    border:1px #FFFFFF solid;
-    color: #FFFFFF;
-    margin: 5px
+    border:3px #FFFFFF outset;
+    color: #DDDDDD;
+    margin: 7px;
     font-weight: bold;
     font-size: 1.1em;
-    padding: 5px;
+    padding: 4px;
     vertical-align: middle;
     text-align: center;
     white-space: nowrap;
     border-radius: 8px;
+}
+
+.guideMenu .button:hover
+{
+    background-color:#555555;
+    color: #FFFFFF;
+}
+
+.guideMenu .button:active
+{
+    border-style:inset;
 }
 
 #programDetails
