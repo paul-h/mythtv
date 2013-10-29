@@ -45,14 +45,17 @@ import "/js/utility.js"
     var nextGuideStartTime = new Date(guideStartTime);
     nextGuideStartTime.setHours(nextGuideStartTime.getHours() + guideRange);
 
+    // Calculate guide end time
     var guideEndTime = new Date(guideStartTime);
     guideEndTime.setHours(guideStartTime.getHours() + guideRange);
-    // Hack because GetProgramGuide will include programs with a starttime matching our endtime
-    guideEndTime.setSeconds(guideEndTime.getSeconds() - 1);
     var guidePeriod = new Date(guideEndTime - guideStartTime);
 
+    // Hack because GetProgramGuide will include programs with a starttime matching our endtime
+    var fetchEndTime = new Date(guideEndTime);
+    fetchEndTime.setSeconds(fetchEndTime.getSeconds() - 1);
+
     // Actually fetch the guide data
-    var guideResult = guide.GetProgramGuide(guideStartTime, guideEndTime, 0, 0, true);
+    var guideResult = guide.GetProgramGuide(guideStartTime, fetchEndTime, 0, 0, true);
     var channelList = guideResult.Channels;
 
     // Indicator of time in past
@@ -73,16 +76,15 @@ import "/js/utility.js"
 <title><%=qsTr("Program Guide")%> - <%=myth.GetFormatDate(guideStartTime)%>,
        <%=myth.GetFormatTime(guideStartTime)%> - <%=myth.GetFormatTime(guideEndTime)%></title>
 <link rel="stylesheet" type="text/css" href="/css/site.css">
-<link rel="stylesheet" type="text/css" href="/css/guide.css">
-<link rel="stylesheet" type="text/css" href="/css/category_colors.css">
+<link rel="stylesheet" type="text/css" href="/tv/css/guide.css">
+<link rel="stylesheet" type="text/css" href="/tv/css/category_colors.css">
 <script type="text/javascript" src="/js/utility.js"></script> <!-- ECMA not JS -->
 <script type="text/javascript" src="/js/util.qjs"></script>
-<script type="text/javascript" src="jquery-1.10.2.min.js"></script>
-<script type="text/javascript" src="/js/guide.js"></script>
+<script type="text/javascript" src="/tv/js/guide.js"></script>
 </head>
 <body>
 
-<h2 class="pageTitle" id="title" onClick="funkyAnimation()"><%=qsTr("Program Guide")%></h2>
+<h2 class="pageTitle" id="title"><%=qsTr("Program Guide")%></h2>
 
 <!-- Popup Recording Menu -->
 <div id="recMenu" class="guideMenu">
@@ -98,7 +100,7 @@ import "/js/utility.js"
     <div class="button" onClick="recordProgram(chanID, startTime, 'Record All (Channel)')">
         <%=qsTr("Record all showings (this channel)")%>
     </div>
-    <div class="button" onClick="loadContent('/tv/schedule.qsp')">
+    <div class="button" onClick="loadGuideContent('/tv/schedule.qsp', "dissolve")">
         <%=qsTr("Edit recording rule")%>
     </div>
 </div>
@@ -108,7 +110,7 @@ import "/js/utility.js"
     <div class="button" onClick="deleteRecRule(chanID, startTime)">
         <%=qsTr("Delete Recording Rule")%>
     </div>
-    <div class="button" onClick="loadContent('/tv/schedule.qsp')">
+    <div class="button" onClick="loadGuideContent('/tv/schedule.qsp', "dissolve")">
         <%=qsTr("Edit recording rule")%>
     </div>
 </div>
@@ -211,7 +213,6 @@ import "/js/utility.js"
         </div>
         <div class="programsBox">
 
-            <div class="relentlessMarchOfTime" style="position:absolute;width:<%=darkVeilWidth%>%;">&nbsp;</div>
 <%
         var programNum = 0;
         var cumulativeWidth = 0;
@@ -222,11 +223,20 @@ import "/js/utility.js"
                 continue;
             if (program.StartTime >= (guideEndTime))
                 continue;
-            var altClass = "";
+
+            // To allow us to indicate in some way that the program continues
+            // from an earlier time, or runs to a later time somewhere
+            // off-screen we assign one or both a class. This could do a number
+            // of things including displaying an arrow image or a special
+            // coloured border at the appropriate edge of the box
+            var startClass = "";
+            var endClass = "";
+
             if (program.StartTime < guideStartTime)
-                altClass = "programStartsOffScreen";
-            else if (program.EndTime > guideEndTime)
-                altClass = "programEndsOffScreen";
+                startClass = "programStartsOffScreen";
+
+            if (program.EndTime > guideEndTime)
+                endClass = "programEndsOffScreen";
 
             programNum++;
             var windowStart = (program.StartTime > guideStartTime ? program.StartTime : guideStartTime);
@@ -256,7 +266,7 @@ import "/js/utility.js"
             var programIdentifier = channel.ChanId + "_" + program.StartTime.toISOString();
 %>
             <div class="programBox" style="width:<%=width%>%;" title="<%=escapeHTML(program.Title)%>">
-                <div class="programBoxInner <%=categoryClass%> <%=statusClass%> <%=altClass%>" id="<%=programIdentifier%>" onMouseOver="startDetailTimer(this);" onMouseOut="hideDetail(this);" onClick="showMenu(this, '<%=menu%>');">
+                <div class="programBoxInner <%=categoryClass%> <%=statusClass%> <%=startClass%> <%=endClass%>" id="<%=programIdentifier%>" onMouseOver="startDetailTimer(this);" onMouseOut="hideDetail(this);" onClick="showMenu(this, '<%=menu%>');">
                     <div class="programHeader"><%=escapeHTML(program.Title)%> <% if (isValidObject(program.Airdate) && program.Airdate.getFullYear() != 0 && program.CatType == "movie") {%>(<%=program.Airdate.getFullYear()%>)<%}%></div>
                     <div class="programBody">
                         <span class="programSubtitle"><%=escapeHTML(program.SubTitle)%></span>
@@ -270,16 +280,11 @@ import "/js/utility.js"
                     <input type="hidden" name="recordid" value="<%=program.Recording.RecordId%>" />
                 </div>
             </div>
-            <div style="display: none" id="<%=programIdentifier%>_detail">
-                <% if (program.Recording.Status != 0) {%><label for="progRecStatus">Recording Status: </label><span id="progRecStatus"><%=statusStr%></span><br /><%}%>
-                <label for="progStartTime">Duration: </label><span id="progStartTime"><%=myth.GetFormatTime(program.StartTime)%> - <%=myth.GetFormatTime(program.EndTime)%></span><br />
-                <label for="progCategory">Category: </label><span id="progCategory"><%=escapeHTML(toCapitalCase(program.Category))%></span><br />
-                <% if (program.Season > 0) {%><label for="progSeason">Season: </label><span id="progSeason"><%=program.Season%></span><br /><%}%>
-                <% if (program.Episode > 0) {%><label for="progEpisode">Episode: </label><span id="progEpisode"><%=program.Episode%><% if (program.TotalEpisodes > 0) {%>/<%=program.TotalEpisodes%><%}%></span><%}%>
-            </div>
 <%
         }
 %>
+            <div class="relentlessMarchOfTime" style="position:absolute;width:<%=darkVeilWidth%>%;">&nbsp;</div>
+
         </div>
     </div>
 <%
