@@ -3861,22 +3861,15 @@ void TVRec::TuningFrequency(const TuningRequest &request)
             if (!antadj)
             {
                 SetFlags(kFlagWaitingForSignal);
-
-                QDateTime expire;
                 if (curRecording)
-                {
-                    expire = curRecording->GetScheduledStartTime() >
-                             MythDate::current() ?
-                             curRecording->GetScheduledStartTime() :
-                             MythDate::current();
-                }
+                    signalMonitorDeadline = curRecording->GetScheduledEndTime();
                 else
                 {
-                    expire = MythDate::current();
+                    QDateTime expire = MythDate::current();
+                    signalMonitorDeadline =
+                        expire.addMSecs(genOpt.channel_timeout * 2);
                 }
-
-                signalMonitorDeadline =
-                    expire.addMSecs(genOpt.channel_timeout * 2);
+                signalMonitorCheckCnt = 0;
             }
         }
 
@@ -3939,9 +3932,16 @@ MPEGStreamData *TVRec::TuningSignalCheck(void)
     }
     else
     {
-        LOG(VB_RECORD, LOG_INFO, LOC +
-            QString("TuningSignalCheck: Still waiting.  Will timeout @ %1")
-            .arg(signalMonitorDeadline.toLocalTime().toString("hh:mm:ss.zzz")));
+        if (signalMonitorCheckCnt) // Don't flood log file
+            --signalMonitorCheckCnt;
+        else
+        {
+            LOG(VB_RECORD, LOG_INFO, LOC +
+                QString("TuningSignalCheck: Still waiting.  Will timeout @ %1")
+                .arg(signalMonitorDeadline.toLocalTime()
+                     .toString("hh:mm:ss.zzz")));
+            signalMonitorCheckCnt = 5;
+        }
         return NULL;
     }
 
