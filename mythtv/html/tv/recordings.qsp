@@ -13,12 +13,17 @@ import "/tv/js/constants.js"
 
     var myth = new Myth();
 
+    // Default is to sort recordings from most recent through to the oldest
     var sortDescending = true;
-    if (getArg("SortAsc"))
+    if (getArg("SortAsc") == 1)
         sortDescending = false;
 
+    var recGroup = "Default";
+    if (getArg("RecordingGroup") != "")
+        recGroup = getArg("RecordingGroup");
+
     var dvr = new Dvr();
-    var recordings = dvr.GetRecordedList( sortDescending, 0, 50, "", "Default", "" );
+    var recordings = dvr.GetRecordedList( sortDescending, 0, 50, "", recGroup, "" );
     var programs = recordings.Programs;
 %>
 
@@ -40,6 +45,19 @@ import "/tv/js/constants.js"
 
 <h2 class="pageTitle" id="title"><%=qsTr("Recordings")%></h2>
 
+<!-- Popup Option Menu -->
+<div id="recMenu" class="contextMenu">
+    <div class="button" onClick="deleteRecording(chanID, startTime, false)">
+        <%=qsTr("Delete")%>
+    </div>
+    <div class="button" onClick="deleteRecording(chanID, startTime, true)">
+        <%=qsTr("Delete and Re-Record")%>
+    </div>
+    <div class="button" onClick="loadScheduler(chanID, startTime, this.parentNode.id)">
+        <%=qsTr("Edit recording rule")%>
+    </div>
+</div>
+
 <!-- Popup Program Details Box -->
 <div id="programDetails" class="programExDetail">
 </div>
@@ -47,10 +65,25 @@ import "/tv/js/constants.js"
 <!-- Sort order, grouping etc -->
 <div class="navigateBox">
 
+    <label for="listGroup"><%=qsTr("Recording Group")%>:</label>
+    <select id="listGroup" onChange="loadContent('/tv/recordings.qsp?RecordingGroup=' + this.options[this.options.selectedIndex].value);">
+<%
+    var groupList = dvr.GetRecGroupList();
+
+
+    for (var grpIdx = 0; grpIdx < groupList.length; grpIdx++)
+    {
+%>
+        <option value="<%=groupList[grpIdx]%>" <%if (getArg("RecordingGroup") == groupList[grpIdx]) {%>selected<%}%>><%=groupList[grpIdx]%></option>
+<%
+    }
+%>
+    </select>
+
     <label for="listSortOrder"><%=qsTr("Sort")%>:</label>
     <select id="listSortOrder" onChange="loadContent('/tv/recordings.qsp?SortAsc=' + this.options[this.options.selectedIndex].value);">
-        <option label="Ascending" value="1">Ascending</option>
         <option label="Descending" value="0">Descending</option>
+        <option label="Ascending" value="1" <%if (getArg("SortAsc") == 1) {%>selected<%}%>>Ascending</option>
     </select>
 
 </div>
@@ -69,22 +102,27 @@ for (var progIdx = 0; progIdx < programs.length; progIdx++)
     var program = programs[progIdx];
     var channel = program.Channel;
 
-    var menu = "editRecMenu";
-    if (program.Recording.Status == 0)
-        menu = "recMenu";
+    var menu = "recMenu";
+    if (program.Recording.Status == RS_RECORDING)
+        menu = "recMenu"; // stopRecMenu
 
     // Used as a unique identifier and also to access the chanid
     // and starttime for the AJAX scheduling stuff
     // NOTE: DVR methods require recording start time, not scheduled start time
     var programIdentifier = channel.ChanId + "_" + program.Recording.StartTs.toISOString();
+
+    var statusStr = dvr.RecStatusToString(program.Recording.Status);
+    var statusClass = "program" + statusStr.replace(/ /g, '');
 %>
-    <div class="recordingRow">
+    <div class="recordingRow" id="<%=programIdentifier%>_row">
         <div class="previewBox">
-            <img alt="Preview Image" height="60" class="previewImage" src="/Content/GetPreviewImage?ChanId=<%=program.Channel.ChanId%>&amp;StartTime=<%=program.Recording.StartTs.toISOString()%>&amp;height=60" />
+            <div class="previewImageBackground">
+                <img alt="Preview Image" height="60" class="previewImage" src="/Content/GetPreviewImage?ChanId=<%=program.Channel.ChanId%>&amp;StartTime=<%=program.Recording.StartTs.toISOString()%>&amp;height=60" />
+            </div>
             <span class="watchRecordingLink"><%=qsTr("Watch")%></span>
         </div>
-        <div class="recordingBox" id="<%=programIdentifier%>" onMouseOver="startDetailTimer(this, 'recording');" onMouseOut="hideDetail(this);" onClick="showMenu(this, '<%=menu%>');">
-            <div class="recordingInnerBox">
+        <div class="recordingBox">
+            <div class="recordingInnerBox <%=statusClass%>" id="<%=programIdentifier%>" onMouseOver="startDetailTimer(this, 'recording');" onMouseOut="hideDetail(this);" onClick="showMenu(this, '<%=menu%>');">
                 <div class="recordingHeader">
                     <span class="recordingTitle"><%=escapeHTML(program.Title)%></span>
                     <span class="recordingStartTime"><%=myth.GetFormatDate(program.StartTime)%>, <%=myth.GetFormatTime(program.StartTime)%></span>
@@ -104,7 +142,11 @@ for (var progIdx = 0; progIdx < programs.length; progIdx++)
                     <% if (program.Episode > 0) { %>
                         <span class="recordingSeasonEpisode">
                             (<%=qsTr("S %1", "Season x").arg(program.Season)%>
-                             <%=qsTr("Ep %1/%2", "Episode x of y").arg(program.Episode).arg(program.TotalEpisodes)%>)
+                            <% if (program.TotalEpisodes > 0) { %>
+                            <%=qsTr("Ep %1/%2", "Episode x of y").arg(program.Episode).arg(program.TotalEpisodes)%>)
+                            <%} else {%>
+                            <%=qsTr("Ep %1", "Episode x").arg(program.Episode)%>)
+                            <%}%>
                         </span>
                     <%}%>
                     <span class="recordingDescription"><%=escapeHTML(program.Description)%></span>
@@ -115,7 +157,6 @@ for (var progIdx = 0; progIdx < programs.length; progIdx++)
 <%
 }
 %>
-
 
 </div>
 
