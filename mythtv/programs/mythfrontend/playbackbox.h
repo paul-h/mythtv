@@ -377,6 +377,7 @@ class PlaybackBox : public ScheduleCommon
     // Recording Group settings
     QString             m_groupDisplayName;
     QString             m_recGroup;
+    int                 m_recGroupID;
     QString             m_curGroupPassword;
     QString             m_newRecGroup;
     QString             m_watchGroupName;
@@ -393,6 +394,7 @@ class PlaybackBox : public ScheduleCommon
     bool m_doToggleMenu;
 
     // Recording Group popup support
+    typedef QPair<QString, QString> RecGroup;
     QMap<QString,QString> m_recGroupType;
     QMap<QString,QString> m_recGroupPwCache;
 

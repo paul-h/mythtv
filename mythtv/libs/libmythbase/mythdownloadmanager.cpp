@@ -1640,4 +1640,3 @@ void MythCookieJar::save(const QString &filename)
 
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */
-

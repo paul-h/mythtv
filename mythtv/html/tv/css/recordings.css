@@ -1,28 +1,14 @@
 
-/* Ordering, sorting etc */
-.navigateBox
-{
-    float: right;
-    margin: 5px 5px 10px 5px;
-    background: #2A2A2A;
-    background-image: linear-gradient(to bottom, #555555 4%, transparent 25%);
-    border-radius: 8px;
-    padding: 10px;
-    font-weight: bold;
-}
-
-.navigateBox SELECT
-{
-    margin: 3px;
-}
-
 .recordingList
 {
+    /* BEGIN HACK Most modern browsers support calc, but some like Opera 12 on
+     * linux don't, so we have trust this will work for now */
+    width: 98%;
+    /* END HACK */
+
     width: calc(100% - 20px); /* Need to subtract padding of parent */
-    float: left;
     position: absolute;
     padding: 0px;
-    margin-right: 10px;
     /*overflow: visible;*/
 }
 
@@ -35,7 +21,7 @@
 
 .recordingList .topBar
 {
-    clear:both;
+    clear: both;
     margin: 5px 0px 2px;  /* Top Horizontal Bottom */
     height: 30px;
     font-size: 1.1em;
@@ -61,14 +47,28 @@
     overflow: hidden;
 }
 
+.recordingList .noRecordingsRow
+{
+    clear: both;
+    width: 100%;
+    height: 50px;
+    margin: 2px 0px; /* Vertical Horizontal */
+    overflow: hidden;
+    text-align: center;
+    vertical-align: middle;
+    background-color: #555555;
+    font-size: 1.0em;
+    font-weight: bold;
+    padding-top: 15px;
+}
+
 .recordingList .previewBox
 {
     float: left;
     height: 100%;
     background: #2A2A2A;
     background-image: linear-gradient(to right, #555555 1px, transparent 6px);
-    padding: 5px;
-    padding-left: 10px;
+    padding-left: 6px;
     z-index: -5;
     width: 124px;
     text-align:center;
@@ -77,11 +77,11 @@
 .recordingList .previewImageBackground
 {
     float: right;
-    border-radius: 10px;
+    /*border-radius: 10px;*/
     background: #000000;
     padding-left: 0px;
-    width: 107px;
-    height: 60px;
+    width: 119px;
+    height: 67px;
     overflow: hidden;
 }
 
@@ -112,21 +112,23 @@
     opacity: 1.0;
 }
 
-.recordingList .recordingBox
+.recordingList .programBox
 {
     height: 100%;
+    width: calc(100% - 124px);
     padding: 0px 0px 0px 2px; /* Top Right Bottom Left */
     cursor: pointer;
 }
 
-.recordingList .recordingInnerBox
+.recordingList .programInnerBox
 {
     height: 100%;
     background-color: #555555;
-    border-radius: 10px;
+    position: relative; /* Required for programSchedPopup to be centred */
+    cursor: pointer;
 }
 
-.recordingList .recordingHeader
+.recordingList .programHeader
 {
     padding: 6px 8px 6px 8px;
     color: #FFFFFF;
@@ -140,7 +142,7 @@
     z-index: 4;
 }
 
-.recordingList .recordingTitle
+.recordingList .programTitle
 {
     float: left;
     width: 50%;
@@ -148,7 +150,7 @@
     font-weight: bold;
 }
 
-.recordingList .recordingStartTime
+.recordingList .programStartTime
 {
     width: 30%;
     float: right;
@@ -158,40 +160,41 @@
     margin-top: 3px;
 }
 
-.recordingList .recordingBody
+.recordingList .programBody
 {
-    padding: 4px 5px; /* Vertical Horizontal */
+    padding: 3px 5px; /* Vertical Horizontal */
     color: #DDDDDD;
     height: 70px;
     z-index: 5;
-    font-size: 0.9em;
     overflow: hidden;
     text-overflow: clip;
 }
 
-.recordingList .recordingDescription
+.recordingList .programDescription
 {
     position: relative;
     z-index: 1;
     text-overflow: clip;
+    line-height: 15px;
 }
 
-.recordingList .recordingSubtitle
+.recordingList .programSubtitle
 {
     position:relative;
     font-weight: bold;
     font-size: 1.0em;
     margin-right: 5px;
     z-index: 1;
+    line-height: 15px;
 }
 
-.recordingList .recordingSeasonEpisode
+.recordingList .programSeasonEpisode
 {
     font-size: 0.9em;
     margin-right: 3px;
 }
 
-.recordingList .recordingIcons
+.recordingList .programIcons
 {
     float: right;
     width: 110px;
@@ -201,7 +204,18 @@
     padding: 0px;
 }
 
-.recordingList .recordingIcons IMG
+.recordingList .programIcons IMG
 {
     float: left;
+    margin: 2px 0px; /* Vertical Horizontal */
+}
+
+.wastebin
+{
+    margin: 3px 5px 10px 5px;
+    float: right;
+    padding: 5px 5px 2px 5px;
+    background: #2A2A2A;
+    background-image: linear-gradient(to bottom, #555555 4%, transparent 25%);
+    border-radius: 8px;
 }

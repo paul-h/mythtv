@@ -59,6 +59,14 @@ class Dvr : public DvrServices
                                                 bool             ForceDelete,
                                                 bool             AllowRerecord  );
 
+        bool              DeleteRecording     ( int              ChanId,
+                                                const QDateTime &StartTime,
+                                                bool             ForceDelete,
+                                                bool             AllowRerecord  );
+
+        bool              UnDeleteRecording   ( int              ChanId,
+                                                const QDateTime &StartTime );
+
         DTC::ProgramList* GetConflictList     ( int              StartIndex,
                                                 int              Count      );
 
@@ -70,7 +78,7 @@ class Dvr : public DvrServices
 
         QStringList       GetRecGroupList     ( );
 
-        QStringList       GetTitleList        ( );
+        QStringList       GetTitleList        ( const QString   &RecGroup );
 
         DTC::TitleInfoList* GetTitleInfoList  ( );
 
@@ -162,6 +170,10 @@ class Dvr : public DvrServices
 
         bool              RemoveRecordSchedule ( uint             RecordId   );
 
+        bool              AddDontRecordSchedule( int              ChanId,
+                                                 const QDateTime &StartTime,
+                                                 bool             NeverRecord );
+
         DTC::RecRuleList* GetRecordScheduleList( int              StartIndex,
                                                  int              Count      );
 
@@ -176,6 +188,12 @@ class Dvr : public DvrServices
         bool              DisableRecordSchedule( uint             RecordId   );
 
         QString           RecStatusToString    ( int              RecStatus );
+
+        QString           RecStatusToDescription ( int            RecStatus,
+                                                   int            RecType,
+                                                   const QDateTime &StartTime );
+
+        QString           RecTypeToString      ( int              RecType   );
 };
 
 // --------------------------------------------------------------------------
@@ -240,17 +258,42 @@ class ScriptableDvr : public QObject
                                          ForceDelete, AllowRerecord);
         }
 
+        bool DeleteRecording          ( int              ChanId,
+                                        const QDateTime &StartTime,
+                                        bool             ForceDelete,
+                                        bool             AllowRerecord  )
+        {
+            return m_obj.DeleteRecording(ChanId, StartTime,
+                                         ForceDelete, AllowRerecord);
+        }
+
+        bool UnDeleteRecording        ( int              ChanId,
+                                        const QDateTime &StartTime )
+        {
+            return m_obj.UnDeleteRecording(ChanId, StartTime);
+        }
+
         QObject* GetConflictList    ( int              StartIndex,
-                                       int              Count      )
+                                      int              Count      )
         {
             return m_obj.GetConflictList( StartIndex, Count );
+        }
+
+        QObject* GetUpcomingList    ( int              StartIndex,
+                                      int              Count,
+                                      bool             ShowAll )
+        {
+            return m_obj.GetUpcomingList( StartIndex, Count, ShowAll );
         }
 
         QObject* GetEncoderList     () { return m_obj.GetEncoderList(); }
 
         QStringList GetRecGroupList () { return m_obj.GetRecGroupList(); }
 
-        QStringList GetTitleList    () { return m_obj.GetTitleList(); }
+        QStringList GetTitleList    ( const QString   &RecGroup )
+        {
+            return m_obj.GetTitleList( RecGroup );
+        }
 
         QObject* GetTitleInfoList   () { return m_obj.GetTitleInfoList(); }
 
@@ -315,6 +358,13 @@ class ScriptableDvr : public QObject
             return m_obj.RemoveRecordSchedule(RecordId);
         }
 
+        bool AddDontRecordSchedule( int              ChanId,
+                                    const QDateTime &StartTime,
+                                    bool             NeverRecord )
+        {
+            return m_obj.AddDontRecordSchedule(ChanId, StartTime, NeverRecord);
+        }
+
         QObject* GetRecordScheduleList( int StartIndex, int Count )
         {
             return m_obj.GetRecordScheduleList(StartIndex, Count);
@@ -345,6 +395,19 @@ class ScriptableDvr : public QObject
             return m_obj.RecStatusToString(RecStatus);
         }
 
+        QString RecStatusToDescription( int RecStatus,
+                                        int RecType,
+                                        const QDateTime &StartTime )
+        {
+            return m_obj.RecStatusToDescription(RecStatus,
+                                                RecType,
+                                                StartTime );
+        }
+
+        QString RecTypeToString( int RecType )
+        {
+            return m_obj.RecTypeToString( RecType );
+        }
 };
 
 Q_SCRIPT_DECLARE_QMETAOBJECT( ScriptableDvr, QObject*);
