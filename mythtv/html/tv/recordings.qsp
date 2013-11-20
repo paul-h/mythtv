@@ -11,6 +11,10 @@ import "/tv/js/constants.js"
         return args[name];
     }
 
+    var listOnly = 0;
+    if (getArg("ListOnly"))
+        listOnly = 1;
+
     var myth = new Myth();
 
     // Default is to sort recordings from most recent through to the oldest
@@ -26,6 +30,14 @@ import "/tv/js/constants.js"
     if (getArg("DisplayGroup"))
         displayGroup = getArg("DisplayGroup");
 
+    var sortOrder = "";
+    if (getArg("SortAsc"))
+        sortOrder = getArg("SortAsc");
+
+    var startIndex = 0;
+    if (getArg("Start"))
+        startIndex = Number(getArg("Start"));
+
     var dvr = new Dvr();
 
     // Get Recording Group List
@@ -40,10 +52,17 @@ import "/tv/js/constants.js"
     if (displayGroupList.indexOf(displayGroup) === -1)
         displayGroup = "";
 
-    var recordings = dvr.GetRecordedList( sortDescending, 0, 50, displayGroup, recGroup, "" );
-    var programs = recordings.Programs;
+    var PAGEINTERVAL = 10;
+    var recordingList = dvr.GetRecordedList( sortDescending, startIndex, PAGEINTERVAL, displayGroup, recGroup, "" );
+
+    var nextStartIndex = (startIndex + PAGEINTERVAL);
+    if (nextStartIndex > recordingList.TotalAvailable)
+        nextStartIndex = 0;
+
+    var programs = recordingList.Programs;
 %>
 
+<% if (!listOnly) {%>
 <!DOCTYPE html>
 <html>
 <head>
@@ -57,6 +76,7 @@ import "/tv/js/constants.js"
 <script src="/js/util.qjs"></script>
 <script src="/tv/js/common.js"></script>
 <script src="/tv/js/recordings.js"></script>
+<script src="/3rdParty/jquery/jqueryJScroll/jquery.jscroll.js"></script>
 </head>
 <body id="content">
 
@@ -119,7 +139,7 @@ import "/tv/js/constants.js"
     <label for="listSortOrder"><%=qsTr("Sort")%>:
     <select id="listSortOrder" name="SortAsc" onChange="submitForm(this.form)">
         <option label="Descending" value="0">Descending</option>
-        <option label="Ascending" value="1" <%if (getArg("SortAsc") == 1) {%>selected<%}%>>Ascending</option>
+        <option label="Ascending" value="1" <%if (sortOrder == 1) {%>selected<%}%>>Ascending</option>
     </select>
     </label>
     <label for="listDisplayOrder"><%=qsTr("Filter")%>:
@@ -140,13 +160,15 @@ import "/tv/js/constants.js"
 
 </div>
 
-<div id="foo" style="overflow:hidden;clear:both;width:100%;">
+<div id="recordingList-container" style="overflow:hidden;clear:both;width:100%;">
 
-<div id="recordingList" class="recordingList">
+<div id="recordingList" class="recordingList jscroll">
 
 <div class="topBar">
     <%=qsTr("Recordings")%>
 </div>
+
+<%} // End of the header %>
 
 <%
 // The nothing to display message
@@ -189,7 +211,7 @@ for (var progIdx = 0; progIdx < programs.length; progIdx++)
     <div class="recordingRow" id="<%=programIdentifier%>_row">
         <div class="previewBox">
             <div class="previewImageBackground">
-                <img alt="Preview Image" height="67" class="previewImage" src="/Content/GetPreviewImage?ChanId=<%=program.Channel.ChanId%>&amp;StartTime=<%=program.Recording.StartTs.toISOString()%>&amp;height=67" />
+                <img alt="Preview Image" height="67" class="previewImage" src="/Content/GetPreviewImage?ChanId=<%=program.Channel.ChanId%>&amp;StartTime=<%=program.Recording.StartTs.toISOString()%>&amp;height=67&amp;format=JPG" />
             </div>
             <span class="watchRecordingLink"><%=qsTr("Watch")%></span>
         </div>
@@ -201,15 +223,14 @@ for (var progIdx = 0; progIdx < programs.length; progIdx++)
                 </div>
                 <div class="programBody">
                     <div class="programIcons">
-                    <!-- Icons all a 4:3 aspect -->
-                    <% if (program.VideoProps & VID_1080) {%><img src="/tv/images/hd_1080.svg" width="36" height="27" alt="<%=qsTr("HD 1080")%>" title="<%=qsTr("HD 1080")%>" />
-                    <% } else if (program.VideoProps & VID_720) {%><img src="/tv/images/hd_720.svg" width="36" height="27" alt="<%=qsTr("HD 720")%>" title="<%=qsTr("HD 720")%>" />
-                    <% } else if (program.VideoProps & VID_HDTV) {%><img src="/tv/images/hd_tv.svg" width="36" height="27" alt="<%=qsTr("HD")%>" title="<%=qsTr("HD")%>" /><%}%>
-                    <% if (program.ProgramFlags & FL_AUTOEXP) {%><img src="/tv/images/fl_autoexp.svg" width="36" height="27" alt="<%=qsTr("Auto-Expire")%>" title="<%=qsTr("Auto-Expire")%>" /><%}%>
-                    <% if (program.ProgramFlags & FL_WATCHED) {%><img src="/tv/images/fl_watched.svg" width="36" height="27" alt="<%=qsTr("Watched")%>" title="<%=qsTr("Watched")%>" />
-                    <% } else if (program.ProgramFlags & FL_BOOKMARK) {%><img src="/tv/images/fl_bookmark.svg" width="36" height="27" alt="<%=qsTr("Bookmark")%>" title="<%=qsTr("Bookmark")%>" /><%}%>
-                    <% if (program.ProgramFlags & FL_COMMFLAG) {%><img src="/tv/images/fl_commflag.svg" width="36" height="27" alt="<%=qsTr("Commercial Flagged")%>" title="<%=qsTr("Commercial Flagged")%>" /><%}%>
-                    <% if (program.CatType == CAT_MOVIE) {%><img src="/tv/images/cat_movie.svg" width="36" height="27" alt="<%=qsTr("Movie")%>" title="<%=qsTr("Movie")%>" /><%}%>
+                        <% if (program.VideoProps & VID_1080) {%><img class="icon_hd1080" src="/tv/images/blank.png" alt="<%=qsTr("HD 1080")%>" title="<%=qsTr("HD 1080")%>" />
+                        <% } else if (program.VideoProps & VID_720) {%><img class="icon_hd720" src="/tv/images/blank.png" alt="<%=qsTr("HD 720")%>" title="<%=qsTr("HD 720")%>" />
+                        <% } else if (program.VideoProps & VID_HDTV) {%><img class="icon_hdtv" src="/tv/images/blank.png" alt="<%=qsTr("HD")%>" title="<%=qsTr("HD")%>" /><%}%>
+                        <% if (program.ProgramFlags & FL_AUTOEXP) {%><img class="icon_flautoexpire" src="/tv/images/blank.png" alt="<%=qsTr("Auto-Expire")%>" title="<%=qsTr("Auto-Expire")%>" /><%}%>
+                        <% if (program.ProgramFlags & FL_WATCHED) {%><img class="icon_flwatched" src="/tv/images/blank.png" alt="<%=qsTr("Watched")%>" title="<%=qsTr("Watched")%>" />
+                        <% } else if (program.ProgramFlags & FL_BOOKMARK) {%><img class="icon_flbookmark" src="/tv/images/blank.png" alt="<%=qsTr("Bookmark")%>" title="<%=qsTr("Bookmark")%>" /><%}%>
+                        <% if (program.ProgramFlags & FL_COMMFLAG) {%><img class="icon_flcommflag" src="/tv/images/blank.png" alt="<%=qsTr("Commercial Flagged")%>" title="<%=qsTr("Commercial Flagged")%>" /><%}%>
+                        <% if (program.CatType == CAT_MOVIE) {%><img class="icon_catmovie" src="/tv/images/blank.png" alt="<%=qsTr("Movie")%>" title="<%=qsTr("Movie")%>" /><%}%>
                     </div>
                     <span class="programSubtitle"><%=escapeHTML(program.SubTitle)%></span>
                     <% if (program.Season > 0 || program.Episode > 0) { %>
@@ -228,9 +249,18 @@ for (var progIdx = 0; progIdx < programs.length; progIdx++)
 }
 %>
 
-</div>
+<% if (nextStartIndex) { %>
+<a class="jscroll-next" href="/tv/recordings.qsp?RecordingGroup=<%=recGroup%>&amp;DisplayGroup=<%=displayGroup%>&amp;SortAsc=<%=sortOrder%>&amp;Start=<%=nextStartIndex%>&amp;ListOnly=1" />
+<%}%>
 
-</div>
+<% if (!listOnly) {%>
+</div> <!-- End recordingList -->
+</div> <!-- End recordingList-container -->
+
+<script>
+    loadJScroll();
+</script>
 
 </body>
 </html>
+<%}%>

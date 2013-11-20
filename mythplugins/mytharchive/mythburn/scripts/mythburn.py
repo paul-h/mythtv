@@ -49,7 +49,7 @@ from __future__ import unicode_literals
 
 
 # version of script - change after each update
-VERSION="0.1.20130911-5"
+VERSION="0.1.20131119-1"
 
 # keep all temporary files for debugging purposes
 # set this to True before a first run through when testing
@@ -1426,7 +1426,7 @@ def getFileInformation(file, folder):
         data.description    = rec.description
         data.rating         = str(rec.stars)
         data.chanid         = rec.chanid
-        data.starttime      = rec.starttime.isoformat()
+        data.starttime      = rec.starttime.utcisoformat()
 
         cutlist = rec.markup.getcutlist()
         if len(cutlist):
@@ -1509,7 +1509,12 @@ def getFileInformation(file, folder):
 def WriteXMLToFile(myDOM, filename):
     #Save the XML file to disk for use later on
     f=open(filename, 'w')
-    f.write(myDOM.toprettyxml(indent="    ", encoding="UTF-8"))
+
+    if sys.hexversion >= 0x020703F0:
+        f.write(myDOM.toprettyxml(indent="    ", encoding="UTF-8"))
+    else:
+        f.write(myDOM.toxml(encoding="UTF-8"))
+
     f.close()
 
 
