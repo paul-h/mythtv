@@ -66,6 +66,7 @@
 #define ERROR_INVALID_POINTERS "Cannot get shared memory pointers"
 #define ERROR_INVALID_MONITOR_FUNCTION  "Invalid Monitor Function"
 #define ERROR_INVALID_MONITOR_ENABLE_VALUE "Invalid Monitor Enable Value"
+#define ERROR_NO_FRAMES         "No frames found for event"
 
 // Subpixel ordering (from zm_rgb.h)
 // Based on byte order naming. For example, for ARGB (on both little endian or big endian)
@@ -227,7 +228,7 @@ void kickDatabase(bool debug)
 MONITOR::MONITOR(void) :
     name(""), type(""), function(""), enabled(0), device(""), host(""),
     image_buffer_count(0),  width(0), height(0), bytes_per_pixel(3), mon_id(0),
-    shared_images(NULL), last_read(0), status(""), frame_size(0), palette(0),
+    shared_images(NULL), last_read(0), status(""), palette(0),
     controllable(0), trackMotion(0), mapFile(-1), shm_ptr(NULL),
     shared_data(NULL), shared_data26(NULL), id("")
 {
@@ -235,9 +236,8 @@ MONITOR::MONITOR(void) :
 
 void MONITOR::initMonitor(bool debug, string mmapPath, int shmKey)
 {
-    frame_size = width * height * bytes_per_pixel;
-
     int shared_data_size;
+    int frame_size = width * height * bytes_per_pixel;
 
     if (checkVersion(1, 26, 0))
     {
@@ -409,6 +409,14 @@ int MONITOR::getSubpixelOrder(void)
     }
 
     return shared_data26->format;
+}
+
+int MONITOR::getFrameSize(void)
+{
+    if (shared_data)
+        return width * height * bytes_per_pixel;
+
+    return shared_data26->imagesize;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -1346,6 +1354,13 @@ void ZMServer::handleGetFrameList(vector<string> tokens)
     res = mysql_store_result(&g_dbConn);
     row = mysql_fetch_row(res);
 
+    // make sure we have some frames to display
+    if (row[1] == NULL || row[2] == NULL)
+    {
+        sendError(ERROR_NO_FRAMES);
+        return;
+    }
+
     string cause = row[0];
     double length = atof(row[1]);
     int frameCount = atoi(row[2]);
@@ -1457,12 +1472,13 @@ void ZMServer::handleGetMonitorList(void)
 
         if (m_debug)
         {
-            cout << "id:             " << mon->mon_id          << endl;
-            cout << "name:           " << mon->name            << endl;
-            cout << "width:          " << mon->width           << endl;
-            cout << "height:         " << mon->height          << endl;
-            cout << "palette:        " << mon->palette         << endl;
-            cout << "byte per pixel: " << mon->bytes_per_pixel << endl;
+            cout << "id:             " << mon->mon_id             << endl;
+            cout << "name:           " << mon->name               << endl;
+            cout << "width:          " << mon->width              << endl;
+            cout << "height:         " << mon->height             << endl;
+            cout << "palette:        " << mon->palette            << endl;
+            cout << "byte per pixel: " << mon->bytes_per_pixel    << endl;
+            cout << "sub pixel order:" << mon->getSubpixelOrder() << endl;
             cout << "-------------------" << endl;
         }
     }
@@ -1675,7 +1691,7 @@ int ZMServer::getFrame(unsigned char *buffer, int bufferSize, MONITOR *monitor)
     // just copy the data to our buffer for now
 
     // fixup the colours if necessary we aim to always send RGB24 images
-    unsigned char *data = monitor->shared_images + monitor->frame_size * monitor->last_read;
+    unsigned char *data = monitor->shared_images + monitor->getFrameSize() * monitor->last_read;
     unsigned int rpos = 0;
     unsigned int wpos = 0;
 
@@ -1765,7 +1781,7 @@ int ZMServer::getFrame(unsigned char *buffer, int bufferSize, MONITOR *monitor)
         }
     }
 
-    return monitor->frame_size;
+    return monitor->width * monitor->height * 3;
 }
 
 string ZMServer::getZMSetting(const string &setting)
