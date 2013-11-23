@@ -675,7 +675,8 @@ uint Dvr::AddRecordSchedule   (
     rule.m_findtime = tFindTime;
 
     rule.m_recProfile = sRecProfile;
-    rule.m_recGroup = sRecGroup;
+    rule.m_recGroupID = RecordingInfo::GetRecgroupID(sRecGroup) > 0 ? RecordingInfo::GetRecgroupID(sRecGroup) :
+                                                                      RecordingInfo::kDefaultRecGroup;
     rule.m_storageGroup = sStorageGroup;
     rule.m_playGroup = sPlayGroup;
 
@@ -835,7 +836,8 @@ bool Dvr::UpdateRecordSchedule ( uint      nRecordId,
     pRule.m_findtime = tFindTime;
 
     pRule.m_recProfile = sRecProfile;
-    pRule.m_recGroup = sRecGroup;
+    pRule.m_recGroupID = RecordingInfo::GetRecgroupID(sRecGroup) > 0 ? RecordingInfo::GetRecgroupID(sRecGroup) :
+                                                                      RecordingInfo::kDefaultRecGroup;
     pRule.m_storageGroup = sStorageGroup;
     pRule.m_playGroup = sPlayGroup;
 
@@ -1065,8 +1067,40 @@ QString Dvr::RecStatusToDescription(int RecStatus, int recType,
     return toDescription(rsType, recordingType, StartTime);
 }
 
-QString Dvr::RecTypeToString(int recType)
+QString Dvr::RecTypeToString(QString recType)
 {
-    RecordingType type = static_cast<RecordingType>(recType);
-    return toString(type);
+    // RecordingType type = static_cast<RecordingType>(recType);
+    return toString(recTypeFromString(recType));
+}
+
+QString Dvr::RecTypeToDescription(QString recType)
+{
+    // RecordingType type = static_cast<RecordingType>(recType);
+    return toDescription(recTypeFromString(recType));
+}
+
+QString Dvr::DupInToString(QString DupIn)
+{
+    // RecordingDupInType type= static_cast<RecordingDupInType>(DupIn);
+    // return toString(type);
+    return toString(dupInFromString(DupIn));
+}
+
+QString Dvr::DupInToDescription(QString DupIn)
+{
+    // RecordingDupInType type= static_cast<RecordingDupInType>(DupIn);
+    //return toDescription(type);
+    return toDescription(dupInFromString(DupIn));
+}
+
+QString Dvr::DupMethodToString(QString DupMethod)
+{
+    // RecordingDupMethodType method = static_cast<RecordingDupMethodType>(DupMethod);
+    return toString(dupMethodFromString(DupMethod));
+}
+
+QString Dvr::DupMethodToDescription(QString DupMethod)
+{
+    // RecordingDupMethodType method = static_cast<RecordingDupMethodType>(DupMethod);
+    return toDescription(dupMethodFromString(DupMethod));
 }
