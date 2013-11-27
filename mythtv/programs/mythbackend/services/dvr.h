@@ -29,7 +29,6 @@
 #include <QScriptEngine>
 
 #include "services/dvrServices.h"
-#include "datacontracts/recRule.h"
 
 class Dvr : public DvrServices
 {
@@ -79,6 +78,12 @@ class Dvr : public DvrServices
         DTC::InputList*   GetInputList        ( );
 
         QStringList       GetRecGroupList     ( );
+
+        QStringList       GetRecStorageGroupList ( );
+
+        QStringList       GetPlayGroupList    ( );
+
+        DTC::RecRuleFilterList* GetRecRuleFilterList ( );
 
         QStringList       GetTitleList        ( const QString   &RecGroup );
 
@@ -302,7 +307,13 @@ class ScriptableDvr : public QObject
 
         QObject* GetInputList       () { return m_obj.GetInputList();   }
 
-        QStringList GetRecGroupList () { return m_obj.GetRecGroupList(); }
+        QStringList GetRecGroupList        () { return m_obj.GetRecGroupList(); }
+
+        QStringList GetRecStorageGroupList () { return m_obj.GetRecStorageGroupList(); }
+
+        QStringList GetPlayGroupList       () { return m_obj.GetPlayGroupList(); }
+
+        QObject* GetRecRuleFilterList      () { return m_obj.GetRecRuleFilterList(); }
 
         QStringList GetTitleList    ( const QString   &RecGroup )
         {
