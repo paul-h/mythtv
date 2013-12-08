@@ -192,18 +192,63 @@ bool ServerSideScripting::EvaluatePage( QTextStream *pOutStream, const QString &
         // Build array of arguments passed to script
         // ------------------------------------------------------------------
 
+        // FIXME: Even with the added escaping, this probably isn't very safe
+        //        and should be done differently
         QString params = "ARGS = { ";
         if (mapParams.size())
         {
             QMap<QString, QString>::const_iterator it = mapParams.begin();
 
+            // Valid characters for object property names must contain only
+            // word characters and numbers, _ and $
+            // They must not start with a number - to simplify the regexp, we
+            // restrict the first character to the English alphabet
+            QRegExp validChars = QRegExp("^([a-zA-Z]|_|\\$)(\\w|\\$)+$");
+            QString paramStr = QString("%1: '%2', ");
+            QString prevArrayName = "";
             for (; it != mapParams.end(); ++it)
             {
-                params += QString("%1: '%2', ").arg(it.key()).arg(it.value());
+                QString value = it.value();
+                value.replace("'", "\\'");
+                value.replace("}", "\\}");
+                value.replace("{", "\\{");
+
+                // Array
+                if (it.key().contains("["))
+                {
+                    QString arrayName = it.key().section('[',0,0);
+                    QString arrayKey = it.key().section('[',1,1);
+                    arrayKey.chop(1); // Remove trailing ]
+                    if (prevArrayName != arrayName) // Different array
+                    {
+                        if (!prevArrayName.isEmpty())
+                            params += " }, ";
+
+                        prevArrayName = arrayName;
+
+                        params += arrayName + " : { ";
+                    }
+
+                    params += paramStr.arg(arrayKey).arg(value);
+                }
+                else
+                {
+                    if (!prevArrayName.isEmpty())
+                    {
+                        params += " }, ";
+                        prevArrayName = "";
+                    }
+                }
+
+                if (!validChars.exactMatch(it.key()))
+                    continue;
+
+                params += paramStr.arg(it.key()).arg(value);
             }
         }
 
         params += " }";
+        LOG(VB_UPNP, LOG_DEBUG, QString("Called with parameters (%1)").arg(params));
         m_engine.evaluate(params);
 
         // ------------------------------------------------------------------

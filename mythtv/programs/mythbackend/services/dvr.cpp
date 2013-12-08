@@ -494,18 +494,29 @@ DTC::TitleInfoList* Dvr::GetTitleInfoList()
 
 DTC::ProgramList* Dvr::GetUpcomingList( int  nStartIndex,
                                         int  nCount,
-                                        bool bShowAll )
+                                        bool bShowAll,
+                                        int  nRecordId,
+                                        int  nRecStatus )
 {
     RecordingList  recordingList;
     RecordingList  tmpList;
     bool hasConflicts;
-    LoadFromScheduler(tmpList, hasConflicts);
+
+    if (nRecordId <= 0)
+        nRecordId = -1;
+
+    LoadFromScheduler(tmpList, hasConflicts, "", nRecordId);
 
     // Sort the upcoming into only those which will record
     RecordingList::iterator it = tmpList.begin();
     for(; it < tmpList.end(); ++it)
     {
-        if (!bShowAll && ((*it)->GetRecordingStatus() <= rsWillRecord) &&
+        if ((nRecStatus != 0) &&
+            ((*it)->GetRecordingStatus() != nRecStatus))
+            continue;
+
+        if (!bShowAll && (((*it)->GetRecordingStatus() <= rsWillRecord) ||
+                          ((*it)->GetRecordingStatus() == rsConflict)) &&
             ((*it)->GetRecordingEndTime() > MythDate::current()))
         {
             recordingList.push_back(new RecordingInfo(**it));
@@ -553,12 +564,17 @@ DTC::ProgramList* Dvr::GetUpcomingList( int  nStartIndex,
 /////////////////////////////////////////////////////////////////////////////
 
 DTC::ProgramList* Dvr::GetConflictList( int  nStartIndex,
-                                        int  nCount       )
+                                        int  nCount,
+                                        int  nRecordId       )
 {
     RecordingList  recordingList;
     RecordingList  tmpList;
     bool hasConflicts;
-    LoadFromScheduler(tmpList, hasConflicts);
+
+    if (nRecordId <= 0)
+        nRecordId = -1;
+
+    LoadFromScheduler(tmpList, hasConflicts, "", nRecordId);
 
     // Sort the upcoming into only those which are conflicts
     RecordingList::iterator it = tmpList.begin();

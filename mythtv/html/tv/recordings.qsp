@@ -3,6 +3,7 @@
 
 import "/js/utility.js"
 import "/tv/js/constants.js"
+import "/tv/js/tvutil.qjs"
 
     var args = arguments[1];
     function getArg(name)
@@ -87,22 +88,22 @@ import "/tv/js/constants.js"
      side (harder to maintain/template) or keeping in together inline with the
      other related html, with as little non-html markup as possible -->
 <div id="optMenu" class="contextMenu" style="display:none;">
-    <div class="button normalMenu" onClick="deleteRecording(chanID, startTime, false, false)">
+    <div class="button normalMenu" onClick="deleteRecording(gChanID, gStartTime, false, false)">
         <%=qsTr("Delete")%>
     </div>
-    <div class="button normalMenu" onClick="deleteRecording(chanID, startTime, true, false)">
+    <div class="button normalMenu" onClick="deleteRecording(gChanID, gStartTime, true, false)">
         <%=qsTr("Delete and Re-Record")%>
     </div>
-    <div class="button deletedMenu" onClick="unDeleteRecording(chanID, startTime)">
+    <div class="button deletedMenu" onClick="unDeleteRecording(gChanID, gStartTime)">
         <%=qsTr("Undelete")%>
     </div>
-    <div class="button deletedMenu" onClick="deleteRecording(chanID, startTime, false, true)">
+    <div class="button deletedMenu" onClick="deleteRecording(gChanID, gStartTime, false, true)">
         <%=qsTr("Delete Forever")%>
     </div>
-    <div class="button recordingMenu" onClick="stopRecording(chanID, startTime)">
+    <div class="button recordingMenu" onClick="stopRecording(gChanID, gStartTime)">
         <%=qsTr("Stop Recording")%>
     </div>
-    <div class="button normalMenu" onClick="loadScheduler(chanID, startTime)">
+    <div class="button normalMenu" onClick="loadScheduler(gChanID, gStartTime)">
         <%=qsTr("Edit recording rule")%>
     </div>
 </div>
@@ -205,8 +206,8 @@ for (var progIdx = 0; progIdx < programs.length; progIdx++)
     // NOTE: DVR methods require recording start time, not scheduled start time
     var programIdentifier = channel.ChanId + "_" + program.Recording.StartTs.toISOString();
 
-    var statusStr = dvr.RecStatusToString(program.Recording.Status);
-    var statusClass = "program" + statusStr.replace(/ /g, '');
+    // RecStatusToClass() - /tv/js/tvutil.qjs
+    var statusClass = RecStatusToClass(program.Recording.Status);
 %>
     <div class="recordingRow" id="<%=programIdentifier%>_row">
         <div class="previewBox">
