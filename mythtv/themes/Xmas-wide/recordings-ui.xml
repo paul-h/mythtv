@@ -61,9 +61,10 @@
                             <minsize>50,100%</minsize>
                             <type>roundbox</type>
                             <cornerradius>15</cornerradius>
-                            <line color="#ffffff" alpha="255" width="3" />
+                            <line color="#cc0000" alpha="100" width="3" />
                             <fill style="gradient">
-                                <gradient start="#00aa00" end="#00ff00" alpha="200" direction="vertical" />
+                                <gradient start="#aa0000" end="#ff0000" alpha="200" direction="vertical" />
+                                <line color="#ff0000" width="3" />
                             </fill>
                         </shape>
                         <textarea name="buttontext">
@@ -89,8 +90,8 @@
                             <area>0,0,100%,100%</area>
                             <minsize>50,100%</minsize>
                             <type>roundbox</type>
-                            <fill color="#00aa00" alpha="120" />
-                            <line color="#cccccc" width="3" alpha="100" />
+                            <fill color="#aa0000" alpha="120" />
+-                           <line color="#cc0000" width="3" />
                             <cornerradius>15</cornerradius>
                         </shape>
                     </group>
@@ -105,7 +106,7 @@
                 <showempty>yes</showempty>
                 <state type="full">
                     <imagetype name="lefton">
-                        <filename>ui/left_arrow-sel.png</filename>
+                        <filename>left_arrow-sel.png</filename>
                     </imagetype>
                 </state>
             </statetype>
@@ -114,7 +115,7 @@
                 <showempty>yes</showempty>
                 <state type="full">
                     <imagetype name="righton">
-                        <filename>ui/right_arrow-sel.png</filename>
+                        <filename>right_arrow-sel.png</filename>
                     </imagetype>
                 </state>
             </statetype>
@@ -428,21 +429,21 @@
         </textarea>
 
         <progressbar name="usedbar">
-            <area>20,45,330,28</area>
+            <area>25,44,320,30</area>
             <layout>horizontal</layout>
             <style>reveal</style>
             <imagetype name="background">
-                <area>0,0,100%,28</area>
-                <filename>progressbar_background.png</filename>
+                <area>0,0,100%,30</area>
+                <filename>mm_progress-bg.png</filename>
             </imagetype>
             <imagetype name="progressimage">
-                <area>0,0,100%,28</area>
-                <filename>progressbar_fill2.png</filename>
+                <area>0,0,100%,30</area>
+                <filename>mm_progress-fg.png</filename>
             </imagetype>
         </progressbar>
 
         <textarea name="freereport">
-            <area>20,45,330,28</area>
+            <area>25,45,320,28</area>
             <align>center</align>
             <font>basesmaller</font>
         </textarea>
@@ -450,9 +451,9 @@
 
     <window name="groupselector">
         <area>-1,-1,500,500</area>
-        <imagetype name="backimg">
-            <filename>mythdialogbox-background.png</filename>
-        </imagetype>
+        <shape name="backimg" from="basepopupbackground">
+            <area>0,0,100%,100%</area>
+        </shape>
 
         <textarea name="label" from="basetextarea">
             <area>12,4,470,90</area>
@@ -469,9 +470,9 @@
 
     <window name="changeview">
         <area>-1,-1,500,500</area>
-        <imagetype name="backimg">
-            <filename>mythdialogbox-background.png</filename>
-        </imagetype>
+        <shape name="backimg" from="basepopupbackground">
+            <area>0,0,100%,100%</area>
+        </shape>
 
         <textarea name="title" from="basetextarea">
             <area>12,34,470,30</area>
@@ -552,9 +553,9 @@
     <window name="passwordchanger">
         <area>-1,-1,500,500</area>
 
-        <imagetype name="backimg">
-            <filename>mythdialogbox-background.png</filename>
-        </imagetype>
+        <shape name="backimg" from="basepopupbackground">
+            <area>0,0,100%,100%</area>
+        </shape>
 
         <textarea name="label" from="basetextarea">
             <area>12,14,470,160</area>
@@ -590,10 +591,9 @@
     <window name="editmetadata">
         <area>-1,-1,800,600</area>
 
-        <imagetype name="backimg">
+        <shape name="backimg" from="basepopupbackground">
             <area>0,0,100%,100%</area>
-            <filename>mythdialogbox-background.png</filename>
-        </imagetype>
+        </shape>
 
         <textarea name="label" from="basetextarea">
             <area>20,10,100%-20,60</area>
@@ -683,10 +683,9 @@
             </section>
         </animation>
 
-        <imagetype name="backimg">
-            <area>0,0,700,500</area>
-            <filename>mythdialogbox-background.png</filename>
-        </imagetype>
+        <shape name="backimg" from="basepopupbackground">
+            <area>0,0,100%,100%</area>
+        </shape>
 
         <textarea name="title" from="basetextarea">
             <area>0,0,700,50</area>
