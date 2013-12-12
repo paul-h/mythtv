@@ -1303,6 +1303,7 @@
     </window>
 
     <window name="backgroundwindow">
+
         <imagetype name="backimg">
             <area>0,0,1280,720</area>
             <filepattern low="1" high="10">ui/snow-%1.png</filepattern>
