@@ -687,8 +687,8 @@
             <line color="#0895f8" alpha="255" width="1" />
             <fill style="gradient">
                 <gradient direction="diagonal">
-                    <stop position="0" color="#0767AB" alpha="255" />
-                    <stop position="100" color="#0767AB" alpha="120" />
+                    <stop position="0" color="#ff0000" alpha="255" />
+                    <stop position="100" color="#ff0000" alpha="120" />
                 </gradient>
             </fill>
             <cornerradius>12</cornerradius>

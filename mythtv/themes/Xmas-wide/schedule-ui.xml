@@ -1183,13 +1183,13 @@
 
         <shape name="background" from="basebackground">
             <area>70,60,1140,600</area>
-            <fill color="#131564"/>
+            <fill color="#550000"/>
         </shape>
 
-        <webbrowser name="browser">
+        <webbrowser name="browser" from="basewebbrowser">
             <area>80,70,1120,580</area>
             <zoom>1.0</zoom>
-            <background color="#131564"/>
+            <background color="#550000"/>
         </webbrowser>
     </window>
 
