@@ -24,6 +24,7 @@
 #include <lcddevice.h>
 #include <musicmetadata.h>
 #include <musicutils.h>
+#include <musicfilescanner.h>
 
 // MythMusic headers
 #include "musicdata.h"
@@ -34,7 +35,6 @@
 #include "streamview.h"
 #include "playlistcontainer.h"
 #include "dbcheck.h"
-#include "filescanner.h"
 #include "musicplayer.h"
 #include "config.h"
 #include "mainvisual.h"
@@ -91,7 +91,7 @@ static void loadMusic()
     // can choose "Setup" option from the menu to force it.
     if (!musicDir.isEmpty() && !musicdata_exists)
     {
-        FileScanner *fscan = new FileScanner();
+        MusicFileScanner *fscan = new MusicFileScanner();
         fscan->SearchDir(musicDir);
         delete fscan;
     }
@@ -228,7 +228,7 @@ static void runScan(void)
 
     LOG(VB_GENERAL, LOG_INFO, QString("Scanning '%1' for music files").arg(getMusicDirectory()));
 
-    FileScanner *fscan = new FileScanner();
+    MusicFileScanner *fscan = new MusicFileScanner();
     QString musicDir = getMusicDirectory();
     fscan->SearchDir(musicDir);
 
@@ -440,9 +440,9 @@ static void handleMedia(MythMediaDevice *cd)
         .arg(MythMediaDevice::MediaTypeString(cd->getMediaType())));
 }
 
+#ifdef HAVE_CDIO
 static void handleCDMedia(MythMediaDevice *cd)
 {
-#ifdef HAVE_CDIO
 
     if (!cd)
         return;
@@ -583,11 +583,14 @@ static void handleCDMedia(MythMediaDevice *cd)
 
         runMusicPlayback();
     }
+}
 #else
+static void handleCDMedia(MythMediaDevice *)
+{
     LOG(VB_GENERAL, LOG_NOTICE, "MythMusic got a media changed event"
                                 "but cdio support is not compiled in");
-#endif
 }
+#endif
 
 static void setupKeys(void)
 {

@@ -45,7 +45,7 @@ const QStringList StorageGroup::kSpecialGroups = QStringList()
  *  \param allowFallback allow the storage group search code to fall back if
  *                  no dirs exist for the specified group/host
  */
-StorageGroup::StorageGroup(const QString group, const QString hostname,
+StorageGroup::StorageGroup(const QString &group, const QString &hostname,
                            bool allowFallback) :
     m_groupname(group), m_hostname(hostname), m_allowFallback(allowFallback)
 {
@@ -101,7 +101,7 @@ void StorageGroup::StaticInit(void)
  *  \param group    The name of the Storage Group
  *  \param hostname The host whose Storage Group definition is desired
  */
-void StorageGroup::Init(const QString group, const QString hostname,
+void StorageGroup::Init(const QString &group, const QString &hostname,
                         const bool allowFallback)
 {
     bool found = false;
@@ -203,10 +203,12 @@ QString StorageGroup::GetFirstDir(bool appendSlash) const
     return tmp;
 }
 
-QStringList StorageGroup::GetDirFileList(QString dir, QString base,
+QStringList StorageGroup::GetDirFileList(const QString &dir,
+                                         const QString &lbase,
                                          bool recursive, bool onlyDirs)
 {
     QStringList files;
+    QString base = lbase;
     QDir d(dir);
 
     if (!d.exists())
@@ -255,7 +257,7 @@ QStringList StorageGroup::GetDirFileList(QString dir, QString base,
     return files;
 }
 
-QStringList StorageGroup::GetDirList(QString Path, bool recursive)
+QStringList StorageGroup::GetDirList(const QString &Path, bool recursive)
 {
     QStringList files;
     QString tmpDir;
@@ -270,7 +272,7 @@ QStringList StorageGroup::GetDirList(QString Path, bool recursive)
     return files;
 }
 
-QStringList StorageGroup::GetFileList(QString Path, bool recursive)
+QStringList StorageGroup::GetFileList(const QString &Path, bool recursive)
 {
     QStringList files;
     QString tmpDir;
@@ -288,7 +290,7 @@ QStringList StorageGroup::GetFileList(QString Path, bool recursive)
     return files;
 }
 
-QStringList StorageGroup::GetFileInfoList(QString Path)
+QStringList StorageGroup::GetFileInfoList(const QString &Path)
 {
     QStringList files;
     QString relPath;
@@ -350,7 +352,7 @@ QStringList StorageGroup::GetFileInfoList(QString Path)
     return files;
 }
 
-bool StorageGroup::FileExists(QString filename)
+bool StorageGroup::FileExists(const QString &filename)
 {
     LOG(VB_FILE, LOG_DEBUG, LOC +
         QString("FileExist: Testing for '%1'").arg(filename));
@@ -382,8 +384,9 @@ bool StorageGroup::FileExists(QString filename)
 
 // Returns a string list of details about the file
 // in the order EXISTS, DATE, SIZE
-QStringList StorageGroup::GetFileInfo(QString filename)
+QStringList StorageGroup::GetFileInfo(const QString &lfilename)
 {
+    QString filename;
     LOG(VB_FILE, LOG_DEBUG, LOC +
         QString("GetFileInfo: For '%1'") .arg(filename));
 
@@ -533,7 +536,7 @@ QString StorageGroup::GetRelativePathname(const QString &filename)
  *  \param dirlist  Optional pointer to a QStringList to hold found dir list
  *  \return         true if directories were found
  */
-bool StorageGroup::FindDirs(const QString group, const QString hostname,
+bool StorageGroup::FindDirs(const QString &group, const QString &hostname,
                             QStringList *dirlist)
 {
     bool found = false;
@@ -599,7 +602,7 @@ bool StorageGroup::FindDirs(const QString group, const QString hostname,
     return found;
 }
 
-QString StorageGroup::FindFile(QString filename)
+QString StorageGroup::FindFile(const QString &filename)
 {
     LOG(VB_FILE, LOG_DEBUG, LOC + QString("FindFile: Searching for '%1'")
                                       .arg(filename));
@@ -622,7 +625,7 @@ QString StorageGroup::FindFile(QString filename)
     return result;
 }
 
-QString StorageGroup::FindFileDir(QString filename)
+QString StorageGroup::FindFileDir(const QString &filename)
 {
     QString result = "";
     QFileInfo checkFile("");
@@ -819,7 +822,8 @@ QStringList StorageGroup::getRecordingsGroups(void)
     return groups;
 }
 
-QStringList StorageGroup::getGroupDirs(QString groupname, QString host)
+QStringList StorageGroup::getGroupDirs(const QString &groupname,
+                                       const QString &host)
 {
     QStringList groups;
     QString addHost;
