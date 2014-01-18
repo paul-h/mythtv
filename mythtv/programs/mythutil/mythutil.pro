@@ -21,9 +21,11 @@ QMAKE_CLEAN += $(TARGET)
 # Input
 HEADERS += mythutil.h commandlineparser.h
 HEADERS += backendutils.h fileutils.h jobutils.h markuputils.h
-HEADERS += messageutils.h mpegutils.h recordingutils.h
+HEADERS += messageutils.h mpegutils.h musicmetautils.h 
+HEADERS += recordingutils.h
 SOURCES += main.cpp mythutil.cpp commandlineparser.cpp
 SOURCES += backendutils.cpp fileutils.cpp jobutils.cpp markuputils.cpp
-SOURCES += messageutils.cpp mpegutils.cpp recordingutils.cpp
+SOURCES += messageutils.cpp mpegutils.cpp musicmetautils.cpp 
+SOURCES += recordingutils.cpp
 
 mingw|win32-msvc*: LIBS += -lwinmm -lws2_32

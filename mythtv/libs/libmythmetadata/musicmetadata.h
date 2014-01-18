@@ -250,9 +250,10 @@ class META_PUBLIC MusicMetadata
     void toMap(InfoMap &metadataMap, const QString &prefix = "");
 
     void persist(void);
-    void UpdateModTime(void) const;
-    bool hasChanged() const { return m_changed; }
-    int  compare(const MusicMetadata *other) const;
+
+    bool hasChanged(void) const { return m_changed; }
+
+    bool compare(MusicMetadata *mdata) const;
 
     // static functions
     static MusicMetadata *createFromFilename(const QString &filename);

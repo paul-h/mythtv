@@ -96,11 +96,14 @@ PlaylistEditorView::PlaylistEditorView(MythScreenStack *parent, const QString &l
             m_rootNode(NULL), m_playlistTree(NULL), m_breadcrumbsText(NULL),
             m_positionText(NULL)
 {
+    gCoreContext->addListener(this);
     gCoreContext->SaveSetting("MusicPlaylistEditorView", layout);
 }
 
 PlaylistEditorView::~PlaylistEditorView()
 {
+    gCoreContext->removeListener(this);
+
     saveTreePosition();
 
     for (int x = 0; x < m_deleteList.count(); x++)
@@ -209,6 +212,28 @@ void PlaylistEditorView::customEvent(QEvent *event)
     {
         //TODO should just update the cd node
         reloadTree();
+    }
+    else if (event->type() == MythEvent::MythEventMessage)
+    {
+        MythEvent *me = dynamic_cast<MythEvent*>(event);
+
+        if (!me)
+            return;
+
+        if (me->Message().startsWith("MUSIC_RESYNC_FINISHED"))
+        {
+            QStringList list = me->Message().simplified().split(' ');
+            if (list.size() == 4)
+            {
+                int added = list[1].toInt();
+                int removed = list[2].toInt();
+                int changed = list[3].toInt();
+
+                // if something changed reload the tree
+                if (added || removed || changed)
+                    reloadTree();
+            }
+        }
     }
     else if (event->type() == DialogCompletionEvent::kEventType)
     {
@@ -570,11 +595,11 @@ void PlaylistEditorView::updateSonglist(MusicGenericTree *node)
 
         if (playlist)
         {
-            SongList songlist = playlist->getSongs();
-
-            for (int x = 0; x < songlist.count(); x++)
+            for (int x = 0; x < playlist->getTrackCount(); x++)
             {
-                m_songList.append(songlist.at(x)->ID());
+                MusicMetadata *mdata = playlist->getSongAt(x);
+                if (mdata)
+                    m_songList.append((int) mdata->ID());
             }
         }
     }
@@ -1589,11 +1614,10 @@ void PlaylistEditorView::getCDTracks(MusicGenericTree *node)
 void PlaylistEditorView::getPlaylistTracks(MusicGenericTree *node, int playlistID)
 {
     Playlist *playlist = gMusicData->all_playlists->getPlaylist(playlistID);
-    QList<MusicMetadata*> songs = playlist->getSongs();
 
-    for (int x = 0; x < songs.count(); x++)
+    for (int x = 0; x < playlist->getTrackCount(); x++)
     {
-        MusicMetadata *mdata = songs.at(x);
+        MusicMetadata *mdata = playlist->getSongAt(x);
         if (mdata)
         {
             MusicGenericTree *newnode = new MusicGenericTree(node, mdata->Title(), "trackid");
