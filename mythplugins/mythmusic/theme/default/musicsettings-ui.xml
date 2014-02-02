@@ -11,18 +11,6 @@
             <value>General Settings</value>
         </textarea>
 
-        <textarea name="musiclocation_label" from="basetextarea">
-            <area>0,40,380,50</area>
-            <align>right,vcenter</align>
-            <value>Directory to hold music:</value>
-        </textarea> 
-        <textedit name="musiclocation" from="basetextedit">
-            <position>390,40</position>
-        </textedit>
-        <button name="findlocation" from="basesearchbutton">
-            <position>764,50</position>
-        </button>
-
         <textarea name="musiccddevice_label" from="basetextarea">
             <area>0,100,380,50</area>
             <align>right,vcenter</align>

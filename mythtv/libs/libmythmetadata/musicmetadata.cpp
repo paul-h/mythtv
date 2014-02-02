@@ -210,10 +210,6 @@ MusicMetadata *MusicMetadata::createFromFilename(const QString &filename)
     // find the trackid for this filename
     QString sqldir = filename.section('/', 0, -2);
 
-    // Filename is the absolute path, we want the relative path
-    if (sqldir.startsWith(getMusicDirectory()))
-        sqldir.remove(0, getMusicDirectory().length());
-
     QString sqlfilename = filename.section('/', -1);
 
     MSqlQuery query(MSqlQuery::InitCon());
@@ -237,7 +233,6 @@ MusicMetadata *MusicMetadata::createFromFilename(const QString &filename)
             QString("MusicMetadata::createFromFilename: Could not find '%1'")
                 .arg(filename));
         return NULL;
-
     }
 
     int songID = query.value(0).toInt();
@@ -321,10 +316,6 @@ void MusicMetadata::reloadMetadata(void)
 
 void MusicMetadata::dumpToDatabase()
 {
-    // remove the music dir if it is present
-    if (m_filename.startsWith(getMusicDirectory()))
-        m_filename.remove(0, getMusicDirectory().length());
-
     QString sqldir = m_filename.section('/', 0, -2);
     QString sqlfilename = m_filename.section('/', -1);
 
@@ -748,13 +739,6 @@ QString MusicMetadata::Filename(bool find)
     {
         m_actualFilename = m_filename;
         return m_filename;
-    }
-
-    // next try appending the start directory
-    if (QFile::exists(getMusicDirectory() + m_filename))
-    {
-        m_actualFilename = getMusicDirectory() + m_filename;
-        return m_actualFilename;
     }
 
     // maybe it's in our 'Music' storage group
@@ -1706,8 +1690,6 @@ void AlbumArtImages::findImages(void)
                         image->filename = gCoreContext->GenMythURL(url.host(), url.port(),
                                                                    QString("AlbumArt/") + query.value(1).toString(),
                                                                    "MusicArt");
-                    else
-                        image->filename = GetConfDir() + "/MythMusic/AlbumArt/" + query.value(1).toString();
                 }
                 else
                 {
@@ -1715,8 +1697,6 @@ void AlbumArtImages::findImages(void)
                         image->filename =  gCoreContext->GenMythURL(url.host(), url.port(),
                                                                     query.value(1).toString(),
                                                                     "Music");
-                    else
-                        image->filename = getMusicDirectory() + query.value(1).toString();
                 }
 
                 image->imageType = (ImageType) query.value(3).toInt();

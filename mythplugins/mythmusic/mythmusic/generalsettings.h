@@ -18,11 +18,8 @@ class GeneralSettings : public MythScreenType
     ~GeneralSettings();
 
     bool Create(void);
-    void customEvent(QEvent *);
 
   private:
-    MythUITextEdit     *m_musicLocation;
-    MythUIButton       *m_findLocation;
     MythUITextEdit     *m_musicAudioDevice;
     MythUICheckBox     *m_musicDefaultUpmix;
     MythUITextEdit     *m_musicCDDevice;
@@ -37,7 +34,6 @@ class GeneralSettings : public MythScreenType
     void slotSave(void);
     void slotResetDB(void);
     void slotDoResetDB(bool ok);
-    void slotLocationPressed(void);
 };
 
 #endif // GENERALSETTINGS_H

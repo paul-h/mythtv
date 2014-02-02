@@ -15,7 +15,7 @@
 
 GeneralSettings::GeneralSettings(MythScreenStack *parent, const char *name)
         : MythScreenType(parent, name),
-        m_musicLocation(NULL), m_musicAudioDevice(NULL),
+        m_musicAudioDevice(NULL),
         m_musicDefaultUpmix(NULL), m_musicCDDevice(NULL),
         m_nonID3FileNameFormat(NULL), m_ignoreID3Tags(NULL),
         m_allowTagWriting(NULL), m_saveButton(NULL),
@@ -36,8 +36,6 @@ bool GeneralSettings::Create()
     if (!LoadWindowFromXML("musicsettings-ui.xml", "generalsettings", this))
         return false;
 
-    UIUtilE::Assign(this, m_musicLocation, "musiclocation", &err);
-    UIUtilW::Assign(this, m_findLocation, "findlocation", &err);
     UIUtilE::Assign(this, m_musicAudioDevice, "musicaudiodevice", &err);
     UIUtilE::Assign(this, m_musicDefaultUpmix, "musicdefaultupmix", &err);
     UIUtilE::Assign(this, m_musicCDDevice, "musiccddevice", &err);
@@ -54,7 +52,6 @@ bool GeneralSettings::Create()
         return false;
     }
 
-    m_musicLocation->SetText(gCoreContext->GetSetting("MusicLocation"));
     m_musicAudioDevice->SetText(gCoreContext->GetSetting("MusicAudioDevice"));
 
     int loadMusicDefaultUpmix = gCoreContext->GetNumSetting("MusicDefaultUpmix", 0);
@@ -73,18 +70,12 @@ bool GeneralSettings::Create()
     if (allowTagWriting == 1)
         m_allowTagWriting->SetCheckState(MythUIStateType::Full);
 
-    if (m_findLocation)
-        connect(m_findLocation, SIGNAL(Clicked()), this, SLOT(slotLocationPressed()));
-
     if (m_resetDBButton)
         connect(m_resetDBButton, SIGNAL(Clicked()), this, SLOT(slotResetDB()));
 
     connect(m_saveButton, SIGNAL(Clicked()), this, SLOT(slotSave()));
     connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(Close()));
 
-    m_musicLocation->SetHelpText(tr("This directory must exist, and the user "
-                 "running MythMusic needs to have write permission "
-                 "to the directory."));
     m_musicAudioDevice->SetHelpText(tr("Audio Device used for playback. 'default' "
                  "will use the device specified in MythTV"));
     m_musicDefaultUpmix->SetHelpText(tr("MythTV can upconvert stereo tracks to 5.1 audio. "
@@ -116,7 +107,7 @@ bool GeneralSettings::Create()
 
     BuildFocusList();
 
-    SetFocusWidget(m_musicLocation);
+    SetFocusWidget(m_musicCDDevice);
 
     return true;
 }
@@ -160,41 +151,8 @@ void GeneralSettings::slotDoResetDB(bool ok)
     }
 }
 
-void GeneralSettings::slotLocationPressed(void)
-{
-    // need to remove the trailing '/' or else the file browser gets confused
-    QString location = m_musicLocation->GetText();
-    if (location.endsWith('/'))
-        location.chop(1);
-
-    MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
-    MythUIFileBrowser *fb = new MythUIFileBrowser(popupStack, location);
-
-    fb->SetTypeFilter(QDir::AllDirs | QDir::Readable);
-
-    if (fb->Create())
-    {
-        fb->SetReturnEvent(this, "locationchange");
-        popupStack->AddScreen(fb);
-    }
-    else
-        delete fb;
-}
-
 void GeneralSettings::slotSave(void)
 {
-    // get the starting directory from the settings and remove all multiple
-    // directory separators "/" and resolves any "." or ".." in the path.
-    QString dir = m_musicLocation->GetText();
-
-    if (!dir.isEmpty())
-    {
-        dir = QDir::cleanPath(dir);
-        if (!dir.endsWith("/"))
-            dir += "/";
-    }
-
-    gCoreContext->SaveSetting("MusicLocation", dir);
     gCoreContext->SaveSetting("CDDevice", m_musicCDDevice->GetText());
     gCoreContext->SaveSetting("MusicAudioDevice", m_musicAudioDevice->GetText());
     gCoreContext->SaveSetting("NonID3FileNameFormat", m_nonID3FileNameFormat->GetText());
@@ -212,14 +170,3 @@ void GeneralSettings::slotSave(void)
 
     Close();
 }
-
-void GeneralSettings::customEvent(QEvent *event)
-{
-    if (event->type() == DialogCompletionEvent::kEventType)
-    {
-        DialogCompletionEvent *dce = (DialogCompletionEvent*)(event);
-        if (dce->GetId() == "locationchange")
-            m_musicLocation->SetText(dce->GetResultText());
-    }
-}
-
