@@ -1029,7 +1029,6 @@ QString MusicMetadata::getAlbumArtFile(void)
                             .arg(Hostname())
                             .arg(ID())
                             .arg(AlbumArtImages::getTypeFilename(albumart_image->imageType));
-                    LOG(VB_GENERAL, LOG_INFO, QString("MusicMetadata::getAlbumArtFile: Sending '%1'").arg(slist.join(" ")));
                     gCoreContext->SendReceiveStringList(slist);
                 }
             }
@@ -1670,6 +1669,7 @@ void AlbumArtImages::findImages(void)
 
                 image->imageType = (ImageType) query.value(3).toInt();
                 image->embedded = embedded;
+                image->hostname = query.value(5).toString();
 
                 m_imageList.push_back(image);
             }
@@ -1828,15 +1828,21 @@ void AlbumArtImages::addImage(const AlbumArtImage &newImage)
         image->imageType = newImage.imageType;
         image->embedded = newImage.embedded;
         image->description = newImage.description;
+        image->hostname = newImage.hostname;
     }
 
     // if this is an embedded image copy it to disc to speed up its display
-    QStringList slist;
-    slist << QString("MUSIC_TAG_GETIMAGE %1 %2 %3")
-          .arg(m_parent->Hostname())
-          .arg(m_parent->ID())
-          .arg(AlbumArtImages::getTypeFilename(image->imageType));
-    gCoreContext->SendReceiveStringList(slist);
+    if (image->embedded)
+    {
+        image->filename = QString("%1-%2.jpg").arg(m_parent->ID()).arg(AlbumArtImages::getTypeFilename(image->imageType));
+
+        QStringList slist;
+        slist << QString("MUSIC_TAG_GETIMAGE %1 %2 %3")
+            .arg(m_parent->Hostname())
+            .arg(m_parent->ID())
+            .arg(AlbumArtImages::getTypeFilename(image->imageType));
+        gCoreContext->SendReceiveStringList(slist);
+    }
 }
 
 /// saves or updates the image details in the DB
