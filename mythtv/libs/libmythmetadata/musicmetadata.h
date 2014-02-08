@@ -197,12 +197,13 @@ class META_PUBLIC MusicMetadata
     bool isRadio(void) const { return ID_TO_REPO(m_id) == RT_Radio; }
 
     QString Filename(bool find = true);
-    void setFilename(const QString &lfilename) { m_filename = lfilename; }
+    void setFilename(const QString &lfilename);
+    QString getLocalFilename(void);
 
     QString Hostname(void) { return m_hostname; }
     void setHostname(const QString &host) { m_hostname = host; }
 
-    uint64_t FileSize() const;
+    uint64_t FileSize() const { return m_fileSize; }
     void setFileSize(uint64_t lfilesize) { m_fileSize = lfilesize; }
 
     QString Format() const { return m_format; }
