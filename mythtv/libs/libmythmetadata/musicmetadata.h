@@ -18,7 +18,8 @@ using namespace std;
 // mythtv
 #include "mythtypes.h"
 #include "mythmetaexp.h"
-#include <mthread.h>
+#include "mthread.h"
+#include "mythcorecontext.h"
 
 class AllMusic;
 class AlbumArtImages;
@@ -443,15 +444,34 @@ class META_PUBLIC AllStream
 
 //----------------------------------------------------------------------------
 
+class AlbumArtScannerThread: public MThread
+{
+  public:
+    AlbumArtScannerThread(QStringList strList) :
+            MThread("AlbumArtScanner"), m_strList(strList) {}
+
+    virtual void run()
+    {
+        RunProlog();
+        gCoreContext->SendReceiveStringList(m_strList);
+        RunEpilog();
+    }
+
+    QStringList getResult(void) { return m_strList; }
+
+  private:
+    QStringList m_strList;
+};
 
 class META_PUBLIC AlbumArtImages
 {
     Q_DECLARE_TR_FUNCTIONS(AlbumArtImages)
 
   public:
-    AlbumArtImages(MusicMetadata *metadata);
+    AlbumArtImages(MusicMetadata *metadata, bool loadFromDB = true);
     ~AlbumArtImages();
 
+    void           scanForImages(void);
     void           addImage(const AlbumArtImage &newImage);
     uint           getImageCount() { return m_imageList.size(); }
     AlbumArtImage *getImage(ImageType type);
