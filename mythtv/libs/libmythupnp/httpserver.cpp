@@ -31,6 +31,7 @@
 #include "mythdirs.h"
 #include "mythlogging.h"
 #include "htmlserver.h"
+#include "mythversion.h"
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
@@ -107,6 +108,16 @@ QString HttpServer::GetPlatform(void)
 {
     QMutexLocker locker(&s_platformLock);
     return s_platform;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+QString HttpServer::GetServerVersion(void)
+{
+    return QString("%1, UPnP/1.0, MythTV %2").arg(HttpServer::GetPlatform())
+                                             .arg(MYTH_SOURCE_VERSION);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -297,7 +308,8 @@ void HttpWorker::run(void)
                         // delegate processing to HttpServerExtensions.
                         // ------------------------------------------------------
 
-                        if (pRequest->m_nResponseStatus != 401)
+                        if ((pRequest->m_nResponseStatus != 400) ||
+                            (pRequest->m_nResponseStatus != 401))
                             m_httpServer.DelegateRequest(pRequest);
                     }
                     else

@@ -132,7 +132,7 @@ bool HtmlServerExtension::ProcessRequest( HTTPRequest *pRequest )
                     {
                         QTextStream stream( &pRequest->m_response );
                         
-                        m_Scripting.EvaluatePage( &stream, sResName, pRequest->m_mapParams );
+                        m_Scripting.EvaluatePage( &stream, sResName, pRequest);
 
                         return true;
 

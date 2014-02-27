@@ -94,7 +94,8 @@ int delete_file_immediately(const QString &filename,
     QFile checkFile(filename);
     int success1, success2;
 
-    LOG(VB_FILE, LOG_INFO, QString("About to delete file: %1").arg(filename));
+    LOG(VB_FILE, LOG_INFO, LOC +
+        QString("About to delete file: %1").arg(filename));
     success1 = true;
     success2 = true;
     if (followLinks)
@@ -107,15 +108,16 @@ int delete_file_immediately(const QString &filename,
             QFile target(linktext);
             if (!(success1 = target.remove()))
             {
-                LOG(VB_GENERAL, LOG_ERR, QString("Error deleting '%1' -> '%2'")
-                        .arg(filename).arg(linktext) + ENO);
+                LOG(VB_GENERAL, LOG_ERR, LOC +
+                    QString("Error deleting '%1' -> '%2'")
+                    .arg(filename).arg(linktext) + ENO);
             }
         }
     }
     if ((!checkexists || checkFile.exists()) &&
             !(success2 = checkFile.remove()))
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("Error deleting '%1': %2")
+        LOG(VB_GENERAL, LOG_ERR, LOC + QString("Error deleting '%1': %2")
                 .arg(filename).arg(strerror(errno)));
     }
     return success1 && success2 ? 0 : -1;
@@ -262,11 +264,13 @@ MainServer::MainServer(bool master, int port,
 
     #if !defined(QT_NO_IPV6)
     if (v6IsSet && !listenAddrs.contains(config_v6))
-        LOG(VB_GENERAL, LOG_WARNING, "Unable to find IPv6 address to bind");
+        LOG(VB_GENERAL, LOG_WARNING, LOC +
+            "Unable to find IPv6 address to bind");
     #endif
 
     if (v4IsSet && !listenAddrs.contains(config_v4))
-        LOG(VB_GENERAL, LOG_WARNING, "Unable to find IPv4 address to bind");
+        LOG(VB_GENERAL, LOG_WARNING, LOC +
+            "Unable to find IPv4 address to bind");
     
     if ((v4IsSet && !listenAddrs.contains(config_v4))
 #if !defined(QT_NO_IPV6)
@@ -274,7 +278,7 @@ MainServer::MainServer(bool master, int port,
 #endif
        )
     {
-        LOG(VB_GENERAL, LOG_ERR, "Unable to find either IPv4 or IPv6 "
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Unable to find either IPv4 or IPv6 "
                                  "address we can bind to, exiting");
         SetExitCode(GENERIC_EXIT_SOCKET_ERROR, false);
         return;
@@ -439,7 +443,7 @@ void MainServer::ProcessRequest(MythSocket *sock)
     if (sock->IsDataAvailable())
         ProcessRequestWork(sock);
     else
-        LOG(VB_GENERAL, LOG_INFO, QString("No data on sock %1")
+        LOG(VB_GENERAL, LOG_INFO, LOC + QString("No data on sock %1")
             .arg(sock->GetSocketDescriptor()));
 }
 
@@ -448,7 +452,7 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
     QStringList listline;
     if (!sock->ReadStringList(listline) || listline.empty())
     {
-        LOG(VB_GENERAL, LOG_INFO, "No data in ProcessRequestWork()");
+        LOG(VB_GENERAL, LOG_INFO, LOC + "No data in ProcessRequestWork()");
         return;
     }
 
@@ -460,7 +464,7 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
     if (command == "MYTH_PROTO_VERSION")
     {
         if (tokens.size() < 2)
-            LOG(VB_GENERAL, LOG_CRIT, "Bad MYTH_PROTO_VERSION command");
+            LOG(VB_GENERAL, LOG_CRIT, LOC + "Bad MYTH_PROTO_VERSION command");
         else
             HandleVersion(sock, tokens);
         return;
@@ -481,7 +485,7 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
     if (!pbs)
     {
         sockListLock.unlock();
-        LOG(VB_GENERAL, LOG_ERR, "ProcessRequest unknown socket");
+        LOG(VB_GENERAL, LOG_ERR, LOC + "ProcessRequest unknown socket");
         return;
     }
     pbs->IncrRef();
@@ -490,14 +494,14 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
     if (command == "QUERY_FILETRANSFER")
     {
         if (tokens.size() != 2)
-            LOG(VB_GENERAL, LOG_ERR, "Bad QUERY_FILETRANSFER");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad QUERY_FILETRANSFER");
         else
             HandleFileTransferQuery(listline, tokens, pbs);
     }
     else if (command == "QUERY_RECORDINGS")
     {
         if (tokens.size() != 2)
-            LOG(VB_GENERAL, LOG_ERR, "Bad QUERY_RECORDINGS query");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad QUERY_RECORDINGS query");
         else
             HandleQueryRecordings(tokens[1], pbs);
     }
@@ -548,14 +552,14 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
     else if (command == "QUERY_FILE_EXISTS")
     {
         if (listline.size() < 2)
-            LOG(VB_GENERAL, LOG_ERR, "Bad QUERY_FILE_EXISTS command");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad QUERY_FILE_EXISTS command");
         else
             HandleQueryFileExists(listline, pbs);
     }
     else if (command == "QUERY_FILE_HASH")
     {
         if (listline.size() < 3)
-            LOG(VB_GENERAL, LOG_ERR, "Bad QUERY_FILE_HASH command");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad QUERY_FILE_HASH command");
         else
             HandleQueryFileHash(listline, pbs);
     }
@@ -566,7 +570,7 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
     else if (command == "DELETE_FILE")
     {
         if (listline.size() < 3)
-            LOG(VB_GENERAL, LOG_ERR, "Bad DELETE_FILE command");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad DELETE_FILE command");
         else
             HandleDeleteFile(listline, pbs);
     }
@@ -654,7 +658,7 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
     else if (command == "QUERY_RECORDER")
     {
         if (tokens.size() != 2)
-            LOG(VB_GENERAL, LOG_ERR, "Bad QUERY_RECORDER");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad QUERY_RECORDER");
         else
             HandleRecorderQuery(listline, tokens, pbs);
     }
@@ -669,7 +673,7 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
     else if (command == "SET_NEXT_LIVETV_DIR")
     {
         if (tokens.size() != 3)
-            LOG(VB_GENERAL, LOG_ERR, "Bad SET_NEXT_LIVETV_DIR");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad SET_NEXT_LIVETV_DIR");
         else
             HandleSetNextLiveTVDir(tokens, pbs);
     }
@@ -680,7 +684,7 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
     else if (command == "QUERY_REMOTEENCODER")
     {
         if (tokens.size() != 2)
-            LOG(VB_GENERAL, LOG_ERR, "Bad QUERY_REMOTEENCODER");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad QUERY_REMOTEENCODER");
         else
             HandleRemoteEncoder(listline, tokens, pbs);
     }
@@ -729,12 +733,12 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
         else if (tokens.size() == 2)
             HandleLockTuner(pbs, tokens[1].toInt());
         else
-            LOG(VB_GENERAL, LOG_ERR, "Bad LOCK_TUNER query");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad LOCK_TUNER query");
     }
     else if (command == "FREE_TUNER")
     {
         if (tokens.size() != 2)
-            LOG(VB_GENERAL, LOG_ERR, "Bad FREE_TUNER query");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad FREE_TUNER query");
         else
             HandleFreeTuner(tokens[1].toInt(), pbs);
     }
@@ -745,49 +749,49 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
     else if (command == "QUERY_IS_ACTIVE_BACKEND")
     {
         if (tokens.size() != 1)
-            LOG(VB_GENERAL, LOG_ERR, "Bad QUERY_IS_ACTIVE_BACKEND");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad QUERY_IS_ACTIVE_BACKEND");
         else
             HandleIsActiveBackendQuery(listline, pbs);
     }
     else if (command == "QUERY_COMMBREAK")
     {
         if (tokens.size() != 3)
-            LOG(VB_GENERAL, LOG_ERR, "Bad QUERY_COMMBREAK");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad QUERY_COMMBREAK");
         else
             HandleCommBreakQuery(tokens[1], tokens[2], pbs);
     }
     else if (command == "QUERY_CUTLIST")
     {
         if (tokens.size() != 3)
-            LOG(VB_GENERAL, LOG_ERR, "Bad QUERY_CUTLIST");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad QUERY_CUTLIST");
         else
             HandleCutlistQuery(tokens[1], tokens[2], pbs);
     }
     else if (command == "QUERY_BOOKMARK")
     {
         if (tokens.size() != 3)
-            LOG(VB_GENERAL, LOG_ERR, "Bad QUERY_BOOKMARK");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad QUERY_BOOKMARK");
         else
             HandleBookmarkQuery(tokens[1], tokens[2], pbs);
     }
     else if (command == "SET_BOOKMARK")
     {
         if (tokens.size() != 4)
-            LOG(VB_GENERAL, LOG_ERR, "Bad SET_BOOKMARK");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad SET_BOOKMARK");
         else
             HandleSetBookmark(tokens, pbs);
     }
     else if (command == "QUERY_SETTING")
     {
         if (tokens.size() != 3)
-            LOG(VB_GENERAL, LOG_ERR, "Bad QUERY_SETTING");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad QUERY_SETTING");
         else
             HandleSettingQuery(tokens, pbs);
     }
     else if (command == "SET_SETTING")
     {
         if (tokens.size() != 4)
-            LOG(VB_GENERAL, LOG_ERR, "Bad SET_SETTING");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad SET_SETTING");
         else
             HandleSetSetting(tokens, pbs);
     }
@@ -802,56 +806,56 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
     else if (command == "MUSIC_TAG_UPDATE_VOLATILE")
     {
         if (tokens.size() != 6)
-            LOG(VB_GENERAL, LOG_ERR, "Bad MUSIC_TAG_UPDATE_VOLATILE");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad MUSIC_TAG_UPDATE_VOLATILE");
         else
             HandleMusicTagUpdateVolatile(tokens, pbs);
     }
     else if (command == "MUSIC_CALC_TRACK_LENGTH")
     {
         if (tokens.size() != 3)
-            LOG(VB_GENERAL, LOG_ERR, "Bad MUSIC_CALC_TRACK_LENGTH");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad MUSIC_CALC_TRACK_LENGTH");
         else
             HandleMusicCalcTrackLen(tokens, pbs);
     }
     else if (command == "MUSIC_TAG_UPDATE_METADATA")
     {
         if (tokens.size() != 3)
-            LOG(VB_GENERAL, LOG_ERR, "Bad MUSIC_TAG_UPDATE_METADATA");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad MUSIC_TAG_UPDATE_METADATA");
         else
             HandleMusicTagUpdateMetadata(tokens, pbs);
     }
     else if (command == "MUSIC_FIND_ALBUMART")
     {
         if (tokens.size() != 4)
-            LOG(VB_GENERAL, LOG_ERR, "Bad MUSIC_FIND_ALBUMART");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad MUSIC_FIND_ALBUMART");
         else
             HandleMusicFindAlbumArt(tokens, pbs);
     }
     else if (command == "MUSIC_TAG_GETIMAGE")
     {
         if (tokens.size() < 4)
-            LOG(VB_GENERAL, LOG_ERR, "Bad MUSIC_TAG_GETIMAGE");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad MUSIC_TAG_GETIMAGE");
         else
             HandleMusicTagGetImage(tokens, pbs);
     }
     else if (command == "ALLOW_SHUTDOWN")
     {
         if (tokens.size() != 1)
-            LOG(VB_GENERAL, LOG_ERR, "Bad ALLOW_SHUTDOWN");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad ALLOW_SHUTDOWN");
         else
             HandleBlockShutdown(false, pbs);
     }
     else if (command == "BLOCK_SHUTDOWN")
     {
         if (tokens.size() != 1)
-            LOG(VB_GENERAL, LOG_ERR, "Bad BLOCK_SHUTDOWN");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad BLOCK_SHUTDOWN");
         else
             HandleBlockShutdown(true, pbs);
     }
     else if (command == "SHUTDOWN_NOW")
     {
         if (tokens.size() != 1)
-            LOG(VB_GENERAL, LOG_ERR, "Bad SHUTDOWN_NOW query");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad SHUTDOWN_NOW query");
         else if (!ismaster)
         {
             QString halt_cmd;
@@ -860,12 +864,12 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
 
             if (!halt_cmd.isEmpty())
             {
-                LOG(VB_GENERAL, LOG_NOTICE,
+                LOG(VB_GENERAL, LOG_NOTICE, LOC +
                     "Going down now as of Mainserver request!");
                 myth_system(halt_cmd);
             }
             else
-                LOG(VB_GENERAL, LOG_WARNING,
+                LOG(VB_GENERAL, LOG_WARNING, LOC +
                     "Received an empty SHUTDOWN_NOW query!");
         }
     }
@@ -882,7 +886,8 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
              (command == "DOWNLOAD_FILE_NOW"))
     {
         if (listline.size() != 4)
-            LOG(VB_GENERAL, LOG_ERR, QString("Bad %1 command").arg(command));
+            LOG(VB_GENERAL, LOG_ERR, LOC +
+                QString("Bad %1 command").arg(command));
         else
             HandleDownloadFile(listline, pbs);
     }
@@ -895,20 +900,20 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
     }
     else if (command == "REFRESH_BACKEND")
     {
-        LOG(VB_GENERAL, LOG_INFO ,"Reloading backend settings");
+        LOG(VB_GENERAL, LOG_INFO , LOC + "Reloading backend settings");
         HandleBackendRefresh(sock);
     }
     else if (command == "OK")
     {
-        LOG(VB_GENERAL, LOG_ERR, "Got 'OK' out of sequence.");
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Got 'OK' out of sequence.");
     }
     else if (command == "UNKNOWN_COMMAND")
     {
-        LOG(VB_GENERAL, LOG_ERR, "Got 'UNKNOWN_COMMAND' out of sequence.");
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Got 'UNKNOWN_COMMAND' out of sequence.");
     }
     else
     {
-        LOG(VB_GENERAL, LOG_ERR, "Unknown command: " + command);
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Unknown command: " + command);
 
         MythSocket *pbssock = pbs->getSocket();
 
@@ -957,7 +962,8 @@ void MainServer::customEvent(QEvent *e)
 
             if (message == "PREVIEW_QUEUED")
             {
-                LOG(VB_PLAYBACK, LOG_INFO, QString("Preview Queued: '%1' '%2'")
+                LOG(VB_PLAYBACK, LOG_INFO, LOC +
+                    QString("Preview Queued: '%1' '%2'")
                         .arg(pginfokey).arg(filename));
                 return;
             }
@@ -1047,7 +1053,7 @@ void MainServer::customEvent(QEvent *e)
 
             if (tokens.size() != 3)
             {
-                LOG(VB_GENERAL, LOG_ERR, "Bad AUTO_EXPIRE message");
+                LOG(VB_GENERAL, LOG_ERR, LOC + "Bad AUTO_EXPIRE message");
                 return;
             }
 
@@ -1087,7 +1093,7 @@ void MainServer::customEvent(QEvent *e)
 
             if (tokens.size() != 2)
             {
-                LOG(VB_GENERAL, LOG_ERR,
+                LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("Bad %1 message").arg(tokens[0]));
                 return;
             }
@@ -1105,7 +1111,7 @@ void MainServer::customEvent(QEvent *e)
 
             if (tokens.size() < 3 || tokens.size() > 5)
             {
-                LOG(VB_GENERAL, LOG_ERR,
+                LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("Bad %1 message").arg(tokens[0]));
                 return;
             }
@@ -1125,7 +1131,7 @@ void MainServer::customEvent(QEvent *e)
             }
             else
             {
-                LOG(VB_GENERAL, LOG_ERR,
+                LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("Cannot find program info for '%1' while "
                             "attempting to delete.").arg(me->Message()));
             }
@@ -1141,7 +1147,7 @@ void MainServer::customEvent(QEvent *e)
 
             if (tokens.size() < 3 || tokens.size() > 3)
             {
-                LOG(VB_GENERAL, LOG_ERR,
+                LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("Bad UNDELETE_RECORDING message: %1")
                         .arg(me->Message()));
                 return;
@@ -1156,7 +1162,7 @@ void MainServer::customEvent(QEvent *e)
             }
             else
             {
-                LOG(VB_GENERAL, LOG_ERR,
+                LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("Cannot find program info for '%1' while "
                             "attempting to undelete.").arg(me->Message()));
             }
@@ -1176,7 +1182,8 @@ void MainServer::customEvent(QEvent *e)
             ProgramInfo pi(me->ExtraDataList());
             if (!pi.GetChanID())
             {
-                LOG(VB_GENERAL, LOG_ERR, "Bad SCHEDULER_ADD_RECORDING message");
+                LOG(VB_GENERAL, LOG_ERR, LOC +
+                    "Bad SCHEDULER_ADD_RECORDING message");
                 return;
             }
 
@@ -1191,7 +1198,8 @@ void MainServer::customEvent(QEvent *e)
 
             if (tokens.size() != 6)
             {
-                LOG(VB_GENERAL, LOG_ERR, "Bad UPDATE_RECORDING_STATUS message");
+                LOG(VB_GENERAL, LOG_ERR, LOC +
+                    "Bad UPDATE_RECORDING_STATUS message");
                 return;
             }
 
@@ -1397,7 +1405,7 @@ void MainServer::HandleVersion(MythSocket *socket, const QStringList &slist)
     QString version = slist[1];
     if (version != MYTH_PROTO_VERSION)
     {
-        LOG(VB_GENERAL, LOG_CRIT,
+        LOG(VB_GENERAL, LOG_CRIT, LOC +
             "MainServer::HandleVersion - Client speaks protocol version " +
             version + " but we speak " + MYTH_PROTO_VERSION + '!');
         retlist << "REJECT" << MYTH_PROTO_VERSION;
@@ -1408,7 +1416,7 @@ void MainServer::HandleVersion(MythSocket *socket, const QStringList &slist)
 
     if (slist.size() < 3)
     {
-        LOG(VB_GENERAL, LOG_CRIT,
+        LOG(VB_GENERAL, LOG_CRIT, LOC +
             "MainServer::HandleVersion - Client did not pass protocol "
             "token. Refusing connection!");
         retlist << "REJECT" << MYTH_PROTO_VERSION;
@@ -1420,7 +1428,7 @@ void MainServer::HandleVersion(MythSocket *socket, const QStringList &slist)
     QString token = slist[2];
     if (token != MYTH_PROTO_TOKEN)
     {
-        LOG(VB_GENERAL, LOG_CRIT,
+        LOG(VB_GENERAL, LOG_CRIT, LOC +
             "MainServer::HandleVersion - Client sent incorrect protocol"
             " token for protocol version. Refusing connection!");
         retlist << "REJECT" << MYTH_PROTO_VERSION;
@@ -1457,7 +1465,7 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
         if (commands.size() == 2)
             info = QString(" %1").arg(commands[1]);
 
-        LOG(VB_GENERAL, LOG_ERR, QString("Received malformed ANN%1 query")
+        LOG(VB_GENERAL, LOG_ERR, LOC + QString("Received malformed ANN%1 query")
                 .arg(info));
 
         errlist << "malformed_ann_query";
@@ -1472,7 +1480,7 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
         PlaybackSock *pbs = *iter;
         if (pbs->getSocket() == socket)
         {
-            LOG(VB_GENERAL, LOG_WARNING,
+            LOG(VB_GENERAL, LOG_WARNING, LOC +
                 QString("Client %1 is trying to announce a socket "
                         "multiple times.")
                     .arg(commands[2]));
@@ -1487,7 +1495,8 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
     {
         if (commands.size() < 4)
         {
-            LOG(VB_GENERAL, LOG_ERR, QString("Received malformed ANN %1 query")
+            LOG(VB_GENERAL, LOG_ERR, LOC +
+                QString("Received malformed ANN %1 query")
                     .arg(commands[1]));
 
             errlist << "malformed_ann_query";
@@ -1499,10 +1508,11 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
 
         PlaybackSockEventsMode eventsMode =
             (PlaybackSockEventsMode)commands[3].toInt();
-        LOG(VB_GENERAL, LOG_INFO, QString("MainServer::ANN %1")
-                                      .arg(commands[1]));
-        LOG(VB_GENERAL, LOG_INFO, QString("adding: %1 as a client (events: %2)")
-                                      .arg(commands[2]).arg(eventsMode));
+        LOG(VB_GENERAL, LOG_INFO, LOC + QString("MainServer::ANN %1")
+                                            .arg(commands[1]));
+        LOG(VB_GENERAL, LOG_INFO, LOC +
+            QString("adding: %1 as a client (events: %2)")
+                .arg(commands[2]).arg(eventsMode));
         PlaybackSock *pbs = new PlaybackSock(this, socket, commands[2],
                                              eventsMode);
         pbs->setBlockShutdown(commands[1] == "Playback");
@@ -1520,7 +1530,7 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
     {
         if (commands.size() < 3)
         {
-            LOG(VB_GENERAL, LOG_ERR,
+            LOG(VB_GENERAL, LOG_ERR, LOC +
                 "Received malformed ANN MediaServer query");
             errlist << "malformed_ann_query";
             socket->WriteStringList(errlist);
@@ -1543,14 +1553,15 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
     {
         if (commands.size() < 4)
         {
-            LOG(VB_GENERAL, LOG_ERR, QString("Received malformed ANN %1 query")
+            LOG(VB_GENERAL, LOG_ERR, LOC +
+                QString("Received malformed ANN %1 query")
                     .arg(commands[1]));
             errlist << "malformed_ann_query";
             socket->WriteStringList(errlist);
             return;
         }
 
-        LOG(VB_GENERAL, LOG_INFO,
+        LOG(VB_GENERAL, LOG_INFO, LOC +
             QString("adding: %1 as a slave backend server")
                                .arg(commands[2]));
         PlaybackSock *pbs = new PlaybackSock(this, socket, commands[2],
@@ -1612,14 +1623,16 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
     {
         if (slist.size() < 3)
         {
-            LOG(VB_GENERAL, LOG_ERR, "Received malformed FileTransfer command");
+            LOG(VB_GENERAL, LOG_ERR, LOC +
+                "Received malformed FileTransfer command");
             errlist << "malformed_filetransfer_command";
             socket->WriteStringList(errlist);
             return;
         }
 
-        LOG(VB_GENERAL, LOG_INFO, "MainServer::HandleAnnounce FileTransfer");
-        LOG(VB_GENERAL, LOG_INFO,
+        LOG(VB_GENERAL, LOG_INFO, LOC +
+            "MainServer::HandleAnnounce FileTransfer");
+        LOG(VB_GENERAL, LOG_INFO, LOC +
             QString("adding: %1 as a remote file transfer") .arg(commands[2]));
         QStringList::const_iterator it = slist.begin();
         QUrl qurl = *(++it);
@@ -1651,7 +1664,7 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
             QString dir = sgroup.FindNextDirMostFree();
             if (dir.isEmpty())
             {
-                LOG(VB_GENERAL, LOG_ERR, "Unable to determine directory "
+                LOG(VB_GENERAL, LOG_ERR, LOC + "Unable to determine directory "
                         "to write to in FileTransfer write command");
                 errlist << "filetransfer_directory_not_found";
                 socket->WriteStringList(errlist);
@@ -1664,7 +1677,7 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
 
             if (basename.isEmpty())
             {
-                LOG(VB_GENERAL, LOG_ERR,
+                LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("FileTransfer write filename is empty in url '%1'.")
                         .arg(qurl.toString()));
                 errlist << "filetransfer_filename_empty";
@@ -1675,7 +1688,7 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
             if ((basename.contains("/../")) ||
                 (basename.startsWith("../")))
             {
-                LOG(VB_GENERAL, LOG_ERR,
+                LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("FileTransfer write filename '%1' does not pass "
                             "sanity checks.") .arg(basename));
                 errlist << "filetransfer_filename_dangerous";
@@ -1690,7 +1703,7 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
 
         if (filename.isEmpty())
         {
-            LOG(VB_GENERAL, LOG_ERR, "Empty filename, cowardly aborting!");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Empty filename, cowardly aborting!");
             errlist << "filetransfer_filename_empty";
             socket->WriteStringList(errlist);
             return;
@@ -1700,7 +1713,7 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
         QFileInfo finfo(filename);
         if (finfo.isDir())
         {
-            LOG(VB_GENERAL, LOG_ERR,
+            LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("FileTransfer filename '%1' is actually a directory, "
                         "cannot transfer.") .arg(filename));
             errlist << "filetransfer_filename_is_a_directory";
@@ -1716,7 +1729,7 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
             {
                 if (!qdir.mkpath(dirPath))
                 {
-                    LOG(VB_GENERAL, LOG_ERR,
+                    LOG(VB_GENERAL, LOG_ERR, LOC +
                         QString("FileTransfer filename '%1' is in a "
                                 "subdirectory which does not exist, and can "
                                 "not be created.") .arg(filename));
@@ -1797,7 +1810,7 @@ void MainServer::SendResponse(MythSocket *socket, QStringList &commands)
     }
     else
     {
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             "SendResponse: Unable to write to client socket, as it's no "
             "longer there");
     }
@@ -1898,7 +1911,7 @@ void MainServer::HandleQueryRecordings(QString type, PlaybackSock *pbs)
             {
                 if (!slave->FillProgramInfo(*proginfo, playbackhost))
                 {
-                    LOG(VB_GENERAL, LOG_ERR,
+                    LOG(VB_GENERAL, LOG_ERR, LOC +
                         "MainServer::HandleQueryRecordings()"
                         "\n\t\t\tCould not fill program info "
                         "from backend");
@@ -1947,7 +1960,7 @@ void MainServer::HandleQueryRecording(QStringList &slist, PlaybackSock *pbs)
 {
     if (slist.size() < 3)
     {
-        LOG(VB_GENERAL, LOG_ERR, "Bad QUERY_RECORDING query");
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Bad QUERY_RECORDING query");
         return;
     }
 
@@ -1963,7 +1976,7 @@ void MainServer::HandleQueryRecording(QStringList &slist, PlaybackSock *pbs)
     {
         if (slist.size() < 4)
         {
-            LOG(VB_GENERAL, LOG_ERR, "Bad QUERY_RECORDING query");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Bad QUERY_RECORDING query");
             return;
         }
 
@@ -2049,7 +2062,7 @@ void MainServer::DoDeleteThread(DeleteStruct *ds)
                               "will NOT be deleted.")
             .arg(ds->m_chanid)
             .arg(ds->m_recstartts.toString(Qt::ISODate));
-        LOG(VB_GENERAL, LOG_ERR, msg);
+        LOG(VB_GENERAL, LOG_ERR, LOC + msg);
 
         deletelock.unlock();
         return;
@@ -2064,7 +2077,7 @@ void MainServer::DoDeleteThread(DeleteStruct *ds)
                               "Recording will NOT be deleted.")
             .arg(ds->m_chanid)
             .arg(ds->m_recstartts.toString(Qt::ISODate));
-        LOG(VB_GENERAL, LOG_ERR, msg);
+        LOG(VB_GENERAL, LOG_ERR, LOC + msg);
 
         deletelock.unlock();
         return;
@@ -2077,7 +2090,7 @@ void MainServer::DoDeleteThread(DeleteStruct *ds)
     if ((!checkFile.exists()) && pginfo.GetFilesize() &&
         (!ds->m_forceMetadataDelete))
     {
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("ERROR when trying to delete file: %1. File "
                     "doesn't exist.  Database metadata will not be removed.")
                 .arg(ds->m_filename));
@@ -2121,7 +2134,7 @@ void MainServer::DoDeleteThread(DeleteStruct *ds)
 
     if (errmsg)
     {
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("Error deleting file: %1. Keeping metadata in database.")
                     .arg(ds->m_filename));
 
@@ -2174,7 +2187,7 @@ void MainServer::DeleteRecordedFiles(DeleteStruct *ds)
     if (!query.exec() || !query.isActive())
     {
         MythDB::DBError("RecordedFiles deletion", query);
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("Error querying recordedfiles for %1.") .arg(logInfo));
     }
 
@@ -2193,7 +2206,7 @@ void MainServer::DeleteRecordedFiles(DeleteStruct *ds)
             deleteInDB = true;
         else
         {
-            LOG(VB_FILE, LOG_INFO,
+            LOG(VB_FILE, LOG_INFO, LOC +
                 QString("DeleteRecordedFiles(%1), deleting '%2'")
                     .arg(logInfo).arg(query.value(0).toString()));
 
@@ -2229,7 +2242,7 @@ void MainServer::DeleteRecordedFiles(DeleteStruct *ds)
             if (!update.exec())
             {
                 MythDB::DBError("RecordedFiles deletion", update);
-                LOG(VB_GENERAL, LOG_ERR, 
+                LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("Error querying recordedfile (%1) for %2.")
                                 .arg(query.value(1).toString())
                                 .arg(logInfo));
@@ -2253,7 +2266,7 @@ void MainServer::DoDeleteInDB(DeleteStruct *ds)
     if (!query.exec() || !query.isActive())
     {
         MythDB::DBError("Recorded program deletion", query);
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("Error deleting recorded entry for %1.") .arg(logInfo));
     }
 
@@ -2275,7 +2288,7 @@ void MainServer::DoDeleteInDB(DeleteStruct *ds)
     if (!query.exec())
     {
         MythDB::DBError("Recorded program delete recordedmarkup", query);
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("Error deleting recordedmarkup for %1.") .arg(logInfo));
     }
 
@@ -2287,8 +2300,9 @@ void MainServer::DoDeleteInDB(DeleteStruct *ds)
     if (!query.exec())
     {
         MythDB::DBError("Recorded program delete recordedseek", query);
-        LOG(VB_GENERAL, LOG_ERR, QString("Error deleting recordedseek for %1.")
-                                      .arg(logInfo));
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Error deleting recordedseek for %1.")
+                .arg(logInfo));
     }
 }
 
@@ -2309,7 +2323,8 @@ int MainServer::DeleteFile(const QString &filename, bool followLinks,
     QString linktext = "";
     QByteArray fname = filename.toLocal8Bit();
 
-    LOG(VB_FILE, LOG_INFO, QString("About to unlink/delete file: '%1'")
+    LOG(VB_FILE, LOG_INFO, LOC +
+        QString("About to unlink/delete file: '%1'")
             .arg(fname.constData()));
 
     QString errmsg = QString("Delete Error '%1'").arg(fname.constData());
@@ -2343,7 +2358,7 @@ int MainServer::DeleteFile(const QString &filename, bool followLinks,
     }
 
     if (fd < 0)
-        LOG(VB_GENERAL, LOG_ERR, errmsg + ENO);
+        LOG(VB_GENERAL, LOG_ERR, LOC + errmsg + ENO);
 
     return fd;
 }
@@ -2365,13 +2380,13 @@ int MainServer::OpenAndUnlink(const QString &filename)
 
     if (fd == -1)
     {
-        LOG(VB_GENERAL, LOG_ERR, msg + " could not open " + ENO);
+        LOG(VB_GENERAL, LOG_ERR, LOC + msg + " could not open " + ENO);
         return -1;
     }
 
     if (unlink(fname.constData()))
     {
-        LOG(VB_GENERAL, LOG_ERR, msg + " could not unlink " + ENO);
+        LOG(VB_GENERAL, LOG_ERR, LOC + msg + " could not unlink " + ENO);
         close(fd);
         return -1;
     }
@@ -2413,7 +2428,7 @@ bool MainServer::TruncateAndClose(ProgramInfo *pginfo, int fd,
     const size_t tps = max(min_tps, calc_tps);
     const size_t increment  = (size_t) (tps * (sleep_time * 0.001f));
 
-    LOG(VB_FILE, LOG_INFO,
+    LOG(VB_FILE, LOG_INFO, LOC +
         QString("Truncating '%1' by %2 MB every %3 milliseconds")
             .arg(filename)
             .arg(increment / (1024.0 * 1024.0), 0, 'f', 2)
@@ -2425,14 +2440,14 @@ bool MainServer::TruncateAndClose(ProgramInfo *pginfo, int fd,
     while (fsize > 0)
     {
 #if 0
-        LOG(VB_FILE, LOG_DEBUG, QString("Truncating '%1' to %2 MB")
+        LOG(VB_FILE, LOG_DEBUG, LOC + QString("Truncating '%1' to %2 MB")
                 .arg(filename).arg(fsize / (1024.0 * 1024.0), 0, 'f', 2));
 #endif
 
         int err = ftruncate(fd, fsize);
         if (err)
         {
-            LOG(VB_GENERAL, LOG_ERR, QString("Error truncating '%1'")
+            LOG(VB_GENERAL, LOG_ERR, LOC + QString("Error truncating '%1'")
                     .arg(filename) + ENO);
             if (pginfo)
                 pginfo->MarkAsInUse(false, kTruncatingDeleteInUseID);
@@ -2454,7 +2469,8 @@ bool MainServer::TruncateAndClose(ProgramInfo *pginfo, int fd,
     if (pginfo)
         pginfo->MarkAsInUse(false, kTruncatingDeleteInUseID);
 
-    LOG(VB_FILE, LOG_INFO, QString("Finished truncating '%1'").arg(filename));
+    LOG(VB_FILE, LOG_INFO, LOC +
+        QString("Finished truncating '%1'").arg(filename));
 
     return ok;
 }
@@ -2664,7 +2680,7 @@ void MainServer::DoHandleDeleteRecording(
     QString filename = GetPlaybackURL(&recinfo, false);
     if (filename.isEmpty())
     {
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("ERROR when trying to delete file for %1.  Unable "
                     "to determine filename of recording.")
                 .arg(recinfo.toString(ProgramInfo::kRecordingKey)));
@@ -2753,7 +2769,7 @@ void MainServer::DoHandleDeleteRecording(
         QString logInfo = QString("chanid %1")
             .arg(recinfo.toString(ProgramInfo::kRecordingKey));
 
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("ERROR when trying to delete file: %1. File doesn't "
                     "exist.  Database metadata will not be removed.")
                         .arg(filename));
@@ -2881,14 +2897,14 @@ void MainServer::HandleGoToSleep(PlaybackSock *pbs)
     {
         strlist << "OK";
         SendResponse(pbs->getSocket(), strlist);
-        LOG(VB_GENERAL, LOG_NOTICE,
+        LOG(VB_GENERAL, LOG_NOTICE, LOC +
             "Received GO_TO_SLEEP command from master, running SleepCommand.");
         myth_system(sleepCmd);
     }
     else
     {
         strlist << "ERROR: SleepCommand is empty";
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             "ERROR: in HandleGoToSleep(), but no SleepCommand found!");
         SendResponse(pbs->getSocket(), strlist);
     }
@@ -3149,7 +3165,7 @@ void MainServer::HandleQueryFileHash(QStringList &slist, PlaybackSock *pbs)
             filename.contains("/../") ||
             filename.startsWith("../"))
         {
-            LOG(VB_GENERAL, LOG_ERR,
+            LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("ERROR checking for file, filename '%1' "
                         "fails sanity checks").arg(filename));
             res << "";
@@ -3158,7 +3174,8 @@ void MainServer::HandleQueryFileHash(QStringList &slist, PlaybackSock *pbs)
         }
         break;
       default:
-        LOG(VB_GENERAL, LOG_ERR, "ERROR, invalid input count for QUERY_FILE_HASH");
+        LOG(VB_GENERAL, LOG_ERR,  LOC +
+            "ERROR, invalid input count for QUERY_FILE_HASH");
         res << "";
         SendResponse(pbs->getSocket(), res);
         return;
@@ -3223,7 +3240,7 @@ void MainServer::HandleQueryFileExists(QStringList &slist, PlaybackSock *pbs)
         (filename.contains("/../")) ||
         (filename.startsWith("../")))
     {
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("ERROR checking for file, filename '%1' "
                     "fails sanity checks").arg(filename));
         retlist << "0";
@@ -3406,7 +3423,7 @@ void MainServer::HandleSGGetFileList(QStringList &sList,
 
     if ((sList.size() < 4) || (sList.size() > 5))
     {
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("HandleSGGetFileList: Invalid Request. %1")
                 .arg(sList.join("[]:[]")));
         strList << "EMPTY LIST";
@@ -3425,8 +3442,9 @@ void MainServer::HandleSGGetFileList(QStringList &sList,
 
     bool slaveUnreachable = false;
 
-    LOG(VB_FILE, LOG_INFO, QString("HandleSGGetFileList: group = %1  host = %2 "
-                                   " path = %3 wanthost = %4")
+    LOG(VB_FILE, LOG_INFO,  LOC +
+        QString("HandleSGGetFileList: group = %1  host = %2 "
+                " path = %3 wanthost = %4")
             .arg(groupname).arg(host).arg(path).arg(wantHost));
 
     if ((host.toLower() == wantHost.toLower()) ||
@@ -3434,7 +3452,7 @@ void MainServer::HandleSGGetFileList(QStringList &sList,
         (gCoreContext->GetSetting("BackendServerIP6") == wantHost))
     {
         StorageGroup sg(groupname, host);
-        LOG(VB_FILE, LOG_INFO, "HandleSGGetFileList: Getting local info");
+        LOG(VB_FILE, LOG_INFO, LOC + "HandleSGGetFileList: Getting local info");
         if (fileNamesOnly)
             strList = sg.GetFileList(path);
         else
@@ -3445,7 +3463,8 @@ void MainServer::HandleSGGetFileList(QStringList &sList,
         PlaybackSock *slave = GetMediaServerByHostname(wantHost);
         if (slave)
         {
-            LOG(VB_FILE, LOG_INFO, "HandleSGGetFileList: Getting remote info");
+            LOG(VB_FILE, LOG_INFO, LOC +
+                "HandleSGGetFileList: Getting remote info");
             strList = slave->GetSGFileList(wantHost, groupname, path,
                                            fileNamesOnly);
             slave->DecrRef();
@@ -3453,7 +3472,7 @@ void MainServer::HandleSGGetFileList(QStringList &sList,
         }
         else
         {
-            LOG(VB_FILE, LOG_INFO,
+            LOG(VB_FILE, LOG_INFO, LOC +
                 QString("HandleSGGetFileList: Failed to grab slave socket "
                         ": %1 :").arg(wantHost));
             slaveUnreachable = true;
@@ -3478,7 +3497,7 @@ void MainServer::HandleSGFileQuery(QStringList &sList,
 
     if (sList.size() != 4)
     {
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("HandleSGFileQuery: Invalid Request. %1")
                 .arg(sList.join("[]:[]")));
         strList << "EMPTY LIST";
@@ -3492,14 +3511,14 @@ void MainServer::HandleSGFileQuery(QStringList &sList,
 
     bool slaveUnreachable = false;
 
-    LOG(VB_FILE, LOG_INFO, QString("HandleSGFileQuery: %1")
+    LOG(VB_FILE, LOG_INFO, LOC + QString("HandleSGFileQuery: %1")
             .arg(gCoreContext->GenMythURL(wantHost, 0, filename, groupname)));
 
     if ((wantHost.toLower() == gCoreContext->GetHostName().toLower()) ||
         (wantHost == gCoreContext->GetSetting("BackendServerIP")) ||
         (wantHost == gCoreContext->GetSetting("BackendServerIP6")))
     {
-        LOG(VB_FILE, LOG_INFO, "HandleSGFileQuery: Getting local info");
+        LOG(VB_FILE, LOG_INFO, LOC + "HandleSGFileQuery: Getting local info");
         StorageGroup sg(groupname, gCoreContext->GetHostName());
         strList = sg.GetFileInfo(filename);
     }
@@ -3508,14 +3527,15 @@ void MainServer::HandleSGFileQuery(QStringList &sList,
         PlaybackSock *slave = GetMediaServerByHostname(wantHost);
         if (slave)
         {
-            LOG(VB_FILE, LOG_INFO, "HandleSGFileQuery: Getting remote info");
+            LOG(VB_FILE, LOG_INFO, LOC +
+                "HandleSGFileQuery: Getting remote info");
             strList = slave->GetSGFileQuery(wantHost, groupname, filename);
             slave->DecrRef();
             slaveUnreachable = false;
         }
         else
         {
-            LOG(VB_FILE, LOG_INFO,
+            LOG(VB_FILE, LOG_INFO, LOC +
                 QString("HandleSGFileQuery: Failed to grab slave socket : %1 :")
                     .arg(wantHost));
             slaveUnreachable = true;
@@ -3575,7 +3595,7 @@ void MainServer::HandleLockTuner(PlaybackSock *pbs, int cardid)
         {
             QString msg = QString("Cardid %1 LOCKed for external use on %2.")
                                   .arg(retval).arg(pbshost);
-            LOG(VB_GENERAL, LOG_INFO, msg);
+            LOG(VB_GENERAL, LOG_INFO, LOC + msg);
 
             MSqlQuery query(MSqlQuery::InitCon());
             query.prepare("SELECT videodevice, audiodevice, "
@@ -3599,7 +3619,7 @@ void MainServer::HandleLockTuner(PlaybackSock *pbs, int cardid)
                 return;
             }
             else
-                LOG(VB_GENERAL, LOG_ERR,
+                LOG(VB_GENERAL, LOG_ERR, LOC +
                     "MainServer::LockTuner(): Could not find "
                     "card info in database");
         }
@@ -3625,7 +3645,7 @@ void MainServer::HandleFreeTuner(int cardid, PlaybackSock *pbs)
     QMap<int, EncoderLink *>::Iterator iter = encoderList->find(cardid);
     if (iter == encoderList->end())
     {
-        LOG(VB_GENERAL, LOG_ERR, "MainServer::HandleFreeTuner() " +
+        LOG(VB_GENERAL, LOG_ERR, LOC + "MainServer::HandleFreeTuner() " +
             QString("Unknown encoder: %1").arg(cardid));
         strlist << "FAILED";
     }
@@ -3636,7 +3656,7 @@ void MainServer::HandleFreeTuner(int cardid, PlaybackSock *pbs)
 
         QString msg = QString("Cardid %1 FREED from external use on %2.")
                               .arg(cardid).arg(pbs->getHostname());
-        LOG(VB_GENERAL, LOG_INFO, msg);
+        LOG(VB_GENERAL, LOG_INFO, LOC + msg);
 
         if (m_sched)
             m_sched->ReschedulePlace("FreeTuner");
@@ -3670,7 +3690,7 @@ void MainServer::HandleGetFreeRecorder(PlaybackSock *pbs)
         else
             enchost = elink->GetHostName();
 
-        LOG(VB_RECORD, LOG_INFO, 
+        LOG(VB_RECORD, LOG_INFO, LOC +
             QString("Checking card %1. Best card so far %2")
             .arg(iter.key()).arg(retval));
 
@@ -3690,7 +3710,7 @@ void MainServer::HandleGetFreeRecorder(PlaybackSock *pbs)
         }
     }
 
-    LOG(VB_RECORD, LOG_INFO, 
+    LOG(VB_RECORD, LOG_INFO, LOC +
         QString("Best card is %1").arg(retval));
 
     strlist << QString::number(retval);
@@ -3800,7 +3820,8 @@ void MainServer::HandleGetNextFreeRecorder(QStringList &slist,
     EncoderLink *encoder = NULL;
     QString enchost;
 
-    LOG(VB_RECORD, LOG_INFO, QString("Getting next free recorder after : %1")
+    LOG(VB_RECORD, LOG_INFO, LOC +
+        QString("Getting next free recorder after : %1")
             .arg(currrec));
 
     // find current recorder
@@ -3896,7 +3917,7 @@ void MainServer::HandleRecorderQuery(QStringList &slist, QStringList &commands,
     QMap<int, EncoderLink *>::Iterator iter = encoderList->find(recnum);
     if (iter == encoderList->end())
     {
-        LOG(VB_GENERAL, LOG_ERR, "MainServer::HandleRecorderQuery() " +
+        LOG(VB_GENERAL, LOG_ERR, LOC + "MainServer::HandleRecorderQuery() " +
             QString("Unknown encoder: %1").arg(recnum));
         QStringList retlist( "bad" );
         SendResponse(pbssock, retlist);
@@ -3910,7 +3931,7 @@ void MainServer::HandleRecorderQuery(QStringList &slist, QStringList &commands,
     EncoderLink *enc = *iter;
     if (!enc->IsConnected())
     {
-        LOG(VB_GENERAL, LOG_ERR, " MainServer::HandleRecorderQuery() " +
+        LOG(VB_GENERAL, LOG_ERR, LOC + " MainServer::HandleRecorderQuery() " +
             QString("Command %1 for unconnected encoder %2")
                 .arg(command).arg(recnum));
         retlist << "bad";
@@ -4023,7 +4044,7 @@ void MainServer::HandleRecorderQuery(QStringList &slist, QStringList &commands,
     else if (command == "CANCEL_NEXT_RECORDING")
     {
         QString cancel = slist[2];
-        LOG(VB_GENERAL, LOG_NOTICE,
+        LOG(VB_GENERAL, LOG_NOTICE, LOC +
             QString("Received: CANCEL_NEXT_RECORDING %1").arg(cancel));
         enc->CancelNextRecording(cancel == "1");
         retlist << "OK";
@@ -4257,7 +4278,8 @@ void MainServer::HandleRecorderQuery(QStringList &slist, QStringList &commands,
     }
     else
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("Unknown command: %1").arg(command));
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Unknown command: %1").arg(command));
         retlist << "OK";
     }
 
@@ -4274,7 +4296,7 @@ void MainServer::HandleSetNextLiveTVDir(QStringList &commands,
     QMap<int, EncoderLink *>::Iterator iter = encoderList->find(recnum);
     if (iter == encoderList->end())
     {
-        LOG(VB_GENERAL, LOG_ERR, "MainServer::HandleSetNextLiveTVDir() " +
+        LOG(VB_GENERAL, LOG_ERR, LOC + "MainServer::HandleSetNextLiveTVDir() " +
             QString("Unknown encoder: %1").arg(recnum));
         QStringList retlist( "bad" );
         SendResponse(pbssock, retlist);
@@ -4333,7 +4355,7 @@ void MainServer::HandleRemoteEncoder(QStringList &slist, QStringList &commands,
     QMap<int, EncoderLink *>::Iterator iter = encoderList->find(recnum);
     if (iter == encoderList->end())
     {
-        LOG(VB_GENERAL, LOG_ERR, "MainServer: " +
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("HandleRemoteEncoder(cmd %1) ").arg(slist[1]) +
             QString("Unknown encoder: %1").arg(recnum));
         retlist << QString::number((int) kState_Error);
@@ -4523,11 +4545,11 @@ size_t MainServer::GetCurrentMaxBitrate(void)
             maxBitrate = 19500000LL;
         long long thisKBperMin = (((size_t)maxBitrate)*((size_t)15))>>11;
         totalKBperMin += thisKBperMin;
-        LOG(VB_FILE, LOG_INFO, QString("Cardid %1: max bitrate %2 KB/min")
+        LOG(VB_FILE, LOG_INFO, LOC + QString("Cardid %1: max bitrate %2 KB/min")
                 .arg(enc->GetCardID()).arg(thisKBperMin));
     }
 
-    LOG(VB_FILE, LOG_INFO,
+    LOG(VB_FILE, LOG_INFO, LOC +
         QString("Maximal bitrate of busy encoders is %1 KB/min")
             .arg(totalKBperMin));
 
@@ -4783,7 +4805,8 @@ void MainServer::GetFilesystemInfos(QList<FileSystemInfo> &fsInfos)
         fsInfos.push_back(fsInfo);
     }
 
-    LOG(VB_SCHEDULE | VB_FILE, LOG_DEBUG, "Determining unique filesystems");
+    LOG(VB_SCHEDULE | VB_FILE, LOG_DEBUG, LOC +
+        "Determining unique filesystems");
     size_t maxWriteFiveSec = GetCurrentMaxBitrate()/12  /*5 seconds*/;
     // safety for NFS mounted dirs
     maxWriteFiveSec = max((size_t)2048, maxWriteFiveSec); 
@@ -4793,29 +4816,38 @@ void MainServer::GetFilesystemInfos(QList<FileSystemInfo> &fsInfos)
     QList<FileSystemInfo>::iterator it1;
     if (VERBOSE_LEVEL_CHECK(VB_FILE | VB_SCHEDULE, LOG_INFO))
     {
-        LOG(VB_FILE | VB_SCHEDULE, LOG_INFO,
+        LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, LOC +
             "--- GetFilesystemInfos directory list start ---");
         for (it1 = fsInfos.begin(); it1 != fsInfos.end(); ++it1)
         {
-            QString msg = QString("Dir: %1:%2")
-                .arg(it1->getHostname()).arg(it1->getPath());
-            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, msg) ;
-            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, QString("     Location: %1")
+            QString msg =
+                QString("Dir: %1:%2")
+                    .arg(it1->getHostname())
+                    .arg(it1->getPath());
+            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, LOC + msg) ;
+            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, LOC +
+                QString("     Location: %1")
                 .arg(it1->isLocal() ? "Local" : "Remote"));
-            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, QString("     fsID    : %1")
+            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, LOC +
+                QString("     fsID    : %1")
                 .arg(it1->getFSysID()));
-            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, QString("     dirID   : %1")
+            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, LOC +
+                QString("     dirID   : %1")
                 .arg(it1->getGroupID()));
-            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, QString("     BlkSize : %1")
+            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, LOC +
+                QString("     BlkSize : %1")
                 .arg(it1->getBlockSize()));
-            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, QString("     TotalKB : %1")
+            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, LOC +
+                QString("     TotalKB : %1")
                 .arg(it1->getTotalSpace()));
-            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, QString("     UsedKB  : %1")
+            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, LOC +
+                QString("     UsedKB  : %1")
                 .arg(it1->getUsedSpace()));
-            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, QString("     FreeKB  : %1")
+            LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, LOC +
+                QString("     FreeKB  : %1")
                 .arg(it1->getFreeSpace()));
         }
-        LOG(VB_FILE | VB_SCHEDULE, LOG_INFO,
+        LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, LOC +
             "--- GetFilesystemInfos directory list end ---");
     }
 }
@@ -4854,7 +4886,8 @@ bool MainServer::HandleDeleteFile(QString filename, QString storagegroup,
         (filename.contains("/../")) ||
         (filename.startsWith("../")))
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("ERROR deleting file, filename '%1' "
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("ERROR deleting file, filename '%1' "
                 "fails sanity checks").arg(filename));
         if (pbs)
         {
@@ -4867,7 +4900,7 @@ bool MainServer::HandleDeleteFile(QString filename, QString storagegroup,
     QString fullfile = sgroup.FindFile(filename);
 
     if (fullfile.isEmpty()) {
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("Unable to find %1 in HandleDeleteFile()") .arg(filename));
         if (pbs)
         {
@@ -4891,7 +4924,7 @@ bool MainServer::HandleDeleteFile(QString filename, QString storagegroup,
 
     if ((fd < 0) && checkFile.exists())
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("Error deleting file: %1.")
+        LOG(VB_GENERAL, LOG_ERR, LOC + QString("Error deleting file: %1.")
                 .arg(fullfile));
         if (pbs)
         {
@@ -5106,7 +5139,7 @@ void MainServer::HandleDownloadFile(const QStringList &command,
 
     if (outDir.isEmpty())
     {
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("Unable to determine directory "
                     "to write to in %1 write command").arg(command[0]));
         retlist << "downloadfile_directory_not_found";
@@ -5118,7 +5151,7 @@ void MainServer::HandleDownloadFile(const QStringList &command,
     if ((filename.contains("/../")) ||
         (filename.startsWith("../")))
     {
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("ERROR: %1 write filename '%2' does not pass "
                     "sanity checks.") .arg(command[0]).arg(filename));
         retlist << "downloadfile_filename_dangerous";
@@ -5492,7 +5525,8 @@ void MainServer::HandleScanMusic(const QStringList &slist, PlaybackSock *pbs)
                 if (hostname == gCoreContext->GetHostName())
                 {
                     // this is the master BE with a music storage group directory defined so run the file scanner
-                    LOG(VB_GENERAL, LOG_INFO, QString("HandleScanMusic: running filescanner on master BE '%1'").arg(hostname));
+                    LOG(VB_GENERAL, LOG_INFO, LOC +
+                        QString("HandleScanMusic: running filescanner on master BE '%1'").arg(hostname));
                     QScopedPointer<MythSystem> cmd(MythSystem::Create("mythutil --scanmusic",
                                                                       kMSAutoCleanup | kMSRunBackground |
                                                                       kMSDontDisableDrawing | kMSProcessEvents |
@@ -5504,13 +5538,14 @@ void MainServer::HandleScanMusic(const QStringList &slist, PlaybackSock *pbs)
                     PlaybackSock *slave = GetMediaServerByHostname(hostname);
                     if (slave)
                     {
-                        LOG(VB_GENERAL, LOG_INFO, QString("HandleScanMusic: asking slave '%1' to run file scanner").arg(hostname));
+                        LOG(VB_GENERAL, LOG_INFO, LOC +
+                            QString("HandleScanMusic: asking slave '%1' to run file scanner").arg(hostname));
                         slave->ForwardRequest(slist);
                         slave->DecrRef();
                     }
                     else
                     {
-                        LOG(VB_GENERAL, LOG_INFO,
+                        LOG(VB_GENERAL, LOG_INFO, LOC +
                             QString("HandleScanMusic: Failed to grab slave socket on '%1'").arg(hostname));
                     }
                 }
@@ -5520,7 +5555,9 @@ void MainServer::HandleScanMusic(const QStringList &slist, PlaybackSock *pbs)
     else
     {
         // must be a slave with a music storage group directory defined so run the file scanner
-        LOG(VB_GENERAL, LOG_INFO, QString("HandleScanMusic: running filescanner on slave BE '%1'").arg(gCoreContext->GetHostName()));
+        LOG(VB_GENERAL, LOG_INFO,  LOC +
+            QString("HandleScanMusic: running filescanner on slave BE '%1'")
+                .arg(gCoreContext->GetHostName()));
         QScopedPointer<MythSystem> cmd(MythSystem::Create("mythutil --scanmusic",
                                                           kMSAutoCleanup | kMSRunBackground |
                                                           kMSDontDisableDrawing | kMSProcessEvents |
@@ -5549,7 +5586,8 @@ void MainServer::HandleMusicTagUpdateVolatile(const QStringList &slist, Playback
         PlaybackSock *slave = GetMediaServerByHostname(hostname);
         if (slave)
         {
-            LOG(VB_GENERAL, LOG_INFO, QString("HandleMusicTagUpdateVolatile: asking slave '%1' to update the metadata").arg(hostname));
+            LOG(VB_GENERAL, LOG_INFO, LOC +
+                QString("HandleMusicTagUpdateVolatile: asking slave '%1' to update the metadata").arg(hostname));
             strlist << slist.join(" ");
             strlist = slave->ForwardRequest(strlist);
             slave->DecrRef();
@@ -5561,7 +5599,7 @@ void MainServer::HandleMusicTagUpdateVolatile(const QStringList &slist, Playback
         }
         else
         {
-            LOG(VB_GENERAL, LOG_INFO,
+            LOG(VB_GENERAL, LOG_INFO, LOC +
                 QString("HandleMusicTagUpdateVolatile: Failed to grab slave socket on '%1'").arg(hostname));
 
             strlist << "ERROR: slave not found";
@@ -5583,7 +5621,8 @@ void MainServer::HandleMusicTagUpdateVolatile(const QStringList &slist, Playback
 
         QString command = "mythutil --updatemeta " + paramList.join(" ");
 
-        LOG(VB_GENERAL, LOG_INFO, QString("HandleMusicTagUpdateVolatile: running %1'").arg(command));
+        LOG(VB_GENERAL, LOG_INFO, LOC +
+            QString("HandleMusicTagUpdateVolatile: running %1'").arg(command));
         QScopedPointer<MythSystem> cmd(MythSystem::Create(command,
                                                           kMSAutoCleanup | kMSRunBackground |
                                                           kMSDontDisableDrawing | kMSProcessEvents |
@@ -5612,7 +5651,8 @@ void MainServer::HandleMusicCalcTrackLen(const QStringList &slist, PlaybackSock 
         PlaybackSock *slave = GetMediaServerByHostname(hostname);
         if (slave)
         {
-            LOG(VB_GENERAL, LOG_INFO, QString("HandleMusicCalcTrackLen: asking slave '%1' to update the track length").arg(hostname));
+            LOG(VB_GENERAL, LOG_INFO, LOC +
+                QString("HandleMusicCalcTrackLen: asking slave '%1' to update the track length").arg(hostname));
             strlist << slist.join(" ");
             strlist = slave->ForwardRequest(strlist);
             slave->DecrRef();
@@ -5624,7 +5664,7 @@ void MainServer::HandleMusicCalcTrackLen(const QStringList &slist, PlaybackSock 
         }
         else
         {
-            LOG(VB_GENERAL, LOG_INFO,
+            LOG(VB_GENERAL, LOG_INFO, LOC +
                 QString("HandleMusicCalcTrackLen: Failed to grab slave socket on '%1'").arg(hostname));
 
             strlist << "ERROR: slave not found";
@@ -5643,7 +5683,8 @@ void MainServer::HandleMusicCalcTrackLen(const QStringList &slist, PlaybackSock 
 
         QString command = "mythutil --calctracklen " + paramList.join(" ");
 
-        LOG(VB_GENERAL, LOG_INFO, QString("HandleMusicCalcTrackLen: running %1'").arg(command));
+        LOG(VB_GENERAL, LOG_INFO, LOC +
+            QString("HandleMusicCalcTrackLen: running %1'").arg(command));
         QScopedPointer<MythSystem> cmd(MythSystem::Create(command,
                                                           kMSAutoCleanup | kMSRunBackground |
                                                           kMSDontDisableDrawing | kMSProcessEvents |
@@ -5673,8 +5714,9 @@ void MainServer::HandleMusicTagUpdateMetadata(const QStringList &slist, Playback
         PlaybackSock *slave = GetMediaServerByHostname(hostname);
         if (slave)
         {
-            LOG(VB_GENERAL, LOG_INFO, QString("HandleMusicTagUpdateMetadata: asking slave '%1' "
-                                              "to update the metadata").arg(hostname));
+            LOG(VB_GENERAL, LOG_INFO, LOC +
+                QString("HandleMusicTagUpdateMetadata: asking slave '%1' "
+                        "to update the metadata").arg(hostname));
             strlist << slist.join(" ");
             strlist = slave->ForwardRequest(strlist);
             slave->DecrRef();
@@ -5686,8 +5728,9 @@ void MainServer::HandleMusicTagUpdateMetadata(const QStringList &slist, Playback
         }
         else
         {
-            LOG(VB_GENERAL, LOG_INFO, QString("HandleMusicTagUpdateMetadata: Failed to grab "
-                                              "slave socket on '%1'").arg(hostname));
+            LOG(VB_GENERAL, LOG_INFO, LOC +
+                QString("HandleMusicTagUpdateMetadata: Failed to grab "
+                        "slave socket on '%1'").arg(hostname));
 
             strlist << "ERROR: slave not found";
 
@@ -5706,9 +5749,10 @@ void MainServer::HandleMusicTagUpdateMetadata(const QStringList &slist, Playback
 
         if (!mdata)
         {
-            LOG(VB_GENERAL, LOG_ERR, QString("HandleMusicTagUpdateMetadata: "
-                                             "Cannot find metadata for trackid: %1")
-                                             .arg(songID));
+            LOG(VB_GENERAL, LOG_ERR, LOC +
+                QString("HandleMusicTagUpdateMetadata: "
+                        "Cannot find metadata for trackid: %1")
+                    .arg(songID));
 
             strlist << "ERROR: track not found";
 
@@ -5723,9 +5767,10 @@ void MainServer::HandleMusicTagUpdateMetadata(const QStringList &slist, Playback
         {
             if (!tagger->write(mdata->getLocalFilename(), mdata))
             {
-                LOG(VB_GENERAL, LOG_ERR, QString("HandleMusicTagUpdateMetadata: "
-                                                 "Failed to write to tag for trackid: %1")
-                                                 .arg(songID));
+                LOG(VB_GENERAL, LOG_ERR, LOC +
+                    QString("HandleMusicTagUpdateMetadata: "
+                            "Failed to write to tag for trackid: %1")
+                        .arg(songID));
 
                 strlist << "ERROR: write to tag failed";
 
@@ -5760,8 +5805,9 @@ void MainServer::HandleMusicFindAlbumArt(const QStringList &slist, PlaybackSock 
         PlaybackSock *slave = GetMediaServerByHostname(hostname);
         if (slave)
         {
-            LOG(VB_GENERAL, LOG_INFO, QString("HandleMusicFindAlbumArt: asking slave '%1' "
-                                              "to update the albumart").arg(hostname));
+            LOG(VB_GENERAL, LOG_INFO, LOC +
+                QString("HandleMusicFindAlbumArt: asking slave '%1' "
+                        "to update the albumart").arg(hostname));
             strlist << slist.join(" ");
             strlist = slave->ForwardRequest(strlist);
             slave->DecrRef();
@@ -5773,8 +5819,9 @@ void MainServer::HandleMusicFindAlbumArt(const QStringList &slist, PlaybackSock 
         }
         else
         {
-            LOG(VB_GENERAL, LOG_INFO, QString("HandleMusicFindAlbumArt: Failed to grab "
-                                              "slave socket on '%1'").arg(hostname));
+            LOG(VB_GENERAL, LOG_INFO, LOC +
+                QString("HandleMusicFindAlbumArt: Failed to grab "
+                        "slave socket on '%1'").arg(hostname));
 
             strlist << "ERROR: slave not found";
 
@@ -5794,9 +5841,9 @@ void MainServer::HandleMusicFindAlbumArt(const QStringList &slist, PlaybackSock 
 
         if (!mdata)
         {
-            LOG(VB_GENERAL, LOG_ERR, QString("HandleMusicFindAlbumArt: "
-                                             "Cannot find metadata for trackid: %1")
-                                             .arg(songID));
+            LOG(VB_GENERAL, LOG_ERR, LOC +
+                QString("HandleMusicFindAlbumArt: "
+                        "Cannot find metadata for trackid: %1").arg(songID));
 
             strlist << "ERROR: track not found";
 
@@ -5852,9 +5899,9 @@ void MainServer::HandleMusicFindAlbumArt(const QStringList &slist, PlaybackSock 
         }
         else
         {
-            LOG(VB_GENERAL, LOG_ERR, QString("HandleMusicFindAlbumArt: "
-                                             "Failed to find a tagger for trackid: %1")
-                                             .arg(songID));
+            LOG(VB_GENERAL, LOG_ERR, LOC +
+                QString("HandleMusicFindAlbumArt: "
+                        "Failed to find a tagger for trackid: %1").arg(songID));
         }
 
         // finally save the result to the database
@@ -5904,7 +5951,9 @@ void MainServer::HandleMusicTagGetImage(const QStringList &slist, PlaybackSock *
         if (hostname == gCoreContext->GetHostName())
         {
             // this is the master BE
-            LOG(VB_GENERAL, LOG_INFO, QString("HandleMusicTagGetImage: running %1 on master BE '%2'").arg(command).arg(hostname));
+            LOG(VB_GENERAL, LOG_INFO, LOC +
+                QString("HandleMusicTagGetImage: running %1 on master BE '%2'")
+                    .arg(command).arg(hostname));
 
             QScopedPointer<MythSystem> cmd(MythSystem::Create(command,
                                                               kMSAutoCleanup | kMSRunBackground |
@@ -5917,22 +5966,27 @@ void MainServer::HandleMusicTagGetImage(const QStringList &slist, PlaybackSock *
             PlaybackSock *slave = GetMediaServerByHostname(hostname);
             if (slave)
             {
-                LOG(VB_GENERAL, LOG_INFO, QString("HandleMusicTagGetImage: asking slave '%1' to extract the image").arg(hostname));
+                LOG(VB_GENERAL, LOG_INFO, LOC +
+                    QString("HandleMusicTagGetImage: asking slave '%1' to "
+                            "extract the image").arg(hostname));
                 strlist << slist.join(" ");
                 slave->ForwardRequest(strlist);
                 slave->DecrRef();
             }
             else
             {
-                LOG(VB_GENERAL, LOG_INFO,
-                    QString("HandleMusicTagGetImage: Failed to grab slave socket on '%1'").arg(hostname));
+                LOG(VB_GENERAL, LOG_INFO, LOC +
+                    QString("HandleMusicTagGetImage: Failed to grab slave "
+                            "socket on '%1'").arg(hostname));
             }
         }
     }
     else
     {
         // must be a slave run mythutil to extract the image
-        LOG(VB_GENERAL, LOG_INFO, QString("HandleMusicTagGetImage: running %1 on slave BE '%2'").arg(command).arg(gCoreContext->GetHostName()));
+        LOG(VB_GENERAL, LOG_INFO, LOC +
+            QString("HandleMusicTagGetImage: running %1 on slave BE '%2'")
+                .arg(command).arg(gCoreContext->GetHostName()));
         QScopedPointer<MythSystem> cmd(MythSystem::Create(command,
                                                           kMSAutoCleanup | kMSRunBackground |
                                                           kMSDontDisableDrawing | kMSProcessEvents |
@@ -5968,8 +6022,8 @@ void MainServer::HandleFileTransferQuery(QStringList &slist,
         }
         else
         {
-            LOG(VB_GENERAL, LOG_ERR, QString("Unknown file transfer socket: %1")
-                                   .arg(recnum));
+            LOG(VB_GENERAL, LOG_ERR, LOC +
+                QString("Unknown file transfer socket: %1").arg(recnum));
             retlist << QString("ERROR: Unknown file transfer socket: %1")
                                .arg(recnum);
         }
@@ -6026,7 +6080,8 @@ void MainServer::HandleFileTransferQuery(QStringList &slist,
     }
     else
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("Unknown command: %1").arg(command));
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Unknown command: %1").arg(command));
         retlist << "OK";
     }
 
@@ -6160,16 +6215,15 @@ void MainServer::HandleSetVerbose(QStringList &slist, PlaybackSock *pbs)
         verboseArgParse(newverbose.right(len-12));
         logPropagateCalc();
 
-        LOG(VB_GENERAL, LOG_NOTICE,
-            QString("Verbose mask changed, new mask is: %1")
-                 .arg(verboseString));
+        LOG(VB_GENERAL, LOG_NOTICE, LOC +
+            QString("Verbose mask changed, new mask is: %1").arg(verboseString));
 
         retlist << "OK";
     }
     else
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("Invalid SET_VERBOSE string: '%1'")
-                                      .arg(newverbose));
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Invalid SET_VERBOSE string: '%1'").arg(newverbose));
         retlist << "Failed";
     }
 
@@ -6191,7 +6245,7 @@ void MainServer::HandleSetLogLevel(QStringList &slist, PlaybackSock *pbs)
         {
             logLevel = newlevel;
             logPropagateCalc();
-            LOG(VB_GENERAL, LOG_NOTICE,
+            LOG(VB_GENERAL, LOG_NOTICE, LOC +
                 QString("Log level changed, new level is: %1")
                     .arg(logLevelGetName(logLevel)));
 
@@ -6201,8 +6255,8 @@ void MainServer::HandleSetLogLevel(QStringList &slist, PlaybackSock *pbs)
 
     if (newlevel == LOG_UNKNOWN)
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("Invalid SET_VERBOSE string: '%1'")
-                                      .arg(newstring));
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Invalid SET_VERBOSE string: '%1'").arg(newstring));
         retlist << "Failed";
     }
 
@@ -6310,7 +6364,7 @@ void MainServer::HandleGenPreviewPixmap(QStringList &slist, PlaybackSock *pbs)
 
     if (has_extra_data)
     {
-        LOG(VB_PLAYBACK, LOG_INFO,
+        LOG(VB_PLAYBACK, LOG_INFO, LOC +
             QString("HandleGenPreviewPixmap got extra data\n\t\t\t"
                     "%1%2 %3x%4 '%5'")
                 .arg(time).arg(time_fmt_sec?"s":"f")
@@ -6421,7 +6475,7 @@ void MainServer::HandlePixmapLastModified(QStringList &slist, PlaybackSock *pbs)
 
     if (!pginfo.IsLocal())
     {
-        LOG(VB_GENERAL, LOG_ERR,
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             "MainServer: HandlePixmapLastModified: Unable to "
             "find file locally, unable to get last modified date.");
         QStringList outputlist( "BAD" );
@@ -6496,7 +6550,8 @@ void MainServer::HandlePixmapGetIfModified(
 
                 if (data.size())
                 {
-                    LOG(VB_FILE, LOG_INFO, QString("Read preview file '%1'")
+                    LOG(VB_FILE, LOG_INFO, LOC +
+                        QString("Read preview file '%1'")
                             .arg(pginfo.GetPathname()));
                     strlist += QString::number(lastmodified.toTime_t());
                     strlist += QString::number(data.size());
@@ -6506,7 +6561,7 @@ void MainServer::HandlePixmapGetIfModified(
                 }
                 else
                 {
-                    LOG(VB_GENERAL, LOG_ERR,
+                    LOG(VB_GENERAL, LOG_ERR, LOC +
                         QString("Failed to read preview file '%1'")
                             .arg(pginfo.GetPathname()));
 
@@ -6649,7 +6704,7 @@ void MainServer::connectionClosed(MythSocket *socket)
 
             if (ismaster && pbs->isSlaveBackend())
             {
-                LOG(VB_GENERAL, LOG_ERR,
+                LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("Slave backend: %1 no longer connected")
                         .arg(pbs->getHostname()));
 
@@ -6722,7 +6777,7 @@ void MainServer::connectionClosed(MythSocket *socket)
 
             PlaybackSock *testsock = GetPlaybackBySock(socket);
             if (testsock)
-                LOG(VB_GENERAL, LOG_ERR, "Playback sock still exists?");
+                LOG(VB_GENERAL, LOG_ERR, LOC + "Playback sock still exists?");
 
             pbs->DecrRef();
 
@@ -6988,12 +7043,12 @@ QString MainServer::LocalFilePath(const QUrl &url, const QString &wantgroup)
             if (pburl.startsWith("/"))
             {
                 lpath = pburl.section('/', 0, -2) + "/" + lpath;
-                LOG(VB_FILE, LOG_INFO,
+                LOG(VB_FILE, LOG_INFO, LOC +
                     QString("Local file path: %1").arg(lpath));
             }
             else
             {
-                LOG(VB_GENERAL, LOG_ERR,
+                LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("ERROR: LocalFilePath unable to find local "
                             "path for '%1', found '%2' instead.")
                         .arg(lpath).arg(pburl));
@@ -7020,14 +7075,14 @@ QString MainServer::LocalFilePath(const QUrl &url, const QString &wantgroup)
             if (!tmpFile.isEmpty())
             {
                 lpath = tmpFile;
-                LOG(VB_FILE, LOG_INFO,
+                LOG(VB_FILE, LOG_INFO, LOC +
                     QString("LocalFilePath(%1 '%2'), found file through "
                             "exhaustive search at '%3'")
                         .arg(url.toString()).arg(opath).arg(lpath));
             }
             else
             {
-                LOG(VB_GENERAL, LOG_ERR, QString("ERROR: LocalFilePath "
+                LOG(VB_GENERAL, LOG_ERR, LOC + QString("ERROR: LocalFilePath "
                     "unable to find local path for '%1'.") .arg(url.toString()));
                 lpath = "";
             }
@@ -7049,18 +7104,20 @@ void MainServer::reconnectTimeout(void)
     QString server = gCoreContext->GetSetting("MasterServerIP", "127.0.0.1");
     int port = gCoreContext->GetNumSetting("MasterServerPort", 6543);
 
-    LOG(VB_GENERAL, LOG_NOTICE, QString("Connecting to master server: %1:%2")
-                           .arg(server).arg(port));
+    LOG(VB_GENERAL, LOG_NOTICE, LOC +
+        QString("Connecting to master server: %1:%2")
+            .arg(server).arg(port));
 
     if (!masterServerSock->ConnectToHost(server, port))
     {
-        LOG(VB_GENERAL, LOG_NOTICE, "Connection to master server timed out.");
+        LOG(VB_GENERAL, LOG_NOTICE, LOC +
+            "Connection to master server timed out.");
         masterServerReconnect->start(kMasterServerReconnectTimeout);
         masterServerSock->DecrRef();
         return;
     }
 
-    LOG(VB_GENERAL, LOG_NOTICE, "Connected successfully");
+    LOG(VB_GENERAL, LOG_NOTICE, LOC + "Connected successfully");
 
     QString str = QString("ANN SlaveBackend %1 %2")
                           .arg(gCoreContext->GetHostName())
