@@ -1095,7 +1095,7 @@ QString MusicMetadata::getAlbumArtFile(void)
                     slist << QString("MUSIC_TAG_GETIMAGE %1 %2 %3")
                             .arg(Hostname())
                             .arg(ID())
-                            .arg(AlbumArtImages::getTypeFilename(albumart_image->imageType));
+                            .arg(albumart_image->imageType);
                     gCoreContext->SendReceiveStringList(slist);
                 }
             }
@@ -1819,7 +1819,20 @@ void AlbumArtImages::scanForImages()
         image->imageType = (ImageType) strList[x + 1].toInt();
         image->embedded = (strList[x + 2].toInt() == 1);
         image->description = strList[x + 3];
-        image->filename = strList[x + 4];
+
+        if (image->embedded)
+        {
+            image->filename = gCoreContext->GenMythURL(m_parent->Hostname(), 0,
+                                                       QString("AlbumArt/") + strList[x + 4],
+                                                       "MusicArt");
+        }
+        else
+        {
+            image->filename =  gCoreContext->GenMythURL(m_parent->Hostname(), 0,
+                                                        strList[x + 4],
+                                                        "Music");
+        }
+
         image->hostname = strList[x + 5];
         addImage(image);
     }
