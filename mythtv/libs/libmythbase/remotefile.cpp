@@ -32,6 +32,7 @@ using namespace std;
 #include "mythdate.h"
 #include "mythmiscutil.h"
 #include "threadedfilewriter.h"
+#include "storagegroup.h"
 
 #define MAX_FILE_CHECK 500  // in ms
 
@@ -413,30 +414,48 @@ bool RemoteFile::Exists(const QString &url, struct stat *fileinfo)
     if (url.isEmpty())
         return false;
 
-    if (isLocal(url))
+    QUrl qurl(url);
+    QString filename = qurl.path();
+    QString sgroup   = qurl.userName();
+    QString host     = qurl.host();
+
+    if (isLocal(url) || (gCoreContext->IsMasterBackend() &&
+        host == gCoreContext->GetMasterHostName()))
     {
        LOG(VB_FILE, LOG_INFO,
            QString("RemoteFile::Exists(): looking for local file: %1").arg(url));
 
-        QFileInfo info(url);
-        if (info.exists())
+        bool fileExists = false;
+        QString fullFilePath = "";
+
+        if (url.startsWith("myth:"))
         {
-            if (stat(url.toLocal8Bit().constData(), fileinfo) == -1)
+            StorageGroup sGroup(sgroup, host);
+            fullFilePath = sGroup.FindFile(filename);
+            if (!fullFilePath.isEmpty())
+                fileExists = true;
+        }
+        else
+        {
+            QFileInfo info(url);
+            fileExists = info.exists() && info.isFile();
+            fullFilePath = url;
+        }
+
+        if (fileExists)
+        {
+            if (stat(fullFilePath.toLocal8Bit().constData(), fileinfo) == -1)
             {
                 LOG(VB_FILE, LOG_ERR,
-                    QString("RemoteFile::Exists(): failed to stat file: %1").arg(url) + ENO);
+                    QString("RemoteFile::Exists(): failed to stat file: %1").arg(fullFilePath) + ENO);
             }
         }
 
-        return info.exists() && info.isFile();
+        return fileExists;
     }
 
     LOG(VB_FILE, LOG_INFO,
         QString("RemoteFile::Exists(): looking for remote file: %1").arg(url));
-
-    QUrl qurl(url);
-    QString filename = qurl.path();
-    QString sgroup   = qurl.userName();
 
     if (!qurl.fragment().isEmpty() || url.endsWith("#"))
         filename = filename + "#" + qurl.fragment();
@@ -1076,12 +1095,22 @@ QString RemoteFile::FindFile(const QString& filename, const QString& host, const
     if (hostName.isEmpty())
         hostName = gCoreContext->GetMasterHostName();
 
-    // first check the given host
-    strList << "QUERY_SG_FILEQUERY" << hostName << storageGroup << filename;
-    if (gCoreContext->SendReceiveStringList(strList))
+    if (gCoreContext->IsMasterBackend() &&
+        hostName == gCoreContext->GetMasterHostName())
     {
-        if (strList.size() > 0 && strList[0] != "EMPTY LIST" && !strList[0].startsWith("SLAVE UNREACHABLE"))
+        StorageGroup sGroup(storageGroup, hostName);
+        if (!sGroup.FindFile(filename).isEmpty())
             return gCoreContext->GenMythURL(hostName, 0, filename, storageGroup);
+    }
+    else
+    {
+        // first check the given host
+        strList << "QUERY_SG_FILEQUERY" << hostName << storageGroup << filename << 0;
+        if (gCoreContext->SendReceiveStringList(strList))
+        {
+            if (strList.size() > 0 && strList[0] != "EMPTY LIST" && !strList[0].startsWith("SLAVE UNREACHABLE"))
+                return gCoreContext->GenMythURL(hostName, 0, filename, storageGroup);
+        }
     }
 
     // not found so search all hosts that has a directory defined for the give storage group
@@ -1107,8 +1136,18 @@ QString RemoteFile::FindFile(const QString& filename, const QString& host, const
     {
         hostName = query.value(0).toString();
 
+        if (gCoreContext->IsMasterBackend() &&
+            hostName == gCoreContext->GetMasterHostName())
+        {
+            StorageGroup sGroup(storageGroup, hostName);
+            if (!sGroup.FindFile(filename).isEmpty())
+                return gCoreContext->GenMythURL(hostName, 0, filename, storageGroup);
+            else
+                continue;
+        }
+
         strList.clear();
-        strList << "QUERY_SG_FILEQUERY" << hostName << storageGroup << filename;
+        strList << "QUERY_SG_FILEQUERY" << hostName << storageGroup << filename << 0;
 
         if (gCoreContext->SendReceiveStringList(strList))
         {

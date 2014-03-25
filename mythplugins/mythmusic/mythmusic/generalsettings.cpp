@@ -9,16 +9,15 @@
 
 // MythMusic
 #include "musicplayer.h"
-#include "musicdata.h"
-
 #include "generalsettings.h"
+#include "musicdata.h"
 
 GeneralSettings::GeneralSettings(MythScreenStack *parent, const char *name)
         : MythScreenType(parent, name),
         m_musicAudioDevice(NULL),
         m_musicDefaultUpmix(NULL), m_musicCDDevice(NULL),
         m_nonID3FileNameFormat(NULL), m_ignoreID3Tags(NULL),
-        m_allowTagWriting(NULL), m_saveButton(NULL),
+        m_allowTagWriting(NULL), m_resetDBButton(NULL), m_saveButton(NULL),
         m_cancelButton(NULL)
 {
 }
@@ -99,7 +98,7 @@ bool GeneralSettings::Create()
                  "and ratings depend on this being enabled."));
     if (m_resetDBButton)
         m_resetDBButton->SetHelpText(tr("This will clear all the MythMusic database tables allowing "
-                 "for a fresh start.\nNOTE: You may lose any manual or automatic changes made to "
+                 "for a fresh start. NOTE: You may lose any manual or automatic changes made to "
                  "a tracks metadata like rating or playcount unless you told MythMusic to "
                  "write those to the tag."));
     m_cancelButton->SetHelpText(tr("Exit without saving settings"));
@@ -143,11 +142,10 @@ void GeneralSettings::slotDoResetDB(bool ok)
         query.prepare("TRUNCATE music_stats");
         query.exec();
 
-        delete gMusicData;
-        gMusicData = new MusicData;
+        gMusicData->reloadMusic();
 
         ShowOkPopup(tr("Music database has been cleared.\n"
-                      "You must now scan, rip or import some tracks."));
+                       "You must now scan, rip or import some tracks."));
     }
 }
 

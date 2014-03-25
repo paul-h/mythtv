@@ -3,6 +3,7 @@
 #include <QRegExp>
 #include <QDateTime>
 #include <QDir>
+#include <QScopedPointer>
 
 // mythtv
 #include <mythcontext.h>
@@ -16,6 +17,7 @@
 #include <mythdate.h>
 #include <remotefile.h>
 #include <storagegroup.h>
+#include <mythsystem.h>
 
 // libmythmetadata
 #include "musicmetadata.h"
@@ -990,6 +992,8 @@ void MusicMetadata::setEmbeddedAlbumArt(AlbumArtList &albumart)
 
     for (int x = 0; x < albumart.size(); x++)
     {
+        AlbumArtImage *image = albumart.at(x);
+        image->filename = QString("%1-%2").arg(m_id).arg(image->filename);
         m_albumArt->addImage(albumart.at(x));
     }
 
@@ -1098,12 +1102,29 @@ QString MusicMetadata::getAlbumArtFile(void)
             {
                 if (albumart_image->embedded)
                 {
-                    QStringList slist;
-                    slist << "MUSIC_TAG_GETIMAGE"
-                          << Hostname()
-                          << QString::number(ID())
-                          << QString::number(albumart_image->imageType);
-                    gCoreContext->SendReceiveStringList(slist);
+                    if (gCoreContext->IsMasterBackend() &&
+                        url.host() == gCoreContext->GetMasterHostName())
+                    {
+                        QStringList paramList;
+                        paramList.append(QString("--songid='%1'").arg(ID()));
+                        paramList.append(QString("--imagetype='%1'").arg(albumart_image->imageType));
+
+                        QString command = "mythutil --extractimage " + paramList.join(" ");
+
+                        QScopedPointer<MythSystem> cmd(MythSystem::Create(command,
+                                                    kMSAutoCleanup | kMSRunBackground |
+                                                    kMSDontDisableDrawing | kMSProcessEvents |
+                                                    kMSDontBlockInputDevs));
+                    }
+                    else
+                    {
+                        QStringList slist;
+                        slist << "MUSIC_TAG_GETIMAGE"
+                            << Hostname()
+                            << QString::number(ID())
+                            << QString::number(albumart_image->imageType);
+                        gCoreContext->SendReceiveStringList(slist);
+                    }
                 }
             }
         }

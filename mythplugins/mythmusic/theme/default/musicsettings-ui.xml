@@ -59,15 +59,15 @@
         <textarea name="allowtagwriting_label" from="basetextarea">
             <area>0,360,380,40</area>
             <align>right,vcenter</align>
-            <value>Allow metadata to be written to tags:</value>
+            <value>Allow writing metadata to tags:</value>
         </textarea>
         <checkbox name="allowtagwriting" from="basecheckbox">
             <position>390,365</position>
         </checkbox>
 
-        <button name="resetdatabase" from="basebutton">
-            <position>15,550</position>
-            <value>Reset DB</value>
+        <button name="resetdatabase" from="basewidebutton">
+            <position>410,410</position>
+            <value>Reset Database</value>
         </button>
 
         <textarea name="helptext" from="basetextarea">

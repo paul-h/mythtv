@@ -3513,10 +3513,12 @@ void MainServer::HandleSGGetFileList(QStringList &sList,
 void MainServer::HandleSGFileQuery(QStringList &sList,
                                      PlaybackSock *pbs)
 {
+//format: QUERY_SG_FILEQUERY <host> <storagegroup> <filename> <allowfallback (optional)>
+
     MythSocket *pbssock = pbs->getSocket();
     QStringList strList;
 
-    if (sList.size() != 4)
+    if (sList.size() < 4)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("HandleSGFileQuery: Invalid Request. %1")
@@ -3530,6 +3532,11 @@ void MainServer::HandleSGFileQuery(QStringList &sList,
     QString groupname = sList.at(2);
     QString filename = sList.at(3);
 
+    bool allowFallback = true;
+    if (sList.size() >= 5)
+        allowFallback = (sList.at(4).toInt() > 0);
+    LOG(VB_FILE, LOG_ERR, QString("HandleSGFileQuery - allowFallback: %1").arg(allowFallback));
+
     bool slaveUnreachable = false;
 
     LOG(VB_FILE, LOG_INFO, LOC + QString("HandleSGFileQuery: %1")
@@ -3540,7 +3547,7 @@ void MainServer::HandleSGFileQuery(QStringList &sList,
         (wantHost == gCoreContext->GetSetting("BackendServerIP6")))
     {
         LOG(VB_FILE, LOG_INFO, LOC + "HandleSGFileQuery: Getting local info");
-        StorageGroup sg(groupname, gCoreContext->GetHostName());
+        StorageGroup sg(groupname, gCoreContext->GetHostName(), allowFallback);
         strList = sg.GetFileInfo(filename);
     }
     else
