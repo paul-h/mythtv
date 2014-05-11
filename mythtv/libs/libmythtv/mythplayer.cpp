@@ -929,13 +929,13 @@ int MythPlayer::OpenFile(uint retries)
     int testreadsize = 2048;
 
     MythTimer bigTimer; bigTimer.start();
-    int timeout = (retries + 1) * 500;
+    int timeout = (retries + 1) * 600;
     while (testreadsize <= kDecoderProbeBufferSize)
     {
         MythTimer peekTimer; peekTimer.start();
         while (player_ctx->buffer->Peek(testbuf, testreadsize) != testreadsize)
         {
-            if (peekTimer.elapsed() > 1000 || bigTimer.elapsed() > timeout)
+            if (peekTimer.elapsed() > 1500 || bigTimer.elapsed() > timeout)
             {
                 LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("OpenFile(): Could not read first %1 bytes of '%2'")
@@ -2982,6 +2982,13 @@ void MythPlayer::EventLoop(void)
         return;
     }
 
+    // Check if we got a communication error, and if so pause playback
+    if (player_ctx->buffer->GetCommsError())
+    {
+        Pause();
+        player_ctx->buffer->ResetCommsError();
+    }
+
     // Handle end of file
     EofState eof = GetEof();
     if (HasReachedEof())
@@ -3914,13 +3921,13 @@ void MythPlayer::WaitForSeek(uint64_t frame, uint64_t seeksnap_wanted)
     bool need_clear = false;
     while (decoderSeek >= 0)
     {
-        usleep(1000);
+        usleep(50 * 1000);
 
         // provide some on screen feedback if seeking is slow
         count++;
-        if (!(count % 150) && !hasFullPositionMap)
+        if (!(count % 3) && !hasFullPositionMap)
         {
-            int num = (count / 150) % 4;
+            int num = count % 3;
             SetOSDMessage(tr("Searching") + QString().fill('.', num),
                           kOSDTimeout_Short);
             DisplayPauseFrame();
@@ -5510,4 +5517,3 @@ static unsigned dbg_ident(const MythPlayer *player)
 }
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */
-

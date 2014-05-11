@@ -2431,7 +2431,7 @@ void TV::HandleStateChange(PlayerContext *mctx, PlayerContext *ctx)
             {
                 ShowNotificationError(ctx->player->GetError(),
                                       TV::tr( "TV Player" ),
-                                      buffer->GetFilename());
+                                      playbackURL);
                 // We're going to display this error as notification
                 // no need to display it later as popup
                 ctx->player->ResetErrored();
@@ -12254,7 +12254,7 @@ void TV::PlaybackMenuInit(const MenuBase &menu)
 
     ctx->LockDeletePlayer(__FILE__, __LINE__);
 
-    if (ctx->player)
+    if (ctx->player && ctx->player->GetVideoOutput())
     {
         for (int i = kTrackTypeUnknown ; i < kTrackTypeCount ; ++i)
         {
