@@ -1092,7 +1092,8 @@ bool Scheduler::FindNextConflict(
         // unless the programs are on the same multiplex.
         if (p->GetCardID() != q->GetCardID())
         {
-            if (p->mplexid && (p->mplexid == q->mplexid))
+            if ((p->mplexid && p->mplexid == q->mplexid) ||
+                (!p->mplexid && p->GetChanID() == q->GetChanID()))
                 continue;
         }
 
@@ -1737,7 +1738,7 @@ bool Scheduler::IsBusyRecording(const RecordingInfo *rcinfo)
         return true;
 
     // now check other cards in the same input group as the recording.
-    TunedInputInfo busy_input;
+    InputInfo busy_input;
     uint inputid = rcinfo->GetInputID();
     vector<uint> cardids = CardUtil::GetConflictingCards(
         inputid, rcinfo->GetCardID());
@@ -1758,6 +1759,8 @@ bool Scheduler::IsBusyRecording(const RecordingInfo *rcinfo)
             (busy_input.mplexid == 0 ||
              busy_input.mplexid == 32767 ||
              busy_input.mplexid != rcinfo->mplexid) &&
+            (busy_input.chanid == 0 ||
+             busy_input.chanid != rcinfo->GetChanID()) &&
             igrp.GetSharedInputGroup(busy_input.inputid, inputid))
         {
             return true;
@@ -4375,6 +4378,14 @@ void Scheduler::GetAllScheduled(RecList &proglist, SchedSortColumn sortBy,
         case kSortLastRecorded:
             sortColumn = "record.last_record";
             break;
+        case kSortNextRecording:
+            // We want to shift the rules which have no upcoming recordings to
+            // the back of the pack, most of the time the user won't be interested
+            // in rules that aren't matching recordings at the present time.
+            // We still want them available in the list however since vanishing rules
+            // violates the principle of least surprise
+            sortColumn = "record.next_record = '0000-00-00 00:00:00', record.next_record";
+            break;
         case kSortType:
             sortColumn = "record.type";
             break;
@@ -5109,7 +5120,7 @@ void Scheduler::SchedLiveTV(void)
         if (kState_WatchingLiveTV != enc->GetState())
             continue;
 
-        TunedInputInfo in;
+        InputInfo in;
         enc->IsBusy(&in);
 
         if (!in.inputid)

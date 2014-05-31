@@ -43,11 +43,12 @@ class CetonRTSP : QObject
 protected:
     bool ProcessRequest(
         const QString &method, const QStringList *headers = NULL,
-                        bool use_control = false, bool waitforanswer = true);
+                        bool use_control = false, bool waitforanswer = true,
+                        const QString &alternative = QString());
 
   private:
     QStringList splitLines(const QByteArray &lines);
-    QString readParamaters(const QString &key, Params &parameters);
+    QString readParameters(const QString &key, Params &parameters);
     QUrl GetBaseUrl(void);
     void timerEvent(QTimerEvent*);
 
@@ -63,6 +64,7 @@ protected:
     QByteArray              _responseContent;
     int                     _timeout;
     int                     _timer;
+    bool                    _canGetParameter;
 
     static QMutex _rtspMutex;
 

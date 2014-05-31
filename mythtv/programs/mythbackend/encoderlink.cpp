@@ -149,12 +149,12 @@ void EncoderLink::SetSleepStatus(SleepStatus newStatus)
     sleepStatusTime = MythDate::current();
 }
 
-/** \fn EncoderLink::IsBusy(TunedInputInfo*,int)
+/** \fn EncoderLink::IsBusy(InputInfo*,int)
  *  \brief  Returns true if the recorder is busy, or will be within the
  *          next time_buffer seconds.
- *  \sa IsBusyRecording(void), TVRec::IsBusy(TunedInputInfo*)
+ *  \sa IsBusyRecording(void), TVRec::IsBusy(InputInfo*)
  */
-bool EncoderLink::IsBusy(TunedInputInfo *busy_input, int time_buffer)
+bool EncoderLink::IsBusy(InputInfo *busy_input, int time_buffer)
 {
     if (local)
         return tv->IsBusy(busy_input, time_buffer);
@@ -274,7 +274,11 @@ bool EncoderLink::MatchesRecording(const ProgramInfo *rec)
 
         if (tvrec)
         {
-            retval = tvrec->IsSameRecording(*rec);
+            retval = (rec->GetInputID() == 0 &&
+                      tvrec->IsSameRecording(*rec)) ||
+                (rec->GetInputID() == tvrec->GetInputID() &&
+                 tvrec->IsSameProgramWeakCheck(*rec))
+;
             delete tvrec;
         }
     }

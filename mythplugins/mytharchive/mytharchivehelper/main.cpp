@@ -1680,7 +1680,7 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
 
     // get list of required thumbs
     QStringList list = thumbList.split(",", QString::SkipEmptyParts);
-    AVFrame *frame = avcodec_alloc_frame();
+    AVFrame *frame = av_frame_alloc();
     AVPacket pkt;
     AVPicture orig;
     AVPicture retbuf;
@@ -1796,7 +1796,7 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
         delete[] outputbuf;
 
     // free the frame
-    av_free(frame);
+    av_frame_free(&frame);
 
     // close the codec
     avcodec_close(codecCtx);

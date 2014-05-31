@@ -1874,7 +1874,7 @@ void TV::ShowOSDAskAllow(PlayerContext *ctx)
         // get the currently used input on our card
         bool busy_input_grps_loaded = false;
         vector<uint> busy_input_grps;
-        TunedInputInfo busy_input;
+        InputInfo busy_input;
         RemoteIsBusy(cardid, busy_input);
 
         // check if current input can conflict
@@ -1919,8 +1919,10 @@ void TV::ShowOSDAskAllow(PlayerContext *ctx)
                 (*it).is_conflicting = true;
             else if (!CardUtil::IsTunerShared(cardid, (*it).info->GetCardID()))
                 (*it).is_conflicting = true;
-            else if ((busy_input.sourceid == (uint)(*it).info->GetSourceID()) &&
-                     (busy_input.mplexid  == (uint)(*it).info->QueryMplexID()))
+            else if ((busy_input.mplexid &&
+                      (busy_input.mplexid  == (*it).info->QueryMplexID())) ||
+                     (!busy_input.mplexid &&
+                      (busy_input.chanid == (*it).info->GetChanID())))
                 (*it).is_conflicting = false;
             else
                 (*it).is_conflicting = true;
@@ -3315,6 +3317,11 @@ void TV::PrepareToExitPlayer(PlayerContext *ctx, int line, BookmarkAction bookma
         }
         if (db_auto_set_watched)
             ctx->player->SetWatched();
+
+        if (ctx->player->GetAudio()->ControlsVolume())
+        {
+            ctx->player->SaveVolume();
+        }
     }
     ctx->UnlockDeletePlayer(__FILE__, line);
 }
@@ -4622,7 +4629,7 @@ bool TV::FFRewHandleAction(PlayerContext *ctx, const QStringList &actions)
         if (!handled)
         {
             DoPlayerSeek(ctx, StopFFRew(ctx));
-            UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Med);
+            UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Short);
             handled = true;
         }
     }
@@ -4630,7 +4637,7 @@ bool TV::FFRewHandleAction(PlayerContext *ctx, const QStringList &actions)
     if (ctx->ff_rew_speed)
     {
         NormalSpeed(ctx);
-        UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Med);
+        UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Short);
         handled = true;
     }
 
@@ -6237,7 +6244,7 @@ void TV::DoTogglePauseFinish(PlayerContext *ctx, float time, bool showOSD)
     {
         DoPlayerSeek(ctx, time);
         if (showOSD)
-            UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Med);
+            UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Short);
         GetMythUI()->DisableScreensaver();
     }
 
@@ -6423,7 +6430,7 @@ bool TV::SeekHandleAction(PlayerContext *actx, const QStringList &actions,
                     actx->player->TranslatePositionRelToAbs(targetRel);
                 actx->UnlockDeletePlayer(__FILE__, __LINE__);
                 DoPlayerSeekToFrame(actx, targetAbs);
-                UpdateOSDSeekMessage(actx, message, kOSDTimeout_Med);
+                UpdateOSDSeekMessage(actx, message, kOSDTimeout_Short);
             }
         }
     }
@@ -7535,7 +7542,7 @@ void TV::ChangeChannel(PlayerContext *ctx, ChannelChangeDirection direction)
             if (channelGroupId > -1)
             {
                 uint chanid = ChannelUtil::GetNextChannel(
-                    channelGroupChannelList, old_chanid, 0, direction);
+                    channelGroupChannelList, old_chanid, 0, 0, direction);
                 if (chanid)
                     ChangeChannel(ctx, chanid, "");
                 return;
@@ -8487,11 +8494,12 @@ QSet<uint> TV::IsTunableOn(TV *tv,
 
         for (uint j = 0; j < inputs.size(); j++)
         {
-            if (inputs[j].sourceid != sourceid)
-                continue;
-
             if (inputs[j].mplexid &&
                 inputs[j].mplexid != mplexid)
+                continue;
+
+            if (!inputs[j].mplexid && inputs[j].chanid &&
+                inputs[j].chanid != chanid)
                 continue;
 
             tunable_cards.insert(cardids[i]);
@@ -8875,7 +8883,7 @@ void TV::ChangeTimeStretch(PlayerContext *ctx, int dir, bool allowEdit)
     {
         if (!allowEdit)
         {
-            UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Med);
+            UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Short);
         }
         else
         {

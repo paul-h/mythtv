@@ -74,6 +74,9 @@ using namespace std;
 #include "metaio.h"
 #include "musicmetadata.h"
 
+// mythbackend headers
+#include "backendcontext.h"
+
 /** Milliseconds to wait for an existing thread from
  *  process request thread pool.
  */
@@ -1545,9 +1548,9 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
 
         PlaybackSockEventsMode eventsMode =
             (PlaybackSockEventsMode)commands[3].toInt();
-        LOG(VB_GENERAL, LOG_INFO, LOC + QString("MainServer::ANN %1")
+        LOG(VB_NETWORK, LOG_INFO, LOC + QString("MainServer::ANN %1")
                                             .arg(commands[1]));
-        LOG(VB_GENERAL, LOG_INFO, LOC +
+        LOG(VB_NETWORK, LOG_INFO, LOC +
             QString("adding: %1 as a client (events: %2)")
                 .arg(commands[2]).arg(eventsMode));
         PlaybackSock *pbs = new PlaybackSock(this, socket, commands[2],
@@ -1558,6 +1561,20 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
         controlSocketList.remove(socket);
         playbackList.push_back(pbs);
         sockListLock.unlock();
+
+        Frontend *frontend = new Frontend();
+        frontend->name = commands[2];
+        // On a combined mbe/fe the frontend will connect using the localhost
+        // address, we need the external IP which happily will be the same as
+        // the backend's external IP
+        if (frontend->name == gCoreContext->GetMasterHostName())
+            frontend->ip = QHostAddress(gCoreContext->GetBackendServerIP());
+        else
+            frontend->ip = socket->GetPeerAddress();
+        if (gBackendContext)
+            gBackendContext->SetFrontendConnected(frontend);
+        else
+            delete frontend;
 
         if (eventsMode != kPBSEvents_None && commands[2] != "tzcheck")
             gCoreContext->SendSystemEvent(
@@ -4435,7 +4452,7 @@ void MainServer::HandleRemoteEncoder(QStringList &slist, QStringList &commands,
     else if (command == "IS_BUSY")
     {
         int time_buffer = (slist.size() >= 3) ? slist[2].toInt() : 5;
-        TunedInputInfo busy_input;
+        InputInfo busy_input;
         retlist << QString::number((int)enc->IsBusy(&busy_input, time_buffer));
         busy_input.ToStringList(retlist);
     }
@@ -7260,6 +7277,8 @@ void MainServer::connectionClosed(MythSocket *socket)
             }
             else if (ismaster && pbs->getHostname() != "tzcheck")
             {
+                if (gBackendContext)
+                    gBackendContext->SetFrontendDisconnected(pbs->getHostname());
                 gCoreContext->SendSystemEvent(
                     QString("CLIENT_DISCONNECTED HOSTNAME %1")
                             .arg(pbs->getHostname()));

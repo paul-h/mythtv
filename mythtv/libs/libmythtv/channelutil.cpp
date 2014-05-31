@@ -15,6 +15,7 @@ using namespace std;
 #include "channelutil.h"
 #include "mythdb.h"
 #include "dvbtables.h"
+#include "mythmiscutil.h"
 
 #define LOC QString("ChanUtil: ")
 
@@ -1885,7 +1886,8 @@ bool ChannelUtil::GetATSCChannel(uint sourceid, const QString &channum,
 }
 
 bool ChannelUtil::GetChannelData(
-    uint    sourceid,         const QString &channum,
+    uint    sourceid,
+    uint    &chanid,          const QString &channum,
     QString &tvformat,        QString       &modulation,
     QString &freqtable,       QString       &freqid,
     int     &finetune,        uint64_t      &frequency,
@@ -1908,7 +1910,7 @@ bool ChannelUtil::GetChannelData(
     query.prepare(
         "SELECT finetune, freqid, tvformat, freqtable, "
         "       commmethod, mplexid, "
-        "       atsc_major_chan, atsc_minor_chan, serviceid "
+        "       atsc_major_chan, atsc_minor_chan, serviceid, chanid "
         "FROM channel, videosource "
         "WHERE videosource.sourceid = channel.sourceid AND "
         "      channum              = :CHANNUM         AND "
@@ -1939,6 +1941,7 @@ bool ChannelUtil::GetChannelData(
     atsc_major    = query.value(6).toUInt();
     atsc_minor    = query.value(7).toUInt();
     mpeg_prog_num = (query.value(8).isNull()) ? -1 : query.value(8).toInt();
+    chanid        = query.value(9).toUInt();
 
     if (!mplexid || (mplexid == 32767)) /* 32767 deals with old lineups */
         return true;
@@ -2133,7 +2136,7 @@ vector<uint> ChannelUtil::GetChanIDs(int sourceid)
 
 inline bool lt_callsign(const ChannelInfo &a, const ChannelInfo &b)
 {
-    return QString::localeAwareCompare(a.callsign, b.callsign) < 0;
+    return naturalCompare(a.callsign, b.callsign) < 0;
 }
 
 inline bool lt_smart(const ChannelInfo &a, const ChannelInfo &b)
@@ -2217,7 +2220,7 @@ inline bool lt_smart(const ChannelInfo &a, const ChannelInfo &b)
     else
     {
         // neither of channels have a numeric channum
-        cmp = QString::localeAwareCompare(a.channum, b.channum);
+        cmp = naturalCompare(a.channum, b.channum);
         if (cmp)
             return cmp < 0;
     }
@@ -2305,6 +2308,7 @@ uint ChannelUtil::GetNextChannel(
     const ChannelInfoList &sorted,
     uint              old_chanid,
     uint              mplexid_restriction,
+    uint              chanid_restriction,
     ChannelChangeDirection direction,
     bool              skip_non_visible,
     bool              skip_same_channum_and_callsign)
@@ -2342,7 +2346,9 @@ uint ChannelUtil::GetNextChannel(
                  it->channum  == start->channum &&
                  it->callsign == start->callsign) ||
                 (mplexid_restriction &&
-                 (mplexid_restriction != it->mplexid))));
+                 (mplexid_restriction != it->mplexid)) ||
+                (chanid_restriction &&
+                 (chanid_restriction != it->chanid))));
     }
     else if ((CHANNEL_DIRECTION_UP == direction) ||
              (CHANNEL_DIRECTION_FAVORITE == direction))
@@ -2359,7 +2365,9 @@ uint ChannelUtil::GetNextChannel(
                  it->channum  == start->channum &&
                  it->callsign == start->callsign) ||
                 (mplexid_restriction &&
-                 (mplexid_restriction != it->mplexid))));
+                 (mplexid_restriction != it->mplexid)) ||
+                (chanid_restriction &&
+                 (chanid_restriction != it->chanid))));
     }
 
     return it->chanid;
