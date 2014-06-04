@@ -2679,6 +2679,30 @@ NULL
             return false;
     }
 
+    if (dbver == "1324")
+    {
+        const char *updates[] = {
+            "ALTER TABLE recorded "
+            " DROP PRIMARY KEY, "
+            " ADD recordedid INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+            " ADD UNIQUE KEY (chanid, starttime) ;",
+            NULL
+        };
+
+        if (!performActualUpdate(updates, "1325", dbver))
+            return false;
+    }
+
+    if (dbver == "1325")
+    {
+        const char *updates[] = {
+            "ALTER TABLE recorded ADD inputname VARCHAR(32);",
+            NULL
+        };
+
+        if (!performActualUpdate(&updates[0], "1326", dbver))
+            return false;
+    }
 
     return true;
 }
