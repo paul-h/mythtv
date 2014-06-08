@@ -66,6 +66,7 @@ using namespace std;
 #include <mythdate.h>
 #include <mythlogging.h>
 #include <storagegroup.h>
+#include <mythavutil.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -1680,7 +1681,11 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
 
     // get list of required thumbs
     QStringList list = thumbList.split(",", QString::SkipEmptyParts);
-    AVFrame *frame = av_frame_alloc();
+    MythAVFrame frame;
+    if (!frame)
+    {
+        return 1;
+    }
     AVPacket pkt;
     AVPicture orig;
     AVPicture retbuf;
@@ -1704,6 +1709,7 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
                 thumbCount++;
 
                 avcodec_flush_buffers(codecCtx);
+                av_frame_unref(frame);
                 avcodec_decode_video2(codecCtx, frame, &frameFinished, &pkt);
                 keyFrame = frame->key_frame;
 
@@ -1716,6 +1722,7 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
                     if (pkt.stream_index == videostream)
                     {
                         frameNo++;
+                        av_frame_unref(frame);
                         avcodec_decode_video2(codecCtx, frame, &frameFinished, &pkt);
                         keyFrame = frame->key_frame;
                     }
@@ -1740,14 +1747,14 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
                         avpicture_fill(&retbuf, outputbuf,
                                        PIX_FMT_RGB32, width, height);
 
-                        avpicture_deinterlace((AVPicture*)frame,
-                                              (AVPicture*)frame,
+                        AVFrame *tmp = frame;
+                        avpicture_deinterlace((AVPicture*)tmp,
+                                              (AVPicture*)tmp,
                                               codecCtx->pix_fmt, width, height);
-
 
                         myth_sws_img_convert(
                                     &retbuf, PIX_FMT_RGB32,
-                                    (AVPicture*) frame,
+                                    (AVPicture*) tmp,
                                     codecCtx->pix_fmt, width, height);
 
                         QImage img(outputbuf, width, height,
@@ -1794,9 +1801,6 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
 
     if (outputbuf)
         delete[] outputbuf;
-
-    // free the frame
-    av_frame_free(&frame);
 
     // close the codec
     avcodec_close(codecCtx);
