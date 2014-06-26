@@ -908,6 +908,20 @@ void RingBuffer::run(void)
 
     while (readaheadrunning)
     {
+        rwlock.unlock();
+        bool isopened = IsOpen();
+        rwlock.lockForRead();
+
+        if (!isopened)
+        {
+            LOG(VB_FILE, LOG_WARNING, LOC +
+                QString("File not opened, terminating readahead thread"));
+            poslock.lockForWrite();
+            readaheadrunning = false;
+            generalWait.wakeAll();
+            poslock.unlock();
+            break;
+        }
         if (PauseAndWait())
         {
             ignore_for_read_timing = true;
@@ -1376,11 +1390,7 @@ int RingBuffer::ReadDirect(void *buf, int count, bool peek)
  *  \param buf   Pointer to where data will be written
  *  \param count Number of bytes to read
  *  \param peek  If true, don't increment read count
- *
- *  \note If we return a -1, errno will be set as if the C
- *        read function had been called on a file.
- *
- *  \return Returns number of bytes read, or -1 on error
+ *  \return Returns number of bytes read
  */
 int RingBuffer::ReadPriv(void *buf, int count, bool peek)
 {
@@ -1431,26 +1441,17 @@ int RingBuffer::ReadPriv(void *buf, int count, bool peek)
         rwlock.lockForWrite();
         wanttoread = 0;
         rwlock.unlock();
-        errno = EIO;
-        return -1;
-    }
-
-    // Wait up to 100 ms for reads desired (at least fill_min of data)
-    int timeout_ms = 100;
-    MythTimer t(MythTimer::kStartRunning);
-    while ((t.elapsed() < timeout_ms) && !readsdesired &&
-           !stopreads && !request_pause && !commserror &&
-           readaheadrunning && !ateof)
-    {
-        generalWait.wait(&rwlock, clamp(timeout_ms - t.elapsed(), 10, 100));
+        return 0;
     }
 
     int avail = ReadBufAvail();
+    MythTimer t(MythTimer::kStartRunning);
 
     // Wait up to 10000 ms for any data
-    timeout_ms = 10000;
-    while (!readInternalMode && (0 == avail) && (t.elapsed() < timeout_ms) &&
-           !stopreads && !request_pause && !commserror && readaheadrunning)
+    int timeout_ms = 10000;
+    while (!readInternalMode && !ateof &&
+           (t.elapsed() < timeout_ms) && readaheadrunning &&
+           !stopreads && !request_pause && !commserror)
     {
         avail = WaitForAvail(count, min(timeout_ms - t.elapsed(), 100));
         if (livetvchain && setswitchtonext && avail < count)
@@ -1460,8 +1461,9 @@ int RingBuffer::ReadPriv(void *buf, int count, bool peek)
             livetvchain->ReloadAll();
             break;
         }
+        if (avail > 0)
+            break;
     }
-
     if (t.elapsed() > 2000)
     {
         LOG(VB_GENERAL, LOG_WARNING, LOC + loc_desc +
@@ -1477,13 +1479,13 @@ int RingBuffer::ReadPriv(void *buf, int count, bool peek)
     }
     count = min(avail - readOffset, count);
 
-    if ((count == 0) && ateof)
+    if ((count <= 0) && (ateof || readInternalMode))
     {
         // If we're at the end of file return 0 bytes
         rwlock.unlock();
-        return 0;
+        return count;
     }
-    else if (count == 0)
+    else if (count <= 0)
     {
         // If we're not at the end of file but have no data
         // at this point time out and shutdown read ahead.
@@ -1494,10 +1496,10 @@ int RingBuffer::ReadPriv(void *buf, int count, bool peek)
         rwlock.unlock();
         stopreads = true; // this needs to be outside the lock
         rwlock.lockForWrite();
+        ateof = true;
         wanttoread = 0;
         rwlock.unlock();
-        errno = EIO;
-        return -1;
+        return count;
     }
 
     if (peek || readInternalMode)

@@ -4652,6 +4652,10 @@ bool TVRec::SwitchLiveTVRingBuffer(const QString & channum,
         curRecording = pginfo;
         SetRingBuffer(rb);
     }
+    else
+    {
+        delete rb;
+    }
 
     return true;
 }
@@ -4677,6 +4681,7 @@ RecordingInfo *TVRec::SwitchRecordingRingBuffer(const RecordingInfo &rcinfo)
     RingBuffer *rb = RingBuffer::Create(ri->GetPathname(), write);
     if (!rb->IsOpen())
     {
+        delete rb;
         ri->SetRecordingStatus(rsFailed);
         FinishedRecording(ri, NULL);
         ri->MarkAsInUse(false, kRecorderInUseID);

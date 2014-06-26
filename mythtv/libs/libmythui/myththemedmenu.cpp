@@ -215,15 +215,21 @@ bool MythThemedMenu::keyPressEvent(QKeyEvent *event)
         QString action = actions[i];
         handled = true;
 
-        if (action == "ESCAPE" || action == "EXIT" || action == "EXITPROMPT")
+        if (action == "ESCAPE" ||
+            action == "EXIT" ||
+            action == "EXITPROMPT" ||
+            action == "STANDBYMODE")
         {
             bool    callbacks  = m_state->m_callback;
             bool    lastScreen = (GetMythMainWindow()->GetMainStack()
                                                      ->TotalScreens() == 1);
             QString menuaction = "UPMENU";
             QString selExit    = "EXITING_APP_PROMPT";
+
             if (action == "EXIT")
                 selExit = "EXITING_APP";
+            else if (action == "STANDBYMODE")
+                selExit = "STANDBY_MODE";
 
             if (!m_allocedstate)
                 handleAction(menuaction);
@@ -244,6 +250,7 @@ bool MythThemedMenu::keyPressEvent(QKeyEvent *event)
                 }
             }
             else if ((action == "EXIT" || action == "EXITPROMPT" ||
+                      action == "STANDBYMODE" ||
                       (action == "ESCAPE" &&
                        (QCoreApplication::applicationName() ==
                         MYTH_APPNAME_MYTHTV_SETUP))) && lastScreen)
@@ -304,6 +311,9 @@ void MythThemedMenu::ShowMenu()
     // HACK Implement a better check for this
     if (QCoreApplication::applicationName() == MYTH_APPNAME_MYTHFRONTEND)
         m_menuPopup->AddButton(tr("Enter standby mode"), QVariant("standby"));
+
+    m_menuPopup->AddButton(tr("Exit application"), QVariant("exit"));
+
     switch (override_menu)
     {
         case 2:
@@ -387,6 +397,11 @@ void MythThemedMenu::customEvent(QEvent *event)
             else if (action == "standby")
             {
                 QString arg("standby_mode");
+                m_state->m_callback(m_state->m_callbackdata, arg);
+            }
+            else if (action == "exit")
+            {
+                QString arg("exiting_app");
                 m_state->m_callback(m_state->m_callbackdata, arg);
             }
         }
