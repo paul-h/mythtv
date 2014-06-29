@@ -9,6 +9,8 @@
 #ifndef MythTV_mythavutil_h
 #define MythTV_mythavutil_h
 
+#include "mythtvexp.h" // for MUNUSED
+
 extern "C" {
 #include "libavcodec/avcodec.h"
 }
@@ -61,5 +63,34 @@ public:
 private:
     AVFrame *m_frame;
 };
+
+typedef struct VideoFrame_ VideoFrame;
+
+/**
+ * AVPictureFill
+ * Initialise AVPicture pic with content from VideoFrame frame
+ */
+int MTV_PUBLIC AVPictureFill(AVPicture *pic, const VideoFrame *frame,
+                             AVPixelFormat fmt = AV_PIX_FMT_NONE);
+
+/**
+ * AVPictureCopy
+ * Initialise AVPicture pic, create buffer if required and copy content of
+ * VideoFrame frame into it, performing the required conversion if any
+ * Returns size of buffer allocated
+ * Data would have to be deleted once finished with object with:
+ * av_freep(pic->data[0])
+ */
+int MTV_PUBLIC AVPictureCopy(AVPicture *pic, const VideoFrame *frame,
+                             unsigned char *buffer = NULL,
+                             AVPixelFormat fmt = AV_PIX_FMT_YUV420P);
+
+/**
+ * AVPictureCopy
+ * Copy AVPicture pic into VideoFrame frame, performing the required conversion
+ * Returns size of frame data
+ */
+int MTV_PUBLIC AVPictureCopy(VideoFrame *frame, const AVPicture *pic,
+                             AVPixelFormat fmt = AV_PIX_FMT_YUV420P);
 
 #endif

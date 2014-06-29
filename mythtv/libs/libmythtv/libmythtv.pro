@@ -108,11 +108,6 @@ QMAKE_CLEAN += $(TARGET) $(TARGETA) $(TARGETD) $(TARGET0) $(TARGET1) $(TARGET2)
 HEADERS += filter.h                 format.h
 HEADERS += mythframe.h
 
-# LZO used by NuppelDecoder & NuppelVideoRecorder
-HEADERS += lzoconf.h
-HEADERS += minilzo.h
-SOURCES += minilzo.cpp
-
 # Misc. needed by backend/frontend
 HEADERS += mythtvexp.h
 HEADERS += recordinginfo.h
@@ -171,7 +166,7 @@ SOURCES += avfringbuffer.cpp
 SOURCES += ringbuffer.cpp           fileringBuffer.cpp
 SOURCES += streamingringbuffer.cpp  metadataimagehelper.cpp
 SOURCES += icringbuffer.cpp
-SOURCES += mythframe.cpp
+SOURCES += mythframe.cpp            mythavutil.cpp
 
 # DiSEqC
 HEADERS += diseqc.h                 diseqcsettings.h
@@ -250,7 +245,8 @@ SOURCES += srtwriter.cpp
 
 inc.path = $${PREFIX}/include/mythtv/
 inc.files  = playgroup.h
-inc.files += mythtvexp.h            metadataimagehelper.h mythavutil.h
+inc.files += mythtvexp.h            metadataimagehelper.h
+inc.files += mythavutil.h
 
 INSTALLS += inc
 
@@ -575,6 +571,8 @@ using_backend {
     SOURCES += recorders/importrecorder.cpp
 
     # Simple NuppelVideo Recorder
+    INCLUDEPATH += ../../external/minilzo
+    DEPENDPATH += ../../external/minilzo
     using_ffmpeg_threads:DEFINES += USING_FFMPEG_THREADS
     !mingw:!win32-msvc*:HEADERS += recorders/NuppelVideoRecorder.h
     HEADERS += recorders/RTjpegN.h
@@ -848,6 +846,7 @@ using_mheg: LIBS += -L../libmythfreemheg -lmythfreemheg-$$LIBVERSION
 using_live: LIBS += -L../libmythlivemedia -lmythlivemedia-$$LIBVERSION
 using_hdhomerun: LIBS += -L../../external/libhdhomerun -lmythhdhomerun-$$LIBVERSION
 using_backend: LIBS += -lmp3lame
+using_backend: LIBS += -L../../external/minilzo -lmythminilzo-$$LIBVERSION
 LIBS += $$EXTRA_LIBS $$QMAKE_LIBS_DYNLOAD
 
 !win32-msvc* {
@@ -860,6 +859,7 @@ LIBS += $$EXTRA_LIBS $$QMAKE_LIBS_DYNLOAD
     using_mheg: POST_TARGETDEPS += ../libmythfreemheg/libmythfreemheg-$${MYTH_SHLIB_EXT}
     using_live: POST_TARGETDEPS += ../libmythlivemedia/libmythlivemedia-$${MYTH_SHLIB_EXT}
     using_hdhomerun: POST_TARGETDEPS += ../../external/libhdhomerun/libmythhdhomerun-$${LIBVERSION}.$${QMAKE_EXTENSION_SHLIB}
+    using_backend: POST_TARGETDEPS += ../../external/minilzo/libmythminilzo-$${MYTH_LIB_EXT}
 }
 
 include ( ../libs-targetfix.pro )
