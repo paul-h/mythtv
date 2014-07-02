@@ -23,6 +23,7 @@
 #include "messageutils.h"
 #include "recordingutils.h"
 #include "musicmetautils.h"
+#include "recordingutils.h"
 #include "signalhandling.h"
 
 
@@ -109,6 +110,7 @@ int main(int argc, char *argv[])
     registerMessageUtils(utilMap);
     registerRecordingUtils(utilMap);
     registerMusicUtils(utilMap);
+    registerRecordingUtils(utilMap);
 
     bool cmdFound = false;
     int cmdResult = GENERIC_EXIT_OK;
