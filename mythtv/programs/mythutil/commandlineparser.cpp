@@ -217,13 +217,6 @@ void MythUtilCommandLineParser::LoadArguments(void)
         ->SetChildOf("notification");
     add("--type", "type", "type", "(optional) type of notification (normal, error, warning, check, busy", "")
         ->SetChildOf("notification");
-<<<<<<< HEAD
-
-    // recordingutils.cpp
-    add("--fixseektable", "fixseektable", false, "(optional) fix the seektable if missing for a recording", "")
-        ->SetChildOf("checkrecordings");
-=======
->>>>>>> upstream/master
 
     // musicmetautils.cpp
     add("--songid", "songid", "", "ID of track to update", "")
