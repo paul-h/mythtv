@@ -12,6 +12,7 @@
 #include "remoteutil.h"
 #include "remotefile.h"
 #include "mythsystem.h"
+#include "mythdirs.h"
 
 // Local includes
 #include "recordingutils.h"
@@ -72,12 +73,18 @@ static int CheckRecordings(const MythUtilCommandLineParser &cmdline)
     std::vector<ProgramInfo *>  zeroByteRecordings;
     std::vector<ProgramInfo *>  noSeektableRecordings;
 
+    if (!recordingList)
+    {
+        cout << "ERROR - failed to get recording list from backend" << endl;
+        return GENERIC_EXIT_NOT_OK;
+    }
+
     bool foundFile = false;
     bool fixSeektable = cmdline.toBool("fixseektable");
 
     cout << "Fix seektable is: " << fixSeektable << endl;
 
-    if (recordingList && !recordingList->empty())
+    if (!recordingList->empty())
     {
         vector<ProgramInfo *>::iterator i = recordingList->begin();
         for ( ; i != recordingList->end(); ++i)
@@ -138,8 +145,8 @@ static int CheckRecordings(const MythUtilCommandLineParser &cmdline)
             p->QueryPositionMap(posMap, MARK_GOP_BYFRAME);
             if (posMap.isEmpty())
                 p->QueryPositionMap(posMap, MARK_GOP_START);
-                if (posMap.isEmpty())
-                    p->QueryPositionMap(posMap, MARK_KEYFRAME);
+            if (posMap.isEmpty())
+                p->QueryPositionMap(posMap, MARK_KEYFRAME);
 
             if (posMap.isEmpty())
             {
@@ -149,7 +156,8 @@ static int CheckRecordings(const MythUtilCommandLineParser &cmdline)
 
                 if (foundFile && fixSeektable)
                 {
-                    QString command = QString("mythcommflag --rebuild --chanid %1 --starttime %2")
+                    QString command = QString(GetAppBinDir() + "mythcommflag " +
+                                              "--rebuild --chanid %1 --starttime %2")
                                               .arg(p->GetChanID())
                                               .arg(p->GetRecordingStartTime(MythDate::ISODate));
                     cout << "Running - " << qPrintable(command) << endl;

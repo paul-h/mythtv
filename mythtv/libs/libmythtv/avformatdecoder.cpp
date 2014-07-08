@@ -10,6 +10,7 @@
 using namespace std;
 
 #include <QTextCodec>
+#include <QFileInfo>
 
 // MythTV headers
 #include "mythtvexp.h"
@@ -89,10 +90,6 @@ __inline AVRational GetAVTimeBaseQ()
 #endif
 
 #define LOC QString("AFD: ")
-
-#define MAX_AC3_FRAME_SIZE 6144
-
-static const float eps = 1E-5;
 
 static const int max_video_queue_size = 220;
 
@@ -1202,6 +1199,17 @@ int AvFormatDecoder::OpenFile(RingBuffer *rbuffer, bool novideo,
         // generate timings based on the video stream to avoid bogus ffmpeg
         // values for duration and bitrate
         av_update_stream_timings_video(ic);
+    }
+
+    // FLAC, MP3 or M4A file may contains an artwork image, a single frame MJPEG,
+    // we need to ignore it as we don't handle single frames or images in place of video
+    // TODO: display single frame
+    QString extension = QFileInfo(fnames).suffix();
+    if (!strcmp(fmt->name, "mp3") || !strcmp(fmt->name, "flac") ||
+        !strcmp(fmt->name, "ogg") ||
+        !extension.compare("m4a", Qt::CaseInsensitive))
+    {
+        novideo = true;
     }
 
     // Scan for the initial A/V streams
@@ -3376,6 +3384,8 @@ int AvFormatDecoder::H264PreProcessPkt(AVStream *stream, AVPacket *pkt)
                     (enc->codec) && (enc->thread_count>1))
                 {
                     QMutexLocker locker(avcodeclock);
+                    // flush all buffers
+                    avcodec_flush_buffers(enc);
                     const AVCodec *codec = enc->codec;
                     avcodec_close(enc);
                     int open_val = avcodec_open2(enc, codec, NULL);
@@ -4793,9 +4803,9 @@ bool AvFormatDecoder::GetFrame(DecodeType decodetype)
                 // NB but allow for data only (MHEG) streams
                 allowedquit = true;
             }
-            else if (lowbuffers && ((decodetype & kDecodeAV) == kDecodeAV) &&
+            else if ((decodetype & kDecodeAV) == kDecodeAV &&
                      (storedPackets.count() < max_video_queue_size) &&
-                     (lastapts < lastvpts + 100) &&
+                     lastapts < (lowbuffers ? lastvpts + 100 : lastvpts) &&
                      !ringBuffer->IsInStillFrame())
             {
                 storevideoframes = true;

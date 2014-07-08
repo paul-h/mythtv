@@ -283,6 +283,8 @@ ProgramInfo::ProgramInfo(const ProgramInfo &other) :
  */
 ProgramInfo::ProgramInfo(uint _recordedid)
 {
+    clear();
+
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
         "SELECT chanid, starttime "
@@ -309,9 +311,10 @@ ProgramInfo::ProgramInfo(uint _recordedid)
  *  \brief Constructs a ProgramInfo from data in 'recorded' table
  */
 ProgramInfo::ProgramInfo(uint _chanid, const QDateTime &_recstartts) :
-    chanid(0),
     positionMapDBReplacement(NULL)
 {
+    clear();
+
     LoadProgramFromRecorded(_chanid, _recstartts);
 }
 
@@ -752,12 +755,7 @@ ProgramInfo::ProgramInfo(
             break;
         }
 
-        if (s.recstatus == rsWillRecord)
-            recstatus = rsOtherShowing;
-        else if (s.recstatus == rsRecording)
-            recstatus = rsOtherRecording;
-        else if (s.recstatus == rsTuning)
-            recstatus = rsOtherTuning;
+        recstatus = s.recstatus;
     }
 }
 
@@ -874,12 +872,11 @@ ProgramInfo::ProgramInfo(
  *  \brief Constructs a ProgramInfo for a pathname.
  */
 ProgramInfo::ProgramInfo(const QString &_pathname) :
-    chanid(0),
     positionMapDBReplacement(NULL)
 {
+    clear();
     if (_pathname.isEmpty())
     {
-        clear();
         return;
     }
 
@@ -1821,7 +1818,7 @@ uint ProgramInfo::GetSecondsInRecording(void) const
 /// \brief Returns catType as a string
 QString ProgramInfo::GetCategoryTypeString(void) const
 {
-    return myth_category_type_to_string(catType); 
+    return myth_category_type_to_string(catType);
 }
 
 /// \brief Returns last frame in position map or 0

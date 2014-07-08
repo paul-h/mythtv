@@ -219,13 +219,14 @@ bool setupTVs(bool ismaster, bool &error)
 
 void cleanup(void)
 {
-    if (gCoreContext)
+    if (mainServer)
     {
-        gCoreContext->SetExiting();
+        mainServer->Stop();
+        qApp->processEvents();
     }
 
-    if (mainServer)
-        mainServer->Stop();
+    if (gCoreContext)
+        gCoreContext->SetExiting();
 
     delete housekeeping;
     housekeeping = NULL;
@@ -691,7 +692,7 @@ int run_backend(MythBackendCommandLineParser &cmdline)
         LOG(VB_GENERAL, LOG_CRIT,
             "Backend exiting, MainServer initialization error.");
         cleanup();
-	return exitCode;
+        return exitCode;
     }
 
     if (httpStatus && mainServer)

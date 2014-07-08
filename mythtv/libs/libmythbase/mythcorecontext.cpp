@@ -15,6 +15,7 @@
 #include <QLocale>
 #include <QPair>
 #include <QDateTime>
+#include <QRunnable>
 
 #include <cmath>
 #include <cstdarg>
@@ -643,7 +644,7 @@ bool MythCoreContext::IsThisHost(const QString &addr, const QString &host)
     QString thisip  = GetBackendServerIP4(host);
     QString thisip6 = GetBackendServerIP6(host);
 
-    return ((addrstr == thisip) || (addrstr == thisip6));
+    return ((addrstr == thisip) || (!thisip6.isEmpty() && addrstr == thisip6));
 }
 
 bool MythCoreContext::IsFrontendOnly(void)
@@ -1008,7 +1009,7 @@ int MythCoreContext::GetBackendServerPort(const QString &host)
  */
 int MythCoreContext::GetBackendStatusPort(void)
 {
-    return GetBackendServerPort(d->m_localHostname);
+    return GetBackendStatusPort(d->m_localHostname);
 }
 
 /**
@@ -1085,11 +1086,11 @@ QString MythCoreContext::resolveSettingAddress(const QString &name,
 
     if (host.isEmpty())
     {
-        value = gCoreContext->GetSetting(name);
+        value = GetSetting(name);
     }
     else
     {
-        value = gCoreContext->GetSettingOnHost(name, host);
+        value = GetSettingOnHost(name, host);
     }
 
     return resolveAddress(value, type, keepscope);
