@@ -17,9 +17,9 @@
 #define LOC QString("Metadata Grabber: ")
 #define kGrabberRefresh 60
 
-GrabberList     grabberList;
-QMutex          grabberLock;
-QDateTime       grabberAge = MythDate::current().addSecs(-kGrabberRefresh);
+static GrabberList     grabberList;
+static QMutex          grabberLock;
+static QDateTime       grabberAge;
 
 typedef struct GrabberOpts {
     QString     path;
@@ -32,10 +32,21 @@ typedef struct GrabberOpts {
 // to compile.  apparently initializer lists are supported in QT5/CPP11 that
 // will make this work.  for now, use a lock and initialize on first access.
 // https://bugreports.qt-project.org/browse/QTBUG-25679
-QMap<GrabberType, GrabberOpts> grabberTypes;
-QMap<QString, GrabberType> grabberTypeStrings;
-bool initialized = false;
+static QMap<GrabberType, GrabberOpts> grabberTypes;
+static QMap<QString, GrabberType> grabberTypeStrings;
+static bool initialized = false;
 static QMutex typeLock;
+
+GrabberOpts GrabberOptsMaker (QString thepath, QString thesetting, QString thedefault)
+{
+    GrabberOpts opts;
+
+    opts.path = thepath;
+    opts.setting = thesetting;
+    opts.def = thedefault;
+
+    return opts;
+}
 
 void InitializeStaticMaps(void)
 {
@@ -48,21 +59,21 @@ void InitializeStaticMaps(void)
             return;
 
         grabberTypes[kGrabberMovie] =
-                (GrabberOpts) { "%1metadata/Movie/",
+              GrabberOptsMaker ("%1metadata/Movie/",
                                 "MovieGrabber",
-                                "metadata/Movie/tmdb3.py"};
+                                "metadata/Movie/tmdb3.py" );
         grabberTypes[kGrabberTelevision] =
-                (GrabberOpts) { "%1metadata/Television/",
+             GrabberOptsMaker ( "%1metadata/Television/",
                                 "TelevisionGrabber",
-                                "metadata/Television/ttvdb.py" };
+                                "metadata/Television/ttvdb.py" );
         grabberTypes[kGrabberGame]       =
-                (GrabberOpts) { "%1metadata/Game/",
+             GrabberOptsMaker ( "%1metadata/Game/",
                                 "mythgame.MetadataGrabber",
-                                "metadata/Game/giantbomb.py" };
+                                "metadata/Game/giantbomb.py" );
         grabberTypes[kGrabberMusic]      =
-                (GrabberOpts) { "%1metadata/Music",
+             GrabberOptsMaker ( "%1metadata/Music",
                                 "",
-                                "" };
+                                "" );
 
         grabberTypeStrings["movie"]      = kGrabberMovie;
         grabberTypeStrings["television"] = kGrabberTelevision;
@@ -73,10 +84,6 @@ void InitializeStaticMaps(void)
         initialized = true;
     }
 }
-
-static QRegExp retagref("^([a-zA-Z0-9_\\-\\.]+\\.[a-zA-Z0-9]{1,3}):(.*)");
-static QMutex reLock;
-
 
 GrabberList MetaGrabberScript::GetList(bool refresh)
 {
@@ -106,7 +113,8 @@ GrabberList MetaGrabberScript::GetList(GrabberType type,
         // refresh grabber scripts every 60 seconds
         // this might have to be revised, or made more intelligent if
         // the delay during refreshes is too great
-        if (refresh || (grabberAge.secsTo(now) > kGrabberRefresh))
+        if (refresh || !grabberAge.isValid() ||
+            (grabberAge.secsTo(now) > kGrabberRefresh))
         {
             grabberList.clear();
             LOG(VB_GENERAL, LOG_DEBUG, LOC + "Clearing grabber cache");
@@ -161,13 +169,11 @@ MetaGrabberScript MetaGrabberScript::GetGrabber(GrabberType defaultType,
         return GetType(defaultType);
     }
 
-    MetaGrabberScript grabber;
-
     if (!lookup->GetInetref().isEmpty() &&
         lookup->GetInetref() != "00000000")
     {
         // inetref is defined, see if we have a pre-defined grabber
-        MetaGrabberScript grabber = lookup->GetInetref();
+        MetaGrabberScript grabber = FromInetref(lookup->GetInetref());
 
         if (grabber.IsValid())
         {
@@ -197,25 +203,32 @@ MetaGrabberScript MetaGrabberScript::GetType(const GrabberType type)
     QString cmd = gCoreContext->GetSetting(grabberTypes[type].setting,
                                            grabberTypes[type].def);
 
-    if (grabberAge.secsTo(MythDate::current()) > kGrabberRefresh)
+    if (cmd.isEmpty())
     {
-        // polling the cache will cause a refresh, so lets just grab and
-        // process the script directly
-        QString fullcmd = QString("%1%2").arg(GetShareDir()).arg(cmd);
-        MetaGrabberScript script(fullcmd);
-        if (script.IsValid())
-            return script;
+        // should the python bindings had not been installed at any stage
+        // the settings could have been set to an empty string, so use default
+        cmd = grabberTypes[type].def;
     }
-    else
+
+    if (grabberAge.isValid() && grabberAge.secsTo(MythDate::current()) <= kGrabberRefresh)
     {
         // just pull it from the cache
         GrabberList list = GetList();
         GrabberList::const_iterator it = list.begin();
-        QString cmd = gCoreContext->GetSetting(grabberTypes[type].setting,
-                                               grabberTypes[type].def);
+
         for (; it != list.end(); ++it)
             if (it->GetPath().endsWith(cmd))
                 return *it;
+    }
+
+    // polling the cache will cause a refresh, so lets just grab and
+    // process the script directly
+    QString fullcmd = QString("%1%2").arg(GetShareDir()).arg(cmd);
+    MetaGrabberScript script(fullcmd);
+
+    if (script.IsValid())
+    {
+        return script;
     }
 
     return MetaGrabberScript();
@@ -255,19 +268,46 @@ MetaGrabberScript MetaGrabberScript::FromTag(const QString &tag,
 MetaGrabberScript MetaGrabberScript::FromInetref(const QString &inetref,
                                                  bool absolute)
 {
+    static QRegExp retagref("^([a-zA-Z0-9_\\-\\.]+\\.[a-zA-Z0-9]{1,3})_(.*)");
+    static QRegExp retagref2("^([a-zA-Z0-9_\\-\\.]+\\.[a-zA-Z0-9]{1,3}):(.*)");
+    static QMutex reLock;
     QMutexLocker lock(&reLock);
+    QString tag;
 
     if (retagref.indexIn(inetref) > -1)
     {
+        tag = retagref.cap(1);
+    }
+    else if (retagref2.indexIn(inetref) > -1)
+    {
+        tag = retagref2.cap(1);
+    }
+    if (!tag.isEmpty())
+    {
         // match found, pull out the grabber
-        MetaGrabberScript script = MetaGrabberScript::FromTag(retagref.cap(1),
-                                                              absolute);
+        MetaGrabberScript script = MetaGrabberScript::FromTag(tag, absolute);
         if (script.IsValid())
             return script;
     }
 
     // no working match, return a blank
     return MetaGrabberScript();
+}
+
+QString MetaGrabberScript::CleanedInetref(const QString &inetref)
+{
+    static QRegExp retagref("^([a-zA-Z0-9_\\-\\.]+\\.[a-zA-Z0-9]{1,3})_(.*)");
+    static QRegExp retagref2("^([a-zA-Z0-9_\\-\\.]+\\.[a-zA-Z0-9]{1,3}):(.*)");
+    static QMutex reLock;
+    QMutexLocker lock(&reLock);
+
+    // try to strip grabber tag from inetref
+    if (retagref.indexIn(inetref) > -1)
+        return retagref.cap(2);
+    if (retagref2.indexIn(inetref) > -1)
+        return retagref2.cap(2);
+
+    return inetref;
 }
 
 MetaGrabberScript::MetaGrabberScript(void) :
@@ -295,6 +335,8 @@ MetaGrabberScript::MetaGrabberScript(const QDomElement &dom) :
 MetaGrabberScript::MetaGrabberScript(const QString &path) :
     m_valid(false)
 {
+    if (path.isEmpty())
+        return;
     m_fullcommand = path;
     if (path[0] != '/')
         m_fullcommand.prepend(QString("%1metadata").arg(GetShareDir()));
@@ -335,7 +377,6 @@ MetaGrabberScript::MetaGrabberScript(const MetaGrabberScript &other) :
     m_valid(other.m_valid)
 {
 }
-
 
 MetaGrabberScript& MetaGrabberScript::operator=(const MetaGrabberScript &other)
 {
@@ -428,8 +469,13 @@ MetadataLookupList MetaGrabberScript::RunGrabber(const QStringList &args,
         while (!item.isNull())
         {
             MetadataLookup *tmp = ParseMetadataItem(item, lookup, passseas);
-            tmp->SetInetref(QString("%1:%2").arg(m_command)
+            tmp->SetInetref(QString("%1_%2").arg(m_command)
                                             .arg(tmp->GetInetref()));
+            if (!tmp->GetCollectionref().isEmpty())
+            {
+                tmp->SetCollectionref(QString("%1_%2").arg(m_command)
+                                .arg(tmp->GetCollectionref()));
+            }
             list.append(tmp);
             // MetadataLookup is to be owned by the list
             tmp->DecrRef();
@@ -473,17 +519,8 @@ MetadataLookupList MetaGrabberScript::Search(const QString &title,
     QStringList args;
     SetDefaultArgs(args);
 
-    QString tmptitle = title;
-    {
-        // television grabber may search using inetref for some reason, so test
-        // it for a grabber tag
-        QMutexLocker lock(&reLock);
-        if (retagref.indexIn(title) > -1)
-            tmptitle = retagref.cap(2);
-    }
-
     args << "-M"
-         << tmptitle;
+         << title;
 
     return RunGrabber(args, lookup, passseas);
 }
@@ -495,15 +532,23 @@ MetadataLookupList MetaGrabberScript::SearchSubtitle(const QString &title,
     QStringList args;
     SetDefaultArgs(args);
 
-    QString tmptitle = title;
-    {
-        QMutexLocker lock(&reLock);
-        if (retagref.indexIn(title) > -1)
-            tmptitle = retagref.cap(2);
-    }
+    args << "-N"
+         << title
+         << subtitle;
+
+    return RunGrabber(args, lookup, passseas);
+}
+
+MetadataLookupList MetaGrabberScript::SearchSubtitle(const QString &inetref,
+                        const QString &title, const QString &subtitle,
+                        MetadataLookup *lookup, bool passseas)
+{
+    (void)title;
+    QStringList args;
+    SetDefaultArgs(args);
 
     args << "-N"
-         << tmptitle
+         << CleanedInetref(inetref)
          << subtitle;
 
     return RunGrabber(args, lookup, passseas);
@@ -515,16 +560,8 @@ MetadataLookupList MetaGrabberScript::LookupData(const QString &inetref,
     QStringList args;
     SetDefaultArgs(args);
 
-    QString tmpref = inetref;
-    {
-        // try to strip grabber tag from inetref
-        QMutexLocker lock(&reLock);
-        if (retagref.indexIn(inetref) > -1)
-            tmpref = retagref.cap(2);
-    }
-
     args << "-D"
-         << tmpref;
+         << CleanedInetref(inetref);
 
     return RunGrabber(args, lookup, passseas);
 }
@@ -536,16 +573,8 @@ MetadataLookupList MetaGrabberScript::LookupData(const QString &inetref,
     QStringList args;
     SetDefaultArgs(args);
 
-    QString tmpref = inetref;
-    {
-        // try to strip grabber tag from inetref
-        QMutexLocker lock(&reLock);
-        if (retagref.indexIn(inetref) > -1)
-            tmpref = retagref.cap(2);
-    }
-
     args << "-D"
-         << tmpref
+         << CleanedInetref(inetref)
          << QString::number(season)
          << QString::number(episode);
 
@@ -560,7 +589,7 @@ MetadataLookupList MetaGrabberScript::LookupCollection(
     SetDefaultArgs(args);
 
     args << "-C"
-         << collectionref;
+         << CleanedInetref(collectionref);
 
     return RunGrabber(args, lookup, passseas);
 }

@@ -388,15 +388,6 @@ bool FileRingBuffer::OpenFile(const QString &lfilename, uint retry_ms)
     commserror = false;
     numfailures = 0;
 
-    // The initial bitrate needs to be set with consideration for low bit rate
-    // streams (e.g. radio @ 64Kbps) such that fill_min bytes are received
-    // in a reasonable time period to enable decoders to peek the first few KB
-    // to determine type & settings.
-    QString lower = lfilename.toLower();
-    if (lower.endsWith(".img") || lower.endsWith(".iso") || lower.endsWith(".vob"))
-        rawbitrate = 3000;
-    else
-        rawbitrate = 500; // Allow for radio
     CalcReadAheadThresh();
 
     bool ok = fd2 >= 0 || remotefile;
@@ -485,8 +476,7 @@ int FileRingBuffer::safe_read(int fd, void *data, uint sz)
         ret = fstat(fd2, &sb);
         if (ret == 0 && S_ISREG(sb.st_mode))
         {
-            long long llpos = (internalreadpos - readAdjust) + tot;
-            if (llpos >= sb.st_size)
+            if ((internalreadpos + tot) >= sb.st_size)
             {
                 // We're at the end, don't attempt to read
                 read_ok = false;
@@ -496,7 +486,7 @@ int FileRingBuffer::safe_read(int fd, void *data, uint sz)
             else
             {
                 toread  =
-                    min(sb.st_size - llpos, (long long)toread);
+                    min(sb.st_size - (internalreadpos + tot), (long long)toread);
                 if (toread < (sz-tot))
                 {
                     eof = true;

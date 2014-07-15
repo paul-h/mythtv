@@ -50,6 +50,7 @@ class META_PUBLIC MetaGrabberScript : public QObject
                                         bool absolute=false);
     static MetaGrabberScript    FromInetref(const QString &inetref,
                                             bool absolute=false);
+    static QString              CleanedInetref(const QString &inetref);
 
     bool          IsValid(void) const         { return m_valid; }
 
@@ -71,6 +72,7 @@ class META_PUBLIC MetaGrabberScript : public QObject
     bool                Test(void);
     MetadataLookupList  Search(const QString &title, MetadataLookup *lookup, bool passseas=true);
     MetadataLookupList  SearchSubtitle(const QString &title, const QString &subtitle, MetadataLookup *lookup, bool passseas=true);
+    MetadataLookupList  SearchSubtitle(const QString &inetref, const QString &title, const QString &subtitle, MetadataLookup *lookup, bool passseas=true);
     MetadataLookupList  LookupData(const QString &inetref, MetadataLookup *lookup, bool passseas=true);
     MetadataLookupList  LookupData(const QString &inetref, int season, int episode, MetadataLookup *lookup, bool passseas=true);
     MetadataLookupList  LookupCollection(const QString &collectionref, MetadataLookup *lookup, bool passseas=true);
