@@ -23,7 +23,7 @@ IdleScreen::IdleScreen(MythScreenStack *parent)
               m_nextRecordings(NULL),
               m_conflictingRecordings(NULL),
               m_conflictWarning(NULL),
-              m_secondsToShutdown(0),
+              m_secondsToShutdown(-1),
               m_pendingSchedUpdate(false),
               m_hasConflicts(false)
 {
@@ -112,7 +112,7 @@ void IdleScreen::UpdateStatus(void)
 
     if (CheckConnectionToServer())
     {
-        if (m_secondsToShutdown)
+        if (m_secondsToShutdown >= 0)
             state = "shuttingdown";
         else if (RemoteGetRecordingStatus())
             state = "recording";
@@ -132,7 +132,7 @@ void IdleScreen::UpdateStatus(void)
 
         if (statusText)
         {
-            if (m_secondsToShutdown)
+            if (m_secondsToShutdown >= 0)
             {
                 QString status = tr("Backend will shutdown in %n "
                                     "second(s).", "", m_secondsToShutdown);
@@ -254,7 +254,12 @@ void IdleScreen::customEvent(QEvent* event)
     {
         MythEvent *me = static_cast<MythEvent *>(event);
 
-        if (me->Message().startsWith("SHUTDOWN_COUNTDOWN"))
+        if (me->Message().startsWith("RECONNECT_"))
+        {
+            m_secondsToShutdown = -1;
+            UpdateStatus();
+        }
+        else if (me->Message().startsWith("SHUTDOWN_COUNTDOWN"))
         {
             QString secs = me->Message().mid(19);
             m_secondsToShutdown = secs.toInt();
