@@ -22,6 +22,7 @@ using namespace std;
 #include "tv_play.h"
 
 #include "mythscreentype.h"
+#include "metadatafactory.h"
 
 // mythfrontend
 #include "schedulecommon.h"
@@ -45,6 +46,7 @@ class MythUIButton;
 class MythDialogBox;
 class MythMenu;
 class MythUIProgressDialog;
+class MythUIBusyDialog;
 
 typedef QMap<QString,ProgramList>       ProgramMap;
 typedef QMap<QString,QString>           Str2StrMap;
@@ -538,16 +540,25 @@ class RecMetadataEdit : public MythScreenType
 
   protected slots:
     void SaveChanges(void);
+    void PerformQuery(void);
+    void OnSearchListSelection(RefCountHandler<MetadataLookup> lookup);
 
   private:
+    void customEvent(QEvent *event);
+    void QueryComplete(MetadataLookup *lookup);
+
     MythUITextEdit     *m_titleEdit;
     MythUITextEdit     *m_subtitleEdit;
     MythUITextEdit     *m_descriptionEdit;
     MythUITextEdit     *m_inetrefEdit;
     MythUISpinBox      *m_seasonSpin;
     MythUISpinBox      *m_episodeSpin;
+    MythUIBusyDialog   *m_busyPopup;
+    MythUIButton       *m_queryButton;
 
-    ProgramInfo *m_progInfo;
+    ProgramInfo        *m_progInfo;
+    MythScreenStack    *m_popupStack;
+    MetadataFactory    *m_metadataFactory;
 };
 
 class HelpPopup : public MythScreenType
