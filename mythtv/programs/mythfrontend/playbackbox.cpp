@@ -18,7 +18,6 @@
 #include "mythuistatetype.h"
 #include "mythuicheckbox.h"
 #include "mythuitextedit.h"
-#include "mythprogressdialog.h"
 #include "mythuispinbox.h"
 #include "mythdialogbox.h"
 #include "mythprogressdialog.h"
