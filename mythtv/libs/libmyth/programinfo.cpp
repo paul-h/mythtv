@@ -1,16 +1,16 @@
 // -*- Mode: c++ -*-
 
 // POSIX headers
-#include <sys/types.h>
-#include <unistd.h>
-
-// C headers
-#include <cstdlib>
+// FIXME What are these used for?
+// #include <sys/types.h>
+// #include <unistd.h>
 
 // C++ headers
-#include <iostream>
 #include <algorithm>
-using namespace std;
+using std::max;
+using std::min;
+#include <deque>
+using std::deque;
 
 // Qt headers
 #include <QRegExp>
@@ -747,14 +747,13 @@ ProgramInfo::ProgramInfo(
         if (IsSameChannel(s))
         {
             recstatus   = s.recstatus;
-            // We can stop looking at the scheduler list
-            // Aside from being more efficient, this avoids us accidentally
-            // overwriting values in the case where we have an override
-            // or channel specific rule for the same showing on a
-            // different channel
             break;
         }
 
+        if (s.recstatus == rsWillRecord ||
+            s.recstatus == rsRecording ||
+            s.recstatus == rsTuning ||
+            s.recstatus == rsFailing)
         recstatus = s.recstatus;
     }
 }
@@ -4022,7 +4021,7 @@ static uint load_markup_datum(
         "FROM recordedmarkup "
         "WHERE recordedmarkup.chanid    = :CHANID    AND "
         "      recordedmarkup.starttime = :STARTTIME AND "
-        "      recordedmarkup.type      = %1 "
+        "      recordedmarkup.type      = :TYPE "
         "GROUP BY recordedmarkup.data "
         "ORDER BY SUM( ( SELECT IFNULL(rm.mark, recordedmarkup.mark)"
         "                FROM recordedmarkup AS rm "
@@ -4033,10 +4032,11 @@ static uint load_markup_datum(
         "                ORDER BY rm.mark ASC LIMIT 1 "
         "              ) - recordedmarkup.mark "
         "            ) DESC "
-        "LIMIT 1").arg((int)type);
+        "LIMIT 1");
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(qstr);
+    query.bindValue(":TYPE", (int)type);
     query.bindValue(":CHANID", chanid);
     query.bindValue(":STARTTIME", recstartts);
 
@@ -4121,15 +4121,26 @@ MarkTypes ProgramInfo::QueryAverageAspectRatio(void ) const
     return static_cast<MarkTypes>(query.value(0).toInt());
 }
 
-/** \brief If present in recording this loads total duration of the
- *         main video stream from database's stream markup table.
+/** \brief If present this loads the total duration in milliseconds
+ *         of the main video stream from recordedmarkup table in the database
+ *
+ *  \returns Duration in milliseconds
  */
-int64_t ProgramInfo::QueryTotalDuration(void) const
+uint32_t ProgramInfo::QueryTotalDuration(void) const
 {
     if (gCoreContext->IsDatabaseIgnored())
-        return 0LL;
-    int64_t msec = load_markup_datum(MARK_DURATION_MS, chanid, recstartts);
-    return msec * 1000;
+        return 0;
+
+    // 32Bits is more than sufficient. A recording would need to be almost a
+    // month long to wrap and this is impossible since we cap the maximum
+    // recording length to 6 hours.
+    uint32_t msec = load_markup_datum(MARK_DURATION_MS, chanid, recstartts);
+
+// Impossible condition, load_markup_datum returns an unsigned int
+//     if (msec < 0)
+//         return 0;
+
+    return msec;
 }
 
 /** \brief If present in recording this loads total frames of the

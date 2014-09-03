@@ -50,7 +50,6 @@ QMutex            TVRec::cardsLock;
 QMap<uint,TVRec*> TVRec::cards;
 
 static bool is_dishnet_eit(uint cardid);
-static QString load_profile(QString,void*,RecordingInfo*,RecordingProfile&);
 static int init_jobs(const RecordingInfo *rec, RecordingProfile &profile,
                      bool on_host, bool transcode_bfr_comm, bool on_line_comm);
 static void apply_broken_dvb_driver_crc_hack(ChannelBase*, MPEGStreamData*);
@@ -1833,7 +1832,7 @@ bool TVRec::SetupDTVSignalMonitor(bool EITscan)
     QString recording_type = "all";
     RecordingInfo *rec = lastTuningRequest.program;
     RecordingProfile profile;
-    load_profile(genOpt.cardtype, tvchain, rec, profile);
+    recProfileName = LoadProfile(genOpt.cardtype, tvchain, rec, profile);
     const Setting *setting = profile.byName("recordingtype");
     if (setting)
         recording_type = setting->getValue();
@@ -2772,7 +2771,7 @@ void TVRec::InitAutoRunJobs(RecordingInfo *rec, AutoRunInitType t,
         RecordingProfile profile;
         if (!recpro)
         {
-            load_profile(genOpt.cardtype, NULL, rec, profile);
+            LoadProfile(genOpt.cardtype, NULL, rec, profile);
             recpro = &profile;
         }
         autoRunJobs[rec->MakeUniqueKey()] =
@@ -3960,6 +3959,19 @@ MPEGStreamData *TVRec::TuningSignalCheck(void)
             newRecStatus = rsFailing;
             curRecording->SaveVideoProperties(VID_DAMAGED, VID_DAMAGED);
 
+            QString desc = tr("Good signal seen after %1 ms")
+                           .arg(genOpt.channel_timeout +
+                        startRecordingDeadline.msecsTo(MythDate::current()));
+            QString title = curRecording->GetTitle();
+            if (!curRecording->GetSubtitle().isEmpty())
+                title += " - " + curRecording->GetSubtitle();
+
+            MythNotification mn(MythNotification::Check, desc,
+                                "Recording", title,
+                                tr("See 'Tuning timeout' in mythtv-setup "
+                                   "for this capturecard."));
+            gCoreContext->SendEvent(MythEvent(mn));
+
             LOG(VB_GENERAL, LOG_WARNING, LOC +
                 QString("It took longer than %1 ms to get a signal lock. "
                         "Keeping status of '%2'")
@@ -3999,6 +4011,19 @@ MPEGStreamData *TVRec::TuningSignalCheck(void)
         keep_trying = true;
 
         SendMythSystemRecEvent("REC_FAILING", curRecording);
+
+        QString desc = tr("Taking more than %1 ms to get a lock.")
+                       .arg(genOpt.channel_timeout);
+        QString title = curRecording->GetTitle();
+        if (!curRecording->GetSubtitle().isEmpty())
+            title += " - " + curRecording->GetSubtitle();
+
+        MythNotification mn(MythNotification::Error, desc,
+                            "Recording", title,
+                            tr("See 'Tuning timeout' in mythtv-setup "
+                               "for this capturecard."));
+        mn.SetDuration(30);
+        gCoreContext->SendEvent(MythEvent(mn));
 
         LOG(VB_GENERAL, LOG_WARNING, LOC +
             QString("TuningSignalCheck: taking more than %1 ms to get a lock. "
@@ -4128,8 +4153,8 @@ static int init_jobs(const RecordingInfo *rec, RecordingProfile &profile,
     return jobs;
 }
 
-static QString load_profile(QString cardtype, void *tvchain,
-                            RecordingInfo *rec, RecordingProfile &profile)
+QString TVRec::LoadProfile(QString cardtype, void *tvchain,
+                           RecordingInfo *rec, RecordingProfile &profile)
 {
     // Determine the correct recording profile.
     // In LiveTV mode use "Live TV" profile, otherwise use the
@@ -4139,14 +4164,33 @@ static QString load_profile(QString cardtype, void *tvchain,
     if (!tvchain && rec)
         profileName = rec->GetRecordingRule()->m_recProfile;
 
-    if (!profile.loadByType(profileName, cardtype))
+    QString profileRequested = profileName;
+
+    if (profile.loadByType(profileName, cardtype))
+    {
+        LOG(VB_RECORD, LOG_INFO, LOC +
+            QString("Using profile '%1' to record")
+                .arg(profileName));
+    }
+    else
     {
         profileName = "Default";
-        profile.loadByType(profileName, cardtype);
+        if (profile.loadByType(profileName, cardtype))
+        {
+            LOG(VB_RECORD, LOG_INFO, LOC +
+                QString("Profile '%1' not found, using "
+                        "fallback profile '%2' to record")
+                    .arg(profileRequested).arg(profileName));
+        }
+        else
+        {
+            LOG(VB_RECORD, LOG_ERR, LOC +
+                QString("Profile '%1' not found, and unable "
+                        "to load fallback profile '%2'.  Results "
+                        "may be unpredicable")
+                    .arg(profileRequested).arg(profileName));
+        }
     }
-
-    LOG(VB_RECORD, LOG_INFO, QString("Using profile '%1' to record")
-            .arg(profileName));
 
     return profileName;
 }
@@ -4170,7 +4214,7 @@ void TVRec::TuningNewRecorder(MPEGStreamData *streamData)
     RecordingInfo *rec = lastTuningRequest.program;
 
     RecordingProfile profile;
-    QString profileName = load_profile(genOpt.cardtype, tvchain, rec, profile);
+    recProfileName = LoadProfile(genOpt.cardtype, tvchain, rec, profile);
 
     if (tvchain)
     {
@@ -4733,9 +4777,22 @@ RecordingInfo *TVRec::SwitchRecordingRingBuffer(const RecordingInfo &rcinfo)
         return NULL;
     }
 
+    RecordingInfo   *ri = new RecordingInfo(rcinfo);
+    RecordingProfile profile;
+
+    QString pn = LoadProfile(genOpt.cardtype, NULL, ri, profile);
+
+    if (pn != recProfileName)
+    {
+        LOG(VB_RECORD, LOG_ERR, LOC +
+            QString("SwitchRecordingRingBuffer() "
+                    "switch profile '%1' to '%2' -> false 2")
+            .arg(recProfileName).arg(pn));
+        return NULL;
+    }
+
     PreviewGeneratorQueue::GetPreviewImage(*curRecording, "");
 
-    RecordingInfo *ri = new RecordingInfo(rcinfo);
     ri->MarkAsInUse(true, kRecorderInUseID);
     StartedRecording(ri);
 
@@ -4748,7 +4805,7 @@ RecordingInfo *TVRec::SwitchRecordingRingBuffer(const RecordingInfo &rcinfo)
         FinishedRecording(ri, NULL);
         ri->MarkAsInUse(false, kRecorderInUseID);
         delete ri;
-        LOG(VB_RECORD, LOG_ERR, LOC + "SwitchRecordingRingBuffer() -> false 2");
+        LOG(VB_RECORD, LOG_ERR, LOC + "SwitchRecordingRingBuffer() -> false 3");
         return NULL;
     }
     else

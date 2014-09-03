@@ -1,12 +1,25 @@
+
+#include "metadatafactory.h"
+
+// C++
+#include <algorithm>
+using std::max;
+
+// QT
 #include <QApplication>
 #include <QList>
 #include <QUrl>
 
-#include "mythcontext.h"
-#include "videoutils.h"
+// libmythbase
 #include "mythlogging.h"
 #include "compat.h"
+
+// libmyth
+#include "mythcontext.h"
 #include "remoteutil.h"
+
+// libmythmetadata
+#include "videoutils.h"
 
 // Needed to perform a lookup
 #include "metadatadownload.h"
@@ -21,7 +34,6 @@
 #include "programinfo.h"
 #include "recordingrule.h"
 
-#include "metadatafactory.h"
 
 QEvent::Type MetadataFactoryNoResult::kEventType =
     (QEvent::Type) QEvent::registerEventType();
@@ -146,13 +158,8 @@ void MetadataFactory::Lookup(VideoMetadata *metadata, bool automatic,
     lookup->SetSeason(metadata->GetSeason());
     lookup->SetEpisode(metadata->GetEpisode());
     lookup->SetInetref(metadata->GetInetRef());
-    QString fntmp;
-    if (metadata->GetHost().isEmpty())
-        fntmp = metadata->GetFilename();
-    else
-        fntmp = generate_file_url("Videos", metadata->GetHost(),
-                                      metadata->GetFilename());
-    lookup->SetFilename(fntmp);
+    lookup->SetFilename(generate_file_url("Videos", metadata->GetHost(),
+                                      metadata->GetFilename()));
 
     if (m_lookupthread->isRunning())
         m_lookupthread->prependLookup(lookup);

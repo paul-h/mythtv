@@ -139,6 +139,8 @@ typedef QMap<uint,PendingInfo> PendingMap;
 
 class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
 {
+    Q_DECLARE_TR_FUNCTIONS(TVRec)
+
     friend class TuningRequest;
     friend class TVRecRecordThread;
 
@@ -323,6 +325,9 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
     void SetRecordingStatus(
         RecStatusType new_status, int line, bool have_lock = false);
 
+    QString LoadProfile(QString ,void*, RecordingInfo*,
+                        RecordingProfile&);
+
     // Various components TVRec coordinates
     RecorderBase     *recorder;
     ChannelBase      *channel;
@@ -360,6 +365,8 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
     GeneralDBOptions   genOpt;
     DVBDBOptions       dvbOpt;
     FireWireDBOptions  fwOpt;
+
+    QString            recProfileName;
 
     // State variables
     mutable QMutex setChannelLock;
