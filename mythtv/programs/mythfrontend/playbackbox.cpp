@@ -2721,7 +2721,7 @@ void PlaybackBox::doPlaylistChangeStorageGroup(void)
 
 void PlaybackBox::showStorageGroupChanger(void)
 {
-    ProgramInfo *pginfo = CurrentItem();
+    ProgramInfo *pginfo = GetCurrentProgram();
 
     // dont bother showing the dialog if there is only one storage group
     QStringList storageGroups(StorageGroup::getRecordingsGroups());
@@ -2815,7 +2815,7 @@ void PlaybackBox::setStorageGroup(QString group)
     }
     else
     {
-        ProgramInfo *pginfo = CurrentItem();
+        ProgramInfo *pginfo = GetCurrentProgram();
         pginfoList.append(*pginfo);
     }
 
