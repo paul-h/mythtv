@@ -22,6 +22,22 @@
 #define LOC_WARN QString("UPnpCDSVideo, Warning: ")
 #define LOC_ERR QString("UPnpCDSVideo, Error: ")
 
+UPnpCDSVideo::UPnpCDSVideo()
+             : UPnpCDSExtension( "Videos", "Videos",
+                                 "object.item.videoItem" )
+{
+    QString sServerIp   = gCoreContext->GetBackendServerIP4();
+    int sPort           = gCoreContext->GetBackendStatusPort();
+    m_URIBase.setScheme("http");
+    m_URIBase.setHost(sServerIp);
+    m_URIBase.setPort(sPort);
+
+    // ShortCuts
+    m_shortcuts.insert(UPnPCDSShortcuts::VIDEOS, "Videos");
+    m_shortcuts.insert(UPnPCDSShortcuts::VIDEOS_ALL, "Videos/Video");
+    m_shortcuts.insert(UPnPCDSShortcuts::VIDEOS_GENRES, "Videos/Genre");
+}
+
 void UPnpCDSVideo::CreateRoot()
 {
     if (m_pRoot)
@@ -236,25 +252,56 @@ bool UPnpCDSVideo::IsSearchRequestForUs( UPnpCDSRequest *pRequest )
 //
 /////////////////////////////////////////////////////////////////////////////
 
-bool UPnpCDSVideo::LoadContainer(const UPnpCDSRequest* pRequest,
+bool UPnpCDSVideo::LoadMetadata(const UPnpCDSRequest* pRequest,
                                  UPnpCDSExtensionResults* pResults,
                                  IDTokenMap tokens, QString currentToken)
 {
     if (currentToken.isEmpty())
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("UPnpCDSTV::LoadContainer: Final "
+        LOG(VB_GENERAL, LOG_ERR, QString("UPnpCDSTV::LoadMetadata: Final "
                                          "token missing from id: %1")
                                         .arg(pRequest->m_sParentId));
         return false;
     }
 
-    if (currentToken == "video")
+    // Root + 1
+    if (tokens[currentToken].isEmpty())
     {
-        LoadVideos(pRequest, pResults, tokens);
+        CDSObject *container = m_pRoot->GetChild(pRequest->m_sObjectId);
+
+        if (container)
+        {
+            pResults->Add(container);
+            pResults->m_nTotalMatches = 1;
+        }
+        else
+            LOG(VB_GENERAL, LOG_ERR, QString("UPnpCDSTV::LoadMetadata: Requested "
+                                             "object cannot be found: %1")
+                                               .arg(pRequest->m_sObjectId));
+    }
+    else if (currentToken == "series")
+    {
+         return LoadSeries(pRequest, pResults, tokens);
+    }
+    else if (currentToken == "season")
+    {
+         return LoadSeasons(pRequest, pResults, tokens);
+    }
+    else if (currentToken == "genre")
+    {
+        return LoadGenres(pRequest, pResults, tokens);
+    }
+    else if (currentToken == "movie")
+    {
+        return LoadMovies(pRequest, pResults, tokens);
+    }
+    else if (currentToken == "video")
+    {
+        return LoadVideos(pRequest, pResults, tokens);
     }
     else
         LOG(VB_GENERAL, LOG_ERR,
-            QString("UPnpCDSVideo::LoadContainer(): "
+            QString("UPnpCDSVideo::LoadMetadata(): "
                     "Unhandled metadata request for '%1'.").arg(currentToken));
 
     return true;

@@ -24,15 +24,7 @@ class UPnpCDSVideo : public UPnpCDSExtension
 {
     public:
 
-        UPnpCDSVideo( ) : UPnpCDSExtension( "Videos", "Videos",
-                                            "object.item.videoItem" )
-        {
-            QString sServerIp   = gCoreContext->GetBackendServerIP4();
-            int sPort           = gCoreContext->GetBackendStatusPort();
-            m_URIBase.setScheme("http");
-            m_URIBase.setHost(sServerIp);
-            m_URIBase.setPort(sPort);
-        }
+        UPnpCDSVideo( );
         virtual ~UPnpCDSVideo() {}
 
     protected:
@@ -42,7 +34,7 @@ class UPnpCDSVideo : public UPnpCDSExtension
 
         virtual void             CreateRoot ( );
 
-        virtual bool             LoadContainer( const UPnpCDSRequest *pRequest,
+        virtual bool             LoadMetadata( const UPnpCDSRequest *pRequest,
                                                 UPnpCDSExtensionResults *pResults,
                                                 IDTokenMap tokens,
                                                 QString currentToken );

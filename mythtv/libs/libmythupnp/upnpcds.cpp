@@ -19,6 +19,7 @@ using namespace std;
 #include "upnpcds.h"
 #include "upnputil.h"
 #include "mythlogging.h"
+#include "mythversion.h"
 
 #define DIDL_LITE_BEGIN "<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">"
 #define DIDL_LITE_END   "</DIDL-Lite>";
@@ -83,14 +84,23 @@ UPnpCDS::UPnpCDS( UPnpDevice *pDevice, const QString &sSharePath )
     AddVariable( new StateVariable< QString        >( "TransferIDs"       , true ) );
     AddVariable( new StateVariable< QString        >( "ContainerUpdateIDs", true ) );
     AddVariable( new StateVariable< uint16_t >( "SystemUpdateID"    , true ) );
+    AddVariable( new StateVariable< QString  >( "ServiceResetToken" , true ) );
 
-    SetValue< uint16_t >( "SystemUpdateID", 1 );
+    SetValue< uint16_t >( "SystemUpdateID", 0 );
+    // ServiceResetToken must be unique (never repeat) and it must change when
+    // the backend restarts (all internal state is reset)
+    //
+    // The current date + time fits the criteria.
+    SetValue< QString  >( "ServiceResetToken",
+                          QDateTime::currentDateTimeUtc().toString(Qt::ISODate) );
 
     QString sUPnpDescPath = UPnp::GetConfiguration()->GetValue( "UPnP/DescXmlPath", sSharePath );
 
     m_sServiceDescFileName = sUPnpDescPath + "CDS_scpd.xml";
     m_sControlUrl          = "/CDS_Control";
 
+    m_pShortCuts = new UPnPCDSShortcuts();
+    RegisterFeature(m_pShortCuts);
 
     // Add our Service Definition to the device.
 
@@ -121,6 +131,8 @@ UPnpCDSMethod UPnpCDS::GetMethod( const QString &sURI )
     if (sURI == "GetSearchCapabilities" ) return CDSM_GetSearchCapabilities;
     if (sURI == "GetSortCapabilities"   ) return CDSM_GetSortCapabilities  ;
     if (sURI == "GetSystemUpdateID"     ) return CDSM_GetSystemUpdateID    ;
+    if (sURI == "GetFeatureList"        ) return CDSM_GetFeatureList       ;
+    if (sURI == "GetServiceResetToken"  ) return CDSM_GetServiceResetToken ;
 
     return(  CDSM_Unknown );
 }
@@ -143,8 +155,17 @@ UPnpCDSBrowseFlag UPnpCDS::GetBrowseFlag( const QString &sFlag )
 
 void UPnpCDS::RegisterExtension  ( UPnpCDSExtension *pExtension )
 {
-    if (pExtension != NULL )
+    if (pExtension)
+    {
         m_extensions.append( pExtension );
+
+        CDSShortCutList shortcuts = pExtension->GetShortCuts();
+        CDSShortCutList::iterator it;
+        for (it = shortcuts.begin(); it != shortcuts.end(); ++it)
+        {
+            RegisterShortCut(it.key(), it.value());
+        }
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -159,6 +180,25 @@ void UPnpCDS::UnregisterExtension( UPnpCDSExtension *pExtension )
         delete pExtension;
         pExtension = NULL;
     }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+void UPnpCDS::RegisterShortCut(UPnPCDSShortcuts::ShortCutType type,
+                               const QString& objectID)
+{
+    m_pShortCuts->AddShortCut(type, objectID);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+void UPnpCDS::RegisterFeature(UPnPFeature* feature)
+{
+    m_features.AddFeature(feature); // m_features takes ownership
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -210,6 +250,12 @@ bool UPnpCDS::ProcessRequest( HTTPRequest *pRequest )
                 break;
             case CDSM_GetSystemUpdateID     :
                 HandleGetSystemUpdateID( pRequest );
+                break;
+            case CDSM_GetFeatureList        :
+                HandleGetFeatureList( pRequest );
+                break;
+            case CDSM_GetServiceResetToken  :
+                HandleGetServiceResetToken( pRequest );
                 break;
             default:
                 UPnp::FormatErrorResponse( pRequest, UPnPResult_InvalidAction );
@@ -327,7 +373,7 @@ void UPnpCDS::HandleBrowse( HTTPRequest *pRequest )
         request.m_nRequestedCount = UINT16_MAX;
     request.m_sSortCriteria     = pRequest->m_mapParams[ "sortcriteria"  ];
 
-#if 0
+
     LOG(VB_UPNP, LOG_DEBUG, QString("UPnpCDS::ProcessRequest \n"
                                     ": url            = %1 \n"
                                     ": Method         = %2 \n"
@@ -345,15 +391,14 @@ void UPnpCDS::HandleBrowse( HTTPRequest *pRequest )
                        .arg( request.m_nStartingIndex )
                        .arg( request.m_nRequestedCount)
                        .arg( request.m_sSortCriteria  ));
-#endif
 
     UPnPResultCode eErrorCode      = UPnPResult_CDS_NoSuchObject;
     QString        sErrorDesc      = "";
-    uint16_t        nNumberReturned = 0;
-    uint16_t        nTotalMatches   = 0;
-    uint16_t        nUpdateID       = 0;
+    uint16_t       nNumberReturned = 0;
+    uint16_t       nTotalMatches   = 0;
+    uint16_t       nUpdateID       = 0;
     QString        sResultXML;
-    FilterMap filter =  (FilterMap) request.m_sFilter.split(',');
+    FilterMap filter =  static_cast<FilterMap>(request.m_sFilter.split(','));
 
     LOG(VB_UPNP, LOG_INFO,
         QString("UPnpCDS::HandleBrowse ObjectID=%1")
@@ -409,7 +454,6 @@ void UPnpCDS::HandleBrowse( HTTPRequest *pRequest )
                 {
                     UPnpCDSExtension *pExtension = m_extensions[i];
                     CDSObject* pExtensionRoot = pExtension->GetRoot();
-                    FilterMap filter;
                     sResultXML += pExtensionRoot->toXml(filter, true); // Ignore Children
                     nNumberReturned ++;
                 }
@@ -690,6 +734,39 @@ void UPnpCDS::HandleGetSystemUpdateID( HTTPRequest *pRequest )
 }
 
 /////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+void UPnpCDS::HandleGetFeatureList(HTTPRequest* pRequest)
+{
+    NameValues list;
+    LOG(VB_UPNP, LOG_INFO,
+        QString("UPnpCDS::ProcessRequest : %1 : %2")
+            .arg(pRequest->m_sBaseUrl) .arg(pRequest->m_sMethod));
+
+    QString sResults = m_features.toXML();
+
+    list.push_back(NameValue("FeatureList", sResults));
+
+    pRequest->FormatActionResponse(list);
+}
+
+void UPnpCDS::HandleGetServiceResetToken(HTTPRequest* pRequest)
+{
+    NameValues list;
+
+    LOG(VB_UPNP, LOG_INFO,
+        QString("UPnpCDS::ProcessRequest : %1 : %2")
+            .arg(pRequest->m_sBaseUrl) .arg(pRequest->m_sMethod));
+
+    QString sToken = GetValue<QString>("ServiceResetToken");
+
+    list.push_back(NameValue("ResetToken", sToken));
+
+    pRequest->FormatActionResponse(list);
+}
+
+/////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 //
 // UPnpCDSExtension Implementation
@@ -757,11 +834,11 @@ UPnpCDSExtensionResults *UPnpCDSExtension::Browse( UPnpCDSRequest *pRequest )
         {
             case CDS_BrowseMetadata:
             {
-                if (pRequest->m_nRequestedCount = 0)
+                if (pRequest->m_nRequestedCount == 0)
                     pRequest->m_nRequestedCount = 1; // This should be the case anyway, but enforce it just in case
 
                 LOG(VB_UPNP, LOG_DEBUG, "UPnpCDS::Browse: BrowseMetadata");
-                if (LoadContainer(pRequest, pResults, tokens, currentToken))
+                if (LoadMetadata(pRequest, pResults, tokens, currentToken))
                     return pResults;
             }
 
@@ -862,7 +939,7 @@ QString UPnpCDSExtension::RemoveToken( const QString &sToken,
  *  \return true if we could load the metadata
  *
  */
-bool UPnpCDSExtension::LoadContainer(const UPnpCDSRequest* pRequest,
+bool UPnpCDSExtension::LoadMetadata(const UPnpCDSRequest* pRequest,
                                      UPnpCDSExtensionResults* pResults,
                                      IDTokenMap tokens, QString currentToken)
 {
@@ -965,6 +1042,152 @@ CDSObject* UPnpCDSExtension::GetRoot()
         CreateRoot();
 
     return m_pRoot;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+QString UPnPCDSShortcuts::CreateXML()
+{
+    QString xml;
+
+    xml = "<shortcutlist>\r\n";
+
+    QMap<ShortCutType, QString>::iterator it;
+    for (it = m_shortcuts.begin(); it != m_shortcuts.end(); ++it)
+    {
+        ShortCutType type = it.key();
+        QString objectID = *it;
+        xml += "<shortcut>\r\n";
+        xml += QString("<name>%1</name>\r\n").arg(TypeToName(type));
+        xml += QString("<objectID>%1</objectID>\r\n").arg(HTTPRequest::Encode(objectID));
+        xml += "</shortcut>\r\n";
+    }
+
+    xml += "</shortcutlist>\r\n";
+
+    return xml;
+}
+
+bool UPnPCDSShortcuts::AddShortCut(ShortCutType type,
+                                         const QString &objectID)
+{
+    if (!m_shortcuts.contains(type))
+        m_shortcuts.insert(type, objectID);
+    else
+        LOG(VB_GENERAL, LOG_ERR, QString("UPnPCDSShortcuts::AddShortCut(): "
+                                         "Attempted to register duplicate "
+                                         "shortcut").arg(TypeToName(type)));
+
+    return false;
+}
+
+QString UPnPCDSShortcuts::TypeToName(ShortCutType type)
+{
+    QString str;
+
+    switch (type)
+    {
+       case MUSIC :
+          str = "MUSIC";
+          break;
+       case MUSIC_ALBUMS :
+          str = "MUSIC_ALBUMS";
+          break;
+       case MUSIC_ARTISTS :
+          str = "MUSIC_ARTISTS";
+          break;
+       case MUSIC_GENRES :
+          str = "MUSIC_GENRES";
+          break;
+       case MUSIC_PLAYLISTS :
+          str = "MUSIC_PLAYLISTS";
+          break;
+       case MUSIC_RECENTLY_ADDED :
+          str = "MUSIC_RECENTLY_ADDED";
+          break;
+       case MUSIC_LAST_PLAYED :
+          str = "MUSIC_LAST_PLAYED";
+          break;
+       case MUSIC_AUDIOBOOKS :
+          str = "MUSIC_AUDIOBOOKS";
+          break;
+       case MUSIC_STATIONS :
+          str = "MUSIC_STATIONS";
+          break;
+       case MUSIC_ALL :
+          str = "MUSIC_ALL";
+          break;
+       case MUSIC_FOLDER_STRUCTURE :
+          str = "MUSIC_FOLDER_STRUCTURE";
+          break;
+
+       case IMAGES :
+          str = "IMAGES";
+          break;
+       case IMAGES_YEARS :
+          str = "IMAGES_YEARS";
+          break;
+       case IMAGES_YEARS_MONTH :
+          str = "IMAGES_YEARS_MONTH";
+          break;
+       case IMAGES_ALBUM :
+          str = "IMAGES_ALBUM";
+          break;
+       case IMAGES_SLIDESHOWS :
+          str = "IMAGES_SLIDESHOWS";
+          break;
+       case IMAGES_RECENTLY_ADDED :
+          str = "IMAGES_RECENTLY_ADDED";
+          break;
+       case IMAGES_LAST_WATCHED :
+          str = "IMAGES_LAST_WATCHED";
+          break;
+       case IMAGES_ALL :
+          str = "IMAGES_ALL";
+          break;
+       case IMAGES_FOLDER_STRUCTURE :
+          str = "IMAGES_FOLDER_STRUCTURE";
+          break;
+
+       case VIDEOS :
+          str = "VIDEOS";
+          break;
+       case VIDEOS_GENRES :
+          str = "VIDEOS_GENRES";
+          break;
+       case VIDEOS_YEARS :
+          str = "VIDEOS_YEARS";
+          break;
+       case VIDEOS_YEARS_MONTH :
+          str = "VIDEOS_YEARS_MONTH";
+          break;
+       case VIDEOS_ALBUM :
+          str = "VIDEOS_ALBUM";
+          break;
+       case VIDEOS_RECENTLY_ADDED :
+          str = "VIDEOS_RECENTLY_ADDED";
+          break;
+       case VIDEOS_LAST_PLAYED :
+          str = "VIDEOS_LAST_PLAYED";
+          break;
+       case VIDEOS_RECORDINGS :
+          str = "VIDEOS_RECORDINGS";
+          break;
+       case VIDEOS_ALL :
+          str = "VIDEOS_ALL";
+          break;
+       case VIDEOS_FOLDER_STRUCTURE :
+          str = "VIDEOS_FOLDER_STRUCTURE";
+          break;
+
+       case FOLDER_STRUCTURE :
+          str = "VIDEOS_FOLDER_STRUCTURE";
+          break;
+    }
+
+    return str;
 }
 
 // vim:ts=4:sw=4:ai:et:si:sts=4

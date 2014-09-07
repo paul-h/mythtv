@@ -180,6 +180,27 @@ CDSObject *CDSObject::AddChild( CDSObject *pChild )
 //
 /////////////////////////////////////////////////////////////////////////////
 
+CDSObject *CDSObject::GetChild( const QString &sID )
+{
+    CDSObject *pChild = NULL;
+    CDSObjects::iterator it;
+    for (it = m_children.begin(); it != m_children.end(); ++it)
+    {
+        pChild = *it;
+        if (!pChild)
+            continue;
+
+        if (pChild->m_sId == sID)
+            return pChild;
+    }
+
+    return NULL;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
 Resource *CDSObject::AddResource( QString sProtocol, QString sURI )
 {
     Resource *pRes = new Resource( sProtocol, sURI );
@@ -258,22 +279,57 @@ void CDSObject::toXml( QTextStream &os, FilterMap &filter,
                        bool ignoreChildren ) const
 {
     QString sEndTag = "";
+
+    /**
+     * NOTE FilterMap contains a list of what should be included, not what should
+     *      be excluded.
+     *
+     *      The client is expected either to indicate that everything should be
+     *      returned with an asterix, or to supply a comma seperated list of
+     *      the only the named properties and attributes.
+     *
+     *      @ - Attributes are denoted by format <element>@<attribute>
+     *
+     *      # - The use of a hash at the end of a name indicates that this
+     *          property and all it's children and attributes should be returned.
+     *
+     *      Inclusion of an attribute in the filter list implies the inclusion
+     *      of it's parent element and value.
+     *      e.g. filter="res@size" implies <res size="{size}">{url}</res>
+     *      However optional tags such as res@duration which are not named will
+     *      be omitted.
+     *
+     *      'Required' properties must always be included irrespective of
+     *      any filter!
+     *
+     *      See UPnP MediaServer, ContentDirectory Service Section 2.3.18, 2013
+     */
     bool    bFilter = true;
 
-    if (filter.indexOf( "*" ) != -1)
+    if (filter.contains("*"))
         bFilter = false;
 
     switch( m_eType )
     {   
         case OT_Container:
         {
+            if (bFilter && filter.contains("container#"))
+                bFilter = false;
+
             os << "<container id=\"" << m_sId
                << "\" parentID=\"" << m_sParentId
-               << "\" childCount=\"" << GetChildCount()
-               << "\" childContainerCount=\"" << GetChildContainerCount()
-               << "\" restricted=\"" << GetBool( m_bRestricted )
-               << "\" searchable=\"" << GetBool( m_bSearchable )
-               << "\" >" << endl;
+               << "\" restricted=\"" << GetBool( m_bRestricted );
+
+            if (!bFilter || filter.contains("@searchable"))
+                os << "\" searchable=\"" << GetBool( m_bSearchable );
+
+            if (!bFilter || filter.contains("@childCount"))
+                os << "\" childCount=\"" << GetChildCount();
+
+            if (!bFilter || filter.contains("@childContainerCount"))
+                os << "\" childContainerCount=\"" << GetChildContainerCount();
+
+               os << "\" >" << endl;
 
             sEndTag = "</container>";
 
@@ -281,6 +337,9 @@ void CDSObject::toXml( QTextStream &os, FilterMap &filter,
         }
         case OT_Item:
         {
+            if (bFilter && filter.contains("item#"))
+                bFilter = false;
+
             os << "<item id=\"" << m_sId
                << "\" parentID=\"" << m_sParentId
                << "\" restricted=\"" << GetBool( m_bRestricted )
@@ -309,19 +368,30 @@ void CDSObject::toXml( QTextStream &os, FilterMap &filter,
         {
             QString sName;
             
-            if (pProp->m_sNameSpace.length() > 0)
+            if (!pProp->m_sNameSpace.isEmpty())
                 sName = pProp->m_sNameSpace + ':' + pProp->m_sName;
             else
                 sName = pProp->m_sName;
 
-            if (pProp->m_bRequired || !bFilter 
-                || ( filter.indexOf( sName ) != -1))
+            if (pProp->m_bRequired ||
+                (!bFilter) ||
+                FilterContains(filter, sName))
             {
+                bool filterAttributes = true;
+                if (!bFilter || filter.contains(QString("%1#").arg(sName)))
+                    filterAttributes = false;
+
                 os << "<"  << sName;
 
-                    NameValues::const_iterator nit = pProp->m_lstAttributes.begin();
-                    for (; nit != pProp->m_lstAttributes.end(); ++ nit)
-                        os << " " <<(*nit).sName << "=\"" << (*nit).sValue << "\"";
+                NameValues::const_iterator nit = pProp->m_lstAttributes.begin();
+                for (; nit != pProp->m_lstAttributes.end(); ++ nit)
+                {
+                    QString filterName = QString("%1@%2").arg(sName)
+                                                         .arg((*nit).sName);
+                    if ((*nit).bRequired  || !filterAttributes ||
+                        filter.contains(filterName))
+                        os << " " << (*nit).sName << "=\"" << (*nit).sValue << "\"";
+                }
 
                 os << ">";
                 os << pProp->GetEncodedValue();
@@ -334,17 +404,29 @@ void CDSObject::toXml( QTextStream &os, FilterMap &filter,
     // Output any Res Elements
     // ----------------------------------------------------------------------
 
-    Resources::const_iterator rit = m_resources.begin();
-    for (; rit != m_resources.end(); ++rit)
+    if (!bFilter || filter.contains("res"))
     {
-        os << "<res protocolInfo=\"" << (*rit)->m_sProtocolInfo << "\" ";
+        bool filterAttributes = true;
+        if (!bFilter || filter.contains("res#"))
+            filterAttributes = false;
+        Resources::const_iterator rit = m_resources.begin();
+        for (; rit != m_resources.end(); ++rit)
+        {
+            os << "<res protocolInfo=\"" << (*rit)->m_sProtocolInfo << "\" ";
 
-        NameValues::const_iterator nit = (*rit)->m_lstAttributes.begin();
-        for (; nit != (*rit)->m_lstAttributes.end(); ++ nit)
-            os << (*nit).sName << "=\"" << (*nit).sValue << "\" ";
+            QString filterName;
+            NameValues::const_iterator nit = (*rit)->m_lstAttributes.begin();
+            for (; nit != (*rit)->m_lstAttributes.end(); ++ nit)
+            {
+                filterName = QString("res@%1").arg((*nit).sName);
+                if ((*nit).bRequired  || !filterAttributes ||
+                    filter.contains(filterName))
+                    os << (*nit).sName << "=\"" << (*nit).sValue << "\" ";
+            }
 
-        os << ">" << (*rit)->m_sURI;
-        os << "</res>" << endl;
+            os << ">" << (*rit)->m_sURI;
+            os << "</res>" << endl;
+        }
     }
 
     // ----------------------------------------------------------------------
@@ -949,3 +1031,29 @@ CDSObject *CDSObject::CreateStorageFolder( QString sId, QString sTitle, QString 
 
     return( pObject );
 }
+
+bool CDSObject::FilterContains(const FilterMap &filter, const QString& name) const
+{
+    // ContentDirectory Service, 2013 UPnP Forum
+    // 2.3.18 A_ARG_TYPE_Filter
+
+    // Exact match
+    if (filter.contains(name, Qt::CaseInsensitive))
+        return true;
+
+    // # signfies that this property and all it's children must be returned
+    // This is presently implemented higher up to save time
+
+    // If an attribute is required then it's parent must also be returned
+    QString dependentAttribute = QString("%1@").arg(name);
+    QStringList matches = filter.filter(name, Qt::CaseInsensitive);
+    QStringList::iterator it;
+    for (it = matches.begin(); it != matches.end(); ++it)
+    {
+        if ((*it).startsWith(dependentAttribute))
+            return true;
+    }
+
+    return false;
+}
+
