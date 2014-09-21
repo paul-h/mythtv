@@ -421,15 +421,52 @@ void RecorderBase::FinishRecording(void)
         if (m_primaryVideoCodec == AV_CODEC_ID_H264)
             curRecording->SaveVideoProperties(VID_AVC, VID_AVC);
 
+        RecordingFile *recFile = curRecording->GetRecordingFile();
+
+        // Video
+        recFile->m_videoCodec = ff_codec_id_string(m_primaryVideoCodec);
+        switch (curRecording->QueryAverageAspectRatio())
+        {
+            case MARK_ASPECT_1_1 :
+                recFile->m_videoAspectRatio = 1.0;
+                break;
+            case MARK_ASPECT_4_3:
+                recFile->m_videoAspectRatio = 1.33333333333;
+                break;
+            case MARK_ASPECT_16_9:
+                recFile->m_videoAspectRatio = 1.77777777777;
+                break;
+            case MARK_ASPECT_2_21_1:
+                recFile->m_videoAspectRatio = 2.21;
+                break;
+            default:
+                recFile->m_videoAspectRatio = (double)m_videoAspect / 1000000.0;
+                break;
+        }
+        QSize resolution(curRecording->QueryAverageWidth(),
+                         curRecording->QueryAverageHeight());
+        recFile->m_videoResolution = resolution;
+        recFile->m_videoFrameRate = (double)curRecording->QueryAverageFrameRate() / 1000.0;
+
+        // Audio
+        recFile->m_audioCodec = ff_codec_id_string(m_primaryAudioCodec);
+
+        recFile->Save();
+
+        SavePositionMap(true, true); // Save Position Map only, not file size
+
         if (ringBuffer)
             curRecording->SaveFilesize(ringBuffer->GetRealFileSize());
-        SavePositionMap(true);
     }
 
     LOG(VB_GENERAL, LOG_NOTICE, QString("Finished Recording: "
-                                        "Video Codec: %1 "
+                                        "Video Codec: %1 (%2x%3 A/R: %4 %5fps) "
                                         "Audio Codec: %2")
                                         .arg(avcodec_get_name(m_primaryVideoCodec))
+                                        .arg(m_videoWidth)
+                                        .arg(m_videoHeight)
+                                        .arg(m_videoAspect)
+                                        .arg(GetFrameRate())
                                         .arg(avcodec_get_name(m_primaryAudioCodec)));
 }
 
@@ -519,7 +556,7 @@ bool RecorderBase::GetKeyframeDurations(
  *         position map.
  *  \param force If true this forces a DB sync.
  */
-void RecorderBase::SavePositionMap(bool force)
+void RecorderBase::SavePositionMap(bool force, bool finished)
 {
     bool needToSave = force;
     positionMapLock.lock();
@@ -560,7 +597,7 @@ void RecorderBase::SavePositionMap(bool force)
             positionMapLock.unlock();
         }
 
-        if (ringBuffer)
+        if (ringBuffer && !finished) // Finished Recording will update the final size for us
         {
             curRecording->SaveFilesize(ringBuffer->GetWritePosition());
         }
@@ -591,6 +628,32 @@ void RecorderBase::AspectChange(uint aspect, long long frame)
     if (aspect == ASPECT_2_21_1)
         mark = MARK_ASPECT_2_21_1;
 
+    // Populate the recordfile table as early as possible, the best
+    // value will be determined when the recording completes.
+    if (curRecording->GetRecordingFile()->m_videoAspectRatio == 0.0)
+    {
+        RecordingFile *recFile = curRecording->GetRecordingFile();
+        switch (m_videoAspect)
+        {
+            case ASPECT_1_1 :
+                recFile->m_videoAspectRatio = 1.0;
+                break;
+            case ASPECT_4_3:
+                recFile->m_videoAspectRatio = 1.33333333333;
+                break;
+            case ASPECT_16_9:
+                recFile->m_videoAspectRatio = 1.77777777777;
+                break;
+            case ASPECT_2_21_1:
+                recFile->m_videoAspectRatio = 2.21;
+                break;
+            default:
+                recFile->m_videoAspectRatio = (double)m_videoAspect / 1000000.0;
+                break;
+        }
+        recFile->Save();
+    }
+
     if (curRecording)
         curRecording->SaveAspect(frame, mark, customAspect);
 }
@@ -598,13 +661,49 @@ void RecorderBase::AspectChange(uint aspect, long long frame)
 void RecorderBase::ResolutionChange(uint width, uint height, long long frame)
 {
     if (curRecording)
+    {
+        // Populate the recordfile table as early as possible, the best value
+        // value will be determined when the recording completes.
+        if (curRecording->GetRecordingFile()->m_videoResolution.isNull())
+        {
+            curRecording->GetRecordingFile()->m_videoResolution = QSize(width, height);
+            curRecording->GetRecordingFile()->Save();
+        }
         curRecording->SaveResolution(frame, width, height);
+    }
 }
 
 void RecorderBase::FrameRateChange(uint framerate, long long frame)
 {
     if (curRecording)
+    {
+        // Populate the recordfile table as early as possible, the average
+        // value will be determined when the recording completes.
+        if (!curRecording->GetRecordingFile()->m_videoFrameRate)
+        {
+            curRecording->GetRecordingFile()->m_videoFrameRate = (double)framerate / 1000.0;
+            curRecording->GetRecordingFile()->Save();
+        }
         curRecording->SaveFrameRate(frame, framerate);
+    }
+}
+
+void RecorderBase::VideoCodecChange(AVCodecID vCodec)
+{
+    if (curRecording)
+    {
+        curRecording->GetRecordingFile()->m_videoCodec = ff_codec_id_string(vCodec);
+        curRecording->GetRecordingFile()->Save();
+    }
+}
+
+void RecorderBase::AudioCodecChange(AVCodecID aCodec)
+{
+    if (curRecording)
+    {
+        curRecording->GetRecordingFile()->m_audioCodec = ff_codec_id_string(aCodec);
+        curRecording->GetRecordingFile()->Save();
+    }
 }
 
 void RecorderBase::SetDuration(uint64_t duration)

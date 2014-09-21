@@ -927,8 +927,7 @@ void TVRec::FinishedRecording(RecordingInfo *curRec, RecordingQuality *recq)
     }
 
     // Generate a preview
-    uint64_t fsize = (curRec->GetFilesize() < 1000) ?
-        curRec->QueryFilesize() : curRec->GetFilesize();
+    uint64_t fsize = curRec->GetFilesize();
     if (curRec->IsLocal() && (fsize >= 1000) &&
         (curRec->GetRecordingStatus() == rsRecorded))
     {
@@ -4303,6 +4302,9 @@ void TVRec::TuningNewRecorder(MPEGStreamData *streamData)
         goto err_ret;
     }
 
+    if (rec)
+        recorder->SetRecording(rec);
+
     if (GetDTVRecorder() && streamData)
     {
         const Setting *setting = profile.byName("recordingtype");
@@ -4313,9 +4315,6 @@ void TVRec::TuningNewRecorder(MPEGStreamData *streamData)
 
     if (channel && genOpt.cardtype == "MJPEG")
         channel->Open(); // Needed because of NVR::MJPEGInit()
-
-    if (rec)
-        recorder->SetRecording(rec);
 
     // Setup for framebuffer capture devices..
     if (channel)
