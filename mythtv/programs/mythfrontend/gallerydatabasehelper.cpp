@@ -1,4 +1,5 @@
 // Qt headers
+#include <QDir>
 
 // MythTV headers
 #include "mythcontext.h"
@@ -434,9 +435,9 @@ void GalleryDatabaseHelper::RemoveData(ImageMetadata *im)
 void GalleryDatabaseHelper::LoadDirectoryValues(MSqlQuery &query, ImageMetadata *im)
 {
     im->m_id            = query.value(0).toInt();
-    im->m_fileName      = query.value(1).toString();
     im->m_name          = query.value(2).toString();
     im->m_path          = query.value(3).toString();
+    im->m_fileName      = QDir::cleanPath(QDir(im->m_path).filePath(im->m_name));
     im->m_parentId      = query.value(4).toInt();
     im->m_dirCount      = query.value(5).toInt();
     im->m_fileCount     = query.value(6).toInt();
@@ -459,9 +460,9 @@ void GalleryDatabaseHelper::LoadDirectoryValues(MSqlQuery &query, ImageMetadata 
 void GalleryDatabaseHelper::LoadFileValues(MSqlQuery &query, ImageMetadata *im)
 {
     im->m_id            = query.value(0).toInt();
-    im->m_fileName      = query.value(1).toString();
     im->m_name          = query.value(2).toString();
     im->m_path          = query.value(3).toString();
+    im->m_fileName      = QDir::cleanPath(QDir(im->m_path).filePath(im->m_name));
     im->m_parentId      = query.value(4).toInt();
     im->m_type          = query.value(5).toInt();
     im->m_modTime       = query.value(6).toInt();
@@ -469,7 +470,7 @@ void GalleryDatabaseHelper::LoadFileValues(MSqlQuery &query, ImageMetadata *im)
     im->m_extension     = query.value(8).toString();
     im->SetAngle(         query.value(9).toInt());
     im->m_date          = query.value(10).toInt();
-    im->SetZoom(          query.value(11).toInt());
+    im->SetZoom(          query.value(11).toInt(), true);
     im->m_isHidden      = query.value(12).toInt();
     im->SetOrientation(   query.value(13).toInt(), true);
 
@@ -489,31 +490,32 @@ void GalleryDatabaseHelper::LoadDirectoryThumbnailValues(ImageMetadata *im)
     // Try to get four new thumbnail filenames
     // from the available images in this folder
     MSqlQuery query(MSqlQuery::InitCon());
-    query.prepare("SELECT CONCAT_WS('/', path, filename) FROM gallery_files "
+    query.prepare("SELECT file_id, CONCAT_WS('/', path, name) "
+                          "FROM gallery_files "
                           "WHERE path = :PATH "
-                          "AND type = '4' "
+                          "AND type = :TYPE "
                           "AND hidden = '0' LIMIT :LIMIT");
-    query.bindValue(":PATH", im->m_path);
+    query.bindValue(":PATH", im->m_fileName);
+    query.bindValue(":TYPE", kImageFile);
     query.bindValue(":LIMIT", kMaxFolderThumbnails);
 
     if (!query.exec())
         LOG(VB_GENERAL, LOG_ERR, MythDB::DBErrorMessage(query.lastError()));
 
     int i = 0;
-    while (query.next())
+    im->m_thumbFileIdList.clear();
+    while (query.next() && i < im->m_thumbFileNameList->size())
     {
         QString thumbFileName = QString("%1%2")
                 .arg("/MythImage/")
-                .arg(query.value(0).toString());
+                .arg(query.value(1).toString());
 
         thumbFileName = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(),
                                                  gCoreContext->GetMasterServerPort(),
                                                  thumbFileName, "Temp");
 
-        if (i >= im->m_thumbFileNameList->size())
-            break;
-
         im->m_thumbFileNameList->replace(i, thumbFileName);
+        im->m_thumbFileIdList.append(query.value(0).toInt());
         ++i;
     }
 }
@@ -528,7 +530,6 @@ void GalleryDatabaseHelper::LoadDirectoryThumbnailValues(ImageMetadata *im)
 void GalleryDatabaseHelper::LoadFileThumbnailValues(ImageMetadata *im)
 {
 
-
     // Create the relative path and filename to the thumbnail image
     QString thumbFileName = QString("%1%2")
             .arg("/MythImage/")
@@ -539,11 +540,12 @@ void GalleryDatabaseHelper::LoadFileThumbnailValues(ImageMetadata *im)
     if (im->m_type == kVideoFile)
         thumbFileName.append(".png");
 
-    thumbFileName = gCoreContext->GenMythURL(gCoreContext->GetSetting("MasterServerIP"),
+    thumbFileName = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(),
                                              gCoreContext->GetNumSetting("MasterServerPort"),
                                              thumbFileName, "Temp");
 
     im->m_thumbFileNameList->replace(0, thumbFileName);
+    im->m_thumbFileIdList.insert(0, im->m_id);
 }
 
 

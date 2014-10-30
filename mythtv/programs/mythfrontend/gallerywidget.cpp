@@ -2,12 +2,12 @@
 #include "gallerywidget.h"
 
 // Qt headers
-#include <QByteArray>
 #include <QXmlStreamReader>
 
 // MythTV headers
 #include "mythcontext.h"
 #include "mythmainwindow.h"
+#include "mythuihelper.h"
 
 ImageLoadingThread::ImageLoadingThread() :
     m_image(NULL),
@@ -32,7 +32,7 @@ void ImageLoadingThread::run()
     {
         m_image->SetFilename(m_url);
         m_image->SetOrientation(m_imageData->GetOrientation());
-        m_image->SetZoom(m_imageData->GetZoom() / 100);
+        m_image->SetZoom(static_cast<float>(m_imageData->GetZoom()) / 100);
         m_image->Load(false);
     }
 }
@@ -499,8 +499,6 @@ void GalleryWidget::ShowFileDetails()
     // All widgets are visible, remember this
     m_infoVisible = true;
     SetFocusWidget(m_infoList);
-
-    delete im;
 }
 
 
@@ -540,6 +538,9 @@ void GalleryWidget::LoadFile()
 
         QString url = CreateImageUrl(fileName);
 
+        // remove cache image to force a reload
+        GetMythUI()->RemoveFromCacheByFile(fileName);
+
         // This thread will loads the image so the UI is not blocked.
         m_ilt->setImage(m_fileList->at(m_index),
                         m_fileDataList->at(m_index), url);
@@ -560,7 +561,7 @@ QString GalleryWidget::CreateImageUrl(QString &fileName)
                                            fileName,
                                            m_gvh->m_sgName);
 
-    LOG(VB_GENERAL, LOG_INFO, QString("Loading image from url '%1'").arg(url));
+    LOG(VB_FILE, LOG_INFO, QString("Loading image from url '%1'").arg(url));
 
     return url;
 }

@@ -33,7 +33,34 @@
 #include "imageutils.h"
 #include "image.h"
 
+QString Image::GetImage(int id, ImageMetadata* im, const QString &function)
+{
+    QString imageFileName = QString();
 
+    ImageUtils *iu = ImageUtils::getInstance();
+    iu->LoadFileFromDB(im, id);
+
+    if (im->m_fileName.isEmpty())
+
+        LOG(VB_GENERAL, LOG_ERR, QString("%1 - Image %2 not found in DB.")
+            .arg(function)
+            .arg(id));
+    else
+    {
+        QString sgName = IMAGE_STORAGE_GROUP;
+        StorageGroup sg = StorageGroup(sgName, gCoreContext->GetHostName());
+        imageFileName = sg.FindFile(im->m_fileName);
+
+        if (imageFileName.isEmpty())
+
+            LOG(VB_GENERAL, LOG_ERR,
+                QString("%1 - Storage Group file %2 not found for image %3")
+                .arg(function)
+                .arg(im->m_fileName)
+                .arg(id));
+    }
+    return imageFileName;
+}
 
 /** \fn     Image::SetImageInfo( int id,
                                  const QString &tag,
@@ -51,17 +78,21 @@ bool Image::SetImageInfo( int id, const QString &tag,
     ImageUtils *iu = ImageUtils::getInstance();
     iu->LoadFileFromDB(im, id);
 
-    if (im->m_fileName.isEmpty())
+    QString sgName = IMAGE_STORAGE_GROUP;
+    StorageGroup sg = StorageGroup(sgName, gCoreContext->GetHostName());
+    QString imageFileName = sg.FindFile(im->m_fileName);
+
+    if (imageFileName.isEmpty())
     {
-        LOG(VB_GENERAL, LOG_ERR, "SetImageInfo - File not found in DB.");
+        LOG(VB_GENERAL, LOG_ERR,
+            QString("SetImageInfo - Image %1 not found in DB.").arg(id));
         delete im;
         return false;
     }
 
     // We got the file name from the ID, so use this method
     // which does the same but just on a filename basis.
-    bool ok;
-    ok = SetImageInfoByFileName( im->m_fileName, tag, value );
+    bool ok = SetImageInfoByFileName(imageFileName, tag, value);
 
     delete im;
     return ok;
@@ -114,22 +145,16 @@ bool Image::SetImageInfoByFileName( const QString &fileName,
 QString Image::GetImageInfo( int id, const QString &tag )
 {
     ImageMetadata *im = new ImageMetadata();
-    ImageUtils *iu = ImageUtils::getInstance();
-    iu->LoadFileFromDB(im, id);
+    QString fileName = GetImage(id, im, QString("GetImageInfo"));
+    delete im;
 
-    if (im->m_fileName.isEmpty())
-    {
-        LOG(VB_GENERAL, LOG_ERR, "GetImageInfo - File not found in DB.");
-        delete im;
+    if (fileName.isEmpty())
+
         return QString();
-    }
 
     // We got the file name from the ID, so use this method
     // which does the same but just on a filename basis.
-    QString value = GetImageInfoByFileName( im->m_fileName, tag );
-
-    delete im;
-    return value;
+    return GetImageInfoByFileName( fileName, tag );
 }
 
 
@@ -180,23 +205,16 @@ QString Image::GetImageInfoByFileName( const QString &fileName, const QString &t
 DTC::ImageMetadataInfoList* Image::GetImageInfoList( int id )
 {
     ImageMetadata *im = new ImageMetadata();
-    ImageUtils *iu = ImageUtils::getInstance();
-    iu->LoadFileFromDB(im, id);
+    QString fileName = GetImage(id, im, QString("GetImageInfoList"));
+    delete im;
 
-    if (im->m_fileName.isEmpty())
-    {
-        LOG(VB_GENERAL, LOG_ERR, "GetImageInfoList - File not found in DB");
-        delete im;
+    if (fileName.isEmpty())
+
         return NULL;
-    }
 
     // We got the file name from the ID, so use this method
     // which does the same but just on a filename basis.
-    DTC::ImageMetadataInfoList *imInfoList;
-    imInfoList = GetImageInfoListByFileName(im->m_fileName);
-
-    delete im;
-    return imInfoList;
+    return GetImageInfoListByFileName(fileName);
 }
 
 
@@ -288,21 +306,28 @@ bool Image::RemoveImage( int id )
 
     if (im->m_fileName.isEmpty())
     {
-        LOG(VB_GENERAL, LOG_ERR, "RemoveImage - File not found");
+        LOG(VB_GENERAL, LOG_ERR,
+            QString("RemoveImage - Image %1 not found in DB").arg(id));
         delete im;
         return false;
     }
 
     if (!QFile::exists( im->m_fileName ))
     {
-        LOG(VB_GENERAL, LOG_ERR, "RemoveImage - File does not exist.");
+        LOG(VB_GENERAL, LOG_ERR,
+            QString("RemoveImage - File %1 not found for image %2")
+            .arg(im->m_fileName)
+            .arg(id));
         delete im;
         return false;
     }
 
     if (!QFile::remove( im->m_fileName ))
     {
-        LOG(VB_GENERAL, LOG_ERR, "RemoveImage - Could not delete file.");
+        LOG(VB_GENERAL, LOG_ERR,
+            QString("RemoveImage - Could not delete file %1 for image %2")
+            .arg(im->m_fileName)
+            .arg(id));
         delete im;
         return false;
     }
@@ -426,7 +451,8 @@ bool Image::CreateThumbnail(int id)
 
     if (im->m_fileName.isEmpty())
     {
-        LOG(VB_GENERAL, LOG_ERR, "QueueCreateThumbnail - File not found");
+        LOG(VB_GENERAL, LOG_ERR,
+            QString("CreateThumbnail - Image %1 not found in DB").arg(id));
         delete im;
         return false;
     }
@@ -443,7 +469,8 @@ bool Image::RecreateThumbnail(int id)
 
     if (im->m_fileName.isEmpty())
     {
-        LOG(VB_GENERAL, LOG_ERR, "QueueCreateThumbnail - File not found");
+        LOG(VB_GENERAL, LOG_ERR,
+            QString("RecreateThumbnail - Image %1 not found in DB").arg(id));
         delete im;
         return false;
     }

@@ -128,21 +128,24 @@ void GalleryViewHelper::LoadTreeData()
     // Clear the list so that it can be populated with new data.
     m_currentNode->deleteAllChildren();
 
-    // If the parent is a root directory
+    // Only create each thumbnail once
+    QSet<int> done;
+
+    // If the node has a parent (ie. not the top level)
     // then add a additional directory at the beginning of the list that
     // is of the type kUpDirectory so that the user can navigate one level up.
     if (id > 0)
     {
         m_dbHelper->LoadParentDirectory(dirList, id);
-        LoadTreeNodeData(dirList, m_currentNode);
+        LoadTreeNodeData(dirList, m_currentNode, done);
     }
 
     m_dbHelper->LoadDirectories(dirList, id);
-    LoadTreeNodeData(dirList, m_currentNode);
+    LoadTreeNodeData(dirList, m_currentNode, done);
 
     // Load all files with the specified sorting criterias
     m_dbHelper->LoadFiles(fileList, id);
-    LoadTreeNodeData(fileList, m_currentNode);
+    LoadTreeNodeData(fileList, m_currentNode, done);
 
     // Start generating thumbnails if required
     m_fileHelper->StartThumbGen();
@@ -161,7 +164,8 @@ void GalleryViewHelper::LoadTreeData()
  *  \return void
  */
 void GalleryViewHelper::LoadTreeNodeData(QList<ImageMetadata *> *list,
-                                       MythGenericTree *tree)
+                                       MythGenericTree *tree,
+                                         QSet<int> &done)
 {
     // Add all items in the list to the tree
     for (int i = 0; i < list->size(); ++i)
@@ -169,7 +173,7 @@ void GalleryViewHelper::LoadTreeNodeData(QList<ImageMetadata *> *list,
         ImageMetadata *im = list->at(i);
         if (im)
         {
-            m_fileHelper->AddToThumbnailList(im);
+            m_fileHelper->AddToThumbnailList(im, done);
 
             // Create a new tree node that will hold the data
             MythGenericTree *treeItem =
@@ -401,7 +405,7 @@ void GalleryViewHelper::SetFileOrientation(int fileOrientation)
     }
     else
     {
-        im->SetOrientation(oldFileOrientation, false);
+        im->SetOrientation(oldFileOrientation, true);
 
         LOG(VB_GENERAL, LOG_ERR,
             QString("Could not write the angle %1 into the file %2. "
@@ -424,10 +428,10 @@ void GalleryViewHelper::SetFileZoom(int zoom)
         return;
 
     if (zoom == kFileZoomIn)
-        im->SetZoom(20);
+        im->SetZoom(20, false);
 
     if (zoom == kFileZoomOut)
-        im->SetZoom(-20);
+        im->SetZoom(-20, false);
 
     m_dbHelper->UpdateData(im);
 }
@@ -547,37 +551,42 @@ bool GallerySyncStatusThread::isSyncRunning()
  */
 void GallerySyncStatusThread::run()
 {
-    volatile bool exit = false;
+    bool syncDetected = false;
+
     GalleryFileHelper *fh = new GalleryFileHelper();
 
     // Internal counter that tracks how many
     // times we have been in the while loop
     int loopCounter = 0;
 
-    while (!exit)
+    while (true)
     {
         GallerySyncStatus status = fh->GetSyncStatus();
 
         LOG(VB_GENERAL, LOG_DEBUG,
-            QString("GallerySyncStatusThread: Sync status is running: %1, Syncing image '%2' of '%3'")
+            QString("GallerySyncStatusThread: Sync status is running: %1, "
+                    "Syncing image '%2' of '%3'")
             .arg(status.running).arg(status.current).arg(status.total));
 
-        // Only update the progress text
-        // if the sync is still running
+        // Update the progress text whilst the sync is running
         if (status.running)
-            emit UpdateSyncProgress(status.current, status.total);
-
-        // Try at least one time to get the sync
-        // status before checking for the exit condition
-        if (loopCounter >= 1)
         {
-            if (status.running == false)
-                exit = true;
+            syncDetected = true;
+            emit UpdateSyncProgress(status.current, status.total);
         }
+        // Check at least twice before quitting
+        else if (loopCounter >= 1)
+        {
+            // only refresh UI after syncs
+            if (syncDetected)
+                emit SyncComplete();
 
+            // die
+            break;
+        }
         // Wait some time before trying to get and update the status
         // This also avoids too many calls to the service api.
-        usleep(999999);
+        usleep(500000);
 
         ++loopCounter;
     }
