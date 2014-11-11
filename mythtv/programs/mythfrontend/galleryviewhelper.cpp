@@ -102,10 +102,6 @@ void GalleryViewHelper::LoadTreeData()
     QList<ImageMetadata *> *dirList = new QList<ImageMetadata *>;
     QList<ImageMetadata *> *fileList = new QList<ImageMetadata *>;
 
-    // Stop generating thumbnails
-    // when a new directory is loaded
-    m_fileHelper->StopThumbGen();
-
     // The parent id is the database index of the
     // directories which subdirectories and files shall be loaded
     int id = 0;
@@ -128,27 +124,21 @@ void GalleryViewHelper::LoadTreeData()
     // Clear the list so that it can be populated with new data.
     m_currentNode->deleteAllChildren();
 
-    // Only create each thumbnail once
-    QSet<int> done;
-
     // If the node has a parent (ie. not the top level)
     // then add a additional directory at the beginning of the list that
     // is of the type kUpDirectory so that the user can navigate one level up.
     if (id > 0)
     {
         m_dbHelper->LoadParentDirectory(dirList, id);
-        LoadTreeNodeData(dirList, m_currentNode, done);
+        LoadTreeNodeData(dirList, m_currentNode);
     }
 
     m_dbHelper->LoadDirectories(dirList, id);
-    LoadTreeNodeData(dirList, m_currentNode, done);
+    LoadTreeNodeData(dirList, m_currentNode);
 
     // Load all files with the specified sorting criterias
     m_dbHelper->LoadFiles(fileList, id);
-    LoadTreeNodeData(fileList, m_currentNode, done);
-
-    // Start generating thumbnails if required
-    m_fileHelper->StartThumbGen();
+    LoadTreeNodeData(fileList, m_currentNode);
 
     // clean up
     delete dirList;
@@ -164,8 +154,7 @@ void GalleryViewHelper::LoadTreeData()
  *  \return void
  */
 void GalleryViewHelper::LoadTreeNodeData(QList<ImageMetadata *> *list,
-                                       MythGenericTree *tree,
-                                         QSet<int> &done)
+                                       MythGenericTree *tree)
 {
     // Add all items in the list to the tree
     for (int i = 0; i < list->size(); ++i)
@@ -173,7 +162,8 @@ void GalleryViewHelper::LoadTreeNodeData(QList<ImageMetadata *> *list,
         ImageMetadata *im = list->at(i);
         if (im)
         {
-            m_fileHelper->AddToThumbnailList(im, done);
+            // don't recreate any existing thumbnails
+            m_fileHelper->AddToThumbnailList(im, false);
 
             // Create a new tree node that will hold the data
             MythGenericTree *treeItem =
@@ -195,45 +185,20 @@ void GalleryViewHelper::LoadTreeNodeData(QList<ImageMetadata *> *list,
  */
 void GalleryViewHelper::RenameCurrentNode(QString &newName)
 {
-    bool fileExist = false;
+    ImageMetadata *im = GetImageMetadataFromSelectedNode();
+    if (!im)
+        return;
 
-    // Check if the file with the new name already exists in the current directory
-    QList<MythGenericTree *> *nodeTree = m_currentNode->getAllChildren();
-    for (int i = 0; i < nodeTree->size(); i++)
+    if (m_fileHelper->RenameFile(im, newName))
     {
-        ImageMetadata *im = nodeTree->at(i)->GetData().value<ImageMetadata *>();
-        if (im)
-        {
-            if (im->m_name.compare(newName) == 0)
-            {
-                fileExist = true;
-                break;
-            }
-        }
-    }
+        // replace the original filename with the
+        // new one in the pull path + filename variable
+        QString newFileName = im->m_fileName.replace(im->m_name, newName);
 
-    // The file with the given new name does not yet exist.
-    // Continue with the renaming of the file
-    if (!fileExist)
-    {
-        ImageMetadata *im = GetImageMetadataFromSelectedNode();
-        if (!im)
-            return;
-
-        if (m_fileHelper->RenameFile(im, newName))
-        {
-            // replace the original filename with the
-            // new one in the pull path + filename variable
-            QString newFileName = im->m_fileName.replace(im->m_name, newName);
-
-            im->m_fileName = newFileName;
-            im->m_name = newName;
-
-            m_dbHelper->UpdateData(im);
-        }
+        im->m_fileName = newFileName;
+        im->m_name = newName;
     }
 }
-
 
 
 /** \fn     GalleryViewHelper::DeleteCurrentNode()
@@ -243,24 +208,20 @@ void GalleryViewHelper::RenameCurrentNode(QString &newName)
 void GalleryViewHelper::DeleteCurrentNode()
 {
     ImageMetadata *im = GetImageMetadataFromSelectedNode();
-    if (!im)
-        return;
 
-    // Delete the file and remove the database entry
-    if (m_fileHelper->RemoveFile(im))
-    {
-        // Remove the entry from the node list
-        m_currentNode->deleteNode(m_currentNode->getSelectedChild());
+    // TODO: Remove directories as well
+    if (im && im->m_type >= kImageFile)
 
-        // Only remove the first thumbnail when it is an image or video.
-        // If its a folder, it will use thumbnails from other images
-        if (im->m_type == kImageFile || im->m_type == kVideoFile)
-            QFile::remove(im->m_thumbFileNameList->at(0));
+        // Delete the file and remove the database entry
+        if (m_fileHelper->RemoveFile(im))
+        {
+            // Remove the entry from the node list
+            m_currentNode->deleteNode(m_currentNode->getSelectedChild());
 
-        m_dbHelper->RemoveFile(im);
-    }
+            // Clean up thumbnail cache
+            GetMythUI()->RemoveFromCacheByFile(im->m_thumbFileNameList->at(0));
+        }
 }
-
 
 
 /** \fn     GalleryViewHelper::DeleteSelectedNodes()
@@ -273,18 +234,15 @@ void GalleryViewHelper::DeleteSelectedNodes()
     for (int i = 0; i < nodeTree->size(); i++)
     {
         ImageMetadata *im = nodeTree->at(i)->GetData().value<ImageMetadata *>();
-        if (im && im->m_selected)
+
+        // TODO: Remove directories as well
+        if (im && im->m_selected && im->m_type >= kImageFile)
         {
-            // Delete the file and remove the
-            // database entry only if it was successful
+            // Delete the file and remove the database entry
             if (m_fileHelper->RemoveFile(im))
             {
-                // Only remove the first thumbnail when it is an image or video.
-                // If its a folder, it will use thumbnails from other images
-                if (im->m_type == kImageFile || im->m_type == kVideoFile)
-                    QFile::remove(im->m_thumbFileNameList->at(0));
-
-                m_dbHelper->RemoveFile(im);
+                // Clean up thumbnail cache
+                GetMythUI()->RemoveFromCacheByFile(im->m_thumbFileNameList->at(0));
 
                 // Remove the entry from the node list
                 m_currentNode->deleteNode(nodeTree->at(i));
@@ -376,7 +334,6 @@ void GalleryViewHelper::SetNodeVisibilityState(int nodeState)
 }
 
 
-
 /** \fn     GalleryViewHelper::SetFileOrientation(int)
  *  \brief  Saves the orientation information of the selected node
  *  \param  fileOrientation The orientation value 1-8
@@ -395,25 +352,21 @@ void GalleryViewHelper::SetFileOrientation(int fileOrientation)
     // value will then be saved in the exif header tag.
     im->SetOrientation(fileOrientation, false);
 
-    // Update the exif tag, if that fails we can restore the original
-    // orientation so that the database and image file are not out of sync
+    // Request orientation update
     if (m_fileHelper->SetImageOrientation(im))
     {
-        m_dbHelper->UpdateData(im);
-        m_fileHelper->RecreateThumbnail(im);
-        m_fileHelper->StartThumbGen();
+        // force thumbnail to be regenerated
+        m_fileHelper->AddToThumbnailList(im, true);
     }
     else
     {
+        // Restore previous orientation
         im->SetOrientation(oldFileOrientation, true);
 
-        LOG(VB_GENERAL, LOG_ERR,
-            QString("Could not write the angle %1 into the file %2. "
-                    "The database value has not been updated.")
-            .arg(im->GetAngle()).arg(im->m_fileName));
+        LOG(VB_GENERAL, LOG_ERR, QString("Orientation update failed for %1")
+            .arg(im->m_fileName));
     }
 }
-
 
 
 /** \fn     GalleryViewHelper::SetFileZoom(int)
@@ -498,22 +451,6 @@ ImageMetadata *GalleryViewHelper::GetImageMetadataFromNode(int i)
         return NULL;
 
     return im;
-}
-
-
-
-/** \fn     GalleryViewHelper::SetPreviewImageSize(MythUIButtonList *)
- *  \brief  Gets and saves the size of the shown image previews which
- *          will be used to create thumbnails of the given dimensions.
- *  \param  imageList The widget where the themer has specified the images sizes
- *  \return void
- */
-void GalleryViewHelper::SetPreviewImageSize(MythUIButtonList *imageList)
-{
-    float width  = (float)imageList->ItemWidth();
-    float height = (float)imageList->ItemHeight();
-
-    m_fileHelper->SetThumbnailSize((int)width, (int)height);
 }
 
 
