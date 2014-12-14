@@ -1192,8 +1192,6 @@ QStringList MythUIHelper::GetThemeSearchPath(void)
         themeName = baseName;
     }
 
-    searchpath.append(GetThemesParentDir() + GetThemeName() + '/');
-
     if (d->m_isWide)
         d->m_searchPaths.append(GetThemesParentDir() + "default-wide/");
 
