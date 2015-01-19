@@ -1073,6 +1073,9 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
 
 void MainServer::customEvent(QEvent *e)
 {
+    if (!e)
+        return;
+
     QStringList broadcast;
     QSet<QString> receivers;
 
@@ -4400,6 +4403,7 @@ void MainServer::HandleRecorderQuery(QStringList &slist, QStringList &commands,
         else
         {
             ProgramInfo dummy;
+            dummy.SetCardID(enc->GetCardID());
             dummy.ToStringList(retlist);
         }
     }
@@ -4463,6 +4467,7 @@ void MainServer::HandleRecorderQuery(QStringList &slist, QStringList &commands,
         else
         {
             ProgramInfo dummy;
+            dummy.SetCardID(enc->GetCardID());
             dummy.ToStringList(retlist);
         }
     }
@@ -4877,6 +4882,7 @@ void MainServer::HandleRemoteEncoder(QStringList &slist, QStringList &commands,
         else
         {
             ProgramInfo dummy;
+            dummy.SetCardID(enc->GetCardID());
             dummy.ToStringList(retlist);
         }
     }
@@ -8379,6 +8385,7 @@ void MainServer::reconnectTimeout(void)
         else
         {
             ProgramInfo dummy;
+            dummy.SetCardID(elink->GetCardID());
             dummy.ToStringList(strlist);
         }
     }
