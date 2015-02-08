@@ -156,14 +156,16 @@ bool HtmlServerExtension::ProcessRequest( HTTPRequest *pRequest )
                                                 // if we switch to triggering that through an internal request then these would be better
                                                 // enabled
                                                 //"default-src 'self'; "
-                                                //"connect-src 'self; "
-                                                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " // FIXME: unsafe-inline should be phased out, replaced by nonce-{csp_nonce}
+                                                //"connect-src 'self' https://services.mythtv.org; "
+                                                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://services.mythtv.org; " // FIXME: unsafe-inline should be phased out, replaced by nonce-{csp_nonce}
                                                 "style-src 'self' 'unsafe-inline'; "
-                                                "frame-src 'none'; "
+                                                "frame-src 'self'; "
                                                 "object-src 'self'; " // TODO: When we no longer require flash for some browsers, change this to 'none'
                                                 "media-src 'self'; "
                                                 "font-src 'self'; "
-                                                "image-src 'self'; "
+                                                "img-src 'self'; "
+                                                "form-action 'self'; "
+                                                "frame-ancestors 'self'; "
                                                 "reflected-xss filter;");
 
                     // ------------------------------------------------------
