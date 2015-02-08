@@ -2793,7 +2793,7 @@ void PlaybackBox::setStorageGroup(QString group)
 
     if (m_playList.size() > 0)
     {
-        QStringList::Iterator it;
+        QList<uint>::Iterator it;
         ProgramInfo *tmpItem;
 
         for (it = m_playList.begin(); it != m_playList.end(); ++it )
