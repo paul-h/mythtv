@@ -394,14 +394,14 @@ if (nextStartIndex > 0)
     var queryString = toQueryString(obj);
 %>
 
-<a class="jscroll-next" href="/tv/programsearch.qsp?<%=queryString%>&amp;ListOnly=1" />
+<a class="jscroll-next" href="/tv/programsearch.qsp?<%=encodeURIComponent(queryString)%>&amp;ListOnly=1" />
 <%}%>
 
 <% if (!listOnly) {%>
 </div> <!-- End programList -->
 </div> <!-- End programList-container -->
 
-<script>
+<script type="text/javascript" nonce="<%=CSP_NONCE%>">
     function disableFieldset( event, ui )
     {
         if (isValidObject(ui.panel))
@@ -422,7 +422,7 @@ if (nextStartIndex > 0)
 </script>
 
 <% if (programs.length > 0) {%>
-<script>
+<script type="text/javascript" nonce="<%=CSP_NONCE%>">
     loadJScroll();
 </script>
 <%}%>
@@ -430,7 +430,7 @@ if (nextStartIndex > 0)
 <%
     var pageLoadEndTime = new Date();
 %>
-<script>
+<script type="text/javascript" nonce="<%=CSP_NONCE%>">
     console.log("Page Load Time: <%=pageLoadEndTime.getTime() - pageLoadStartTime.getTime()%>ms, Program Load Time: <%=progLoadTimeEnd.getTime() - progLoadTimeStart.getTime()%>ms");
 </script>
 

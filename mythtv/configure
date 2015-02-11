@@ -6265,9 +6265,8 @@ fi
 enabled dvb && check_cc -I"$dvb_path" <<EOF && enable fe_can_2g_modulation
 #include <linux/dvb/frontend.h>
 int main(void) {
-    #ifndef FE_CAN_2G_MODULATION
-        #error FE_CAN_2G_MODULATION not supported
-    #endif
+    if (FE_CAN_2G_MODULATION)
+        return 1;
     return 0;
 }
 EOF
@@ -6380,7 +6379,7 @@ int main(void) {
                                        CEC_LIB_VERSION_MINOR < 7))
         #error libcec version to old
     #endif
-    return (long) LibCecInit;
+    return 1;
 }
 EOF
 fi
@@ -6401,7 +6400,7 @@ fi
 enabled libxml2 && check_cc -I"$libxml2_path" <<EOF && add_extralibs "-lxml2" || disable libxml2
 #include <libxml/xmlversion.h>
 int main(void) {
-    #if (LIBXML_VERSION > 20600)
+    #if (LIBXML_VERSION < 20600)
         #error libxml2 version to old
     #endif
     return 0;

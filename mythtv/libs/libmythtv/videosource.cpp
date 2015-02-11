@@ -2020,7 +2020,7 @@ void CetonSetting::LoadValue(const QString &value)
 CetonDeviceID::CetonDeviceID(const CaptureCard &parent) :
     LabelSetting(this),
     CaptureCardDBStorage(this, parent, "videodevice"),
-    _ip(), _card(), _tuner()
+    _ip(), _card(), _tuner(), _parent(parent)
 {
     setLabel(tr("Device ID"));
     setHelpText(tr("Device ID of Ceton device"));
@@ -2059,6 +2059,8 @@ void CetonDeviceID::UpdateValues(void)
         emit LoadedIP(newstyle.cap(1));
         emit LoadedTuner(newstyle.cap(3));
     }
+    if (_parent.getCardID())
+        emit LoadedInstances((int)_parent.GetInstanceCount());
 }
 
 CetonConfigurationGroup::CetonConfigurationGroup(CaptureCard& a_parent) :
@@ -2092,6 +2094,8 @@ CetonConfigurationGroup::CetonConfigurationGroup(CaptureCard& a_parent) :
             ip,       SLOT(  LoadValue(const QString&)));
     connect(deviceid, SIGNAL(LoadedTuner(const QString&)),
             tuner,    SLOT(  LoadValue(const QString&)));
+    connect(deviceid, SIGNAL(LoadedInstances(int)),
+            instances, SLOT(  setValue(int)));
     connect(instances, SIGNAL(valueChanged(int)),
             &parent,   SLOT(  SetInstanceCount(int)));
 
@@ -2420,7 +2424,7 @@ void CaptureCard::fillSelections(SelectSetting *setting)
     QString qstr =
         "SELECT cardid, videodevice, cardtype "
         "FROM capturecard "
-        "WHERE hostname = :HOSTNAME "
+        "WHERE hostname = :HOSTNAME AND parentid = 0 "
         "ORDER BY cardid";
 
     query.prepare(qstr);
@@ -2432,18 +2436,11 @@ void CaptureCard::fillSelections(SelectSetting *setting)
         return;
     }
 
-    QMap<QString, uint> device_refs;
     while (query.next())
     {
         uint    cardid      = query.value(0).toUInt();
         QString videodevice = query.value(1).toString();
         QString cardtype    = query.value(2).toString();
-
-        bool sharable = CardUtil::IsTunerSharingCapable(cardtype.toUpper());
-
-        if (sharable && (1 != ++device_refs[videodevice]))
-            continue;
-
         QString label = CardUtil::GetDeviceLabel(cardtype, videodevice);
         setting->addSelection(label, QString::number(cardid));
     }
@@ -2455,19 +2452,8 @@ void CaptureCard::loadByID(int cardid)
     Load();
 
     // Update instance count for cloned cards.
-    uint new_cnt = 0;
-    if (cardid > 0)
-    {
-        QString type = CardUtil::GetRawCardType(cardid);
-        if (CardUtil::IsTunerSharingCapable(type))
-        {
-            QString dev = CardUtil::GetVideoDevice(cardid);
-            QString input = CardUtil::GetInputName(cardid);
-            vector<uint> cardids = CardUtil::GetCardIDs(dev, type, input);
-            new_cnt = cardids.size();
-        }
-    }
-    instance_count = new_cnt;
+    if (cardid)
+        instance_count = CardUtil::GetChildCardCount(cardid) + 1;
 }
 
 void CaptureCard::Save(void)
@@ -2476,9 +2462,7 @@ void CaptureCard::Save(void)
     QString init_type = CardUtil::GetRawCardType(init_cardid);
     QString init_dev = CardUtil::GetVideoDevice(init_cardid);
     QString init_input = CardUtil::GetInputName(init_cardid);
-    vector<uint> cardids;
-    if (!init_dev.isEmpty())
-        cardids = CardUtil::GetCardIDs(init_dev, init_type, init_input);
+    vector<uint> cardids = CardUtil::GetChildCardIDs(init_cardid);
 
     ////////
 
@@ -2489,8 +2473,6 @@ void CaptureCard::Save(void)
     uint cardid = getCardID();
     QString type = CardUtil::GetRawCardType(cardid);
     QString dev = CardUtil::GetVideoDevice(cardid);
-    if (cardids.empty())
-        cardids.push_back(cardid);
 
     if (dev != init_dev)
     {
@@ -2515,26 +2497,25 @@ void CaptureCard::Save(void)
     if (!instance_count)
     {
         instance_count = (init_cardid) ?
-            max((size_t)1, cardids.size()) : kDefaultMultirecCount;
+            max((size_t)1, cardids.size() + 1) : kDefaultMultirecCount;
     }
 
     // Delete old clone cards as required.
-    for (uint i = cardids.size() - 1;
-         (i > instance_count - 1) && !cardids.empty(); --i)
+    for (uint i = cardids.size() + 1;
+         (i > instance_count) && !cardids.empty(); --i)
     {
         CardUtil::DeleteCard(cardids.back());
         cardids.pop_back();
     }
 
     // Clone this config to existing clone cards.
-    for (uint i = 0; i < cardids.size(); i++)
+    for (uint i = 0; i < cardids.size(); ++i)
     {
-        if (cardids[i] != cardid)
-            CardUtil::CloneCard(cardid, cardids[i]);
+        CardUtil::CloneCard(cardid, cardids[i]);
     }
 
     // Create new clone cards as required.
-    for (uint i = cardids.size(); i < instance_count; i++)
+    for (uint i = cardids.size() + 1; i < instance_count; i++)
     {
         CardUtil::CloneCard(cardid, 0);
     }
@@ -3292,15 +3273,11 @@ void CardInput::Save(void)
 
     // Handle any cloning we may need to do
     QString type = CardUtil::GetRawCardType(src_cardid);
-    QString dev = CardUtil::GetVideoDevice(src_cardid);
     if (CardUtil::IsTunerSharingCapable(type))
     {
-        vector<uint> clones = CardUtil::GetCardIDs(dev, type, init_input);
-        if (clones.size())
-        {
-            for (uint i = 0; i < clones.size(); i++)
-                CardUtil::CloneCard(src_cardid, clones[i]);
-        }
+        vector<uint> clones = CardUtil::GetChildCardIDs(src_cardid);
+        for (uint i = 0; i < clones.size(); i++)
+            CardUtil::CloneCard(src_cardid, clones[i]);
     }
 
     // Delete any orphaned inputs
@@ -3593,6 +3570,7 @@ void CardInputEditor::Load(void)
         "SELECT cardid, videodevice, cardtype, inputname "
         "FROM capturecard "
         "WHERE hostname = :HOSTNAME "
+        "      AND parentid = 0 "
         "ORDER BY cardid");
     query.bindValue(":HOSTNAME", gCoreContext->GetHostName());
 
@@ -3612,11 +3590,6 @@ void CardInputEditor::Load(void)
         QString inputname   = query.value(3).toString();
         if (inputname.isEmpty())
             inputname = QObject::tr("(None)");
-
-        bool sharable = CardUtil::IsTunerSharingCapable(cardtype.toUpper());
-
-        if (sharable && (1 != ++device_refs[videodevice]))
-            continue;
 
         CardInput *cardinput = new CardInput(cardtype, false, cardid);
         cardinput->loadByID(cardid);
