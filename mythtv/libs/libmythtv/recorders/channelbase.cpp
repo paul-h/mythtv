@@ -868,17 +868,20 @@ uint ChannelBase::GetScriptStatus(bool holding_lock)
 /// \note m_system_lock must be held when this is called
 void ChannelBase::HandleScriptEnd(bool ok)
 {
-    LOG(VB_CHANNEL, LOG_INFO, LOC + QString("Channel change script %1")
-        .arg((ok) ? "succeeded" : "failed"));
-
     if (ok)
     {
+        LOG(VB_CHANNEL, LOG_INFO, LOC + "Channel change script succeeded.");
+
         InputMap::const_iterator it = m_inputs.find(m_currentInputID);
         if (it != m_inputs.end())
         {
             // Set this as the future start channel for this source
             (*it)->startChanNum = m_curchannelname;
         }
+    }
+    else
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Channel change script failed.");
     }
 }
 
@@ -1171,7 +1174,7 @@ ChannelBase *ChannelBase::CreateChannel(
     bool                      enter_power_save_mode,
     QString                  &rbFileExt)
 {
-    rbFileExt = "mpg";
+    rbFileExt = "ts";
 
     ChannelBase *channel = NULL;
     if (genOpt.cardtype == "DVB")
@@ -1200,8 +1203,9 @@ ChannelBase *ChannelBase::CreateChannel(
               genOpt.videodev.toLower().startsWith("file:")))
     {
         channel = new DummyChannel(tvrec);
+        rbFileExt = "mpg";
     }
-    else if (genOpt.cardtype == "FREEBOX")
+    else if (genOpt.cardtype == "FREEBOX") // IPTV
     {
 #ifdef USING_IPTV
         channel = new IPTVChannel(tvrec, genOpt.videodev);
@@ -1226,10 +1230,13 @@ ChannelBase *ChannelBase::CreateChannel(
 #endif
         if ((genOpt.cardtype != "MPEG") && (genOpt.cardtype != "HDPVR"))
             rbFileExt = "nuv";
+        else
+            rbFileExt = "mpg";
     }
     else if (genOpt.cardtype == "EXTERNAL")
     {
         channel = new ExternalChannel(tvrec, genOpt.videodev);
+        rbFileExt = "mpg";
     }
 
     if (!channel)
