@@ -20,13 +20,14 @@
 #include <cmath>
 #include <cstdarg>
 
+#include <unistd.h>       // for usleep()
+
 #include <queue>
 #include <algorithm>
 using namespace std;
 
 #ifdef _WIN32
 #include <winsock2.h>
-#include <unistd.h>
 #else
 #include <locale.h>
 #endif
@@ -1902,7 +1903,7 @@ bool MythCoreContext::TestPluginVersion(const QString &name,
     if (libversion == pluginversion)
         return true;
 
-    LOG(VB_GENERAL, LOG_EMERG, LOC + 
+    LOG(VB_GENERAL, LOG_EMERG, LOC +
              QString("Plugin %1 (%2) binary version does not "
                      "match libraries (%3)")
                  .arg(name).arg(pluginversion).arg(libversion));

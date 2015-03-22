@@ -1,6 +1,8 @@
+
+#include "tv_play.h"
+
 #include <cstdlib>
 #include <cstdarg>
-#include <cstring>
 #include <cmath>
 #include <unistd.h>
 #include <stdint.h>
@@ -12,59 +14,68 @@ using namespace std;
 #include <QKeyEvent>
 #include <QRunnable>
 #include <QRegExp>
-#include <QTimer>
 #include <QEvent>
 #include <QFile>
-#include <QDir>
 #include <QDomDocument>
 #include <QDomElement>
 #include <QDomNode>
+#include <QEvent>
+#include <QKeyEvent>
+#include <QTimerEvent>
 
+#include "mythconfig.h"
+
+// libmythbase
+#include "mthreadpool.h"
 #include "signalhandling.h"
 #include "mythdb.h"
-#include "tv_play.h"
-#include "tv_rec.h"
 #include "mythcorecontext.h"
-#include "remoteencoder.h"
+#include "mythlogging.h"
+#include "lcddevice.h"
+#include "compat.h"
+#include "mythdirs.h"
+#include "mythmedia.h"
+
+// libmyth
+#include "programinfo.h"
 #include "remoteutil.h"
+
+// libmythui
+#include "mythuistatetracker.h"
+#include "mythuihelper.h"
+#include "mythdialogbox.h"
+#include "mythmainwindow.h"
+#include "mythscreenstack.h"
+#include "mythscreentype.h"
+#include "DisplayRes.h"
+#include "mythuiactions.h"              // for ACTION_LEFT, ACTION_RIGHT, etc
+
+// libmythtv
+#include "DVD/dvdringbuffer.h"
+#include "Bluray/bdringbuffer.h"
+#include "remoteencoder.h"
 #include "tvremoteutil.h"
 #include "mythplayer.h"
 #include "subtitlescreen.h"
 #include "DetectLetterbox.h"
-#include "programinfo.h"
-#include "vsync.h"
-#include "lcddevice.h"
 #include "jobqueue.h"
-#include "audiooutput.h"
-#include "DisplayRes.h"
-#include "signalmonitorvalue.h"
-#include "scheduledrecording.h"
-#include "recordingrule.h"
-#include "mythmiscutil.h"
-#include "previewgenerator.h"
-#include "mythconfig.h"
 #include "livetvchain.h"
 #include "playgroup.h"
 #include "datadirect.h"
 #include "sourceutil.h"
 #include "cardutil.h"
 #include "channelutil.h"
-#include "compat.h"
-#include "mythuihelper.h"
-#include "mythdialogbox.h"
-#include "mythmainwindow.h"
-#include "mythscreenstack.h"
-#include "mythscreentype.h"
 #include "tv_play_win.h"
 #include "recordinginfo.h"
+#include "signalmonitorvalue.h"
+#include "recordingrule.h"
 #include "mythsystemevent.h"
 #include "videometadatautil.h"
-#include "mythdirs.h"
 #include "tvbrowsehelper.h"
-#include "mythlogging.h"
-#include "mythuistatetracker.h"
-#include "DVD/dvdringbuffer.h"
-#include "Bluray/bdringbuffer.h"
+#include "playercontext.h"              // for PlayerContext, osdInfo, etc
+#include "programtypes.h"
+#include "ringbuffer.h"                 // for RingBuffer, etc
+#include "tv_actions.h"                 // for ACTION_TOGGLESLEEP, etc
 
 #if ! HAVE_ROUND
 #define round(x) ((int) ((x) + 0.5))
