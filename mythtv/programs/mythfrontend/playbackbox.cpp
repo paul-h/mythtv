@@ -40,6 +40,8 @@
 #include "mythdb.h"
 #include "mythdate.h"
 #include "tv.h"
+#include "storagegroup.h"
+#include "mthreadpool.h"
 
 #ifdef _MSC_VER
 #  include "compat.h"                   // for random

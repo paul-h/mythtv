@@ -15,9 +15,6 @@
 #include <iostream>
 #include <unistd.h>
 
-// qt
-#include <qapplication.h>
-
 // myth
 #include <mythcontext.h>
 #include <mythplugin.h>

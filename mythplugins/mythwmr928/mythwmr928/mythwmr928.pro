@@ -2,7 +2,7 @@ include ( ../../mythconfig.mak )
 include ( ../../settings.pro )
 include ( ../../programs-libs.pro )
 
-QT += network sql xml
+QT += network sql xml widgets
 
 INCLUDEPATH += $${PREFIX}/include/mythtv
 INCLUDEPATH += $${PREFIX}/include/mythtv/libmythui
