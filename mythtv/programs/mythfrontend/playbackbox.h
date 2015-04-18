@@ -141,8 +141,10 @@ class PlaybackBox : public ScheduleCommon
     void ItemVisible(MythUIButtonListItem *item);
     void ItemLoaded(MythUIButtonListItem *item);
     void selected(MythUIButtonListItem *item);
+    void PlayFromBookmarkOrProgStart(MythUIButtonListItem *item = NULL);
     void PlayFromBookmark(MythUIButtonListItem *item = NULL);
     void PlayFromBeginning(MythUIButtonListItem *item = NULL);
+    void PlayFromLastPlayPos(MythUIButtonListItem *item = NULL);
     void deleteSelected(MythUIButtonListItem *item);
 
     void SwitchList(void);
@@ -274,11 +276,15 @@ class PlaybackBox : public ScheduleCommon
 
     void PlayX(const ProgramInfo &rec,
                bool ignoreBookmark,
+               bool ignoreProgStart,
+               bool ignoreLastPlayPos,
                bool underNetworkControl);
 
     bool Play(const ProgramInfo &rec,
               bool inPlaylist,
               bool ignoreBookmark,
+              bool ignoreProgStart,
+              bool ignoreLastPlayPos,
               bool underNetworkControl);
 
     virtual ProgramInfo *GetCurrentProgram(void) const;
