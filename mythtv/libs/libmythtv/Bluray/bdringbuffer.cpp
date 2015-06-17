@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QCoreApplication>
 
+#include "util/log_control.h"
 #include "libbluray/bdnav/mpls_parse.h"
 #include "libbluray/bdnav/meta_data.h"
 #include "libbluray/bdnav/navigation.h"
@@ -14,6 +15,7 @@
 #include "mythmainwindow.h"
 #include "mythevent.h"
 #include "iso639.h"
+#include "bdiowrapper.h"
 #include "bdringbuffer.h"
 #include "mythlogging.h"
 #include "mythcorecontext.h"
@@ -38,6 +40,11 @@ static void file_opened_callback(void* bdr)
     BDRingBuffer *obj = (BDRingBuffer*)bdr;
     if (obj)
         obj->ProgressUpdate();
+}
+
+static void bd_logger(const char* msg)
+{
+    LOG(VB_PLAYBACK, LOG_DEBUG, QString("libbluray: %1").arg(QString(msg).trimmed()));
 }
 
 static int _img_read(void *handle, void *buf, int lba, int num_blocks)
@@ -280,7 +287,7 @@ bool BDRingBuffer::OpenFile(const QString &lfilename, uint retry_ms)
     safefilename = lfilename;
     filename = lfilename;
 
-        // clean path filename
+    // clean path filename
     QString filename = QDir(QDir::cleanPath(lfilename)).canonicalPath();
     if (filename.isEmpty())
     {
@@ -292,6 +299,13 @@ bool BDRingBuffer::OpenFile(const QString &lfilename, uint retry_ms)
 
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Opened BDRingBuffer device at %1")
             .arg(filename));
+
+    // Make sure log messages from the Bluray library appear in our logs
+    bd_set_debug_handler(bd_logger);
+    bd_set_debug_mask(DBG_CRIT | DBG_NAV | DBG_BLURAY);
+
+    // Use our own wrappers for file and directory access
+    redirectBDIO();
 
     // Ask mythiowrapper to update this object on file open progress. Opening
     // a bluray disc can involve opening several hundred files which can take

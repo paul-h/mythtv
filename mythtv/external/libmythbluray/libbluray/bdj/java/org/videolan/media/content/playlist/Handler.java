@@ -72,6 +72,7 @@ public class Handler extends BDHandler {
         synchronized (this) {
             try {
                 locator = new BDLocator(source.getLocator().toExternalForm());
+                currentLocator = null;
             } catch (org.davic.net.InvalidLocatorException e) {
                 throw new IncompatibleSourceException();
             }
@@ -129,7 +130,7 @@ public class Handler extends BDHandler {
                 updateTime(new Time(Libbluray.tellTime() * TO_SECONDS));
 
                 currentLocator = new BDLocator(locator.toExternalForm());
-            } catch (Throwable e) {
+            } catch (Exception e) {
                 return new ConnectionErrorEvent(this);
             }
             return super.doPrefetch();
@@ -141,14 +142,14 @@ public class Handler extends BDHandler {
             if (at != null) {
                 try {
                     Libbluray.seekTime((long)(at.getSeconds() * FROM_SECONDS));
-                } catch (Throwable e) {
+                } catch (Exception e) {
                     return new ConnectionErrorEvent(this);
                 }
             }
 
             try {
                 Libbluray.selectRate(rate, true);
-            } catch (Throwable e) {
+            } catch (Exception e) {
                 return new ConnectionErrorEvent(this);
             }
 
@@ -167,7 +168,7 @@ public class Handler extends BDHandler {
             if ((state == Prefetched) || (state == Started)) {
                 try {
                     Libbluray.seekTime((long)(at.getSeconds() * FROM_SECONDS));
-                } catch (Throwable e) {
+                } catch (Exception e) {
                     return;
                 }
                 at = new Time(Libbluray.tellTime() * TO_SECONDS);
@@ -181,7 +182,7 @@ public class Handler extends BDHandler {
             if (state == Started) {
                 try {
                     Libbluray.selectRate(factor.floatValue());
-                } catch (Throwable e) {
+                } catch (Exception e) {
                     return;
                 }
                 if (state == Started) {
@@ -294,7 +295,11 @@ public class Handler extends BDHandler {
 
     protected void doEndOfMediaReached(int playlist) {
         synchronized (this) {
-            if (locator == null || locator.getPlayListId() != playlist) {
+            if (locator == null) {
+                System.err.println("endOfMedia(" + playlist + ") ignored: no current locator");
+                return;
+            }
+            if (locator.getPlayListId() != playlist) {
                 System.err.println("endOfMedia ignored: playlist does not match (" + playlist + " != " + locator.getPlayListId());
                 return;
             }
@@ -336,6 +341,7 @@ public class Handler extends BDHandler {
             if (pi == null)
                 throw new InvalidPlayListException();
             this.locator = locator;
+            this.currentLocator = null;
             baseMediaTime = 0;
             if (state == Prefetched)
                 doPrefetch();

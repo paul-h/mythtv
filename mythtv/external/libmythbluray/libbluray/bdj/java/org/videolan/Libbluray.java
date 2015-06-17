@@ -24,6 +24,8 @@ import java.awt.BDFontMetrics;
 import java.awt.BDToolkit;
 import java.awt.event.KeyEvent;
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Vector;
 
 import javax.media.PackageManager;
@@ -228,6 +230,7 @@ public class Libbluray {
         }
         nativePointer = 0;
         titleInfos = null;
+        bdjoFiles = null;
     }
 
     /*
@@ -296,6 +299,10 @@ public class Libbluray {
      * Disc data
      */
 
+    /* cache parsed .bdjo files */
+    private static Map bdjoFiles = null;
+    private static Object bdjoFilesLock = new Object();
+
     public static byte[] getAacsData(int type) {
         return getAacsDataN(nativePointer, type);
     }
@@ -305,7 +312,23 @@ public class Libbluray {
     }
 
     public static Bdjo getBdjo(String name) {
-        return getBdjoN(nativePointer, name + ".bdjo");
+        Bdjo bdjo;
+        synchronized (bdjoFilesLock) {
+            if (bdjoFiles == null) {
+                bdjoFiles = new HashMap();
+            } else {
+                bdjo = (Bdjo)bdjoFiles.get(name);
+                if (bdjo != null) {
+                    return bdjo;
+                }
+            }
+
+            bdjo = getBdjoN(nativePointer, name + ".bdjo");
+            if (bdjo != null) {
+                bdjoFiles.put(name, bdjo);
+            }
+            return bdjo;
+         }
     }
 
     public static String[] listBdFiles(String path, boolean onlyBdRom) {
@@ -360,6 +383,10 @@ public class Libbluray {
             throw new IllegalArgumentException("Angle cannot be negative");
 
         return selectAngleN(nativePointer, angle) == 1 ? true : false;
+    }
+
+    public static int soundEffect(int id) {
+        return soundEffectN(nativePointer, id);
     }
 
     public static int getCurrentAngle() {
@@ -470,7 +497,7 @@ public class Libbluray {
     }
 
     /* called only from native code */
-    private static boolean processEvent(int event, int param) {
+    private static boolean processEventImpl(int event, int param) {
         boolean result = true;
         int key = 0;
 
@@ -548,6 +575,15 @@ public class Libbluray {
         return result;
     }
 
+    private static boolean processEvent(int event, int param) {
+        try {
+            return processEventImpl(event, param);
+        } catch (Throwable e) {
+            System.err.println("processEvent() failed: " + e + "\n" + Logger.dumpStack(e));
+            return false;
+        }
+    }
+
     public  static final int BDJ_EVENT_CHAPTER                  = 1;
     public  static final int BDJ_EVENT_PLAYITEM                 = 2;
     public  static final int BDJ_EVENT_ANGLE                    = 3;
@@ -614,6 +650,7 @@ public class Libbluray {
     private static native int selectPlaylistN(long np, int playlist, int playitem, int playmark, long time);
     private static native int selectTitleN(long np, int title);
     private static native int selectAngleN(long np, int angle);
+    private static native int soundEffectN(long np, int id);
     private static native long getUOMaskN(long np);
     private static native void setUOMaskN(long np, boolean menuCallMask, boolean titleSearchMask);
     private static native void setKeyInterestN(long np, int mask);

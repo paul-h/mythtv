@@ -17,6 +17,10 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "index_parse.h"
 
 #include "disc/disc.h"
@@ -99,8 +103,16 @@ static int _parse_index(BITSTREAM *bs, INDX_ROOT *index)
     }
 
     index->num_titles = bs_read(bs, 16);
+    if (!index->num_titles) {
+        BD_DEBUG(DBG_CRIT, "empty index\n");
+        return 0;
+    }
 
     index->titles = calloc(index->num_titles, sizeof(INDX_TITLE));
+    if (!index->titles) {
+        BD_DEBUG(DBG_CRIT, "out of memory\n");
+        return 0;
+    }
 
     for (i = 0; i < index->num_titles; i++) {
 

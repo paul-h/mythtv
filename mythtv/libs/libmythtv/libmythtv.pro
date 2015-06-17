@@ -277,8 +277,8 @@ LIBS += -lmythdvdnav-$$LIBVERSION
 DEPENDPATH   += ../../external/libmythbluray/
 INCLUDEPATH  += ../../external/libmythbluray/
 !win32-msvc*:POST_TARGETDEPS += ../../external/libmythbluray/libmythbluray-$${MYTH_LIB_EXT}
-HEADERS += Bluray/bdringbuffer.h
-SOURCES += Bluray/bdringbuffer.cpp
+HEADERS += Bluray/bdiowrapper.h Bluray/bdringbuffer.h
+SOURCES += Bluray/bdiowrapper.cpp Bluray/bdringbuffer.cpp
 using_frontend {
     HEADERS += Bluray/mythbdplayer.h
     SOURCES += Bluray/mythbdplayer.cpp
@@ -289,6 +289,10 @@ using_frontend {
 }
 LIBS += -L../../external/libmythbluray
 LIBS += -lmythbluray-$$LIBVERSION
+
+DEPENDPATH += ../../external/libudfread
+LIBS += -L../../external/libudfread
+LIBS += -lmythudfread-$$LIBVERSION
 
 #HLS stuff
 HEADERS += HLS/httplivestream.h

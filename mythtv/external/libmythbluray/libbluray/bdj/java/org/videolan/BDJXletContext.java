@@ -102,6 +102,8 @@ public class BDJXletContext implements javax.tv.xlet.XletContext, javax.microedi
             return Integer.toHexString(appid.getAID());
         else if (key.equals("org.dvb.application.appid"))
             return appid;
+
+        logger.error("unhandled getXletProperty(" + key + ")");
         return null;
     }
 
@@ -213,14 +215,14 @@ public class BDJXletContext implements javax.tv.xlet.XletContext, javax.microedi
         return true;
     }
 
-    public boolean putCallback(BDJAction cb)
+    protected boolean putCallback(BDJAction cb)
     {
         synchronized (this) {
             return putCallbackImpl(cb, callbackQueue);
         }
     }
 
-    public boolean putMediaCallback(BDJAction cb)
+    protected boolean putMediaCallback(BDJAction cb)
     {
         synchronized (this) {
             return putCallbackImpl(cb, mediaQueue);
@@ -287,7 +289,7 @@ public class BDJXletContext implements javax.tv.xlet.XletContext, javax.microedi
                 try {
                     look = defClass.newInstance();
                     setDefaultLook(key, look);
-                } catch (Throwable t) {
+                } catch (Exception t) {
                     logger.error("Error creating default look " + defClass.getName() + " for " + key + ": " + t);
                 }
             }
@@ -347,7 +349,7 @@ public class BDJXletContext implements javax.tv.xlet.XletContext, javax.microedi
         return result;
     }
 
-    public static void stopThread(Thread thread, int timeout, String type) {
+    protected static void stopThread(Thread thread, int timeout, String type) {
         if (!waitThread(thread, timeout)) {
             thread.interrupt();
             if (!waitThread(thread, 200)) {
@@ -357,10 +359,10 @@ public class BDJXletContext implements javax.tv.xlet.XletContext, javax.microedi
         }
         try {
             thread.join();
-        } catch (Throwable t) { }
+        } catch (InterruptedException e) { }
     }
 
-    protected void stopIxcThreads() {
+    private void stopIxcThreads() {
         while (true) {
             Thread thread;
             synchronized (ixcThreads) {
@@ -391,7 +393,7 @@ public class BDJXletContext implements javax.tv.xlet.XletContext, javax.microedi
         }
     }
 
-    public void removeAllFAA() {
+    private void removeAllFAA() {
         Object[] faaArray;
         synchronized (faaList) {
             faaArray = faaList.toArray();

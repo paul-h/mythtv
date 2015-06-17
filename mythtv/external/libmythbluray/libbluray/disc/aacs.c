@@ -17,6 +17,10 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "aacs.h"
 
 #include "file/dl.h"
@@ -104,6 +108,9 @@ static void *_open_libaacs(void)
 BD_AACS *libaacs_load(void)
 {
     BD_AACS *p = calloc(1, sizeof(BD_AACS));
+    if (!p) {
+        return NULL;
+    }
 
     p->h_libaacs = _open_libaacs();
     if (!p->h_libaacs) {
