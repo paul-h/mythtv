@@ -16,7 +16,7 @@ set noy2tics
 set grid xtics nomxtics ytics nomytics noztics nomztics nox2tics nomx2tics noy2tics nomy2tics nocbtics nomcbtics
 set grid layerdefault
 set cbtics border mirror norotate autofreq 
-set timefmt x "%Y%m%d%H%M%S"
+set timefmt "%Y%m%d%H%M%S"
 cd '%DATADIR%'
 set terminal png font '%FONTNAME%' %FONTSIZE% nocrop size %XSIZE%, %YSIZE%
 set style line 1 lw 2

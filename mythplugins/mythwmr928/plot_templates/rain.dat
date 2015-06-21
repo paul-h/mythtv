@@ -20,7 +20,7 @@ set cbtics border mirror norotate autofreq
 set timefmt x "%Y%m%d%H%M%S"
 cd '%DATADIR%'
 set terminal png font '%FONTNAME%' %FONTSIZE% nocrop size %XSIZE%, %YSIZE%
-set format x "%XFORMAT%"
+set format "%XFORMAT%"
 %ADDITIONAL%
 set style line 2 lw 2
 set my2tics 2
