@@ -1441,6 +1441,7 @@ void TV::PlaybackLoop(void)
             continue;
 
         int count = player.size();
+        int errorCount = 0;
         for (int i = 0; i < count; i++)
         {
             const PlayerContext *mctx = GetPlayerReadLock(i, __FILE__, __LINE__);
@@ -1453,9 +1454,17 @@ void TV::PlaybackLoop(void)
                     mctx->player->VideoLoop();
                 }
                 mctx->UnlockDeletePlayer(__FILE__, __LINE__);
+
+                if (mctx->errored || !mctx->player)
+                    errorCount++;
             }
             ReturnPlayerLock(mctx);
         }
+
+        // break out of the loop if there are no valid players
+        // or all PlayerContexts are errored
+        if (errorCount == count)
+            return;
     }
 }
 
@@ -3827,6 +3836,31 @@ bool TV::ProcessKeypress(PlayerContext *actx, QKeyEvent *e)
         KillTimer(idleTimerId);
         idleTimerId = StartTimer(db_idle_timeout, __LINE__);
     }
+
+#ifdef Q_OS_LINUX
+    // Fixups for _some_ linux native codes that QT doesn't know
+    if (e->key() <= 0)
+    {
+        int keycode = 0;
+        switch(e->nativeScanCode())
+        {
+            case 209: // XF86AudioPause
+                keycode = Qt::Key_MediaPause;
+                break;
+            default:
+              break;
+        }
+
+        if (keycode > 0)
+        {
+            QKeyEvent *key = new QKeyEvent(QEvent::KeyPress, keycode,
+                                            e->modifiers());
+            QCoreApplication::postEvent(this, key);
+        }
+
+        return true;
+    }
+#endif
 
     QStringList actions;
     bool handled = false;

@@ -49,6 +49,12 @@ class MTV_PUBLIC IPTVTuningData
         memset(&m_bitrate, 0, sizeof(m_bitrate));
     }
 
+    IPTVTuningData(const QString &data_url, IPTVProtocol protocol) :
+        m_data_url(data_url),  m_fec_type(kNone), m_protocol(protocol)
+    {
+        memset(&m_bitrate, 0, sizeof(m_bitrate));
+    }
+
     IPTVTuningData(const QString &data_url, uint data_bitrate,
                    const FECType fec_type,
                    const QString &fec_url0, uint fec_bitrate0,
@@ -91,6 +97,8 @@ class MTV_PUBLIC IPTVTuningData
         const QUrl u = GetDataURL();
         if (IsHLS())
             return QString("%1(%2)").arg(u.toString()).arg(GetBitrate(0));
+        if (IsHTTPTS())
+            return QString("%1").arg(u.toString());
         return QString("%1:%2:%3")
             .arg(u.host()).arg(u.userInfo()).arg(u.port()).toLower();
     }

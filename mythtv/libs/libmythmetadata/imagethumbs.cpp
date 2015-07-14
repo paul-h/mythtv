@@ -366,10 +366,13 @@ void ThumbThread::QueueThumbnails(ThumbTask *task)
 */
 int ThumbThread::GetQueueSize(ImageThumbPriority priority)
 {
-    QMap<int,int> result;
-
     QMutexLocker locker(&m_mutex);
-    return m_thumbQueue.value(priority)->size();
+    ThumbQueue *thumbQueue = m_thumbQueue.value(priority);
+
+    if (thumbQueue)
+        return m_thumbQueue.value(priority)->size();
+
+    return 0;
 }
 
 
@@ -526,15 +529,18 @@ void ImageThumb::HandleCreateThumbnails(QStringList imList)
                 ? kFolderRequestPriority : kPicRequestPriority;
 
         // notify clients when done; highest priority
-        ThumbTask *task = new ThumbTask("CREATE", im, priority, true);
 
         if (im->m_type == kVideoFile)
         {
+            ThumbTask *task = new ThumbTask("CREATE", im, priority, true);
+
             if (m_videoThumbThread)
                 m_videoThumbThread->QueueThumbnails(task);
         }
         else if (im->m_type == kImageFile)
         {
+            ThumbTask *task = new ThumbTask("CREATE", im, priority, true);
+
             if (m_imageThumbThread)
                 m_imageThumbThread->QueueThumbnails(task);
         }

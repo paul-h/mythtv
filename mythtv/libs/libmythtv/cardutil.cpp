@@ -38,6 +38,10 @@
 #include "hdhomerun.h"
 #endif
 
+#ifdef USING_VBOX
+#include "vboxutils.h"
+#endif
+
 #ifdef USING_ASI
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -69,6 +73,12 @@ QString CardUtil::GetScanableCardTypes(void)
         cardTypes += ",";
     cardTypes += "'FREEBOX'";
 #endif // USING_IPTV
+
+#ifdef USING_VBOX
+    if (!cardTypes.isEmpty())
+        cardTypes += ",";
+    cardTypes += "'VBOX'";
+#endif // USING_VBOX
 
 #ifdef USING_HDHOMERUN
     if (!cardTypes.isEmpty())
@@ -380,6 +390,12 @@ QStringList CardUtil::ProbeVideoDevices(const QString &rawtype)
         }
     }
 #endif // USING_HDHOMERUN
+#ifdef USING_VBOX
+    else if (rawtype.toUpper() == "VBOX")
+    {
+        devs = VBox::probeDevices();
+    }
+#endif // USING_VBOX
 #ifdef USING_CETON
     else if (rawtype.toUpper() == "CETON")
     {
@@ -484,7 +500,7 @@ QString CardUtil::ProbeDVBFrontendName(const QString &device)
  *
  *  Note: "Philips TDA10046H DVB-T" was on this list but has been
  *        verified to not mess up the PMT with a recent kernel and
- *        firmware (See http://svn.mythtv.org/trac/ticket/3541).
+ *        firmware (See https://code.mythtv.org/trac/ticket/3541).
  *
  *  \param device Open DVB frontend device file descriptor to be checked
  *  \return true iff the device munges tables, so that they fail a CRC check.
@@ -2311,6 +2327,50 @@ QString CardUtil::GetHDHRdesc(const QString &device)
 #else
 
     (void) device;
+    return connectErr;
+#endif
+}
+
+/**
+ * Get a nicely formatted string describing the device
+ */
+
+QString CardUtil::GetVBoxdesc(const QString &id, const QString &ip,
+                              const QString &tunerNo, const QString &tunerType)
+{
+    QString connectErr = QObject::tr("Unable to connect to device.");
+
+#ifdef USING_VBOX
+    VBox *vbox = new VBox(ip);
+
+    if (!vbox->checkConnection())
+    {
+        delete vbox;
+        return connectErr;
+    }
+
+    QString version;
+
+    if (!vbox->checkVersion(version))
+    {
+        QString apiVersionErr = QObject::tr("The VBox software version is to old (%1), we require %2")
+                                            .arg(version).arg(VBOX_MIN_API_VERSION);
+        delete vbox;
+        return apiVersionErr;
+
+    }
+
+    delete vbox;
+
+    return QString("V@Box TV Gateway - ID: %1, IP: %2, Tuner: %3-%4").arg(id)
+                   .arg(ip).arg(tunerNo).arg(tunerType);
+
+#else
+    (void) id;
+    (void) ip;
+    (void) tunerNo;
+    (void) tunerType;
+
     return connectErr;
 #endif
 }

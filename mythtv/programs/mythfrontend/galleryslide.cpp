@@ -292,6 +292,7 @@ Slide::Slide(MythUIType *parent, QString name, MythUIImage *image)
     m_zoom(1.0),
     m_isReady(false),
     m_loadFailed(false),
+    m_locked(false),
     m_direction(0),
     m_zoomAnimation(NULL),
     m_panAnimation(NULL),
@@ -530,7 +531,10 @@ void Slide::SetPan(QPoint pos)
     QRect imageArea = m_Images[m_CurPos]->rect();
     float hRatio    = float(imageArea.height()) / m_Area.height();
     float wRatio    = float(imageArea.width()) / m_Area.width();
-    float ratio     = qMax(hRatio, wRatio) / m_zoom;
+    float ratio     = qMax(hRatio, wRatio);
+
+    if (m_zoom != 0.0)
+        ratio /= m_zoom;
 
     // Determine crop area
     int h = qMin(int(roundf(m_Area.height() * ratio)), imageArea.height());

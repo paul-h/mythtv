@@ -11,24 +11,24 @@
 #define TS_SIZE     188
 #define BUFFER_SIZE (512 * TS_SIZE)
 
-QMap<QString,HTTPTSStreamHandler*>  HTTPTSStreamHandler::s_handlers;
-QMap<QString,uint>               HTTPTSStreamHandler::s_handlers_refcnt;
-QMutex                           HTTPTSStreamHandler::s_handlers_lock;
+QMap<QString, HTTPTSStreamHandler*> HTTPTSStreamHandler::s_httphandlers;
+QMap<QString, uint>                 HTTPTSStreamHandler::s_httphandlers_refcnt;
+QMutex                              HTTPTSStreamHandler::s_httphandlers_lock;
 
 HTTPTSStreamHandler* HTTPTSStreamHandler::Get(const IPTVTuningData& tuning)
 {
-    QMutexLocker locker(&s_handlers_lock);
+    QMutexLocker locker(&s_httphandlers_lock);
 
     QString devkey = tuning.GetDeviceKey();
 
-    QMap<QString,HTTPTSStreamHandler*>::iterator it = s_handlers.find(devkey);
+    QMap<QString,HTTPTSStreamHandler*>::iterator it = s_httphandlers.find(devkey);
 
-    if (it == s_handlers.end())
+    if (it == s_httphandlers.end())
     {
         HTTPTSStreamHandler* newhandler = new HTTPTSStreamHandler(tuning);
         newhandler->Start();
-        s_handlers[devkey] = newhandler;
-        s_handlers_refcnt[devkey] = 1;
+        s_httphandlers[devkey] = newhandler;
+        s_httphandlers_refcnt[devkey] = 1;
 
         LOG(VB_RECORD, LOG_INFO,
             QString("HTTPTSSH: Creating new stream handler %1 for %2")
@@ -36,19 +36,59 @@ HTTPTSStreamHandler* HTTPTSStreamHandler::Get(const IPTVTuningData& tuning)
     }
     else
     {
-        s_handlers_refcnt[devkey]++;
-        uint rcount = s_handlers_refcnt[devkey];
+        s_httphandlers_refcnt[devkey]++;
+        uint rcount = s_httphandlers_refcnt[devkey];
         LOG(VB_RECORD, LOG_INFO,
             QString("HTTPTSSH: Using existing stream handler %1 for %2")
             .arg(devkey).arg(tuning.GetDeviceName()) +
             QString(" (%1 in use)").arg(rcount));
     }
 
-    return s_handlers[devkey];
+    return s_httphandlers[devkey];
+}
+
+void HTTPTSStreamHandler::Return(HTTPTSStreamHandler * & ref)
+{
+    QMutexLocker locker(&s_httphandlers_lock);
+
+    QString devname = ref->_device;
+
+    QMap<QString,uint>::iterator rit = s_httphandlers_refcnt.find(devname);
+    if (rit == s_httphandlers_refcnt.end())
+        return;
+
+    LOG(VB_RECORD, LOG_INFO, QString("HTTPTSSH: Return(%1) has %2 handlers")
+        .arg(devname).arg(*rit));
+
+    if (*rit > 1)
+    {
+        ref = NULL;
+        (*rit)--;
+        return;
+    }
+
+    QMap<QString,HTTPTSStreamHandler*>::iterator it = s_httphandlers.find(devname);
+    if ((it != s_httphandlers.end()) && (*it == ref))
+    {
+        LOG(VB_RECORD, LOG_INFO, QString("HTTPTSSH: Closing handler for %1")
+                           .arg(devname));
+        ref->Stop();
+        delete *it;
+        s_httphandlers.erase(it);
+    }
+    else
+    {
+        LOG(VB_GENERAL, LOG_ERR,
+            QString("HTTPTSSH Error: Couldn't find handler for %1")
+                .arg(devname));
+    }
+
+    s_httphandlers_refcnt.erase(rit);
+    ref = NULL;
 }
 
 HTTPTSStreamHandler::HTTPTSStreamHandler(const IPTVTuningData& tuning) :
-    IPTVStreamHandler(tuning)
+    IPTVStreamHandler(tuning), m_reader(NULL)
 {
     LOG(VB_GENERAL, LOG_INFO, LOC + "ctor");
 }
@@ -71,7 +111,7 @@ void HTTPTSStreamHandler::run(void)
     {
         if (!m_reader->DownloadStream(m_tuning.GetURL(0)))
         {
-            LOG(VB_RECORD, LOG_INFO, LOC + "DownloadStream failed to recieve bytes from " + m_tuning.GetURL(0).toString());
+            LOG(VB_RECORD, LOG_INFO, LOC + "DownloadStream failed to receive bytes from " + m_tuning.GetURL(0).toString());
             usleep(open_sleep);
             if (open_sleep < 10000000)
                 open_sleep += 250000;
@@ -88,17 +128,19 @@ void HTTPTSStreamHandler::run(void)
 
 
 #undef  LOC
-#define LOC QString("HTTPReader(%1): ").arg(m_parent->_device)
+#define LOC QString("HTTPReader(%1): ").arg(m_url)
 
 bool HTTPReader::DownloadStream(const QUrl url)
 {
+    m_url = url.toString();
+
     LOG(VB_RECORD, LOG_INFO, LOC + "DownloadStream -- begin");
 
     QMutexLocker lock(&m_lock);
     QEventLoop   event_loop;
 
     m_buffer = new uint8_t[BUFFER_SIZE];
-    size = 0;
+    m_size = 0;
     m_ok = false;
 
     // the HTTP request
@@ -151,17 +193,17 @@ void HTTPReader::ReadBytes()
     QMutexLocker replylock(&m_replylock);
     QMutexLocker bufferlock(&m_bufferlock);
 
-    if(m_reply == NULL || m_buffer == NULL || size > BUFFER_SIZE)
+    if(m_reply == NULL || m_buffer == NULL || m_size > BUFFER_SIZE)
         return;
 
-    qint64 bytesRead = m_reply->read( reinterpret_cast<char*>(m_buffer+size), BUFFER_SIZE-size);
-    size += (bytesRead > 0 ? bytesRead : 0);
-    LOG(VB_RECORD, LOG_DEBUG, LOC + QString("ReadBytes: %1 bytes recieved").arg(bytesRead));
+    qint64 bytesRead = m_reply->read( reinterpret_cast<char*>(m_buffer + m_size), BUFFER_SIZE - m_size);
+    m_size += (bytesRead > 0 ? bytesRead : 0);
+    LOG(VB_RECORD, LOG_DEBUG, LOC + QString("ReadBytes: %1 bytes received").arg(bytesRead));
 }
 
 void HTTPReader::WriteBytes()
 {
-    if (size < TS_SIZE)
+    if (m_size < TS_SIZE)
         return;
 
     QMutexLocker  replylock(&m_bufferlock);
@@ -172,12 +214,12 @@ void HTTPReader::WriteBytes()
         sit = m_parent->_stream_data_list.begin();
         for (; sit != m_parent->_stream_data_list.end(); ++sit)
         {
-            remainder = sit.key()->ProcessData(m_buffer, size);
+            remainder = sit.key()->ProcessData(m_buffer, m_size);
         }
     }
-    LOG(VB_RECORD, LOG_DEBUG, LOC + QString("WriteBytes: %1/%2 bytes remain").arg(remainder).arg(size));
-    memcpy(m_buffer, m_buffer+(size-remainder), remainder);
-    size = remainder;
+    LOG(VB_RECORD, LOG_DEBUG, LOC + QString("WriteBytes: %1/%2 bytes remain").arg(remainder).arg(m_size));
+    memcpy(m_buffer, m_buffer + (m_size - remainder), remainder);
+    m_size = remainder;
 }
 
 void HTTPReader::Cancel(void)

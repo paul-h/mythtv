@@ -83,6 +83,7 @@ TVRec::TVRec(int capturecardnum)
        // Various components TVRec coordinates
     : recorder(NULL), channel(NULL), signalMonitor(NULL),
       scanner(NULL),
+      signalEventCmdSent(false),
       signalMonitorCheckCnt(0),
       reachedRecordingDeadline(false),
       // Various threads
@@ -1177,7 +1178,8 @@ void TVRec::CloseChannel(void)
 {
     if (channel &&
         ((genOpt.cardtype == "DVB" && dvbOpt.dvb_on_demand) ||
-         genOpt.cardtype == "FREEBOX" || CardUtil::IsV4L(genOpt.cardtype)))
+         genOpt.cardtype == "FREEBOX" || genOpt.cardtype == "VBOX" ||
+         CardUtil::IsV4L(genOpt.cardtype)))
     {
         channel->Close();
     }
