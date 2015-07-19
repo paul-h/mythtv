@@ -86,7 +86,8 @@ class MTV_PUBLIC ChannelScanner
 
     virtual bool ImportM3U(uint cardid, const QString &inputname,
                            uint sourceid, bool is_mpts);
-    virtual bool ImportVBox(uint cardid, const QString &inputname, uint sourceid);
+    virtual bool ImportVBox(uint cardid, const QString &inputname, uint sourceid,
+                            bool ftaOnly, ServiceRequirements serviceType);
 
   protected:
     virtual void Teardown(void);
@@ -118,7 +119,6 @@ class MTV_PUBLIC ChannelScanner
     // vbox support
 #ifdef USING_VBOX
     VBoxChannelFetcher *vboxScanner;
-    vbox_chan_map_t     vbox_channels;
 #endif
 
     /// Only fta channels desired post scan?
