@@ -6765,8 +6765,8 @@ void MainServer::HandleMusicTagRemoveImage(const QStringList& slist, PlaybackSoc
 
 void MainServer::HandleMusicFindLyrics(const QStringList &slist, PlaybackSock *pbs)
 {
-// format: MUSIC_LYRICS_FIND <hostname> <songid> <grabbername (optional)>
-// if no grabbername is given all grabbers will be tried until a match is found
+// format: MUSIC_LYRICS_FIND <hostname> <songid> <grabbername> <artist (optional)> <album (optional)> <title (optional)>
+// if artist is present then album and title must also be included (only used for radio and cd tracks)
 
     QStringList strlist;
 
@@ -6774,10 +6774,17 @@ void MainServer::HandleMusicFindLyrics(const QStringList &slist, PlaybackSock *p
 
     QString hostname = slist[1];
     QString songid = slist[2];
-    QString grabberName = "ALL";
+    QString grabberName = slist[3];
+    QString artist = "";
+    QString album = "";
+    QString title = "";
 
-    if (slist.size() >= 4)
-        grabberName = slist[3];
+    if (slist.size() == 7)
+    {
+        artist = slist[4];
+        album = slist[5];
+        title = slist[6];
+    }
 
     if (ismaster && !gCoreContext->IsThisHost(hostname))
     {
@@ -6808,6 +6815,15 @@ void MainServer::HandleMusicFindLyrics(const QStringList &slist, PlaybackSock *p
         QStringList paramList;
         paramList.append(QString("--songid='%1'").arg(songid));
         paramList.append(QString("--grabber='%1'").arg(grabberName));
+
+        if (!artist.isEmpty())
+            paramList.append(QString("--artist='%1'").arg(artist));
+
+        if (!album.isEmpty())
+            paramList.append(QString("--album='%1'").arg(album));
+
+        if (!title.isEmpty())
+            paramList.append(QString("--title='%1'").arg(title));
 
         QString command = GetAppBinDir() + "mythutil --findlyrics " + paramList.join(" ");
 
@@ -6865,7 +6881,7 @@ void MainServer::HandleMusicGetLyricGrabbers(const QStringList &slist, PlaybackS
     {
         fi = &(*it);
         ++it;
-        LOG(VB_GENERAL, LOG_NOTICE, QString("Found lyric script at: %1").arg(fi->filePath()));
+        LOG(VB_FILE, LOG_NOTICE, QString("Found lyric script at: %1").arg(fi->filePath()));
         scripts.append(fi->filePath());
     }
 
