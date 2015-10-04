@@ -1086,7 +1086,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     }
 
     // start the encoder
-    uint duration = 60; //importItem.actualDuration;
+    uint duration = importItem.actualDuration;
     QString videoFile = getTempDirectory() + "work/video.ts";
     QString mxmlFile = getTempDirectory() + "work/video.mxml";
 
