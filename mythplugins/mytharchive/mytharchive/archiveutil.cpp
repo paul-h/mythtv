@@ -24,6 +24,7 @@ using namespace std;
 #include <mythsystemlegacy.h>
 #include <exitcodes.h>
 #include <mythlogging.h>
+#include <metadata/metadatacommon.h>
 
 // mytharchive
 #include "archiveutil.h"
@@ -329,6 +330,131 @@ void recalcItemSize(ArchiveItem *item)
         float len = (float) length / 3600;
         item->newsize = (int64_t) (len * profile->bitrate * 1024 * 1024);
     }
+}
+
+static QRegExp badChars = QRegExp("(/|\\\\|:|\'|\"|\\?|\\|)");
+
+inline QString fixFilename(const QString &filename)
+{
+    QString ret = filename;
+    ret.replace(badChars, "_");
+    return ret;
+}
+
+inline QString fixFileToken_sl(QString token)
+{
+    // this version doesn't remove fwd-slashes so we can
+    // pick them up later and create directories as required
+    token.replace(QRegExp("(\\\\|:|\'|\"|\\?|\\|)"), QString("_"));
+    return token;
+}
+
+QString filenameFromMetadataLookup(MetadataLookup *lookup)
+{
+    QString filename;
+    QString regtempl = gCoreContext->GetSetting("VideoRegFilenameTemplate", "%TYPE%/%CATEGORY%/%TITLE%%|-SUBTITLE%");
+    QString seriestempl = gCoreContext->GetSetting("VideoSeriesFilenameTemplate", "%TYPE%/%CATEGORY%/%TITLE%%|-SUBTITLE% %S:|SEASON% %E: |EPISODE%");
+    QString filmtempl = gCoreContext->GetSetting("VideoFilmFilenameTemplate", "%TYPE%/%CATEGORY%/%TITLE% %|(YEAR|)%");
+    bool no_ws = gCoreContext->GetNumSetting("VideoNoWhitespace", 0);
+
+    QRegExp regexp("%(([^\\|%]+)?\\||\\|(.))?([\\w#]+)(\\|(.+))?%");
+    regexp.setMinimal(true);
+
+    int pos = 0;
+    QString templ = regtempl;
+
+    if (lookup->GetVideoContentType() == kContentMovie)
+        templ = filmtempl;
+
+    if (lookup->GetSeason() > 0 && lookup->GetEpisode() > 0)
+        templ = seriestempl;
+
+    filename = templ;
+
+    while ((pos = regexp.indexIn(templ, pos)) != -1)
+    {
+        QString key = regexp.cap(4).toLower().trimmed();
+        QString replacement;
+        QString value;
+
+        if (key == "type")
+        {
+            switch (lookup->GetVideoContentType())
+            {
+                case kContentMovie:
+                    value = "Movie";
+                    break;
+                case kContentTelevision:
+                    value = "Television";
+                    break;
+                case kContentAdult:
+                    value = "Adult";
+                    break;
+                case kContentMusicVideo:
+                    value = "Music";
+                    break;
+                case kContentHomeMovie:
+                    value = "Home";
+                    break;
+                case kContentUnknown:
+                    value = "Unknown";
+                    break;
+            }
+        }
+
+        if ((key == "category") && (lookup->GetCategories().count() > 0))
+        {
+            for (int x = 0; x < lookup->GetCategories().count(); x++)
+            {
+                if (!value.isEmpty())
+                    value += '/' + fixFilename(lookup->GetCategories().at(x));
+                else
+                    value = fixFilename(lookup->GetCategories().at(x));
+            }
+        }
+
+        if ((key == "title") && (!lookup->GetTitle().isEmpty()))
+            value = fixFilename(lookup->GetTitle());
+
+        if ((key == "subtitle") && (!lookup->GetSubtitle().isEmpty()))
+            value = fixFilename(lookup->GetSubtitle());
+
+        if ((key == "season") && (lookup->GetSeason() > 0))
+            value = fixFilename(QString::number(lookup->GetSeason(), 10));
+
+        if ((key == "episode") && (lookup->GetEpisode() > 0))
+            value = fixFilename(QString::number(lookup->GetEpisode(), 10));
+
+        if ((key == "year") && (lookup->GetYear() > 0))
+            value = fixFilename(QString::number(lookup->GetYear(), 10));
+
+        if (!value.isEmpty())
+        {
+            replacement = QString("%1%2%3%4")
+            .arg(regexp.cap(2))
+            .arg(regexp.cap(3))
+            .arg(value)
+            .arg(regexp.cap(6));
+        }
+
+        filename.replace(regexp.cap(0), replacement);
+        pos += regexp.matchedLength();
+    }
+
+    if (no_ws)
+    {
+        QRegExp rx_ws("\\s{1,}");
+        filename.replace(rx_ws, "_");
+    }
+
+    if (filename == "" || filename.length() > FILENAME_MAX)
+    {
+        QString tempstr = lookup->GetTitle() + " - " + lookup->GetSubtitle();
+        filename = fixFilename(tempstr);
+        LOG(VB_GENERAL, LOG_ERR, "Invalid file storage definition.");
+    }
+
+    return filename;
 }
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */

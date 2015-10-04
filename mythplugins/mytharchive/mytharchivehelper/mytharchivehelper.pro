@@ -25,6 +25,8 @@ LIBS += -lmythavcodec
 LIBS += -lmythavutil
 LIBS += -lz
 LIBS += -lmythtv-$$LIBVERSION
+LIBS += -lmythmetadata-$$LIBVERSION
+
 # libmythtv dependencies
 using_live: LIBS += -lmythlivemedia-$$LIBVERSION
 using_mheg: LIBS += -lmythfreemheg-$$LIBVERSION

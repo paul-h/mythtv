@@ -8,10 +8,14 @@
 #define ARCHIVEUTIL_H_
 
 #include <stdint.h>
+
+// qt
 #include <QString>
 #include <QMetaType>
+#include <QDateTime>
 
 class ProgramInfo;
+class MetadataLookup;
 
 typedef enum
 {
@@ -72,6 +76,31 @@ typedef struct
     QList<ThumbImage*> thumbList;
 } ArchiveItem;
 
+class ImportItem
+{
+  public:
+    ImportItem() : id(-1), season(0), episode(0), size(0), duration(0), actualDuration(0) {}
+    int     id;
+    QString type;
+    QString title;
+    QString subtitle;
+    QString description;
+    QDateTime startTime;
+    uint season;
+    uint episode;
+    uint year;
+    QString certification;
+    QString chanNo;
+    QString chanSign;
+    QString chanName;
+    QString status;
+    QString filename;
+    QString category;
+    int64_t size;
+    uint duration;
+    uint actualDuration;
+};
+
 QString formatSize(int64_t sizeKB, int prec = 2);
 QString getTempDirectory(bool showError = false);
 void checkTempDirectory();
@@ -83,7 +112,10 @@ void recalcItemSize(ArchiveItem *item);
 QString getBaseName(const QString &filename);
 void showWarningDialog(const QString &msg);
 
+QString filenameFromMetadataLookup(MetadataLookup *lookup);
+
 Q_DECLARE_METATYPE(EncoderProfile *)
 Q_DECLARE_METATYPE(ArchiveItem *)
+Q_DECLARE_METATYPE(ImportItem *)
 
 #endif

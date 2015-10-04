@@ -26,6 +26,12 @@
    </button>
 
    <button>
+       <type>ARCHIVE_IMPORT_FILE</type>
+       <text>Import File</text>
+       <action>ARCHIVE_IMPORT_FILE</action>
+   </button>
+
+   <button>
        <type>ARCHIVE_UTILITIES</type>
        <text>Archive Utilities</text>
        <action>MENU archiveutils.xml</action>

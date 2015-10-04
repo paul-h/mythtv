@@ -226,6 +226,43 @@ class META_PUBLIC MetadataLookup : public QObject, public ReferenceCounter
         const ArtworkMap artwork,
         DownloadMap downloads);
 
+    // Import Constructor
+    MetadataLookup(
+        MetadataType type,
+        LookupType subtype,
+        QVariant data,
+        LookupStep step,
+        bool automatic,
+        bool handleimages,
+        bool allowoverwrites,
+        bool allowgeneric,
+        bool preferdvdorder,
+        const QString &host,
+        const QString &filename,
+        const QString &title,
+        const QStringList &categories,
+        const float userrating,
+        const QString &subtitle,
+        const QString &tagline,
+        const QString &description,
+        uint season,
+        uint episode,
+        const QDateTime &startts,
+        uint chanid,
+        const QString &channum,
+        const QString &chansign,
+        const QString &channame,
+        const QString &certification,
+        const uint year,
+        const QDate releasedate,
+        const uint runtime,
+        const uint runtimesecs,
+        const QString &inetref,
+        const PeopleMap people,
+        const QString &trailerURL,
+        const ArtworkMap artwork,
+        DownloadMap downloads);
+
     void toMap(InfoMap &map);
 
     // SETS (Only a limited number needed)
@@ -234,6 +271,7 @@ class META_PUBLIC MetadataLookup : public QObject, public ReferenceCounter
     void SetType(MetadataType type) { m_type = type; };
     // For some lookup, it helps to know the subtype (TV vs. Movie)
     void SetSubtype(LookupType subtype) { m_subtype = subtype; };
+    void SetVideoContentType(VideoContentType videoContentType) { m_videoContentType = videoContentType; };
     // Reference value- when the event comes back, need to associate with an item.
     void SetData(QVariant data) { m_data = data; };
     // Steps: SEARCH, GETDATA
@@ -275,6 +313,7 @@ class META_PUBLIC MetadataLookup : public QObject, public ReferenceCounter
 
     MetadataType GetType() const { return m_type; };
     LookupType GetSubtype() const { return m_subtype; };
+    VideoContentType GetVideoContentType() const { return m_videoContentType; };
     QVariant GetData() const { return m_data; };
     LookupStep GetStep() const { return m_step; };
     bool GetAutomatic() const { return m_automatic; };
@@ -364,6 +403,7 @@ class META_PUBLIC MetadataLookup : public QObject, public ReferenceCounter
     // General
     MetadataType m_type;
     LookupType m_subtype;
+    VideoContentType m_videoContentType;
     QVariant m_data;
     LookupStep m_step;
     bool m_automatic;

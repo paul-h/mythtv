@@ -67,6 +67,7 @@ using namespace std;
 #include <mythlogging.h>
 #include <storagegroup.h>
 #include <mythavutil.h>
+#include <metadata/metadatacommon.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -77,6 +78,7 @@ extern "C" {
 // mytharchive headers
 #include "../mytharchive/archiveutil.h"
 #include "../mytharchive/remoteavformatcontext.h"
+#include "../mytharchive/importfile.h"
 
 namespace
 {
@@ -113,6 +115,7 @@ class NativeArchive
 
       int doNativeArchive(const QString &jobFile);
       int doImportArchive(const QString &xmlFile, int chanID);
+      int doImportFile(const QString &xmlFile);
       bool copyFile(const QString &source, const QString &destination);
       int importRecording(const QDomElement &itemNode,
                           const QString &xmlFile, int chanID);
@@ -122,6 +125,10 @@ class NativeArchive
   private:
       QString findNodeText(const QDomElement &elem, const QString &nodeName);
       int getFieldList(QStringList &fieldList, const QString &tableName);
+
+      bool importIPEncoderFile(const ImportItem &importItem);
+      bool importHDPVR2File(const ImportItem &importItem);
+      bool importIntensityProFile(const ImportItem &importItem);
 };
 
 NativeArchive::NativeArchive(void)
@@ -960,6 +967,369 @@ int NativeArchive::doImportArchive(const QString &xmlFile, int chanID)
     return 1;
 }
 
+/// imports a file from an external recorder and moves it to the Video library
+int NativeArchive::doImportFile(const QString &xmlFile)
+{
+    // open xml file
+    QDomDocument doc("mydocument");
+    QFile file(xmlFile);
+    if (!file.open(QIODevice::ReadOnly))
+    {
+        LOG(VB_JOBQUEUE, LOG_ERR,
+            "Failed to open file for reading - " + xmlFile);
+        return 1;
+    }
+
+    if (!doc.setContent(&file))
+    {
+        file.close();
+        LOG(VB_JOBQUEUE, LOG_ERR,
+            "Failed to read from xml file - " + xmlFile);
+        return 1;
+    }
+    file.close();
+
+    QString docType = doc.doctype().name();
+    QString type, dbVersion;
+    QDomNodeList jobNodeList;
+    QDomNode node;
+    QDomElement elem;
+    bool result = true;
+
+    if (docType == "mythimportjob")
+    {
+        jobNodeList = doc.elementsByTagName("job");
+
+        if (jobNodeList.count() < 1)
+        {
+            LOG(VB_JOBQUEUE, LOG_ERR, "Couldn't find any 'job' elements in the XML file");
+            return 1;
+        }
+
+        LOG(VB_JOBQUEUE, LOG_INFO, QString("Found %1 files to import").arg(jobNodeList.count()));
+
+        for (int x = 0; x < jobNodeList.count(); x++)
+        {
+            node = jobNodeList.at(x);
+            ImportItem importItem;
+            importItem.id = node.namedItem(QString("id")).toElement().text().toInt();
+            importItem.type = node.namedItem(QString("type")).toElement().text();
+            importItem.title = node.namedItem(QString("title")).toElement().text();
+            importItem.subtitle = node.namedItem(QString("subtitle")).toElement().text();
+            importItem.description = node.namedItem(QString("description")).toElement().text();
+            importItem.startTime = QDateTime::fromString(node.namedItem(QString("starttime")).toElement().text(), Qt::ISODate);
+            importItem.season = node.namedItem(QString("season")).toElement().text().toUInt();
+            importItem.episode = node.namedItem(QString("episode")).toElement().text().toUInt();
+            importItem.certification = node.namedItem(QString("certification")).toElement().text();
+            importItem.chanNo = node.namedItem(QString("channo")).toElement().text();
+            importItem.chanSign = node.namedItem(QString("chansign")).toElement().text();
+            importItem.chanName = node.namedItem(QString("chanName")).toElement().text();
+            importItem.status = node.namedItem(QString("status")).toElement().text();
+            importItem.filename = node.namedItem(QString("filename")).toElement().text();
+            importItem.category = node.namedItem(QString("category")).toElement().text();
+            importItem.size = node.namedItem(QString("size")).toElement().text().toInt();
+            importItem.duration = node.namedItem(QString("duration")).toElement().text().toUInt();
+            importItem.actualDuration = node.namedItem(QString("actualduration")).toElement().text().toUInt();
+
+            LOG(VB_JOBQUEUE, LOG_INFO,
+                QString("Job: %1, Type: %2, Title: %3").arg(x + 1)
+                .arg(importItem.type).arg(importItem.title + ' ~ ' + importItem.startTime.toString()));
+
+            if (importItem.type == "IPEncoder")
+            {
+                result |= importIPEncoderFile(importItem);
+            }
+            else if (importItem.type == "HDPVR2")
+            {
+                result |= importHDPVR2File(importItem);
+            }
+            else if (importItem.type == "IntensityPro")
+            {
+                result |= importIntensityProFile(importItem);
+            }
+            else
+            {
+                LOG(VB_JOBQUEUE, LOG_INFO, QString("Got an unknown import type '%1'").arg(importItem.type));
+            }
+        }
+    }
+    else
+    {
+        LOG(VB_JOBQUEUE, LOG_ERR, "Not a native archive xml file - " + xmlFile);
+        return 1;
+    }
+
+    return result ? 0 : 1;
+}
+
+#define STREAMURL "http://192.168.1.168:80/hdmi"
+
+bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
+{
+    QString title = importItem.title + ' ~ ' + importItem.startTime.toString();
+
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Importing a file using IP Encoder method"));
+
+    LOG(VB_JOBQUEUE, LOG_ERR, QString("Starting playback of %1").arg(title));
+
+    // start playing the recording
+    QString command = QString("python " + GetShareDir() + "mytharchive/scripts/SkyRemote.py --play %1").arg(importItem.filename);
+
+    QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
+    cmd->Wait(0);
+    if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
+    {
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("SkyRemote exited with result: %1").arg(cmd.data()->GetExitCode()));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("Command was: %1").arg(command));
+        return false;
+    }
+
+    // start the encoder
+    uint duration = 60; //importItem.actualDuration;
+    QString videoFile = getTempDirectory() + "work/video.ts";
+    QString mxmlFile = getTempDirectory() + "work/video.mxml";
+
+    // record the mp4 video stream
+    LOG(VB_JOBQUEUE, LOG_ERR, QString("Starting recording of %1").arg(title));
+    LOG(VB_JOBQUEUE, LOG_ERR, QString("Duration is %1").arg(importItem.actualDuration));
+
+    QString recCommand = QString("mythffmpeg -y -i %1 -t %2 -acodec copy -vcodec copy %3")
+                                 .arg(STREAMURL).arg(duration).arg(videoFile);
+
+    QScopedPointer<MythSystem> recCmd(MythSystem::Create(recCommand, kMSRunShell));
+    recCmd->Wait(0);
+    if (recCmd.data()->GetExitCode() != GENERIC_EXIT_OK)
+    {
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - ffmpeg exited with result: %1").arg(recCmd.data()->GetExitCode()));
+        return false;
+    }
+
+    // create a mxml file with the metadata for this recording
+    QStringList categories(importItem.category.split(','));
+    MetadataLookup *lookup = new MetadataLookup(kMetadataVideo, kProbableTelevision, QVariant(), kLookupSearch, false, false, false, false, false,
+                                                "", videoFile, importItem.title, categories, 0.0, importItem.subtitle, "", importItem.description,
+                                                importItem.season, importItem.episode, importItem.startTime, 0,  importItem.chanNo, importItem.chanSign,
+                                                importItem.chanName, importItem.certification, importItem.year,
+                                                importItem.startTime.date(), importItem.duration / 60, importItem.duration, 
+                                                "", PeopleMap(), "", ArtworkMap(), DownloadMap());
+    if (importItem.category == "Movies")
+        lookup->SetVideoContentType(kContentMovie);
+    else
+        lookup->SetVideoContentType(kContentTelevision);
+
+    QDomDocument mxmlDoc = CreateMetadataXML(lookup);
+
+    // save the mxml to the file
+    QFile f(mxmlFile);
+    if (!f.open(QIODevice::WriteOnly))
+    {
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("Failed to open mxml file for writing - %1").arg(mxmlFile));
+        return false;
+    }
+
+    QTextStream t(&f);
+    t << mxmlDoc.toString(4);
+    f.close();
+
+    // workout where to save the file in the Video storage group
+    QString dstFile = filenameFromMetadataLookup(lookup);
+
+    QString saveFilename;
+
+    // copy the recording to the Video storage group
+    saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mp4", "Videos");
+
+    // check if this file already exists
+    if (RemoteFile::Exists(saveFilename))
+    {
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("File already exists %1").arg(saveFilename));
+        int x = 1;
+
+        while (x < 100)
+        {
+            saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + QString("-%1").arg(x) + ".mp4", "Videos");
+            if (!RemoteFile::Exists(saveFilename))
+            {
+                dstFile = dstFile + QString("-%1").arg(x);
+                break;
+            }
+
+            x++;
+        }
+    }
+
+    LOG(VB_JOBQUEUE, LOG_ERR, QString("Copying video file to %1").arg(saveFilename));
+
+    bool result = RemoteFile::CopyFile(videoFile, saveFilename);
+    if (!result)
+    {
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR: Failed to copy video file to %1").arg(saveFilename));
+        return false;
+    }
+
+    // copy the metadata xml file to the Video storage group
+    saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mxml", "Videos");
+
+    LOG(VB_JOBQUEUE, LOG_ERR, QString("Copying xml file to %1").arg(saveFilename));
+
+    result = RemoteFile::CopyFile(mxmlFile, saveFilename);
+    if (!result)
+    {
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("Failed to copy xml file to %1").arg(saveFilename));
+        return false;
+    }
+
+    LOG(VB_JOBQUEUE, LOG_ERR, QString("*** Importing %1 completed sucessfully ***").arg(title));
+
+    return true;
+}
+
+bool NativeArchive::importHDPVR2File(const ImportItem &importItem)
+{
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Importing a file using HD-PVR2 Encoder method"));
+
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("This method is currently not supported"));
+
+    return false;
+}
+
+#define FPS 25
+
+bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
+{
+    QString title = importItem.title + ' ~ ' + importItem.startTime.toString();
+
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Importing a file using Intensity Pro Encoder method"));
+
+    LOG(VB_JOBQUEUE, LOG_ERR, QString("Starting playback of %1").arg(title));
+
+    // start playing the recording
+    QString command = QString("python " + GetShareDir() + "mytharchive/scripts/SkyRemote.py --play %1").arg(importItem.filename);
+
+    QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
+    cmd->Wait(0);
+    if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
+    {
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("SkyRemote exited with result: %1").arg(cmd.data()->GetExitCode()));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("Command was: %1").arg(command));
+        return false;
+    }
+
+    LOG(VB_JOBQUEUE, LOG_ERR, QString("Starting recording of %1").arg(title));
+    LOG(VB_JOBQUEUE, LOG_ERR, QString("Duration is %1").arg(importItem.actualDuration));
+
+    uint frames = importItem.actualDuration * FPS;
+    QString videoFile = getTempDirectory() + "work/video.nut";
+    QString mxmlFile = getTempDirectory() + "work/video.mxml";
+
+    // record the raw hdmi output to huffyuv
+    QString recCommand = QString("bmdcapture -v -m 10 -A 2 -V 3 -F nut -n %1 -f pipe:1 | "
+                              "ffmpeg -re -i - -vcodec huffyuv -aspect 16:9 -acodec copy -f nut -y %2")
+                              .arg(frames).arg(videoFile);
+
+    QScopedPointer<MythSystem> cmd2(MythSystem::Create(recCommand, kMSRunShell));
+    cmd2->Wait(0);
+    if (cmd2.data()->GetExitCode() != GENERIC_EXIT_OK)
+    {
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - bmdcapture exited with result: %1").arg(cmd2.data()->GetExitCode()));
+        return false;
+    }
+
+    // re-encode the lossless huffyuv to mp4
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting reencoding of %1").arg(title));
+
+    QString ffmpegFile = getTempDirectory() + "work/video.mp4";
+    QString ffmpgCommand = QString("mythffmpeg -y -i %1 %2").arg(videoFile).arg(ffmpegFile);
+
+    QScopedPointer<MythSystem> cmd3(MythSystem::Create(ffmpgCommand, kMSRunShell));
+    cmd3->Wait(0);
+    if (cmd3.data()->GetExitCode() != GENERIC_EXIT_OK)
+    {
+        LOG(VB_GENERAL, LOG_ERR, QString("ERROR - mythffmpeg exited with result: %1").arg(cmd3.data()->GetExitCode()));
+        return false;
+    }
+
+    // create a mxml file with the metadata for this recording
+    QStringList categories(importItem.category.split(','));
+    MetadataLookup *lookup = new MetadataLookup(kMetadataVideo, kProbableTelevision, QVariant(), kLookupSearch, false, false, false, false, false,
+                                                "", videoFile, importItem.title, categories, 0.0, importItem.subtitle, "", importItem.description,
+                                                importItem.season, importItem.episode, importItem.startTime, 0,  importItem.chanNo,
+                                                importItem.chanSign, importItem.chanName, importItem.certification, importItem.year,
+                                                importItem.startTime.date(), importItem.duration / 60, importItem.duration, "",
+                                                PeopleMap(), "", ArtworkMap(), DownloadMap());
+    if (importItem.category == "Movies")
+        lookup->SetVideoContentType(kContentMovie);
+    else
+        lookup->SetVideoContentType(kContentTelevision);
+
+    QDomDocument mxmlDoc = CreateMetadataXML(lookup);
+
+    // save the mxml to the file
+    QFile f(mxmlFile);
+    if (!f.open(QIODevice::WriteOnly))
+    {
+        LOG(VB_GENERAL, LOG_ERR, QString("Failed to open mxml file for writing - %1").arg(mxmlFile));
+        return false;
+    }
+
+    QTextStream t(&f);
+    t << mxmlDoc.toString(4);
+    f.close();
+
+    // workout where to save the file in the Video storage group
+    QString dstFile = filenameFromMetadataLookup(lookup);
+    QString saveFilename;
+
+    // check if this file already exists
+    if (RemoteFile::Exists(saveFilename))
+    {
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("File already exists %1").arg(saveFilename));
+        int x = 1;
+
+        while (x < 100)
+        {
+            saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + QString("-%1").arg(x) + ".mp4", "Videos");
+            if (!RemoteFile::Exists(saveFilename))
+            {
+                dstFile = dstFile + QString("-%1").arg(x);
+                break;
+            }
+
+            x++;
+        }
+    }
+
+    // copy the recording to the Video storage group
+    saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mp4", "Videos");
+
+    LOG(VB_JOBQUEUE, LOG_ERR, QString("Copying video file to %1").arg(saveFilename));
+
+    bool result = RemoteFile::CopyFile(videoFile, saveFilename);
+    if (!result)
+    {
+        LOG(VB_GENERAL, LOG_ERR, QString("Failed to copy video file to %1").arg(saveFilename));
+        return false;
+    }
+
+    // copy the metadata xml file to the Video storage group
+    saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mxml", "Videos");
+
+    LOG(VB_JOBQUEUE, LOG_ERR, QString("Copying xml file to %1").arg(saveFilename));
+
+    result = RemoteFile::CopyFile(mxmlFile, saveFilename);
+    if (!result)
+    {
+        LOG(VB_GENERAL, LOG_ERR, QString("Failed to copy xml file to %1").arg(saveFilename));
+        return false;
+    }
+
+    LOG(VB_JOBQUEUE, LOG_ERR, QString("*** Importing %1 completed sucessfully ***").arg(title));
+
+    return true;
+}
+
 int NativeArchive::importRecording(const QDomElement &itemNode,
                                    const QString     &xmlFile, int chanID)
 {
@@ -1582,6 +1952,12 @@ static int doImportArchive(const QString &inFile, int chanID)
 {
     NativeArchive na;
     return na.doImportArchive(inFile, chanID);
+}
+
+static int doImportFile(const QString &inFile)
+{
+    NativeArchive na;
+    return na.doImportFile(inFile);
 }
 
 static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int frameCount)
@@ -2281,7 +2657,7 @@ void MythArchiveHelperCommandLineParser::LoadArguments(void)
     add("--infile", "infile", "",
             "Input file name\n"
             "Used with: --createthumbnail, --getfileinfo, --isremote, "
-            "--sup2dast, --importarchive", "");
+            "--sup2dast, --importarchive, --importfile", "");
     add("--outfile", "outfile", "",
             "Output file name\n"
             "Used with: --createthumbnail, --getfileinfo, --getdbparameters, "
@@ -2326,6 +2702,11 @@ void MythArchiveHelperCommandLineParser::LoadArguments(void)
     add("--chanid", "chanid", -1,
             "Channel ID to use when inserting records in DB\n"
             "Used with: --importarchive", "");
+
+    add(QStringList( QStringList() << "-m" << "--importfile" ),
+            "importfile", false,
+            "Import a video file from an external PVR\n"
+            "Requires: --infile", "");
 
     add(QStringList( QStringList() << "-r" << "--isremote" ),
             "isremote", false,
@@ -2415,6 +2796,7 @@ int main(int argc, char **argv)
     bool bGetDBParameters = cmdline.toBool("getdbparameters");
     bool bNativeArchive   = cmdline.toBool("nativearchive");
     bool bImportArchive   = cmdline.toBool("importarchive");
+    bool bImportFile      = cmdline.toBool("importfile");
     bool bGetFileInfo     = cmdline.toBool("getfileinfo");
     bool bIsRemote        = cmdline.toBool("isremote");
     bool bDoBurn          = cmdline.toBool("burndvd");
@@ -2508,6 +2890,16 @@ int main(int argc, char **argv)
         }
     }
 
+    if (bImportFile)
+    {
+        if (inFile.isEmpty())
+        {
+            LOG(VB_GENERAL, LOG_ERR, "Missing --infile argument to "
+                                     "-v/--importfile option");
+            return GENERIC_EXIT_INVALID_CMDLINE;
+        }
+    }
+
     if (bGetFileInfo)
     {
         if (inFile.isEmpty())
@@ -2550,6 +2942,8 @@ int main(int argc, char **argv)
         res = doNativeArchive(outFile);
     else if (bImportArchive)
         res = doImportArchive(inFile, chanID);
+    else if (bImportFile)
+        res = doImportFile(inFile);
     else if (bGetFileInfo)
         res = getFileInfo(inFile, outFile, lenMethod);
     else if (bIsRemote)

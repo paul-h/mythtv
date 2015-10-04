@@ -39,6 +39,7 @@ using namespace std;
 #include "exportnative.h"
 #include "importnative.h"
 #include "mythburn.h"
+#include "importfile.h"
 
 // return true if the process belonging to the lock file is still running
 static bool checkProcess(const QString &lockFile)
@@ -200,6 +201,34 @@ static void runImportVideo(void)
         mainStack->AddScreen(selector);
 }
 
+static void runImportFile(void)
+{
+    QString tempDir = getTempDirectory(true);
+
+    if (tempDir == "")
+        return;
+
+    QString logDir = tempDir + "logs";
+    QString configDir = tempDir + "config";
+    QString workDir = tempDir + "work";
+
+    checkTempDirectory();
+
+    if (checkLockFile(logDir + "/mythburn.lck"))
+    {
+        // a job is already running so just show the log viewer
+        showLogViewer();
+        return;
+    }
+
+    // show the import file screen
+    MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
+    ImportFile *import = new ImportFile(mainStack);
+
+    if (import->Create())
+        mainStack->AddScreen(import);
+}
+
 static void runShowLog(void)
 {
     showLogViewer();
@@ -269,6 +298,8 @@ static void ArchiveCallback(void *data, QString &selection)
         runEncodeVideo();
     else if (sel == "archive_import_video")
         runImportVideo();
+    else if (sel == "archive_import_file")
+        runImportFile();
     else if (sel == "archive_last_log")
         runShowLog();
     else if (sel == "archive_test_dvd")
@@ -335,6 +366,10 @@ static void initKeys(void)
 {
     REG_KEY("Archive", "TOGGLECUT", QT_TRANSLATE_NOOP("MythControls",
         "Toggle use cut list state for selected program"), "C");
+    REG_KEY("Archive", "PLAY", QT_TRANSLATE_NOOP("MythControls",
+        "Play a file in the import file screen"), "P");
+    REG_KEY("Archive", "RECORD", QT_TRANSLATE_NOOP("MythControls",
+        "Record a file in the import file screen"), "R");
 
     REG_JUMP(QT_TRANSLATE_NOOP("MythControls", "Create DVD"),
         "", "", runCreateDVD);

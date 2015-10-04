@@ -30,19 +30,22 @@ HEADERS += archivesettings.h logviewer.h fileselector.h
 HEADERS += recordingselector.h videoselector.h dbcheck.h
 HEADERS += archiveutil.h selectdestination.h
 HEADERS += mythburn.h themeselector.h editmetadata.h thumbfinder.h
-HEADERS += exportnative.h importnative.h
+HEADERS += exportnative.h importnative.h importfile.h importeditmetadata.h
 
 SOURCES += main.cpp archivesettings.cpp logviewer.cpp
 SOURCES += fileselector.cpp recordingselector.cpp videoselector.cpp
 SOURCES += dbcheck.cpp archiveutil.cpp selectdestination.cpp
 SOURCES += mythburn.cpp themeselector.cpp editmetadata.cpp thumbfinder.cpp
-SOURCES += exportnative.cpp importnative.cpp
+SOURCES += exportnative.cpp importnative.cpp importfile.cpp importeditmetadata.cpp
 
 burnuifiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/themes/default
 burnuifiles.files = mythburn-ui.xml
 
 scriptfiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/mytharchive/scripts
 scriptfiles.files = ../mythburn/scripts/*
+
+importscriptfiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/mytharchive/scripts
+importscriptfiles.files = ../importscripts/*
 
 introfiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/mytharchive/intro
 introfiles.files = ../mythburn/intro/*.mpg
@@ -63,7 +66,7 @@ nativeuifiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/themes/default
 nativeuifiles.files = mythnative-ui.xml
 
 INSTALLS +=  scriptfiles introfiles themefiles imagefiles musicfiles
-INSTALLS +=  profilefiles burnuifiles
+INSTALLS +=  profilefiles burnuifiles importscriptfiles
 INSTALLS +=  nativeuifiles
 
 #The following line was inserted by qt3to4

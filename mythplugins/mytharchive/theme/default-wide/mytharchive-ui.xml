@@ -487,4 +487,235 @@ Common MythArchive window definitions
 
     </window>
 
+  <!--
+      Import File
+  -->
+  <window name="import_file">
+
+        <shape name="topbackground" from="basebackground">
+            <area>30,60,1220,300</area>
+        </shape>
+
+        <textarea name="title" from="basetextarea">
+            <area>0,10,1280,50</area>
+            <font>baselarge</font>
+            <align>allcenter</align>
+            <value>Import Files</value>
+        </textarea>
+
+        <textarea name="title2" from="basetextarea">
+            <area>50,85,200,50</area>
+            <font>basesmallyellow</font>
+            <align>right</align>
+            <value>Show Recordings</value>
+        </textarea>
+
+        <buttonlist name="category_selector" from="basewideselector">
+            <area>275,80,970,40</area>
+        </buttonlist>
+
+        <buttonlist name="recordinglist" from="basebuttonlist">
+            <area>60,130,1145,205</area>
+            <searchposition>-1,370</searchposition>
+            <statetype name="buttonitem">
+                <state name="active">
+                    <textarea name="buttontext">
+                        <area>5,0,1100,30</area>
+                    </textarea>
+                    <statetype name="buttoncheck">
+                        <position>1115,5</position>
+                    </statetype>
+                </state>
+                <state name="selectedactive" from="active">
+                    <shape name="background">
+                        <area>0,0,100%,100%</area>
+                        <fill style="gradient">
+                            <gradient start="#52CA38" end="#349838" />
+                        </fill>
+                    </shape>
+                </state>
+                <state name="selectedinactive" from="active">
+                    <shape name="background">
+                        <area>0,0,100%,100%</area>
+                        <fill style="gradient">
+                            <gradient start="#52CA38" end="#349838" alpha="100" />
+                        </fill>
+                    </shape>
+                    <textarea name="buttontext">
+                        <font>basesmallpurple</font>
+                    </textarea>
+                </state>
+            </statetype>
+        </buttonlist>
+
+        <shape name="bottombackground" from="basebackground">
+            <area>30,380,1220,250</area>
+        </shape>
+
+        <textarea name="progtitle" from="basetextarea">
+            <area>60,395,640,30</area>
+            <font>basesmallyellow</font>
+        </textarea>
+
+        <textarea name="progdatetime" from="basetextarea">
+            <area>680,395,530,30</area>
+            <font>basesmallyellow</font>
+            <align>right</align>
+        </textarea>
+
+        <textarea name="progdescription" from="basetextarea">
+            <area>60,420,900,150</area>
+            <multiline>yes</multiline>
+        </textarea>
+
+        <textarea name="filename" from="basetextarea">
+            <area>50,600,300,40</area>
+        </textarea>
+
+        <textarea name="duration" from="basetextarea">
+            <area>810,600,400,40</area>
+            <align>right</align>
+        </textarea>
+
+        <imagetype name="preview_image">
+            <area>1000,425,200,170</area>
+            <filename>blank.png</filename>
+        </imagetype>
+
+        <button name="cancel_button" from="basebutton">
+            <position>55,650</position>
+            <value>Cancel</value>
+        </button>
+
+        <button name="ok_button" from="basebutton">
+            <position>1060,650</position>
+            <value>OK</value>
+        </button>
+
+    </window>
+
+      <!--
+      *******************************************************************
+      The editmetadata dialog
+      *******************************************************************
+  -->
+
+    <window name="import_editmetadata">
+
+        <textarea name="screentitle">
+            <area>15,5,800,50</area>
+            <font>baselarge</font>
+            <value>Import File Edit Item Details</value>
+        </textarea>
+
+        <!--
+            Labels
+        -->
+
+        <textarea name="importtype_label" from="basetextarea">
+            <area>45,40,270,50</area>
+            <font>basesmall</font>
+            <align>right,vcenter</align>
+            <value>Import Type:</value>
+        </textarea>
+
+        <textarea name="title_label" from="basetextarea">
+            <area>45,90,270,50</area>
+            <font>basesmall</font>
+            <align>right,vcenter</align>
+            <value>Title:</value>
+        </textarea>
+
+        <textarea name="subtitle_label" from="title_label">
+            <area>45,140,270,50</area>
+            <value>Subtitle:</value>
+        </textarea>
+
+        <textarea name="starttime_label" from="title_label">
+            <area>45,190,270,50</area>
+            <value>Start Time:</value>
+        </textarea>
+
+        <textarea name="category_label" from="title_label">
+            <area>45,240,270,50</area>
+            <value>Category:</value>
+        </textarea>
+
+        <textarea name="season_label" from="title_label">
+            <area>45,290,270,50</area>
+            <value>Season:</value>
+        </textarea>
+
+        <textarea name="episode_label" from="title_label">
+            <area>420,290,200,50</area>
+            <value>Episode:</value>
+        </textarea>
+
+        <textarea name="year_label" from="title_label">
+            <area>720,290,200,50</area>
+            <value>Year:</value>
+        </textarea>
+
+        <textarea name="description_label" from="title_label">
+            <area>45,340,270,50</area>
+            <value>Description:</value>
+        </textarea>
+
+        <!--
+            edits
+        -->
+
+        <buttonlist name="importtype_selector" from="baseselector">
+            <position>325,45</position>
+        </buttonlist>
+
+        <textedit name="title_edit" from="basetextedit">
+            <area>325,90,600,50</area>
+        </textedit>
+
+        <textedit name="subtitle_edit" from="basetextedit">
+            <area>325,140,600,50</area>
+        </textedit>
+
+        <textedit name="starttime_edit" from="basetextedit">
+            <position>325,190</position>
+        </textedit>
+
+        <textedit name="category_edit" from="title_edit">
+            <position>325,240</position>
+        </textedit>
+
+        <spinbox name="season_spin" from="basespinbox">
+            <position>325,295</position>
+            <template type="zero">N/A</template>
+        </spinbox>
+
+        <spinbox name="episode_spin" from="basespinbox">
+            <position>625,295</position>
+            <template type="zero">N/A</template>
+        </spinbox>
+
+        <spinbox name="year_spin" from="basespinbox">
+            <position>924,295</position>
+            <template type="zero">N/A</template>
+        </spinbox>
+
+        <textedit name="description_edit" from="basemultilinetextedit">
+            <area>325,340,750,300</area>
+        </textedit>
+
+        <!--
+            Push buttons
+        -->
+        <button name="ok_button" from="basebutton">
+            <position>480,650</position>
+            <value>OK</value>
+        </button>
+
+        <button name="cancel_button" from="basebutton">
+            <position>650,650</position>
+            <value>Cancel</value>
+        </button>
+    </window>
+
 </mythuitheme>
