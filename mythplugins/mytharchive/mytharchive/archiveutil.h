@@ -102,6 +102,7 @@ class ImportItem
 };
 
 QString formatSize(int64_t sizeKB, int prec = 2);
+QString formatTime(int seconds);
 QString getTempDirectory(bool showError = false);
 void checkTempDirectory();
 bool extractDetailsFromFilename(const QString &inFile,

@@ -1068,9 +1068,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
 {
     QString title = importItem.title + ' ~ ' + importItem.startTime.toString();
 
-    LOG(VB_JOBQUEUE, LOG_INFO, QString("Importing a file using IP Encoder method"));
-
-    LOG(VB_JOBQUEUE, LOG_ERR, QString("Starting playback of %1").arg(title));
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting playback at %1").arg(QDateTime::currentDateTime().toString()));
 
     // start playing the recording
     QString command = QString("python " + GetShareDir() + "mytharchive/scripts/SkyRemote.py --play %1").arg(importItem.filename);
@@ -1079,9 +1077,9 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     cmd->Wait(0);
     if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
-        LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
-        LOG(VB_JOBQUEUE, LOG_ERR, QString("SkyRemote exited with result: %1").arg(cmd.data()->GetExitCode()));
-        LOG(VB_JOBQUEUE, LOG_ERR, QString("Command was: %1").arg(command));
+        LOG(VB_JOBQUEUE, LOG_INFO, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
+        LOG(VB_JOBQUEUE, LOG_INFO, QString("SkyRemote exited with result: %1").arg(cmd.data()->GetExitCode()));
+        LOG(VB_JOBQUEUE, LOG_INFO, QString("Command was: %1").arg(command));
         return false;
     }
 
@@ -1091,8 +1089,10 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     QString mxmlFile = getTempDirectory() + "work/video.mxml";
 
     // record the mp4 video stream
-    LOG(VB_JOBQUEUE, LOG_ERR, QString("Starting recording of %1").arg(title));
-    LOG(VB_JOBQUEUE, LOG_ERR, QString("Duration is %1").arg(importItem.actualDuration));
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting recording"));
+
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Duration is %1, Expected end is: %2")
+        .arg(formatTime(importItem.actualDuration)).arg(QDateTime::currentDateTime().addSecs(importItem.actualDuration).toString()));
 
     QString recCommand = QString("mythffmpeg -y -i %1 -t %2 -acodec copy -vcodec copy %3")
                                  .arg(STREAMURL).arg(duration).arg(videoFile);
@@ -1159,7 +1159,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
         }
     }
 
-    LOG(VB_JOBQUEUE, LOG_ERR, QString("Copying video file to %1").arg(saveFilename));
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Copying video file to %1").arg(saveFilename));
 
     bool result = RemoteFile::CopyFile(videoFile, saveFilename);
     if (!result)
@@ -1171,7 +1171,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     // copy the metadata xml file to the Video storage group
     saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mxml", "Videos");
 
-    LOG(VB_JOBQUEUE, LOG_ERR, QString("Copying xml file to %1").arg(saveFilename));
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Copying xml file to %1").arg(saveFilename));
 
     result = RemoteFile::CopyFile(mxmlFile, saveFilename);
     if (!result)
@@ -1180,7 +1180,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
         return false;
     }
 
-    LOG(VB_JOBQUEUE, LOG_ERR, QString("*** Importing %1 completed sucessfully ***").arg(title));
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("*** Importing %1 completed sucessfully ***").arg(title));
 
     return true;
 }
@@ -1200,9 +1200,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
 {
     QString title = importItem.title + ' ~ ' + importItem.startTime.toString();
 
-    LOG(VB_JOBQUEUE, LOG_INFO, QString("Importing a file using Intensity Pro Encoder method"));
-
-    LOG(VB_JOBQUEUE, LOG_ERR, QString("Starting playback of %1").arg(title));
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting playback at %1").arg(QDateTime::currentDateTime().toString()));
 
     // start playing the recording
     QString command = QString("python " + GetShareDir() + "mytharchive/scripts/SkyRemote.py --play %1").arg(importItem.filename);
@@ -1217,8 +1215,9 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
         return false;
     }
 
-    LOG(VB_JOBQUEUE, LOG_ERR, QString("Starting recording of %1").arg(title));
-    LOG(VB_JOBQUEUE, LOG_ERR, QString("Duration is %1").arg(importItem.actualDuration));
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting recording").arg(title));
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Duration is %1, Expected end is: %2")
+        .arg(formatTime(importItem.actualDuration)).arg(QDateTime::currentDateTime().addSecs(importItem.actualDuration).toString()));
 
     uint frames = importItem.actualDuration * FPS;
     QString videoFile = getTempDirectory() + "work/video.nut";
@@ -1238,7 +1237,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
     }
 
     // re-encode the lossless huffyuv to mp4
-    LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting reencoding of %1").arg(title));
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting reencoding at %1").arg(QDateTime::currentDateTime().toString()));
 
     QString ffmpegFile = getTempDirectory() + "work/video.mp4";
     QString ffmpgCommand = QString("mythffmpeg -y -i %1 %2").arg(videoFile).arg(ffmpegFile);
@@ -1285,7 +1284,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
     // check if this file already exists
     if (RemoteFile::Exists(saveFilename))
     {
-        LOG(VB_JOBQUEUE, LOG_ERR, QString("File already exists %1").arg(saveFilename));
+        LOG(VB_JOBQUEUE, LOG_WARNING, QString("File already exists %1").arg(saveFilename));
         int x = 1;
 
         while (x < 100)
@@ -1304,7 +1303,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
     // copy the recording to the Video storage group
     saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mp4", "Videos");
 
-    LOG(VB_JOBQUEUE, LOG_ERR, QString("Copying video file to %1").arg(saveFilename));
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Copying video file to %1").arg(saveFilename));
 
     bool result = RemoteFile::CopyFile(videoFile, saveFilename);
     if (!result)
@@ -1316,7 +1315,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
     // copy the metadata xml file to the Video storage group
     saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mxml", "Videos");
 
-    LOG(VB_JOBQUEUE, LOG_ERR, QString("Copying xml file to %1").arg(saveFilename));
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Copying xml file to %1").arg(saveFilename));
 
     result = RemoteFile::CopyFile(mxmlFile, saveFilename);
     if (!result)
@@ -1325,7 +1324,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
         return false;
     }
 
-    LOG(VB_JOBQUEUE, LOG_ERR, QString("*** Importing %1 completed sucessfully ***").arg(title));
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("*** Importing %1 completed sucessfully ***").arg(title));
 
     return true;
 }

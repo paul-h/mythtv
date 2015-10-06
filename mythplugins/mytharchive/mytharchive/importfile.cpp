@@ -312,22 +312,11 @@ void ImportFile::titleChanged(MythUIButtonListItem *item)
     if (m_durationText)
     {
         if (i->actualDuration > 0)
-        {
-            int h = i->actualDuration / 3600;
-            int m = (i->actualDuration / 60) % 60;
-            int s = i->actualDuration % 60;
-            QString timeStr;
-
-            if (h > 0)
-                timeStr.sprintf("%dh:%02dm:%02ds", h, m, s);
-            else
-                timeStr.sprintf("%02dm:%02ds", m, s);
-
-            m_durationText->SetText(timeStr);
-        }
+            m_durationText->SetText(formatTime(i->actualDuration));
         else
             m_durationText->SetText(tr("N/A"));
     }
+
     if (m_filenameText)
         m_filenameText->SetText(i->filename);
 }
@@ -352,7 +341,7 @@ void ImportFile::OKPressed()
     // remove any existing logs
     myth_system("rm -f " + logDir + "/*.log");
 
-    commandline = "mytharchivehelper --logpath " + logDir + " --importfile "
+    commandline = "mytharchivehelper -v none,jobqueue --logpath " + logDir + " --importfile "
                   "--infile \"" + configFile + "\"";
     uint flags = kMSRunBackground | kMSDontBlockInputDevs |
                  kMSDontDisableDrawing;

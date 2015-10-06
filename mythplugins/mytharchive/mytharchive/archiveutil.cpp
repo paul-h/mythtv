@@ -73,6 +73,21 @@ QString formatSize(int64_t sizeKB, int prec)
     return QString("%1 KB").arg(sizeKB);
 }
 
+QString formatTime(int seconds)
+{
+    int h = seconds / 3600;
+    int m = (seconds / 60) % 60;
+    int s = seconds % 60;
+    QString timeStr;
+
+    if (h > 0)
+        timeStr.sprintf("%dh:%02dm:%02ds", h, m, s);
+    else
+        timeStr.sprintf("%02dm:%02ds", m, s);
+
+    return timeStr;
+}
+
 QString getTempDirectory(bool showError)
 {
     QString tempDir = gCoreContext->GetSetting("MythArchiveTempDir", "");
