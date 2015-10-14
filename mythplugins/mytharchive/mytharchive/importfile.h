@@ -83,8 +83,8 @@ class ImportFile : public MythScreenType
     MythUIText         *m_descriptionText;
     MythUIImage        *m_previewImage;
 
-    friend class GetSkyRecordingListThread;
-    friend class GetSkyRecordingThread;
+    friend class GetImportRecordingListThread;
+    friend class GetImportRecordingThread;
 };
 
 #endif

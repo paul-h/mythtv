@@ -408,6 +408,109 @@ static HostLineEdit *MythArchiveProjectXCmd()
     return gc;
 };
 
+// Import File Settings
+static HostLineEdit *MythArchiveGetRecordingList()
+{
+    HostLineEdit *gc = new HostLineEdit("MythArchiveGetRecordingList");
+
+    gc->setLabel(ArchiveSettings::tr("Get recording list command"));
+
+    gc->setValue(QString("python " + GetShareDir() + "mytharchive/scripts/SkyRemote.py --getplanner %OUTFILE%"));
+
+    gc->setHelpText(ArchiveSettings::tr("Command to get recording list from an external PVR. "
+                                        "%OUTFILE% will be replaced with the filename of the XML file "
+                                        "to save the results to."));
+
+    return gc;
+};
+
+static HostLineEdit *MythArchivePlayFileCommand()
+{
+    HostLineEdit *gc = new HostLineEdit("MythArchivePlayFileCommand");
+
+    gc->setLabel(ArchiveSettings::tr("Play external file command"));
+
+    gc->setValue(QString("python " + GetShareDir() + "mytharchive/scripts/SkyRemote.py --play %FILENAME%"));
+
+    gc->setHelpText(ArchiveSettings::tr("Command to start playback of a file on an external PVR. "
+                                        "%FILENAME% will be replaced with the filename or id of the "
+                                        "recording to start playing."));
+
+    return gc;
+};
+
+static HostLineEdit *MythArchiveRecordFileCommand()
+{
+    HostLineEdit *gc = new HostLineEdit("MythArchiveRecordFileCommand");
+
+    gc->setLabel(ArchiveSettings::tr("Record external file command"));
+
+    gc->setValue("mythffmpeg -y -i %INFILE% -t %DURATION% -acodec copy -vcodec copy %OUTFILE%");
+
+    gc->setHelpText(ArchiveSettings::tr("Command to start recording of a file from an external PVR. "
+                                        "%INFILE% and %OUTFile% will be replaced with the input and output filenames. "
+                                        "%DURATION% will be replaced with the duration of the recording."));
+
+    return gc;
+};
+
+static HostLineEdit *MythArchiveReEncodeFileCommand()
+{
+    HostLineEdit *gc = new HostLineEdit("MythArchiveReEncodeFileCommand");
+
+    gc->setLabel(ArchiveSettings::tr("Re-Encode file command"));
+
+    gc->setValue("mythffmpeg -y -i %INFILE% %OUTFILE%");
+
+    gc->setHelpText(ArchiveSettings::tr("Command to re-encode a file. "
+                                        "%INFILE% and %OUTFile% will be replaced with the input and output filenames "
+                                        "of the file to re-encode."));
+
+    return gc;
+};
+
+static HostLineEdit *MythArchiveRegularFilenameTemplate()
+{
+    HostLineEdit *gc = new HostLineEdit("MythArchiveRegularFilenameTemplate");
+
+    gc->setLabel(ArchiveSettings::tr("Regular Filename Template"));
+
+    gc->setValue("%TYPE%/%CATEGORY%/%TITLE%%|-SUBTITLE%");
+
+    gc->setHelpText(ArchiveSettings::tr("Template used to create the filename for imported files."
+                                        "Valid tokens are TYPE, CATEGORY, TITLE, SUBTITLE, SEASON, EPISODE and YEAR"));
+
+    return gc;
+};
+
+static HostLineEdit *MythArchiveSeriesFilenameTemplate()
+{
+    HostLineEdit *gc = new HostLineEdit("MythArchiveSeriesFilenameTemplate");
+
+    gc->setLabel(ArchiveSettings::tr("Season/Episode Filename Template"));
+
+    gc->setValue("%TYPE%/%CATEGORY%/%TITLE%%|-SUBTITLE% %S:|SEASON% %E: |EPISODE%");
+
+    gc->setHelpText(ArchiveSettings::tr("Template used to create the filename for imported files."
+                                        "Valid tokens are TYPE, CATEGORY, TITLE, SUBTITLE, SEASON, EPISODE and YEAR"));
+
+    return gc;
+};
+
+static HostLineEdit *MythArchiveMovieFilenameTemplate()
+{
+    HostLineEdit *gc = new HostLineEdit("MythArchiveMovieFilenameTemplate");
+
+    gc->setLabel(ArchiveSettings::tr("Movie Filename Template"));
+
+    gc->setValue("%TYPE%/%CATEGORY%/%TITLE% %|(YEAR|)%");
+
+    gc->setHelpText(ArchiveSettings::tr("Template used to create the filename for imported files."
+                                        "Valid tokens are TYPE, CATEGORY, TITLE, SUBTITLE, SEASON, EPISODE and YEAR"));
+
+    return gc;
+};
+
 ArchiveSettings::ArchiveSettings()
 {
     VerticalConfigurationGroup* vcg1 = new VerticalConfigurationGroup(false);
@@ -455,4 +558,15 @@ ArchiveSettings::ArchiveSettings()
     vcg5->addChild(MythArchiveJpeg2yuvCmd());
     vcg5->addChild(MythArchiveProjectXCmd());
     addChild(vcg5);
+
+    VerticalConfigurationGroup* vcg6 = new VerticalConfigurationGroup(false);
+    vcg6->setLabel(ArchiveSettings::tr("MythArchive Import File Settings"));
+    vcg6->addChild(MythArchiveGetRecordingList());
+    vcg6->addChild(MythArchivePlayFileCommand());
+    vcg6->addChild(MythArchiveRecordFileCommand());
+    vcg6->addChild(MythArchiveReEncodeFileCommand());
+    vcg6->addChild(MythArchiveRegularFilenameTemplate());
+    vcg6->addChild(MythArchiveSeriesFilenameTemplate());
+    vcg6->addChild(MythArchiveMovieFilenameTemplate());
+    addChild(vcg6);
 }

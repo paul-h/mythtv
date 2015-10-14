@@ -498,7 +498,7 @@ def GetPlanner(xmlfile):
         response = sendSOAP(host, serviceType, controlURL, actionName, actionArguments)
 
         if (response):
-            print response
+            #print response
             #h = HTMLParser.HTMLParser()
             #response = h.unescape(response)
             response = response.replace('&lt;', '<')
@@ -520,7 +520,8 @@ def GetPlanner(xmlfile):
 
             startingIndex += numberReturned
 
-            #print dom.toprettyxml(indent="    ", encoding="UTF-8")
+            print dom.toprettyxml(indent="    ", encoding="UTF-8")
+
             items = dom.getElementsByTagName('item')
             for item in items:
                 count += 1
@@ -579,7 +580,7 @@ def GetPlanner(xmlfile):
                 print "duration: %s" % getText(item.getElementsByTagName('upnp:scheduledDuration')[0])
 
                 actualDuration = ""
-                if status == 1:
+                if status == 1 or status == 2 or status == 3:
                     actualDuration = "N/A"
                 else:
                     actualDuration = getText(item.getElementsByTagName('upnp:recordedDuration')[0])
@@ -645,6 +646,7 @@ def GetPlanner(xmlfile):
             print "NO RESONSE from soap request!!"
             return 1;
 
+    print "### Exiting with 0 result ###"
     return 0
 
 def changeChannel(channel):

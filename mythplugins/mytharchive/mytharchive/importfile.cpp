@@ -44,12 +44,13 @@
 #define FPS 25
 #define STREAMURL "http://192.168.1.168:80/hdmi"
 
-class GetSkyRecordingListThread : public MThread
+class GetImportRecordingListThread : public MThread
 {
   public:
-    GetSkyRecordingListThread(ImportFile *parent) :
-        MThread("GetSkyRecordingList"), m_parent(parent)
+    GetImportRecordingListThread(ImportFile *parent) :
+        MThread("GetImportRecordingList"), m_parent(parent)
     {
+        QString command = gCoreContext->GetSetting("MythArchiveGetRecordingList");
         start();
     }
 
@@ -63,11 +64,11 @@ class GetSkyRecordingListThread : public MThread
     ImportFile *m_parent;
 };
 
-class GetSkyRecordingThread : public MThread
+class GetImportRecordingThread : public MThread
 {
   public:
-    GetSkyRecordingThread(ImportFile *parent) :
-        MThread("GetSkyRecording"), m_parent(parent)
+    GetImportRecordingThread(ImportFile *parent) :
+        MThread("GetRecording"), m_parent(parent)
     {
         start();
     }
@@ -155,7 +156,7 @@ bool ImportFile::Create(void)
 
 void ImportFile::Init(void)
 {
-    QString message = tr("Retrieving Recording List From SkyHD Box. Please Wait...");
+    QString message = tr("Retrieving Recording List. Please Wait...");
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
@@ -170,7 +171,8 @@ void ImportFile::Init(void)
         busyPopup = NULL;
     }
 
-    GetSkyRecordingListThread *thread = new GetSkyRecordingListThread(this);
+    GetImportRecordingListThread *thread = new GetImportRecordingListThread(this);
+
     while (thread->isRunning())
     {
         qApp->processEvents();
@@ -179,7 +181,7 @@ void ImportFile::Init(void)
 
     if (m_recordingList.empty())
     {
-        ShowOkPopup(tr("Failed to get recording list from the SkyHD box!"));
+        ShowOkPopup(tr("Failed to get recording list!"));
         if (busyPopup)
             busyPopup->Close();
 
@@ -224,6 +226,10 @@ bool ImportFile::keyPressEvent(QKeyEvent *event)
         else if (action == "EDIT")
         {
             editFileMetadata();
+        }
+        else if (action == "INFO")
+        {
+            Init();
         }
         else
             handled = false;
@@ -513,21 +519,25 @@ void ImportFile::updateRecordingList(void)
 
 void ImportFile::getRecordingList(void)
 {
-    m_recordingList.clear();
+    while (!m_recordingList.isEmpty())
+        delete m_recordingList.takeFirst();
 
-    QString xmlFile = getTempDirectory() + "work/skyrecordings.xml";
+    QString xmlFile = getTempDirectory() + "work/recordings.xml";
     QFileInfo fi(xmlFile);
 
     if (!fi.exists() || QDateTime::currentDateTime() > fi.lastModified().addSecs(3600))
     {
-        // run the script to get list of recordings from the SkyHD Box
-        QString command = QString("python " + GetShareDir() + "mytharchive/scripts/SkyRemote.py --getplanner %1").arg(xmlFile);
+        // run the script to get list of recordings from the External Box
+        QString command = gCoreContext->GetSetting("MythArchiveGetRecordingList");
+        command.replace("%XMLFILE%", xmlFile);
 
         QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
         cmd->Wait(0);
         if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
         {
-            LOG(VB_GENERAL, LOG_ERR, QString("ERROR - SkyRemote exited with result: %1").arg(cmd.data()->GetExitCode()));
+            LOG(VB_GENERAL, LOG_ERR, QString("ERROR - Failed to get recording list"));
+            LOG(VB_GENERAL, LOG_ERR, QString("Command exited with result: %1").arg(cmd.data()->GetExitCode()));
+            LOG(VB_GENERAL, LOG_ERR, QString("Command was: %1").arg(command));
             //return;
         }
     }
@@ -652,14 +662,16 @@ void ImportFile::playFile(void)
 
 bool ImportFile::doPlayFile(ImportItem *importItem, bool startPlayback)
 {
-    QString command = QString("python " + GetShareDir() + "mytharchive/scripts/SkyRemote.py --play %1").arg(importItem->filename);
+    QString command = gCoreContext->GetSetting("MythArchivePlayFileCommand");
+    command.replace("%FILENAME%", importItem->filename);
 
     QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
     cmd->Wait(0);
     if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
-        ShowOkPopup(tr("Could not start playback of %1").arg(importItem->title));
-        LOG(VB_GENERAL, LOG_ERR, QString("ERROR - SkyRemote exited with result: %1").arg(cmd.data()->GetExitCode()));
+        LOG(VB_GENERAL, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem->filename));
+        LOG(VB_GENERAL, LOG_ERR, QString("Command exited with result: %1").arg(cmd.data()->GetExitCode()));
+        LOG(VB_GENERAL, LOG_ERR, QString("Command was: %1").arg(command));
         return false;
     }
 
@@ -684,7 +696,7 @@ void ImportFile::recordFile(void)
     if (!doPlayFile(i, false))
         return;
 
-    QString message = tr("Recording From SkyHD Box.\nPlease Wait...");
+    QString message = tr("Getting List Of Recording.\nPlease Wait...");
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
@@ -699,7 +711,7 @@ void ImportFile::recordFile(void)
         busyPopup = NULL;
     }
 
-    GetSkyRecordingThread *thread = new GetSkyRecordingThread(this);
+    GetImportRecordingThread *thread = new GetImportRecordingThread(this);
     while (thread->isRunning())
     {
         qApp->processEvents();

@@ -367,10 +367,10 @@ inline QString fixFileToken_sl(QString token)
 QString filenameFromMetadataLookup(MetadataLookup *lookup)
 {
     QString filename;
-    QString regtempl = gCoreContext->GetSetting("VideoRegFilenameTemplate", "%TYPE%/%CATEGORY%/%TITLE%%|-SUBTITLE%");
-    QString seriestempl = gCoreContext->GetSetting("VideoSeriesFilenameTemplate", "%TYPE%/%CATEGORY%/%TITLE%%|-SUBTITLE% %S:|SEASON% %E: |EPISODE%");
-    QString filmtempl = gCoreContext->GetSetting("VideoFilmFilenameTemplate", "%TYPE%/%CATEGORY%/%TITLE% %|(YEAR|)%");
-    bool no_ws = gCoreContext->GetNumSetting("VideoNoWhitespace", 0);
+    QString regtempl = gCoreContext->GetSetting("MythArchiveRegularFilenameTemplate");
+    QString seriestempl = gCoreContext->GetSetting("MythArchiveSeriesFilenameTemplate");
+    QString filmtempl = gCoreContext->GetSetting("MythArchiveMovieFilenameTemplate");
+    bool no_ws = gCoreContext->GetNumSetting("MythArchiveNoWhitespace", 0);
 
     QRegExp regexp("%(([^\\|%]+)?\\||\\|(.))?([\\w#]+)(\\|(.+))?%");
     regexp.setMinimal(true);
@@ -435,13 +435,13 @@ QString filenameFromMetadataLookup(MetadataLookup *lookup)
             value = fixFilename(lookup->GetSubtitle());
 
         if ((key == "season") && (lookup->GetSeason() > 0))
-            value = fixFilename(QString::number(lookup->GetSeason(), 10));
+            value.sprintf("%02d", lookup->GetSeason());
 
         if ((key == "episode") && (lookup->GetEpisode() > 0))
-            value = fixFilename(QString::number(lookup->GetEpisode(), 10));
+            value.sprintf("%02d", lookup->GetEpisode());
 
         if ((key == "year") && (lookup->GetYear() > 0))
-            value = fixFilename(QString::number(lookup->GetYear(), 10));
+            value = QString::number(lookup->GetYear(), 10);
 
         if (!value.isEmpty())
         {

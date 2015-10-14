@@ -1071,15 +1071,16 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting playback at %1").arg(QDateTime::currentDateTime().toString()));
 
     // start playing the recording
-    QString command = QString("python " + GetShareDir() + "mytharchive/scripts/SkyRemote.py --play %1").arg(importItem.filename);
+    QString command = gCoreContext->GetSetting("MythArchivePlayFileCommand");
+    command.replace("%FILENAME%", importItem.filename);
 
     QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
     cmd->Wait(0);
     if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
-        LOG(VB_JOBQUEUE, LOG_INFO, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
-        LOG(VB_JOBQUEUE, LOG_INFO, QString("SkyRemote exited with result: %1").arg(cmd.data()->GetExitCode()));
-        LOG(VB_JOBQUEUE, LOG_INFO, QString("Command was: %1").arg(command));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("Command exited with result: %1").arg(cmd.data()->GetExitCode()));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("Command was: %1").arg(command));
         return false;
     }
 
@@ -1094,14 +1095,18 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Duration is %1, Expected end is: %2")
         .arg(formatTime(importItem.actualDuration)).arg(QDateTime::currentDateTime().addSecs(importItem.actualDuration).toString()));
 
-    QString recCommand = QString("mythffmpeg -y -i %1 -t %2 -acodec copy -vcodec copy %3")
-                                 .arg(STREAMURL).arg(duration).arg(videoFile);
+    QString recCommand = gCoreContext->GetSetting("MythArchiveRecordFileCommand");
+    recCommand.replace("%INFILE%", STREAMURL);
+    recCommand.replace("%OUTFILE%", videoFile);
+    recCommand.replace("%DURATION%", QString("%1").arg(duration));
 
     QScopedPointer<MythSystem> recCmd(MythSystem::Create(recCommand, kMSRunShell));
     recCmd->Wait(0);
     if (recCmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
-        LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - ffmpeg exited with result: %1").arg(recCmd.data()->GetExitCode()));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start recording file: %1").arg(importItem.filename));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("Command exited with result: %1").arg(cmd.data()->GetExitCode()));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("Command was: %1").arg(recCommand));
         return false;
     }
 
@@ -1203,14 +1208,15 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting playback at %1").arg(QDateTime::currentDateTime().toString()));
 
     // start playing the recording
-    QString command = QString("python " + GetShareDir() + "mytharchive/scripts/SkyRemote.py --play %1").arg(importItem.filename);
+    QString command = gCoreContext->GetSetting("MythArchivePlayFileCommand");
+    command.replace("%FILENAME%", importItem.filename);
 
     QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
     cmd->Wait(0);
     if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
-        LOG(VB_JOBQUEUE, LOG_ERR, QString("SkyRemote exited with result: %1").arg(cmd.data()->GetExitCode()));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("Command exited with result: %1").arg(cmd.data()->GetExitCode()));
         LOG(VB_JOBQUEUE, LOG_ERR, QString("Command was: %1").arg(command));
         return false;
     }
@@ -1219,6 +1225,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Duration is %1, Expected end is: %2")
         .arg(formatTime(importItem.actualDuration)).arg(QDateTime::currentDateTime().addSecs(importItem.actualDuration).toString()));
 
+    //FIXME the frames per second should be a setting?
     uint frames = importItem.actualDuration * FPS;
     QString videoFile = getTempDirectory() + "work/video.nut";
     QString mxmlFile = getTempDirectory() + "work/video.mxml";
