@@ -420,6 +420,10 @@ void ImportFile::createConfigFile(const QString &filename)
         episode.appendChild(doc.createTextNode(QString("%1").arg(i->episode)));
         job.appendChild(episode);
 
+        QDomElement year = doc.createElement("year");
+        year.appendChild(doc.createTextNode(QString("%1").arg(i->year)));
+        job.appendChild(year);
+
         QDomElement certification = doc.createElement("certification");
         certification.appendChild(doc.createTextNode(i->certification));
         job.appendChild(certification);

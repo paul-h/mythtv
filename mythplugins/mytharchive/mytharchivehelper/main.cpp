@@ -1020,6 +1020,7 @@ int NativeArchive::doImportFile(const QString &xmlFile)
             importItem.startTime = QDateTime::fromString(node.namedItem(QString("starttime")).toElement().text(), Qt::ISODate);
             importItem.season = node.namedItem(QString("season")).toElement().text().toUInt();
             importItem.episode = node.namedItem(QString("episode")).toElement().text().toUInt();
+            importItem.year = node.namedItem(QString("year")).toElement().text().toUInt();
             importItem.certification = node.namedItem(QString("certification")).toElement().text();
             importItem.chanNo = node.namedItem(QString("channo")).toElement().text();
             importItem.chanSign = node.namedItem(QString("chansign")).toElement().text();

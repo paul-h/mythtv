@@ -79,7 +79,7 @@ typedef struct
 class ImportItem
 {
   public:
-    ImportItem() : id(-1), season(0), episode(0), size(0), duration(0), actualDuration(0) {}
+    ImportItem() : id(-1), season(0), episode(0), year(0), size(0), duration(0), actualDuration(0) {}
     int     id;
     QString type;
     QString title;
