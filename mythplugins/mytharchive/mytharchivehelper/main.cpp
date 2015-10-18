@@ -1106,7 +1106,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     if (recCmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start recording file: %1").arg(importItem.filename));
-        LOG(VB_JOBQUEUE, LOG_ERR, QString("Command exited with result: %1").arg(cmd.data()->GetExitCode()));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("Command exited with result: %1").arg(recCmd.data()->GetExitCode()));
         LOG(VB_JOBQUEUE, LOG_ERR, QString("Command was: %1").arg(recCommand));
         return false;
     }
