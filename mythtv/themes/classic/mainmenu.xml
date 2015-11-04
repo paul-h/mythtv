@@ -97,7 +97,7 @@
         <type>WEBPAGE</type>
         <text>Email</text>
         <description>View email</description>
-        <action>MEDIA WebBrowser http://www.anviltoolhire.co.uk:2095/3rdparty/roundcube/?_task=mail</action>
+        <action>MEDIA WebBrowser http://gmail.com</action>
     </button>
 
     <button>
