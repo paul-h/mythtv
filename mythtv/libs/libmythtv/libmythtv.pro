@@ -61,14 +61,14 @@ macx {
     OBJECTIVE_SOURCES += util-osx.mm
 
     # Mac OS X Frameworks
-    libs += -framework ApplicationServices
-    libs += -framework Cocoa
-    libs += -framework CoreServices
-    libs += -framework CoreFoundation
-    libs += -framework OpenGL
-    libs += -framework QuickTime
-    libs += -framework IOKit
-    libs += -framework CoreVideo
+    LIBS += -framework ApplicationServices
+    LIBS += -framework Cocoa
+    LIBS += -framework CoreServices
+    LIBS += -framework CoreFoundation
+    LIBS += -framework OpenGL
+    LIBS += -framework QuickTime
+    LIBS += -framework IOKit
+    LIBS += -framework CoreVideo
 
     using_firewire:using_backend {
         QMAKE_CXXFLAGS += -F$${CONFIG_MAC_AVC}
@@ -100,7 +100,7 @@ using_valgrind:DEFINES += USING_VALGRIND
 
 # mmx macros from avlib
 contains( HAVE_MMX, yes ) {
-    HEADERS += ../libmythbase/ffmpeg-mmx.h ../../external/FFmpeg/libavcodec/dsputil.h
+    HEADERS += ../libmythbase/ffmpeg-mmx.h ../../external/FFmpeg/libavutil/cpu.h
 }
 
 QMAKE_CLEAN += $(TARGET) $(TARGETA) $(TARGETD) $(TARGET0) $(TARGET1) $(TARGET2)
@@ -304,6 +304,8 @@ SOURCES += HLS/m3u.cpp
 using_libcrypto:DEFINES += USING_LIBCRYPTO
 using_libcrypto:LIBS    += -lcrypto
 
+INCLUDEPATH += ../../external/minilzo
+DEPENDPATH += ../../external/minilzo
 
 using_frontend {
     # Recording profile stuff
@@ -576,8 +578,8 @@ using_backend {
     SOURCES += recorders/importrecorder.cpp
 
     # Simple NuppelVideo Recorder
-    INCLUDEPATH += ../../external/minilzo
-    DEPENDPATH += ../../external/minilzo
+    #INCLUDEPATH += ../../external/minilzo
+    #DEPENDPATH += ../../external/minilzo
     using_ffmpeg_threads:DEFINES += USING_FFMPEG_THREADS
     !mingw:!win32-msvc*:HEADERS += recorders/NuppelVideoRecorder.h
     HEADERS += recorders/RTjpegN.h
