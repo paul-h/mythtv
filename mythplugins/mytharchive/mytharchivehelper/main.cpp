@@ -1144,7 +1144,16 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     QString saveFilename;
 
     // copy the recording to the Video storage group
-    saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mp4", "Videos");
+    if (gCoreContext->GetMasterHostName() == gCoreContext->GetHostName())
+    {
+        StorageGroup sGroup("Videos", gCoreContext->GetHostName());
+        QString path = sGroup.GetFirstDir(true);
+        saveFilename = path + dstFile + ".mp4";
+    }
+    else
+    {
+        saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mp4", "Videos");
+    }
 
     // check if this file already exists
     if (RemoteFile::Exists(saveFilename))
@@ -1154,7 +1163,17 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
 
         while (x < 100)
         {
-            saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + QString("-%1").arg(x) + ".mp4", "Videos");
+            if (gCoreContext->GetMasterHostName() == gCoreContext->GetHostName())
+            {
+                StorageGroup sGroup("Videos", gCoreContext->GetHostName());
+                QString path = sGroup.GetFirstDir(true);
+                saveFilename = path + dstFile + QString("-%1").arg(x) + ".mp4";
+            }
+            else
+            {
+                saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + QString("-%1").arg(x) + ".mp4", "Videos");
+            }
+
             if (!RemoteFile::Exists(saveFilename))
             {
                 dstFile = dstFile + QString("-%1").arg(x);
@@ -1167,7 +1186,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
 
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Copying video file to %1").arg(saveFilename));
 
-    bool result = RemoteFile::CopyFile(videoFile, saveFilename);
+    bool result = copyFile(videoFile, saveFilename);
     if (!result)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR: Failed to copy video file to %1").arg(saveFilename));
@@ -1175,11 +1194,20 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     }
 
     // copy the metadata xml file to the Video storage group
-    saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mxml", "Videos");
+    if (gCoreContext->GetMasterHostName() == gCoreContext->GetHostName())
+    {
+        StorageGroup sGroup("Videos", gCoreContext->GetHostName());
+        QString path = sGroup.GetFirstDir(true);
+        saveFilename = path + dstFile + ".mxml";
+    }
+    else
+    {
+        saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mxml", "Videos");
+    }
 
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Copying xml file to %1").arg(saveFilename));
 
-    result = RemoteFile::CopyFile(mxmlFile, saveFilename);
+    result = copyFile(mxmlFile, saveFilename);
     if (!result)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("Failed to copy xml file to %1").arg(saveFilename));
@@ -1289,6 +1317,18 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
     QString dstFile = filenameFromMetadataLookup(lookup);
     QString saveFilename;
 
+    // copy the recording to the Video storage group
+    if (gCoreContext->GetMasterHostName() == gCoreContext->GetHostName())
+    {
+        StorageGroup sGroup("Videos", gCoreContext->GetHostName());
+        QString path = sGroup.GetFirstDir(true);
+        saveFilename = path + dstFile + ".mp4";
+    }
+    else
+    {
+        saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mp4", "Videos");
+    }
+
     // check if this file already exists
     if (RemoteFile::Exists(saveFilename))
     {
@@ -1297,7 +1337,17 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
 
         while (x < 100)
         {
-            saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + QString("-%1").arg(x) + ".mp4", "Videos");
+            if (gCoreContext->GetMasterHostName() == gCoreContext->GetHostName())
+            {
+                StorageGroup sGroup("Videos", gCoreContext->GetHostName());
+                QString path = sGroup.GetFirstDir(true);
+                saveFilename = path + dstFile + QString("-%1").arg(x) + ".mp4";
+            }
+            else
+            {
+                saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + QString("-%1").arg(x) + ".mp4", "Videos");
+            }
+
             if (!RemoteFile::Exists(saveFilename))
             {
                 dstFile = dstFile + QString("-%1").arg(x);
@@ -1313,7 +1363,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
 
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Copying video file to %1").arg(saveFilename));
 
-    bool result = RemoteFile::CopyFile(videoFile, saveFilename);
+    bool result = copyFile(videoFile, saveFilename);
     if (!result)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("Failed to copy video file to %1").arg(saveFilename));
@@ -1325,7 +1375,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
 
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Copying xml file to %1").arg(saveFilename));
 
-    result = RemoteFile::CopyFile(mxmlFile, saveFilename);
+    result = copyFile(mxmlFile, saveFilename);
     if (!result)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("Failed to copy xml file to %1").arg(saveFilename));
