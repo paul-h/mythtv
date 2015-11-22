@@ -426,7 +426,7 @@ bool WMRServer::createTemplate(const string &filename)
     // open the output template file
     ofstream ofs(TEMPLATEFILE);
 
-    if (ofs == false)
+    if (!ofs.is_open())
     {
         cout << "Failed to open the output template file: '"
              << TEMPLATEFILE << "'" << endl;
@@ -436,7 +436,7 @@ bool WMRServer::createTemplate(const string &filename)
     // load the template file line by line
     ifstream ifs(string(TEMPLATEDIR + filename).c_str());
 
-    if (ifs == false)
+    if (!ifs.is_open())
     {
         cout << "Failed to open the input template file: '"
              << TEMPLATEDIR + filename << "'" << endl;
