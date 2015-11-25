@@ -155,13 +155,10 @@ NativeArchive::~NativeArchive(void)
 
 bool NativeArchive::copyFile(const QString &source, const QString &destination)
 {
-    QString command = QString("mythutil --copyfile --infile '%1' --outfile '%2'")
-                              .arg(source).arg(destination);
-    uint res = myth_system(command);
-    if (res != GENERIC_EXIT_OK)
+    if (!RemoteFile::CopyFile(source, destination))
     {
         LOG(VB_JOBQUEUE, LOG_ERR,
-            QString("Failed while running %1. Result: %2").arg(command).arg(res));
+            QString("Failed to copy file from %1 to %2").arg(source).arg(destination));
         return false;
     }
 
