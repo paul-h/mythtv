@@ -606,6 +606,7 @@ RecStatus::Type TVRec::StartRecording(ProgramInfo *pginfo)
         // Tell event loop to begin recording.
         curRecording = new RecordingInfo(*rcinfo);
         curRecording->MarkAsInUse(true, kRecorderInUseID);
+        StartedRecording(curRecording);
         pginfo->SetRecordingID(curRecording->GetRecordingID());
         pginfo->SetRecordingStartTime(curRecording->GetRecordingStartTime());
 
@@ -1128,7 +1129,8 @@ void TVRec::TeardownRecorder(uint request_flags)
         delete recorderThread;
         recorderThread = NULL;
     }
-    ClearFlags(kFlagRecorderRunning, __FILE__, __LINE__);
+    ClearFlags(kFlagRecorderRunning | kFlagNeedToStartRecorder,
+               __FILE__, __LINE__);
 
     RecordingQuality *recq = NULL;
     if (recorder)
@@ -3602,12 +3604,13 @@ void TVRec::TuningShutdowns(const TuningRequest &request)
         }
 
         if (HasFlags(kFlagRecorderRunning) ||
-            (curRecording && curRecording->GetRecordingStatus() == RecStatus::Failed))
+            (curRecording &&
+             (curRecording->GetRecordingStatus() == RecStatus::Failed ||
+              curRecording->GetRecordingStatus() == RecStatus::Failing)))
         {
             stateChangeLock.unlock();
             TeardownRecorder(request.flags);
             stateChangeLock.lock();
-            ClearFlags(kFlagRecorderRunning, __FILE__, __LINE__);
         }
         // At this point the recorders are shut down
 
@@ -4174,8 +4177,6 @@ void TVRec::TuningNewRecorder(MPEGStreamData *streamData)
 
     if (lastTuningRequest.flags & kFlagRecording)
     {
-        StartedRecording(rec);
-
         bool write = genOpt.inputtype != "IMPORT";
         LOG(VB_GENERAL, LOG_INFO, LOC + QString("rec->GetPathname(): '%1'")
                 .arg(rec->GetPathname()));

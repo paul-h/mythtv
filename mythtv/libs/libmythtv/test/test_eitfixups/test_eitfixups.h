@@ -43,6 +43,8 @@ class TestEITFixups : public QObject
     void testUKFixups8(void);
     void testUKFixups9(void);
     void testDEPro7Sat1(void);
+    void testHTMLFixup(void);
+    void testSkyEpisodes(void);
 
   private:
     static DBEventEIT *SimpleDBEventEIT (uint chanid, QString title, QString subtitle, QString description);
