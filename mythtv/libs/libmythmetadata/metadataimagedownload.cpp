@@ -389,9 +389,13 @@ QString getDownloadFilename(VideoArtworkType type, MetadataLookup *lookup,
         if (type == kArtworkScreenshot)
             inter += QString("x%1").arg(QString::number(episode));
     }
-    else if (lookup->GetType() == kMetadataVideo ||
-             lookup->GetType() == kMetadataRecording)
-        title = lookup->GetInetref();
+    else if (lookup->GetType() == kMetadataVideo || lookup->GetType() == kMetadataRecording)
+    {
+        if (lookup->GetInetref() != "00000000")
+            title = lookup->GetTitle();
+        else
+            title = lookup->GetInetref();
+    }
     else if (lookup->GetType() == kMetadataGame)
         title = QString("%1 (%2)").arg(lookup->GetTitle())
                     .arg(lookup->GetSystem());
