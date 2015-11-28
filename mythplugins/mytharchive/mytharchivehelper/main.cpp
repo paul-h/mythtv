@@ -1117,7 +1117,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
                                                 importItem.startTime.date(), importItem.duration / 60, importItem.duration, 
                                                 "", PeopleMap(), "", ArtworkMap(), DownloadMap());
 
-    if (importItem.category.contains("Movies"), Qt::CaseInsensitive)
+    if (categories.contains("Movies", Qt::CaseInsensitive))
         lookup->SetVideoContentType(kContentMovie);
     else
         lookup->SetVideoContentType(kContentTelevision);
@@ -1293,7 +1293,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
                                                 importItem.startTime.date(), importItem.duration / 60, importItem.duration, "",
                                                 PeopleMap(), "", ArtworkMap(), DownloadMap());
 
-    if (importItem.category.contains("Movies"), Qt::CaseInsensitive)
+    if (categories.contains("Movies", Qt::CaseInsensitive))
         lookup->SetVideoContentType(kContentMovie);
     else
         lookup->SetVideoContentType(kContentTelevision);
