@@ -15,6 +15,7 @@
 #include "mythdownloadmanager.h"
 #include "mythlogging.h"
 #include "mythdate.h"
+#include "globals.h"
 
 QEvent::Type ImageDLEvent::kEventType =
     (QEvent::Type) QEvent::registerEventType();
@@ -391,7 +392,7 @@ QString getDownloadFilename(VideoArtworkType type, MetadataLookup *lookup,
     }
     else if (lookup->GetType() == kMetadataVideo || lookup->GetType() == kMetadataRecording)
     {
-        if (lookup->GetInetref() != "00000000")
+        if (lookup->GetInetref().isEmpty() || lookup->GetInetref() == VIDEO_INETREF_DEFAULT)
             title = lookup->GetTitle();
         else
             title = lookup->GetInetref();
