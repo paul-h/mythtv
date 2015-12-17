@@ -566,9 +566,11 @@ QString RemoteFile::GetFileHash(const QString &url)
     return result;
 }
 
-bool RemoteFile::CopyFile (const QString& src, const QString& dst)
+bool RemoteFile::CopyFile (const QString& src, const QString& dst,
+                           bool overwrite, bool verify)
 {
-    LOG(VB_FILE, LOG_INFO, QString("RemoteFile::CopyFile: Copying file from '%1' to '%2'").arg(src).arg(dst));
+    LOG(VB_FILE, LOG_INFO,
+        QString("RemoteFile::CopyFile: Copying file from '%1' to '%2'").arg(src).arg(dst));
 
     // sanity check
     if (src == dst)
@@ -594,6 +596,16 @@ bool RemoteFile::CopyFile (const QString& src, const QString& dst)
          return false;
     }
 
+    if (overwrite)
+    {
+        DeleteFile(dst);
+    }
+    else if (Exists(dst))
+    {
+        LOG(VB_GENERAL, LOG_ERR, "RemoteFile::CopyFile: File already exists");
+        return false;
+    }
+
     RemoteFile dstFile(dst, true);
     if (!dstFile.isOpen())
     {
@@ -604,6 +616,9 @@ bool RemoteFile::CopyFile (const QString& src, const QString& dst)
          return false;
     }
 
+    dstFile.SetBlocking(true);
+
+    bool success = true;
     int srcLen, dstLen;
 
     while ((srcLen = srcFile.Read(buf, readSize)) > 0)
@@ -613,11 +628,8 @@ bool RemoteFile::CopyFile (const QString& src, const QString& dst)
         if (dstLen == -1 || srcLen != dstLen)
         {
             LOG(VB_GENERAL, LOG_ERR,
-                "RemoteFile::CopyFile:: Error while trying to write to destination file.");
-            srcFile.Close();
-            dstFile.Close();
-            delete[] buf;
-            return false;
+                "RemoteFile::CopyFile: Error while trying to write to destination file.");
+            success = false;
         }
     }
 
@@ -625,7 +637,92 @@ bool RemoteFile::CopyFile (const QString& src, const QString& dst)
     dstFile.Close();
     delete[] buf;
 
-    return true;
+    if (success && verify)
+    {
+        // Check written file is correct size
+        struct stat fileinfo;
+        long long dstSize = Exists(dst, &fileinfo) ? fileinfo.st_size : -1;
+        long long srcSize = srcFile.GetFileSize();
+        if (dstSize != srcSize)
+        {
+            LOG(VB_GENERAL, LOG_ERR,
+                QString("RemoteFile::CopyFile: Copied file is wrong size (%1 rather than %2)")
+                    .arg(dstSize).arg(srcSize));
+            success = false;
+            DeleteFile(dst);
+        }
+    }
+
+    return success;
+}
+
+bool RemoteFile::MoveFile (const QString& src, const QString& dst, bool overwrite)
+{
+    LOG(VB_FILE, LOG_INFO,
+        QString("RemoteFile::MoveFile: Moving file from '%1' to '%2'").arg(src).arg(dst));
+
+    // sanity check
+    if (src == dst)
+    {
+        LOG(VB_GENERAL, LOG_ERR, "RemoteFile::MoveFile: Cannot move a file to itself");
+        return false;
+    }
+
+    if (isLocal(src) != isLocal(dst))
+    {
+        // Moving between local & remote requires a copy & delete
+        bool ok = CopyFile(src, dst, overwrite, true);
+        if (ok)
+        {
+            if (!DeleteFile(src))
+                LOG(VB_FILE, LOG_ERR,
+                    "RemoteFile::MoveFile: Failed to delete file after successful copy");
+        }
+        return ok;
+    }
+
+    if (overwrite)
+    {
+        DeleteFile(dst);
+    }
+    else if (Exists(dst))
+    {
+        LOG(VB_GENERAL, LOG_ERR, "RemoteFile::MoveFile: File already exists");
+        return false;
+    }
+
+    if (isLocal(src))
+    {
+        // Moving local -> local
+        QFileInfo fi(dst);
+        if (QDir().mkpath(fi.path()) && QFile::rename(src, dst))
+            return true;
+
+        LOG(VB_FILE, LOG_ERR, "RemoteFile::MoveFile: Rename failed");
+        return false;
+    }
+
+    // Moving remote -> remote
+    QUrl srcUrl(src);
+    QUrl dstUrl(dst);
+
+    if (srcUrl.userName() != dstUrl.userName())
+    {
+        LOG(VB_FILE, LOG_ERR, "RemoteFile::MoveFile: Cannot change a file's Storage Group");
+        return false;
+    }
+
+    QStringList strlist("MOVE_FILE");
+    strlist << srcUrl.userName() << srcUrl.path() << dstUrl.path();
+
+    gCoreContext->SendReceiveStringList(strlist);
+
+    if (!strlist.isEmpty() && strlist[0] == "1")
+        return true;
+
+    LOG(VB_FILE, LOG_ERR, QString("RemoteFile::MoveFile: MOVE_FILE failed with: %1")
+        .arg(strlist.join(",")));
+    return false;
 }
 
 void RemoteFile::Reset(void)
