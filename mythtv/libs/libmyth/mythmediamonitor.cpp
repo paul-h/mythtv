@@ -51,11 +51,14 @@ MonitorThread::MonitorThread(MediaMonitor* pMon, unsigned long interval) :
 void MonitorThread::run(void)
 {
     RunProlog();
+    QMutex mtx;
+    mtx.lock();
     while (m_Monitor && m_Monitor->IsActive())
     {
         m_Monitor->CheckDevices();
-        msleep(m_Interval);
+        m_Monitor->m_wait.wait(&mtx, m_Interval);
     }
+    mtx.unlock();
     RunEpilog();
 }
 
@@ -404,6 +407,8 @@ void MediaMonitor::CheckDevices(void)
     /* check if new devices have been plugged in */
     CheckDeviceNotifications();
 
+    QMutexLocker locker(&m_DevicesLock);
+
     QList<MythMediaDevice*>::iterator itr = m_Devices.begin();
     MythMediaDevice* pDev;
     while (itr != m_Devices.end())
@@ -445,7 +450,9 @@ void MediaMonitor::StopMonitoring(void)
 
     LOG(VB_MEDIA, LOG_NOTICE, "Stopping MediaMonitor");
     m_Active = false;
+    m_wait.wakeAll();
     m_Thread->wait();
+    LOG(VB_MEDIA, LOG_NOTICE, "Stopped MediaMonitor");
 }
 
 /** \fn MediaMonitor::ValidateAndLock(MythMediaDevice *pMedia)
@@ -591,24 +598,6 @@ QList<MythMediaDevice*> MediaMonitor::GetMedias(unsigned mediatypes)
     return medias;
 }
 
-/** \fn MediaMonitor::MonitorRegisterExtensions(uint,const QString&)
- *  \brief Register the extension list on all known devices
- */
-void MediaMonitor::MonitorRegisterExtensions(uint mediatype,
-                                             const QString &extensions)
-{
-    LOG(VB_GENERAL, LOG_DEBUG,
-             QString("MonitorRegisterExtensions(0x%1, %2)")
-                 .arg(mediatype, 0, 16).arg(extensions));
-
-    QList<MythMediaDevice*>::iterator it = m_Devices.begin();
-    for (; it != m_Devices.end(); ++it)
-    {
-        if (*it)
-            (*it)->RegisterMediaExtensions(mediatype, extensions);
-    }
-}
-
 void MediaMonitor::RegisterMediaHandler(const QString  &destination,
                                         const QString  &description,
                                         const QString  &key,
@@ -623,7 +612,7 @@ void MediaMonitor::RegisterMediaHandler(const QString  &destination,
         QString msg = MythMediaDevice::MediaTypeString((MythMediaType)mediaType);
 
         if (extensions.length())
-            msg += QString(", ext(%1)").arg(extensions);
+            msg += QString(", ext(0x%1)").arg(extensions, 0, 16);
 
         LOG(VB_MEDIA, LOG_INFO,
                  "Registering '" + destination + "' as a media handler for " +
@@ -632,7 +621,7 @@ void MediaMonitor::RegisterMediaHandler(const QString  &destination,
         m_handlerMap[destination] = mhd;
 
         if (extensions.length())
-            MonitorRegisterExtensions(mediaType, extensions);
+            MythMediaDevice::RegisterMediaExtensions(mediaType, extensions);
     }
     else
     {
