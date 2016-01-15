@@ -2451,7 +2451,7 @@ V4LConfigurationGroup::V4LConfigurationGroup(CaptureCard& a_parent) :
     parent(a_parent),
     cardinfo(new TransLabelSetting()),  vbidev(new VBIDevice(parent))
 {
-    QString drv = "(?!ivtv|hdpvr|(saa7164(.*)))";
+    QString drv = "(?!ivtv|hdpvr|(saa7164(.*))).*";
     VideoDevice *device = new VideoDevice(parent, 0, 15, QString::null, drv);
     HorizontalConfigurationGroup *audgrp =
         new HorizontalConfigurationGroup(false, false, true, true);
@@ -2631,7 +2631,7 @@ void ExternalConfigurationGroup::probeApp(const QString & path)
         if (!fileInfo.isReadable() || !fileInfo.isFile())
             ci = tr("File not readable: ");
         if (!fileInfo.isExecutable())
-            ci = tr("File is not exacutable: ");
+            ci = tr("File is not executable: ");
     }
     else
     {
@@ -2833,8 +2833,8 @@ void CaptureCard::Save(void)
         if (!dev.isEmpty())
         {
             uint groupid =
-                CardUtil::CreateDeviceInputGroup(gCoreContext->GetHostName(),
-                                                  dev);
+                CardUtil::CreateDeviceInputGroup(cardid, type,
+                                                 gCoreContext->GetHostName(), dev);
             CardUtil::LinkInputGroup(cardid, groupid);
             CardUtil::UnlinkInputGroup(0, groupid);
         }
