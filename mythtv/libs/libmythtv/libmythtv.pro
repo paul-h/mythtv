@@ -258,8 +258,8 @@ INSTALLS += inc
 #DVD stuff
 DEPENDPATH  += ../../external/libmythdvdnav/
 DEPENDPATH  += ../../external/libmythdvdnav/dvdread # for dvd_reader.h & dvd_input.h
-INCLUDEPATH += ../../external/libmythdvdnav/dvdnav
-INCLUDEPATH += ../../external/libmythdvdnav/dvdread
+QMAKE_CXXFLAGS += -isystem ../../external/libmythdvdnav/dvdnav
+QMAKE_CXXFLAGS += -isystem ../../external/libmythdvdnav/dvdread
 
 !win32-msvc*:POST_TARGETDEPS += ../../external/libmythdvdnav/libmythdvdnav-$${MYTH_LIB_EXT}
 
@@ -361,6 +361,8 @@ using_frontend {
         contains( HAVE_OPENMAX_BROADCOM, yes ) {
             DEFINES += OMX_SKIP64BIT USING_BROADCOM
             #LIBS += -lopenmaxil
+            QMAKE_CXXFLAGS += -isystem /opt/vc/include -isystem /opt/vc/include/IL -isystem /opt/vc/include/interface/vcos/pthreads -isystem /opt/vc/include/interface/vmcs_host/linux
+            LIBS += -L/opt/vc/lib -lopenmaxil
         }
         contains( HAVE_OPENMAX_BELLAGIO, yes ) {
             DEFINES += USING_BELLAGIO
@@ -728,7 +730,7 @@ using_backend {
     # Support for HDHomeRun box
     using_hdhomerun {
         # MythTV HDHomeRun glue
-        INCLUDEPATH += ../../external/libhdhomerun
+        QMAKE_CXXFLAGS += -isystem ../../external/libhdhomerun
         DEPENDPATH += ../../external/libhdhomerun
 
         HEADERS += recorders/hdhrsignalmonitor.h
