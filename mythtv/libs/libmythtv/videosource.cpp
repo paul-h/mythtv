@@ -2635,16 +2635,16 @@ void ExternalConfigurationGroup::probeApp(const QString & path)
 
     if (fileInfo.exists())
     {
+        ci = tr("'%1' is valid.").arg(fileInfo.absoluteFilePath());
         if (!fileInfo.isReadable() || !fileInfo.isFile())
-            ci = tr("File not readable: ");
+            ci = tr("'%1' is not readable.").arg(fileInfo.absoluteFilePath());
         if (!fileInfo.isExecutable())
-            ci = tr("File is not executable: ");
+            ci = tr("'%1' is not executable.").arg(fileInfo.absoluteFilePath());
     }
     else
     {
-        ci = tr("File does not exist: ");
+        ci = tr("'%1' does not exist").arg(fileInfo.absoluteFilePath());
     }
-    ci += QString("'%1'").arg(fileInfo.absoluteFilePath());
 
     info->setValue(ci);
 }
@@ -4382,7 +4382,7 @@ void DVBConfigurationGroup::Load(void)
 void DVBConfigurationGroup::Save(void)
 {
     VerticalConfigurationGroup::Save();
-    diseqc_tree->Store(cardnum->getValue());
+    diseqc_tree->Store(parent.getCardID(), cardnum->getValue());
     DiSEqCDev trees;
     trees.InvalidateTrees();
 }
