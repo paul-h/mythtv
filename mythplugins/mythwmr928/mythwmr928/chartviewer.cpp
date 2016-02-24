@@ -707,7 +707,7 @@ QDate CustomChartDialog::getStartDate(void)
     int month = m_monthSpin->GetIntValue();
     int year = m_yearSpin->GetIntValue();
 
-    dtResult.setYMD(year, month,day);
+    dtResult.setDate(year, month, day);
 
     return dtResult;
 }

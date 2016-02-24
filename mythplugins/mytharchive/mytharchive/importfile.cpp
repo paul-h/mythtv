@@ -274,16 +274,16 @@ void ImportFile::toggleSelected(MythUIButtonListItem *item)
 {
     if (item->state() == MythUIButtonListItem:: FullChecked)
     {
-        int index = m_selectedList.indexOf(qVariantValue<ImportItem *>(item->GetData()));
+        int index = m_selectedList.indexOf(item->GetData().value<ImportItem *>());
         if (index != -1)
             m_selectedList.takeAt(index);
         item->setChecked(MythUIButtonListItem:: NotChecked);
     }
     else
     {
-        int index = m_selectedList.indexOf(qVariantValue<ImportItem *>(item->GetData()));
+        int index = m_selectedList.indexOf(item->GetData().value<ImportItem *>());
         if (index == -1)
-            m_selectedList.append(qVariantValue<ImportItem *>(item->GetData()));
+            m_selectedList.append(item->GetData().value<ImportItem *>());
 
         item->setChecked(MythUIButtonListItem::FullChecked);
     }
@@ -293,7 +293,7 @@ void ImportFile::titleChanged(MythUIButtonListItem *item)
 {
     ImportItem *i;
 
-    i = qVariantValue<ImportItem *>(item->GetData());
+    i = item->GetData().value<ImportItem *>();
 
     if (!i)
         return;
@@ -656,7 +656,7 @@ void ImportFile::playFile(void)
     if (!item)
         return;
 
-    ImportItem *i = qVariantValue<ImportItem *>(item->GetData());
+    ImportItem *i = item->GetData().value<ImportItem *>();
 
     if (!i)
         return;
@@ -692,7 +692,7 @@ void ImportFile::recordFile(void)
     if (!item)
         return;
 
-    ImportItem *i = qVariantValue<ImportItem *>(item->GetData());
+    ImportItem *i = item->GetData().value<ImportItem *>();
 
     if (!i)
         return;
@@ -733,7 +733,7 @@ void ImportFile::doGetRecording(void)
     if (!item)
         return;
 
-    ImportItem *i = qVariantValue<ImportItem *>(item->GetData());
+    ImportItem *i = item->GetData().value<ImportItem *>();
 
     if (!i)
         return;
@@ -813,7 +813,7 @@ void ImportFile::editFileMetadata(void)
     if (!item)
         return;
 
-    ImportItem *i = qVariantValue<ImportItem *>(item->GetData());
+    ImportItem *i = item->GetData().value<ImportItem *>();
 
     if (!i)
         return;
