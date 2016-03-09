@@ -98,8 +98,9 @@ using namespace std;
 // Gallery
 #include "gallerythumbview.h"
 
-// DVD
+// DVD & Bluray
 #include "DVD/dvdringbuffer.h"
+#include "Bluray/bdringbuffer.h"
 
 // AirPlay
 #ifdef USING_AIRPLAY
@@ -1199,6 +1200,30 @@ static int internal_play_media(const QString &mrl, const QString &plot,
         }
         delete dvd;
     }
+    else if (pginfo->IsVideoBD())
+    {
+        BDInfo bd(pginfo->GetPlaybackURL());
+        if (bd.IsValid())
+        {
+            QString name;
+            QString serialid;
+            if (bd.GetNameAndSerialNum(name, serialid))
+            {
+                QStringList fields = pginfo->QueryBDBookmark(serialid);
+                bookmarkPresent = (fields.count() > 0);
+            }
+        }
+        else
+        {
+            // ToDo: Change string to "BD Failure" after 0.28 is released
+            ShowNotificationError(qApp->translate("(MythFrontendMain)",
+                                                  "DVD Failure"),
+                                                  _Location,
+                                                  bd.GetLastError());
+            delete pginfo;
+            return res;
+        }
+    }
     else if (pginfo->IsVideo())
         bookmarkPresent = (pginfo->QueryBookmark() > 0);
 
@@ -1630,6 +1655,21 @@ static bool WasAutomaticStart(void)
     return autoStart;
 }
 
+// from https://www.raspberrypi.org/forums/viewtopic.php?f=33&t=16897
+// The old way of revoking root with setuid(getuid()) 
+// causes system hang in certain cases on raspberry pi
+
+static int revokeRoot (void)
+{
+  if (getuid () == 0 && geteuid () == 0)      // Really running as root
+    return 0;
+
+  if (geteuid () == 0)                  // Running setuid root
+     return seteuid (getuid ()) ;               // Change effective uid to the uid of the caller
+  return 0;
+}
+
+
 int main(int argc, char **argv)
 {
     bool bPromptForBackend    = false;
@@ -1791,16 +1831,9 @@ int main(int argc, char **argv)
     qApp->setSetuidAllowed(true);
 #endif
 
-#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
-    // If Qt graphics platform is egl (Raspberry Pi) then setuid hangs
-    LOG(VB_GENERAL, LOG_NOTICE, "QT_QPA_PLATFORM=" + qApp->platformName());
-    if (qApp->platformName().contains("egl"))
-      ;
-    else
-#endif
-    if (setuid(getuid()) != 0)
+    if (revokeRoot() != 0)
     {
-        LOG(VB_GENERAL, LOG_ERR, "Failed to setuid(), exiting.");
+        LOG(VB_GENERAL, LOG_ERR, "Failed to revokeRoot(), exiting.");
         return GENERIC_EXIT_NOT_OK;
     }
 
