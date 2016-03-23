@@ -68,7 +68,7 @@ EITFixUp::EITFixUp()
       m_ukNew("(New\\.|\\s*(Brand New|New)\\s*(Series|Episode)\\s*[:\\.\\-])",Qt::CaseInsensitive),
       m_ukNewTitle("^(Brand New|New:)\\s*",Qt::CaseInsensitive),
       m_ukAlsoInHD("\\s*Also in HD\\.",Qt::CaseInsensitive),
-      m_ukCEPQ("[:\\!\\.\\?]"),
+      m_ukCEPQ("[:\\!\\.\\?]\\s"),
       m_ukColonPeriod("[:\\.]"),
       m_ukDotSpaceStart("^\\. "),
       m_ukDotEnd("\\.$"),
@@ -138,6 +138,8 @@ EITFixUp::EITFixUp()
       m_PRO7CrewOne("^(.*):\\s+(.*)$"),
       m_PRO7Cast("\n\nDarsteller:\n(.*)$"),
       m_PRO7CastOne("^([^\\(]*)\\((.*)\\)$"),
+      m_DisneyChannelSubtitle(",([^,]+)\\s{0,1}(\\d{4})$"),
+      m_ATVSubtitle(",{0,1}\\sFolge\\s(\\d{1,3})$"),
       m_RTLEpisodeNo1("^(Folge\\s\\d{1,4})\\.*\\s*"),
       m_RTLEpisodeNo2("^(\\d{1,2}\\/[IVX]+)\\.*\\s*"),
       m_fiRerun("\\ ?Uusinta[a-zA-Z\\ ]*\\.?"),
@@ -299,6 +301,12 @@ void EITFixUp::Fix(DBEventEIT &event) const
 
     if (kFixP7S1 & event.fixup)
         FixPRO7(event);
+
+    if (kFixATV & event.fixup)
+        FixATV(event);
+
+    if (kFixDisneyChannel & event.fixup)
+        FixDisneyChannel(event);
 
     if (kFixFI & event.fixup)
         FixFI(event);
@@ -1013,7 +1021,8 @@ void EITFixUp::FixUK(DBEventEIT &event) const
             if (isMovie &&
                 ((position1 = strFull.indexOf(m_ukCEPQ,strPart.length())) != -1))
             {
-                 if (strFull[position1] == '!' || strFull[position1] == '?')
+                 if (strFull[position1] == '!' || strFull[position1] == '?'
+                  || (position1>2 && strFull[position1] == '.' && strFull[position1-2] == '.'))
                      position1++;
                  event.title = strFull.left(position1);
                  event.description = strFull.mid(position1 + 1);
@@ -1021,7 +1030,8 @@ void EITFixUp::FixUK(DBEventEIT &event) const
             }
             else if ((position1 = strFull.indexOf(m_ukCEPQ)) != -1)
             {
-                 if (strFull[position1] == '!' || strFull[position1] == '?')
+                 if (strFull[position1] == '!' || strFull[position1] == '?'
+                  || (position1>2 && strFull[position1] == '.' && strFull[position1-2] == '.'))
                      position1++;
                  event.title = strFull.left(position1);
                  event.description = strFull.mid(position1 + 1);
@@ -1853,6 +1863,40 @@ void EITFixUp::FixPRO7(DBEventEIT &event) const
      * \n\nKoch: Jamie Oliver
      */
 }
+
+/** \fn EITFixUp::FixDisneyChannel(DBEventEIT&) const
+*  \brief Use this to standardise the Disney Channel guide in Germany.
+*/
+void EITFixUp::FixDisneyChannel(DBEventEIT &event) const
+{
+    QRegExp tmp = m_DisneyChannelSubtitle;
+    int pos = tmp.indexIn(event.subtitle);
+    if (pos != -1)
+    {
+        if (event.airdate == 0)
+        {
+            event.airdate = tmp.cap(3).toUInt();
+        }
+	event.subtitle.replace(tmp, "");
+    }
+    tmp = QRegExp("\\s[^\\s]+-(Serie)");
+    pos = tmp.indexIn(event.subtitle);
+    if (pos != -1)
+    {
+        event.categoryType = ProgramInfo::kCategorySeries;
+        event.category=tmp.cap(0).trimmed();
+        event.subtitle.replace(tmp, "");
+    }
+}
+
+/** \fn EITFixUp::FixATV(DBEventEIT&) const
+*  \brief Use this to standardise the ATV/ATV2 guide in Germany.
+**/
+void EITFixUp::FixATV(DBEventEIT &event) const
+{
+    event.subtitle.replace(m_ATVSubtitle, "");
+}
+
 
 /** \fn EITFixUp::FixFI(DBEventEIT&) const
  *  \brief Use this to clean DVB-T guide in Finland.

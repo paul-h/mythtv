@@ -387,25 +387,27 @@ void TestEITFixups::testUKMarvel()
 
     DBEventEIT *event = SimpleDBEventEIT (EITFixUp::kFixUK,
                                          "Marvel's Agents of S.H.I.E.L.D.",
-                                         "",
+                                         "Maveth: <description> (S3 Ep10/22)  [AD,S]",
                                          "");
 
     PRINT_EVENT(*event);
     fixup.Fix(*event);
     PRINT_EVENT(*event);
     QCOMPARE(event->title,    QString("Marvel's Agents of S.H.I.E.L.D."));
+    QCOMPARE(event->subtitle, QString("Maveth"));
     delete event;
 
 
     DBEventEIT *event2 = SimpleDBEventEIT (EITFixUp::kFixUK,
-                                          "NEW: Marvel's Agents of S.H.I.E.L.D.",
-                                          "",
+                                          "New: Marvel's Agents of...",
+                                          "...S.H.I.E.L.D. Brand new series - Bouncing Back: <description> (S3 Ep11/22)  [AD,S]",
                                           "");
 
     PRINT_EVENT(*event2);
     fixup.Fix(*event2);
     PRINT_EVENT(*event2);
     QCOMPARE(event2->title,    QString("Marvel's Agents of S.H.I.E.L.D."));
+    QCOMPARE(event2->subtitle, QString("Bouncing Back"));
     delete event2;
 }
 
@@ -673,6 +675,52 @@ void TestEITFixups::testUnitymedia()
     QCOMPARE(event->stars, 0.89f);
     QCOMPARE(event->items.count(), 1);
     delete event;
+}
+
+void TestEITFixups::testDeDisneyChannel()
+{
+    EITFixUp fixup;
+
+    DBEventEIT *event = SimpleDBEventEIT (EITFixUp::kFixDisneyChannel,
+                                         "Meine Schwester Charlie",
+                                         "Das Ablenkungsmanöver Familien-Serie, USA 2011",
+                                         "...");
+
+    PRINT_EVENT(*event);
+    fixup.Fix(*event);
+    PRINT_EVENT(*event);
+    QCOMPARE(event->title,    QString("Meine Schwester Charlie"));
+    QCOMPARE(event->subtitle, QString("Das Ablenkungsmanöver"));
+     QCOMPARE(event->category, QString("Familien-Serie"));
+     QCOMPARE(event->categoryType, ProgramInfo::kCategorySeries);
+
+    DBEventEIT *event2 = SimpleDBEventEIT (EITFixUp::kFixDisneyChannel,
+                                         "Phineas und Ferb",
+                                         "Das Achterbahn - Musical Zeichentrick-Serie, USA 2011",
+                                         "...");
+
+    PRINT_EVENT(*event2);
+    fixup.Fix(*event2);
+    PRINT_EVENT(*event2);
+    QCOMPARE(event2->title,    QString("Phineas und Ferb"));
+    QCOMPARE(event2->subtitle, QString("Das Achterbahn - Musical"));
+}
+
+void TestEITFixups::testATV()
+{
+    EITFixUp fixup;
+
+    DBEventEIT *event = SimpleDBEventEIT (EITFixUp::kFixATV,
+                                         "Gilmore Girls",
+                                         "Eine Hochzeit und ein Todesfall, Folge 17",
+                                         "Lorelai und Rory helfen Luke in seinem Café aus, der mit den Vorbereitungen für das ...");
+
+    PRINT_EVENT(*event);
+    fixup.Fix(*event);
+    PRINT_EVENT(*event);
+    QCOMPARE(event->title,    QString("Gilmore Girls"));
+    QCOMPARE(event->subtitle, QString("Eine Hochzeit und ein Todesfall"));
+
 }
 
 QTEST_APPLESS_MAIN(TestEITFixups)
