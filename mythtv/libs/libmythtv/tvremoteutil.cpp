@@ -148,8 +148,9 @@ vector<InputInfo> RemoteRequestFreeInputInfo(uint excluded_input)
             break;
         inputs.push_back(info);
         LOG(VB_CHANNEL, LOG_INFO,
-            QString("RemoteRequestFreeInputInfo got input %1 (%2/%3)")
-            .arg(info.inputid).arg(info.chanid).arg(info.mplexid));
+            QString("RemoteRequestFreeInputInfo got input %1 (%2/%3/%4/%5)")
+            .arg(info.inputid).arg(info.chanid).arg(info.mplexid)
+            .arg(info.reccount).arg(info.reclimit));
     }
 
     LOG(VB_CHANNEL, LOG_INFO,
@@ -340,31 +341,6 @@ RemoteEncoder *RemoteGetExistingRecorder(int recordernum)
         QString("RemoteGetExistingRecorder got input %1")
         .arg(recordernum));
     return new RemoteEncoder(recordernum, hostname, port);
-}
-
-vector<InputInfo> RemoteRequestFreeInputList(
-    uint inputid, uint excluded_input)
-{
-    LOG(VB_CHANNEL, LOG_INFO,
-        QString("RemoteRequestFreeInputList input %1 excluding input %2")
-        .arg(inputid).arg(excluded_input));
-
-    vector<InputInfo> inputs =
-        RemoteRequestFreeInputInfo(excluded_input);
-
-    vector<InputInfo>::iterator it = inputs.begin();
-    while (it != inputs.end())
-    {
-        if ((*it).inputid == inputid)
-            ++it;
-        else
-            it = inputs.erase(it);
-    }
-
-    LOG(VB_CHANNEL, LOG_INFO,
-        QString("RemoteRequestFreeInputList got %1 inputs")
-        .arg(inputs.size()));
-    return inputs;
 }
 
 bool RemoteIsBusy(uint inputid, InputInfo &busy_input)

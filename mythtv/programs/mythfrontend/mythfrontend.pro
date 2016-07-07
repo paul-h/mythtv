@@ -11,7 +11,7 @@ contains(QT_VERSION, ^4\\.[0-9]\\..*) {
 QT += webkit
 using_qtdbus: CONFIG += qdbus
 }
-contains(QT_VERSION, ^5\\.[0-9]\\..*) {
+contains(QT_VERSION, ^5\\.[0-9]\\..*):using_qtwebkit {
 QT += widgets
 QT += webkitwidgets
 using_qtdbus: QT += dbus
@@ -39,7 +39,7 @@ HEADERS += mediarenderer.h mythfexml.h playbackboxlistitem.h
 HEADERS += exitprompt.h
 HEADERS += action.h mythcontrols.h keybindings.h keygrabber.h
 HEADERS += progfind.h guidegrid.h customedit.h
-HEADERS += schedulecommon.h progdetails.h scheduleeditor.h
+HEADERS += schedulecommon.h scheduleeditor.h
 HEADERS += backendconnectionmanager.h   programinfocache.h
 HEADERS += proglist.h                   proglist_helpers.h
 HEADERS += playbackboxhelper.h          viewschedulediff.h
@@ -64,7 +64,7 @@ SOURCES += mediarenderer.cpp mythfexml.cpp playbackboxlistitem.cpp
 SOURCES += custompriority.cpp exitprompt.cpp
 SOURCES += action.cpp actionset.cpp  mythcontrols.cpp keybindings.cpp
 SOURCES += keygrabber.cpp progfind.cpp guidegrid.cpp
-SOURCES += customedit.cpp schedulecommon.cpp progdetails.cpp scheduleeditor.cpp
+SOURCES += customedit.cpp schedulecommon.cpp scheduleeditor.cpp
 SOURCES += backendconnectionmanager.cpp programinfocache.cpp
 SOURCES += proglist.cpp                 proglist_helpers.cpp
 SOURCES += playbackboxhelper.cpp        viewschedulediff.cpp
@@ -85,6 +85,11 @@ SOURCES += galleryinfo.cpp
 HEADERS += serviceHosts/frontendServiceHost.h
 HEADERS += services/frontend.h
 SOURCES += services/frontend.cpp
+
+using_qtwebkit {
+    HEADERS += progdetails.h
+    SOURCES += progdetails.cpp
+}
 
 macx {
     mac_bundle {
@@ -153,4 +158,28 @@ android {
     ANDROID_EXTRA_LIBS += $$(MYTHINSTALLLIB)libmythprotoserver-0.28.so
 
     ANDROID_PACKAGE_SOURCE_DIR += $$(MYTHPACKAGEBASE)/android-package-source
+}
+
+using_openmax {
+    contains( HAVE_OPENMAX_BROADCOM, yes ) {
+        using_opengl {
+            # For raspberry Pi Raspbian
+            exists(/opt/vc/lib/libEGL.so) {
+                DEFINES += USING_OPENGLES
+                # For raspberry pi raspbian
+                QMAKE_RPATHDIR += $${RUNPREFIX}/share/mythtv/lib
+                createlinks.path = $${PREFIX}/share/mythtv/lib
+                createlinks.extra = ln -fs /opt/vc/lib/libEGL.so $(INSTALL_ROOT)/$${PREFIX}/share/mythtv/lib/libEGL.so.1.0.0 ;
+                createlinks.extra += ln -fs /opt/vc/lib/libEGL.so $(INSTALL_ROOT)/$${PREFIX}/share/mythtv/lib/libEGL.so.1 ;
+                createlinks.extra += ln -fs /opt/vc/lib/libGLESv2.so $(INSTALL_ROOT)/$${PREFIX}/share/mythtv/lib/libGLESv2.so.2.0.0 ;
+                createlinks.extra += ln -fs /opt/vc/lib/libGLESv2.so $(INSTALL_ROOT)/$${PREFIX}/share/mythtv/lib/libGLESv2.so.2 ;
+                INSTALLS += createlinks
+            }
+        } else {
+            # For raspberry pi ubuntu
+            exists(/usr/lib/arm-linux-gnueabihf/mesa-egl/libEGL.so) {
+                QMAKE_RPATHDIR += /usr/lib/arm-linux-gnueabihf/mesa-egl
+            }
+        }
+    }
 }

@@ -34,7 +34,10 @@ class MythUICheckBox;
 class MythUISpinBox;
 class MythUITextEdit;
 class MythUIProgressBar;
+
+#ifdef CONFIG_QTWEBKIT
 class MythUIWebBrowser;
+#endif
 
 /**
  * \defgroup MythUI MythTV User Interface Library

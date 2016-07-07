@@ -751,4 +751,41 @@ void TestEITFixups::testATV()
 
 }
 
+void TestEITFixups::test64BitEnum(void)
+{
+    QVERIFY(EITFixUp::kFixUnitymedia != EITFixUp::kFixNone);
+    QVERIFY(EITFixUp::kFixATV != EITFixUp::kFixNone);
+    QVERIFY(EITFixUp::kFixDisneyChannel != EITFixUp::kFixNone);
+#if 0
+    QCOMPARE(QString::number(EITFixUp::kFixUnitymedia), QString::number(EITFixUp::kFixNone));
+#endif
+
+#if 0
+    // needs some casting around
+    FixupValue theFixup = EITFixUp::kFixUnitymedia;
+    QCOMPARE(EITFixUp::kFixUnitymedia, theFixup);
+#endif
+
+    // this is likely what happens somewhere in the fixup pipeline
+    QCOMPARE((FixupValue)((uint32_t)EITFixUp::kFixUnitymedia), (FixupValue)EITFixUp::kFixNone);
+
+    FixupMap   fixes;
+    fixes[0xFFFFull<<32] = EITFixUp::kFixDisneyChannel;
+    fixes[0xFFFFull<<32] |= EITFixUp::kFixATV;
+    FixupValue fix;
+    fix = EITFixUp::kFixGenericDVB;
+    fix |= fixes.value(0xFFFFull<<32);
+    QCOMPARE(fix, EITFixUp::kFixGenericDVB | EITFixUp::kFixDisneyChannel | EITFixUp::kFixATV);
+    QVERIFY(EITFixUp::kFixATV & fix);
+
+    // did kFixGreekCategories = 1<<31 cause issues?
+#if 0
+    QCOMPARE(QString::number(1<<31, 16), QString::number(1u<<31, 16));
+#endif
+    // two different flags, fixed version
+    QVERIFY(!(1ull<<31 & 1ull<<32));
+    // oops, this is true, so setting the old kFixGreekCategories also set all flags following it
+    QVERIFY(1<<31 & 1ull<<32);
+}
+
 QTEST_APPLESS_MAIN(TestEITFixups)
