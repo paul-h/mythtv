@@ -274,7 +274,9 @@ static QString extract_main_state(const ProgramInfo &pginfo, const TV *player)
     QString state("normal");
     if (pginfo.GetFilesize() == 0)
         state = "error";
-    else if (pginfo.GetRecordingStatus() == RecStatus::Recording)
+    else if (pginfo.GetRecordingStatus() == RecStatus::Recording ||
+             pginfo.GetRecordingStatus() == RecStatus::Tuning ||
+             pginfo.GetRecordingStatus() == RecStatus::Failing)
         state = "running";
 
     if (((pginfo.GetRecordingStatus() != RecStatus::Recording) &&
@@ -299,6 +301,7 @@ QString PlaybackBox::extract_job_state(const ProgramInfo &pginfo)
     QString job = "default";
 
     if (pginfo.GetRecordingStatus() == RecStatus::Recording ||
+        pginfo.GetRecordingStatus() == RecStatus::Tuning ||
         pginfo.GetRecordingStatus() == RecStatus::Failing)
         job = "recording";
     else if (m_jobQueue.IsJobQueuedOrRunning(
@@ -3369,7 +3372,9 @@ void PlaybackBox::ShowActionPopup(const ProgramInfo &pginfo)
         }
     }
 
-    if (pginfo.GetRecordingStatus() == RecStatus::Recording &&
+    if ((pginfo.GetRecordingStatus() == RecStatus::Recording ||
+         pginfo.GetRecordingStatus() == RecStatus::Tuning ||
+         pginfo.GetRecordingStatus() == RecStatus::Failing) &&
         (!(sameProgram &&
            (tvstate == kState_WatchingLiveTV ||
             tvstate == kState_WatchingRecording))))
