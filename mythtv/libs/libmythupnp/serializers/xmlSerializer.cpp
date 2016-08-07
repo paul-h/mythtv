@@ -91,7 +91,10 @@ void XmlSerializer::BeginObject( const QString &sName, const QObject  *pObject )
 
     const QMetaObject *pMeta = pObject->metaObject();
 
-    int nIdx = pMeta->indexOfClassInfo( "version" );
+    int nIdx = -1;
+
+    if (pMeta)
+        nIdx = pMeta->indexOfClassInfo( "version" );
 
     if (nIdx >=0)
         m_pXmlWriter->writeAttribute( "version", pMeta->classInfo( nIdx ).value() );
@@ -120,15 +123,14 @@ void XmlSerializer::AddProperty( const QString       &sName,
 {
     m_pXmlWriter->writeStartElement( sName );
 
-    if (pMetaProp != NULL)
+    if ((pMetaProp != NULL) &&
+        (pMetaProp->isEnumType() || pMetaProp->isFlagType()))
     {
-        if (pMetaProp->isEnumType() || pMetaProp->isFlagType())
-        {
-            RenderEnum( sName, vValue, pMetaProp );
-        }
-        else
-            RenderValue( GetContentName( sName, pMetaParent, pMetaProp ), vValue );
+        RenderEnum ( sName, vValue, pMetaProp );
     }
+    else
+        RenderValue( GetContentName( sName, pMetaParent, pMetaProp ), vValue );
+
     m_pXmlWriter->writeEndElement();
 }
 
