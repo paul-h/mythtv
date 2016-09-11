@@ -544,14 +544,14 @@ def GetPlanner(xmlfile):
                 print "title: %s" % getText(item.getElementsByTagName('dc:title')[0])
 
                 node = itemsDOM.createElement("season")
-                node.appendChild(itemsDOM.createTextNode(getText(item.getElementsByTagName('vx:X_seasonNumber')[0])))
+                node.appendChild(itemsDOM.createTextNode("0"))
                 recordingNode.appendChild(node)
-                print "season: %s" % getText(item.getElementsByTagName('vx:X_seasonNumber')[0])
+                print "season: %s" % "0"
 
                 node = itemsDOM.createElement("episode")
-                node.appendChild(itemsDOM.createTextNode(getText(item.getElementsByTagName('upnp:episodeNumber')[0])))
+                node.appendChild(itemsDOM.createTextNode("0"))
                 recordingNode.appendChild(node)
-                print "episode: %s" % getText(item.getElementsByTagName('upnp:episodeNumber')[0])
+                print "episode: %s" % "0"
 
                 node = itemsDOM.createElement("channelno")
                 node.appendChild(itemsDOM.createTextNode(getText(item.getElementsByTagName('upnp:channelNr')[0])))
