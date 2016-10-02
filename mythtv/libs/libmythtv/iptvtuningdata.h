@@ -220,6 +220,8 @@ class MTV_PUBLIC IPTVTuningData
   protected:
     bool IsHLSPlaylist(void)
     {
+return false;
+
         if (!qApp)
         {
             LOG(VB_GENERAL, LOG_ERR, QString("IsHLSPlaylist - No QApplication!!"));
