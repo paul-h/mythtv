@@ -11,7 +11,7 @@ using_frontend {
     }
     SUBDIRS += mythwelcome mythshutdown mythutil
     SUBDIRS += mythpreviewgen mythmediaserver mythccextractor
-    SUBDIRS += mythscreenwizard
+    SUBDIRS += mythscreenwizard mythfrontend_qml
     !mingw:!win32-msvc*: SUBDIRS += mythtranscode/external/replex
 }
 

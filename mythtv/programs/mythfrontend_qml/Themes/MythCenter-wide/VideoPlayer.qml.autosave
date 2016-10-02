@@ -1,0 +1,74 @@
+import QtQuick 2.0
+//import QtMultimedia 5.6
+import QtAV 1.4
+import "../../Util.js" as Util
+
+Rectangle
+{
+    id: root
+    property alias source: mediaplayer.source
+    property alias defaultFocusItem: mediaplayer
+
+    x: 0; y: 0; width: parent.width; height: parent.height
+
+    color: "black"
+
+    Video
+    {
+        id: mediaplayer
+        autoPlay: true
+        anchors.fill: parent
+        subtitle.engines: ["FFmpeg"]
+        Keys.onEscapePressed: { stop(); stack.pop(); }
+        Keys.onReturnPressed: if (paused())  play(); else pause();
+        Keys.onLeftPressed: seek(position - 30000);
+        Keys.onRightPressed: seek(position + 30000);
+        Keys.onPressed:
+        {
+            if (event.key === Qt.Key_I)
+            {
+                if (infoPanel.visible)
+                    infoPanel.visible = false;
+                else
+                    infoPanel.visible = true;
+            }
+            else
+                event.accepted = false;
+        }
+    }
+
+    Rectangle
+    {
+        id: infoPanel
+        x: 10; y: parent.height -90; width: parent.width - 20; height: 70
+        visible: false
+        color: "black"
+        opacity: 0.4
+        radius: 25
+        border.color: "green"
+        border.width: 3
+
+        Text
+        {
+            x: 10; y: 5
+            id: pos
+            text: "Position:" + Util.milliSecondsToString(mediaplayer.position) + " / " + Util.milliSecondsToString(mediaplayer.duration)
+            color: "white"
+        }
+
+        Text
+        {
+            x: 10; y: 20
+            id: timeLeft
+            text: Util.milliSecondsToString((mediaplayer.duration) - (mediaplayer.position) )
+            color: "white"
+        }
+    }
+
+    MouseArea
+    {
+        id: playArea
+        anchors.fill: parent
+        onPressed: mediaplayer.play();
+    }
+}
