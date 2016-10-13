@@ -1,6 +1,7 @@
 import QtQuick 2.0
 import "../../Models"
 import Qt.labs.folderlistmodel 2.1
+import "base"
 
 Item
 {
@@ -9,12 +10,6 @@ Item
     property alias folder: folderModel.folder
 
     x: 0; y: 0; width: parent.width; height: parent.height
-
-    Image
-    {
-        id: background
-        source: themePath + "ui/background.png"
-    }
 
     Component
     {
@@ -94,7 +89,7 @@ Item
             if (model.get(currentIndex, "fileIsDir"))
                 stack.push({item: Qt.resolvedUrl("VideosGridFolder.qml"), properties:{folder: model.get(currentIndex, "filePath")}});
             else
-                stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source: model.get(currentIndex, "filePath")}});
+                stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source: "file://" + model.get(currentIndex, "filePath")}});
             event.accepted = true;
             returnSound.play();
         }

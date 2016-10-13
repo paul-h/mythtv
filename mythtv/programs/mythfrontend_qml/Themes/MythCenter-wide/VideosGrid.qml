@@ -1,17 +1,12 @@
 import QtQuick 2.0
 import "../../Models"
+import "base"
 
 Item
 {
     property alias defaultFocusItem: videoList
 
     x: 0; y: 0; width: parent.width; height: parent.height
-
-    Image
-    {
-        id: background
-        source: themePath + "ui/background.png"
-    }
 
     Component
     {
@@ -24,7 +19,7 @@ Item
             Image
             {
                 id: coverImage
-                x: 3; y:3; height: parent.height - 6; width: height
+                x: xscale(3); y: yscale(3); height: parent.height - yscale(6); width: height
                 source: if (Coverart)
                             settings.masterBackend + "Content/GetImageFile?StorageGroup=Coverart&FileName=" + Coverart
                         else
@@ -32,8 +27,8 @@ Item
             }
             Text
             {
-                width:videoList.width; height: 50
-                x: coverImage.width + 5
+                width:videoList.width; height: xscale(50)
+                x: coverImage.width + xscale(5)
                 text: SubTitle ? Title + ": " + SubTitle : Title
 
             }
@@ -46,10 +41,10 @@ Item
 
         Rectangle
         {
-            width:videoList.width; height: 50
+            width:videoList.width; height: yscale(50)
             color: "green"
             opacity: 0.3
-            radius: 15
+            radius: xscale(15)
             border.color: "#dd00ff00"
         }
     }
@@ -57,7 +52,7 @@ Item
     ListView
     {
         id: videoList
-        x: 100; y: 100; width: 1000; height: 500
+        x: xscale(100); y: yscale(100); width: xscale(1000); height: yscale(500)
 
         focus: true
         clip: true

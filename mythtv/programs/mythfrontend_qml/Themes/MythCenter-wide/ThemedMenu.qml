@@ -12,13 +12,6 @@ Item
 
     Image
     {
-        id: background
-        anchors.fill: parent
-        source: themePath + "ui/background.png"
-    }
-
-    Image
-    {
         id: title
         x: xscale(24); y: yscale(28)
         width: xscale(sourceSize.width)
@@ -42,12 +35,6 @@ Item
         width: xscale(sourceSize.width)
         height: yscale(sourceSize.height)
         source: themePath + "ui/horizon.png"
-    }
-
-    DigitalClock
-    {
-        x: xscale(950); y: yscale(20); width: xscale(480); height: yscale(40)
-        format: "ddd MMM dd, HH:mm:ss"
     }
 
     Rectangle

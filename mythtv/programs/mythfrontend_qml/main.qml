@@ -3,6 +3,7 @@ import QtMultimedia 5.4
 import QtQuick.Controls 1.4
 import "Themes/MythCenter-wide"
 import "MenuThemes/classic"
+import "Themes/MythCenter-wide/base"
 
 ApplicationWindow
 {
@@ -91,6 +92,14 @@ ApplicationWindow
     {
          id: escapeSound
          source: qmlPath + "sounds/pock.wav"
+    }
+
+    ScreenBackground
+    {
+        title: "Main Menu"
+        showTitle: true
+        showImage: false
+        showVideo: true
     }
 
     StackView
