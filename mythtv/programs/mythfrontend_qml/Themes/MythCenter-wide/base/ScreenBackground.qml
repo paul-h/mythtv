@@ -52,6 +52,6 @@ Item
     Component.onCompleted:
     {
         if (showVideo)
-            videoPlayer.source = themePath + "video/blue_background.mp4";
+            videoPlayer.source = qmlPath + "video/blue_background.mp4";
     }
 }
