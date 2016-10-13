@@ -1,0 +1,3 @@
+[submodule "mythtv/programs/mythfrontend_qml/QmlVlc"]
+	path = mythtv/programs/mythfrontend_qml/QmlVlc
+	url = https://github.com/RSATom/QmlVlc.git
