@@ -8,6 +8,10 @@
 #include <QFile>
 #include <QDir>
 
+// from QmlVlc
+#include <QmlVlc.h>
+#include <QmlVlc/QmlVlcConfig.h>
+
 // mythfrontend_qml
 #include "sqlquerymodel.h"
 #include <databaseutils.h>
@@ -64,6 +68,17 @@ static bool loadDBSettings(void)
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
+
+    QCoreApplication::setApplicationName("MythFrontendQML");
+    QCoreApplication::setAttribute(Qt::AA_X11InitThreads);
+
+    RegisterQmlVlc();
+    QmlVlcConfig& config = QmlVlcConfig::instance();
+    config.enableAdjustFilter( true );
+    config.enableMarqueeFilter(false);
+    config.enableLogoFilter(false);
+    config.enableDebug(false);
+    config.setTrustedEnvironment(true);
 
     QQmlApplicationEngine engine;
 

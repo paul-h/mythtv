@@ -1,7 +1,11 @@
 include ( ../../settings.pro )
 include ( ../../version.pro )
 include ( ../programs-libs.pro )
- 
+
+include(QmlVlc/QmlVlc.pri)
+
+INCLUDEPATH += QmlVlc
+
 QT += qml quick sql xml
 CONFIG += c++11
 
@@ -26,3 +30,4 @@ HEADERS += sqlquerymodel.h databaseutils.h
 
 SOURCES += main.cpp
 SOURCES += sqlquerymodel.cpp databaseutils.cpp
+
