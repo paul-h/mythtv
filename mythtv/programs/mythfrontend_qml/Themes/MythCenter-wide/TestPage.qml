@@ -10,13 +10,6 @@ Item
 
     Keys.onEscapePressed: if (stack.depth > 1) {videoplayer.stop(); stack.pop();} else Qt.quit();
 
-    Image
-    {
-        id: background
-        anchors.fill: parent
-        source: themePath + "ui/background.png"
-    }
-
     TitleText { text: "Accordion Test Page" }
 
     Rectangle
@@ -29,7 +22,7 @@ Item
 
         property bool fullscreen: false
 
-        VideoPlayer
+        VideoPlayerQmlVLC
         {
             id: videoplayer;
             anchors.margins: xscale(4)

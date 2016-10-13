@@ -11,7 +11,7 @@ Item
 
     Keys.onEscapePressed: if (stack.depth > 1) { player.stop(); stack.pop(); } else Qt.quit();
 
-    VideoPlayer
+    VideoPlayerQmlVLC
     {
         id: player
         anchors.fill: parent

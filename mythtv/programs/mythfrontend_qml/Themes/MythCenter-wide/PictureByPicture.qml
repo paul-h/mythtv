@@ -11,13 +11,6 @@ Item
 
     Keys.onEscapePressed: if (stack.depth > 1) {video1player.stop(); video2player.stop(); stack.pop();} else Qt.quit();
 
-    Image
-    {
-        id: background
-        anchors.fill: parent
-        source: themePath + "ui/background.png"
-    }
-
     Rectangle
     {
         id: player1Rect
@@ -26,7 +19,7 @@ Item
         border.color: "white"
         border.width: xscale(4)
 
-        VideoPlayer
+        VideoPlayerVLC
         {
             id: video1player;
             anchors.margins: xscale(4)
@@ -52,7 +45,7 @@ Item
         border.color: "white"
         border.width: xscale(4)
 
-        VideoPlayer
+        VideoPlayerVLC
         {
             id: video2player;
             anchors.margins: xscale(4)
