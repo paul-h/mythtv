@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
     config.enableMarqueeFilter(false);
     config.enableLogoFilter(false);
     config.enableDebug(false);
+    config.enableLoopPlayback(true);
     config.setTrustedEnvironment(true);
 
     QQmlApplicationEngine engine;
