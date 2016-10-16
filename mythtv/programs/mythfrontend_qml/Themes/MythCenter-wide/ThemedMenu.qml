@@ -31,7 +31,7 @@ Item
     Image
     {
         id: horizon
-        x: xscale(550); y: yscale(450)
+        x: xscale(550); y: yscale(500)
         width: xscale(sourceSize.width)
         height: yscale(sourceSize.height)
         source: themePath + "ui/horizon.png"
