@@ -11,6 +11,7 @@ FocusScope
     property alias source: mediaplayer.mrl
     property alias volume: mediaplayer.volume
     property bool loop: false
+    signal playbackEnded()
 
     anchors.fill: parent
 
@@ -29,7 +30,8 @@ FocusScope
 
             onStateChanged:
             {
-                console.log("videoplayer onStateChanged called " + state);
+                if (state === VlcPlayer.Ended)
+                    root.playbackEnded();
             }
         }
 
@@ -208,5 +210,13 @@ FocusScope
     function toggleMute()
     {
         mediaplayer.audio.mute = !mediaplayer.audio.mute;
+    }
+
+    function setLoopMode(doLoop)
+    {
+        if (doLoop)
+            mediaplayer.playlist.mode = VlcPlaylist.Loop;
+        else
+            mediaplayer.playlist.mode = VlcPlaylist.Single;
     }
 }

@@ -29,6 +29,14 @@ Item
         visible: showVideo
         loop: true;
 
+        Component.onCompleted:
+        {
+            if (showVideo)
+            {
+                setLoopMode(true);
+            }
+        }
+
         Component.onDestruction:
         {
             if (showVideo)

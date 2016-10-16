@@ -15,5 +15,11 @@ Item
     {
         id: player
         anchors.fill: parent
+
+        onPlaybackEnded:
+        {
+            stop();
+            stack.pop();
+        }
     }
 }
