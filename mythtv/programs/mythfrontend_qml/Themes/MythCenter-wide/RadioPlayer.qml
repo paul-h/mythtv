@@ -24,12 +24,6 @@ Item
         trackStart = streamPlayer.position
     }
 
-    Image
-    {
-        id: background
-        source: themePath + "ui/background.png"
-    }
-
     Audio
     {
         id: streamPlayer
@@ -41,17 +35,17 @@ Item
 
     BaseBackground
     {
-        x: 15; y: 15; width: 1250; height: 265
+        x: xscale(15); y: yscale(15); width: xscale(1250); height: yscale(265)
     }
 
     BaseBackground
     {
-        x: 15; y: 297; width: 1250; height: 170
+        x: xscale(15); y: yscale(297); width: xscale(1250); height: yscale(170)
     }
 
     BaseBackground
     {
-        x: 15; y: 480; width: 1250; height: 225
+        x: xscale(15); y: yscale(480); width: xscale(1250); height: yscale(225)
     }
 
     Component
@@ -60,12 +54,12 @@ Item
 
         Item
         {
-            width:streamList.width; height: 50
+            width:streamList.width; height: yscale(50)
 
             Image
             {
                 id: radioIcon
-                x: 3; y:3; height: parent.height - 6; width: height
+                x: xscale(3); y: yscale(3); height: parent.height - yscale(6); width: height
                 source: if (logourl)
                     logourl
                 else
@@ -73,19 +67,19 @@ Item
             }
             LabelText
             {
-                x: 70; y: 0; width: 350; height: 46
+                x: xscale(70); y: 0; width: xscale(350); height: yscale(46)
                 text: broadcaster
             }
 
             LabelText
             {
-                x: 430; y: 0; width: 370; height: 46
+                x: xscale(430); y: 0; width: xscale(370); height: yscale(46)
                 text: channel
             }
 
             LabelText
             {
-                x: 810; y: 0; width: 370; height: 46
+                x: xscale(810); y: 0; width: yscale(370); height: xscale(46)
                 text: genre
             }
         }
@@ -97,10 +91,10 @@ Item
 
         Rectangle
         {
-            width:streamList.width; height: 50
+            width:streamList.width; height: yscale(50)
             color: "green"
             opacity: 0.3
-            radius: 15
+            radius: xscale(15)
             border.color: "#dd00ff00"
         }
     }
@@ -108,7 +102,7 @@ Item
     ListView
     {
         id: streamList
-        x: 25; y: 25; width: 1225; height: 250
+        x: xscale(25); y: yscale(25); width: xscale(1225); height: yscale(250)
 
         focus: true
         clip: true
@@ -154,12 +148,12 @@ Item
 
         Item
         {
-            width: playedList.width; height: 50
+            width: playedList.width; height: yscale(50)
 
             Image
             {
                 id: radioIcon
-                x: 3; y:3; height: parent.height - 6; width: height
+                x: xscale(3); y: yscale(3); height: parent.height - yscale(6); width: height
                 source: if (icon)
                     icon
                 else
@@ -167,19 +161,19 @@ Item
             }
             LabelText
             {
-                x: 70; y: 0; width: 910; height: 46
+                x: xscale(70); y: 0; width: xscale(910); height: yscale(46)
                 text: title
             }
 
 //            LabelText
 //            {
-//                x: 430; y: 0; width: 370; height: 46
+//                x: xscale(430); y: 0; width: xscale(370); height: yscale(46)
 //                text: channel
 //            }
 
             LabelText
             {
-                x: 1120; y: 0; width: 100; height: 46
+                x: xscale(1120); y: 0; width: xscale(100); height: yscale(46)
                 text: Util.milliSecondsToString(length)
             }
         }
@@ -191,10 +185,10 @@ Item
 
         Rectangle
         {
-            width:playedList.width; height: 50
+            width:playedList.width; height: yscale(50)
             color: "green"
             opacity: 0.3
-            radius: 15
+            radius: xscale(15)
             border.color: "#dd00ff00"
         }
     }
@@ -207,7 +201,7 @@ Item
     ListView
     {
         id: playedList
-        x: 25; y: 307; width: 1225; height: 150
+        x: xscale(25); y: yscale(307); width: xscale(1225); height: yscale(150)
 
         focus: true
         clip: true
@@ -237,71 +231,71 @@ Item
     LabelText
     {
         id: trackTitle
-        x: 220; y: 495; width: 850; height: 34
+        x: xscale(220); y: yscale(495); width: xscale(850); height: yscale(34)
         text: streamPlayer.metaData.title != undefined ? streamPlayer.metaData.title : ""
     }
 
     LabelText
     {
         id: trackArtist
-        x: 220; y: 535; width: 850; height: 34
+        x: xscale(220); y: yscale(535); width: xscale(850); height: yscale(34)
         text: streamPlayer.metaData.albumTitle != undefined ? streamPlayer.metaData.albumTitle : ""
     }
 
     LabelText
     {
         id: channel
-        x: 220; y: 570; width: 850; height: 34
+        x: xscale(220); y: yscale(570); width: xscale(850); height: yscale(34)
     }
 
     LabelText
     {
         id: urlText
-        x: 220; y: 605; width: 850; height: 34
+        x: xscale(220); y: yscale(605); width: xscale(850); height: yscale(34)
     }
 
     LabelText
     {
         id: posText
-        x: 220; y: 655; width: 850; height: 34
+        x: xscale(220); y: yscale(655); width: xscale(850); height: yscale(34)
         text: Util.milliSecondsToString(streamPlayer.position - trackStart)
     }
 
     Image
     {
-        x: 1082; y:499; width: 162; height: 162
+        x: xscale(1082); y: yscale(499); width: xscale(162); height: yscale(162)
         source: "images/mm_blackhole_border.png"
     }
 
     Image
     {
         id: visualizer
-        x: 1085; y:502; width: 156; height: 155
+        x: xscale(1085); y: yscale(502); width: xscale(156); height: yscale(155)
     }
 
     Image
     {
-        x: 32; y:499; width: 162; height: 162
+        x: xscale(32); y: yscale(499); width: xscale(162); height: yscale(162)
         source: "images/mm_blackhole_border.png"
     }
 
     Image
     {
         id: streamIcon
-        x: 35; y:502; width: 156; height: 155
+        x: xscale(35); y: yscale(502); width: xscale(156); height: yscale(155)
     }
 
     Image
     {
         id: muteIcon
-        x: 30; y:669
+        x: xscale(30); y: yscale(669)
         source: streamPlayer.muted ? "images/mm_volume_muted.png" : "images/mm_volume.png"
     }
 
     LabelText
     {
         id: volume
-        x: 70; y: 660; width: 156; height: 35
+        x: xscale(70); y: yscale(660); width: xscale(156); height: yscale(35)
         text:
         {
             var volPercent = streamPlayer.volume * 100;
@@ -312,7 +306,7 @@ Item
     LabelText
     {
         id: visualizerName
-        x: 1085; y: 660; width: 156; height: 35
+        x: xscale(1085); y: yscale(660); width: xscale(156); height: yscale(35)
         horizontalAlignment: Text.AlignHCenter
         text: "AlbumArt"
     }
