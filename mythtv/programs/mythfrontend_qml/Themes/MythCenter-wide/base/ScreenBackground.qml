@@ -4,11 +4,11 @@ Item
 {
     id: screenBackground
     property string title: ""
-    property bool   showImage: true
-    property bool   showTitle: false
-    property bool   showTime: true
-    property bool   showVideo: false
-    property bool   showTicker: false
+    property alias showImage: background.visible
+    property alias showTitle: screenTitle.visible
+    property alias showTime: time.visible
+    property alias showVideo: videoPlayer.visible
+    property alias showTicker: ticker.visible
 
     x: 0; y : 0; width: window.width; height: window.height
 
@@ -16,7 +16,7 @@ Item
     Image
     {
         id: background
-        visible: showImage
+        visible: true
         anchors.fill: parent
         source: themePath + "ui/background.png"
     }
@@ -26,7 +26,7 @@ Item
     {
         id: videoPlayer
         anchors.fill: parent
-        visible: showVideo
+        visible: false
         loop: true;
 
         Component.onCompleted:
@@ -47,14 +47,27 @@ Item
     }
 
     // screen title
-    TitleText { text: title }
+    TitleText
+    {
+        id: screenTitle
+        text: title
+        visible : true
+    }
 
     // time/date text
     DigitalClock
     {
+        id: time
         x: xscale(950); y: yscale(20); width: xscale(480); height: yscale(40)
         format: "ddd MMM dd, HH:mm:ss"
-        visible: showTime
+        visible: true
+    }
+
+    Scroller
+    {
+        id: ticker
+        x: xscale(20); y: yscale(650); width: xscale(1240); height: yscale(50)
+        visible: false
     }
 
     Component.onCompleted:

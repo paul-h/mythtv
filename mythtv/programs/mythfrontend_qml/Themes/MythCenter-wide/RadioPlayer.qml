@@ -11,6 +11,38 @@ Item
 
     x: 0; y: 0; width: parent.width; height: parent.height
 
+    Component.onCompleted:
+    {
+        screenBackground.showTitle = false;
+        screenBackground.showTime = false;
+
+        // try to restore the last playing station
+        var url = dbUtils.getSetting("Qml_radioPlayerBookmark", hostName)
+
+        for (var i = 0; i < radioStreamsModel.rowCount(); i++)
+        {
+            var itemUrl = radioStreamsModel.data(radioStreamsModel.index(i, 4));
+
+            if (itemUrl == url)
+            {
+                streamList.currentIndex = i;
+                channel.text = streamList.model.data(streamList.model.index(streamList.currentIndex, 1)) + streamList.model.data(streamList.model.index(streamList.currentIndex, 2));
+                visualizer.source = streamList.model.data(streamList.model.index(streamList.currentIndex, 9));
+                streamIcon.source = streamList.model.data(streamList.model.index(streamList.currentIndex, 9));
+                break;
+            }
+        }
+
+        streamPlayer.source = url;
+    }
+
+    Component.onDestruction:
+    {
+        screenBackground.showTitle = true;
+        screenBackground.showTime = true;
+        dbUtils.setSetting("Qml_radioPlayerBookmark", hostName, streamPlayer.source)
+    }
+
     onTrackArtistTitleChanged:
     {
         var title = trackArtistTitle;
@@ -28,7 +60,6 @@ Item
     {
         id: streamPlayer
         autoPlay: true
-        source: "http://streaming.radionomy.com/JamendoLounge"
 
         onPositionChanged: if (trackArtistTitle == playedModel.get(0).title) playedModel.get(0).length = position - trackStart;
     }
