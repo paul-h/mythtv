@@ -278,7 +278,18 @@ Item
         text: "Another Button";
         KeyNavigation.left: button1;
         KeyNavigation.right: videoplayer;
-        KeyNavigation.down: list;
+        KeyNavigation.down: edit1;
         onClicked: console.log("button 2 clicked");
+    }
+
+    BaseEdit
+    {
+        id: edit1
+        x: xscale(400); y: yscale(250); width: xscale(400);
+        text: "Some Edit Text";
+        KeyNavigation.left: button1;
+        KeyNavigation.right: videoplayer;
+        KeyNavigation.down: list;
+        onTextHasChanged: console.log("text is now: " + text);
     }
 }
