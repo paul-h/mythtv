@@ -4,17 +4,20 @@ import "../../Models"
 
 Item
 {
-    //property alias source: mediaplayer.source
     property alias defaultFocusItem: masterBEEdit
 
     x: 0; y: 0; width: parent.width; height: parent.height
 
     Keys.onEscapePressed: if (stack.depth > 1) {stack.pop();} else Qt.quit();
 
-    Image
+    Component.onCompleted:
     {
-        id: background
-        source: themePath + "ui/background.png"
+        screenBackground.showTitle = false
+    }
+
+    Component.onDestruction:
+    {
+        screenBackground.showTitle = true;
     }
 
     LabelText
@@ -23,16 +26,13 @@ Item
         text: "Master Backend IP:"
     }
 
-    TextEdit
+    BaseEdit
     {
         id: masterBEEdit
-        x: xscale(500); y: yscale(100)
-        width: xscale(500)
-        height: yscale(25)
+        x: xscale(400); y: yscale(100)
+        width: xscale(700)
+        height: yscale(50)
         text: settings.masterBackend
-        font.family: "Helvetica"
-        font.pointSize: xscale(20)
-        color: "blue"
         KeyNavigation.up: saveButton
         KeyNavigation.down: videoPathEdit
     }
@@ -43,16 +43,13 @@ Item
         text: "Video Path:"
     }
 
-    TextEdit
+    BaseEdit
     {
         id: videoPathEdit
-        x: xscale(500); y: yscale(150)
-        width: xscale(500)
-        height: yscale(25)
+        x: xscale(400); y: yscale(150)
+        width: xscale(700)
+        height: yscale(50)
         text: settings.videoPath
-        font.family: "Helvetica"
-        font.pointSize: xscale(20)
-        color: "blue"
         KeyNavigation.up: masterBEEdit;
         KeyNavigation.right: videoPathButton
         KeyNavigation.down: picturePathEdit;
@@ -80,16 +77,13 @@ Item
         text: "Picture Path:"
     }
 
-    TextEdit
+    BaseEdit
     {
         id: picturePathEdit
-        x: xscale(500); y: yscale(200)
-        width: xscale(500)
-        height: yscale(25)
+        x: xscale(400); y: yscale(200)
+        width: xscale(700)
+        height: yscale(50)
         text: settings.picturePath
-        font.family: "Helvetica"
-        font.pointSize: xscale(20)
-        color: "blue"
         KeyNavigation.up: videoPathEdit;
         KeyNavigation.right: picturePathButton
         KeyNavigation.down: sdChannelsEdit;
@@ -116,16 +110,13 @@ Item
         text: "SD Channels File:"
     }
 
-    TextEdit
+    BaseEdit
     {
         id: sdChannelsEdit
-        x: xscale(500); y: yscale(250)
-        width: xscale(500)
-        height: yscale(25)
+        x: xscale(400); y: yscale(250)
+        width: xscale(700)
+        height: yscale(50)
         text: settings.sdChannels
-        font.family: "Helvetica"
-        font.pointSize: xscale(20)
-        color: "blue"
         KeyNavigation.up: picturePathEdit;
         KeyNavigation.right: sdChannelsButton
         KeyNavigation.down: vboxIPEdit;
@@ -152,16 +143,13 @@ Item
         text: "VBox IP:"
     }
 
-    TextEdit
+    BaseEdit
     {
         id: vboxIPEdit
-        x: xscale(500); y: yscale(300)
-        width: xscale(500)
-        height: yscale(25)
+        x: xscale(400); y: yscale(300)
+        width: xscale(700)
+        height: yscale(50)
         text: settings.vboxIP
-        font.family: "Helvetica"
-        font.pointSize: xscale(20)
-        color: "blue"
         KeyNavigation.up: sdChannelsEdit;
         KeyNavigation.down: hdmiEncoderEdit;
     }
@@ -172,16 +160,13 @@ Item
         text: "HDMI Encoder:"
     }
 
-    TextEdit
+    BaseEdit
     {
         id: hdmiEncoderEdit
-        x: xscale(500); y: yscale(350)
-        width: xscale(500)
-        height: yscale(25)
+        x: xscale(400); y: yscale(350)
+        width: xscale(700)
+        height: yscale(50)
         text: settings.hdmiEncoder
-        font.family: "Helvetica"
-        font.pointSize: xscale(20)
-        color: "blue"
         KeyNavigation.up: vboxIPEdit;
         KeyNavigation.down: saveButton;
     }
@@ -191,7 +176,7 @@ Item
         id: saveButton;
         x: xscale(900); y: yscale(630);
         text: "Save";
-        KeyNavigation.up: vboxIPEdit
+        KeyNavigation.up: hdmiEncoderEdit
         KeyNavigation.down: masterBEEdit
         onClicked:
         {

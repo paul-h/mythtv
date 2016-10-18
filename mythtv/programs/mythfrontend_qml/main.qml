@@ -96,6 +96,7 @@ ApplicationWindow
 
     ScreenBackground
     {
+        id: screenBackground
         title: "Main Menu"
         showTitle: true
         showImage: false
