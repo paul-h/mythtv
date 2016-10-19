@@ -76,6 +76,7 @@ Item
             highlight: Image {source: themePath + "ui/button_on.png"}
             focus: true
             clip: true
+            keyNavigationWraps: true
 
             Keys.onPressed:
             {
