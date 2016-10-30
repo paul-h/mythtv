@@ -4,8 +4,9 @@ import "base"
 
 Item
 {
-    //property alias source: mediaplayer.source
     property alias defaultFocusItem: browser
+    property alias url: browser.url
+
     x: 0; y: 0; width: parent.width; height: parent.height
 
     Keys.onEscapePressed: if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
@@ -22,7 +23,7 @@ Item
     {
         id: browser
         x: 10; y: 50; width: parent.width - 20; height: parent.height - 60
-        url: "http:www.bbc.co.uk"
+        url: "http://www.bbc.co.uk"
 
         Keys.onEscapePressed: if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
     }
