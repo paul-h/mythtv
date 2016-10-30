@@ -48,14 +48,14 @@ ListModel
     ListElement
     {
         menutext:"News Feeds"
-        loaderSource: "ComingSoon.qml"
-        waterMark: "watermark/weather.png"
+        loaderSource: "RSSFeeds.qml"
+        waterMark: "watermark/news.png"
     }
     ListElement
     {
         menutext:"Web"
         loaderSource: "WebBrowser.qml"
-        waterMark: "watermark/weather.png"
+        waterMark: "watermark/browser.png"
     }
     ListElement
     {
@@ -67,12 +67,12 @@ ListModel
     {
         menutext:"ZoneMinder"
         loaderSource: "ThemedMenu.qml"
-        waterMark: "watermark/keys.png"
+        waterMark: "watermark/zoneminder.png"
     }
     ListElement
     {
         menutext:"Setup"
         loaderSource: "ThemedMenu.qml"
-        waterMark: "watermark/keys.png"
+        waterMark: "watermark/setup.png"
     }
 }
