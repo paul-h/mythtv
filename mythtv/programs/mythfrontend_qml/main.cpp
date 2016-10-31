@@ -110,8 +110,16 @@ int main(int argc, char *argv[])
 
     // create the radio streams model
     SqlQueryModel *radioStreamsModel = new SqlQueryModel(&engine);
-    radioStreamsModel->setQuery("SELECT * FROM music_radios", db);
+    radioStreamsModel->setQuery("SELECT intid, broadcaster, channel, description, "
+                                "url1, url2, url3, url4, url5, logourl, country, "
+                                "language, genre, metaformat, format "
+                                "FROM music_radios ORDER BY broadcaster, channel", db);
     engine.rootContext()->setContextProperty("radioStreamsModel", radioStreamsModel);
+
+    // create the news feed model
+    SqlQueryModel *rssFeedsModel = new SqlQueryModel(&engine);
+    rssFeedsModel->setQuery("SELECT name, url, ico, updated, podcast FROM newssites ORDER BY name", db);
+    engine.rootContext()->setContextProperty("rssFeedsModel", rssFeedsModel);
 
     // create the tv channels model
     SqlQueryModel *dbChannelsModel = new SqlQueryModel(&engine);
