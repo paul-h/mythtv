@@ -10,6 +10,12 @@ Item
     property alias showVideo: videoPlayer.visible
     property alias showTicker: ticker.visible
 
+    function setTitle (show, newTitle)
+    {
+        screenTitle.visible = show;
+        screenTitle.text = newTitle;
+    }
+
     x: 0; y : 0; width: window.width; height: window.height
 
     // background image
@@ -73,6 +79,6 @@ Item
     Component.onCompleted:
     {
         if (showVideo)
-            videoPlayer.source = qmlPath + "video/blue_background.mp4";
+            videoPlayer.source = qmlPath + "video/blue_motion_background.mp4";
     }
 }
