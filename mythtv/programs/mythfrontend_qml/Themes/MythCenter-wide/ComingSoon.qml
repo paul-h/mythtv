@@ -9,14 +9,8 @@ Item
 
     Image
     {
-        id: background
-        source: themePath + "ui/background.png"
-    }
-
-    Image
-    {
         id: name
-        y: 100
+        y: yscale(100)
         source: "images/comingsoon.png"
         anchors.horizontalCenter: parent.horizontalCenter
     }
