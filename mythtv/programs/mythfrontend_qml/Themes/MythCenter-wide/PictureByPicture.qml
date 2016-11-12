@@ -19,7 +19,7 @@ Item
         border.color: "white"
         border.width: xscale(4)
 
-        VideoPlayerVLC
+        VideoPlayerQmlVLC
         {
             id: video1player;
             anchors.margins: xscale(4)
@@ -30,7 +30,7 @@ Item
         {
             id: play1Area
             anchors.fill: parent
-            onPressed: video1player.muted = !video1player.muted;
+            onPressed: video1player.mute = !video1player.mute;
         }
 
         KeyNavigation.up: video2player;
@@ -45,7 +45,7 @@ Item
         border.color: "white"
         border.width: xscale(4)
 
-        VideoPlayerVLC
+        VideoPlayerQmlVLC
         {
             id: video2player;
             anchors.margins: xscale(4)
@@ -56,7 +56,7 @@ Item
         {
             id: play2Area
             anchors.fill: parent
-            onPressed: video2player.muted = !video2player.muted;
+            onPressed: video2player.mute = !video2player.mute;
         }
 
         KeyNavigation.up: video1player;
