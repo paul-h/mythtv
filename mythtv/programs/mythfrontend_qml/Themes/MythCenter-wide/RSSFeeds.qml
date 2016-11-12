@@ -61,7 +61,8 @@ Item
             {
                 anchors.fill: parent;
                 color: parent.selected ? "#00dd00" : "#000000"
-                opacity: if (parent.selected && feedList.focus) 0.8; else 0.5;
+                opacity: if (feedList.focus) 0.5; else 0.2;
+                Behavior on opacity { NumberAnimation { duration: 250 } }
             }
 
             Image
@@ -122,14 +123,14 @@ Item
             }
         }
 
-        Keys.onReturnPressed:
+        onCurrentIndexChanged:
         {
-            returnSound.play();
             root.currentFeed = rssFeedsModel.data(rssFeedsModel.index(feedList.currentIndex, 1))
+            articleList.currentIndex = 0
             feedModel.reload()
         }
 
-        onCurrentIndexChanged:
+        Component.onCompleted:
         {
             root.currentFeed = rssFeedsModel.data(rssFeedsModel.index(feedList.currentIndex, 1))
             articleList.currentIndex = 0
@@ -200,7 +201,8 @@ Item
             {
                 anchors.fill: parent;
                 color: parent.selected ? "#00dd00" : "#000000"
-                opacity: if (parent.selected && articleList.focus) 0.5; else 0.2;
+                opacity: if (articleList.focus) 0.5; else 0.2;
+                Behavior on opacity { NumberAnimation { duration: 250 } }
              }
 
             Image
