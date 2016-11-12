@@ -37,6 +37,9 @@ FocusScope
 
         VlcVideoSurface
         {
+             id: videoSurface
+
+             property bool deinterlacerEnabled: false
              source: mediaplayer;
              anchors.fill: parent;
              fillMode: VlcVideoSurface.Stretch;
@@ -64,6 +67,8 @@ FocusScope
                      changeVolume(1.0);
                  else if (event.key === Qt.Key_M)
                      toggleMute();
+                 else if (event.key === Qt.Key_D)
+                     toggleInterlacer();
                  else
                      event.accepted = false;
              }
@@ -218,5 +223,15 @@ FocusScope
             mediaplayer.playlist.mode = VlcPlaylist.Loop;
         else
             mediaplayer.playlist.mode = VlcPlaylist.Single;
+    }
+
+    function toggleInterlacer()
+    {
+        videoSurface.deinterlacerEnabled = !videoSurface.deinterlacerEnabled;
+
+        if (videoSurface.deinterlacerEnabled)
+            mediaplayer.video.deinterlace.enable("Blend")
+        else
+            mediaplayer.video.deinterlace.disable()
     }
 }
