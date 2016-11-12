@@ -1,68 +1,88 @@
 import QtQuick 2.0
-import QtMultimedia 5.6
+import QmlVlc 0.1
 import "base"
 import "../../Util.js" as Util
 
 Item
 {
+    id: root
+
     property alias defaultFocusItem: streamList
-    property string trackArtistTitle: streamPlayer.metaData.title != undefined ? streamPlayer.metaData.title : ""
+    property string trackArtistTitle: ""
     property int trackStart: 0
 
     x: 0; y: 0; width: parent.width; height: parent.height
-
-    Component.onCompleted:
-    {
-        screenBackground.showTitle = false;
-        screenBackground.showTime = false;
-
-        // try to restore the last playing station
-        var url = dbUtils.getSetting("Qml_radioPlayerBookmark", hostName)
-
-        for (var i = 0; i < radioStreamsModel.rowCount(); i++)
-        {
-            var itemUrl = radioStreamsModel.data(radioStreamsModel.index(i, 4));
-
-            if (itemUrl == url)
-            {
-                streamList.currentIndex = i;
-                channel.text = streamList.model.data(streamList.model.index(streamList.currentIndex, 1)) + streamList.model.data(streamList.model.index(streamList.currentIndex, 2));
-                visualizer.source = streamList.model.data(streamList.model.index(streamList.currentIndex, 9));
-                streamIcon.source = streamList.model.data(streamList.model.index(streamList.currentIndex, 9));
-                break;
-            }
-        }
-
-        streamPlayer.source = url;
-    }
 
     Component.onDestruction:
     {
         screenBackground.showTitle = true;
         screenBackground.showTime = true;
-        dbUtils.setSetting("Qml_radioPlayerBookmark", hostName, streamPlayer.source)
     }
 
     onTrackArtistTitleChanged:
     {
-        var title = trackArtistTitle;
-        var artist = trackArtistTitle;
+        var a = trackArtistTitle.split(" - ");
+        var title = a[0];
+        var artist = a[1];
         var broadcaster = streamList.model.data(streamList.model.index(streamList.currentIndex, 1));
         var channel = streamList.model.data(streamList.model.index(streamList.currentIndex, 2));
         var icon = streamList.model.data(streamList.model.index(streamList.currentIndex, 9));
         if (trackArtistTitle != "")
-            playedModel.insert(0, {"title": title, "artist": artist, "broadcaster": broadcaster, "channel": channel, "icon": icon, "length": 0});
+            playedModel.insert(0, {"trackArtistTitle": trackArtistTitle, "title": title, "artist": artist, "broadcaster": broadcaster, "channel": channel, "icon": icon, "length": 0});
         playedList.currentIndex = 0;
-        trackStart = streamPlayer.position
+        trackStart = streamPlayer.time;
+        trackTitle.text = title != undefined ? title : "";
+        trackArtist.text = artist != undefined ? artist : "";
     }
 
-    Audio
+    VlcPlayer
     {
         id: streamPlayer
-        autoPlay: true
 
-        onPositionChanged: if (trackArtistTitle == playedModel.get(0).title) playedModel.get(0).length = position - trackStart;
-    }
+        onTimeChanged: if (trackArtistTitle != undefined && trackArtistTitle == playedModel.get(0).trackArtistTitle) playedModel.get(0).length = time - trackStart;
+
+        Component.onCompleted:
+        {
+            screenBackground.showTitle = false;
+            screenBackground.showTime = false;
+
+            // try to restore the last playing station
+            var url = dbUtils.getSetting("Qml_radioPlayerBookmark", hostName)
+
+            for (var i = 0; i < radioStreamsModel.rowCount(); i++)
+            {
+                var itemUrl = radioStreamsModel.data(radioStreamsModel.index(i, 4));
+
+                if (itemUrl == url)
+                {
+                    streamList.currentIndex = i;
+
+                    if (streamList.model.data(streamList.model.index(streamList.currentIndex, 1)) != "")
+                        channel.text = streamList.model.data(streamList.model.index(streamList.currentIndex, 1)) + " - " + streamList.model.data(streamList.model.index(streamList.currentIndex, 2));
+                    else
+                        channel.text = streamList.model.data(streamList.model.index(streamList.currentIndex, 2));
+
+                    urlText.text = url;
+                    visualizer.source = streamList.model.data(streamList.model.index(streamList.currentIndex, 9));
+                    streamIcon.source = streamList.model.data(streamList.model.index(streamList.currentIndex, 9));
+                    break;
+                }
+            }
+
+            streamPlayer.mrl = url;
+
+            var vol = dbUtils.getSetting("Qml_radioPlayerVolume", hostName)
+            if (vol != undefined && vol != "")
+                audio.volume = vol;
+            else
+                audio.volume = 80
+        }
+
+        Component.onDestruction:
+        {
+            dbUtils.setSetting("Qml_radioPlayerBookmark", hostName, mrl)
+        }
+     }
 
     BaseBackground
     {
@@ -160,7 +180,7 @@ Item
         {
             returnSound.play();
             var url = model.data(model.index(currentIndex, 4));
-            streamPlayer.source = url;
+            streamPlayer.mrl = url;
             urlText.text = url
             channel.text = streamList.model.data(streamList.model.index(streamList.currentIndex, 1)) + streamList.model.data(streamList.model.index(streamList.currentIndex, 2));
             visualizer.source = streamList.model.data(streamList.model.index(streamList.currentIndex, 9));
@@ -196,11 +216,11 @@ Item
                 text: title
             }
 
-//            LabelText
-//            {
-//                x: xscale(430); y: 0; width: xscale(370); height: yscale(46)
-//                text: channel
-//            }
+            LabelText
+            {
+                x: xscale(430); y: 0; width: xscale(370); height: yscale(46)
+                text: artist
+            }
 
             LabelText
             {
@@ -263,14 +283,12 @@ Item
     {
         id: trackTitle
         x: xscale(220); y: yscale(495); width: xscale(850); height: yscale(34)
-        text: streamPlayer.metaData.title != undefined ? streamPlayer.metaData.title : ""
     }
 
     LabelText
     {
         id: trackArtist
         x: xscale(220); y: yscale(535); width: xscale(850); height: yscale(34)
-        text: streamPlayer.metaData.albumTitle != undefined ? streamPlayer.metaData.albumTitle : ""
     }
 
     LabelText
@@ -289,7 +307,7 @@ Item
     {
         id: posText
         x: xscale(220); y: yscale(655); width: xscale(850); height: yscale(34)
-        text: Util.milliSecondsToString(streamPlayer.position - trackStart)
+        text: Util.milliSecondsToString(streamPlayer.time - trackStart)
     }
 
     Image
@@ -320,18 +338,14 @@ Item
     {
         id: muteIcon
         x: xscale(30); y: yscale(669)
-        source: streamPlayer.muted ? "images/mm_volume_muted.png" : "images/mm_volume.png"
+        source: streamPlayer.audio.mute ? "images/mm_volume.png" : "images/mm_volume_muted.png"
     }
 
     LabelText
     {
-        id: volume
+        id: volumePercent
         x: xscale(70); y: yscale(660); width: xscale(156); height: yscale(35)
-        text:
-        {
-            var volPercent = streamPlayer.volume * 100;
-            Math.round(volPercent) + "%";
-        }
+        text: streamPlayer.audio.volume + "%";
     }
 
     LabelText
@@ -349,11 +363,16 @@ Item
         else if (event.key === Qt.Key_P)
             togglePaused();
         else if (event.key === Qt.Key_BracketLeft)
-            changeVolume(-0.01);
+            changeVolume(-1.00);
         else if (event.key === Qt.Key_BracketRight)
-            changeVolume(0.01);
+            changeVolume(1.00);
         else if (event.key === Qt.Key_M)
             toggleMute();
+    }
+
+    Timer {
+        interval: 1000; running: true; repeat: true
+        onTriggered: if (trackArtistTitle != streamPlayer.mediaDescription.nowPlaying) trackArtistTitle = streamPlayer.mediaDescription.nowPlaying;
     }
 
     Keys.onEscapePressed: if (stack.depth > 1) {streamPlayer.stop(); stack.pop()} else Qt.quit();
@@ -371,14 +390,16 @@ Item
     function changeVolume(amount)
     {
         if (amount < 0)
-            streamPlayer.volume = Math.max(0.0, streamPlayer.volume + amount);
+            streamPlayer.audio.volume = Math.max(0.0, streamPlayer.audio.volume + amount);
         else
-            streamPlayer.volume = Math.min(1.0, streamPlayer.volume + amount);
+            streamPlayer.audio.volume = Math.min(100.0, streamPlayer.audio.volume + amount);
+
+        dbUtils.setSetting("Qml_radioPlayerVolume", hostName, streamPlayer.audio.volume)
     }
 
     function toggleMute()
     {
-        streamPlayer.muted = !streamPlayer.muted;
+        streamPlayer.audio.mute = !streamPlayer.audio.mute;
     }
 }
 
