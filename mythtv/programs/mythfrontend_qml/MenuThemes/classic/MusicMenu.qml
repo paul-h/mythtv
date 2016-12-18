@@ -3,6 +3,7 @@ import QtQuick 2.0
 ListModel
 {
     id: musicMenu
+    property string logo: "title/title_music.png"
 
     ListElement
     {

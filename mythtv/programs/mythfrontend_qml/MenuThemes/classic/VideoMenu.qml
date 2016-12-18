@@ -3,6 +3,8 @@ import QtQuick 2.0
 ListModel
 {
     id: videoMenu
+    property string logo: "title/title_video.png"
+
     ListElement
     {
         menutext: "Browse Videos"

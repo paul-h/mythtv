@@ -3,6 +3,8 @@ import QtQuick 2.0
 ListModel
 {
     id: settingsMenu
+    property string logo: "title/title_setup.png"
+
     ListElement
     {
         menutext: "Channel Editor"
