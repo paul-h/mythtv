@@ -24,7 +24,7 @@ void DatabaseUtils::updateChannel(int chanid, QString chanName, QString chanNo, 
     query.exec();
 }
 
-QString DatabaseUtils::getSetting(QString settingName, QString hostName)
+QString DatabaseUtils::getSetting(const QString &settingName, const QString &hostName, const QString &defaultValue)
 {
     QString value;
     QSqlQuery query(m_db);
@@ -40,9 +40,10 @@ QString DatabaseUtils::getSetting(QString settingName, QString hostName)
     if (query.exec() && query.next())
     {
         value = query.value(0).toString();
+        return value;
     }
 
-    return value;
+    return defaultValue;
 }
 
 bool DatabaseUtils::setSetting(QString settingName, QString hostName, QString value)

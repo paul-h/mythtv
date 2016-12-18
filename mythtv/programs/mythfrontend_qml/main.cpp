@@ -2,11 +2,13 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQmlComponent>
 #include <QDebug>
 #include <QHostInfo>
 #include <QDomDocument>
 #include <QFile>
 #include <QDir>
+
 
 // from QmlVlc
 #include <QmlVlc.h>
@@ -14,7 +16,10 @@
 
 // mythfrontend_qml
 #include "sqlquerymodel.h"
-#include <databaseutils.h>
+#include "databaseutils.h"
+#include "mythutils.h"
+#include "settings.h"
+#include "urlinterceptor.h"
 
 #define SHAREPATH "file:///usr/share/mythtv/"
 
@@ -103,10 +108,42 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    engine.rootContext()->setContextProperty("hostName", QHostInfo::localHostName());
-    engine.rootContext()->setContextProperty("sharePath", QString(SHAREPATH));
-    engine.rootContext()->setContextProperty("themePath", QString(SHAREPATH) + "themes/MythCenter-wide/");
-    engine.rootContext()->setContextProperty("qmlPath",   QString(SHAREPATH) + "qml/Themes/MythCenter-wide/");
+    // create the database utils
+    DatabaseUtils databaseUtils(db);
+    engine.rootContext()->setContextProperty("dbUtils", &databaseUtils);
+
+    QString hostName = QHostInfo::localHostName();
+    QString theme = databaseUtils.getSetting("Qml_theme", hostName, "MythCenter-wide");
+
+    // create the settings
+    Settings settings;
+
+    settings.setThemeName(theme);
+    settings.setHostName(hostName);
+    settings.setSharePath(QString(SHAREPATH));
+    settings.setQmlPath(QString(SHAREPATH) + "qml/Themes/" + theme + "/");
+    settings.setMasterBackend(databaseUtils.getSetting("Qml_masterBackend", hostName));
+    settings.setVideoPath(databaseUtils.getSetting("Qml_videoPath", hostName));
+    settings.setPicturePath(databaseUtils.getSetting("Qml_picturePath", hostName));
+    settings.setSdChannels(databaseUtils.getSetting("Qml_sdChannels", hostName));
+
+    // vbox
+    settings.setVboxIP(databaseUtils.getSetting("Qml_vboxIP", hostName));
+
+    // hdmiEncoder
+    settings.setHdmiEncoder(databaseUtils.getSetting("Qml_hdmiEncoder", hostName));
+
+    // look for the theme in ~/.mythtv/themes
+    if (QFile::exists(QString(QDir::homePath() + "/.mythtv/themes/") + theme + "/themeinfo.xml"))
+        settings.setThemePath(QString(QDir::homePath() + "/.mythtv/themes/") + theme + "/");
+    else
+        settings.setThemePath(QString(SHAREPATH) + "themes/" + theme + "/");
+
+    engine.rootContext()->setContextProperty("settings", &settings);
+
+    // create the myth utils
+    MythUtils mythUtils(&settings);
+    engine.rootContext()->setContextProperty("mythUtils", &mythUtils);
 
     // create the radio streams model
     SqlQueryModel *radioStreamsModel = new SqlQueryModel(&engine);
@@ -126,11 +163,13 @@ int main(int argc, char *argv[])
     dbChannelsModel->setQuery("SELECT chanid, channum, callsign, name, icon, xmltvid FROM channel ORDER BY cast(channum as unsigned);", db);
     engine.rootContext()->setContextProperty("dbChannelsModel", dbChannelsModel);
 
-    // create the database utils
-    DatabaseUtils databaseUtils(db);
-    engine.rootContext()->setContextProperty("dbUtils", &databaseUtils);
+    MythQmlAbstractUrlInterceptor interceptor(&engine, &settings);
+    interceptor.setTheme(theme);
+    engine.setUrlInterceptor(&interceptor);
 
-    engine.addImportPath(QString(SHAREPATH) + "qml");
+    //engine.addImportPath(QString(SHAREPATH) + "qml/");
+
+    engine.addImportPath(QString(SHAREPATH) + "qml/Themes/default-wide");
 
     engine.load(QUrl(QString(SHAREPATH) + "qml/main.qml"));
 
