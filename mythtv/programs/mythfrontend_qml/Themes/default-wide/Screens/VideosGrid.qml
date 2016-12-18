@@ -23,7 +23,7 @@ Item
                 source: if (Coverart)
                             settings.masterBackend + "Content/GetImageFile?StorageGroup=Coverart&FileName=" + Coverart
                         else
-                            "images/grid_noimage.png"
+                            mythUtils.findThemeFile("images/grid_noimage.png")
             }
             Text
             {

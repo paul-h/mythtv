@@ -36,7 +36,7 @@ QtObject
     property string labelFontFamily:     "Droid Sans"
     property int    labelFontPixelSize:  20
     property bool   labelFontBold:       true
-    property color  labelFontColor:      "#ff00ff"
+    property color  labelFontColor:      "#10ff10"
     property real   labelShadowAlpha:    100 / 255
     property color  labelShadowColor:    "#000000"
     property int    labelShadowXOffset:  2

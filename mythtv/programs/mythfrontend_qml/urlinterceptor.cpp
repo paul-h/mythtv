@@ -25,10 +25,19 @@ QUrl MythQmlAbstractUrlInterceptor::intercept(const QUrl &url, DataType type)
         return QUrl("file://" + m_fileMap.value(sUrl));
     }
 
+    QString fileName = sUrl;
+
+    if (fileName.startsWith(m_defaultThemePath))
+        fileName.remove(m_defaultThemePath);
+
+    if (fileName.startsWith(m_activeThemePath))
+        fileName.remove(m_activeThemePath);
+
     // look up in the active theme
-    if (!m_theme.isEmpty())
+    if (!m_defaultThemePath.isEmpty())
     {
-        QString searchURL = sUrl.replace(m_defaultThemePath, m_activeThemePath);
+        QString searchURL = m_activeThemePath + fileName;
+
         if (QFile::exists(searchURL.remove("file://")))
         {
             qDebug() << "= found in active theme: " << searchURL;
@@ -37,6 +46,21 @@ QUrl MythQmlAbstractUrlInterceptor::intercept(const QUrl &url, DataType type)
         }
         else
             qDebug() << "- NOT found in active theme: " << searchURL;
+    }
+
+    // look up in the default theme
+    if (!m_defaultThemePath.isEmpty())
+    {
+        QString searchURL = m_defaultThemePath + fileName;
+
+        if (QFile::exists(searchURL.remove("file://")))
+        {
+            qDebug() << "= found in default theme: " << searchURL;
+            m_fileMap.insert(sUrl, searchURL);
+            return QUrl("file://" + searchURL);
+        }
+        else
+            qDebug() << "- NOT found in default theme: " << searchURL;
     }
 
     // fall back to the original url

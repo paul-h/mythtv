@@ -47,7 +47,7 @@ Item
             screenBackground.showTime = false;
 
             // try to restore the last playing station
-            var url = dbUtils.getSetting("Qml_radioPlayerBookmark", hostName)
+            var url = dbUtils.getSetting("Qml_radioPlayerBookmark", settings.hostName)
 
             for (var i = 0; i < radioStreamsModel.rowCount(); i++)
             {
@@ -71,7 +71,7 @@ Item
 
             streamPlayer.mrl = url;
 
-            var vol = dbUtils.getSetting("Qml_radioPlayerVolume", hostName)
+            var vol = dbUtils.getSetting("Qml_radioPlayerVolume", settings.hostName)
             if (vol != undefined && vol != "")
                 audio.volume = vol;
             else
@@ -80,7 +80,7 @@ Item
 
         Component.onDestruction:
         {
-            dbUtils.setSetting("Qml_radioPlayerBookmark", hostName, mrl)
+            dbUtils.setSetting("Qml_radioPlayerBookmark", settings.hostName, mrl)
         }
      }
 
@@ -114,7 +114,7 @@ Item
                 source: if (logourl)
                     logourl
                 else
-                    qmlPath + "images/grid_noimage.png"
+                    mythUtils.findThemeFile("images/grid_noimage.png")
             }
             LabelText
             {
@@ -213,7 +213,7 @@ Item
                 source: if (icon)
                     icon
                 else
-                    qmlPath + "images/grid_noimage.png"
+                    mythUtils.findThemeFile("images/grid_noimage.png")
             }
             LabelText
             {
@@ -318,7 +318,7 @@ Item
     Image
     {
         x: xscale(1082); y: yscale(499); width: xscale(162); height: yscale(162)
-        source: qmlPath + "images/mm_blackhole_border.png"
+        source: mythUtils.findThemeFile("images/mm_blackhole_border.png")
     }
 
     Image
@@ -330,7 +330,7 @@ Item
     Image
     {
         x: xscale(32); y: yscale(499); width: xscale(162); height: yscale(162)
-        source: qmlPath + "images/mm_blackhole_border.png"
+        source: mythUtils.findThemeFile("images/mm_blackhole_border.png")
     }
 
     Image
@@ -343,7 +343,7 @@ Item
     {
         id: muteIcon
         x: xscale(30); y: yscale(669)
-        source: streamPlayer.audio.mute ? qmlPath + "images/mm_volume.png" : qmlPath + "images/mm_volume_muted.png"
+        source: streamPlayer.audio.mute ? mythUtils.findThemeFile("images/mm_volume.png") : mythUtils.findThemeFile("images/mm_volume_muted.png")
     }
 
     LabelText
@@ -399,7 +399,7 @@ Item
         else
             streamPlayer.audio.volume = Math.min(100.0, streamPlayer.audio.volume + amount);
 
-        dbUtils.setSetting("Qml_radioPlayerVolume", hostName, streamPlayer.audio.volume)
+        dbUtils.setSetting("Qml_radioPlayerVolume", settings.hostName, streamPlayer.audio.volume)
     }
 
     function toggleMute()

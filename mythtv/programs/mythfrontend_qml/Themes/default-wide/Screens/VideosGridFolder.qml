@@ -23,7 +23,7 @@ Item
             {
                 id: coverImage
                 x: 3; y:3; height: parent.height - 6; width: height
-                source: fileIsDir ? "images/directory.png" : "images/grid_noimage.png"
+                source: fileIsDir ? mythUtils.findThemeFile("images/directory.png") : mythUtils.findThemeFile("images/grid_noimage.png")
             }
             Text
             {

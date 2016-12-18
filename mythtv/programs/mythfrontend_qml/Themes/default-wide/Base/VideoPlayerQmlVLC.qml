@@ -151,7 +151,7 @@ FocusScope
                     border.color: 'white'
                     Image
                     {
-                        source: mediaplayer.playing ? settings.qmlPath + "images/pause.png" : settings.qmlPath + "images/play.png"
+                        source: mediaplayer.playing ? mythUtils.findThemeFile("images/play.png") : mythUtils.findThemeFile("images/pause.png")
                         anchors.centerIn: parent
                     }
                     MouseArea
