@@ -13,9 +13,8 @@ Item
 
     Component.onCompleted:
     {
-        screenBackground.setTitle(true, "Test Menu");
-        screenBackground.showTime = false;
-        console.log("themedMenu onCompleted called");
+        screenBackground.setTitle(false, "");
+        screenBackground.showTime = true;
     }
 
     Image
