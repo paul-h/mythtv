@@ -1,0 +1,24 @@
+module Base
+Accordion 1.0 Accordion.qml
+AccordionList 1.0 AccordionList.qml
+AccordionListModel 1.0 AccordionListModel.qml
+BaseBackground 1.0 BaseBackground.qml
+BaseButton 1.0 BaseButton.qml
+BaseEdit 1.0 BaseEdit.qml
+ButtonList 1.0 ButtonList.qml
+Clock 1.0 Clock.qml
+CoverFlow 1.0 CoverFlow.qml
+DigitalClock 1.0 DigitalClock.qml
+FadeImage 1.0 FadeImage.qml
+InfoText 1.0 InfoText.qml
+LabelText 1.0 LabelText.qml
+ListBackground 1.0 ListBackground.qml
+ListItem 1.0 ListItem.qml
+MenuButton 1.0 MenuButton.qml
+ReflectionImage 1.0 ReflectionImage.qml
+ScreenBackground 1.0 ScreenBackground.qml
+Scroller 1.0 Scroller.qml
+TitleText 1.0 TitleText.qml
+VideoPlayer 1.0 VideoPlayer.qml
+VideoPlayerQmlVLC 1.0 VideoPlayerQmlVLC.qml
+VideoPlayerVLC 1.0 VideoPlayerVLC.qml
