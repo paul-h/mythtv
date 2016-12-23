@@ -94,13 +94,6 @@
     </button>
 
     <button>
-        <type>WEBPAGE</type>
-        <text>Email</text>
-        <description>View email</description>
-        <action>MEDIA WebBrowser http://gmail.com</action>
-    </button>
-
-    <button>
         <type>RECIPE</type>
         <text>Recipes</text>
         <action>PLUGIN mythRecipe</action>
@@ -121,6 +114,13 @@
         <description>View live and recorded home surveillance camera images</description>
         <action>PLUGIN mythzoneminder</action>
         <depends>mythzoneminder</depends>
+    </button>
+
+    <button>
+        <type>TV</type>
+        <text>New Frontend</text>
+        <description>Start the new QML frontend (eperimental)</description>
+        <action>EXEC mythfrontend_qml</action>
     </button>
 
     <button>
