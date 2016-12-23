@@ -60,8 +60,8 @@ Item
             Rectangle
             {
                 anchors.fill: parent;
-                color: parent.selected ? "#00dd00" : "#000000"
-                opacity: if (feedList.focus) 0.5; else 0.2;
+                color: parent.selected ? theme.lvRowBackgroundSelected : theme.lvRowBackgroundNormal
+                opacity: if (feedList.focus) 0.7; else 0.4;
                 Behavior on opacity { NumberAnimation { duration: 250 } }
             }
 
@@ -80,7 +80,7 @@ Item
                 x: icon.width + xscale(6)
                 text: name
                 font.pixelSize: 20
-                color: parent.selected ? "#ffffff" : "#ff00ff"
+                color: parent.selected ? theme.lvRowTextSelected : theme.lvRowTextNormal
             }
         }
     }
@@ -92,10 +92,10 @@ Item
         Rectangle
         {
             width: feedList.width; height: yscale(50)
-            color: "green"
+            color: "red"
             opacity: 0.3
             radius: xscale(5)
-            border.color: "#dd00ff00"
+            border.color: "#ddff0000"
         }
     }
 
@@ -200,8 +200,8 @@ Item
             Rectangle
             {
                 anchors.fill: parent;
-                color: parent.selected ? "#00dd00" : "#000000"
-                opacity: if (articleList.focus) 0.5; else 0.2;
+                color: parent.selected ? theme.lvRowBackgroundSelected : theme.lvRowBackgroundNormal
+                opacity: if (articleList.focus) 0.7; else 0.4;
                 Behavior on opacity { NumberAnimation { duration: 250 } }
              }
 
@@ -222,7 +222,7 @@ Item
                 font { pixelSize: 18; bold: true }
                 text: title
                 wrapMode: Text.WordWrap
-                color: parent.selected ? "#ffffff" : "#ff00ff"
+                color: parent.selected ? theme.lvRowTextSelected : theme.lvRowTextNormal
                 opacity: 1.0
             }
 
@@ -267,17 +267,15 @@ Item
         }
     }
 
-    Rectangle
+    BaseBackground
     {
-        color: "#000000"
-        opacity: 0.2
-        x: xscale(10); y: yscale(495); width: xscale(1260); height: yscale(380)
+        x: xscale(20); y: yscale(495); width: xscale(1240); height: yscale(205)
     }
 
     Image
     {
         id: articleImage
-        x: xscale(20); y: yscale(505); width: xscale(200); height: yscale(200)
+        x: xscale(30); y: yscale(505); width: xscale(185); height: yscale(185)
         source: findArticleImage(articleList.currentIndex)
     }
 

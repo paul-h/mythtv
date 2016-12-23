@@ -11,6 +11,11 @@ Item
 
     x: 0; y: 0; width: parent.width; height: parent.height
 
+    BaseBackground
+    {
+        x: xscale(15); y: yscale(50); width: xscale(1250); height: yscale(655)
+    }
+
     Component
     {
         id: listRow
@@ -22,13 +27,13 @@ Item
             Image
             {
                 id: coverImage
-                x: 3; y:3; height: parent.height - 6; width: height
+                x: xscale(13); y: yscale(3); height: parent.height - yscale(6); width: height
                 source: fileIsDir ? mythUtils.findThemeFile("images/directory.png") : mythUtils.findThemeFile("images/grid_noimage.png")
             }
-            Text
+            InfoText
             {
-                width:videoList.width; height: 50
-                x: coverImage.width + 5
+                width: videoList.width - coverImage.width - xscale(20); height: xscale(50)
+                x: coverImage.width + xscale(20)
                 text: fileName
 
             }
@@ -42,17 +47,17 @@ Item
         Rectangle
         {
             width:videoList.width; height: 50
-            color: "green"
+            color: "red"
             opacity: 0.3
             radius: 15
-            border.color: "#dd00ff00"
+            border.color: "#ffff0000"
         }
     }
 
     ListView
     {
         id: videoList
-        x: 100; y: 100; width: 1000; height: 500
+        x: xscale(25); y: yscale(65); width: xscale(1230); height: yscale(600)
 
         focus: true
         clip: true

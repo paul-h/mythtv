@@ -64,7 +64,7 @@ Item
     DigitalClock
     {
         id: time
-        x: xscale(750); y: yscale(20); width: xscale(500); height: yscale(40)
+        x: xscale(750); y: yscale(0); width: xscale(500); height: yscale(50)
         format: "ddd MMM dd, HH:mm:ss"
         visible: true
     }

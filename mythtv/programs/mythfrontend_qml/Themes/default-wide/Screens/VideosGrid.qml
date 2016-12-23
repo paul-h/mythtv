@@ -8,6 +8,11 @@ Item
 
     x: 0; y: 0; width: parent.width; height: parent.height
 
+    BaseBackground
+    {
+        x: xscale(15); y: yscale(50); width: xscale(1250); height: yscale(655)
+    }
+
     Component
     {
         id: listRow
@@ -19,18 +24,17 @@ Item
             Image
             {
                 id: coverImage
-                x: xscale(3); y: yscale(3); height: parent.height - yscale(6); width: height
+                x: xscale(13); y: yscale(3); height: parent.height - yscale(6); width: height
                 source: if (Coverart)
                             settings.masterBackend + "Content/GetImageFile?StorageGroup=Coverart&FileName=" + Coverart
                         else
                             mythUtils.findThemeFile("images/grid_noimage.png")
             }
-            Text
+            InfoText
             {
-                width:videoList.width; height: xscale(50)
-                x: coverImage.width + xscale(5)
+                width: videoList.width - coverImage.width - xscale(20); height: xscale(50)
+                x: coverImage.width + xscale(20)
                 text: SubTitle ? Title + ": " + SubTitle : Title
-
             }
         }
     }
@@ -42,7 +46,7 @@ Item
         Rectangle
         {
             width:videoList.width; height: yscale(50)
-            color: "green"
+            color: "red"
             opacity: 0.3
             radius: xscale(15)
             border.color: "#dd00ff00"
@@ -52,7 +56,7 @@ Item
     ListView
     {
         id: videoList
-        x: xscale(100); y: yscale(100); width: xscale(1000); height: yscale(500)
+        x: xscale(25); y: yscale(65); width: xscale(1230); height: yscale(600)
 
         focus: true
         clip: true
