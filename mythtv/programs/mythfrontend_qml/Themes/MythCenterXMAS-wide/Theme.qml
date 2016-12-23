@@ -63,8 +63,8 @@ QtObject
     property int    clockShadowYOffset:  2
 
     // base backgound
-    property color bgColor:       "#330000"
-    property real  bgOpacity:     120 / 255
+    property color bgColor:       "#78330000"
+    property real  bgOpacity:     1.0
     property color bgBorderColor: "red"
     property int   bgBorderWidth: 2
     property int   bgRadius:      12
@@ -72,13 +72,13 @@ QtObject
     // list view
     property color lvRowBackgroundNormal:   "#20000000"; // not selected or focused
     property color lvRowBackgroundFocused:  "#20000000"; // focused
-    property color lvRowBackgroundActive:   "#2000dd00"; // selected not focused
-    property color lvRowBackgroundSelected: "#8000dd00"; // selected and focused
+    property color lvRowBackgroundActive:   "#20aa0000"; // selected not focused
+    property color lvRowBackgroundSelected: "#80ff0000"; // selected and focused
 
-    property color lvRowTextNormal:   "#8000ffff"; // not selected or focused
-    property color lvRowTextFocused:  "#a000ffff"; // focused
-    property color lvRowTextActive:   "#8000ffff"; // selected not focused
-    property color lvRowTextSelected: "#a000ffff"; // selected and focused
+    property color lvRowTextNormal:   "#ffffff"; // not selected or focused
+    property color lvRowTextFocused:  "#00dd00"; // focused
+    property color lvRowTextActive:   "#00aa00"; // selected not focused
+    property color lvRowTextSelected: "#00ff00"; // selected and focused
 
     property real  lvBackgroundOpacity:      1.0;
     property color lvBackgroundBorderColor:  "transparent";
