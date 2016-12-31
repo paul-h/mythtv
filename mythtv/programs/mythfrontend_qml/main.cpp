@@ -128,7 +128,8 @@ int main(int argc, char *argv[])
     settings.setSdChannels(databaseUtils.getSetting("Qml_sdChannels", hostName));
 
     // vbox
-    settings.setVboxIP(databaseUtils.getSetting("Qml_vboxIP", hostName));
+    settings.setVboxFreeviewIP(databaseUtils.getSetting("Qml_vboxFreeviewIP", hostName));
+    settings.setVboxFreesatIP(databaseUtils.getSetting("Qml_vboxFreesatIP", hostName));
 
     // hdmiEncoder
     settings.setHdmiEncoder(databaseUtils.getSetting("Qml_hdmiEncoder", hostName));

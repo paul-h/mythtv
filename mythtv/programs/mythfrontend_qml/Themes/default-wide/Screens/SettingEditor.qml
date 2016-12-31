@@ -119,7 +119,7 @@ Item
         text: settings.sdChannels
         KeyNavigation.up: picturePathEdit;
         KeyNavigation.right: sdChannelsButton
-        KeyNavigation.down: vboxIPEdit;
+        KeyNavigation.down: vboxFreeviewIPEdit;
     }
 
     BaseButton
@@ -130,7 +130,7 @@ Item
         text: "X";
         KeyNavigation.up: picturePathEdit
         KeyNavigation.left: sdChannelsEdit
-        KeyNavigation.down: vboxIPEdit;
+        KeyNavigation.down: vboxFreeviewIPEdit;
         onClicked:
         {
             // TODO show directory finder popup
@@ -140,47 +140,64 @@ Item
     LabelText
     {
         x: xscale(50); y: yscale(300)
-        text: "VBox IP:"
+        text: "VBox Freeview IP:"
     }
 
     BaseEdit
     {
-        id: vboxIPEdit
+        id: vboxFreeviewIPEdit
         x: xscale(400); y: yscale(300)
         width: xscale(700)
         height: yscale(50)
-        text: settings.vboxIP
+        text: settings.vboxFreeviewIP
         KeyNavigation.up: sdChannelsEdit;
-        KeyNavigation.down: hdmiEncoderEdit;
+        KeyNavigation.down: vboxFreesatIPEdit;
     }
 
     LabelText
     {
         x: xscale(50); y: yscale(350)
+        text: "VBox Freesat IP:"
+    }
+
+    BaseEdit
+    {
+        id: vboxFreesatIPEdit
+        x: xscale(400); y: yscale(350)
+        width: xscale(700)
+        height: yscale(50)
+        text: settings.vboxFreesatIP
+        KeyNavigation.up: vboxFreeviewIPEdit;
+        KeyNavigation.down: hdmiEncoderEdit;
+    }
+
+    LabelText
+    {
+        x: xscale(50); y: yscale(400)
         text: "HDMI Encoder:"
     }
 
     BaseEdit
     {
         id: hdmiEncoderEdit
-        x: xscale(400); y: yscale(350)
+        x: xscale(400); y: yscale(400)
         width: xscale(700)
         height: yscale(50)
         text: settings.hdmiEncoder
-        KeyNavigation.up: vboxIPEdit;
+        KeyNavigation.up: vboxFreesatIPEdit;
         KeyNavigation.down: themeEdit;
     }
 
     LabelText
     {
-        x: xscale(50); y: yscale(400)
+        x: xscale(50); y: yscale(450)
         text: "Theme:"
     }
 
     BaseEdit
     {
         id: themeEdit
-        x: xscale(400); y: yscale(400)
+        x: xscale(400); y: yscale(450)
         width: xscale(700)
         height: yscale(50)
         text: settings.themeName
@@ -202,7 +219,8 @@ Item
             dbUtils.setSetting("Qml_videoPath    ", settings.hostName, videoPathEdit.text);
             dbUtils.setSetting("Qml_picturePath",   settings.hostName, picturePathEdit.text);
             dbUtils.setSetting("Qml_sdChannels",    settings.hostName, sdChannelsEdit.text);
-            dbUtils.setSetting("Qml_vboxIP",        settings.hostName, vboxIPEdit.text);
+            dbUtils.setSetting("Qml_vboxFreeviewIP",settings.hostName, vboxFreeviewIPEdit.text);
+            dbUtils.setSetting("Qml_vboxFreesatIP", settings.hostName, vboxFreesatIPEdit.text);
             dbUtils.setSetting("Qml_hdmiEncoder",   settings.hostName, hdmiEncoderEdit.text);
             dbUtils.setSetting("Qml_theme",         settings. hostName, themeEdit.text);
 
@@ -210,7 +228,8 @@ Item
             settings.videoPath     = videoPathEdit.text;
             settings.picturePath   = picturePathEdit.text;
             settings.sdChannels    = sdChannelsEdit.text;
-            settings.vboxIP        = vboxIPEdit.text;
+            settings.vboxFreeviewIP= vboxFreeviewIPEdit.text;
+            settings.vboxFreesatIP = vboxFreesatIPEdit.text;
             settings.hdmiEncoder   = hdmiEncoderEdit.text;
             settings.themeName     = themeEdit.text;
 

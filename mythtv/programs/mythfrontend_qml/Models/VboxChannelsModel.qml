@@ -4,7 +4,14 @@ import QtQuick.XmlListModel 2.0
 XmlListModel
 {
     id: vboxChannelsModel
-    source: settings.vboxIP + "/cgi-bin/HttpControl/HttpControlApp?OPTION=1&Method=GetXmltvChannelsList&FromChIndex=FirstChannel&ToChIndex=LastChannel"
+
+    property string broadcaster: "freeview"
+
+    source: if (broadcaster === "freeview")
+                settings.vboxFreeviewIP + "/cgi-bin/HttpControl/HttpControlApp?OPTION=1&Method=GetXmltvChannelsList&FromChIndex=FirstChannel&ToChIndex=LastChannel"
+            else
+                settings.vboxFreesatIP + "/cgi-bin/HttpControl/HttpControlApp?OPTION=1&Method=GetXmltvChannelsList&FromChIndex=FirstChannel&ToChIndex=LastChannel"
+
     query: "/tv/channel"
     XmlRole { name: "id"; query: "@id/string()" }
     XmlRole { name: "name"; query: "display-name[1]/string()" }

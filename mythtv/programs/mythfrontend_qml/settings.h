@@ -15,7 +15,8 @@ class Settings : public QObject
     Q_PROPERTY(QString sdChannels READ sdChannels WRITE setSdChannels NOTIFY sdChannelsChanged)
 
     // vbox
-    Q_PROPERTY(QString vboxIP READ vboxIP WRITE setVboxIP NOTIFY vboxIPChanged)
+    Q_PROPERTY(QString vboxFreeviewIP READ vboxFreeviewIP WRITE setVboxFreeviewIP NOTIFY vboxFreeviewIPChanged)
+    Q_PROPERTY(QString vboxFreesatIP  READ vboxFreesatIP  WRITE setVboxFreesatIP  NOTIFY vboxFreesatIPChanged)
 
     // hdmiEncoder
     Q_PROPERTY(QString hdmiEncoder READ hdmiEncoder WRITE setHdmiEncoder NOTIFY hdmiEncoderChanged)
@@ -30,7 +31,8 @@ class Settings : public QObject
      void videoPathChanged(void);
      void picturePathChanged(void);
      void sdChannelsChanged(void);
-     void vboxIPChanged(void);
+     void vboxFreeviewIPChanged(void);
+     void vboxFreesatIPChanged(void);
      void hdmiEncoderChanged(void);
 
   public:
@@ -61,8 +63,11 @@ class Settings : public QObject
     QString sdChannels(void) {return m_sdChannels;}
     void    setSdChannels(const QString &sdChannels) {m_sdChannels = sdChannels; emit sdChannelsChanged();}
 
-    QString vboxIP(void) {return m_vboxIP;}
-    void    setVboxIP(const QString &vboxIP) {m_vboxIP = vboxIP; emit vboxIPChanged();}
+    QString vboxFreeviewIP(void) {return m_vboxFreeviewIP;}
+    void    setVboxFreeviewIP(const QString &vboxFreeviewIP) {m_vboxFreeviewIP = vboxFreeviewIP; emit vboxFreeviewIPChanged();}
+
+    QString vboxFreesatIP(void) {return m_vboxFreesatIP;}
+    void    setVboxFreesatIP(const QString &vboxFreesatIP) {m_vboxFreesatIP = vboxFreesatIP; emit vboxFreesatIPChanged();}
 
     QString hdmiEncoder(void) {return m_hdmiEncoder;}
     void    setHdmiEncoder(const QString &hdmiEncoder) {m_hdmiEncoder = hdmiEncoder; emit hdmiEncoderChanged();}
@@ -79,7 +84,8 @@ class Settings : public QObject
     QString m_picturePath;
     QString m_sdChannels;
 
-    QString m_vboxIP;
+    QString m_vboxFreeviewIP;
+    QString m_vboxFreesatIP;
 
     QString m_hdmiEncoder;
 };

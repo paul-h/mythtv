@@ -102,6 +102,12 @@ Item
         }
     }
 
+    VboxChannelsModel
+    {
+        id: vboxChannelsModel
+        broadcaster: "freeview"
+    }
+
     ListView
     {
         id: channelList
@@ -109,7 +115,7 @@ Item
 
         focus: true
         clip: true
-        model: VboxChannelsModel {}
+        model: vboxChannelsModel
         delegate: listRow
         highlight: listHighlight
 
@@ -124,6 +130,13 @@ Item
             {
                 currentIndex = currentIndex - 6 < 0 ? 0 : currentIndex - 6;
                 event.accepted = true;
+            }
+            else if (event.key === Qt.Key_S)
+            {
+                if (vboxChannelsModel.broadcaster === "freeview")
+                    vboxChannelsModel.broadcaster = "freesat";
+                else
+                    vboxChannelsModel.broadcaster = "freeview";
             }
         }
 
