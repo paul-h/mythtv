@@ -1,38 +1,46 @@
 import QtQuick 2.4
 
-Column {
+Column
+{
     width: parent.width
     height: parent.height
 
     property alias model: columnRepeater.model
 
-    Repeater {
+    Repeater
+    {
         id: columnRepeater
         delegate: accordion
     }
 
-    Component {
+    Component
+    {
         id: accordion
-        Column {
+        Column
+        {
             width: parent.width
 
-            Item {
+            Item
+            {
                 id: infoRow
 
                 width: parent.width
                 height: childrenRect.height
                 property bool expanded: false
 
-                MouseArea {
+                MouseArea
+                {
                     anchors.fill: parent
                     onClicked: infoRow.expanded = !infoRow.expanded
                     enabled: modelData.children ? true : false
                 }
 
-                Image {
+                Image
+                {
                     id: carot
 
-                    anchors {
+                    anchors
+                    {
                         top: parent.top
                         left: parent.left
                         margins: 5
@@ -42,7 +50,8 @@ Column {
                     sourceSize.height: 16
                     source: '../images/triangle.svg'
                     visible: modelData.children ? true : false
-                    transform: Rotation {
+                    transform: Rotation
+                    {
                         origin.x: 5
                         origin.y: 10
                         angle: infoRow.expanded ? 90 : 0
@@ -50,8 +59,10 @@ Column {
                     }
                 }
 
-                Text {
-                    anchors {
+                Text
+                {
+                    anchors
+                    {
                         left: carot.visible ? carot.right : parent.left
                         top: parent.top
                         margins: 5
@@ -64,14 +75,16 @@ Column {
                     text: modelData.label
                 }
 
-                Text {
+                Text
+                {
                     font.pointSize: 12
                     visible: infoRow.visible
 
                     color: 'white'
                     text: modelData.value
 
-                    anchors {
+                    anchors
+                    {
                         top: parent.top
                         right: parent.right
                         margins: 5
@@ -79,7 +92,8 @@ Column {
                 }
             }
 
-            ListView {
+            ListView
+            {
                 id: subentryColumn
                 x: 20
                 width: parent.width - x

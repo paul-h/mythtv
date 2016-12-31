@@ -15,7 +15,6 @@ Item
     property int    shadowXOffset: theme.labelShadowXOffset
     property int    shadowYOffset: theme.labelShadowYOffset
 
-
     x: 50; y : 0; width: 300; height: 50
 
     Text
@@ -44,12 +43,29 @@ Item
         font.family: root.fontFamily
         font.pixelSize: root.fontPixelSize
         font.bold: root.fontBold
-        color: root.fontColor
+        //color: root.fontColor
         x: 0; y: 0;  width: parent.width; height: parent.height
         horizontalAlignment: root.horizontalAlignment
         verticalAlignment: root.verticalAlignment
         clip: true
         elide: Text.ElideRight
+        color:
+        {
+            if (parent.parent.focused)
+            {
+                if (parent.parent.selected)
+                    theme.lvRowTextFocusedSelected;
+                else
+                    theme.lvRowTextFocused;
+            }
+            else
+            {
+                if (parent.parent.selected)
+                    theme.lvRowTextSelected;
+                else
+                    theme.lvRowTextNormal;
+            }
+        }
     }
 }
 

@@ -14,6 +14,7 @@ InfoText 1.0 InfoText.qml
 LabelText 1.0 LabelText.qml
 ListBackground 1.0 ListBackground.qml
 ListItem 1.0 ListItem.qml
+ListText 1.0 ListText.qml
 MenuButton 1.0 MenuButton.qml
 ReflectionImage 1.0 ReflectionImage.qml
 ScreenBackground 1.0 ScreenBackground.qml

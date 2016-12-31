@@ -5,13 +5,15 @@ ListModel {
 
     ListElement
     {
-        itemTitle: "Christmas (4)"
+        itemTitle: "Christmas (6)"
         attributes:
         [
             ListElement { subItemTitle: "Subitem title 1/1" },
             ListElement { subItemTitle: "Subitem title 2/1" },
             ListElement { subItemTitle: "Subitem title 3/1" },
-            ListElement { subItemTitle: "Subitem title 4/1" }
+            ListElement { subItemTitle: "Subitem title 4/1" },
+            ListElement { subItemTitle: "Subitem title 5/1" },
+            ListElement { subItemTitle: "Subitem title 6/1" }
         ]
     }
     ListElement

@@ -5,18 +5,18 @@ Item
     id: container
 
     property string fontName: "Helvetica"
-    property int fontSize: 10
-    property color fontColor: "black"
-    property bool fontBold: false
+    property int    fontSize: 10
+    property color  fontColor: "black"
+    property bool   fontBold: false
     property string text: "NOT SET"
-    property string bgImage: qmlPath + 'images/list_item.png'
+    property string bgImage: mythUtils.findThemeFile("images/list_item.png")
 
-    property string bgImageSelected: qmlPath + 'images/list_item_selected.png'
-    property string bgImagePressed: qmlPath + 'images/list_item_pressed.png'
-    property string bgImageActive: qmlPath + 'images/list_item_active.png'
-    property bool selected: false
-    property bool selectable: false
-    property int textIndent: 0
+    property string bgImageSelected: mythUtils.findThemeFile("images/list_item_selected.png")
+    property string bgImagePressed: mythUtils.findThemeFile("images/list_item_pressed.png")
+    property string bgImageActive: mythUtils.findThemeFile("images/list_item_active.png")
+    property bool   selected: false
+    property bool   selectable: true
+    property int    textIndent: 0
     signal clicked
 
     width: 360
@@ -24,12 +24,31 @@ Item
     clip: true
     onSelectedChanged: selected ? state = 'selected' : state = ''
 
-    BorderImage
+    Rectangle
     {
         id: background
-        border { top: 9; bottom: 36; left: 35; right: 35; }
-        source: bgImage
         anchors.fill: parent
+        color:
+        {
+            if (parent.focused)
+            {
+                if (parent.selected)
+                    theme.lvRowBackgroundFocusedSelected;
+                else
+                    theme.lvRowBackgroundFocused;
+            }
+            else
+            {
+                if (parent.selected)
+                    theme.lvRowBackgroundSelected;
+                else
+                    theme.lvRowBackgroundNormal;
+            }
+        }
+
+        border.color: theme.lvBackgroundBorderColor
+        border.width: theme.lvBackgroundBorderWidth
+        radius: theme.lvBackgroundBorderRadius
     }
 
     Text
@@ -71,17 +90,17 @@ Item
         State 
         {
             name: 'pressed'; when: mouseArea.pressed
-            PropertyChanges { target: background; source: bgImagePressed; border { left: 35; top: 35; right: 35; bottom: 10 } }
+            //PropertyChanges { target: background; gradient: bgImagePressed;}
         },
         State
         {
             name: 'selected'
-            PropertyChanges { target: background; source: bgImageSelected; border { left: 35; top: 35; right: 35; bottom: 10 } }
+            //PropertyChanges { target: background; source: bgImageSelected; border { left: 35; top: 35; right: 35; bottom: 10 } }
         },
         State
         {
             name: 'active';
-            PropertyChanges { target: background; source: bgImageActive; }
+            //PropertyChanges { target: background; source: bgImageActive; }
         }
     ]
 }

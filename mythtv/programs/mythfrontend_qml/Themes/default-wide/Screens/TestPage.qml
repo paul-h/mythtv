@@ -65,6 +65,9 @@ Item
                     playerRect.width = 400; playerRect.height = 225;
                 }
             }
+
+            if (event.key === Qt.Key_T)
+                button1.enabled = !button1.enabled
         }
 
         Behavior on x
@@ -116,18 +119,17 @@ Item
 
             ListBackground {}
 
-            LabelText
+            ListText
             {
                 x: xscale(20); y: 0
-                fontColor: if (list.state === "selectedactive") "white"; else "purple";
                 text: modelData.label
             }
-            LabelText
+            ListText
             {
                 x: xscale(500); y: 0
                 text: modelData.item
             }
-            LabelText
+            ListText
             {
                 x: xscale(900); y: 0
                 text: modelData.value
@@ -139,13 +141,14 @@ Item
     Item
     {
         id: topGroup
-        x: xscale(20); y: yscale(260); width: xscale(1280 - 40); height: yscale(209)
+        x: xscale(20); y: yscale(260); width: xscale(1280 - 40); height: yscale(229)
         BaseBackground { anchors.fill: parent }
         ButtonList
         {
             id: list;
             spacing: 3
             anchors.fill: parent;
+            anchors.margins: xscale(10)
             model:
             [
                 {
@@ -207,14 +210,14 @@ Item
             delegate: listRow
 
             KeyNavigation.left: button1;
-            KeyNavigation.right: container;
+            KeyNavigation.right: accordianList;
 
         }
     }
 
     LabelText { x: xscale(20); y: yscale(90); text: "LabelText:" }
     InfoText { x: xscale(300); y: yscale(90); text: "InfoText" }
-    
+/*
     Item
     {
         id: bottomGroup
@@ -277,24 +280,144 @@ Item
         }
 
     }
-/*
-    FocusScope
-    {
-        id: container
-        x: xscale(20); y: yscale(490); width: xscale(1280 - 40); height: yscale(215)
+*/
 
+    Item
+    {
+        id: bottomGroup
+        x: xscale(20); y: yscale(510); width: xscale(1280 - 40); height: yscale(200)
+        
+        BaseBackground 
+        {
+            anchors.fill: parent
+        }
+/*
         AccordionList
         {
             id: accordianList
             anchors.fill: parent
-        }
+            anchors.margins: xscale(10)
+            focus: true
 
-//        KeyNavigation.left: button1;
-//        KeyNavigation.right: videoplayer;
-//        KeyNavigation.left: button1;
-//        KeyNavigation.right: videoplayer;
+            //        KeyNavigation.left: button1;
+            //        KeyNavigation.right: videoplayer;
+            //        KeyNavigation.left: button1;
+            //        KeyNavigation.right: videoplayer;
+        }
+        */
+
+        Rectangle
+        {
+            id: accordianList
+            anchors.fill: parent
+            anchors.margins: xscale(10)
+
+            ListModel
+            {
+                id: model1
+
+                ListElement
+                {
+                    name: "name1"
+                }
+                ListElement
+                {
+                    name: "name2"
+                }
+                ListElement
+                {
+                    name: "name3"
+                }
+            }
+            ListModel
+            {
+                id: model2
+                ListElement
+                {
+                    name: "inside1"
+                }
+                ListElement
+                {
+                    name: "inside2"
+                }
+                ListElement
+                {
+                    name: "inside3"
+                }
+            }
+
+            Component
+            {
+                id: delegate2
+
+                Item
+                {
+                    width: 100
+                    height: col2.childrenRect.height
+
+                    Column
+                    {
+                        id: col2
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        Text
+                        {
+                            id: name1
+                            text: name
+                        }
+                    }
+                }
+            }
+
+            ListView
+            {
+                id: outer
+                model: model1
+                delegate: listdelegate
+                anchors.fill: parent
+            }
+
+            Component
+            {
+                id: listdelegate
+
+                Item
+                {
+                    width: 100
+                    height: col.childrenRect.height
+
+                    Column
+                    {
+                        id: col
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        Text
+                        {
+                            id: t1
+                            text: name + "t1"
+                        }
+                        Text
+                        {
+                            id: t2
+                            text: name  + "t2"
+                        }
+                        ListView
+                        {
+                            id: insidelist
+                            model: model2
+                            delegate: delegate2
+                            contentHeight: contentItem.childrenRect.height
+                            height: childrenRect.height
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            clip: true
+                        }
+                    }
+                }
+            }
+        }
     }
-*/
+
     BaseButton
     {
         id: button1;

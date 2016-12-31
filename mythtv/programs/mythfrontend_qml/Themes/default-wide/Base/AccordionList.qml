@@ -1,8 +1,9 @@
 import QtQuick 2.0
 
 // Accordion list
-Item {
-    id: container
+FocusScope
+{
+    id: root
 
     // Default width
     width: 360
@@ -15,15 +16,15 @@ Item {
     // Scrollbar width
     property int scrollBarWidth: 8
     // Background for list item
-    property string bgImage: qmlPath + 'images/list_item.png'
+    property string bgImage: mythUtils.findThemeFile("images/list_item.png")
     // Background image for pressed list item
-    property string bgImagePressed: qmlPath + 'images/list_item_pressed.png'
+    property string bgImagePressed: mythUtils.findThemeFile("images/list_item_pressed.png")
     // Background image for active list item (currently not used)
-    property string bgImageActive: qmlPath + 'images/list_item_active.png'
+    property string bgImageActive: mythUtils.findThemeFile("images/list_item_active.png")
     // Background image for subitem
-    property string bgImageSubItem: qmlPath + "images/list_subitem.png"
+    property string bgImageSubItem: mythUtils.findThemeFile("images/list_subitem.png")
     // Arrow indicator for item expansion
-    property string arrow: qmlPath + 'images/arrow.png'
+    property string arrow: mythUtils.findThemeFile("images/arrow.png")
     // Font properties for top level items
     property string headerItemFontName: "Helvetica"
     property int headerItemFontSize: 13
@@ -43,12 +44,7 @@ Item {
     ListView
     {
         id: listView
-        height: parent.height
-        anchors 
-        {
-            left: parent.left
-            right: parent.right
-        }
+        anchors {fill: parent; margins: 0}
         model: mainModel
         delegate: listViewDelegate
         focus: true
@@ -72,7 +68,7 @@ Item {
             property bool expanded: false
 
             x: 0; y: 0;
-            width: container.width
+            width: root.width
             height: headerItemRect.height + subItemsRect.height
 
             // Top level list item.
@@ -85,11 +81,11 @@ Item {
                 text: itemTitle
                 onClicked: expanded = !expanded
 
-                bgImage: container.bgImage
-                bgImagePressed: container.bgImagePressed
-                bgImageActive: container.bgImageActive
-                fontName: container.headerItemFontName
-                fontSize: container.headerItemFontSize
+                bgImage: root.bgImage
+                bgImagePressed: root.bgImagePressed
+                bgImageActive: root.bgImageActive
+                fontName: root.headerItemFontName
+                fontSize: root.headerItemFontSize
                 fontColor: delegate.ListView.isCurrentItem ? "red" : "blue"
                 fontBold: true
 
@@ -99,7 +95,7 @@ Item {
                     id: arrow
                     fillMode: "PreserveAspectFit"
                     height: parent.height*0.3
-                    source: container.arrow
+                    source: root.arrow
                     rotation: expanded ? 90 : 0
                     smooth: true
                     anchors
@@ -135,7 +131,7 @@ Item {
                     // ensure that it is visible to the user.
                     SequentialAnimation
                     {
-                        NumberAnimation { duration: container.animationDuration; easing.type: Easing.InOutQuad }
+                        NumberAnimation { duration: root.animationDuration; easing.type: Easing.InOutQuad }
                         //ScriptAction { script: ListView.view.positionViewAtIndex(index, ListView.Contain) }
                     }
                 }
@@ -158,11 +154,11 @@ Item {
                             width: delegate.width
                             height: subItemsRect.itemHeight
                             text: subItemTitle
-                            bgImage: container.bgImageSubItem
-                            fontName: container.subItemFontName
-                            fontSize: container.subItemFontSize
-                            fontColor: container.subItemFontColor
-                            textIndent: container.indent
+                            bgImage: root.bgImageSubItem
+                            fontName: root.subItemFontName
+                            fontSize: root.subItemFontSize
+                            fontColor: root.subItemFontColor
+                            textIndent: root.indent
                             onClicked:
                             {
                                 console.log("Clicked: " + itemTitle + "/" + subItemTitle)

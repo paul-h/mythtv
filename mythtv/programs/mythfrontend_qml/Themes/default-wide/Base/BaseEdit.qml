@@ -8,35 +8,48 @@ FocusScope
 
     x: 0; y: 0; width: xscale(200); height: yscale(50)
     focus: false
-
-    Gradient
-    {
-        id: focusedGradient
-        GradientStop { position: 0.0; color: "#c84d6b30" }
-        GradientStop { position: 1.0; color: "#c858f833" }
-    }
+    state: "normal"
 
     states:
     [
         State
         {
-            name: "active"
+            name: "normal"
+            PropertyChanges
+            {
+                target: editText;
+                color: theme.txTextColorNormal;
+            }
             PropertyChanges
             {
                 target: background;
-                color: "#78cccccc"
-                gradient: {}
+                gradient: theme.gradientNormal();
+                border.color: theme.btBorderColorNormal;
+            }
+            PropertyChanges
+            {
+                target: textBackground;
+                gradient: theme.gradientShaded(theme.txTextBackgroundColorNormal, Qt.lighter(theme.txTextBackgroundColorNormal, 1.5));
             }
         },
         State
         {
-            name: "selectedactive"
+            name: "focused"
+            PropertyChanges
+            {
+                target: editText;
+                color: theme.txTextColorFocused;
+            }
             PropertyChanges
             {
                 target: background;
-                //color: "#ffffff"
-                //opacity: 1
-                gradient: focusedGradient
+                gradient: theme.gradientFocused();
+                border.color: theme.btBorderColorFocused;
+            }
+            PropertyChanges
+            {
+                target: textBackground;
+                gradient: theme.gradientShaded(theme.txTextBackgroundColorFocused, Qt.lighter(theme.txTextBackgroundColorFocused, 1.5));
             }
         },
         State
@@ -44,45 +57,49 @@ FocusScope
             name: "disabled"
             PropertyChanges
             {
+                target: editText;
+                color: theme.btTextColorDisabled;
+            }
+            PropertyChanges
+            {
                 target: background;
-                color: "#ffffff"
+                gradient: theme.gradientDisabled();
+                border.color: theme.btBorderColorDisabled;
             }
         }
     ]
 
-    onFocusChanged:
+    function updateState()
     {
-        if (focus)
-        {
-            state = "selectedactive"
-        }
+        if (!enabled)
+            state = "disabled";
+        else if (focus)
+            state = "focused";
         else
-        {
-            state = "active"
-        }
+            state = "normal";
     }
 
-    Keys.onReturnPressed:
-    {
-        textHasChanged();
-    }
+    onFocusChanged: updateState()
+    onEnabledChanged: updateState()
+
+    Keys.onReturnPressed: textHasChanged();
 
     Rectangle
     {
         id: background
         anchors {fill: parent; margins: 0}
-        color: "#78cccccc"
-        border.width: 3
-        border.color: "#ffffff"
-        radius: 4
+        gradient: theme.gradientNormal();
+        border.width: theme.btBorderWidth
+        border.color: theme.btBorderColorNormal
+        radius: theme.btBorderRadius
     }
 
     Rectangle
     {
         id: textBackground
         anchors {fill: parent; margins: 6}
-        color: "#c8ffffff"
-        radius: 4
+        color: theme.txTextBackgroundColorNormal
+        radius: theme.btBorderRadius
     }
 
     TextInput
@@ -94,7 +111,7 @@ FocusScope
         verticalAlignment: Text.AlignVCenter
         font.family: "Helvetica"
         font.pointSize: 20
-        color: "black"
+        color: theme.txTextColorNormal
     }
 }
 

@@ -5,30 +5,23 @@ Rectangle
     anchors.fill: parent
     color:
     {
-        /*
         if (parent.focused)
         {
             if (parent.selected)
-                Theme.lvRowBackgroundSelected;
+                theme.lvRowBackgroundFocusedSelected;
             else
-                Theme.lvRowBackgroundFocused;
+                theme.lvRowBackgroundFocused;
         }
         else
         {
             if (parent.selected)
-                Theme.lvRowBackgroundActive;
+                theme.lvRowBackgroundSelected;
             else
-                Theme.lvRowBackgroundNormal;
+                theme.lvRowBackgroundNormal;
         }
-*/
-        
-        //if (parent.selected)
-        //    Theme.lvRowBackgroundActive;
-        //else
-            theme.lvRowBackgroundNormal;
     }
 
-    opacity: theme.lvBackgroundOpacity
+    //opacity: theme.lvBackgroundOpacity
     border.color: theme.lvBackgroundBorderColor
     border.width: theme.lvBackgroundBorderWidth
     radius: theme.lvBackgroundBorderRadius

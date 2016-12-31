@@ -8,35 +8,36 @@ Item
 
     x: 0; y: 0; width: 200; height: 50
     focus: false
-
-    Gradient
-    {
-        id: focusedGradient
-        GradientStop { position: 0.0; color: "#c84d6b30" }
-        GradientStop { position: 1.0; color: "#c858f833" }
-    }
-
+    state: "normal"
     states:
     [
         State
         {
-            name: "active"
+            name: "normal"
+            PropertyChanges
+            {
+                target: buttonText;
+                fontColor: theme.btTextColorNormal;
+            }
             PropertyChanges
             {
                 target: background;
-                color: "#78cccccc"
-                gradient: {}
-            }
-        },
+                gradient: theme.gradientNormal();
+                border.color: theme.btBorderColorNormal;
+            }        },
         State
         {
-            name: "selectedactive"
+            name: "focused"
+            PropertyChanges
+            {
+                target: buttonText;
+                fontColor: theme.btTextColorSelected;
+            }
             PropertyChanges
             {
                 target: background;
-                //color: "#ffffff"
-                //opacity: 1
-                gradient: focusedGradient
+                gradient: theme.gradientSelected();
+                border.color: theme.btBorderColorSelected;
             }
         },
         State
@@ -44,8 +45,14 @@ Item
             name: "disabled"
             PropertyChanges
             {
+                target: buttonText;
+                fontColor: theme.btTextColorDisabled;
+            }
+            PropertyChanges
+            {
                 target: background;
-                color: "#ffffff"
+                gradient: theme.gradientDisabled();
+                border.color: theme.btBorderColorDisabled;
             }
         },
         State
@@ -54,34 +61,35 @@ Item
             PropertyChanges
             {
                 target: buttonText;
-                font.pixelSize: 28
+                fontColor: theme.btTextColorActiveSelected;
             }
             PropertyChanges
             {
                 target: background;
-                //color: "#ffffff"
-                //opacity: 1
-                gradient: focusedGradient
+                gradient: theme.gradientFocusedSelected();
+                border.color: theme.btBorderColorActiveSelected;
             }
         }
     ]
 
-    onFocusChanged:
+    function updateState()
     {
-        if (focus)
-            state = "selectedactive"
+        if (!enabled)
+            state = "disabled";
+        else if (focus)
+            state = "focused";
         else
-            state = "active"
+            state = "normal";
     }
+
+    onFocusChanged: updateState()
+    onEnabledChanged: updateState()
 
     Timer
     {
         id: pushTimer
         interval: 250; running: false;
-        onTriggered:
-        {
-            if (focus) state = "selectedactive"; else state = "active";
-        }
+        onTriggered: updateState();
     }
 
     Keys.onReturnPressed:
@@ -95,25 +103,18 @@ Item
     {
         id: background
         anchors.fill: parent
-        color: "#78cccccc"
-        border.width: 3
-        border.color: "#ffffff"
-        radius: 4
+        gradient: theme.gradientNormal();
+        border.width: theme.btBorderWidth
+        border.color: theme.btBorderColorNormal
+        radius: theme.btBorderRadius
     }
 
-    Text
+    LabelText
     {
         id: buttonText
         anchors {fill: parent; margins: 3}
-        font.family: "Droid Sans"
-        font.pixelSize: 26
-        font.bold: true
-        color: "#ffffff"
-        opacity: 1
         horizontalAlignment: Text.AlignHCenter
-        verticalAlignment: Text.AlignVCenter
-        clip: true
-        elide: Text.ElideRight
+        fontColor: theme.btTextColorNormal
     }
 }
 
