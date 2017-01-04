@@ -75,10 +75,17 @@ ApplicationWindow
     ScreenBackground
     {
         id: screenBackground
-        title: "Main Menu"
-        showTitle: true
         showImage: false
         showVideo: true
+        showTicker: true
+        Component.onCompleted:
+        {
+            setTitle(true, "Main Menu");
+            addTickerItem(1, "<b>NEWS:</b> This is some very loooooog ticker text that gets displayed whenever you're seeing this ticker here, bla bla bla...");
+            addTickerItem(2, "<b>RECORDING:</b> 1973. Sid and Babs together again for another classic British festival of innuendo. A local businessman convinces the town council of a seaside resort to stage a beauty contest.");
+            addTickerItem(3, "<b>WEATHER:</b> Most places dry today. Clear and frosty tonight. A return to colder conditions with sunshine for the north and east of the UK; just a few coastal wintry showers and strong winds along North Sea coasts. Cloudier elsewhere with patchy rain or drizzle but skies clearing later on.");
+            addTickerItem(4, "<b>SPORT: </b> Sunderland have rejected West Ham's £6m bid for striker Jermain Defoe");
+        }
     }
 
     StackView

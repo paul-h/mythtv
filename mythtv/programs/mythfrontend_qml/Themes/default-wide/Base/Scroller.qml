@@ -1,30 +1,99 @@
-import QtQuick 2.0
+import QtQuick 2.5
 
-Rectangle
+Item
 {
     id: root
-    property alias text: text.text
-    height: 30
-    width: parent.width
+    property alias model: itemsModel
+    property int currentItem: 0
 
     anchors.bottom: parent.bottom
-    color: "#88888888"
+    clip: true
+
+    ListModel {id: itemsModel}
+
+    Rectangle
+    {
+        id: background
+        color: "#55101010"
+        anchors.fill: parent
+    }
 
     Text
     {
-        id: text
-        color: "white"
+        id: text2
+        color: "green"
         font.pixelSize: 25
+        width: parent.width - 10
+        height: parent.height
+        x: 10;
         anchors.verticalCenter: parent.verticalCenter
+        clip: false
 
-        NumberAnimation on x
+        Component.onCompleted:
         {
-            from: root.width
-            to: -text.width
-            duration: text.width * 30
-            loops: Animation.Infinite
-            onFromChanged: restart()
+            text = itemsModel.get(root.currentItem).text
+            animation.start()
+        }
+
+        SequentialAnimation
+        {
+            id: animation
+            running: false
+
+            OpacityAnimator
+            {
+                id: fadeinAnimation
+                target: text2;
+                from: 0
+                to: 1
+                duration: 2000
+                loops: 1
+                onFromChanged: restart()
+            }
+
+            NumberAnimation
+            {
+                id: scrollAnimation
+                target: text2;
+                property: "x"
+                from: 0
+                to: if (text2.contentWidth - text2.width > 0) - (text2.contentWidth - text2.width); else 0
+                duration: if (text2.contentWidth - text2.width > 0) (text2.contentWidth - text2.width) * 25; else 5000
+                loops: 1
+                onFromChanged: restart()
+            }
+
+            OpacityAnimator
+            {
+                id: fadeoutAnimation
+                target: text2;
+                from: 1
+                to: 0
+                duration: 2000
+                loops: 1
+                onFromChanged: restart()
+            }
+
+            onStopped:
+            {
+                text2.x = 0;
+                root.currentItem = root.currentItem + 1;
+                if (root.currentItem >= itemsModel.count)
+                    root.currentItem = 0;
+                text2.text = itemsModel.get(root.currentItem).text
+                pauseTimer.start();
+            }
+        }
+    }
+
+    Timer
+    {
+        id:pauseTimer
+        interval: 3000; running: false; repeat: false
+        onTriggered:
+        {
+            console.log("animation.restart() called");
+            animation.start();
         }
     }
 }
-

@@ -16,6 +16,23 @@ Item
         screenTitle.text = newTitle;
     }
 
+    function setTicker(show, newText)
+    {
+        ticker.visible = show;
+        ticker.text = newText;
+    }
+
+    function addTickerItem(id, item)
+    {
+        ticker.model.append({"id": id, "text": item})
+    }
+
+    function muteAudio(mute)
+    {
+        if (videoPlayer.visible && videoPlayer.mute != mute)
+            videoPlayer.toggleMute()
+    }
+
     x: 0; y : 0; width: window.width; height: window.height
 
     // background image
@@ -72,7 +89,7 @@ Item
     Scroller
     {
         id: ticker
-        x: xscale(20); y: yscale(650); width: xscale(1240); height: yscale(50)
+        x: xscale(0); y: window.height - yscale(40); width: window.width; height: yscale(40)
         visible: false
     }
 
