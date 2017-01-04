@@ -67,18 +67,227 @@ QtObject
     property int   bgRadius:      12
 
     // list view
-    property color lvRowBackgroundNormal:   "#20000000"; // not selected or focused
-    property color lvRowBackgroundFocused:  "#20000000"; // focused
-    property color lvRowBackgroundActive:   "#2000dd00"; // selected not focused
-    property color lvRowBackgroundSelected: "#8000dd00"; // selected and focused
+    property color lvRowBackgroundNormal:          "#20000000"; // not selected or focused
+    property color lvRowBackgroundFocused:         "#20000000"; // focused
+    property color lvRowBackgroundSelected:        "#2000dd00"; // selected not focused
+    property color lvRowBackgroundFocusedSelected: "#8000dd00"; // selected and focused
 
-    property color lvRowTextNormal:   "#8000ffff"; // not selected or focused
-    property color lvRowTextFocused:  "#a000ffff"; // focused
-    property color lvRowTextActive:   "#8000ffff"; // selected not focused
-    property color lvRowTextSelected: "#a000ffff"; // selected and focused
+    property color lvRowTextNormal:          "#80ffffff"; // not selected or focused
+    property color lvRowTextFocused:         "#a0ffffff"; // focused
+    property color lvRowTextSelected:        "#80ffffff"; // selected not focused
+    property color lvRowTextFocusedSelected: "#a0ffffff"; // selected and focused
 
     property real  lvBackgroundOpacity:      1.0;
     property color lvBackgroundBorderColor:  "transparent";
     property int   lvBackgroundBorderWidth:  0;
     property int   lvBackgroundBorderRadius: 0;
+
+    // button
+    property int   btBorderWidth: 3
+    property int   btBorderRadius: 4
+
+    property color btBorderColorNormal:          "#888888"
+    property color btBorderColorFocused:         "#aaaaaa"
+    property color btBorderColorSelected:        "#dddddd"
+    property color btBorderColorFocusedSelected: "#ffffff"
+    property color btBorderColorDisabled:        "#aaaaaa"
+
+    property color btTextColorNormal:          "#888888"
+    property color btTextColorFocused:         "#aaaaaa"
+    property color btTextColorSelected:        "#dddddd"
+    property color btTextColorFocusedSelected: "#ffffff"
+    property color btTextColorDisabled:        "#888888"
+
+    // text edit
+    property color txTextColorNormal:            "#101010"
+    property color txTextColorFocused:           "#000000"
+    property color txTextBackgroundColorNormal:  "#a8ffffff"
+    property color txTextBackgroundColorFocused: "#c8ffffff"
+
+    readonly property color colorDumb : "#FF00FF"; // magenta
+    readonly property color colorNone : "transparent";
+
+    // background gradients
+    property color colorNormalStart: "#7800aa00"
+    property color colorNormalStop:  "#78008800"
+
+    property color colorFocusedStart: "#c800ff00"
+    property color colorFocusedStop:  "#c800dd00"
+
+    property color colorSelectedStart: "#c800ff00"
+    property color colorSelectedStop:  "#c800dd00"
+
+    property color colorFocusedSelectedStart: "#c800ff00"
+    property color colorFocusedSelectedStop:  "#c800ff00"
+
+    property color colorDisabledStart: "#80cccccc"
+    property color colorDisabledStop:  "#80111111"
+
+    property Component templateGradientNormal :
+    Component
+    {
+        Gradient
+        {
+            id: autogradient;
+            property color baseColorTop : colorNormalStart;
+            property color baseColorBottom : colorNormalStop;
+            GradientStop
+            {
+                color: autogradient.baseColorTop;
+                position: 0.0;
+            }
+            GradientStop
+            {
+                color: autogradient.baseColorBottom;
+                position: 1.0;
+            }
+        }
+    }
+
+    property Component templateGradientFocused :
+    Component
+    {
+        Gradient
+        {
+            id: autogradient;
+            property color baseColorTop : colorFocusedStart;
+            property color baseColorBottom : colorFocusedStop;
+            GradientStop
+            {
+                color: autogradient.baseColorTop;
+                position: 0.0;
+            }
+            GradientStop
+            {
+                color: autogradient.baseColorBottom;
+                position: 1.0;
+            }
+        }
+    }
+
+    property Component templateGradientSelected :
+    Component
+    {
+        Gradient
+        {
+            id: autogradient;
+            property color baseColorTop : colorSelectedStart;
+            property color baseColorBottom : colorSelectedStop;
+            GradientStop
+            {
+                color: autogradient.baseColorTop;
+                position: 0.0;
+            }
+            GradientStop
+            {
+                color: autogradient.baseColorBottom;
+                position: 1.0;
+            }
+        }
+    }
+
+    property Component templateGradientFocusedSelected :
+    Component
+    {
+        Gradient
+        {
+            id: autogradient;
+            property color baseColorTop : colorFocusedSelectedStart;
+            property color baseColorBottom : colorFocusedSelectedStop;
+            GradientStop
+            {
+                color: autogradient.baseColorTop;
+                position: 0.0;
+            }
+            GradientStop
+            {
+                color: autogradient.baseColorBottom;
+                position: 1.0;
+            }
+        }
+    }
+
+    property Component templateGradientDisabled :
+    Component
+    {
+        Gradient
+        {
+            id: autogradient;
+            property color baseColorTop : colorDisabledStart;
+            property color baseColorBottom : colorDisabledStop;
+            GradientStop
+            {
+                color: autogradient.baseColorTop;
+                position: 0.0;
+            }
+            GradientStop
+            {
+                color: autogradient.baseColorBottom;
+                position: 1.0;
+            }
+        }
+    }
+
+    property Component templateGradientShaded :
+    Component
+    {
+        Gradient
+        {
+            id: autogradient;
+            property color baseColorTop : colorDumb;
+            property color baseColorBottom : colorDumb;
+            GradientStop
+            {
+                color: autogradient.baseColorTop;
+                position: 0.0;
+            }
+            GradientStop
+            {
+                color: autogradient.baseColorBottom;
+                position: 1.0;
+            }
+        }
+    }
+
+    property Item _garbage_ : Item { }
+
+    function generateGradient (template, baseColor)
+    {
+        return template.createObject (_garbage_, { "baseColor" : baseColor });
+    }
+
+    // not selected not focused
+    function gradientNormal(baseColorTop, baseColorBottom)
+    {
+        return generateGradient(templateGradientNormal, baseColorTop, baseColorBottom);
+    }
+
+    // not selected has focus
+    function gradientFocused(baseColorTop, baseColorBottom)
+    {
+        return generateGradient(templateGradientFocused, baseColorTop, baseColorBottom);
+    }
+
+    // is selected not focused
+    function gradientSelected(baseColorTop, baseColorBottom)
+    {
+        return generateGradient(templateGradientSelected, baseColorTop, baseColorBottom);
+    }
+
+    // is selected has focus
+    function gradientFocusedSelected(baseColorTop, baseColorBottom)
+    {
+        return generateGradient (templateGradientFocusedSelected, baseColorTop, baseColorBottom);
+    }
+
+    // disabled
+    function gradientDisabled (baseColorTop, baseColorBottom)
+    {
+        return generateGradient (templateGradientDisabled, baseColorTop, baseColorBottom);
+    }
+
+    function gradientShaded (baseColorTop, baseColorBottom)
+    {
+        return templateGradientShaded.createObject (_garbage_, { "baseColorTop" : (baseColorTop || colorHighlight), "baseColorBottom" : (baseColorBottom || colorWindow), });
+    }
 }

@@ -6,9 +6,6 @@ QtObject
 {
     id: root
 
-    // fallback theme
-    property string fallbackTheme:      "MythCenter-wide"
-
     // screen background
     property string backgroundVideo:    "video/Snow Village 3D Screensaver.mp4"
 
