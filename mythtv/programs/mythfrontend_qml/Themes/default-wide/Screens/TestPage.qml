@@ -14,12 +14,14 @@ Item
     {
         screenBackground.setTitle(true, "Test Page");
         screenBackground.showTime = false;
+        screenBackground.muteAudio(true);
     }
 
     Component.onDestruction:
     {
         screenBackground.setTitle(true, "Main Menu");
         screenBackground.showTime = true;
+        screenBackground.muteAudio(false);
     }
 
     Rectangle
@@ -51,7 +53,7 @@ Item
 
         Keys.onPressed:
         {
-            if (event.key === Qt.Key_F)
+            if (event.key === Qt.Key_X)
             {
                 fullscreen = !fullscreen;
                 if (fullscreen)
