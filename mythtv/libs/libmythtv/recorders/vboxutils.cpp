@@ -326,16 +326,12 @@ vbox_chan_map_t *VBox::getChannels(void)
 
         QString transType = "UNKNOWN";
         QStringList slist = triplet.split('-');
-        uint networkID = slist[2].left(4).toUInt(0, 16);
-        uint transportID = slist[2].mid(4, 4).toUInt(0, 16);
-        LOG(VB_GENERAL, LOG_DEBUG, LOC + QString("NIT/TID/SID %1 %2 %3)").arg(networkID).arg(transportID).arg(serviceID));
 
         //sanity check - the triplet should look something like this: T-GER-111100020001
         // where T is the tuner type, GER is the country, and the numbers are the NIT/TID/SID
         if (slist.count() == 3)
-        {
             transType = slist[0];
-        }
+
         QString icon = "";
         QDomNodeList iconNodes = chanElem.elementsByTagName("icon");
         if (iconNodes.count())
@@ -352,7 +348,7 @@ vbox_chan_map_t *VBox::getChannels(void)
             url = urlElem.attribute("src", "");
         }
 
-        VBoxChannelInfo chanInfo(name, xmltvid, url, fta, chanType, transType, serviceID, networkID, transportID);
+        VBoxChannelInfo chanInfo(name, xmltvid, url, fta, chanType, transType, serviceID);
         result->insert(lcn, chanInfo);
     }
 

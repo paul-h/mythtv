@@ -158,7 +158,7 @@ bool CardUtil::IsCableCardPresent(uint inputid,
 bool CardUtil::HasTuner(const QString &rawtype, const QString & device)
 {
     if (rawtype == "DVB"     || rawtype == "HDHOMERUN" ||
-        rawtype == "FREEBOX" || rawtype == "CETON" || rawtype == "VBOX")
+        rawtype == "FREEBOX" || rawtype == "CETON")
         return true;
 
 #ifdef USING_V4L2
@@ -2006,8 +2006,7 @@ bool CardUtil::DeleteAllCards(void)
     return (query.exec("TRUNCATE TABLE inputgroup") &&
             query.exec("TRUNCATE TABLE diseqc_config") &&
             query.exec("TRUNCATE TABLE diseqc_tree") &&
-            query.exec("TRUNCATE TABLE capturecard") &&
-            query.exec("TRUNCATE TABLE iptv_channel"));
+            query.exec("TRUNCATE TABLE capturecard"));
 }
 
 vector<uint> CardUtil::GetInputList(void)
