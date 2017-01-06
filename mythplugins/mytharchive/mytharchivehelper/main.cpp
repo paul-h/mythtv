@@ -1083,7 +1083,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
 
     // create a mxml file with the metadata for this recording
     QStringList categories(importItem.category.split(','));
-    QDate releaseDate = importItem.year > 0 ? QDate(importItem.year, 0, 0) : importItem.startTime.date();
+    QDate releaseDate = importItem.year > 0 ? QDate(importItem.year, 1, 1) : importItem.startTime.date();
     MetadataLookup *lookup = new MetadataLookup(kMetadataVideo, kProbableTelevision, QVariant(), kLookupSearch, false, false, false, false, false,
                                                 "", videoFile, importItem.title, categories, 0.0, importItem.subtitle, "", importItem.description,
                                                 importItem.season, importItem.episode, importItem.startTime, 0,  importItem.chanNo, importItem.chanSign,
@@ -1260,11 +1260,12 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
 
     // create a mxml file with the metadata for this recording
     QStringList categories(importItem.category.split(','));
+    QDate releaseDate = importItem.year > 0 ? QDate(importItem.year, 1, 1) : importItem.startTime.date();
     MetadataLookup *lookup = new MetadataLookup(kMetadataVideo, kProbableTelevision, QVariant(), kLookupSearch, false, false, false, false, false,
                                                 "", videoFile, importItem.title, categories, 0.0, importItem.subtitle, "", importItem.description,
                                                 importItem.season, importItem.episode, importItem.startTime, 0,  importItem.chanNo,
                                                 importItem.chanSign, importItem.chanName, importItem.certification, importItem.year,
-                                                importItem.startTime.date(), importItem.duration / 60, importItem.duration, "",
+                                                releaseDate, importItem.duration / 60, importItem.duration, "",
                                                 PeopleMap(), "", ArtworkMap(), DownloadMap());
 
     if (categories.contains("Movies", Qt::CaseInsensitive))
