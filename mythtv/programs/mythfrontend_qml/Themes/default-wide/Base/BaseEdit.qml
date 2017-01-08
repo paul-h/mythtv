@@ -106,6 +106,7 @@ FocusScope
     {
         id: editText
         focus: true
+        clip: true
         anchors {fill: parent; margins: 6}
         horizontalAlignment: Text.AlignLeft
         verticalAlignment: Text.AlignVCenter
