@@ -9,6 +9,22 @@ Item
 
     x: 0; y: 0; width: parent.width; height: parent.height
 
+    Component.onCompleted:
+    {
+        screenBackground.setTitle(false, "");
+        screenBackground.showTime = false;
+        screenBackground.showTicker = false;
+    }
+
+    Component.onDestruction:
+    {
+        screenBackground.setTitle(true, "Main Menu");
+        screenBackground.showTime = true;
+        screenBackground.showTicker = true;
+    }
+
+    BaseBackground { anchors.fill: parent; anchors.margins: 10 }
+
     Keys.onEscapePressed: if (stack.depth > 1) {stack.pop();} else Qt.quit();
 
     Keys.onPressed:
@@ -41,11 +57,6 @@ Item
         }
     }
 
-    Image
-    {
-        id: background
-        source: themePath + "ui/background.png"
-    }
 
     Component
     {
@@ -54,17 +65,18 @@ Item
         Item
         {
             width: sdChannelList.width; height: 50
+            property bool selected: ListView.isCurrentItem
+            property bool focused: sdChannelList.focus
+
+            ListBackground {}
 
             Image
             {
                id: channelImage
                x: 3; y:3; height: parent.height - 6; width: height
-               source: if (icon)
-                            icon
-                        else
-                            "images/grid_noimage.png"
+               source: if (icon) icon; else mythUtils.findThemeFile("images/grid_noimage.png");
             }
-            Text
+            ListText
             {
                 width:sdChannelList.width; height: 50
                 x: channelImage.width + 5
@@ -74,51 +86,22 @@ Item
         }
     }
 
-    Component
-    {
-        id: listHighlight
-
-        Rectangle
-        {
-            width:sdChannelList.width; height: 50
-            color: "green"
-            opacity: 0.3
-            radius: 15
-            border.color: "#dd00ff00"
-        }
-    }
-
-    ListView
+    ButtonList
     {
         id: sdChannelList
         x: 50; y: 30; width: 500; height: 500
 
         focus: true
-        clip: true
         model: SDChannelsModel {}
         delegate: listRow
-        highlight: listHighlight
-
-        Keys.onPressed:
-        {
-            if (event.key === Qt.Key_PageDown)
-            {
-                currentIndex = currentIndex + 6 >= model.count ? model.count - 1 : currentIndex + 6;
-                event.accepted = true;
-            }
-            else if (event.key === Qt.Key_PageUp)
-            {
-                currentIndex = currentIndex - 6 < 0 ? 0 : currentIndex - 6;
-                event.accepted = true;
-            }
-        }
+        //highlight: listHighlight
 
         Keys.onReturnPressed:
         {
             returnSound.play();
         }
 
-        KeyNavigation.left: dbChannelList;
+        KeyNavigation.left:  chanNoEdit;
         KeyNavigation.right: dbChannelList;
     }
 
@@ -129,6 +112,10 @@ Item
         Item
         {
             width:dbChannelList.width; height: 50
+            property bool selected: ListView.isCurrentItem
+            property bool focused: dbChannelList.focus
+
+            ListBackground {}
 
             Image
             {
@@ -140,53 +127,24 @@ Item
                     "images/grid_noimage.png"
             }
 
-            Text
+            ListText
             {
-                width:dbChannelList.width; height: 50
+                width: dbChannelList.width; height: 50
                 x: radioIcon.width + 5
                 text: name + " ~ " + callsign + " ~ " + channum + " ~ " + xmltvid
             }
         }
     }
 
-    Component
-    {
-        id: streamHighlight
 
-        Rectangle
-        {
-            width:dbChannelList.width; height: 50
-            color: "green"
-            opacity: 0.3
-            radius: 15
-            border.color: "#dd00ff00"
-        }
-    }
-
-    ListView
+    ButtonList
     {
         id: dbChannelList
         x: 600; y: 30; width: 500; height: 500
 
         focus: true
-        clip: true
         model: dbChannelsModel
         delegate: streamRow
-        highlight: streamHighlight
-
-        Keys.onPressed:
-        {
-            if (event.key === Qt.Key_PageDown)
-            {
-                currentIndex = currentIndex + 6 >= model.count ? model.count - 1 : currentIndex + 6;
-                event.accepted = true;
-            }
-            else if (event.key === Qt.Key_PageUp)
-            {
-                currentIndex = currentIndex - 6 < 0 ? 0 : currentIndex - 6;
-                event.accepted = true;
-            }
-        }
 
         Keys.onEscapePressed: if (stack.depth > 1) {stack.pop()} else Qt.quit();
         Keys.onReturnPressed:
@@ -200,16 +158,12 @@ Item
         KeyNavigation.right: saveButton;
     }
 
-    TextEdit
+    BaseEdit
     {
         id: chanNoEdit
         x: 30; y: 600
         width: 240
-        height: 25
         text: dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 1))
-        font.family: "Helvetica"
-        font.pointSize: 20
-        color: "blue"
         KeyNavigation.up: sdChannelList
         KeyNavigation.right: chanNoButton
         KeyNavigation.down: chanNameEdit
@@ -223,22 +177,21 @@ Item
         text: "F1";
         KeyNavigation.right: chanNameEdit
         KeyNavigation.left: chanNoEdit
+        KeyNavigation.down: chanNameEdit
+
         onClicked:
         {
-            chanNoEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).channo;
+            //chanNoEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).channo;
+            dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 1)) = sdChannelList.model.get(sdChannelList.currentIndex).channo;
         }
     }
 
-    TextEdit
+   BaseEdit
     {
         id: chanNameEdit
         x: 30; y: 650
         width: 240
-        height: 25
         text: dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 2))
-        font.family: "Helvetica"
-        font.pointSize: 20
-        color: "blue"
         KeyNavigation.up: chanNoEdit;
         KeyNavigation.right: chanNameButton
         KeyNavigation.down: callsignEdit;
@@ -254,20 +207,17 @@ Item
         KeyNavigation.left: callsignEdit
         onClicked:
         {
-            chanNameEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).name;
+            //chanNameEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).name;
+            dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 2)) = sdChannelList.model.get(sdChannelList.currentIndex).name
         }
     }
 
-    TextEdit
+    BaseEdit
     {
         id: callsignEdit
         x: 400; y: 600
-        width: 240
-        height: 25
+        width: 390
         text: dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 3))
-        font.family: "Helvetica"
-        font.pointSize: 20
-        color: "blue"
         KeyNavigation.up: chanNameEdit;
         KeyNavigation.down: xmltvidEdit;
     }
@@ -275,50 +225,47 @@ Item
     BaseButton
     {
         id: callsignButton;
-        x: 650; y: 600;
+        x: 800; y: 600;
         width: 50; height: 50
         text: "F3";
         KeyNavigation.right: callsignEdit
         KeyNavigation.left: xmltvidEdit
         onClicked:
         {
-            callsignEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).callsign;
+            //callsignEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).callsign;
+            dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 3)) = sdChannelList.model.get(sdChannelList.currentIndex).callsign;
         }
     }
 
-    TextEdit
+    BaseEdit
     {
         id: xmltvidEdit
         x: 400; y: 650
-        width: 240
-        height: 25
+        width: 390
         text: dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 5))
-        font.family: "Helvetica"
-        font.pointSize: 20
-        color: "blue"
         KeyNavigation.up: callsignEdit;
         KeyNavigation.down: saveButton;
-
     }
 
     BaseButton
     {
         id: xmltvButton;
-        x: 650; y: 650;
+        x: 800; y: 650;
         width: 50; height: 50
         text: "F4";
         KeyNavigation.right: saveButton
         KeyNavigation.left: xmltvidEdit
         onClicked:
         {
-            xmltvidEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).xmltvid;
+            //xmltvidEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).xmltvid;
+            dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 5)) = sdChannelList.model.get(sdChannelList.currentIndex).xmltvid;
         }
     }
 
     BaseButton
     {
         id: saveButton;
-        x: xscale(900); y: yscale(630);
+        x: xscale(1050); y: yscale(630);
         text: "Save";
         KeyNavigation.right: chanNoEdit
         KeyNavigation.left: xmltvidEdit
