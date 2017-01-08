@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("settings", &settings);
 
     // create the myth utils
-    MythUtils mythUtils(&settings);
+    MythUtils mythUtils(&settings, &engine);
     engine.rootContext()->setContextProperty("mythUtils", &mythUtils);
 
     // create the radio streams model

@@ -2,6 +2,11 @@
 
 #include <QFile>
 #include <QString>
+#include <QGuiApplication>
+#include <QQmlContext>
+#include <QQuickWindow>
+#include <QPixmap>
+#include <QImage>
 
 #include "mythutils.h"
 
@@ -23,3 +28,19 @@ QString MythUtils::findThemeFile(const QString &fileName)
     return QString();
 }
 
+bool MythUtils::grabScreen(const QString& fileName)
+{
+    QQuickWindow *qw = dynamic_cast<QQuickWindow*>(m_engine->rootObjects().first());
+
+    if (!qw)
+    {
+        return false;
+    }
+
+    QImage image = qw->grabWindow();
+
+    if (image.isNull())
+        return false;
+
+    return image.save(fileName, "PNG");
+}
