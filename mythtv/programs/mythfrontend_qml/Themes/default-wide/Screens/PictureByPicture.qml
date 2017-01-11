@@ -15,7 +15,7 @@ BaseScreen
         showVideo(true);
     }
 
-    Keys.onEscapePressed: if (stack.depth > 1) {video1player.stop(); video2player.stop(); stack.pop();} else Qt.quit();
+    Keys.onEscapePressed: { video1player.stop(); video2player.stop(); }
 
     Rectangle
     {
