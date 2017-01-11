@@ -2,13 +2,19 @@ import QtQuick 2.0
 import Base 1.0
 import "../../../MenuThemes/classic"
 
-Item
+BaseScreen
 {
-    //anchors.fill: parent
-    x: 0; y: 0; width: parent.width; height: parent.height
     property alias model: listView.model
     property alias logo: title.source
-    property alias defaultFocusItem: listView
+    defaultFocusItem: listView
+
+    Component.onCompleted:
+    {
+        showTitle(true, model.title);
+        showTime(true);
+        showTicker(true);
+        showVideo(true);
+    }
 
     Image
     {
@@ -109,8 +115,6 @@ Item
                 }
             }
 
-
-            Keys.onEscapePressed: if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
             Keys.onReturnPressed:
             {
                 console.log("return pressed");

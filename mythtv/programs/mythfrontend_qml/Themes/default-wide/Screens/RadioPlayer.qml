@@ -3,20 +3,20 @@ import QmlVlc 0.1
 import Base 1.0
 import "../../../Util.js" as Util
 
-Item
+BaseScreen
 {
     id: root
 
-    property alias defaultFocusItem: streamList
+    defaultFocusItem: streamList
     property string trackArtistTitle: ""
     property int trackStart: 0
 
-    x: 0; y: 0; width: parent.width; height: parent.height
-
-    Component.onDestruction:
+    Component.onCompleted:
     {
-        screenBackground.showTitle = true;
-        screenBackground.showTime = true;
+        showTitle(false, "");
+        showTime(false);
+        showTicker(false);
+        showVideo(true);
     }
 
     onTrackArtistTitleChanged:
@@ -43,9 +43,6 @@ Item
 
         Component.onCompleted:
         {
-            screenBackground.showTitle = false;
-            screenBackground.showTime = false;
-
             // try to restore the last playing station
             var url = dbUtils.getSetting("Qml_radioPlayerBookmark", settings.hostName)
 

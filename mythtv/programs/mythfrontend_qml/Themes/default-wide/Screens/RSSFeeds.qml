@@ -4,29 +4,21 @@ import QtQuick.Controls 1.4
 import Base 1.0
 import "../../../Models"
 
-Item
+BaseScreen
 {
     id: root
 
-    property alias defaultFocusItem: feedList
+    defaultFocusItem: feedList
     property string currentFeed: ""
     property bool loading: feedModel.status == XmlListModel.Loading
 
     Component.onCompleted:
     {
-        screenBackground.setTitle(true, "RSS Feeds");
-        screenBackground.showTime = true;
+        showTitle(true, "RSS Feeds");
+        showTime(true);
+        showTicker(false);
+        showVideo(true);
     }
-
-    Component.onDestruction:
-    {
-        screenBackground.setTitle(true, "Main Menu");
-        screenBackground.showTime = true;
-    }
-
-    x: 0; y: 0; width: parent.width; height: parent.height
-
-    Keys.onEscapePressed: { escapeSound.play(); stack.pop(); }
 
     Keys.onPressed:
     {

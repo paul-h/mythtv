@@ -1,13 +1,19 @@
 import QtQuick 2.0
 import "../../../Models"
 import Qt.labs.folderlistmodel 2.1
+import Base 1.0
 
-Item
+BaseScreen
 {
-    property alias defaultFocusItem: imageList
+    defaultFocusItem: imageList
     property alias folder: folderModel.folder
 
-    x: 0; y: 0; width: parent.width; height: parent.height
+    Component.onCompleted:
+    {
+        showTitle(true, folderModel.folder);
+        showTime(false);
+        showTicker(false);
+    }
 
     Component
     {
@@ -81,8 +87,6 @@ Item
             }
         }
 
-
-        Keys.onEscapePressed: if (stack.depth > 1) {stack.pop()} else Qt.quit();
         Keys.onReturnPressed:
         {
             console.log("filename is: " + model.get(currentIndex, "filePath"));

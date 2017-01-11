@@ -2,25 +2,16 @@ import QtQuick 2.0
 import Base 1.0
 import "../../../Models"
 
-Item
+BaseScreen
 {
-    property alias defaultFocusItem: statusList
+    defaultFocusItem: statusList
 
     Component.onCompleted:
     {
-        screenBackground.setTitle(true, "ZoneMinder Console");
-        screenBackground.showTime = false;
+        showTitle(true, "ZoneMinder Console");
+        showTime(false);
+        showTicker(false);
     }
-
-    Component.onDestruction:
-    {
-        screenBackground.setTitle(true, "ZoneMinder Menu");
-        screenBackground.showTime = true;
-    }
-
-    x: 0; y: 0; width: parent.width; height: parent.height
-
-    Keys.onEscapePressed: if (stack.depth > 1) {stack.pop();} else Qt.quit();
 
     Keys.onPressed:
     {

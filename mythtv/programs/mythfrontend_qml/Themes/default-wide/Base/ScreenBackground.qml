@@ -3,7 +3,7 @@ import QtQuick 2.0
 Item
 {
     id: screenBackground
-    property string title: ""
+    property alias title: screenTitle.text
     property alias showImage: background.visible
     property alias showTitle: screenTitle.visible
     property alias showTime: time.visible

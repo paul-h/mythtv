@@ -3,13 +3,18 @@ import "../../../Models"
 import Qt.labs.folderlistmodel 2.1
 import Base 1.0
 
-Item
+BaseScreen
 {
-    //property alias source: mediaplayer.source
-    property alias defaultFocusItem: videoList
+    defaultFocusItem: videoList
     property alias folder: folderModel.folder
 
-    x: 0; y: 0; width: parent.width; height: parent.height
+    Component.onCompleted:
+    {
+        showTitle(true, folderModel.folder);
+        showTime(false);
+        showTicker(false);
+        showVideo(true);
+    }
 
     BaseBackground
     {
@@ -86,11 +91,8 @@ Item
             }
         }
 
-
-        Keys.onEscapePressed: if (stack.depth > 1) {stack.pop()} else Qt.quit();
         Keys.onReturnPressed:
         {
-            console.log("filename is: " + model.get(currentIndex, "filePath"));
             if (model.get(currentIndex, "fileIsDir"))
                 stack.push({item: Qt.resolvedUrl("VideosGridFolder.qml"), properties:{folder: model.get(currentIndex, "filePath")}});
             else

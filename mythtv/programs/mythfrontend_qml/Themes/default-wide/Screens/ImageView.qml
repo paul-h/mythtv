@@ -1,15 +1,22 @@
 import QtQuick 2.0
 import "../../../Models"
 import Qt.labs.folderlistmodel 2.1
+import Base 1.0
 
-Item
+BaseScreen
 {
-    property alias defaultFocusItem: image
+    defaultFocusItem: image
     property FolderListModel folderModel
     property alias source: image.source
     property int currentIndex
 
-    x: 0; y: 0; width: parent.width; height: parent.height
+    Component.onCompleted:
+    {
+        showTitle(false, "");
+        showTime(false);
+        showTicker(false);
+        showVideo(false);
+    }
 
     Image
     {
@@ -17,7 +24,6 @@ Item
         anchors.fill: parent
         source: folderModel.get(currentIndex, "filePath");
         asynchronous: true
-        Keys.onEscapePressed: if (stack.depth > 1) {stack.pop()} else Qt.quit();
         Keys.onLeftPressed:
         {
             if (currentIndex > 0)

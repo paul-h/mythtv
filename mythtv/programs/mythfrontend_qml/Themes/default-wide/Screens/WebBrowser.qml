@@ -2,26 +2,17 @@ import QtQuick 2.0
 import QtWebKit 3.0
 import Base 1.0
 
-Item
+BaseScreen
 {
-    property alias defaultFocusItem: browser
+    defaultFocusItem: browser
     property alias url: browser.url
-
-    x: 0; y: 0; width: parent.width; height: parent.height
 
     Component.onCompleted:
     {
-        screenBackground.setTitle(true, "Web Browser");
-        screenBackground.showTime = false;
+        showTitle(true, "Web Browser");
+        showTime(false);
+        showTicker(false);
     }
-
-    Component.onDestruction:
-    {
-        screenBackground.setTitle(true, "Main Menu");
-        screenBackground.showTime = true;
-    }
-
-    Keys.onEscapePressed: if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
 
     WebView
     {
@@ -31,6 +22,5 @@ Item
 
         Keys.onEscapePressed: if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
     }
-
 }
 

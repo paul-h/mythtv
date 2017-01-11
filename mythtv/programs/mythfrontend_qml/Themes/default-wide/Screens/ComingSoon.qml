@@ -1,11 +1,14 @@
 import QtQuick 2.0
 import Base 1.0
 
-Item
+BaseScreen
 {
-    property alias defaultFocusItem: text
+    defaultFocusItem: text
 
-    x: 0; y: 0; width: parent.width; height: parent.height
+    Component.onCompleted:
+    {
+        showTitle(true, "Coming Soon!");
+    }
 
     Image
     {
@@ -21,7 +24,5 @@ Item
         text: "Coming Soon!!"
         anchors.fill: parent
         horizontalAlignment: Text.AlignHCenter
-
-        Keys.onEscapePressed: if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
     }
 }

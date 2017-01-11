@@ -1,28 +1,24 @@
 import QtQuick 2.0
 import Base 1.0
 
-Item
+BaseScreen
 {
-    //property alias source: mediaplayer.source
-    property alias defaultFocusItem: button1
-
-    x: 0; y: 0; width: parent.width; height: parent.height
-
-    Keys.onEscapePressed: if (stack.depth > 1) {videoplayer.stop(); stack.pop();} else Qt.quit();
+    defaultFocusItem: button1
 
     Component.onCompleted:
     {
-        screenBackground.setTitle(true, "Test Page");
-        screenBackground.showTime = false;
+        showTitle(true, "Test Page");
+        showTime(false);
+        showTicker(false);
         screenBackground.muteAudio(true);
     }
 
     Component.onDestruction:
     {
-        screenBackground.setTitle(true, "Main Menu");
-        screenBackground.showTime = true;
         screenBackground.muteAudio(false);
     }
+
+    Keys.onEscapePressed: videoplayer.stop();
 
     Rectangle
     {

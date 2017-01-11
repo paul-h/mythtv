@@ -2,22 +2,16 @@ import QtQuick 2.0
 import Base 1.0
 import "../../../Models"
 
-Item
+BaseScreen
 {
-    property alias defaultFocusItem: masterBEEdit
-
-    x: 0; y: 0; width: parent.width; height: parent.height
-
-    Keys.onEscapePressed: if (stack.depth > 1) {stack.pop();} else Qt.quit();
+    defaultFocusItem: sdChannelList
 
     Component.onCompleted:
     {
-        screenBackground.showTitle = false
-    }
-
-    Component.onDestruction:
-    {
-        screenBackground.showTitle = true;
+        showTitle(true, "General Settings");
+        showTime(false);
+        showTicker(false);
+        showVideo(true);
     }
 
     LabelText

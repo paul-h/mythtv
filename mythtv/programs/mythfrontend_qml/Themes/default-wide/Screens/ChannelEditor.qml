@@ -2,30 +2,19 @@ import QtQuick 2.0
 import Base 1.0
 import "../../../Models"
 
-Item
+BaseScreen
 {
-    //property alias source: mediaplayer.source
-    property alias defaultFocusItem: sdChannelList
-
-    x: 0; y: 0; width: parent.width; height: parent.height
+    defaultFocusItem: sdChannelList
 
     Component.onCompleted:
     {
-        screenBackground.setTitle(false, "");
-        screenBackground.showTime = false;
-        screenBackground.showTicker = false;
-    }
-
-    Component.onDestruction:
-    {
-        screenBackground.setTitle(true, "Main Menu");
-        screenBackground.showTime = true;
-        screenBackground.showTicker = true;
+        showTitle(false, "");
+        showTime(false);
+        showTicker(false);
+        showVideo(true);
     }
 
     BaseBackground { anchors.fill: parent; anchors.margins: 10 }
-
-    Keys.onEscapePressed: if (stack.depth > 1) {stack.pop();} else Qt.quit();
 
     Keys.onPressed:
     {
@@ -181,8 +170,8 @@ Item
 
         onClicked:
         {
-            //chanNoEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).channo;
-            dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 1)) = sdChannelList.model.get(sdChannelList.currentIndex).channo;
+            chanNoEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).channo;
+            //dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 1)) = sdChannelList.model.get(sdChannelList.currentIndex).channo;
         }
     }
 
@@ -207,8 +196,8 @@ Item
         KeyNavigation.left: callsignEdit
         onClicked:
         {
-            //chanNameEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).name;
-            dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 2)) = sdChannelList.model.get(sdChannelList.currentIndex).name
+            chanNameEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).name;
+            //dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 2)) = sdChannelList.model.get(sdChannelList.currentIndex).name
         }
     }
 
@@ -232,8 +221,8 @@ Item
         KeyNavigation.left: xmltvidEdit
         onClicked:
         {
-            //callsignEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).callsign;
-            dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 3)) = sdChannelList.model.get(sdChannelList.currentIndex).callsign;
+            callsignEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).callsign;
+            //dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 3)) = sdChannelList.model.get(sdChannelList.currentIndex).callsign;
         }
     }
 
@@ -257,8 +246,8 @@ Item
         KeyNavigation.left: xmltvidEdit
         onClicked:
         {
-            //xmltvidEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).xmltvid;
-            dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 5)) = sdChannelList.model.get(sdChannelList.currentIndex).xmltvid;
+            xmltvidEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).xmltvid;
+            //dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 5)) = sdChannelList.model.get(sdChannelList.currentIndex).xmltvid;
         }
     }
 

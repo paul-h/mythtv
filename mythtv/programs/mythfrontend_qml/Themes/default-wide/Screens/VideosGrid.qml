@@ -2,11 +2,17 @@ import QtQuick 2.0
 import "../../../Models"
 import Base 1.0
 
-Item
+BaseScreen
 {
-    property alias defaultFocusItem: videoList
+    defaultFocusItem: videoList
 
-    x: 0; y: 0; width: parent.width; height: parent.height
+    Component.onCompleted:
+    {
+        showTitle(true, "Videos Grid View");
+        showTime(false);
+        showTicker(false);
+        showVideo(true);
+    }
 
     BaseBackground
     {
@@ -78,10 +84,8 @@ Item
             }
         }
 
-        Keys.onEscapePressed: if (stack.depth > 1) {stack.pop()} else Qt.quit();
         Keys.onReturnPressed:
         {
-            console.log("filename is: " + model.get(currentIndex).FileName);
             stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source: settings.videoPath + model.get(currentIndex).FileName }});
             event.accepted = true;
             returnSound.play();

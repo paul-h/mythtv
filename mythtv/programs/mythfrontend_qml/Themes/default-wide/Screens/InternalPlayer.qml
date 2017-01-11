@@ -1,15 +1,20 @@
 import QtQuick 2.0
 import Base 1.0
 
-Item
+BaseScreen
 {
-    //property alias source: mediaplayer.source
-    property alias defaultFocusItem: player
+    defaultFocusItem: player
     property alias source: player.source
 
-    x: 0; y: 0; width: parent.width; height: parent.height
+    Component.onCompleted:
+    {
+        showTitle(false, "");
+        showTime(false);
+        showTicker(false);
+        showVideo(false);
+    }
 
-    Keys.onEscapePressed: if (stack.depth > 1) { player.stop(); stack.pop(); } else Qt.quit();
+    Keys.onEscapePressed:  player.stop();
 
     VideoPlayerQmlVLC
     {

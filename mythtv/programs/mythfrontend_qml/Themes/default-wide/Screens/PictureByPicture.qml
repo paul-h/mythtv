@@ -2,12 +2,18 @@ import QtQuick 2.0
 import Base 1.0
 import "../../../Models"
 
-Item
+BaseScreen
 {
-    property alias defaultFocusItem: video1player
+    defaultFocusItem: video1player
     property bool player1HasFocus: true
 
-    x: 0; y: 0; width: parent.width; height: parent.height
+    Component.onCompleted:
+    {
+        showTitle(false, "");
+        showTime(false);
+        showTicker(false);
+        showVideo(true);
+    }
 
     Keys.onEscapePressed: if (stack.depth > 1) {video1player.stop(); video2player.stop(); stack.pop();} else Qt.quit();
 
