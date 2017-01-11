@@ -90,10 +90,6 @@ Item
     {
         id:pauseTimer
         interval: 3000; running: false; repeat: false
-        onTriggered:
-        {
-            console.log("animation.restart() called");
-            animation.start();
-        }
+        onTriggered: animation.start();
     }
 }
