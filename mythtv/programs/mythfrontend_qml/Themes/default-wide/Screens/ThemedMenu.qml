@@ -4,7 +4,7 @@ import Base 1.0
 BaseScreen
 {
     property alias model: listView.model
-    property alias logo: title.source
+
     defaultFocusItem: listView
 
     Component.onCompleted:
@@ -15,6 +15,11 @@ BaseScreen
         showVideo(true);
 
         title.source = settings.themePath + model.logo
+    }
+
+    Loader
+    {
+        id: menuLoader
     }
 
     Image

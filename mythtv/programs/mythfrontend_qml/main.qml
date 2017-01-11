@@ -23,12 +23,6 @@ ApplicationWindow
         source: settings.qmlPath + "Theme.qml"
     }
 
-    Loader
-    {
-        id: menuLoader
-        source: settings.menuPath + "MainMenu.qml"
-    }
-
     function xscale(x)
     {
         return x * wmult;
@@ -87,11 +81,17 @@ ApplicationWindow
         }
     }
 
+    Loader
+    {
+        id: mainMenuLoader
+        source: settings.menuPath + "MainMenu.qml"
+    }
+
     StackView
     {
         id: stack
         width: parent.width; height: parent.height
-        initialItem: ThemedMenu {model: menuLoader.item}
+        initialItem: ThemedMenu {model: mainMenuLoader.item}
         focus: true
 
         onCurrentItemChanged:
@@ -106,7 +106,6 @@ ApplicationWindow
         {
             if (event.key === Qt.Key_F)
             {
-                console.log("F pressed: " + visibility);
                 if (visibility == 5)
                     visibility = 2
                 else
