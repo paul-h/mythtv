@@ -1,4 +1,5 @@
 import QtQuick 2.0
+import ".."
 
 ListModel
 {
@@ -9,8 +10,9 @@ ListModel
     ListElement
     {
         menutext: "TV"
-        loaderSource:"PictureByPicture.qml"
+        loaderSource:"ThemedMenu.qml"
         waterMark: "watermark/tv.png"
+        menuSource: "RecordingsMenu.qml"
     }
     ListElement
     {
@@ -23,12 +25,14 @@ ListModel
         menutext:"Music"
         loaderSource: "ThemedMenu.qml"
         waterMark: "watermark/info.png"
+        menuSource: "MusicMenu.qml"
     }
     ListElement
     {
         menutext: "Videos"
-        loaderSource: "VideosGrid.qml"
+        loaderSource: "ThemedMenu.qml"
         waterMark: "watermark/dvd.png"
+        menuSource: "VideoMenu.qml"
     }
     ListElement
     {
@@ -71,11 +75,13 @@ ListModel
         menutext:"ZoneMinder"
         loaderSource: "ThemedMenu.qml"
         waterMark: "watermark/zoneminder.png"
+        menuSource: "ZoneMinderMenu.qml"
     }
     ListElement
     {
         menutext:"Setup"
         loaderSource: "ThemedMenu.qml"
         waterMark: "watermark/setup.png"
+        menuSource: "SettingsMenu.qml"
     }
 }

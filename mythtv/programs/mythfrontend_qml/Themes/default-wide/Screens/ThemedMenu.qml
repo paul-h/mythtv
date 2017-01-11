@@ -1,6 +1,5 @@
 import QtQuick 2.0
 import Base 1.0
-import "../../../MenuThemes/classic"
 
 BaseScreen
 {
@@ -14,6 +13,8 @@ BaseScreen
         showTime(true);
         showTicker(true);
         showVideo(true);
+
+        title.source = settings.themePath + model.logo
     }
 
     Image
@@ -117,29 +118,13 @@ BaseScreen
 
             Keys.onReturnPressed:
             {
-                console.log("return pressed");
                 event.accepted = true;
                 returnSound.play();
-                // FIXME this is hacky
-                if (model.get(currentIndex).menutext === "Music")
+
+                if (model.get(currentIndex).loaderSource === "ThemedMenu.qml")
                 {
-                    stack.push({item: Qt.resolvedUrl("ThemedMenu.qml"), properties:{model: musicMenu, logo: settings.themePath + "title/title_music.png" }});
-                }
-                else if (model.get(currentIndex).menutext === "Videos")
-                {
-                    stack.push({item: Qt.resolvedUrl("ThemedMenu.qml"), properties:{model: videoMenu, logo: settings.themePath + "title/title_video.png" }});
-                }
-                else if (model.get(currentIndex).menutext === "ZoneMinder")
-                {
-                    stack.push({item: Qt.resolvedUrl("ThemedMenu.qml"), properties:{model: zoneminderMenu, logo: settings.themePath + "title/title_keys.png" }});
-                }
-                else if (model.get(currentIndex).menutext === "Images")
-                {
-                    stack.push({item: Qt.resolvedUrl("IconView.qml"), properties:{folder: settings.picturePath }});
-                }
-                else if (model.get(currentIndex).menutext === "Setup")
-                {
-                    stack.push({item: Qt.resolvedUrl("ThemedMenu.qml"), properties:{model: settingsMenu, logo: settings.themePath + "title/title_keys.png" }});
+                    menuLoader.source = settings.menuPath + model.get(currentIndex).menuSource;
+                    stack.push({item: Qt.resolvedUrl("ThemedMenu.qml"), properties:{model: menuLoader.item}});
                 }
                 else
                 {
@@ -153,11 +138,6 @@ BaseScreen
         }
     }
 
-    MusicMenu {id: musicMenu}
-    VideoMenu {id: videoMenu}
-    ZoneMinderMenu {id: zoneminderMenu }
-    SettingsMenu {id: settingsMenu }
- 
     FadeImage
     {
         id: watermark

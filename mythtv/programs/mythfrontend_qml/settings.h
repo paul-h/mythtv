@@ -9,6 +9,7 @@ class Settings : public QObject
     Q_PROPERTY(QString sharePath READ sharePath WRITE setSharePath NOTIFY sharePathChanged)
     Q_PROPERTY(QString qmlPath READ qmlPath WRITE setQmlPath NOTIFY qmlPathChanged)
     Q_PROPERTY(QString themePath READ themePath WRITE setThemePath NOTIFY themePathChanged)
+    Q_PROPERTY(QString menuPath READ menuPath WRITE setMenuPath NOTIFY menuPathChanged)
     Q_PROPERTY(QString masterBackend READ masterBackend WRITE setMasterBackend NOTIFY masterBackendChanged)
     Q_PROPERTY(QString videoPath READ videoPath WRITE setVideoPath NOTIFY videoPathChanged)
     Q_PROPERTY(QString picturePath READ picturePath WRITE setPicturePath NOTIFY picturePathChanged)
@@ -27,6 +28,7 @@ class Settings : public QObject
      void sharePathChanged(void);
      void qmlPathChanged(void);
      void themePathChanged(void);
+     void menuPathChanged(void);
      void masterBackendChanged(void);
      void videoPathChanged(void);
      void picturePathChanged(void);
@@ -49,7 +51,10 @@ class Settings : public QObject
     void    setQmlPath(const QString &qmlPath) {m_qmlPath = qmlPath; emit qmlPathChanged();}
 
     QString themePath(void) {return m_themePath;}
-    void    setThemePath(const QString &themePath) {m_themePath = themePath; emit themeNameChanged();}
+    void    setThemePath(const QString &themePath) {m_themePath = themePath; emit themePathChanged();}
+
+    QString menuPath(void) {return m_menuPath;}
+    void    setMenuPath(const QString &menuPath) {m_menuPath = menuPath; emit menuPathChanged();}
 
     QString masterBackend(void) {return m_masterBackend;}
     void    setMasterBackend(const QString &masterBackend) {m_masterBackend = masterBackend; emit masterBackendChanged(); }
@@ -78,6 +83,7 @@ class Settings : public QObject
     QString m_sharePath;
     QString m_qmlPath;
     QString m_themePath;
+    QString m_menuPath;
 
     QString m_masterBackend;
     QString m_videoPath;

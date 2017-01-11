@@ -1,7 +1,6 @@
 import QtQuick 2.4
 import QtMultimedia 5.4
 import QtQuick.Controls 1.4
-import "MenuThemes/classic"
 import Base 1.0
 import Screens 1.0
 
@@ -24,11 +23,11 @@ ApplicationWindow
         source: settings.qmlPath + "Theme.qml"
     }
 
-//    Component.onCompleted:
-//    {
-//        themeLoader.source = settings.qmlPath + "base/" + settings.themeName
-//    }
-
+    Loader
+    {
+        id: menuLoader
+        source: settings.menuPath + "MainMenu.qml"
+    }
 
     function xscale(x)
     {
@@ -92,7 +91,7 @@ ApplicationWindow
     {
         id: stack
         width: parent.width; height: parent.height
-        initialItem: ThemedMenu {model: MainMenu {}}
+        initialItem: ThemedMenu {model: menuLoader.item}
         focus: true
 
         onCurrentItemChanged:

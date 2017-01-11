@@ -140,6 +140,10 @@ int main(int argc, char *argv[])
     else
         settings.setThemePath(QString(SHAREPATH) + "themes/" + theme + "/");
 
+    // menu theme
+    QString menuTheme = "classic"; // just use this for now
+    settings.setMenuPath(QString(SHAREPATH) + "qml/MenuThemes/" + menuTheme + "/");
+
     engine.rootContext()->setContextProperty("settings", &settings);
 
     // create the myth utils
