@@ -4,6 +4,7 @@ ListModel
 {
     id: zoneminderMenu
     property string logo: "title/title_setup.png"
+    property string title: "ZoneMinder Menu"
 
     ListElement
     {

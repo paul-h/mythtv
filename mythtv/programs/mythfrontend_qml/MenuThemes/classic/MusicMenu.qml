@@ -4,6 +4,7 @@ ListModel
 {
     id: musicMenu
     property string logo: "title/title_music.png"
+    property string title: "Music Menu"
 
     ListElement
     {
