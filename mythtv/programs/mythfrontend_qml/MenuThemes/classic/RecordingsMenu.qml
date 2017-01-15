@@ -22,7 +22,7 @@ ListModel
     ListElement
     {
         menutext:"Watch Recordings"
-        loaderSource: "ComingSoon.qml"
+        loaderSource: "WatchRecordings.qml"
         waterMark: "watermark/big_arrow_down.png"
     }
     ListElement
