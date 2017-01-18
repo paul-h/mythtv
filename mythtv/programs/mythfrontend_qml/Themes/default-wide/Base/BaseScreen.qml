@@ -14,7 +14,7 @@ Item
 
     x: 0; y: 0; width: parent.width; height: parent.height
 
-    Keys.onEscapePressed: if (stack.depth > 1) {stack.pop();} else Qt.quit();
+    Keys.onEscapePressed: if (stack.depth > 1) {escapeSound.play(); stack.pop();} else Qt.quit();
 
     function showTitle (show, newTitle)
     {
