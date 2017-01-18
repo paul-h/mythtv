@@ -16,7 +16,17 @@ BaseScreen
 
     BaseBackground
     {
-        x: xscale(15); y: yscale(50); width: xscale(1250); height: yscale(655)
+        x: xscale(15); y: yscale(50); width: xscale(400); height: yscale(400)
+    }
+
+    BaseBackground
+    {
+        x: xscale(425); y: yscale(50); width: xscale(835); height: yscale(400)
+    }
+
+    BaseBackground
+    {
+        x: xscale(15); y: yscale(465); width: xscale(1250); height: yscale(240)
     }
 
     Component
@@ -36,11 +46,25 @@ BaseScreen
                         else
                             mythUtils.findThemeFile("images/grid_noimage.png")
             }
-            InfoText
+            ListText
             {
-                width: videoList.width - coverImage.width - xscale(20); height: xscale(50)
                 x: coverImage.width + xscale(20)
+                width: xscale(450); height: yscale(50)
                 text: SubTitle ? Title + ": " + SubTitle : Title
+            }
+            ListText
+            {
+                x: coverImage.width + xscale(480)
+                width: xscale(190); height: yscale(50)
+                horizontalAlignment: Text.AlignRight
+                text: Qt.formatDateTime(StartTime, "ddd dd/MM/yy")
+            }
+            ListText
+            {
+                x: coverImage.width + xscale(680)
+                width: xscale(80); height: yscale(50)
+                horizontalAlignment: Text.AlignRight
+                text: Qt.formatDateTime(StartTime, "hh:mm")
             }
         }
     }
@@ -62,7 +86,7 @@ BaseScreen
     ListView
     {
         id: videoList
-        x: xscale(25); y: yscale(65); width: xscale(1230); height: yscale(600)
+        x: xscale(435); y: yscale(65); width: xscale(815); height: yscale(360)
 
         focus: true
         clip: true
@@ -86,12 +110,33 @@ BaseScreen
 
         Keys.onReturnPressed:
         {
-            var filename = "myth://" + model.get(currentIndex).HostName + "/" + model.get(currentIndex).FileName;
+            var hostname = model.get(currentIndex).HostName === settings.hostName ? "localhost" : model.get(currentIndex).HostName
+            var filename = "myth://" + hostname + "/" + model.get(currentIndex).FileName;
             console.log("Playing: " + filename);
             stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source: filename }});
             event.accepted = true;
             returnSound.play();
         }
+    }
+
+    InfoText
+    {
+        x: coverImage.width + xscale(20); y: yscale(480)
+        width: xscale(900); height: yscale(50)
+        text: videoList.model.get(videoList.currentIndex).Title
+    }
+    InfoText
+    {
+        x: coverImage.width + xscale(220); y: yscale(530)
+        width: xscale(900); height: yscale(50)
+        text: videoList.model.get(videoList.currentIndex).StartTime
+    }
+    InfoText
+    {
+        x: coverImage.width + xscale(340); y: yscale(580)
+        width: xscale(900); height: yscale(100)
+        text: videoList.model.get(videoList.currentIndex).Description
+        multiline: true
     }
 }
 

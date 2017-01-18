@@ -6,8 +6,8 @@ XmlListModel
     id: recordingModel
     source: settings.masterBackend + "Dvr/GetRecordedList"
     query: "/ProgramList/Programs/Program"
-    XmlRole { name: "StartTime"; query: "StartTime/string()" }
-    XmlRole { name: "EndTime"; query: "EndTime/string()" }
+    XmlRole { name: "StartTime"; query: "xs:dateTime(StartTime)" }
+    XmlRole { name: "EndTime"; query: "xs:dateTime(EndTime" }
     XmlRole { name: "Title"; query: "Title/string()" }
     XmlRole { name: "SubTitle"; query: "SubTitle/string()" }
     XmlRole { name: "Category"; query: "Category/string()" }
@@ -19,7 +19,7 @@ XmlListModel
     XmlRole { name: "SeriesId"; query: "SeriesId/string()" }
     XmlRole { name: "ProgramId"; query: "ProgramId/string()" }
     XmlRole { name: "Stars"; query: "Stars/string()" }
-    XmlRole { name: "LastModified"; query: "LastModified/string()" }
+    XmlRole { name: "LastModified"; query: "xs:dateTime(LastModified" }
     XmlRole { name: "ProgramFlag"; query: "ProgramFlag/string()" }
     XmlRole { name: "Airdate"; query: "Airdate/string()" }
     XmlRole { name: "Description"; query: "Description/string()" }
