@@ -1,20 +1,25 @@
 import QtQuick 2.0
 import Base 1.0
-import Screens 1.0
-import "../../../MenuThemes/classic"
 
-Item
+BaseScreen
 {
-    //anchors.fill: parent
-    x: 0; y: 0; width: parent.width; height: parent.height
     property alias model: listView.model
-    property alias logo: title.source
-    property alias defaultFocusItem: listView
+
+    defaultFocusItem: listView
 
     Component.onCompleted:
     {
-        screenBackground.setTitle(false, "");
-        screenBackground.showTime = true;
+        showTitle(true, model.title);
+        showTime(true);
+        showTicker(true);
+        showVideo(true);
+
+        title.source = settings.themePath + model.logo
+    }
+
+    Loader
+    {
+        id: menuLoader
     }
 
     Image
@@ -23,7 +28,7 @@ Item
         x: xscale(24); y: yscale(28)
         width: xscale(sourceSize.width)
         height: yscale(sourceSize.height)
-        source: settings.themePath + model.logo
+        source: settings.themePath + "title/title_tv.png"
     }
 
     Image
@@ -107,33 +112,15 @@ Item
                 }
             }
 
-
-            Keys.onEscapePressed: if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
             Keys.onReturnPressed:
             {
-                console.log("return pressed");
                 event.accepted = true;
                 returnSound.play();
-                // FIXME this is hacky
-                if (model.get(currentIndex).menutext === "Music")
+
+                if (model.get(currentIndex).loaderSource === "ThemedMenu.qml")
                 {
-                    stack.push({item: createSubMenu(), properties:{model: musicMenu}});
-                }
-                else if (model.get(currentIndex).menutext === "Videos")
-                {
-                    stack.push({item: createSubMenu(), properties:{model: videoMenu}});
-                }
-                else if (model.get(currentIndex).menutext === "ZoneMinder")
-                {
-                    stack.push({item: createSubMenu(), properties:{model: zoneminderMenu}});
-                }
-                else if (model.get(currentIndex).menutext === "Images")
-                {
-                    stack.push({item: Qt.resolvedUrl("IconView.qml"), properties:{folder: settings.picturePath }});
-                }
-                else if (model.get(currentIndex).menutext === "Setup")
-                {
-                    stack.push({item: createSubMenu(), properties:{model: settingsMenu}});
+                    menuLoader.source = settings.menuPath + model.get(currentIndex).menuSource;
+                    stack.push({item: Qt.resolvedUrl("ThemedMenu.qml"), properties:{model: menuLoader.item}});
                 }
                 else
                 {
@@ -142,29 +129,8 @@ Item
 
                 event.accepted = true;
             }
+
+            onCurrentItemChanged: watermark.swapImage(settings.themePath + model.get(currentIndex).waterMark)
         }
     }
-
-    function createSubMenu()
-    {
-        var themeComponent;
-        var menu;
-
-        themeComponent = Qt.createComponent("ThemedMenu.qml");
-        menu = themeComponent.createObject(window);
-
-        if (menu == null) 
-        {
-            // Error Handling
-            console.log("Error creating sub menu object" + themeComponent.errorString());
-        }
-
-        return menu;
-    }
-
-    MusicMenu {id: musicMenu}
-    VideoMenu {id: videoMenu}
-    ZoneMinderMenu {id: zoneminderMenu }
-    SettingsMenu {id: settingsMenu }
-  }
-
+}
