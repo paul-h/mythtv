@@ -110,7 +110,7 @@ FocusScope
 
             Text
             {
-                x: 10; y: 5
+                x: 500; y: 5
                 id: artist
                 text: if (mediaplayer.metaData && mediaplayer.metaData.albumArtist !== undefined)
                           "Artist: " + mediaplayer.metaData.albumArtist;
@@ -120,7 +120,7 @@ FocusScope
             }
             Text
             {
-                x: 10; y: 20
+                x: 500; y: 20
                 id: title
                 text: if (mediaplayer.metaData && mediaplayer.metaData.title !== undefined)
                 "Title: " + mediaplayer.metaData.title;
