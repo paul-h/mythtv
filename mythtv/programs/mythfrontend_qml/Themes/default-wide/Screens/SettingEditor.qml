@@ -4,7 +4,7 @@ import "../../../Models"
 
 BaseScreen
 {
-    defaultFocusItem: sdChannelList
+    defaultFocusItem: masterBEEdit
 
     Component.onCompleted:
     {
