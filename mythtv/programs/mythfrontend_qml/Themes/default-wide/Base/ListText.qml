@@ -17,6 +17,15 @@ Item
 
     x: 50; y : 0; width: 300; height: 50
 
+    Rectangle
+    {
+        anchors.fill: parent
+        color: "transparent"
+        border.color: Qt.rgba(Math.random(), Math.random(), Math.random(), 1)
+        border.width: 1
+        visible: settings.showTextBorder
+    }
+
     Text
     {
         id: shadow

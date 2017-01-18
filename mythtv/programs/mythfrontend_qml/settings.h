@@ -22,6 +22,8 @@ class Settings : public QObject
     // hdmiEncoder
     Q_PROPERTY(QString hdmiEncoder READ hdmiEncoder WRITE setHdmiEncoder NOTIFY hdmiEncoderChanged)
 
+    // debugging
+    Q_PROPERTY(bool showTextBorder READ showTextBorder WRITE setShowTextBorder NOTIFY showTextBorderChanged)
   signals:
      void themeNameChanged(void);
      void hostNameChanged(void);
@@ -36,6 +38,7 @@ class Settings : public QObject
      void vboxFreeviewIPChanged(void);
      void vboxFreesatIPChanged(void);
      void hdmiEncoderChanged(void);
+     void showTextBorderChanged(void);
 
   public:
     QString themeName(void) {return m_themeName;}
@@ -77,6 +80,9 @@ class Settings : public QObject
     QString hdmiEncoder(void) {return m_hdmiEncoder;}
     void    setHdmiEncoder(const QString &hdmiEncoder) {m_hdmiEncoder = hdmiEncoder; emit hdmiEncoderChanged();}
 
+    bool    showTextBorder(void) {return m_showTextBorder;}
+    void    setShowTextBorder(const bool showTextBorder) {m_showTextBorder = showTextBorder; emit showTextBorderChanged();}
+
   private:
     QString m_themeName;
     QString m_hostName;
@@ -94,4 +100,6 @@ class Settings : public QObject
     QString m_vboxFreesatIP;
 
     QString m_hdmiEncoder;
+
+    bool    m_showTextBorder;
 };

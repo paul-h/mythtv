@@ -111,6 +111,11 @@ ApplicationWindow
                 else
                     visibility = 5
             }
+            else if (event.key === Qt.Key_F12)
+            {
+                settings.showTextBorder = ! settings.showTextBorder;
+                console.log("showTextBorder: " + settings.showTextBorder);
+            }
         }
     }
 
