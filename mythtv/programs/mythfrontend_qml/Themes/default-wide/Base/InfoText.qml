@@ -14,7 +14,7 @@ Item
     property color  shadowColor: theme.infoShadowColor
     property int    shadowXOffset: theme.infoShadowXOffset
     property int    shadowYOffset: theme.infoShadowYOffset
-
+    property bool   multiline: false
 
     x: 50; y : 0; width: 300; height: 50
 
@@ -32,6 +32,9 @@ Item
         horizontalAlignment: root.horizontalAlignment
         verticalAlignment: root.verticalAlignment
         visible: shadowXOffset != 0 || shadowYOffset != 0 ? true : false
+        clip: true
+        elide: Text.ElideRight
+        wrapMode: root.multiline ? Text.WordWrap : Text.NoWrap
     }
 
     Text
@@ -46,6 +49,9 @@ Item
         x: 0; y: 0;  width: parent.width; height: parent.height
         horizontalAlignment: root.horizontalAlignment
         verticalAlignment: root.verticalAlignment
+        clip: true
+        elide: Text.ElideRight
+        wrapMode: root.multiline ? Text.WordWrap : Text.NoWrap
     }
 }
 
