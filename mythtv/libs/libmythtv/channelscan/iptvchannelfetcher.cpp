@@ -151,7 +151,7 @@ void IPTVChannelFetcher::run(void)
 
     if (!_is_mpts)
     {
-        fbox_chan_map_t::const_iterator it = _channels.begin();
+        fbox_chan_map_t::iterator it = _channels.begin();
         for (uint i = 1; it != _channels.end(); ++it, ++i)
         {
             QString channum = it.key();
@@ -163,6 +163,9 @@ void IPTVChannelFetcher::run(void)
 
             LOG(VB_CHANNEL, LOG_INFO, QString("Handling channel %1 %2")
                 .arg(channum).arg(name));
+
+            QString url = (*it).m_tuning.GetDataURL().toString();
+            (*it).m_tuning.SetProtocol(ChannelUtil::GuessProtocol(url));
 
             int chanid = ChannelUtil::GetChanID(_sourceid, channum);
             if (chanid <= 0)
