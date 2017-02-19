@@ -176,15 +176,13 @@ void VBoxChannelFetcher::run(void)
         bool fta          = (*it).m_fta;
         QString chanType  = (*it).m_channelType;
         QString transType = (*it).m_transType;
-        uint networkID    = (*it).m_networkID;
-        uint transportID  = (*it).m_transportID;
 
         //: %1 is the channel number, %2 is the channel name
         QString msg = tr("Channel #%1 : %2").arg(channum).arg(name);
 
         LOG(VB_CHANNEL, LOG_INFO, QString("Handling channel %1 %2")
             .arg(channum).arg(name));
-        uint mplexID =0;
+
         if (_ftaOnly && !fta)
         {
             // ignore this encrypted channel
@@ -215,7 +213,6 @@ void VBoxChannelFetcher::run(void)
             (*it).m_tuning.SetProtocol(IPTVTuningData::http_ts);
 
             int chanid = ChannelUtil::GetChanID(_sourceid, channum);
-
             if (chanid <= 0)
             {
                 if (_scan_monitor)
@@ -223,13 +220,7 @@ void VBoxChannelFetcher::run(void)
                     _scan_monitor->ScanAppendTextToLog(tr("Adding %1").arg(msg));
                 }
                 chanid = ChannelUtil::CreateChanID(_sourceid, channum);
-
-                //mplexID will be created if necessary
-                mplexID = ChannelUtil::CreateMultiplex(_sourceid,"dvb", 0, QString::null, transportID, networkID,
-                                                       0, 0, 0, 0, 0, QString::null, QString::null, 0, QString::null,
-                                                       QString::null, QString::null, QString::null, QString::null);
-
-                ChannelUtil::CreateChannel(mplexID, _sourceid, chanid, name, name,
+                ChannelUtil::CreateChannel(0, _sourceid, chanid, name, name,
                                             channum, serviceID, 0, 0,
                                             false, false, false, QString::null,
                                             QString::null, "Default", xmltvid);
@@ -242,12 +233,7 @@ void VBoxChannelFetcher::run(void)
                     _scan_monitor->ScanAppendTextToLog(
                                                 tr("Updating %1").arg(msg));
                 }
-                // mplexID will be created if necessary
-                mplexID = ChannelUtil::CreateMultiplex(_sourceid, "dvb", 0, QString::null, transportID, networkID,
-                                                       0, 0 , 0 , 0, 0, QString::null, QString::null, 0, QString::null,
-                                                       QString::null, QString::null, QString::null, QString::null);
-
-                ChannelUtil::UpdateChannel(mplexID, _sourceid, chanid, name, name,
+                ChannelUtil::UpdateChannel(0, _sourceid, chanid, name, name,
                                             channum, serviceID, 0, 0,
                                             false, false, false, QString::null,
                                             QString::null, "Default", xmltvid);
