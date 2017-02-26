@@ -42,7 +42,7 @@ def WriteXMLToFile(myDOM, filename):
 def getText(node):
     """Returns the text contents from a given XML element."""
     if node.childNodes.length > 0:
-        return node.childNodes[0].data
+        return node.childNodes[0].data.encode('ascii', 'ignore').decode('ascii')
     else:
         return ""
 
