@@ -144,7 +144,7 @@ BaseScreen
         }
 
         KeyNavigation.left: sdChannelList;
-        KeyNavigation.right: saveButton;
+        KeyNavigation.right: chanNoEdit;
     }
 
     BaseEdit
@@ -154,8 +154,9 @@ BaseScreen
         width: 240
         text: dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 1))
         KeyNavigation.up: sdChannelList
-        KeyNavigation.right: chanNoButton
         KeyNavigation.down: chanNameEdit
+        KeyNavigation.left: saveButton
+        KeyNavigation.right: chanNoButton
     }
 
     BaseButton
@@ -164,9 +165,10 @@ BaseScreen
         x: 280; y: 600;
         width: 50; height: 50
         text: "F1";
-        KeyNavigation.right: chanNameEdit
+        KeyNavigation.up: sdChannelList
+        KeyNavigation.down: chanNameButton
+        KeyNavigation.right: callsignEdit
         KeyNavigation.left: chanNoEdit
-        KeyNavigation.down: chanNameEdit
 
         onClicked:
         {
@@ -180,10 +182,11 @@ BaseScreen
         id: chanNameEdit
         x: 30; y: 650
         width: 240
-        text: dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 2))
+        text: dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 3))
         KeyNavigation.up: chanNoEdit;
-        KeyNavigation.right: chanNameButton
         KeyNavigation.down: callsignEdit;
+        KeyNavigation.left: xmltvidEdit
+        KeyNavigation.right: chanNameButton
     }
 
     BaseButton
@@ -192,12 +195,14 @@ BaseScreen
         x: 280; y: 650;
         width: 50; height: 50
         text: "F2";
-        KeyNavigation.right: chanNameEdit
-        KeyNavigation.left: callsignEdit
+        KeyNavigation.up: chanNoButton;
+        KeyNavigation.down: callsignEdit;
+        KeyNavigation.left: chanNameEdit
+        KeyNavigation.right: chanNameButton
         onClicked:
         {
-            chanNameEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).name;
-            //dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 2)) = sdChannelList.model.get(sdChannelList.currentIndex).name
+            //chanNameEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).name;
+            //dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 3)) = sdChannelList.model.get(sdChannelList.currentIndex).name
         }
     }
 
@@ -206,9 +211,11 @@ BaseScreen
         id: callsignEdit
         x: 400; y: 600
         width: 390
-        text: dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 3))
+        text: dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 2))
         KeyNavigation.up: chanNameEdit;
         KeyNavigation.down: xmltvidEdit;
+        KeyNavigation.left: chanNoButton
+        KeyNavigation.right: callsignButton
     }
 
     BaseButton
@@ -217,8 +224,10 @@ BaseScreen
         x: 800; y: 600;
         width: 50; height: 50
         text: "F3";
-        KeyNavigation.right: callsignEdit
-        KeyNavigation.left: xmltvidEdit
+        KeyNavigation.up: dbChannelList
+        KeyNavigation.down: xmltvButton
+        KeyNavigation.left: callsignEdit
+        KeyNavigation.right: saveButton
         onClicked:
         {
             callsignEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).callsign;
@@ -234,6 +243,8 @@ BaseScreen
         text: dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 5))
         KeyNavigation.up: callsignEdit;
         KeyNavigation.down: saveButton;
+        KeyNavigation.left: chanNameButton
+        KeyNavigation.right: xmltvButton
     }
 
     BaseButton
@@ -242,8 +253,10 @@ BaseScreen
         x: 800; y: 650;
         width: 50; height: 50
         text: "F4";
-        KeyNavigation.right: saveButton
+        KeyNavigation.up: callsignButton
+        KeyNavigation.down: dbChannelList
         KeyNavigation.left: xmltvidEdit
+        KeyNavigation.right: saveButton
         onClicked:
         {
             xmltvidEdit.text = sdChannelList.model.get(sdChannelList.currentIndex).xmltvid;
@@ -256,9 +269,10 @@ BaseScreen
         id: saveButton;
         x: xscale(1050); y: yscale(630);
         text: "Save";
-        KeyNavigation.right: chanNoEdit
-        KeyNavigation.left: xmltvidEdit
+        KeyNavigation.up: dbChannelList
         KeyNavigation.down: dbChannelList
+        KeyNavigation.left: xmltvButton
+        KeyNavigation.right: chanNameEdit
         onClicked:
         {
             var chanid = dbChannelList.model.data(dbChannelList.model.index(dbChannelList.currentIndex, 0))
