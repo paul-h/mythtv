@@ -69,6 +69,10 @@ FocusScope
                      toggleMute();
                  else if (event.key === Qt.Key_D)
                      toggleInterlacer();
+                 else if (event.key === Qt.Key_PageUp)
+                     mediaplayer.time = mediaplayer.time - 600000;
+                 else if (event.key === Qt.Key_PageDown)
+                     mediaplayer.time = mediaplayer.time + 600000;
                  else
                      event.accepted = false;
              }
