@@ -14,6 +14,19 @@ BaseScreen
         showVideo(true);
     }
 
+    Image
+    {
+        id: fanartImage
+        x: xscale(0); y: yscale(0); width: xscale(1280); height: yscale(720)
+        source:
+        {
+            if (videoList.model.get(videoList.currentIndex).Fanart)
+                settings.masterBackend + videoList.model.get(videoList.currentIndex).Fanart
+                else
+                    ""
+        }
+    }
+
     BaseBackground
     {
         x: xscale(15); y: yscale(50); width: xscale(400); height: yscale(400)
@@ -42,7 +55,7 @@ BaseScreen
                 id: coverImage
                 x: xscale(13); y: yscale(3); height: parent.height - yscale(6); width: height
                 source: if (Coverart)
-                            settings.masterBackend + "Content/GetImageFile?StorageGroup=Coverart&FileName=" + Coverart
+                            settings.masterBackend + Coverart
                         else
                             mythUtils.findThemeFile("images/grid_noimage.png")
             }
@@ -121,23 +134,71 @@ BaseScreen
 
     InfoText
     {
-        x: coverImage.width + xscale(20); y: yscale(480)
+        x: xscale(30); y: yscale(480)
         width: xscale(900); height: yscale(50)
         text: videoList.model.get(videoList.currentIndex).Title
     }
+
+    Image
+    {
+        id: channelImage
+        x: xscale(300); y: yscale(530); width: xscale(50); height: yscale(50)
+        source:
+        {
+            if (videoList.model.get(videoList.currentIndex).ChannelIcon)
+                settings.masterBackend + videoList.model.get(videoList.currentIndex).ChannelIcon
+            else
+                ""
+        }
+    }
+
     InfoText
     {
-        x: coverImage.width + xscale(220); y: yscale(530)
+        x: xscale(400); y: yscale(530)
         width: xscale(900); height: yscale(50)
-        text: videoList.model.get(videoList.currentIndex).StartTime
+        text: videoList.model.get(videoList.currentIndex).ChannelNo + " - " + videoList.model.get(videoList.currentIndex).ChannelCallSign + " - " + videoList.model.get(videoList.currentIndex).ChannelName
+    }
+
+    InfoText
+    {
+        x: xscale(30); y: yscale(530)
+        width: xscale(900); height: yscale(50)
+        text: Qt.formatDateTime(videoList.model.get(videoList.currentIndex).StartTime, "ddd dd MMM yyyy hh:mm")
     }
     InfoText
     {
-        x: coverImage.width + xscale(340); y: yscale(580)
+        x: xscale(30); y: yscale(580)
         width: xscale(900); height: yscale(100)
         text: videoList.model.get(videoList.currentIndex).Description
         multiline: true
     }
+
+    Image
+    {
+        id: bannerImage
+        x: xscale(300); y: yscale(480); height: yscale(60); width: 300
+        source:
+        {
+            if (videoList.model.get(videoList.currentIndex).Banner)
+                settings.masterBackend + videoList.model.get(videoList.currentIndex).Banner
+            else
+                ""
+        }
+    }
+
+    Image
+    {
+        id: coverartImage
+        x: xscale(980); y: yscale(480); height: yscale(200); width: 100
+        source:
+        {
+            if (videoList.model.get(videoList.currentIndex).Fanart)
+                settings.masterBackend + videoList.model.get(videoList.currentIndex).Coverart
+                else
+                    mythUtils.findThemeFile("images/grid_noimage.png")
+        }
+    }
+
 }
 
 
