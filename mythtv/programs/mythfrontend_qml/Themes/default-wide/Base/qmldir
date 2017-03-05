@@ -5,6 +5,7 @@ AccordionListModel 1.0 AccordionListModel.qml
 BaseBackground 1.0 BaseBackground.qml
 BaseButton 1.0 BaseButton.qml
 BaseEdit 1.0 BaseEdit.qml
+BaseMultilineEdit 1.0 BaseMultilineEdit.qml
 BaseScreen 1.0 BaseScreen.qml
 ButtonList 1.0 ButtonList.qml
 Clock 1.0 Clock.qml
