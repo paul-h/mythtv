@@ -82,6 +82,11 @@ BaseScreen
                 currentIndex = currentIndex - 6 < 0 ? 0 : currentIndex - 6;
                 event.accepted = true;
             }
+            else if (event.key === Qt.Key_E)
+            {
+                stack.push({item: Qt.resolvedUrl("VideoMetadataEditor.qml"), properties:{videosModel:  model, currentIndex: currentIndex}});
+                event.accepted = true;
+            }
         }
 
         Keys.onReturnPressed:
