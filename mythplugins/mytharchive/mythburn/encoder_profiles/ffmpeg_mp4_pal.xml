@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<encoderprofiles>
+    <profile>
+        <name>HQ</name>
+        <description>A high quality profile encoding to mp4</description>
+        <bitrate>?</bitrate>
+        <passes>2</passes>
+        <parameter name="-v"           value="1"/>
+        <parameter name="-i"           value="%inputfile"/>
+        <parameter name="-c:v"         value="libx264"/>
+        <parameter name="-crf"         value="23"/>
+        <parameter name="-c:a"         value="aac"/>
+        <parameter name="-b:a"         value="192k"/>
+        <parameter name="-ac"          value="2"/>
+        <parameter name="-strict"      value="-2"/>
+        <parameter name=""             value="%outputfile"/>
+    </profile>
+</encoderprofiles>
