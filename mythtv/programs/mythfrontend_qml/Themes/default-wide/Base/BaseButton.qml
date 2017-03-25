@@ -61,13 +61,13 @@ Item
             PropertyChanges
             {
                 target: buttonText;
-                fontColor: theme.btTextColorActiveSelected;
+                fontColor: theme.btTextColorFocusedSelected;
             }
             PropertyChanges
             {
                 target: background;
                 gradient: theme.gradientFocusedSelected();
-                border.color: theme.btBorderColorActiveSelected;
+                border.color: theme.btBorderColorFocusedSelected;
             }
         }
     ]
