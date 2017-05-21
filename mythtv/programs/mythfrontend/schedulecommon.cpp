@@ -24,10 +24,7 @@
 #include "proglist.h"
 #include "customedit.h"
 #include "guidegrid.h"
-
-#ifdef CONFIG_QTWEBKIT
 #include "progdetails.h"
-#endif
 
 /**
 *  \brief Show the Program Details screen
@@ -38,7 +35,6 @@ void ScheduleCommon::ShowDetails(void) const
     if (!pginfo)
         return;
 
-#ifdef CONFIG_QTWEBKIT
     MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
     ProgDetails *details_dialog  = new ProgDetails(mainStack, pginfo);
 
@@ -49,7 +45,6 @@ void ScheduleCommon::ShowDetails(void) const
     }
 
     mainStack->AddScreen(details_dialog);
-#endif
 }
 
 /**
@@ -266,7 +261,7 @@ void ScheduleCommon::ShowPrevious(void) const
 *  \brief Creates a dialog for editing the recording status,
 *         blocking until user leaves dialog.
 */
-void ScheduleCommon::EditRecording(void)
+void ScheduleCommon::EditRecording(bool may_watch_now)
 {
     ProgramInfo *pginfo = GetCurrentProgram();
     if (!pginfo)
@@ -328,6 +323,9 @@ void ScheduleCommon::EditRecording(void)
     menuPopup->SetReturnEvent(this, "editrecording");
 
     QDateTime now = MythDate::current();
+
+    if(may_watch_now)
+        menuPopup->AddButton(tr("Watch This Channel"));
 
     if (recinfo.GetRecordingStatus() == RecStatus::Unknown)
     {
