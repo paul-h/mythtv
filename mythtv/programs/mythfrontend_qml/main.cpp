@@ -127,6 +127,9 @@ int main(int argc, char *argv[])
     settings.setPicturePath(databaseUtils.getSetting("Qml_picturePath", hostName));
     settings.setSdChannels(databaseUtils.getSetting("Qml_sdChannels", hostName));
 
+    // start fullscreen
+    settings.setStartFullscreen((databaseUtils.getSetting("Qml_startFullScreen", hostName) == "true"));
+
     // vbox
     settings.setVboxFreeviewIP(databaseUtils.getSetting("Qml_vboxFreeviewIP", hostName));
     settings.setVboxFreesatIP(databaseUtils.getSetting("Qml_vboxFreesatIP", hostName));

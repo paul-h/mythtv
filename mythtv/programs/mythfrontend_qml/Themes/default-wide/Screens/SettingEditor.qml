@@ -196,6 +196,23 @@ BaseScreen
         height: yscale(50)
         text: settings.themeName
         KeyNavigation.up: hdmiEncoderEdit;
+        KeyNavigation.down: startFullscreenEdit;
+    }
+
+    LabelText
+    {
+        x: xscale(50); y: yscale(500)
+        text: "Start Full screen:"
+    }
+
+    BaseEdit
+    {
+        id: startFullscreenEdit
+        x: xscale(400); y: yscale(500)
+        width: xscale(700)
+        height: yscale(50)
+        text: settings.startFullscreen
+        KeyNavigation.up: themeEdit;
         KeyNavigation.down: saveButton;
     }
 
@@ -209,23 +226,25 @@ BaseScreen
         onClicked:
         {
             console.log("save button pressed");
-            dbUtils.setSetting("Qml_masterBackend", settings.hostName, masterBEEdit.text);
-            dbUtils.setSetting("Qml_videoPath    ", settings.hostName, videoPathEdit.text);
-            dbUtils.setSetting("Qml_picturePath",   settings.hostName, picturePathEdit.text);
-            dbUtils.setSetting("Qml_sdChannels",    settings.hostName, sdChannelsEdit.text);
-            dbUtils.setSetting("Qml_vboxFreeviewIP",settings.hostName, vboxFreeviewIPEdit.text);
-            dbUtils.setSetting("Qml_vboxFreesatIP", settings.hostName, vboxFreesatIPEdit.text);
-            dbUtils.setSetting("Qml_hdmiEncoder",   settings.hostName, hdmiEncoderEdit.text);
-            dbUtils.setSetting("Qml_theme",         settings. hostName, themeEdit.text);
+            dbUtils.setSetting("Qml_masterBackend",   settings.hostName, masterBEEdit.text);
+            dbUtils.setSetting("Qml_videoPath    ",   settings.hostName, videoPathEdit.text);
+            dbUtils.setSetting("Qml_picturePath",     settings.hostName, picturePathEdit.text);
+            dbUtils.setSetting("Qml_sdChannels",      settings.hostName, sdChannelsEdit.text);
+            dbUtils.setSetting("Qml_vboxFreeviewIP",  settings.hostName, vboxFreeviewIPEdit.text);
+            dbUtils.setSetting("Qml_vboxFreesatIP",   settings.hostName, vboxFreesatIPEdit.text);
+            dbUtils.setSetting("Qml_hdmiEncoder",     settings.hostName, hdmiEncoderEdit.text);
+            dbUtils.setSetting("Qml_theme",           settings.hostName, themeEdit.text);
+            dbUtils.setSetting("Qml_startFullScreen", settings.hostName, startFullscreenEdit.text);
 
-            settings.masterBackend = masterBEEdit.text;
-            settings.videoPath     = videoPathEdit.text;
-            settings.picturePath   = picturePathEdit.text;
-            settings.sdChannels    = sdChannelsEdit.text;
-            settings.vboxFreeviewIP= vboxFreeviewIPEdit.text;
-            settings.vboxFreesatIP = vboxFreesatIPEdit.text;
-            settings.hdmiEncoder   = hdmiEncoderEdit.text;
-            settings.themeName     = themeEdit.text;
+            settings.masterBackend   = masterBEEdit.text;
+            settings.videoPath       = videoPathEdit.text;
+            settings.picturePath     = picturePathEdit.text;
+            settings.sdChannels      = sdChannelsEdit.text;
+            settings.vboxFreeviewIP  = vboxFreeviewIPEdit.text;
+            settings.vboxFreesatIP   = vboxFreesatIPEdit.text;
+            settings.hdmiEncoder     = hdmiEncoderEdit.text;
+            settings.themeName       = themeEdit.text;
+            settings.startFullscreen = (startFullscreenEdit.text == "true");
 
             returnSound.play();
             stack.pop();

@@ -8,7 +8,7 @@ ApplicationWindow
 {
     id: window
     visible: true
-    visibility: "Windowed"
+    visibility: settings.startFullscreen ? "FullScreen" : "Windowed"
     width: 1280
     height: 720
 

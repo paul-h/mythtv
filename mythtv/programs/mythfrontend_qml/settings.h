@@ -14,6 +14,7 @@ class Settings : public QObject
     Q_PROPERTY(QString videoPath READ videoPath WRITE setVideoPath NOTIFY videoPathChanged)
     Q_PROPERTY(QString picturePath READ picturePath WRITE setPicturePath NOTIFY picturePathChanged)
     Q_PROPERTY(QString sdChannels READ sdChannels WRITE setSdChannels NOTIFY sdChannelsChanged)
+    Q_PROPERTY(bool    startFullscreen READ startFullscreen WRITE setStartFullscreen NOTIFY startFullscreenChanged)
 
     // vbox
     Q_PROPERTY(QString vboxFreeviewIP READ vboxFreeviewIP WRITE setVboxFreeviewIP NOTIFY vboxFreeviewIPChanged)
@@ -24,6 +25,7 @@ class Settings : public QObject
 
     // debugging
     Q_PROPERTY(bool showTextBorder READ showTextBorder WRITE setShowTextBorder NOTIFY showTextBorderChanged)
+
   signals:
      void themeNameChanged(void);
      void hostNameChanged(void);
@@ -39,6 +41,8 @@ class Settings : public QObject
      void vboxFreesatIPChanged(void);
      void hdmiEncoderChanged(void);
      void showTextBorderChanged(void);
+     void startFullscreenChanged(void);
+
 
   public:
     QString themeName(void) {return m_themeName;}
@@ -83,6 +87,9 @@ class Settings : public QObject
     bool    showTextBorder(void) {return m_showTextBorder;}
     void    setShowTextBorder(const bool showTextBorder) {m_showTextBorder = showTextBorder; emit showTextBorderChanged();}
 
+    bool    startFullscreen(void) {return m_startFullscreen;}
+    void    setStartFullscreen(const bool startFullscreen) {m_startFullscreen = startFullscreen; emit startFullscreenChanged();}
+
   private:
     QString m_themeName;
     QString m_hostName;
@@ -102,4 +109,5 @@ class Settings : public QObject
     QString m_hdmiEncoder;
 
     bool    m_showTextBorder;
+    bool    m_startFullscreen;
 };
