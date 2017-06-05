@@ -4,6 +4,7 @@ AccordionList 1.0 AccordionList.qml
 AccordionListModel 1.0 AccordionListModel.qml
 BaseBackground 1.0 BaseBackground.qml
 BaseButton 1.0 BaseButton.qml
+BaseCheckBox 1.0 BaseCheckBox.qml
 BaseEdit 1.0 BaseEdit.qml
 BaseMultilineEdit 1.0 BaseMultilineEdit.qml
 BaseScreen 1.0 BaseScreen.qml

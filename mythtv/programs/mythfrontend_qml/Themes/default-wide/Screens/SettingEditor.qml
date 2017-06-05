@@ -196,7 +196,7 @@ BaseScreen
         height: yscale(50)
         text: settings.themeName
         KeyNavigation.up: hdmiEncoderEdit;
-        KeyNavigation.down: startFullscreenEdit;
+        KeyNavigation.down: startFullscreenCheck;
     }
 
     LabelText
@@ -205,13 +205,11 @@ BaseScreen
         text: "Start Full screen:"
     }
 
-    BaseEdit
+    BaseCheckBox
     {
-        id: startFullscreenEdit
+        id: startFullscreenCheck
         x: xscale(400); y: yscale(500)
-        width: xscale(700)
-        height: yscale(50)
-        text: settings.startFullscreen
+        checked: settings.startFullscreen
         KeyNavigation.up: themeEdit;
         KeyNavigation.down: saveButton;
     }
@@ -221,7 +219,7 @@ BaseScreen
         id: saveButton;
         x: xscale(900); y: yscale(630);
         text: "Save";
-        KeyNavigation.up: themeEdit
+        KeyNavigation.up: startFullscreenCheck
         KeyNavigation.down: masterBEEdit
         onClicked:
         {
@@ -234,7 +232,7 @@ BaseScreen
             dbUtils.setSetting("Qml_vboxFreesatIP",   settings.hostName, vboxFreesatIPEdit.text);
             dbUtils.setSetting("Qml_hdmiEncoder",     settings.hostName, hdmiEncoderEdit.text);
             dbUtils.setSetting("Qml_theme",           settings.hostName, themeEdit.text);
-            dbUtils.setSetting("Qml_startFullScreen", settings.hostName, startFullscreenEdit.text);
+            dbUtils.setSetting("Qml_startFullScreen", settings.hostName, startFullscreenCheck.checked);
 
             settings.masterBackend   = masterBEEdit.text;
             settings.videoPath       = videoPathEdit.text;
@@ -244,7 +242,7 @@ BaseScreen
             settings.vboxFreesatIP   = vboxFreesatIPEdit.text;
             settings.hdmiEncoder     = hdmiEncoderEdit.text;
             settings.themeName       = themeEdit.text;
-            settings.startFullscreen = (startFullscreenEdit.text == "true");
+            settings.startFullscreen = startFullscreenCheck.checked;
 
             returnSound.play();
             stack.pop();
