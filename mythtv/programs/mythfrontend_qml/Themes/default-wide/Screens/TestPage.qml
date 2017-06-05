@@ -445,7 +445,18 @@ BaseScreen
         text: "Some Edit Text";
         KeyNavigation.left: button1;
         KeyNavigation.right: videoplayer;
-        KeyNavigation.down: list;
+        KeyNavigation.down: checkbox1;
         onTextHasChanged: console.log("text is now: " + text);
+    }
+
+    BaseCheckBox
+    {
+        id: checkbox1
+        x: xscale(400); y: yscale(230)
+        checked: true
+        KeyNavigation.left: edit1;
+        KeyNavigation.right: videoplayer;
+        KeyNavigation.down: list;
+        onChanged: console.log("check is now: " + checked);
     }
 }
