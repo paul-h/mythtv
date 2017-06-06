@@ -6,16 +6,13 @@ TARGET = access_myth_plugin
 
 INCLUDEPATH += /usr/include/vlc/plugins
 
-#QMAKE_CFLAGS += `pkg-config --cflags vlc-plugin`
-#LIBS += `pkg-config --libs vlc-plugin`
-
-QMAKE_CFLAGS += -D__PLUGIN__ -D_FILE_OFFSET_BITS=64 -D_REENTRANT -D_THREAD_SAFE -I/usr/include/vlc/plugins
-LIBS += -lvlccore
+QMAKE_CFLAGS += $$system(pkg-config --cflags vlc-plugin)
+LIBS += $$system(pkg-config --libs vlc-plugin)
 
 #DEFINES += MODULE_STRING="myth"
 
 # Input
 SOURCES += myth.c
 
-target.path = /usr/lib/vlc/plugins/access
+target.path = $$system(pkg-config --variable pluginsdir vlc-plugin)
 INSTALLS += target
