@@ -21,6 +21,7 @@ ListItem 1.0 ListItem.qml
 ListText 1.0 ListText.qml
 MenuButton 1.0 MenuButton.qml
 OkCancelDialog 1.0 OkCancelDialog.qml
+PopupMenu 1.0 PopupMenu.qml
 ReflectionImage 1.0 ReflectionImage.qml
 ScreenBackground 1.0 ScreenBackground.qml
 Scroller 1.0 Scroller.qml

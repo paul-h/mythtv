@@ -59,12 +59,19 @@ QtObject
     property int    clockShadowXOffset:  1
     property int    clockShadowYOffset:  1
 
-    // base backgound
+    // base background
     property color bgColor:       "black"
     property real  bgOpacity:     60 / 255
     property color bgBorderColor: "white"
     property int   bgBorderWidth: 2
     property int   bgRadius:      12
+
+    // base dialog background
+    property color bgDialogColor:       "#100000"
+    property real  bgDialogOpacity:     200 / 255
+    property color bgDialogBorderColor: "white"
+    property int   bgDialogBorderWidth: 3
+    property int   bgDialogRadius:      12
 
     // list view
     property color lvRowBackgroundNormal:          "#20000000"; // not selected or focused

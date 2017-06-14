@@ -66,6 +66,13 @@ QtObject
     property int   bgBorderWidth: 2
     property int   bgRadius:      12
 
+    // base dialog background
+    property color bgDialogColor:       "black"
+    property real  bgDialogOpacity:     120 / 255
+    property color bgDialogBorderColor: "green"
+    property int   bgDialogBorderWidth: 2
+    property int   bgDialogRadius:      12
+
     // list view
     property color lvRowBackgroundNormal:          "#40111111"; // not selected or focused
     property color lvRowBackgroundFocused:         "#80111111"; // focused

@@ -183,6 +183,18 @@ FocusScope
     //FIXME: 
     function setFocusedNode(path)
     {
+        for (var i = 0; i < lists.length; i++)
+        {
+            lists[i].focus = false;
+            lists[i].currentIndex = 0;
+        }
+
+        lists[0].focus = true;
+        _focusedList = 0;
+        _leftList = 0;
+        makeListVisible()
+        nodeSelectedHandler(0, 0);
+
         /*
         var szSplit = path.split(',')
         var node = treeModel.get(parseInt(szSplit[0]))
