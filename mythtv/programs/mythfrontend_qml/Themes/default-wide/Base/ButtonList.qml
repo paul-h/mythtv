@@ -12,9 +12,14 @@ ListView
     signal itemClicked(int index);
     signal itemSelected(int index);
 
+    // for TreeButtonList
+    property int nodeID: 0
+    signal nodeClicked(int nodeID, int index);
+    signal nodeSelected(int nodeID, int index);
+
     Keys.onPressed:
     {
-        var rowCount = height / currentItem.height;
+        var rowCount = currentItem ? height / currentItem.height : 0;
 
         if (event.key === Qt.Key_PageDown)
         {
@@ -32,7 +37,8 @@ ListView
     {
         returnSound.play();
         itemClicked(currentIndex);
+        nodeClicked(nodeID, currentIndex);
     }
 
-    onCurrentItemChanged: itemSelected(currentIndex);
+    onCurrentItemChanged: { itemSelected(currentIndex); nodeSelected(nodeID, currentIndex); }
 }

@@ -23,6 +23,7 @@ ReflectionImage 1.0 ReflectionImage.qml
 ScreenBackground 1.0 ScreenBackground.qml
 Scroller 1.0 Scroller.qml
 TitleText 1.0 TitleText.qml
+TreeButtonList 1.0 TreeButtonList.qml
 VideoPlayer 1.0 VideoPlayer.qml
 VideoPlayerQmlVLC 1.0 VideoPlayerQmlVLC.qml
 VideoPlayerVLC 1.0 VideoPlayerVLC.qml
