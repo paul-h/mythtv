@@ -20,10 +20,19 @@ BaseScreen
 
     Keys.onEscapePressed: videoplayer.stop();
 
+    Keys.onPressed:
+    {
+        if (event.key === Qt.Key_M)
+        {
+            console.log("MENU pressed");
+            popupMenu.show();
+        }
+    }
+
     Rectangle
     {
         id: playerRect
-        x: xscale(850); y: yscale(20); width: xscale(400); height: yscale(225); z:99
+        x: xscale(850); y: yscale(20); width: xscale(400); height: yscale(225)
         color: "black"
         border.color: "white"
         border.width: xscale(4)
@@ -66,6 +75,12 @@ BaseScreen
 
             if (event.key === Qt.Key_T)
                 button1.enabled = !button1.enabled
+
+            if (event.key === Qt.Key_M)
+            {
+                console.log("MENU pressed");
+                popupMenu.show();
+            }
         }
 
         Behavior on x
@@ -289,7 +304,7 @@ BaseScreen
         {
             anchors.fill: parent
         }
-/*
+
         AccordionList
         {
             id: accordianList
@@ -302,8 +317,7 @@ BaseScreen
             //        KeyNavigation.left: button1;
             //        KeyNavigation.right: videoplayer;
         }
-        */
-
+/*
         Rectangle
         {
             id: accordianList
@@ -414,17 +428,18 @@ BaseScreen
                 }
             }
         }
+        */
     }
 
     BaseButton
     {
         id: button1;
-        x: xscale(100); y: yscale(150);
-        text: "Button Test";
+        x: xscale(100); y: yscale(150); width: xscale(250);
+        text: "Show Modal Dialog";
         KeyNavigation.right: button2;
         KeyNavigation.left: videoplayer;
         KeyNavigation.down: list;
-        onClicked: console.log("button 1 clicked");
+        onClicked: dialog.show();
     }
 
     BaseButton
@@ -452,11 +467,128 @@ BaseScreen
     BaseCheckBox
     {
         id: checkbox1
-        x: xscale(400); y: yscale(230)
+        x: xscale(400); y: yscale(215)
         checked: true
         KeyNavigation.left: edit1;
         KeyNavigation.right: videoplayer;
         KeyNavigation.down: list;
         onChanged: console.log("check is now: " + checked);
+    }
+
+    OkCancelDialog
+    {
+        id: dialog
+
+        title: "Dialog Test"
+        message: "This is the dialog message\nClick OK to Accept this dialog. To send it away, click Cancel."
+        showCancelButton: true
+
+        width: 600; height: 300
+
+        onAccepted:
+        {
+            console.log("Dialog accepted signal received!");
+            button1.focus = true;
+        }
+        onCancelled:
+        {
+            console.log("Dialog cancelled signal received.");
+            button1.focus = true;
+        }
+    }
+/*
+    ListModel
+    {
+        id: menuModel
+
+        ListElement 
+        {
+            itemTitle: "Apple"
+            subNodes:
+            [
+                ListElement
+                {
+                    itemTitle: "Apple 1"
+                },
+                ListElement
+                {
+                    itemTitle: "Apple 2"
+                },
+                ListElement
+                {
+                    itemTitle: "Apple 3"
+                },
+                ListElement
+                {
+                    itemTitle: "Apple 4"
+                },
+                ListElement
+                {
+                    itemTitle: "Apple 5"
+                },
+                ListElement
+                {
+                    itemTitle: "Apple 6"
+                }
+            ]
+        }
+        ListElement {
+            itemTitle: "Orange"
+        }
+        ListElement {
+            itemTitle: "Banana"
+        }
+        ListElement {
+            itemTitle: "Pear"
+        }
+        ListElement {
+            itemTitle: "Grape"
+        }
+        ListElement {
+            itemTitle: "Lemon"
+        }
+        ListElement {
+            itemTitle: "Pineapple"
+        }
+    }
+*/
+    PopupMenu
+    {
+        id: popupMenu
+
+        title: "Menu"
+        message: "Test Options"
+        width: 600; height: 600
+
+        //model: menuModel
+
+        onAccepted:
+        {
+            console.log("PopupMenu accepted signal received!: " + itemText);
+            button1.focus = true;
+        }
+        onCancelled:
+        {
+            console.log("PopupMenu cancelled signal received.");
+            button1.focus = true;
+        }
+
+        Component.onCompleted:
+        {
+            addMenuItem("Apple");
+            addMenuItem("Orange");
+            addMenuItem("Banana");
+            addMenuItem("Pear");
+            addMenuItem("Grape");
+            addMenuItem("Lemon");
+            addMenuItem("Pineapple");
+
+            addMenuItem("0,Apple 1");
+            addMenuItem("0,Apple 2");
+            addMenuItem("0,Apple 3");
+            addMenuItem("0,Apple 4");
+            addMenuItem("0,Apple 5");
+        }
+
     }
 }
