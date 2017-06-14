@@ -1,4 +1,5 @@
 import QtQuick 2.0
+import QtQuick.Controls 1.4
 
 Item
 {
@@ -9,6 +10,7 @@ Item
     property alias showTime: time.visible
     property alias showVideo: videoPlayer.visible
     property alias showTicker: ticker.visible
+    property alias showBusyIndicator: busyIndicator.running
 
     function setTitle (show, newTitle)
     {
@@ -91,6 +93,13 @@ Item
         id: ticker
         x: xscale(0); y: window.height - yscale(40); width: window.width; height: yscale(40)
         visible: false
+    }
+
+    BusyIndicator
+    {
+        id: busyIndicator
+        x: xscale(500); y: yscale(5); z:99
+        running: false
     }
 
     Component.onCompleted:
