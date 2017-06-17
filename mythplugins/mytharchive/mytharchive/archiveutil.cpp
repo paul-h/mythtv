@@ -95,8 +95,7 @@ QString getTempDirectory(bool showError)
     if (tempDir == "" && showError)
         ShowOkPopup(QCoreApplication::translate("(ArchiveUtils)", 
             "Cannot find the MythArchive work directory.\n"
-            "Have you set the correct path in the settings?"),
-            NULL, NULL);
+            "Have you set the correct path in the settings?"));
 
     if (tempDir == "")
         return "";
