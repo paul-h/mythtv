@@ -148,8 +148,17 @@ int mythplugin_run(void)
 
 int mythplugin_config(void)
 {
-    WMRSettings settings;
-    settings.exec();
+    MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
+    StandardSettingDialog *ssd =
+        new StandardSettingDialog(mainStack, "wmrsettings",
+                                  new WMRSettings());
+
+    if (ssd->Create())
+    {
+        mainStack->AddScreen(ssd);
+    }
+    else
+        delete ssd;
 
     return 0;
 }

@@ -11,9 +11,9 @@
 #include "wmrsettings.h"
 
 
-static HostLineEdit *WMRServerIP()
+static HostTextEditSetting *WMRServerIP()
 {
-    HostLineEdit *gc = new HostLineEdit("WMR928ServerIP");
+    HostTextEditSetting *gc = new HostTextEditSetting("WMR928ServerIP");
     gc->setLabel(QObject::tr("IP address of the mythwmr928 server"));
     gc->setValue("127.0.0.1");
     gc->setHelpText(QObject::tr("Enter the IP address of the mythwmr928 server "
@@ -21,9 +21,9 @@ static HostLineEdit *WMRServerIP()
     return gc;
 };
 
-static HostLineEdit *WMRServerPort()
+static HostTextEditSetting *WMRServerPort()
 {
-    HostLineEdit *gc = new HostLineEdit("WMR928ServerPort");
+    HostTextEditSetting *gc = new HostTextEditSetting("WMR928ServerPort");
     gc->setLabel(QObject::tr("Port the server runs on"));
     gc->setValue("6549");
     gc->setHelpText(QObject::tr("Unless you've got good reason to, don't "
@@ -31,9 +31,9 @@ static HostLineEdit *WMRServerPort()
     return gc;
 };
 
-static HostComboBox *WMRDateFormat()
+static HostComboBoxSetting *WMRDateFormat()
 {
-    HostComboBox *gc = new HostComboBox("WMR928DateFormat");
+    HostComboBoxSetting *gc = new HostComboBoxSetting("WMR928DateFormat");
     gc->setLabel(QObject::tr("Date format"));
 
     QDate sampdate = QDate::currentDate();
@@ -65,9 +65,9 @@ static HostComboBox *WMRDateFormat()
     return gc;
 }
 
-static HostComboBox *WMRTimeFormat()
+static HostComboBoxSetting *WMRTimeFormat()
 {
-    HostComboBox *gc = new HostComboBox("WMR928TimeFormat");
+    HostComboBoxSetting *gc = new HostComboBoxSetting("WMR928TimeFormat");
     gc->setLabel(QObject::tr("Time format"));
 
     QTime samptime = QTime::currentTime();
@@ -83,11 +83,9 @@ static HostComboBox *WMRTimeFormat()
 
 WMRSettings::WMRSettings()
 {
-    VerticalConfigurationGroup* vcg1 = new VerticalConfigurationGroup(false);
-    vcg1->setLabel(QObject::tr("MythWmr928 Settings"));
-    vcg1->addChild(WMRServerIP());
-    vcg1->addChild(WMRServerPort());
-    vcg1->addChild(WMRDateFormat());
-    vcg1->addChild(WMRTimeFormat());
-    addChild(vcg1);
+    setLabel(QObject::tr("MythWmr928 Settings"));
+    addChild(WMRServerIP());
+    addChild(WMRServerPort());
+    addChild(WMRDateFormat());
+    addChild(WMRTimeFormat());
 }

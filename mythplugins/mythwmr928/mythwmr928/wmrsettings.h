@@ -5,10 +5,10 @@
 #ifndef WMRSETTINGS_H
 #define WMRSETTINGS_H
 
-#include <mythtv/settings.h>
+#include <standardsettings.h>
 
 
-class WMRSettings : public ConfigurationWizard
+class WMRSettings : public GroupSetting
 {
   public:
     WMRSettings();

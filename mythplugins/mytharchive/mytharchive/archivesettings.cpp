@@ -414,9 +414,9 @@ static HostTextEditSetting *MythArchiveProjectXCmd()
 };
 
 // Import File Settings
-static HostLineEdit *MythArchiveGetRecordingList()
+static HostTextEditSetting *MythArchiveGetRecordingList()
 {
-    HostLineEdit *gc = new HostLineEdit("MythArchiveGetRecordingList");
+    HostTextEditSetting *gc = new HostTextEditSetting("MythArchiveGetRecordingList");
 
     gc->setLabel(ArchiveSettings::tr("Get recording list command"));
 
@@ -429,9 +429,9 @@ static HostLineEdit *MythArchiveGetRecordingList()
     return gc;
 };
 
-static HostLineEdit *MythArchivePlayFileCommand()
+static HostTextEditSetting *MythArchivePlayFileCommand()
 {
-    HostLineEdit *gc = new HostLineEdit("MythArchivePlayFileCommand");
+    HostTextEditSetting *gc = new HostTextEditSetting("MythArchivePlayFileCommand");
 
     gc->setLabel(ArchiveSettings::tr("Play external file command"));
 
@@ -444,9 +444,9 @@ static HostLineEdit *MythArchivePlayFileCommand()
     return gc;
 };
 
-static HostLineEdit *MythArchiveRecordFileCommand()
+static HostTextEditSetting *MythArchiveRecordFileCommand()
 {
-    HostLineEdit *gc = new HostLineEdit("MythArchiveRecordFileCommand");
+    HostTextEditSetting *gc = new HostTextEditSetting("MythArchiveRecordFileCommand");
 
     gc->setLabel(ArchiveSettings::tr("Record external file command"));
 
@@ -459,9 +459,9 @@ static HostLineEdit *MythArchiveRecordFileCommand()
     return gc;
 };
 
-static HostLineEdit *MythArchiveReEncodeFileCommand()
+static HostTextEditSetting *MythArchiveReEncodeFileCommand()
 {
-    HostLineEdit *gc = new HostLineEdit("MythArchiveReEncodeFileCommand");
+    HostTextEditSetting *gc = new HostTextEditSetting("MythArchiveReEncodeFileCommand");
 
     gc->setLabel(ArchiveSettings::tr("Re-Encode file command"));
 
@@ -474,9 +474,9 @@ static HostLineEdit *MythArchiveReEncodeFileCommand()
     return gc;
 };
 
-static HostLineEdit *MythArchiveRegularFilenameTemplate()
+static HostTextEditSetting *MythArchiveRegularFilenameTemplate()
 {
-    HostLineEdit *gc = new HostLineEdit("MythArchiveRegularFilenameTemplate");
+    HostTextEditSetting *gc = new HostTextEditSetting("MythArchiveRegularFilenameTemplate");
 
     gc->setLabel(ArchiveSettings::tr("Regular Filename Template"));
 
@@ -488,9 +488,9 @@ static HostLineEdit *MythArchiveRegularFilenameTemplate()
     return gc;
 };
 
-static HostLineEdit *MythArchiveSeriesFilenameTemplate()
+static HostTextEditSetting *MythArchiveSeriesFilenameTemplate()
 {
-    HostLineEdit *gc = new HostLineEdit("MythArchiveSeriesFilenameTemplate");
+    HostTextEditSetting *gc = new HostTextEditSetting("MythArchiveSeriesFilenameTemplate");
 
     gc->setLabel(ArchiveSettings::tr("Season/Episode Filename Template"));
 
@@ -502,9 +502,9 @@ static HostLineEdit *MythArchiveSeriesFilenameTemplate()
     return gc;
 };
 
-static HostLineEdit *MythArchiveMovieFilenameTemplate()
+static HostTextEditSetting *MythArchiveMovieFilenameTemplate()
 {
-    HostLineEdit *gc = new HostLineEdit("MythArchiveMovieFilenameTemplate");
+    HostTextEditSetting *gc = new HostTextEditSetting("MythArchiveMovieFilenameTemplate");
 
     gc->setLabel(ArchiveSettings::tr("Movie Filename Template"));
 
