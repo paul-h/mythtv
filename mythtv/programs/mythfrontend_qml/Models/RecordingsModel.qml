@@ -100,16 +100,18 @@ XmlListModel
     {
         if (status == XmlListModel.Ready)
         {
+            screenBackground.showBusyIndicator = false
             console.log("Loaded Recordings: " + count);
         }
 
         if (status === XmlListModel.Loading)
         {
+            screenBackground.showBusyIndicator = true
         }
 
         if (status === XmlListModel.Error)
         {
-
+            screenBackground.showBusyIndicator = false
             console.log("Error: " + errorString + "\n \n \n " + recordingModel.source.toString());
         }
     }
