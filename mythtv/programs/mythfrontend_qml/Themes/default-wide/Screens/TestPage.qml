@@ -1,5 +1,6 @@
 import QtQuick 2.0
 import Base 1.0
+import Dialogs 1.0
 
 BaseScreen
 {
@@ -481,9 +482,10 @@ BaseScreen
 
         title: "Dialog Test"
         message: "This is the dialog message\nClick OK to Accept this dialog. To send it away, click Cancel."
-        showCancelButton: true
+        rejectButtonText: ""
+        acceptButtonText: "Save"
 
-        width: 600; height: 300
+        width: xscale(600); height: yscale(300)
 
         onAccepted:
         {
@@ -558,11 +560,11 @@ BaseScreen
 
         title: "Menu"
         message: "Test Options"
-        width: 600; height: 600
+        width: xscale(400); height: yscale(600)
 
         //model: menuModel
 
-        onAccepted:
+        onItemSelected:
         {
             console.log("PopupMenu accepted signal received!: " + itemText);
             button1.focus = true;
@@ -589,6 +591,5 @@ BaseScreen
             addMenuItem("0,Apple 4");
             addMenuItem("0,Apple 5");
         }
-
     }
 }

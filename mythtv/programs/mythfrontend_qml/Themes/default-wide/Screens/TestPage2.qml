@@ -14,40 +14,42 @@ BaseScreen
         showTime(false);
         showTicker(false);
         screenBackground.muteAudio(true);
-/*
-        treeView.addNode("Television");
-        treeView.addNode("Films");
 
-        treeView.addNode("0,Title");
-        treeView.addNode("0,Genre");
-        treeView.addNode("0,Year");
+        treeView.addNode("All");
+        treeView.addNode("Title");
+        treeView.addNode("Type");
+        treeView.addNode("Category");
+        treeView.addNode("Year");
+        treeView.addNode("Rating");
 
-        treeView.addNode("1,Title");
-        treeView.addNode("1,Genre");
+        // title
+        treeView.addNode("1,All");
+        treeView.addNode("1,Type");
+        treeView.addNode("1,Category");
         treeView.addNode("1,Year");
+        treeView.addNode("1,Rating");
 
-        treeView.addNode("0,0,Title 1");
-        treeView.addNode("0,0,Title 2");
-        treeView.addNode("0,0,Title 3");
-        treeView.addNode("0,0,Title 4");
-        treeView.addNode("0,0,Title 5");
-        treeView.addNode("0,0,Title 6");
+        // title/Type
+        treeView.addNode("1,1,All");
+        treeView.addNode("1,1,Television");
+        treeView.addNode("1,1,Films");
 
-        treeView.addNode("0,1,Christmas");
-        treeView.addNode("0,1,Comedy");
-        treeView.addNode("0,1,Documentary");
-        treeView.addNode("0,1,Sport");
-
-        treeView.addNode("1,1,Christmas");
-        treeView.addNode("1,1,Bond Films");
-        treeView.addNode("1,1,Carry On Films");
-        treeView.addNode("1,1,Comedy");
-        treeView.addNode("1,1,Action");
-        treeView.addNode("1,1,Sport");
-*/
+        // title/Type/All
+        treeView.addNode("1,1,1,Title 1");
+        treeView.addNode("1,1,1,Title 2");
+        treeView.addNode("1,1,1,Title 3");
+        treeView.addNode("1,1,1,Title 4");
+        treeView.addNode("1,1,1,Title 5");
+        treeView.addNode("1,1,1,Title 6");
+        treeView.addNode("1,1,1,Title 7");
+        treeView.addNode("1,1,1,Title 8");
+        treeView.addNode("1,1,1,Title 9");
+        treeView.addNode("1,1,1,Title 10");
+        treeView.addNode("1,1,1,Title 11");
+        treeView.addNode("1,1,1,Title 12");
         //treeView.setFocusedNode("0");
     }
-
+/*
     ListModel
     {
         id: treeModel
@@ -214,7 +216,7 @@ BaseScreen
             ]
         }
     }
-
+*/
     Component.onDestruction:
     {
         screenBackground.muteAudio(false);
@@ -222,30 +224,30 @@ BaseScreen
 
     BaseBackground
     {
-        x: 50
-        y: 100
-        width: 1180
-        height: 600
+        x: xscale(50)
+        y: yscale(100)
+        width: xscale(1180)
+        height: yscale(600)
     }
 
     InfoText
     {
         id: breadCrumb
-        x: 70
-        y: 60
-        width: 1140
+        x: xscale(70)
+        y: yscale(60)
+        width: xscale(1140)
     }
 
     TreeButtonList
     {
         id: treeView
-        x: 70
-        y: 120
-        width: 1140
-        height: 560
+        x: xscale(70)
+        y: xscale(120)
+        width: xscale(1140)
+        height: yscale(560)
         columns: 4
-        spacing: 10
-        model: treeModel
+        spacing: xscale(10)
+        //model: treeModel
 
         onNodeSelected:
         {
