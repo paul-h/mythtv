@@ -26,8 +26,8 @@ QML_IMPORT_PATH = Themes Models MenuThemes
 QMAKE_CLEAN += $(TARGET)
 
 # Input
-HEADERS += sqlquerymodel.h databaseutils.h urlinterceptor.h settings.h mythutils.h
+HEADERS += sqlquerymodel.h databaseutils.h urlinterceptor.h settings.h mythutils.h videosmodel.h
 
 SOURCES += main.cpp
-SOURCES += sqlquerymodel.cpp databaseutils.cpp urlinterceptor.cpp mythutils.cpp
+SOURCES += sqlquerymodel.cpp databaseutils.cpp urlinterceptor.cpp mythutils.cpp videosmodel.cpp
 
