@@ -28,10 +28,33 @@ FocusScope
         nodeSelectedHandler(0, 0);
     }
 
-    x: 50
-    y: 50
-    width: 600
-    height: 600
+    onWidthChanged:
+    {
+        var listWidth = (width - (columns - 1) * spacing) / columns
+        var x = 0;
+
+        for (var i = 0; i < lists.length; i++)
+        {
+            var list = lists[i];
+            list.x = x;
+            list.width = listWidth;
+            x = x + listWidth + spacing;
+        }
+    }
+
+    onHeightChanged:
+    {
+        for (var i = 0; i < lists.length; i++)
+        {
+            var list = lists[i];
+            list.height = height
+        }
+    }
+
+    x: xscale(50)
+    y: yscale(50)
+    width: xscale(600)
+    height: yscale(600)
 
     ListModel
     {
