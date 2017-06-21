@@ -6,7 +6,7 @@ Rectangle
     color: theme.bgDialogColor
     opacity: theme.bgDialogOpacity
     border.color: theme.bgDialogBorderColor
-    border.width: theme.bgDialogBorderWidth
-    radius: theme.bgDialogRadius
+    border.width: xscale(theme.bgDialogBorderWidth)
+    radius: xscale(theme.bgDialogRadius)
 }
 

@@ -1,4 +1,5 @@
 import QtQuick 2.0
+import Base 1.0
 
 FocusScope
 {
@@ -6,6 +7,10 @@ FocusScope
 
     property string title: ""
     property string message: ""
+
+    property alias filterTitle: titleedit.text
+    property alias filterType: typeedit.text
+    property alias filterGenres: genreedit.text
 
     property bool showCancelButton: true
 
@@ -62,12 +67,106 @@ FocusScope
                 id: messageText
                 x: 20; y: 5
                 width: parent.width - 40
-                height: 150
+                height: yscale(50)
                 text: message
                 multiline: true
                 horizontalAlignment: Text.AlignHCenter
             }
         }
+
+        InfoText
+        {
+            x: 20; y: 100
+            width: xscale(300); height: yscale(30)
+            text: "Title"
+        }
+
+        BaseEdit
+        {
+            id: titleedit
+            x: xscale(20); y: yscale(120); width: xscale(400);
+            text: "";
+            KeyNavigation.up: okButton;
+            KeyNavigation.down: titleButton;
+            onTextHasChanged: console.log("Title is now: " + text);
+        }
+
+        BaseButton
+        {
+            id: titleButton
+            x: xscale(430); y: yscale(120); width: xscale(50); height: yscale(50)
+            text: "*"
+
+            KeyNavigation.left: titleedit;
+            KeyNavigation.right: typeedit;
+
+            onClicked:
+            {
+            }
+        }
+
+        InfoText
+        {
+            x: 20; y: 180
+            width: xscale(300); height: yscale(30)
+            text: "Type"
+        }
+
+        BaseEdit
+        {
+            id: typeedit
+            x: xscale(20); y: yscale(200); width: xscale(400);
+            text: "";
+            KeyNavigation.up: titleedit;
+            KeyNavigation.down: typeButton;
+            onTextHasChanged: console.log("Type is now: " + text);
+        }
+
+        BaseButton
+        {
+            id: typeButton
+            x: xscale(430); y: yscale(200); width: xscale(50); height: yscale(50)
+            text: "*"
+
+            KeyNavigation.left: titleedit;
+            KeyNavigation.right: typeedit;
+
+            onClicked:
+            {
+            }
+        }
+
+        InfoText
+        {
+            x: 20; y: 260
+            width: xscale(250); height: yscale(30)
+            text: "Genres"
+        }
+
+        BaseEdit
+        {
+            id: genreedit
+            x: xscale(20); y: yscale(270); width: xscale(400);
+            text: "";
+            KeyNavigation.up: typeedit;
+            KeyNavigation.down: genreButton;
+            onTextHasChanged: console.log("Genre is now: " + text);
+        }
+
+        BaseButton
+        {
+            id: genreButton
+            x: xscale(430); y: yscale(270); width: xscale(50); height: yscale(50)
+            text: "*"
+
+            KeyNavigation.left: genreedit;
+            KeyNavigation.right: okButton;
+
+            onClicked:
+            {
+            }
+        }
+
 
         Row
         {

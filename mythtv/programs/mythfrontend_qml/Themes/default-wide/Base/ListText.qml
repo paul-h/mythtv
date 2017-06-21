@@ -15,7 +15,7 @@ Item
     property int    shadowXOffset: theme.labelShadowXOffset
     property int    shadowYOffset: theme.labelShadowYOffset
 
-    x: 50; y : 0; width: 300; height: 50
+    x: xscale(50); y : 0; width: xscale(300); height: yscale(50)
 
     Rectangle
     {

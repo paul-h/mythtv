@@ -1,37 +1,33 @@
 import QtQuick 2.0
+import Base 1.0
 
 FocusScope
 {
-    id: popupMenu
-
-    width: 500
-    height: 500
-    anchors.horizontalCenter: parent.horizontalCenter
-    anchors.verticalCenter: parent.verticalCenter
+    id: modalDialog
 
     property string title: ""
     property string message: ""
+    property bool showCancelButton: false
+    property alias content: contentItem.children
+    property alias buttons: buttonsRow.children
 
-    property alias model: menuList.model
-
-    signal accepted(string itemText)
+    signal accepted
     signal cancelled
+
+    width: xscale(500)
+    height: yscale(500)
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.verticalCenter: parent.verticalCenter
 
     function show()
     {
-        menuList.setFocusedNode(0);
-        popupMenu.state = "show";
-    }
-
-    function addMenuItem(path)
-    {
-        menuList.addNode(path);
+        modalDialog.state = "show";
     }
 
     Keys.onEscapePressed:
     {
-        popupMenu.state = "";
-        popupMenu.cancelled();
+        modalDialog.state = "";
+        modalDialog.cancelled();
     }
 
     Item
@@ -50,16 +46,16 @@ FocusScope
         Column
         {
             id: column
+            y: yscale(10)
             width: parent.width
-            height: 500
-
-            spacing: 10
+            spacing: 0
 
             TitleText
             {
                 id: titleText
-                x: 20; y: 5
-                width: parent.width - 30
+                x: xscale(20); y: yscale(5)
+                visible: text != ""
+                width: parent.width - xscale(40)
                 text: title
                 horizontalAlignment: Text.AlignHCenter
             }
@@ -67,28 +63,51 @@ FocusScope
             InfoText
             {
                 id: messageText
-                x: 20; y: 5
-                width: parent.width - 40
-                height: 50
+                x: xscale(20); y: yscale(5)
+                width: parent.width - xscale(40)
+                height: yscale(150)
+                visible: text != ""
                 text: message
                 multiline: true
                 horizontalAlignment: Text.AlignHCenter
             }
+        }
 
+        Item
+        {
+            id: contentItem
+            x: xscale(10)
+            y: column.height + yscale(10)
+            width: parent.width - xscale(20)
+            height: parent.height - column.height - buttonsRow.height - yscale(20)
+            clip: true
+        }
 
-            TreeButtonList
+        Row
+        {
+            id: buttonsRow
+
+            function __update() 
             {
-                id: menuList
+                var i = 0;
 
-                x: 20; y: 5
-                width: parent.width - 40
-                height: 400
-                focus: true
-                onNodeClicked:
+                while ((!visible) && (i < children.length)) 
                 {
-                    popupMenu.state = "";
-                    popupMenu.accepted(node.itemTitle);
+                    visible = (children[i].text !== "") && (children[i].iconSource !== "");
+                    i++;
                 }
+            }
+
+            visible: false
+            onChildrenChanged: __update()
+            Component.onCompleted: __update()
+
+            x: 0; y: parent.height - yscale(60)
+            spacing: xscale(10)
+            anchors
+            {
+                horizontalCenter: parent.horizontalCenter
+                bottomMargin: yscale(25)
             }
         }
     }
@@ -105,7 +124,7 @@ FocusScope
             }
             PropertyChanges
             {
-                target: popupMenu
+                target: modalDialog
                 focus: false
             }
         },
@@ -119,7 +138,7 @@ FocusScope
             }
             PropertyChanges
             {
-                target: popupMenu
+                target: modalDialog
                 focus: true
             }
         }

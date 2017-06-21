@@ -5,7 +5,7 @@ Item
     id: container
 
     property string fontName: "Helvetica"
-    property int    fontSize: 10
+    property int    fontSize: xscale(10)
     property color  fontColor: "black"
     property bool   fontBold: false
     property string text: "NOT SET"
@@ -19,8 +19,8 @@ Item
     property int    textIndent: 0
     signal clicked
 
-    width: 360
-    height: 64
+    width: xscale(360)
+    height: yscale(64)
     clip: true
     onSelectedChanged: selected ? state = 'selected' : state = ''
 
@@ -47,8 +47,8 @@ Item
         }
 
         border.color: theme.lvBackgroundBorderColor
-        border.width: theme.lvBackgroundBorderWidth
-        radius: theme.lvBackgroundBorderRadius
+        border.width: xscale(theme.lvBackgroundBorderWidth)
+        radius: xscale(theme.lvBackgroundBorderRadius)
     }
 
     Text
@@ -59,10 +59,10 @@ Item
             left: parent.left
             top: parent.top
             right: parent.right
-            topMargin: 4
-            bottomMargin: 4
-            leftMargin: 8 + textIndent
-            rightMargin: 8
+            topMargin: yscale(4)
+            bottomMargin: yscale(4)
+            leftMargin: xscale(8) + textIndent
+            rightMargin: xscale(8)
             verticalCenter: container.verticalCenter
         }
         font

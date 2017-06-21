@@ -3,7 +3,7 @@ import QtQuick 2.0
 ListView
 {
     id: root
-    x: 100; y: 100; width: 1000; height: 500
+    x: xscale(100); y: yscale(100); width: xscale(1000); height: yscale(500)
 
     clip: true
     model: {}
