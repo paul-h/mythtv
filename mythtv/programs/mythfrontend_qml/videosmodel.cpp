@@ -161,7 +161,7 @@ int VideosSortFilterProxyModel::roleKey(const QByteArray &role) const
     QHash<int, QByteArray> roles = roleNames();
     QHashIterator<int, QByteArray> it(roles);
 
-    while (it.hasNext()) 
+    while (it.hasNext())
     {
         it.next();
         if (it.value() == role)

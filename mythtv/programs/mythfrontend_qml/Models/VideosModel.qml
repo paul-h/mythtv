@@ -37,25 +37,27 @@ XmlListModel
     XmlRole { name: "Banner"; query: "Banner/string()" }
     XmlRole { name: "Screenshot"; query: "Screenshot/string()" }
     XmlRole { name: "Trailer"; query: "Trailer/string()" }
+
+    signal loaded();
+
     onStatusChanged:
     {
         if (status == XmlListModel.Ready)
         {
-            //bufferIndicator.visible = false
-            //bufferIndicator.running = false
+            //screenBackground.showBusyIndicator = false;
+
+            loaded();
         }
 
         if (status === XmlListModel.Loading)
         {
-            //bufferIndicator.visible = true
-            //bufferIndicator.running = true
-            console.log("LOADING>>>>>>>")
+            //screenBackground.showBusyIndicator = true;
         }
 
         if (status === XmlListModel.Error)
         {
-            //bufferIndicator.visible = false
-            //bufferIndicator.running = false
+            //screenBackground.showBusyIndicator = false;
+
             console.log("Error: " + errorString + "\n \n \n " + videoModel.source.toString());
         }
     }
