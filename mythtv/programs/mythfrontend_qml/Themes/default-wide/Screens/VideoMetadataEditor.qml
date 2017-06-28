@@ -6,7 +6,7 @@ BaseScreen
 {
     defaultFocusItem: titleEdit
 
-    property VideosModel videosModel
+    property var videosModel
     property int currentIndex
     property int currentPage: 1
 
@@ -21,6 +21,7 @@ BaseScreen
         property string episode
         property string tagline
         property string genres
+        property string contentType
         property string inetref
         property string studio
         property string coverart
@@ -45,6 +46,7 @@ BaseScreen
         metadata.episode = videosModel.get(currentIndex).Episode
         metadata.tagline = videosModel.get(currentIndex).Tagline
         metadata.genres = videosModel.get(currentIndex).Genre
+        metadata.contentType = videosModel.get(currentIndex).ContentType
         metadata.inetref = videosModel.get(currentIndex).Inetref
         metadata.studio = videosModel.get(currentIndex).Studio
         metadata.coverart = videosModel.get(currentIndex).Coverart
@@ -421,6 +423,23 @@ BaseScreen
             height: yscale(48)
             text: metadata.inetref
             KeyNavigation.up: studioEdit;
+            KeyNavigation.down: typeEdit;
+        }
+
+        LabelText
+        {
+            x: xscale(50); y: yscale(250)
+            text: "Content Type:"
+        }
+
+        BaseEdit
+        {
+            id: typeEdit
+            x: xscale(400); y: yscale(250)
+            width: xscale(700)
+            height: yscale(48)
+            text: metadata.contentType
+            KeyNavigation.up: inetrefEdit;
             KeyNavigation.down: saveButton;
         }
 
@@ -429,7 +448,7 @@ BaseScreen
             id: prevButton3;
             x: xscale(100); y: yscale(630);
             text: "<< Page 2";
-            KeyNavigation.up: inetrefEdit
+            KeyNavigation.up: typeEdit
             KeyNavigation.down: nextButton3
             onClicked:
             {
@@ -549,6 +568,9 @@ BaseScreen
 
         if (inetrefEdit.text != videosModel.get(currentIndex).Inetref)
             params += "&Inetref=%1".arg(inetrefEdit.text);
+
+        if (typeEdit.text != videosModel.get(currentIndex).ContentType)
+            params += "&ContentType=%1".arg(typeEdit.text);
 
         http.open("POST", url, true);
 
