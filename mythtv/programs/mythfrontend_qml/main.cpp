@@ -16,7 +16,6 @@
 
 // mythfrontend_qml
 #include "sqlquerymodel.h"
-#include "videosmodel.h"
 #include "databaseutils.h"
 #include "mythutils.h"
 #include "settings.h"
@@ -171,11 +170,6 @@ int main(int argc, char *argv[])
     SqlQueryModel *dbChannelsModel = new SqlQueryModel(&engine);
     dbChannelsModel->setQuery("SELECT chanid, channum, callsign, name, icon, xmltvid FROM channel ORDER BY cast(channum as unsigned);", db);
     engine.rootContext()->setContextProperty("dbChannelsModel", dbChannelsModel);
-
-    // create the videos model
-    QString sourceModel = QString(SHAREPATH) + "qml/Models/VideosModel.qml";
-    VideosSortFilterProxyModel *videosModel = new VideosSortFilterProxyModel(&engine, sourceModel);
-    engine.rootContext()->setContextProperty("videosFilterModel", videosModel);
 
     MythQmlAbstractUrlInterceptor interceptor(&engine, &settings);
     interceptor.setTheme(theme);
