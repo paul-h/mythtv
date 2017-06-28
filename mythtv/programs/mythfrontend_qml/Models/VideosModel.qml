@@ -4,6 +4,11 @@ import QtQuick.XmlListModel 2.0
 XmlListModel
 {
     id: videoModel
+
+    property var titleList: ListModel{}
+    property var genreList: ListModel{}
+    property var typeList: ListModel{}
+
     source: settings.masterBackend + "Video/GetVideoList"
     query: "/VideoMetadataInfoList/VideoMetadataInfos/VideoMetadataInfo"
     XmlRole { name: "Id"; query: "Id/string()" }
@@ -21,8 +26,8 @@ XmlListModel
     XmlRole { name: "UserRating"; query: "UserRating/string()" }
     XmlRole { name: "Length"; query: "Length/string()" }
     XmlRole { name: "PlayCount"; query: "PlayCount/string()" }
-    XmlRole { name: "Season"; query: "Season/string()" }
-    XmlRole { name: "Episode"; query: "Episode/string()" }
+    XmlRole { name: "Season"; query: "Season/number()" }
+    XmlRole { name: "Episode"; query: "Episode/number()" }
     XmlRole { name: "ParentalLevel"; query: "ParentalLevel/string()" }
     XmlRole { name: "Visible"; query: "Visible/string()" }
     XmlRole { name: "Watched"; query: "Watched/string()" }
@@ -44,21 +49,73 @@ XmlListModel
     {
         if (status == XmlListModel.Ready)
         {
-            //screenBackground.showBusyIndicator = false;
+            screenBackground.showBusyIndicator = false;
+
+            updateLists();
 
             loaded();
         }
 
         if (status === XmlListModel.Loading)
         {
-            //screenBackground.showBusyIndicator = true;
+            screenBackground.showBusyIndicator = true;
         }
 
         if (status === XmlListModel.Error)
         {
-            //screenBackground.showBusyIndicator = false;
-
+            screenBackground.showBusyIndicator = false;
             console.log("Error: " + errorString + "\n \n \n " + videoModel.source.toString());
         }
+    }
+
+    function updateLists()
+    {
+        var title;
+        var genre;
+        var type;
+
+        var titles = [];
+        var genres = [];
+        var types = [];
+
+        titleList.clear();
+        typeList.clear();
+        genreList.clear();
+
+        for (var x = 0; x < count; x++)
+        {
+            title = get(x).Title;
+            genre = get(x).Genre;
+            type = get(x).ContentType;
+
+            if (titles.indexOf(title) < 0)
+                titles.push(title);
+
+            if (types.indexOf(type) < 0)
+                types.push(type);
+
+            var splitGenres = genre.split(",");
+
+            for (var y = 0; y < splitGenres.length; y++)
+            {
+                genre = splitGenres[y].trim();
+
+                if (genres.indexOf(genre) < 0)
+                    genres.push(genre);
+            }
+        }
+
+        titles.sort();
+        types.sort();
+        genres.sort();
+
+        for (var x = 0; x < titles.length; x++)
+            titleList.append({"item": titles[x]});
+
+        for (var x = 0; x < genres.length; x++)
+            genreList.append({"item": genres[x]});
+
+        for (var x = 0; x < types.length; x++)
+            typeList.append({"item": types[x]});
     }
 }
