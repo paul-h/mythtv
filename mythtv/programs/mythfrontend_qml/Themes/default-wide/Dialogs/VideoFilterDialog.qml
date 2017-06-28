@@ -1,265 +1,219 @@
 import QtQuick 2.0
 import Base 1.0
 
-FocusScope
+BaseDialog
 {
-    id: modalDialog
+    id: root
 
-    property string title: ""
-    property string message: ""
+    width: xscale(500)
+    height: yscale(500)
 
-    property alias filterTitle: titleedit.text
-    property alias filterType: typeedit.text
-    property alias filterGenres: genreedit.text
+    property var videosModel
 
-    property bool showCancelButton: true
+    property alias filterTitle: titleEdit.text
+    property alias filterType: typeEdit.text
+    property alias filterGenres: genreEdit.text
 
-    signal accepted
-    signal cancelled
+    property string _searchField: ""
 
-    width: 500
-    height: 500
-    anchors.horizontalCenter: parent.horizontalCenter
-    anchors.verticalCenter: parent.verticalCenter
-
-    function show()
+    content: Item
     {
-        modalDialog.state = "show";
-    }
-
-    Keys.onEscapePressed:
-    {
-        modalDialog.state = "";
-        modalDialog.cancelled();
-    }
-
-    Item
-    {
-        id: dialog
-
-        opacity: 0
         anchors.fill: parent
 
-        BaseDialogBackground
+         InfoText
         {
-            id: background
-            anchors.fill: parent
-        }
-
-        Column
-        {
-            id: column
-            width: parent.width
-            height: 500
-            spacing: 10
-
-            TitleText
-            {
-                id: titleText
-                x: 20; y: 5
-                width: parent.width - 40
-                text: title
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            InfoText
-            {
-                id: messageText
-                x: 20; y: 5
-                width: parent.width - 40
-                height: yscale(50)
-                text: message
-                multiline: true
-                horizontalAlignment: Text.AlignHCenter
-            }
-        }
-
-        InfoText
-        {
-            x: 20; y: 100
+            x: 20; y: 10
             width: xscale(300); height: yscale(30)
             text: "Title"
         }
 
         BaseEdit
         {
-            id: titleedit
-            x: xscale(20); y: yscale(120); width: xscale(400);
+            id: titleEdit
+            x: xscale(20); y: yscale(50); width: xscale(400);
             text: "";
-            KeyNavigation.up: okButton;
-            KeyNavigation.down: titleButton;
-            onTextHasChanged: console.log("Title is now: " + text);
+            focus: true
+            KeyNavigation.up: acceptButton;
+            KeyNavigation.down: typeEdit;
+            KeyNavigation.left: titleButton;
+            KeyNavigation.right: titleButton;
         }
 
         BaseButton
         {
             id: titleButton
-            x: xscale(430); y: yscale(120); width: xscale(50); height: yscale(50)
+            x: xscale(430); y: yscale(50); width: xscale(50); height: yscale(50)
             text: "*"
 
-            KeyNavigation.left: titleedit;
-            KeyNavigation.right: typeedit;
+            KeyNavigation.up: rejectButton;
+            KeyNavigation.left: titleEdit;
+            KeyNavigation.right: typeEdit;
+            KeyNavigation.down: typeButton;
 
             onClicked:
             {
+                _searchField = "title"
+                searchDialog.model = root.videosModel.titleList
+                searchDialog.show();
             }
         }
 
         InfoText
         {
-            x: 20; y: 180
+            x: 20; y: 110
             width: xscale(300); height: yscale(30)
             text: "Type"
         }
 
         BaseEdit
         {
-            id: typeedit
-            x: xscale(20); y: yscale(200); width: xscale(400);
+            id: typeEdit
+            x: xscale(20); y: yscale(150); width: xscale(400);
             text: "";
-            KeyNavigation.up: titleedit;
-            KeyNavigation.down: typeButton;
+            KeyNavigation.up: titleEdit;
+            KeyNavigation.left: titleButton;
+            KeyNavigation.right: typeButton;
+            KeyNavigation.down: genreEdit;
             onTextHasChanged: console.log("Type is now: " + text);
         }
 
         BaseButton
         {
             id: typeButton
-            x: xscale(430); y: yscale(200); width: xscale(50); height: yscale(50)
+            x: xscale(430); y: yscale(150); width: xscale(50); height: yscale(50)
             text: "*"
 
-            KeyNavigation.left: titleedit;
-            KeyNavigation.right: typeedit;
+            KeyNavigation.up: titleButton;
+            KeyNavigation.left: typeEdit;
+            KeyNavigation.right: genreEdit;
+            KeyNavigation.down: genreButton;
 
             onClicked:
             {
+                _searchField = "type"
+                searchDialog.model = root.videosModel.typeList
+                searchDialog.show();
             }
         }
 
         InfoText
         {
-            x: 20; y: 260
+            x: 20; y: 210
             width: xscale(250); height: yscale(30)
             text: "Genres"
         }
 
         BaseEdit
         {
-            id: genreedit
-            x: xscale(20); y: yscale(270); width: xscale(400);
+            id: genreEdit
+            x: xscale(20); y: yscale(250); width: xscale(400);
             text: "";
-            KeyNavigation.up: typeedit;
-            KeyNavigation.down: genreButton;
-            onTextHasChanged: console.log("Genre is now: " + text);
+            KeyNavigation.up: typeEdit;
+            KeyNavigation.down: acceptButton;
+            KeyNavigation.left: typeButton;
+            KeyNavigation.right: genreButton;
         }
 
         BaseButton
         {
             id: genreButton
-            x: xscale(430); y: yscale(270); width: xscale(50); height: yscale(50)
+            x: xscale(430); y: yscale(250); width: xscale(50); height: yscale(50)
             text: "*"
 
-            KeyNavigation.left: genreedit;
-            KeyNavigation.right: okButton;
+            KeyNavigation.up: typeButton;
+            KeyNavigation.left: genreEdit;
+            KeyNavigation.right: acceptButton;
+            KeyNavigation.down: rejectButton;
 
             onClicked:
             {
-            }
-        }
-
-
-        Row
-        {
-            x:0; y: parent.height - 60
-            spacing: 10
-            anchors
-            {
-                horizontalCenter: parent.horizontalCenter
-                bottomMargin: 25
-            }
-
-            BaseButton
-            {
-                id: okButton
-                text: "OK"
-                focus: true
-
-                KeyNavigation.left: cancelButton;
-                KeyNavigation.right: cancelButton;
-
-                onClicked:
-                {
-                    modalDialog.state = "";
-                    modalDialog.accepted();
-                }
-            }
-
-            BaseButton
-            {
-                id: cancelButton
-                text: "Cancel"
-                visible: modalDialog.showCancelButton
-
-                KeyNavigation.left: okButton;
-                KeyNavigation.right: okButton;
-
-                onClicked:
-                {
-                    modalDialog.state = "";
-                    modalDialog.cancelled();
-                }
+                _searchField = "genre"
+                searchDialog.model = root.videosModel.genreList
+                searchDialog.show();
             }
         }
     }
 
-    states:
+    buttons:
     [
-        State
+        BaseButton
         {
-            name: ""
-            PropertyChanges
+            id: acceptButton
+            text: "OK"
+            visible: text != ""
+
+            KeyNavigation.up: genreEdit;
+            KeyNavigation.left: rejectButton;
+            KeyNavigation.right: rejectButton;
+            KeyNavigation.down: titleEdit;
+
+            onClicked:
             {
-                target: dialog
-                opacity: 0
-            }
-            PropertyChanges
-            {
-                target: modalDialog
-                focus: false
+                root.state = "";
+                root.accepted();
             }
         },
-        State
+
+        BaseButton
         {
-            name: "show"
-            PropertyChanges
+            id: rejectButton
+            text: "Cancel"
+            visible: text != ""
+
+            KeyNavigation.up: genreEdit;
+            KeyNavigation.left: acceptButton;
+            KeyNavigation.right: acceptButton;
+            KeyNavigation.down: titleEdit;
+
+            onClicked:
             {
-                target: dialog
-                opacity: 1
-            }
-            PropertyChanges
-            {
-                target: modalDialog
-                focus: true
+                root.state = "";
+                root.cancelled();
             }
         }
     ]
 
-    transitions:
-    [
-        Transition
+    SearchListDialog
+    {
+        id: searchDialog
+
+        title: "Search"
+        message: ""
+
+        width: 600; height: 500
+
+        onAccepted:
         {
-            from: ""
-            to: "show"
-            SequentialAnimation
-            {
-                NumberAnimation { properties: "opacity"; easing.type: Easing.Linear; duration: 750 }
-            }
-        },
-        Transition
-        {
-            from: "show"
-            to: ""
-            NumberAnimation { properties: "opacity"; easing.type: Easing.Linear; duration: 750 }
+            titleButton.focus = true;
+
         }
-    ]
+        onCancelled:
+        {
+            titleButton.focus = true;
+        }
+
+        onItemSelected:
+        {
+            if (_searchField == "title")
+            {
+                titleEdit.text = itemText;
+                titleButton.focus = true;
+            }
+            else if (_searchField == "type")
+            {
+                typeEdit.text = itemText;
+                typeButton.focus = true;
+            }
+            else if (_searchField == "genre")
+            {
+                genreEdit.text = itemText;
+                genreButton.focus = true;
+            }
+            else
+            {
+                console.log("Unknow search field: " + _searchField);
+                titleButton.focus = true;
+            }
+        }
+    }
 }
