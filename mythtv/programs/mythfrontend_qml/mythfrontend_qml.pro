@@ -3,6 +3,7 @@ include ( ../../version.pro )
 include ( ../programs-libs.pro )
 
 include(QmlVlc/QmlVlc.pri)
+include(SortFilterProxyModel/SortFilterProxyModel.pri)
 
 INCLUDEPATH += QmlVlc
 
