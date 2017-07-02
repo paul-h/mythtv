@@ -7,7 +7,7 @@ include(SortFilterProxyModel/SortFilterProxyModel.pri)
 
 INCLUDEPATH += QmlVlc
 
-QT += qml quick sql xml
+QT += qml quick sql xml webengine
 CONFIG += c++11
 
 TEMPLATE = app

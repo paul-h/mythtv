@@ -8,6 +8,7 @@
 #include <QDomDocument>
 #include <QFile>
 #include <QDir>
+#include <QtWebEngine>
 
 
 // from QmlVlc
@@ -72,7 +73,10 @@ static bool loadDBSettings(void)
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QGuiApplication app(argc, argv);
+
+    QtWebEngine::initialize();
 
     QCoreApplication::setApplicationName("MythFrontendQML");
     QCoreApplication::setAttribute(Qt::AA_X11InitThreads);

@@ -23,6 +23,14 @@ ApplicationWindow
         source: settings.qmlPath + "Theme.qml"
     }
 
+    function showMouse(show)
+    {
+         if (show)
+             mouseArea.cursorShape = Qt.Arrow
+         else
+             mouseArea.cursorShape = Qt.BlankCursor
+    }
+
     function xscale(x)
     {
         return x * wmult;
@@ -116,11 +124,16 @@ ApplicationWindow
                 settings.showTextBorder = ! settings.showTextBorder;
                 console.log("showTextBorder: " + settings.showTextBorder);
             }
+            else if (event.key === Qt.Key_F11)
+            {
+                if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
+            }
         }
     }
 
     MouseArea
     {
+        id: mouseArea
         anchors.fill: parent
         enabled: false
         cursorShape: Qt.BlankCursor

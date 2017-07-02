@@ -1,5 +1,6 @@
 import QtQuick 2.0
-import QtWebKit 3.0
+import QtQuick.Controls 1.4
+import QtWebEngine 1.3
 import Base 1.0
 
 BaseScreen
@@ -12,15 +13,22 @@ BaseScreen
         showTitle(true, "Web Browser");
         showTime(false);
         showTicker(false);
+        showMouse(true);
     }
 
-    WebView
+    Component.onDestruction: showMouse(false)
+
+    Action
+    {
+        shortcut: "Escape"
+        onTriggered: if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
+    }
+
+    WebEngineView
     {
         id: browser
-        x: 10; y: 50; width: parent.width - 20; height: parent.height - 60
+        x: xscale(10); y: yscale(50); width: parent.width - xscale(20); height: parent.height - yscale(60)
         url: "http://www.bbc.co.uk"
-
-        Keys.onEscapePressed: if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
     }
 }
 
