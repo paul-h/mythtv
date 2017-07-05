@@ -2,5 +2,6 @@ module Dialogs
 BaseDialog 1.0 BaseDialog.qml
 OkCancelDialog 1.0 OkCancelDialog.qml
 PopupMenu 1.0 PopupMenu.qml
+RecordingFilterDialog 1.0 RecordingFilterDialog.qml
 VideoFilterDialog 1.0 VideoFilterDialog.qml
 

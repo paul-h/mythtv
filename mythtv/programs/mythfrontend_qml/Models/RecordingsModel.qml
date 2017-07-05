@@ -5,64 +5,11 @@ XmlListModel
 {
     id: recordingModel
 
-    property string title: ""
-    property string recGroup: "Films"
-    property string storageGroup:""
-    property int    count: 0
-    source:
-    {
-        var url = settings.masterBackend + "Dvr/GetRecordedList";
-        var first = true;
+    property var titleList: ListModel{}
+    property var categoryList: ListModel{}
+    property var recGroupList: ListModel{}
 
-        if (count > 0)
-        {
-            if (first)
-            {
-                url = url + "?Count=" + count;
-                first = false;
-            }
-            else
-                url = url + "&Count=" + count;
-        }
-
-        if (title != "")
-        {
-            if (first)
-            {
-                url = url + "?TitleRegEx=" + title;
-                first = false;
-            }
-            else
-                url = url + "&TitleRegEx=" + title;
-        }
-
-        if (recGroup != "")
-        {
-            if (first)
-            {
-                url = url + "?RecGroup=" + recGroup;
-                first = false;
-            }
-            else
-                url = url + "&RecGroup=" + recGroup;
-        }
-
-        if (storageGroup != "")
-        {
-            if (first)
-            {
-                url = url + "?StorageGroup=" + storageGroup;
-                first = false;
-            }
-            else
-                url = url + "&StorageGroup=" + storageGroup;
-        }
-
-        console.log(url);
-
-        return url;
-    }
-
+    source: settings.masterBackend + "Dvr/GetRecordedList"
     query: "/ProgramList/Programs/Program"
     XmlRole { name: "StartTime"; query: "xs:dateTime(StartTime)" }
     XmlRole { name: "EndTime"; query: "xs:dateTime(EndTime)" }
@@ -82,9 +29,9 @@ XmlListModel
     XmlRole { name: "Airdate"; query: "Airdate/string()" }
     XmlRole { name: "Description"; query: "Description/string()" }
     XmlRole { name: "Inetref"; query: "Inetref/string()" }
-    XmlRole { name: "Season"; query: "Season/string()" }
-    XmlRole { name: "Episode"; query: "Episode/string()" }
-    XmlRole { name: "TotalEpisodes"; query: "TotalEpisodes/string()" }
+    XmlRole { name: "Season"; query: "Season/number()" }
+    XmlRole { name: "Episode"; query: "Episode/number()" }
+    XmlRole { name: "TotalEpisodes"; query: "TotalEpisodes/number()" }
     XmlRole { name: "FileSize"; query: "FileSize/string()" }
     XmlRole { name: "FileName"; query: "FileName/string()" }
     XmlRole { name: "HostName"; query: "HostName/string()" }
@@ -95,13 +42,21 @@ XmlListModel
     XmlRole { name: "ChannelCallSign"; query: "Channel/CallSign/string()" }
     XmlRole { name: "ChannelName"; query: "Channel/ChannelName/string()" }
     XmlRole { name: "ChannelIcon"; query: "Channel/IconURL/string()" }
+    XmlRole { name: "RecGroup"; query: "Recording/RecGroup/string()" }
+    XmlRole { name: "Status"; query: "Recording/Status/string()" }
+
+
+    signal loaded();
 
     onStatusChanged:
     {
         if (status == XmlListModel.Ready)
         {
             screenBackground.showBusyIndicator = false
-            console.log("Loaded Recordings: " + count);
+
+            updateLists();
+
+            loaded();
         }
 
         if (status === XmlListModel.Loading)
@@ -114,5 +69,49 @@ XmlListModel
             screenBackground.showBusyIndicator = false
             console.log("Error: " + errorString + "\n \n \n " + recordingModel.source.toString());
         }
+    }
+
+    function updateLists()
+    {
+        var title;
+        var category;
+        var recGroup;
+
+        var titles = [];
+        var categories = [];
+        var recGroups = [];
+
+        titleList.clear();
+        categoryList.clear();
+        recGroupList.clear();
+
+        for (var x = 0; x < count; x++)
+        {
+            title = get(x).Title;
+            category = get(x).Category;
+            recGroup = get(x).RecGroup;
+
+            if (titles.indexOf(title) < 0)
+                titles.push(title);
+
+            if (categories.indexOf(category) < 0)
+                categories.push(category);
+
+            if (recGroups.indexOf(recGroup) < 0)
+                recGroups.push(recGroup);
+        }
+
+        titles.sort();
+        categories.sort();
+        recGroups.sort();
+
+        for (var x = 0; x < titles.length; x++)
+            titleList.append({"item": titles[x]});
+
+        for (var x = 0; x < categories.length; x++)
+            categoryList.append({"item": categories[x]});
+
+        for (var x = 0; x < recGroups.length; x++)
+            recGroupList.append({"item": recGroups[x]});
     }
 }

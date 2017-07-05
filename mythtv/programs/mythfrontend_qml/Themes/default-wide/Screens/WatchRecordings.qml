@@ -1,9 +1,17 @@
 import QtQuick 2.0
 import "../../../Models"
 import Base 1.0
+import Dialogs 1.0
+import SortFilterProxyModel 0.2
 
 BaseScreen
 {
+    id: root
+
+    property string filterTitle
+    property string filterCategory
+    property string filterRecGroup
+
     defaultFocusItem: videoList
 
     Component.onCompleted:
@@ -12,6 +20,51 @@ BaseScreen
         showTime(false);
         showTicker(false);
         showVideo(true);
+    }
+
+    property bool dateSorterActive: true;
+
+    property list<QtObject> dateSorter:
+    [
+        RoleSorter { roleName: "StartTime"; ascendingOrder: false}
+    ]
+
+    property list<QtObject> episodeSorter:
+    [
+        RoleSorter { roleName: "Title" },
+        RoleSorter { roleName: "Season" },
+        RoleSorter { roleName: "Episode" }
+    ]
+
+    SortFilterProxyModel
+    {
+        id: recordingsProxyModel
+        sourceModel: RecordingsModel {}
+        filters:
+        [
+            AllOf
+            {
+                RegExpFilter
+                {
+                    roleName: "Title"
+                    pattern: filterTitle
+                    caseSensitivity: Qt.CaseInsensitive
+                }
+                RegExpFilter
+                {
+                    roleName: "Category"
+                    pattern: filterCategory
+                    caseSensitivity: Qt.CaseInsensitive
+                }
+                RegExpFilter
+                {
+                    roleName: "RecGroup"
+                    pattern: filterRecGroup
+                    caseSensitivity: Qt.CaseInsensitive
+                }
+            }
+        ]
+        sorters: dateSorter
     }
 
     Image
@@ -25,6 +78,13 @@ BaseScreen
                 else
                     ""
         }
+    }
+
+    InfoText
+    {
+        x: xscale(1050); y: yscale(5); width: xscale(200);
+        text: (videoList.currentIndex + 1) + " of " + recordingsProxyModel.count;
+        horizontalAlignment: Text.AlignRight
     }
 
     BaseBackground
@@ -48,7 +108,11 @@ BaseScreen
 
         Item
         {
-            width:videoList.width; height: 50
+            width: parent.width; height: yscale(50)
+            property bool selected: ListView.isCurrentItem
+            property bool focused: videoList.focus
+
+            //ListBackground {}
 
             Image
             {
@@ -64,6 +128,7 @@ BaseScreen
                 x: coverImage.width + xscale(20)
                 width: xscale(450); height: yscale(50)
                 text: SubTitle ? Title + ": " + SubTitle : Title
+                fontColor: theme.labelFontColor
             }
             ListText
             {
@@ -89,10 +154,10 @@ BaseScreen
         Rectangle
         {
             width:videoList.width; height: yscale(50)
-            color: "red"
-            opacity: 0.3
-            radius: xscale(15)
-            border.color: "#dd00ff00"
+            color: theme.lvRowBackgroundFocusedSelected;
+            border.color: theme.lvBackgroundBorderColor
+            border.width: xscale(theme.lvBackgroundBorderWidth)
+            radius: xscale(theme.lvBackgroundBorderRadius)
         }
     }
 
@@ -103,7 +168,7 @@ BaseScreen
 
         focus: true
         clip: true
-        model: RecordingsModel {}
+        model: recordingsProxyModel
         delegate: listRow
         highlight: listHighlight
 
@@ -118,6 +183,22 @@ BaseScreen
             {
                 currentIndex = currentIndex - 6 < 0 ? 0 : currentIndex - 6;
                 event.accepted = true;
+            }
+            else if (event.key === Qt.Key_M)
+            {
+                filterDialog.filterTitle = root.filterTitle;
+                filterDialog.filterCategory = root.filterCategory;
+                filterDialog.filterRecGroup = root.filterRecGroup;
+                filterDialog.show();
+            }
+            else if (event.key === Qt.Key_S)
+            {
+                if (dateSorterActive)
+                    recordingsProxyModel.sorters = episodeSorter;
+                else
+                    recordingsProxyModel.sorters = dateSorter
+
+                dateSorterActive = !dateSorterActive;
             }
         }
 
@@ -136,7 +217,30 @@ BaseScreen
     {
         x: xscale(30); y: yscale(480)
         width: xscale(900); height: yscale(50)
-        text: videoList.model.get(videoList.currentIndex).Title
+        text:
+        {
+            var title = videoList.model.get(videoList.currentIndex).Title;
+            var subtitle = videoList.model.get(videoList.currentIndex).SubTitle;
+            var season = videoList.model.get(videoList.currentIndex).Season;
+            var episode = videoList.model.get(videoList.currentIndex).Episode;
+            var total = videoList.model.get(videoList.currentIndex).TotalEpisodes;
+            var result = title;
+
+            if (subtitle.length > 0)
+                result += " - " + subtitle;
+
+            if (season > 0 && episode > 0)
+            {
+                result += " (s:" + season + " e:" + episode
+
+                if (total > 0)
+                    result += " of " + total;
+
+                result += ")";
+            }
+
+            return result;
+        }
     }
 
     Image
@@ -173,18 +277,18 @@ BaseScreen
         multiline: true
     }
 
-    Image
-    {
-        id: bannerImage
-        x: xscale(300); y: yscale(480); height: yscale(60); width: 300
-        source:
-        {
-            if (videoList.model.get(videoList.currentIndex).Banner)
-                settings.masterBackend + videoList.model.get(videoList.currentIndex).Banner
-            else
-                ""
-        }
-    }
+//     Image
+//     {
+//         id: bannerImage
+//         x: xscale(300); y: yscale(480); height: yscale(60); width: 300
+//         source:
+//         {
+//             if (videoList.model.get(videoList.currentIndex).Banner)
+//                 settings.masterBackend + videoList.model.get(videoList.currentIndex).Banner
+//             else
+//                 ""
+//         }
+//     }
 
     Image
     {
@@ -199,6 +303,30 @@ BaseScreen
         }
     }
 
+    RecordingFilterDialog
+    {
+        id: filterDialog
+
+        title: "Filter Recordings"
+        message: ""
+
+        recordingsModel: recordingsProxyModel.sourceModel
+
+        width: 600; height: 500
+
+        onAccepted:
+        {
+            videoList.focus = true;
+
+            root.filterTitle = filterTitle;
+            root.filterCategory = filterCategory;
+            root.filterRecGroup = filterRecGroup;
+        }
+        onCancelled:
+        {
+            videoList.focus = true;
+        }
+    }
 }
 
 
