@@ -39,6 +39,9 @@ QtObject
     property int    labelShadowXOffset:  2
     property int    labelShadowYOffset:  2
 
+    // recording text
+    property color  recordingFontColor: "#00ff00"
+
     // info text
     property string infoFontFamily:     "Liberation Sans"
     property int    infoFontPixelSize:  20
@@ -60,14 +63,14 @@ QtObject
     property int    clockShadowYOffset:  1
 
     // base background
-    property color bgColor:       "black"
+    property color bgColor:       "#000000"
     property real  bgOpacity:     60 / 255
-    property color bgBorderColor: "white"
+    property color bgBorderColor: "#ffffffff"
     property int   bgBorderWidth: 2
     property int   bgRadius:      12
 
     // base dialog background
-    property color bgDialogColor:       "#100000"
+    property color bgDialogColor:       "#200000"
     property real  bgDialogOpacity:     200 / 255
     property color bgDialogBorderColor: "white"
     property int   bgDialogBorderWidth: 3
@@ -76,18 +79,18 @@ QtObject
     // list view
     property color lvRowBackgroundNormal:          "#20000000"; // not selected or focused
     property color lvRowBackgroundFocused:         "#20000000"; // focused
-    property color lvRowBackgroundSelected:        "#2000dd00"; // selected not focused
-    property color lvRowBackgroundFocusedSelected: "#8000dd00"; // selected and focused
+    property color lvRowBackgroundSelected:        "#2000aa00"; // selected not focused
+    property color lvRowBackgroundFocusedSelected: "#8000aa00"; // selected and focused
 
     property color lvRowTextNormal:          "#80ffffff"; // not selected or focused
     property color lvRowTextFocused:         "#a0ffffff"; // focused
     property color lvRowTextSelected:        "#80ffffff"; // selected not focused
-    property color lvRowTextFocusedSelected: "#a0ffffff"; // selected and focused
+    property color lvRowTextFocusedSelected: "#ffffffff"; // selected and focused
 
     property real  lvBackgroundOpacity:      1.0;
-    property color lvBackgroundBorderColor:  "transparent";
-    property int   lvBackgroundBorderWidth:  0;
-    property int   lvBackgroundBorderRadius: 0;
+    property color lvBackgroundBorderColor:  "green";
+    property int   lvBackgroundBorderWidth:  2;
+    property int   lvBackgroundBorderRadius: 10;
 
     // button
     property int   btBorderWidth: 3
