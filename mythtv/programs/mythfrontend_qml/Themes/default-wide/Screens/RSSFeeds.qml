@@ -49,14 +49,6 @@ BaseScreen
 
             property bool selected: ListView.isCurrentItem
 
-            Rectangle
-            {
-                anchors.fill: parent;
-                color: parent.selected ? theme.lvRowBackgroundSelected : theme.lvRowBackgroundNormal
-                opacity: if (feedList.focus) 0.7; else 0.4;
-                Behavior on opacity { NumberAnimation { duration: 250 } }
-            }
-
             Image
             {
                id: icon
@@ -77,21 +69,7 @@ BaseScreen
         }
     }
 
-    Component
-    {
-        id: listHighlight
-
-        Rectangle
-        {
-            width: feedList.width; height: yscale(50)
-            color: "red"
-            opacity: 0.3
-            radius: xscale(5)
-            border.color: "#ddff0000"
-        }
-    }
-
-    ListView
+    ButtonList
     {
         id: feedList
         x: xscale(60); y: yscale(60); width: xscale(500); height: yscale((8 * 50) + (7 * 3))
@@ -100,20 +78,7 @@ BaseScreen
         clip: true
         model: rssFeedsModel
         delegate: listRow
-
-        Keys.onPressed:
-        {
-            if (event.key === Qt.Key_PageDown)
-            {
-                currentIndex = currentIndex + 6 >= model.count ? model.count - 1 : currentIndex + 6;
-                event.accepted = true;
-            }
-            else if (event.key === Qt.Key_PageUp)
-            {
-                currentIndex = currentIndex - 6 < 0 ? 0 : currentIndex - 6;
-                event.accepted = true;
-            }
-        }
+        highlight: ListHighlight {}
 
         onCurrentIndexChanged:
         {
@@ -189,14 +154,6 @@ BaseScreen
             property bool selected: ListView.isCurrentItem
             property real itemSize: articleList.itemWidth
 
-            Rectangle
-            {
-                anchors.fill: parent;
-                color: parent.selected ? theme.lvRowBackgroundSelected : theme.lvRowBackgroundNormal
-                opacity: if (articleList.focus) 0.7; else 0.4;
-                Behavior on opacity { NumberAnimation { duration: 250 } }
-             }
-
             Image
             {
                 id: icon
@@ -229,7 +186,7 @@ BaseScreen
         }
     }
 
-    ListView
+    ButtonList
     {
         id: articleList
         property int itemWidth: 190
@@ -237,6 +194,7 @@ BaseScreen
         model: feedModel
         clip: true
         delegate: articleDelegate
+        highlight: ListHighlight {}
         spacing: 3
 
         KeyNavigation.left: feedList;
