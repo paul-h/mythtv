@@ -50,6 +50,8 @@ FocusScope
              Keys.onRightPressed: mediaplayer.time = mediaplayer.time + 30000;
              Keys.onPressed:
              {
+                 event.accepted = true;
+
                  if (event.key === Qt.Key_I)
                  {
                      if (infoPanel.visible)
