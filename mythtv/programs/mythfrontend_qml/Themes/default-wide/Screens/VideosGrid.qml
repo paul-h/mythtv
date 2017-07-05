@@ -109,21 +109,7 @@ BaseScreen
         }
     }
 
-    Component
-    {
-        id: listHighlight
-
-        Rectangle
-        {
-            width:videoList.width; height: yscale(50)
-            color: "red"
-            opacity: 0.3
-            radius: xscale(15)
-            border.color: "#dd00ff00"
-        }
-    }
-
-    ListView
+    ButtonList
     {
         id: videoList
         x: xscale(25); y: yscale(65); width: xscale(1230); height: yscale(600)
@@ -132,21 +118,11 @@ BaseScreen
         clip: true
         model: videosProxyModel
         delegate: listRow
-        highlight: listHighlight
+        highlight: ListHighlight{}
 
         Keys.onPressed:
         {
-            if (event.key === Qt.Key_PageDown)
-            {
-                currentIndex = currentIndex + 6 >= model.count ? model.count - 1 : currentIndex + 6;
-                event.accepted = true;
-            }
-            else if (event.key === Qt.Key_PageUp)
-            {
-                currentIndex = currentIndex - 6 < 0 ? 0 : currentIndex - 6;
-                event.accepted = true;
-            }
-            else if (event.key === Qt.Key_E)
+            if (event.key === Qt.Key_E)
             {
                 stack.push({item: Qt.resolvedUrl("VideoMetadataEditor.qml"), properties:{videosModel:  model, currentIndex: currentIndex}});
                 event.accepted = true;
@@ -157,6 +133,7 @@ BaseScreen
                 filterDialog.filterType = root.filterType;
                 filterDialog.filterGenres = root.filterGenres;
                 filterDialog.show();
+                event.accepted = true;
             }
         }
 

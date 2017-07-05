@@ -45,21 +45,7 @@ BaseScreen
         }
     }
 
-    Component
-    {
-        id: listHighlight
-
-        Rectangle
-        {
-            width:videoList.width; height: 50
-            color: "red"
-            opacity: 0.3
-            radius: 15
-            border.color: "#ffff0000"
-        }
-    }
-
-    ListView
+    ButtonList
     {
         id: videoList
         x: xscale(25); y: yscale(65); width: xscale(1230); height: yscale(600)
@@ -75,21 +61,7 @@ BaseScreen
 
         model: folderModel
         delegate: listRow
-        highlight: listHighlight
-
-        Keys.onPressed:
-        {
-            if (event.key === Qt.Key_PageDown)
-            {
-                currentIndex = currentIndex + 6 >= model.count ? model.count - 1 : currentIndex + 6;
-                event.accepted = true;
-            }
-            else if (event.key === Qt.Key_PageUp)
-            {
-                currentIndex = currentIndex - 6 < 0 ? 0 : currentIndex - 6;
-                event.accepted = true;
-            }
-        }
+        highlight: ListHighlight{}
 
         Keys.onReturnPressed:
         {
