@@ -28,11 +28,15 @@ FocusScope
         {
             id: mediaplayer
 
+            property bool seekable: true
+
             onStateChanged:
             {
                 if (state === VlcPlayer.Ended)
                     root.playbackEnded();
             }
+
+            onMediaPlayerSeekableChanged: mediaplayer.seekable = seekable
 
             audio.mute: false
         }
@@ -48,8 +52,8 @@ FocusScope
              focus: true
 
              Keys.onReturnPressed: root.togglePaused();
-             Keys.onLeftPressed: mediaplayer.time = mediaplayer.time - 30000;
-             Keys.onRightPressed: mediaplayer.time = mediaplayer.time + 30000;
+             Keys.onLeftPressed: if (mediaplayer.seekable) mediaplayer.time = mediaplayer.time - 30000;
+             Keys.onRightPressed: if (mediaplayer.seekable) mediaplayer.time = mediaplayer.time + 30000;
              Keys.onPressed:
              {
                  event.accepted = true;
@@ -73,9 +77,9 @@ FocusScope
                      toggleMute();
                  else if (event.key === Qt.Key_D)
                      toggleInterlacer();
-                 else if (event.key === Qt.Key_PageUp)
+                 else if (event.key === Qt.Key_PageUp && mediaplayer.seekable)
                      mediaplayer.time = mediaplayer.time - 600000;
-                 else if (event.key === Qt.Key_PageDown)
+                 else if (event.key === Qt.Key_PageDown && mediaplayer.seekable)
                      mediaplayer.time = mediaplayer.time + 600000;
                  else
                      event.accepted = false;
