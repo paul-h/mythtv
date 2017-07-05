@@ -33,6 +33,8 @@ FocusScope
                 if (state === VlcPlayer.Ended)
                     root.playbackEnded();
             }
+
+            audio.mute: false
         }
 
         VlcVideoSurface
