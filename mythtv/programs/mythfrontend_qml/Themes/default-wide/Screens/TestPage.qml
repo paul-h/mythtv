@@ -124,30 +124,6 @@ BaseScreen
 
     Component
     {
-        id: listHighlight
-
-        Rectangle
-        {
-            width: list.width; height: yscale(50)
-            color:
-            {
-                if (ListView.view.focus)
-                {
-                    theme.lvRowBackgroundFocusedSelected;
-                }
-                else
-                {
-                    theme.lvRowBackgroundSelected;
-                }
-            }
-            border.color: theme.lvBackgroundBorderColor
-            border.width: xscale(theme.lvBackgroundBorderWidth)
-            radius: xscale(theme.lvBackgroundBorderRadius)
-        }
-    }
-
-    Component
-    {
         id: listRow
         Item
         {
@@ -246,7 +222,7 @@ BaseScreen
                 }
             ];
             delegate: listRow
-            highlight: listHighlight
+            highlight: ListHighlight {}
 
             KeyNavigation.left: button1;
             KeyNavigation.right: accordianList;
