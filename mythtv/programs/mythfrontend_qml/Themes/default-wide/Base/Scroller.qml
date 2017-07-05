@@ -22,10 +22,10 @@ Item
     {
         id: text2
         color: "green"
-        font.pixelSize: 25
-        width: parent.width - 10
+        font.pixelSize: xscale(25)
+        width: parent.width - xscale(10)
         height: parent.height
-        x: 10;
+        x: xscale(10);
         anchors.verticalCenter: parent.verticalCenter
         clip: false
 
