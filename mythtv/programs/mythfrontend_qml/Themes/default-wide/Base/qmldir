@@ -17,6 +17,7 @@ FadeImage 1.0 FadeImage.qml
 InfoText 1.0 InfoText.qml
 LabelText 1.0 LabelText.qml
 ListBackground 1.0 ListBackground.qml
+ListHighlight 1.0 ListHighlight.qml
 ListItem 1.0 ListItem.qml
 ListText 1.0 ListText.qml
 MenuButton 1.0 MenuButton.qml

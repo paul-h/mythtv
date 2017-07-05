@@ -147,20 +147,6 @@ BaseScreen
         }
     }
 
-    Component
-    {
-        id: listHighlight
-
-        Rectangle
-        {
-            width:videoList.width; height: yscale(50)
-            color: theme.lvRowBackgroundFocusedSelected;
-            border.color: theme.lvBackgroundBorderColor
-            border.width: xscale(theme.lvBackgroundBorderWidth)
-            radius: xscale(theme.lvBackgroundBorderRadius)
-        }
-    }
-
     ListView
     {
         id: videoList
@@ -170,7 +156,7 @@ BaseScreen
         clip: true
         model: recordingsProxyModel
         delegate: listRow
-        highlight: listHighlight
+        highlight: ListHighlight {}
 
         Keys.onPressed:
         {
@@ -224,9 +210,12 @@ BaseScreen
             var season = videoList.model.get(videoList.currentIndex).Season;
             var episode = videoList.model.get(videoList.currentIndex).Episode;
             var total = videoList.model.get(videoList.currentIndex).TotalEpisodes;
-            var result = title;
+            var result = "";
 
-            if (subtitle.length > 0)
+            if (title != undefined && title.length > 0)
+                result = title;
+
+            if (subtitle != undefined && subtitle.length > 0)
                 result += " - " + subtitle;
 
             if (season > 0 && episode > 0)
@@ -273,7 +262,13 @@ BaseScreen
     {
         x: xscale(30); y: yscale(580)
         width: xscale(900); height: yscale(100)
-        text: videoList.model.get(videoList.currentIndex).Description
+        text:
+        {
+            if (videoList.model.get(videoList.currentIndex).Description != undefined)
+                videoList.model.get(videoList.currentIndex).Description
+            else
+                ""
+        }
         multiline: true
     }
 
