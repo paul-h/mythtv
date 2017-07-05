@@ -29,6 +29,7 @@ BaseScreen
         id: browser
         x: xscale(10); y: yscale(50); width: parent.width - xscale(20); height: parent.height - yscale(60)
         url: "http://www.bbc.co.uk"
+        settings.pluginsEnabled : true
     }
 }
 
