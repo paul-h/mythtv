@@ -3010,6 +3010,17 @@ void MythMainWindow::EnterStandby(bool manual)
         GetMythDB()->GetSetting("menutheme", "defaultmenu"));
     state.insert("currentlocation", GetMythUI()->GetCurrentLocation());
     MythUIStateTracker::SetState(state);
+
+    // Cache WOL settings in case DB goes down
+    QString masterserver = gCoreContext->GetSetting
+                    ("MasterServerName");
+    gCoreContext->GetSettingOnHost
+                    ("BackendServerAddr", masterserver);
+    gCoreContext->GetMasterServerPort();
+    gCoreContext->GetSetting("WOLbackendCommand", "");
+
+    // While in standby do not attempt to wake the backend
+    gCoreContext->SetWOLAllowed(false);
 }
 
 void MythMainWindow::ExitStandby(bool manual)
@@ -3028,6 +3039,10 @@ void MythMainWindow::ExitStandby(bool manual)
     LOG(VB_GENERAL, LOG_NOTICE, "Leaving standby mode");
 
     d->standby = false;
+
+    // We may attempt to wake the backend
+    gCoreContext->SetWOLAllowed(true);
+
     gCoreContext->BlockShutdown();
 
     QVariantMap state;
