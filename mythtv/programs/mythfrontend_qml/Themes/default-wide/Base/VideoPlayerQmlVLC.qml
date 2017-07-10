@@ -8,12 +8,11 @@ import "../../../Util.js" as Util
 FocusScope
 {
     id: root
+    property alias playlist: mediaplayer.playlist
     property alias source: mediaplayer.mrl
     property alias volume: mediaplayer.volume
     property bool loop: false
     signal playbackEnded()
-
-    anchors.fill: parent
 
     Rectangle
     {
@@ -45,7 +44,9 @@ FocusScope
         {
              id: videoSurface
 
-             property bool deinterlacerEnabled: false
+             property int currentDeinterlacer: 0
+             property var deinterlacers: ["None", "Blend", "Bob", "Discard", "Linear", "Mean", "X", "Yadif", "Yadif (2x)", "Phosphor", "IVTC"]
+
              source: mediaplayer;
              anchors.fill: parent;
              fillMode: VlcVideoSurface.Stretch;
@@ -99,31 +100,39 @@ FocusScope
 
             Text
             {
-                x: 10; y: 5
                 id: pos
+                x: 10; y: 5
                 text: "Position: " + Util.milliSecondsToString(mediaplayer.time) + " / " + Util.milliSecondsToString(mediaplayer.length)
                 color: "white"
             }
 
             Text
             {
-                x: 10; y: 20
+                id: interlacer
+                x: 200; y: 5
+                text: "Deinterlacer: " + videoSurface.deinterlacers[videoSurface.currentDeinterlacer]
+                color: "white"
+            }
+
+            Text
+            {
                 id: timeLeft
+                x: 10; y: 20
                 text: "Remaining :" + Util.milliSecondsToString(mediaplayer.length - mediaplayer.time)
                 color: "white"
             }
             Text
             {
-                x: 10; y: 35
                 id: vol
+                x: 10; y: 35
                 text: "Volume: " + mediaplayer.volume + "%"
                 color: "white"
             }
 
             Text
             {
-                x: 500; y: 5
                 id: artist
+                x: 500; y: 5
                 text: if (mediaplayer.metaData && mediaplayer.metaData.albumArtist !== undefined)
                           "Artist: " + mediaplayer.metaData.albumArtist;
                       else
@@ -132,8 +141,8 @@ FocusScope
             }
             Text
             {
-                x: 500; y: 20
                 id: title
+                x: 500; y: 20
                 text: if (mediaplayer.metaData && mediaplayer.metaData.title !== undefined)
                 "Title: " + mediaplayer.metaData.title;
                 else
@@ -239,10 +248,13 @@ FocusScope
 
     function toggleInterlacer()
     {
-        videoSurface.deinterlacerEnabled = !videoSurface.deinterlacerEnabled;
+        videoSurface.currentDeinterlacer++
 
-        if (videoSurface.deinterlacerEnabled)
-            mediaplayer.video.deinterlace.enable("Blend")
+        if (videoSurface.currentDeinterlacer >= videoSurface.deinterlacers.length)
+            videoSurface.currentDeinterlacer = 0;
+
+        if (videoSurface.currentDeinterlacer > 0)
+            mediaplayer.video.deinterlace.enable(videoSurface.deinterlacers[videoSurface.currentDeinterlacer])
         else
             mediaplayer.video.deinterlace.disable()
     }
