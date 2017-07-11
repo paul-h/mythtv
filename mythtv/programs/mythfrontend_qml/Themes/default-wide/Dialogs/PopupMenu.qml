@@ -5,8 +5,8 @@ BaseDialog
 {
     id: popupMenu
 
-    width: xscale(500)
-    height: yscale(500)
+    width: xscale(400)
+    height: yscale(600)
 
     property alias model: menuList.model
 
@@ -18,9 +18,24 @@ BaseDialog
         popupMenu.state = "show";
     }
 
+    function clearMenuItems()
+    {
+        menuList.model.clear()
+    }
+
     function addMenuItem(path)
     {
         menuList.addNode(path);
+    }
+
+    Keys.onPressed:
+    {
+        if (event.key === Qt.Key_M)
+        {
+            popupMenu.state = "";
+            popupMenu.cancelled();
+            event.accepted = true;
+        }
     }
 
     content: Item
