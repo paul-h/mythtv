@@ -1,112 +1,104 @@
 # -*- Mode: python; coding: utf-8; tab-width: 8; indent-tabs-mode: t; -*-
 """
-Scraper for http://newlyrics.gomtv.com/
+Scraper for http://www.lyrdb.com/
 
-edge
+ronie
 """
 
 import sys
-import os
-import socket
-import hashlib
-import urllib
 import re
-import unicodedata
+import urllib
+import urllib2
+import socket
+import difflib
 from optparse import OptionParser
 from common import utilities
-from common import audiofile
 
-__author__      = "Paul Harrison and edge'"
-__title__       = "GomAudio"
-__description__ = "Search http://newlyrics.gomtv.com for lyrics"
-__priority__    = "135"
+__author__      = "Paul Harrison and 'ronie'"
+__title__       = "Lyrics.Com"
+__description__ = "Search http://www.lyrics.com for lyrics"
+__priority__    = "240"
 __version__     = "0.1"
-__syncronized__ = True
+__syncronized__ = False
 
 debug = False
 
 socket.setdefaulttimeout(10)
 
-GOM_URL = "http://newlyrics.gomtv.com/cgi-bin/lyrics.cgi?cmd=find_get_lyrics&file_key=%s&title=%s&artist=%s&from=gomaudio_local"
-
-def remove_accents(data):
-    nfkd_data = unicodedata.normalize('NFKD', data)
-    return u"".join([c for c in nfkd_data if not unicodedata.combining(c)])
-
-
-class gomClient(object):
-    '''
-    privide Gom specific function, such as key from mp3
-    '''
-    @staticmethod
-    def GetKeyFromFile(file):
-        musf = audiofile.AudioFile()
-        musf.Open(file)
-        buf = musf.ReadAudioStream(100*1024) # 100KB from audio data
-        musf.Close()
-        # calculate hashkey
-        m = hashlib.md5(); m.update(buf);
-        return m.hexdigest()
-
-    @staticmethod
-    def mSecConv(msec):
-        s,ms = divmod(msec/10,100)
-        m,s = divmod(s,60)
-        return m,s,ms
-
 class LyricsFetcher:
     def __init__( self ):
-        self.base_url = "http://newlyrics.gomtv.com/"
+        self.url = 'http://www.lyrics.com/serp.php?st=%s&qtype=2'
 
     def get_lyrics(self, lyrics):
-        utilities.log(debug, "%s: searching lyrics for %s - %s - %s" % (__title__,  lyrics.artist, lyrics.album, lyrics.title))
-        key = None
+        utilities.log(debug, "%s: searching lyrics for %s - %s - %s" % (__title__, lyrics.artist, lyrics.album, lyrics.title))
+
         try:
-            ext = os.path.splitext(lyrics.filename.decode("utf-8"))[1].lower()
-            sup_ext = ['.mp3', '.ogg', '.wma', '.flac', '.ape', '.wav']
-            if ext in sup_ext:
-                key = gomClient.GetKeyFromFile(lyrics.filename)
-            if not key:
-                return False
-            url = GOM_URL %(key, urllib.quote(remove_accents(lyrics.title.decode('utf-8')).encode('euc-kr')), (remove_accents(lyrics.artist.decode('utf-8')).encode('euc-kr')))
-            response = urllib.urlopen(url)
-            Page = response.read()
+            from bs4 import BeautifulSoup
         except:
-            utilities.log(True, "%s: %s::%s (%d) [%s]" % (
-                    __title__, self.__class__.__name__,
-                    sys.exc_info()[ 2 ].tb_frame.f_code.co_name,
-                    sys.exc_info()[ 2 ].tb_lineno,
-                    sys.exc_info()[ 1 ]
-                ))
+            utilities.log(True, "Failed to import BeautifulSoup. This grabber requires python-bs4")
             return False
 
-        if Page[:Page.find('>')+1] != '<lyrics_reply result="0">':
+        try:
+            request = urllib2.urlopen(self.url % urllib.quote_plus(lyrics.artist))
+            response = request.read()
+        except:
             return False
-        syncs = re.compile('<sync start="(\d+)">([^<]*)</sync>').findall(Page)
-        lyrline = []
-        lyrline.append( "[ti:%s]" %lyrics.title )
-        lyrline.append( "[ar:%s]" %lyrics.artist )
-        for sync in syncs:
-            # timeformat conversion
-            t = "%02d:%02d.%02d" % gomClient.mSecConv( int(sync[0]) )
-            # unescape string
+
+        request.close()
+        soup = BeautifulSoup(response, 'html.parser')
+        url = ''
+        for link in soup.find_all('a'):
+            if link.string and link.get('href').startswith('artist/'):
+                url = 'http://www.lyrics.com/' + link.get('href')
+                break
+        if url:
+            utilities.log(debug, "%s: Artist url is %s"  % (__title__, url))
             try:
-                s = unicode(sync[1], "euc-kr").encode("utf-8").replace("&apos;","'").replace("&quot;",'"')
-                lyrline.append( "[%s]%s" %(t,s) )
+                req = urllib2.urlopen(url)
+                resp = req.read()
             except:
-                pass
-        lyrics.lyrics = '\n'.join( lyrline )
-        return True
+                return False
+            req.close()
+            soup = BeautifulSoup(resp, 'html.parser')
+            url = ''
+            for link in soup.find_all('a'):
+                if link.string and link.get('href').startswith('/lyric/') and (difflib.SequenceMatcher(None, link.string.lower(), lyrics.title.lower()).ratio() > 0.8):
+                    url = 'http://www.lyrics.com' + link.get('href')
+                    break
+
+            if url:
+                utilities.log(debug, "%s: Song url is %s"  % (__title__, url))
+
+                try:
+                    req2 = urllib2.urlopen(url)
+                    resp2 = req2.read()
+                except:
+                    return False
+                req2.close()
+
+                matchcode = re.search('<pre.*?>(.*?)</pre>', resp2, flags=re.DOTALL)
+                if matchcode:
+                    lyricscode = (matchcode.group(1))
+                    lyr = re.sub('<[^<]+?>', '', lyricscode)
+                    lyrics.lyrics = lyr.replace('\\n','\n')
+                    return True
+
+            return False
 
 def performSelfTest():
+    try:
+        from bs4 import BeautifulSoup
+    except:
+        utilities.log(True, "Failed to import BeautifulSoup. This grabber requires python-bs4")
+        sys.exit(1)
+
     found = False
     lyrics = utilities.Lyrics()
     lyrics.source = __title__
     lyrics.syncronized = __syncronized__
-    lyrics.artist = 'Robb Benson'
-    lyrics.album = 'Demo Tracks'
-    lyrics.title = 'Lone Rock'
-    lyrics.filename = os.path.dirname(os.path.abspath(__file__)) + '/examples/taglyrics.mp3'
+    lyrics.artist = 'Dire Straits'
+    lyrics.album = 'Brothers In Arms'
+    lyrics.title = 'Money For Nothing'
 
     fetcher = LyricsFetcher()
     found = fetcher.get_lyrics(lyrics)
@@ -132,7 +124,7 @@ def buildLyrics(lyrics):
         etree.SubElement(xml, "lyric").text = line
 
     utilities.log(True, etree.tostring(xml, encoding='UTF-8', pretty_print=True,
-                                       xml_declaration=True))
+                                    xml_declaration=True))
     sys.exit(0)
 
 def buildVersion():
@@ -140,7 +132,7 @@ def buildVersion():
     version = etree.XML(u'<grabber></grabber>')
     etree.SubElement(version, "name").text = __title__
     etree.SubElement(version, "author").text = __author__
-    etree.SubElement(version, "command").text = 'gomaudio.py'
+    etree.SubElement(version, "command").text = 'lyricscom.py'
     etree.SubElement(version, "type").text = 'lyrics'
     etree.SubElement(version, "description").text = __description__
     etree.SubElement(version, "version").text = __version__
@@ -148,7 +140,7 @@ def buildVersion():
     etree.SubElement(version, "syncronized").text = 'True' if __syncronized__ else 'False'
 
     utilities.log(True, etree.tostring(version, encoding='UTF-8', pretty_print=True,
-                                       xml_declaration=True))
+                                    xml_declaration=True))
     sys.exit(0)
 
 def main():
@@ -204,7 +196,6 @@ def main():
     else:
         utilities.log(True, "No lyrics found for this track")
         sys.exit(1)
-
 
 if __name__ == '__main__':
     main()
