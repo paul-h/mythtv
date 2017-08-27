@@ -336,6 +336,13 @@ bool VideoOutputVDPAU::SetupDeinterlace(bool interlaced,
         return false;
 
     bool enable = interlaced;
+
+    if ( video_codec_id == kCodec_HEVC_VDPAU )
+    {
+        LOG(VB_PLAYBACK, LOG_INFO, LOC + "Disabled deinterlacing for HEVC/H.265");
+        enable = false;
+    }
+
     if (enable)
     {
         m_deintfiltername = db_vdisp_profile->GetFilteredDeint(override);
@@ -652,6 +659,12 @@ void VideoOutputVDPAU::DrawSlice(VideoFrame *frame, int /* x */, int /* y */, in
             case kCodec_VC1_VDPAU:
                 vdp_decoder_profile = VDP_DECODER_PROFILE_VC1_ADVANCED;
                 break;
+#ifdef VDP_DECODER_PROFILE_HEVC_MAIN
+            case kCodec_HEVC_VDPAU:
+                vdp_decoder_profile = VDP_DECODER_PROFILE_HEVC_MAIN;
+                max_refs = 16;
+                break;
+#endif
             default:
                 LOG(VB_GENERAL, LOG_ERR, LOC +
                     "Codec is not supported.");

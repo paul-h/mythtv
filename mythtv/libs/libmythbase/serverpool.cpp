@@ -66,7 +66,7 @@ void PrivTcpServer::incomingConnection(qt_socket_fd_t socket)
 
 ServerPool::ServerPool(QObject *parent) : QObject(parent),
     m_listening(false), m_maxPendingConn(30), m_port(0),
-    m_proxy(QNetworkProxy::DefaultProxy), m_lastUdpSocket(NULL)
+    m_proxy(QNetworkProxy::NoProxy), m_lastUdpSocket(NULL)
 {
 }
 
@@ -422,8 +422,6 @@ bool ServerPool::listen(QList<QHostAddress> addrs, quint16 port,
                     .arg(PRETTYIP(it)).arg(port));
             if (servertype == kTCPServer)
                 m_tcpServers.append(server);
-            else
-
             if (m_port == 0)
                 m_port = server->serverPort();
         }
@@ -451,8 +449,7 @@ bool ServerPool::listen(QList<QHostAddress> addrs, quint16 port,
                  && it->protocol() == QAbstractSocket::IPv4Protocol)
             {
                 LOG(VB_GENERAL, LOG_INFO,
-                    QString("No IPv4 support on this system. Disabling MythTV IPv4."));
-                 gCoreContext->OverrideSettingForSession("IPv4Support", "0");
+                    QString("IPv4 support failed for this port."));
                  continue;
             }
 
@@ -460,8 +457,7 @@ bool ServerPool::listen(QList<QHostAddress> addrs, quint16 port,
                  && it->protocol() == QAbstractSocket::IPv6Protocol)
             {
                 LOG(VB_GENERAL, LOG_INFO,
-                    QString("No IPv6 support on this system. Disabling MythTV IPv6."));
-                 gCoreContext->OverrideSettingForSession("IPv6Support", "0");
+                    QString("IPv6 support failed for this port."));
                  continue;
             }
 

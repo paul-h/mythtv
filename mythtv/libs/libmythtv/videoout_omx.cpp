@@ -83,9 +83,7 @@ using namespace omxcontext;
  * Types
  */
 #ifdef OSD_EGL
-typedef MythRenderOpenGL2ES MythRenderBase;
-
-class MythRenderEGL : public MythRenderBase
+class MythRenderEGL : public MythRenderOpenGL2ES
 {
     // No copying
     MythRenderEGL(MythRenderEGL&);
@@ -104,7 +102,7 @@ class MythRenderEGL : public MythRenderBase
 #endif
 
   protected:
-    virtual ~MythRenderEGL(); // Use MythRenderBase::DecrRef to delete
+    virtual ~MythRenderEGL(); // Use MythRenderOpenGL2ES::DecrRef to delete
 
     EGLNativeWindowType createNativeWindow();
     void destroyNativeWindow();
@@ -884,10 +882,14 @@ void VideoOutputOMX::Show(FrameScanType scan)
 
     hdr->nFilledLen = frame->offsets[2] + (frame->offsets[1] >> 2);
     hdr->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
+#ifdef OMX_BUFFERFLAG_INTERLACED
     if (frame->interlaced_frame)
         hdr->nFlags |= OMX_BUFFERFLAG_INTERLACED;
+#endif
+#ifdef OMX_BUFFERFLAG_TOP_FIELD_FIRST
     if (frame->top_field_first)
         hdr->nFlags |= OMX_BUFFERFLAG_TOP_FIELD_FIRST;
+#endif
     OMXComponent &cmpnt = m_imagefx.IsValid() ? m_imagefx : m_render;
     // Paused - do not display anything unless softblend set
     if (m_videoPaused && GetOSDRenderer() != "softblend")
@@ -1431,7 +1433,7 @@ OMX_ERRORTYPE VideoOutputOMX::FreeBuffersCB()
 
 #ifdef OSD_EGL
 MythRenderEGL::MythRenderEGL() :
-    MythRenderBase(MythRenderFormat()),
+    MythRenderOpenGL2ES(MythRenderFormat()),
     m_display(EGL_NO_DISPLAY),
     m_context(EGL_NO_CONTEXT),
     m_window(0),
