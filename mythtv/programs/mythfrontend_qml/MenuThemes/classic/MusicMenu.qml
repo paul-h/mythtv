@@ -9,7 +9,7 @@ ListModel
     ListElement
     {
         menutext: "Play Music"
-        loaderSource:"playmusic.qml"
+        loaderSource:"MusicPlayer.qml"
         waterMark: "watermark/music.png"
     }
     ListElement

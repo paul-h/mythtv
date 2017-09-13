@@ -29,7 +29,7 @@ ListModel
     ListElement
     {
         menutext: "Internet Video"
-        loaderSource: "TestPage.qml"
+        loaderSource: "PictureByPicture.qml"
         waterMark: "watermark/tv.png"
     }
     ListElement

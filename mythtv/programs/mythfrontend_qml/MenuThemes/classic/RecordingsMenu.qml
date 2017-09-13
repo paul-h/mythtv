@@ -9,7 +9,7 @@ ListModel
     ListElement
     {
         menutext: "Watch TV"
-        loaderSource:"PictureByPicture.qml"
+        loaderSource:"InternalPlayer.qml"
         waterMark: "watermark/tv.png"
     }
     ListElement
