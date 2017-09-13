@@ -20,18 +20,6 @@ BaseScreen
         showTicker(false);
         showVideo(false);
 
-//         player1.playlist.addWithOptions("v4l2:///dev/video0",
-//                                         [":input-slave=alsa://hw:1,0",
-//                                         ":v4l2-width=1280",
-//                                         ":v4l2-height=720",
-//                                         ":v4l2-aspect-ratio=16:9",
-//                                         ":v4l2-fps=50"
-//                                         ]);
-//         player1.playlist.play();
-
-        player1.source = "http://192.168.1.110:55555/BBC%20ONE%20N%20West";
-        player2.source = "http://192.168.1.110:55555/BBC%20TWO";
-
         setLayout();
     }
 
@@ -325,6 +313,14 @@ BaseScreen
                                                 ":v4l2-fps=25"
                                                ]);
                 player1.playlist.play();
+            }
+            else if (itemText == "Freeview")
+            {
+                player1.source = "http://192.168.1.110:55555/BBC%20ONE%20N%20West";
+            }
+            else if (itemText == "Freesat")
+            {
+                player2.source = "http://192.168.1.110:55555/BBC%20TWO";
             }
         }
 

@@ -193,7 +193,7 @@ BaseScreen
             var hostname = model.get(currentIndex).HostName === settings.hostName ? "localhost" : model.get(currentIndex).HostName
             var filename = "myth://" + hostname + "/" + model.get(currentIndex).FileName;
             console.log("Playing: " + filename);
-            stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source: filename }});
+            stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: filename }});
             event.accepted = true;
             returnSound.play();
         }

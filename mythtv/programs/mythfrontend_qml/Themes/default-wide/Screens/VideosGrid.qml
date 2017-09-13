@@ -139,7 +139,7 @@ BaseScreen
 
         Keys.onReturnPressed:
         {
-            stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source: settings.videoPath + model.get(currentIndex).FileName }});
+            stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: settings.videoPath + model.get(currentIndex).FileName }});
             event.accepted = true;
             returnSound.play();
         }

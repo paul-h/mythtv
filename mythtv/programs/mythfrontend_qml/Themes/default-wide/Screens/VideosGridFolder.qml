@@ -68,7 +68,7 @@ BaseScreen
             if (model.get(currentIndex, "fileIsDir"))
                 stack.push({item: Qt.resolvedUrl("VideosGridFolder.qml"), properties:{folder: model.get(currentIndex, "filePath")}});
             else
-                stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source: "file://" + model.get(currentIndex, "filePath")}});
+                stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: "file://" + model.get(currentIndex, "filePath")}});
             event.accepted = true;
             returnSound.play();
         }
