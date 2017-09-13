@@ -6,6 +6,7 @@ class Settings : public QObject
     Q_OBJECT
     Q_PROPERTY(QString themeName READ themeName WRITE setThemeName NOTIFY themeNameChanged)
     Q_PROPERTY(QString hostName READ hostName WRITE setHostName NOTIFY hostNameChanged)
+    Q_PROPERTY(QString configPath READ configPath WRITE setConfigPath NOTIFY configPathChanged)
     Q_PROPERTY(QString sharePath READ sharePath WRITE setSharePath NOTIFY sharePathChanged)
     Q_PROPERTY(QString qmlPath READ qmlPath WRITE setQmlPath NOTIFY qmlPathChanged)
     Q_PROPERTY(QString themePath READ themePath WRITE setThemePath NOTIFY themePathChanged)
@@ -29,6 +30,7 @@ class Settings : public QObject
   signals:
      void themeNameChanged(void);
      void hostNameChanged(void);
+     void configPathChanged(void);
      void sharePathChanged(void);
      void qmlPathChanged(void);
      void themePathChanged(void);
@@ -50,6 +52,9 @@ class Settings : public QObject
 
     QString hostName(void) {return m_hostName;}
     void    setHostName(const QString &hostName) {m_hostName = hostName; emit hostNameChanged();}
+
+    QString configPath(void) {return m_configPath;}
+    void    setConfigPath(const QString &configPath) {m_configPath = configPath; emit configPathChanged();}
 
     QString sharePath(void) {return m_sharePath;}
     void    setSharePath(const QString &sharePath) {m_sharePath = sharePath; emit sharePathChanged();}
@@ -93,6 +98,7 @@ class Settings : public QObject
   private:
     QString m_themeName;
     QString m_hostName;
+    QString m_configPath;
     QString m_sharePath;
     QString m_qmlPath;
     QString m_themePath;

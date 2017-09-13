@@ -124,6 +124,7 @@ int main(int argc, char *argv[])
 
     settings.setThemeName(theme);
     settings.setHostName(hostName);
+    settings.setConfigPath(QDir::homePath() + "/.mythtv/");
     settings.setSharePath(QString(SHAREPATH));
     settings.setQmlPath(QString(SHAREPATH) + "qml/Themes/" + theme + "/");
     settings.setMasterBackend(databaseUtils.getSetting("Qml_masterBackend", hostName));
