@@ -70,6 +70,8 @@ FocusScope
                      stop();
                  else if (event.key === Qt.Key_P)
                      togglePaused();
+                 else if (event.key === Qt.Key_S)
+                     takeSnapshot(settings.configPath + "snapshot.png");
                  else if (event.key === Qt.Key_BracketLeft)
                      changeVolume(-1.0);
                  else if (event.key === Qt.Key_BracketRight)
@@ -257,5 +259,13 @@ FocusScope
             mediaplayer.video.deinterlace.enable(videoSurface.deinterlacers[videoSurface.currentDeinterlacer])
         else
             mediaplayer.video.deinterlace.disable()
+    }
+
+    function takeSnapshot(filename)
+    {
+        videoSurface.grabToImage(function(result)
+                                 {
+                                     result.saveToFile(filename);
+                                 });
     }
 }
