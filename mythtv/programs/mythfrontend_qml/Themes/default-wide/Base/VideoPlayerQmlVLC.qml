@@ -74,7 +74,7 @@ FocusScope
                      changeVolume(-1.0);
                  else if (event.key === Qt.Key_BracketRight)
                      changeVolume(1.0);
-                 else if (event.key === Qt.Key_M)
+                 else if (event.key === Qt.Key_F11)
                      toggleMute();
                  else if (event.key === Qt.Key_D)
                      toggleInterlacer();
