@@ -79,7 +79,7 @@ BaseScreen
         {
             dbUtils.setSetting("Qml_radioPlayerBookmark", settings.hostName, mrl)
         }
-     }
+    }
 
     BaseBackground
     {
