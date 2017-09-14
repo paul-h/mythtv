@@ -152,6 +152,9 @@ int main(int argc, char *argv[])
     QString menuTheme = "classic"; // just use this for now
     settings.setMenuPath(QString(SHAREPATH) + "qml/MenuThemes/" + menuTheme + "/");
 
+    // show text borders debug flag
+    settings.setShowTextBorder(false);
+
     engine.rootContext()->setContextProperty("settings", &settings);
 
     // create the myth utils
