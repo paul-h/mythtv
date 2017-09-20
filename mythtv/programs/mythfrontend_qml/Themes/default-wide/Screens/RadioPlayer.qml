@@ -39,7 +39,7 @@ BaseScreen
     {
         id: streamPlayer
 
-        onTimeChanged: if (trackArtistTitle != undefined && trackArtistTitle == playedModel.get(0).trackArtistTitle) playedModel.get(0).length = time - trackStart;
+        onTimeChanged: if (trackArtistTitle != undefined && playedModel.get(0) != undefined && trackArtistTitle == playedModel.get(0).trackArtistTitle) playedModel.get(0).length = time - trackStart;
 
         Component.onCompleted:
         {
