@@ -207,10 +207,11 @@ static myth_version_t myth_version_25 = { "0.25", 72, "D78EFD6F" };
 static myth_version_t myth_version_26 = { "0.26", 75, "SweetRock" };
 static myth_version_t myth_version_27 = { "0.27", 77, "WindMark" };
 static myth_version_t myth_version_28 = { "0.28", 88, "XmasGift" };
-static myth_version_t myth_version_29 = { "0.29", 91, "BuzzOff" };
+static myth_version_t myth_version_29 = { "29.0", 91, "BuzzOff" };
+static myth_version_t myth_version_30 = { "30.0", 91, "BuzzOff" };
 
 static myth_version_t *myth_versions[] = {
-    &myth_version_24, &myth_version_25, &myth_version_26, &myth_version_27, &myth_version_28, &myth_version_29 };
+    &myth_version_24, &myth_version_25, &myth_version_26, &myth_version_27, &myth_version_28, &myth_version_29, &myth_version_30 };
 
 
 
@@ -448,7 +449,7 @@ static int myth_Connect( vlc_object_t *p_access, myth_sys_t *p_sys, vlc_url_t* u
 {
     char *psz_params;
     int i_len;
-    myth_version_t* version = &myth_version_29;
+    myth_version_t* version = &myth_version_30;
 
     for ( int i = 0; i < 2; i++ )
     {
@@ -607,7 +608,7 @@ static myth_recording_t ParseRecording( myth_version_t* version, char* psz_param
         recording.i_fileSize = atoll( myth_token( psz_params, i_len, i_offset + 11 ) );
         recording.psz_urlBase = myth_token( psz_params, i_len, i_offset + 10 );
     }
-    else if ( version == &myth_version_28 || version == &myth_version_29 )
+    else if ( version == &myth_version_28 || version == &myth_version_29 || version == &myth_version_30)
     {
         recording.psz_title = myth_token( psz_params, i_len, i_offset + 0 );
         recording.psz_subtitle = myth_token( psz_params, i_len, i_offset + 1 );
@@ -700,7 +701,7 @@ static int InitialiseCommandConnection( vlc_object_t *p_access, access_sys_t *p_
         {
             psz_url = myth_token( psz_params, i_len, i_offset + 10 );
         }
-        else if ( p_sys->myth.version == &myth_version_28 || p_sys->myth.version == &myth_version_29 )
+        else if ( p_sys->myth.version == &myth_version_28 || p_sys->myth.version == &myth_version_29 || p_sys->myth.version == &myth_version_30)
         {
             psz_url = myth_token( psz_params, i_len, i_offset + 12 );
         }
@@ -983,7 +984,7 @@ static ssize_t Read( access_t *p_access, uint8_t *p_buffer, size_t i_len )
             {
                 i_newsize = atoll( myth_token( psz_params, i_plen, 1 + 11 ) );
             }
-            else if ( p_sys->myth.version == &myth_version_28 || p_sys->myth.version == &myth_version_29 )
+            else if ( p_sys->myth.version == &myth_version_28 || p_sys->myth.version == &myth_version_29 || p_sys->myth.version == &myth_version_30)
             {
                 i_newsize = atoll( myth_token( psz_params, i_plen, 1 + 13 ) );
             }
