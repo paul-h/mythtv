@@ -37,6 +37,13 @@ BaseScreen
         }
     }
 
+    InfoText
+    {
+        x: xscale(1050); y: yscale(5); width: xscale(200);
+        text: (videoList.currentIndex + 1) + " of " + videoList.model.count;
+        horizontalAlignment: Text.AlignRight
+    }
+
     Component
     {
         id: listRow
@@ -83,7 +90,8 @@ BaseScreen
         focus: true
         clip: true
 
-        FolderListModel {
+        FolderListModel
+        {
             id: folderModel
             folder: settings.videoPath
             nameFilters: ["*.mp4", "*.flv"]
