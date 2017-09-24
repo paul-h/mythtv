@@ -9,8 +9,8 @@ BaseScreen
 
     Component.onCompleted:
     {
-        showTitle(false, "");
-        showTime(false);
+        showTitle(true, "LiveTV");
+        showTime(true);
         showTicker(false);
         showVideo(true);
     }
@@ -20,53 +20,57 @@ BaseScreen
     Rectangle
     {
         id: player1Rect
-        x: 0; y: yscale(20); width: xscale(640); height: yscale(357)
+        x: 0; y: yscale(50); width: xscale(640); height: yscale(357)
         color: "black"
         border.color: "white"
         border.width: xscale(4)
 
         VideoPlayerQmlVLC
         {
-            id: video1player;
+            id: video1player
+            anchors.fill: parent
             anchors.margins: xscale(4)
-            onFocusChanged: focusedPlayerChanged();
+            onFocusChanged: focusedPlayerChanged()
+            visible: true
         }
 
         MouseArea
         {
             id: play1Area
             anchors.fill: parent
-            onPressed: video1player.mute = !video1player.mute;
+            onPressed: video1player.mute = !video1player.mute
         }
 
-        KeyNavigation.up: video2player;
-        KeyNavigation.down: channelList;
+        KeyNavigation.up: video2player
+        KeyNavigation.down: channelList
     }
 
     Rectangle
     {
         id: player2Rect
-        x: xscale(640); y: yscale(20); width: xscale(640); height: yscale(357)
+        x: xscale(640); y: yscale(50); width: xscale(640); height: yscale(357)
         color: "black"
         border.color: "white"
         border.width: xscale(4)
 
         VideoPlayerQmlVLC
         {
-            id: video2player;
+            id: video2player
+            anchors.fill: parent
             anchors.margins: xscale(4)
-            onFocusChanged: focusedPlayerChanged();
+            onFocusChanged: focusedPlayerChanged()
+            visible: true
         }
 
         MouseArea
         {
             id: play2Area
             anchors.fill: parent
-            onPressed: video2player.mute = !video2player.mute;
+            onPressed: video2player.mute = !video2player.mute
         }
 
-        KeyNavigation.up: video1player;
-        KeyNavigation.down: channelList;
+        KeyNavigation.up: video1player
+        KeyNavigation.down: channelList
     }
 
     Component
@@ -82,29 +86,14 @@ BaseScreen
                id: channelImage
                x: xscale(3); y: yscale(3); height: parent.height - yscale(6); width: height
                // FIXME: need to get the channel icon here
-               source: "images/grid_noimage.png"
+               source: mythUtils.findThemeFile("images/grid_noimage.png")
             }
-            Text
+            ListText
             {
                 width:channelList.width; height: yscale(50)
-                x: channelImage.width + xscale(5)
+                x: channelImage.width + xscale(10)
                 text: name + " ~ " + type + " ~ " + lcn + " ~ " + url
-
             }
-        }
-    }
-
-    Component
-    {
-        id: listHighlight
-
-        Rectangle
-        {
-            width:channelList.width; height: xscale(50)
-            color: "green"
-            opacity: 0.3
-            radius: xscale(15)
-            border.color: "#dd00ff00"
         }
     }
 
@@ -117,13 +106,13 @@ BaseScreen
     ListView
     {
         id: channelList
-        x: xscale(100); y: yscale(400); width: xscale(1000); height: yscale(300)
+        x: xscale(50); y: yscale(440); width: xscale(1080); height: yscale(200)
 
         focus: true
         clip: true
         model: vboxChannelsModel
         delegate: listRow
-        highlight: listHighlight
+        highlight: ListHighlight {}
 
         Keys.onPressed:
         {
