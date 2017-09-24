@@ -71,7 +71,12 @@ FocusScope
                  else if (event.key === Qt.Key_P)
                      togglePaused();
                  else if (event.key === Qt.Key_S)
-                     takeSnapshot(settings.configPath + "snapshot.png");
+                 {
+                     if (mediaplayer.mrl.indexOf("file://") == 0)
+                        takeSnapshot(mediaplayer.mrl.substring(7, mediaplayer.mrl.length) + ".png");
+                     else
+                        takeSnapshot(settings.configPath + "snapshot.png");
+                 }
                  else if (event.key === Qt.Key_BracketLeft)
                      changeVolume(-1.0);
                  else if (event.key === Qt.Key_BracketRight)
@@ -263,6 +268,7 @@ FocusScope
 
     function takeSnapshot(filename)
     {
+        console.log("saving snapshot to: " + filename);
         videoSurface.grabToImage(function(result)
                                  {
                                      result.saveToFile(filename);
