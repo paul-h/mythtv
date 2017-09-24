@@ -94,7 +94,7 @@ BaseScreen
         {
             id: folderModel
             folder: settings.videoPath
-            nameFilters: ["*.mp4", "*.flv"]
+            nameFilters: ["*.mp4", "*.flv", "*.mp2", "*.wmv", "*.avi", "*.mkv", "*.mpg"]
         }
 
         model: folderModel
