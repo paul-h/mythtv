@@ -124,7 +124,7 @@ ApplicationWindow
                 settings.showTextBorder = ! settings.showTextBorder;
                 console.log("showTextBorder: " + settings.showTextBorder);
             }
-            else if (event.key === Qt.Key_F11)
+            else if (event.key === Qt.Key_F10)
             {
                 if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
             }
