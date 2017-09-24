@@ -21,6 +21,22 @@ BaseScreen
         x: xscale(15); y: yscale(50); width: xscale(1250); height: yscale(655)
     }
 
+    Image
+    {
+        id: coverImageBG
+        x: 0; y: 0; height: parent.height; width: parent.width
+        asynchronous: true
+        source:
+        {
+            if (videoList.model.get(videoList.currentIndex, "fileIsDir"))
+                return "";
+            else
+            {
+                return mythUtils.findThemeFile(videoList.model.get(videoList.currentIndex, "filePath") + ".png");
+            }
+        }
+    }
+
     Component
     {
         id: listRow
@@ -33,7 +49,21 @@ BaseScreen
             {
                 id: coverImage
                 x: xscale(13); y: yscale(3); height: parent.height - yscale(6); width: height
-                source: fileIsDir ? mythUtils.findThemeFile("images/directory.png") : mythUtils.findThemeFile("images/grid_noimage.png")
+                asynchronous: true
+                source:
+                {
+                    if (fileIsDir)
+                        mythUtils.findThemeFile("images/directory.png");
+                    else
+                    {
+                        var result = mythUtils.findThemeFile(filePath + ".png");
+
+                        if (result == "")
+                            result = mythUtils.findThemeFile("images/grid_noimage.png");
+
+                        return result;
+                    }
+                }
             }
             InfoText
             {
