@@ -12,6 +12,8 @@ BaseScreen
         showTime(false);
         showTicker(false);
         screenBackground.muteAudio(true);
+
+        videoplayer.source = "http://192.168.1.110:55555/Film4";
     }
 
     Component.onDestruction:
@@ -28,6 +30,14 @@ BaseScreen
             console.log("MENU pressed");
             popupMenu.show();
         }
+        else if (event.key === Qt.Key_V)
+        {
+            videoplayer.playlist.clear();
+            var mrl = mrlEdit.text;
+            var options = optionsEdit.text.split("\n");
+            videoplayer.playlist.addWithOptions(mrl, options);
+            videoplayer.playlist.play();
+        }
     }
 
     Rectangle
@@ -43,8 +53,8 @@ BaseScreen
         VideoPlayerQmlVLC
         {
             id: videoplayer;
+            anchors.fill: parent
             anchors.margins: xscale(4)
-            source: settings.hdmiEncoder
 
             onFocusChanged:
             {
@@ -447,31 +457,49 @@ BaseScreen
     BaseButton
     {
         id: button2;
-        x: xscale(400); y: yscale(100); width: xscale(400);
+        x: xscale(400); y: yscale(500); width: xscale(400);
         text: "Another Button";
         KeyNavigation.left: button1;
         KeyNavigation.right: videoplayer;
-        KeyNavigation.down: edit1;
+        KeyNavigation.down: mrlEdit;
         onClicked: console.log("button 2 clicked");
     }
 
     BaseEdit
     {
-        id: edit1
-        x: xscale(400); y: yscale(160); width: xscale(400);
-        text: "Some Edit Text";
+        id: mrlEdit
+        x: xscale(400); y: yscale(20); width: xscale(400);
+        text: "http://192.168.1.110:55555/Film4";
         KeyNavigation.left: button1;
         KeyNavigation.right: videoplayer;
+        KeyNavigation.down: optionsEdit;
+        onTextHasChanged:
+        {
+            console.log("text is now: " + text);
+        }
+    }
+
+    BaseMultilineEdit
+    {
+        id: optionsEdit
+        x: xscale(400); y: yscale(75); width: xscale(400); height: yscale(170)
+        text: "";
+        KeyNavigation.left: button1;
+        KeyNavigation.right: videoplayer;
+        KeyNavigation.up: mrlEdit;
         KeyNavigation.down: checkbox1;
-        onTextHasChanged: console.log("text is now: " + text);
+        onTextHasChanged:
+        {
+            console.log("text is now: " + text);
+        }
     }
 
     BaseCheckBox
     {
         id: checkbox1
-        x: xscale(400); y: yscale(215)
+        x: xscale(100); y: yscale(215)
         checked: true
-        KeyNavigation.left: edit1;
+        KeyNavigation.left: optionsEdit;
         KeyNavigation.right: videoplayer;
         KeyNavigation.down: list;
         onChanged: console.log("check is now: " + checked);
