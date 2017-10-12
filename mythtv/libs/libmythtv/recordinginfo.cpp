@@ -147,8 +147,8 @@ RecordingInfo::RecordingInfo(
 
     findid = _findid;
 
-    properties = ((_subtitleType    << 11) |
-                  (_videoproperties << 6)  |
+    properties = ((_subtitleType    << kSubtitlePropertyOffset) |
+                  (_videoproperties << kVideoPropertyOffset)  |
                   _audioproperties);
 
     if (recstartts >= recendts)
@@ -1344,8 +1344,13 @@ void RecordingInfo::DeleteHistory(void)
 void RecordingInfo::ForgetHistory(void)
 {
     uint erecid = parentid ? parentid : recordid;
-    uint din = dupin ? dupin : kDupsInAll;
-    uint dmeth = dupmethod ? dupmethod : kDupCheckSubThenDesc;
+    uint din = dupin;
+    uint dmeth = dupmethod;
+
+    if (din == kDupsUnset)
+        din = kDupsInAll;
+    if (dmeth == kDupCheckUnset)
+        dmeth = kDupCheckSubThenDesc;
 
     MSqlQuery result(MSqlQuery::InitCon());
 

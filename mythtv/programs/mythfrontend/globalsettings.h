@@ -192,6 +192,8 @@ class PlaybackProfileItemConfig : public GroupSetting
     void IncreasePriority(void);
 
   private slots:
+    void widthChanged(const QString &dec);
+    void heightChanged(const QString &dec);
     void framerateChanged(const QString &dec);
     void decoderChanged(const QString &dec);
     void vrenderChanged(const QString &renderer);
@@ -203,9 +205,6 @@ class PlaybackProfileItemConfig : public GroupSetting
 
   private:
     ProfileItem          &item;
-    TransMythUIComboBoxSetting *cmp[2];
-    TransMythUISpinBoxSetting  *width[2];
-    TransMythUISpinBoxSetting  *height[2];
     TransTextEditSetting      *width_range;
     TransTextEditSetting      *height_range;
     MythUIComboBoxSetting      *codecs;
@@ -269,8 +268,6 @@ class ChannelGroupSetting : public GroupSetting
   private:
     int m_groupId;
     TransTextEditSetting       *m_groupName;
-    TransMythUICheckBoxSetting *m_markForDeletion;
-
 };
 
 class ChannelGroupsSetting : public GroupSetting

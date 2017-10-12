@@ -507,7 +507,7 @@ QString CardUtil::ProbeDVBType(const QString &device)
     int fd_frontend = open(dev.constData(), O_RDWR | O_NONBLOCK);
     if (fd_frontend < 0)
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("Can't open DVB frontend (%1) for %2.")
+        LOG(VB_GENERAL, LOG_ERR, QString("Can't open DVB frontend (%1) for %2." + ENO)
                 .arg(dvbdev).arg(device));
         return ret;
     }
@@ -522,7 +522,6 @@ QString CardUtil::ProbeDVBType(const QString &device)
                                          .arg(dvbdev) + ENO);
         return ret;
     }
-    close(fd_frontend);
 
     DTVTunerType type(info.type);
 #if HAVE_FE_CAN_2G_MODULATION
@@ -534,6 +533,39 @@ QString CardUtil::ProbeDVBType(const QString &device)
             type = DTVTunerType::kTunerTypeDVBT2;
     }
 #endif // HAVE_FE_CAN_2G_MODULATION
+
+#if DVB_API_VERSION >=5
+    unsigned int i;
+    struct dtv_property prop;
+    struct dtv_properties cmd;
+
+    memset(&prop, 0, sizeof(prop));
+    prop.cmd = DTV_ENUM_DELSYS;
+    cmd.num = 1;
+    cmd.props = &prop;
+
+    if (ioctl(fd_frontend, FE_GET_PROPERTY, &cmd) == 0)
+    {
+        for (i = 0; i < prop.u.buffer.len; i++)
+        {
+            switch (prop.u.buffer.data[i])
+            {
+                // TODO: not supported. you can have DVBC and DVBT on the same card
+                // The following are backwards compatible so its ok
+                case SYS_DVBS2:
+                    type = DTVTunerType::kTunerTypeDVBS2;
+                    break;
+                case SYS_DVBT2:
+                    type = DTVTunerType::kTunerTypeDVBT2;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+#endif
+    close(fd_frontend);
+
     ret = (type.toString() != "UNKNOWN") ? type.toString().toUpper() : ret;
 #endif // USING_DVB
 
@@ -1146,13 +1178,16 @@ uint CardUtil::GetSourceID(uint inputid)
     return 0;
 }
 
+// Is this intentionally leaving out the hostname when updating the
+// capturecard table? The hostname value does get set when inserting
+// into the capturecard table. (Code written in 2011.)
 int CardUtil::CreateCardInput(const uint inputid,
                               const uint sourceid,
                               const QString &inputname,
                               const QString &externalcommand,
                               const QString &changer_device,
                               const QString &changer_model,
-                              const QString &hostname,
+                              const QString &/*hostname*/,
                               const QString &tunechan,
                               const QString &startchan,
                               const QString &displayname,
@@ -1855,7 +1890,6 @@ QString CardUtil::GetDeviceLabel(uint inputid)
 }
 
 void CardUtil::GetDeviceInputNames(
-    uint                inputid,
     const QString      &device,
     const QString      &inputtype,
     QStringList        &inputs)
@@ -2447,7 +2481,8 @@ bool CardUtil::SetASIMode(uint device_num, uint mode, QString *error)
     }
     return ok;
 #else
-    (void) device_num;
+    Q_UNUSED(device_num);
+    Q_UNUSED(mode);
     if (error)
         *error = "Not compiled with ASI support.";
     return false;
