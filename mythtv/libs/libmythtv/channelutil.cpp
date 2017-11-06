@@ -1867,7 +1867,6 @@ bool ChannelUtil::GetChannelData(
     commfree      = false;
 
     int found = 0;
-    int id = -1;
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
         "SELECT finetune, freqid, tvformat, freqtable, "
@@ -1890,7 +1889,7 @@ bool ChannelUtil::GetChannelData(
     while (query.next())
     {
         found += query.value(10).toInt();
-        if (id == -1 || found)
+        if (found)
         {
             finetune      = query.value(0).toInt();
             freqid        = query.value(1).toString();

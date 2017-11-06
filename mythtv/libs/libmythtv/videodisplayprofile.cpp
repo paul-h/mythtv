@@ -174,11 +174,10 @@ bool ProfileItem::IsMatch(const QSize &size,
     // codec
     cmp = Get(QString("cond_codecs"));
     if (!cmp.isEmpty())
-        cmp.replace(QLatin1String(" "),QLatin1String(""));
-    if (!cmp.isEmpty())
     {
         QStringList clist = cmp.split(" ", QString::SkipEmptyParts);
-        match &= clist.contains(codecName,Qt::CaseInsensitive);
+        if (clist.size() > 0)
+            match &= clist.contains(codecName,Qt::CaseInsensitive);
     }
 
     return match;
@@ -782,7 +781,7 @@ bool VideoDisplayProfile::SaveDB(uint groupid, item_list_t &items)
                     sqldelete.bindValue(":VALUE",     lit.key());
                     if (!sqldelete.exec())
                     {
-                        MythDB::DBError("save_profile 5a", update);
+                        MythDB::DBError("save_profile 5a", sqldelete);
                         ok = false;
                         continue;
                     }

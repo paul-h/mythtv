@@ -68,7 +68,7 @@ MythRAOPConnection::MythRAOPConnection(QObject *parent, QTcpSocket *socket,
     m_dataSocket(NULL),                              m_dataPort(port),
     m_clientControlSocket(NULL),                     m_clientControlPort(0),
     m_clientTimingSocket(NULL),                      m_clientTimingPort(0),
-    m_eventServer(NULL),
+    m_eventServer(NULL),                             m_eventPort(-1),
     m_audio(NULL),         m_codec(NULL),            m_codeccontext(NULL),
     m_channels(2),         m_sampleSize(16),         m_frameRate(44100),
     m_framesPerPacket(352),m_dequeueAudioTimer(NULL),
@@ -88,6 +88,7 @@ MythRAOPConnection::MythRAOPConnection(QObject *parent, QTcpSocket *socket,
     m_firstsend(false),    m_playbackStarted(false)
 {
     m_id = GetNotificationCenter()->Register(this);
+    memset(&m_aesKey, 0, sizeof(m_aesKey));
 }
 
 MythRAOPConnection::~MythRAOPConnection()
@@ -244,8 +245,8 @@ bool MythRAOPConnection::Init(void)
  * Socket incoming data signal handler
  * use for audio, control and timing socket
  */
-void MythRAOPConnection::udpDataReady(QByteArray buf, QHostAddress peer,
-                                      quint16 port)
+void MythRAOPConnection::udpDataReady(QByteArray buf, QHostAddress /*peer*/,
+                                      quint16 /*port*/)
 {
     // restart the idle timer
     if (m_watchdogTimer)
@@ -345,6 +346,7 @@ void MythRAOPConnection::udpDataReady(QByteArray buf, QHostAddress peer,
         // an error occurred, ask for the audio packet once again.
         LOG(VB_PLAYBACK, LOG_ERR, LOC + QString("Error decoding audio"));
         SendResendRequest(timestamp, seq, seq+1);
+        delete decoded;
         return;
     }
     AudioPacket frames;
@@ -389,7 +391,7 @@ void MythRAOPConnection::ProcessSync(const QByteArray &buf)
     LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("SYNC: cur:%1 next:%2 time:%3")
         .arg(m_currentTimestamp).arg(m_nextTimestamp).arg(m_timeLastSync));
 
-    int64_t delay = framesToMs(m_audioQueue.size() * m_framesPerPacket);
+    int64_t delay = framesToMs((uint64_t)m_audioQueue.size() * m_framesPerPacket);
     int64_t audiots = m_audio->GetAudiotime();
     int64_t currentLatency = 0LL;
 
@@ -699,7 +701,7 @@ void MythRAOPConnection::ProcessAudio()
 
     // Also make sure m_audioQueue never goes to less than 1/3 of the RDP stream
     // total latency, this should gives us enough time to receive missed packets
-    int64_t queue = framesToMs(m_audioQueue.size() * m_framesPerPacket);
+    int64_t queue = framesToMs((uint64_t)m_audioQueue.size() * m_framesPerPacket);
     if (queue < m_bufferLength / 3)
         return;
 
@@ -923,8 +925,8 @@ void MythRAOPConnection::ProcessRequest(const QStringList &header,
 
     // process RTP-info field
     bool gotRTP = false;
-    uint16_t RTPseq;
-    uint64_t RTPtimestamp;
+    uint16_t RTPseq = 0;
+    uint64_t RTPtimestamp = 0;
     if (tags.contains("RTP-Info"))
     {
         gotRTP = true;

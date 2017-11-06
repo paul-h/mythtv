@@ -56,6 +56,8 @@ static const int fDefault = fReverseSort;
 PrevRecordedList::PrevRecordedList(MythScreenStack *parent, uint recid,
     const QString &title) :
     ScheduleCommon(parent,"PrevRecordedList"),
+    m_titleList(NULL),
+    m_showList(NULL),
     m_curviewText(NULL),
     m_help1Text(NULL),
     m_help2Text(NULL),
@@ -63,7 +65,8 @@ PrevRecordedList::PrevRecordedList(MythScreenStack *parent, uint recid,
     m_reverseSort(false),
     m_allowEvents(true),
     m_recid(recid),
-    m_title(title)
+    m_title(title),
+    m_loadShows(false)
 {
 
     if (m_recid && !m_title.isEmpty())
@@ -129,6 +132,7 @@ bool PrevRecordedList::Create(void)
 
     BuildFocusList();
     gCoreContext->addListener(this);
+    m_loadShows = false;
     LoadInBackground();
 
     return true;
@@ -150,13 +154,24 @@ void PrevRecordedList::Init(void)
     updateInfo();
 }
 
+// When m_loadShows is false we are loading the left hand
+// button list, when it is true the right hand.
 void PrevRecordedList::Load(void)
 {
-    if (m_titleGroup)
-        LoadTitles();
+    if (m_loadShows)
+    {
+        if (m_titleGroup)
+            LoadShowsByTitle();
+        else
+            LoadShowsByDate();
+    }
     else
-        LoadDates();
-
+    {
+        if (m_titleGroup)
+            LoadTitles();
+        else
+            LoadDates();
+    }
     ScreenLoadCompletionEvent *slce =
         new ScreenLoadCompletionEvent(objectName());
     QCoreApplication::postEvent(this, slce);
@@ -392,11 +407,8 @@ void PrevRecordedList::showListLoseFocus(void)
 
 void PrevRecordedList::showListTakeFocus(void)
 {
-    if (m_titleGroup)
-        LoadShowsByTitle();
-    else
-        LoadShowsByDate();
-    UpdateShowList();
+    m_loadShows = true;
+    LoadInBackground();
 }
 
 void PrevRecordedList::LoadShowsByTitle(void)
@@ -516,7 +528,10 @@ bool PrevRecordedList::keyPressEvent(QKeyEvent *e)
         handled = true;
 
     if (needUpdate)
+    {
+        m_loadShows = false;
         LoadInBackground();
+    }
 
     m_allowEvents = true;
 
@@ -672,17 +687,29 @@ void PrevRecordedList::customEvent(QEvent *event)
 
         if (id == objectName())
         {
-            CloseBusyPopup(); // opened by LoadInBackground()
-            UpdateTitleList();
-            m_showData.clear();
-            m_showList->Reset();
-            updateInfo();
-            SetFocusWidget(m_titleList);
+            // CloseBusyPopup(); // opened by LoadInBackground()
+            if (m_loadShows)
+            {
+                UpdateShowList();
+                CloseBusyPopup(); // opened by LoadInBackground()
+            }
+            else
+            {
+                UpdateTitleList();
+                m_showData.clear();
+                m_showList->Reset();
+                updateInfo();
+                CloseBusyPopup(); // opened by LoadInBackground()
+                SetFocusWidget(m_titleList);
+            }
         }
     }
 
     if (needUpdate)
+    {
+        m_loadShows = false;
         LoadInBackground();
+    }
 }
 
 void PrevRecordedList::AllowRecord(void)
