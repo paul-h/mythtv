@@ -43,15 +43,10 @@ class SERVICE_PUBLIC TitleInfoList : public QObject
             : QObject( parent )               
         {
         }
-        
-        TitleInfoList( const TitleInfoList &src ) 
-        {
-            Copy( src );
-        }
 
-        void Copy( const TitleInfoList &src )
+        void Copy( const TitleInfoList *src )
         {
-            CopyListContents< TitleInfo >( this, m_TitleInfos, src.m_TitleInfos );
+            CopyListContents< TitleInfo >( this, m_TitleInfos, src->m_TitleInfos );
         }
 
         TitleInfo *AddNewTitleInfo()
@@ -65,22 +60,17 @@ class SERVICE_PUBLIC TitleInfoList : public QObject
             return pObject;
         }
 
+    private:
+        Q_DISABLE_COPY(TitleInfoList);
 };
 
-} // namespace DTC
-
-Q_DECLARE_METATYPE( DTC::TitleInfoList  )
-Q_DECLARE_METATYPE( DTC::TitleInfoList* )
-
-namespace DTC
-{
 inline void TitleInfoList::InitializeCustomTypes()
 {
-    qRegisterMetaType< TitleInfoList   >();
     qRegisterMetaType< TitleInfoList*  >();
 
     TitleInfo::InitializeCustomTypes();
 }
-}
+
+} // namespace DTC
 
 #endif

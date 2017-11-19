@@ -34,36 +34,25 @@ class SERVICE_PUBLIC Genre : public QObject
 
         static inline void InitializeCustomTypes();
 
-    public:
-
         Genre(QObject *parent = 0)
             : QObject         ( parent )
         {
         }
 
-        Genre( const Genre &src )
+        void Copy( const Genre *src )
         {
-            Copy( src );
+            m_Name          = src->m_Name          ;
         }
 
-        void Copy( const Genre &src )
-        {
-            m_Name          = src.m_Name          ;
-        }
+    private:
+        Q_DISABLE_COPY(Genre);
 };
 
-} // namespace DTC
-
-Q_DECLARE_METATYPE( DTC::Genre  )
-Q_DECLARE_METATYPE( DTC::Genre* )
-
-namespace DTC
-{
 inline void Genre::InitializeCustomTypes()
 {
-    qRegisterMetaType< Genre  >();
     qRegisterMetaType< Genre* >();
 }
-}
+
+} // namespace DTC
 
 #endif

@@ -40,21 +40,14 @@ class SERVICE_PUBLIC CutList : public QObject
 
         static inline void InitializeCustomTypes();
 
-    public:
-
         CutList(QObject *parent = 0)
             : QObject         ( parent )
         {
         }
 
-        CutList( const CutList &src )
+        void Copy( const CutList *src )
         {
-            Copy( src );
-        }
-
-        void Copy( const CutList &src )
-        {
-            CopyListContents< Cutting >( this, m_Cuttings, src.m_Cuttings );
+            CopyListContents< Cutting >( this, m_Cuttings, src->m_Cuttings );
         }
 
         Cutting *AddNewCutting()
@@ -68,22 +61,17 @@ class SERVICE_PUBLIC CutList : public QObject
             return pObject;
         }
 
+    private:
+        Q_DISABLE_COPY(CutList);
 };
 
-} // namespace DTC
-
-Q_DECLARE_METATYPE( DTC::CutList  )
-Q_DECLARE_METATYPE( DTC::CutList* )
-
-namespace DTC
-{
 inline void CutList::InitializeCustomTypes()
 {
-    qRegisterMetaType< CutList  >();
     qRegisterMetaType< CutList* >();
 
     Cutting::InitializeCustomTypes();
 }
-}
+
+} // namespace DTC
 
 #endif

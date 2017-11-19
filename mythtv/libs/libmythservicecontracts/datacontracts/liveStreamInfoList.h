@@ -29,21 +29,14 @@ class SERVICE_PUBLIC LiveStreamInfoList : public QObject
 
         static inline void InitializeCustomTypes();
 
-    public:
-
         explicit LiveStreamInfoList(QObject *parent = 0)
             : QObject( parent )               
         {
         }
-        
-        LiveStreamInfoList( const LiveStreamInfoList &src ) 
-        {
-            Copy( src );
-        }
 
-        void Copy( const LiveStreamInfoList &src )
+        void Copy( const LiveStreamInfoList *src )
         {
-            CopyListContents< LiveStreamInfo >( this, m_LiveStreamInfos, src.m_LiveStreamInfos );
+            CopyListContents< LiveStreamInfo >( this, m_LiveStreamInfos, src->m_LiveStreamInfos );
         }
 
         LiveStreamInfo *AddNewLiveStreamInfo()
@@ -57,22 +50,17 @@ class SERVICE_PUBLIC LiveStreamInfoList : public QObject
             return pObject;
         }
 
+    private:
+        Q_DISABLE_COPY(LiveStreamInfoList);
 };
 
-} // namespace DTC
-
-Q_DECLARE_METATYPE( DTC::LiveStreamInfoList  )
-Q_DECLARE_METATYPE( DTC::LiveStreamInfoList* )
-
-namespace DTC
-{
 inline void LiveStreamInfoList::InitializeCustomTypes()
 {
-    qRegisterMetaType< LiveStreamInfoList   >();
     qRegisterMetaType< LiveStreamInfoList*  >();
 
     LiveStreamInfo::InitializeCustomTypes();
 }
-}
+
+} // namespace DTC
 
 #endif

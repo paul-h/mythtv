@@ -40,21 +40,14 @@ class SERVICE_PUBLIC ArtworkInfoList : public QObject
 
         static inline void InitializeCustomTypes();
 
-    public:
-
         ArtworkInfoList(QObject *parent = 0)
             : QObject         ( parent )
         {
         }
 
-        ArtworkInfoList( const ArtworkInfoList &src )
+        void Copy( const ArtworkInfoList *src )
         {
-            Copy( src );
-        }
-
-        void Copy( const ArtworkInfoList &src )
-        {
-            CopyListContents< ArtworkInfo >( this, m_ArtworkInfos, src.m_ArtworkInfos );
+            CopyListContents< ArtworkInfo >( this, m_ArtworkInfos, src->m_ArtworkInfos );
         }
 
         ArtworkInfo *AddNewArtworkInfo()
@@ -68,22 +61,17 @@ class SERVICE_PUBLIC ArtworkInfoList : public QObject
             return pObject;
         }
 
+    private:
+        Q_DISABLE_COPY(ArtworkInfoList);
 };
 
-} // namespace DTC
-
-Q_DECLARE_METATYPE( DTC::ArtworkInfoList  )
-Q_DECLARE_METATYPE( DTC::ArtworkInfoList* )
-
-namespace DTC
-{
 inline void ArtworkInfoList::InitializeCustomTypes()
 {
-    qRegisterMetaType< ArtworkInfoList  >();
     qRegisterMetaType< ArtworkInfoList* >();
 
     ArtworkInfo::InitializeCustomTypes();
 }
-}
+
+} // namespace DTC
 
 #endif
