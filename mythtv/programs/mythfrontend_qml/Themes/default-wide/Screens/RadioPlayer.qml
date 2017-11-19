@@ -371,6 +371,12 @@ BaseScreen
             changeVolume(1.00);
         else if (event.key === Qt.Key_M)
             toggleMute();
+        else if (event.key === Qt.Key_A)
+        {
+            stack.push({item: Qt.resolvedUrl("SearchRadioStreams.qml"), properties:{player: streamPlayer}});
+            event.accepted = true;
+            returnSound.play();
+        }
     }
 
     Timer {

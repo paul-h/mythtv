@@ -169,6 +169,14 @@ int main(int argc, char *argv[])
                                 "FROM music_radios ORDER BY broadcaster, channel", db);
     engine.rootContext()->setContextProperty("radioStreamsModel", radioStreamsModel);
 
+    // create the radio streams database model
+    SqlQueryModel *radioStreamsDBModel = new SqlQueryModel(&engine);
+    radioStreamsDBModel->setQuery("SELECT intid, broadcaster, channel, description, "
+                                "url1, url2, url3, url4, url5, logourl, country, "
+                                "language, genre, metaformat "
+                                "FROM music_streams ORDER BY broadcaster, channel", db);
+    engine.rootContext()->setContextProperty("radioStreamsDBModel", radioStreamsDBModel);
+
     // create the news feed model
     SqlQueryModel *rssFeedsModel = new SqlQueryModel(&engine);
     rssFeedsModel->setQuery("SELECT name, url, ico, updated, podcast FROM newssites ORDER BY name", db);
