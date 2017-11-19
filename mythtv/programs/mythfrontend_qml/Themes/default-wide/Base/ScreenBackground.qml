@@ -31,8 +31,19 @@ Item
 
     function muteAudio(mute)
     {
-        if (videoPlayer.visible && videoPlayer.mute != mute)
+        if (videoPlayer.visible && videoPlayer.getMuted != mute)
             videoPlayer.toggleMute()
+    }
+
+    function pauseVideo(pause)
+    {
+        if (videoPlayer.visible)
+        {
+            if (pause)
+                videoPlayer.pause();
+            else
+                videoPlayer.play();
+        }
     }
 
     x: 0; y : 0; width: window.width; height: window.height

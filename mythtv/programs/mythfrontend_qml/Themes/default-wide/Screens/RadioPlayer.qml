@@ -17,6 +17,7 @@ BaseScreen
         showTime(false);
         showTicker(false);
         showVideo(true);
+        muteAudio(true);
     }
 
     onTrackArtistTitleChanged:

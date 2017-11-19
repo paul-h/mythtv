@@ -54,5 +54,8 @@ Item
         screenBackground.showTicker = oldShowTicker;
         screenBackground.showTime = oldShowTime;
         screenBackground.showVideo = oldShowVideo;
+
+        if (screenBackground.showVideo)
+            muteAudio(false);
     }
 }
