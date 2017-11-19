@@ -31,8 +31,7 @@ Item
 
     function muteAudio(mute)
     {
-        if (videoPlayer.visible && videoPlayer.getMuted != mute)
-            videoPlayer.toggleMute()
+        videoPlayer.setMute(mute);
     }
 
     function pauseVideo(pause)

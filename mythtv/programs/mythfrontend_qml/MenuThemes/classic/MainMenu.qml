@@ -9,6 +9,12 @@ ListModel
 
     ListElement
     {
+        menutext: "Advent Calender"
+        loaderSource:"AdventCalender.qml"
+        waterMark: "watermark/adventcalender.jpg"
+    }
+    ListElement
+    {
         menutext: "TV"
         loaderSource:"ThemedMenu.qml"
         waterMark: "watermark/tv.png"

@@ -19,8 +19,14 @@ BaseScreen
         showTime(false);
         showTicker(false);
         showVideo(false);
+        muteAudio(true);
 
         setLayout();
+    }
+
+    Component.onDestruction:
+    {
+        muteAudio(false);
     }
 
     Keys.onEscapePressed:
@@ -139,8 +145,8 @@ BaseScreen
 
          onPlaybackEnded:
          {
-             stop();
-             stack.pop();
+             //stop();
+             //stack.pop();
          }
     }
 

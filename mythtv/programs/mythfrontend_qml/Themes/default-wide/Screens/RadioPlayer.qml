@@ -20,6 +20,11 @@ BaseScreen
         muteAudio(true);
     }
 
+    Component.onDestruction:
+    {
+        muteAudio(false);
+    }
+
     onTrackArtistTitleChanged:
     {
         var a = trackArtistTitle.split(" - ");

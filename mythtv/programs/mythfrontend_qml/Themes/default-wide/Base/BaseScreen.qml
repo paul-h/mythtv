@@ -36,6 +36,16 @@ Item
         screenBackground.showVideo = show;
     }
 
+    function muteAudio(mute)
+    {
+        screenBackground.muteAudio(mute);
+    }
+
+    function pauseVideo(pause)
+    {
+        screenBackground.pauseVideo(pause);
+    }
+
     Component.onCompleted:
     {
         oldShowTitle = screenBackground.showTitle;
@@ -54,8 +64,5 @@ Item
         screenBackground.showTicker = oldShowTicker;
         screenBackground.showTime = oldShowTime;
         screenBackground.showVideo = oldShowVideo;
-
-        if (screenBackground.showVideo)
-            muteAudio(false);
     }
 }
