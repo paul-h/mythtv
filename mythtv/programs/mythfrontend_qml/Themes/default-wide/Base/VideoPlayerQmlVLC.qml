@@ -227,6 +227,11 @@ FocusScope
         mediaplayer.stop();
     }
 
+    function getPaused()
+    {
+        if (mediaplayer.state === VlcPlayer.Paused) return true; else return false;
+    }
+
     function togglePaused()
     {
         if (mediaplayer.state === VlcPlayer.Paused) mediaplayer.play(); else mediaplayer.pause();
@@ -238,6 +243,11 @@ FocusScope
             mediaplayer.volume = Math.max(0, mediaplayer.volume + amount);
         else
             mediaplayer.volume = Math.min(100, mediaplayer.volume + amount);
+    }
+
+    function getMuted()
+    {
+        return mediaplayer.audio.mute;
     }
 
     function toggleMute()
