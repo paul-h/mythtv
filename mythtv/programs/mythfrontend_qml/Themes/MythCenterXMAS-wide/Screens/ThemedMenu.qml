@@ -129,8 +129,6 @@ BaseScreen
 
                 event.accepted = true;
             }
-
-            onCurrentItemChanged: watermark.swapImage(settings.themePath + model.get(currentIndex).waterMark)
         }
     }
 }
