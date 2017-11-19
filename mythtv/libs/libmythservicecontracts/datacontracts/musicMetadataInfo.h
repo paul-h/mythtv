@@ -16,6 +16,7 @@
 
 #include "serviceexp.h"
 #include "datacontracthelper.h"
+#include "artworkInfoList.h"
 
 namespace DTC
 {
@@ -25,7 +26,7 @@ namespace DTC
 class SERVICE_PUBLIC MusicMetadataInfo : public QObject
 {
     Q_OBJECT
-    Q_CLASSINFO( "version"    , "1.00" );
+    Q_CLASSINFO( "version"    , "1.01" );
 
     Q_PROPERTY( int             Id                  READ Id                 WRITE setId                 )
     Q_PROPERTY( QString         Artist              READ Artist             WRITE setArtist             )
@@ -42,6 +43,7 @@ class SERVICE_PUBLIC MusicMetadataInfo : public QObject
     Q_PROPERTY( QString         HostName            READ HostName           WRITE setHostName           )
     Q_PROPERTY( QDateTime       LastPlayed          READ LastPlayed         WRITE setLastPlayed         )
     Q_PROPERTY( bool            Compilation         READ Compilation        WRITE setCompilation        )
+    Q_PROPERTY( QObject*        Artwork             READ Artwork            DESIGNABLE SerializeArtwork )
 
     PROPERTYIMP    ( int        , Id                )
     PROPERTYIMP    ( QString    , Artist            )
@@ -59,19 +61,24 @@ class SERVICE_PUBLIC MusicMetadataInfo : public QObject
     PROPERTYIMP    ( QDateTime  , LastPlayed        )
     PROPERTYIMP    ( bool       , Compilation       )
 
+    PROPERTYIMP_PTR( ArtworkInfoList , Artwork          )
+    PROPERTYIMP    ( bool            , SerializeArtwork )
+
     public:
 
         static inline void InitializeCustomTypes();
 
         MusicMetadataInfo(QObject *parent = 0)
-                        : QObject         ( parent ),
-                          m_Id            ( 0      ),
-                          m_TrackNo       ( 0      ),
-                          m_Year          ( 0      ),
-                          m_PlayCount     ( 0      ),
-                          m_Length        ( 0      ),
-                          m_Rating        ( 0      ),
-                          m_Compilation   ( false  )
+                        : QObject            ( parent ),
+                          m_Id               ( 0      ),
+                          m_TrackNo          ( 0      ),
+                          m_Year             ( 0      ),
+                          m_PlayCount        ( 0      ),
+                          m_Length           ( 0      ),
+                          m_Rating           ( 0      ),
+                          m_Compilation      ( false  ),
+                          m_Artwork          ( NULL   ),
+                          m_SerializeArtwork ( true   )
         {
         }
 
@@ -92,12 +99,21 @@ class SERVICE_PUBLIC MusicMetadataInfo : public QObject
             m_HostName           = src->m_HostName;
             m_LastPlayed         = src->m_LastPlayed;
             m_Compilation        = src->m_Compilation;
+            m_SerializeArtwork   = src->m_SerializeArtwork;
+
+            if ( src->m_Artwork != NULL)
+                Artwork()->Copy( src->m_Artwork );
+
+            Copy( src );
         }
 };
 
 inline void MusicMetadataInfo::InitializeCustomTypes()
 {
     qRegisterMetaType< MusicMetadataInfo* >();
+
+    if (QMetaType::type( "DTC::ArtworkInfoList" ) == 0)
+        ArtworkInfoList::InitializeCustomTypes();
 }
 
 } // namespace DTC
