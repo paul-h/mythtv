@@ -41,7 +41,6 @@
 
 #include <vlc_access.h>
 #include <vlc_dialog.h>
-#include <vlc_interface.h>
 #include <vlc_demux.h>
 
 #include <vlc_network.h>
