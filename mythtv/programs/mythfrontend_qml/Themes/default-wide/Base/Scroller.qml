@@ -9,7 +9,18 @@ Item
     anchors.bottom: parent.bottom
     clip: true
 
-    ListModel {id: itemsModel}
+    ListModel
+    {
+        id: itemsModel
+        onCountChanged:
+        {
+            if (currentItem > count)
+                currentItem = count;
+
+            if (count > 0)
+                animation.start();
+        }
+    }
 
     Rectangle
     {
@@ -31,8 +42,11 @@ Item
 
         Component.onCompleted:
         {
-            text = itemsModel.get(root.currentItem).text
-            animation.start()
+            if (itemsModel && itemsModel.count)
+            {
+                text = itemsModel.get(root.currentItem).text
+                animation.start()
+            }
         }
 
         SequentialAnimation

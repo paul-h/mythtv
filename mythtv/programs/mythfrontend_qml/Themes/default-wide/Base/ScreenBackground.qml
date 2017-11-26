@@ -29,6 +29,11 @@ Item
         ticker.model.append({"id": id, "text": item})
     }
 
+    function clearTickerItems()
+    {
+        ticker.model.clear();
+    }
+
     function muteAudio(mute)
     {
         videoPlayer.setMute(mute);
