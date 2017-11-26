@@ -137,6 +137,10 @@ BaseScreen
 
             popupMenu.show();
         }
+        else
+        {
+            event.accepted = false;
+        }
     }
 
     VideoPlayerQmlVLC
@@ -145,8 +149,8 @@ BaseScreen
 
          onPlaybackEnded:
          {
-             //stop();
-             //stack.pop();
+             stop();
+             stack.pop();
          }
     }
 

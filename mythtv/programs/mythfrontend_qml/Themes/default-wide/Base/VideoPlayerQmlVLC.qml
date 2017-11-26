@@ -12,6 +12,7 @@ FocusScope
     property alias source: mediaplayer.mrl
     property alias volume: mediaplayer.volume
     property bool loop: false
+    property bool playbackStarted: false
     signal playbackEnded()
 
     Rectangle
@@ -31,8 +32,14 @@ FocusScope
 
             onStateChanged:
             {
-                if (state === VlcPlayer.Ended)
+                if (playbackStarted && position > 0 && state === VlcPlayer.Ended)
+                {
+                    playbackStarted = false;
                     root.playbackEnded();
+                }
+
+                if (state === VlcPlayer.Playing)
+                    playbackStarted = true;
             }
 
             onMediaPlayerSeekableChanged: mediaplayer.seekable = seekable
@@ -294,7 +301,7 @@ FocusScope
 
     function takeSnapshot(filename)
     {
-        console.log("saving snapshot to: " + filename);
+        console.info("saving snapshot to: " + filename);
         videoSurface.grabToImage(function(result)
                                  {
                                      result.saveToFile(filename);
