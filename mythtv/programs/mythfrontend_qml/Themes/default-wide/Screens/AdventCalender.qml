@@ -33,19 +33,19 @@ BaseScreen
         ListElement
         {
             day: "1"
-            title: "BBC1 Christmas Idents 1967 to 2015"
-            icon: "https://i.ytimg.com/vi/X3wmpGOwzHE/hqdefault.jpg"
-            video: "http://www.youtube.com/watch?v=X3wmpGOwzHE"
-            duration: "20:54"
+            title: "Dave`s Model Railway Christmas Video"
+            icon: "https://i.ytimg.com/vi/5xf55ayahlE/hqdefault.jpg"
+            video: "https://www.youtube.com/watch?v=5xf55ayahlE"
+            duration: "15:46"
             opened: false
         }
         ListElement
         {
             day: "2"
-            title: "East Lancashire Railway Santa Specials"
-            icon: "https://i.ytimg.com/vi/qkuqAqJLcrY/hqdefault.jpg"
-            video: "https://www.youtube.com/watch?v=qkuqAqJLcrY"
-            duration: "1:53"
+            title: "A Christmas Kiss - Daniel O'Donnell Feat. Mrs Merton"
+            icon: "https://i.ytimg.com/vi/djJxHJBxlPc/hqdefault.jpg"
+            video: "https://www.youtube.com/watch?v=djJxHJBxlPc"
+            duration: "3:10"
             opened: false
         }
         ListElement
@@ -60,10 +60,10 @@ BaseScreen
         ListElement
         {
             day: "4"
-            title: "Very emotional Christmas advert 2015"
-            icon: "https://i.ytimg.com/vi/FMZ3eYbLx7g/hqdefault.jpg"
-            video: "https://www.youtube.com/watch?v=FMZ3eYbLx7g"
-            duration: "3:38"
+            title: "Tom Chambers & Oti Mabuse Charleston to 'Santa Claus Is Comin' To Town' - Christmas Special: 2015"
+            icon: "https://i.ytimg.com/vi/I1xauVkThQk/hqdefault.jpg"
+            video: "https://www.youtube.com/watch?v=I1xauVkThQk"
+            duration: "1:53"
             opened: false
         }
         ListElement
@@ -87,46 +87,46 @@ BaseScreen
         ListElement
         {
             day: "7"
-            title: "2 Hrs of Christmas Classics with Christmas images"
-            icon: "https://i.ytimg.com/vi/K-C0ADqtkjw/hqdefault.jpg"
-            video: "https://www.youtube.com/watch?v=K-C0ADqtkjw"
-            duration: "2:09:09"
+            title: "East Lancashire Railway Santa Specials"
+            icon: "https://i.ytimg.com/vi/qkuqAqJLcrY/hqdefault.jpg"
+            video: "https://www.youtube.com/watch?v=qkuqAqJLcrY"
+            duration: "1:53"
             opened: false
         }
         ListElement
         {
             day: "8"
-            title: "A Christmas Kiss - Daniel O'Donnell Feat. Mrs Merton"
-            icon: "https://i.ytimg.com/vi/djJxHJBxlPc/hqdefault.jpg"
-            video: "https://www.youtube.com/watch?v=djJxHJBxlPc"
-            duration: "3:10"
+            title: "BBC1 Christmas Idents 1967 to 2015"
+            icon: "https://i.ytimg.com/vi/X3wmpGOwzHE/hqdefault.jpg"
+            video: "http://www.youtube.com/watch?v=X3wmpGOwzHE"
+            duration: "20:54"
             opened: false
         }
         ListElement
         {
             day: "9"
-            title: "Mel & Kim - Rockin' Around The Christmas Tree"
-            icon: "https://i.ytimg.com/vi/hdnaPAJgAQI/hqdefault.jpg"
-            video: "https://www.youtube.com/watch?v=hdnaPAJgAQI"
-            duration: "00:00"
+            title: "Santa By Steam on the South Devon Railway, Buckfastleigh"
+            icon: "https://i.ytimg.com/vi/8Afq9dK7CwM/hqdefault.jpg"
+            video: "https://www.youtube.com/watch?v=8Afq9dK7CwM"
+            duration: "1:27"
             opened: false
         }
         ListElement
         {
             day: "10"
-            title: "Peter Kay's Car Share Christmas Special"
-            icon: "https://i.ytimg.com/vi/38Ko4EPGdJY/hqdefault.jpg"
-            video: "https://www.youtube.com/watch?v=38Ko4EPGdJY"
-            duration: "6:06"
+            title: "2016 Claires Christmas Village"
+            icon: "https://i.ytimg.com/vi/KvwmxC_zv4M/hqdefault.jpg"
+            video: "https://www.youtube.com/watch?v=KvwmxC_zv4M"
+            duration: "13:43"
             opened: false
         }
         ListElement
         {
             day: "11"
-            title: "Tom Chambers & Oti Mabuse Charleston to 'Santa Claus Is Comin' To Town' - Christmas Special: 2015"
-            icon: "https://i.ytimg.com/vi/I1xauVkThQk/hqdefault.jpg"
-            video: "https://www.youtube.com/watch?v=I1xauVkThQk"
-            duration: "1:53"
+            title: "Very emotional Christmas advert 2015"
+            icon: "https://i.ytimg.com/vi/FMZ3eYbLx7g/hqdefault.jpg"
+            video: "https://www.youtube.com/watch?v=FMZ3eYbLx7g"
+            duration: "3:38"
             opened: false
         }
         ListElement
@@ -150,19 +150,19 @@ BaseScreen
         ListElement
         {
             day: "14"
-            title: "Dave`s Model Railway Christmas Video"
-            icon: "https://i.ytimg.com/vi/5xf55ayahlE/hqdefault.jpg"
-            video: "https://www.youtube.com/watch?v=5xf55ayahlE"
-            duration: "15:46"
+            title: "2 Hrs of Christmas Classics with Christmas images"
+            icon: "https://i.ytimg.com/vi/K-C0ADqtkjw/hqdefault.jpg"
+            video: "https://www.youtube.com/watch?v=K-C0ADqtkjw"
+            duration: "2:09:09"
             opened: false
         }
         ListElement
         {
             day: "15"
-            title: "Santa By Steam on the South Devon Railway, Buckfastleigh"
-            icon: "https://i.ytimg.com/vi/8Afq9dK7CwM/hqdefault.jpg"
-            video: "https://www.youtube.com/watch?v=8Afq9dK7CwM"
-            duration: "1:27"
+            title: "Mel & Kim - Rockin' Around The Christmas Tree"
+            icon: "https://i.ytimg.com/vi/hdnaPAJgAQI/hqdefault.jpg"
+            video: "https://www.youtube.com/watch?v=hdnaPAJgAQI"
+            duration: "00:00"
             opened: false
         }
         ListElement
@@ -195,10 +195,10 @@ BaseScreen
         ListElement
         {
             day: "19"
-            title: "Christmas Snow 2"
-            icon: "https://i.ytimg.com/vi/01WVLoC9hWM/hqdefault.jpg"
-            video: "https://www.youtube.com/watch?v=01WVLoC9hWM"
-            duration: "1:01:19"
+            title: "Peter Kay's Car Share Christmas Special"
+            icon: "https://i.ytimg.com/vi/38Ko4EPGdJY/hqdefault.jpg"
+            video: "https://www.youtube.com/watch?v=38Ko4EPGdJY"
+            duration: "6:06"
             opened: false
         }
         ListElement
@@ -210,17 +210,6 @@ BaseScreen
             duration: "4:27"
             opened: false
         }
-        /*
-        ListElement
-        {
-            day: "21"
-            title: "Medley of Traditional Christmas Songs by Nick Hernandez"
-            icon: "https://i.ytimg.com/vi/AB16jRGHT3w/hqdefault.jpg"
-            video: "https://www.youtube.com/watch?v=AB16jRGHT3w"
-            duration: "1:26:49"
-            opened: false
-        }
-        */
         ListElement
         {
             day: "21"
@@ -283,14 +272,6 @@ BaseScreen
                 source: opened ? icon : mythUtils.findThemeFile("images/advent_calender/day" + day + ".png")
                 //source: icon
             }
-
-            //Text
-            //{
-            //    id: itemInfo
-            //    anchors.fill: parent
-            //    text: day + ": " + title
-            //    color: "black"
-            //}
         }
 
         highlight: Rectangle { z: 99; color: "red"; opacity: 0.4; radius: 5 }
@@ -302,7 +283,7 @@ BaseScreen
         {
             var date = new Date;
             var day = model.get(currentIndex).day;
-            if (day > date.getDate())
+            if (date.getMonth() == 11 && day > date.getDate())
             {
                 returnSound.play();
                 notYetdialog.show();
@@ -343,8 +324,8 @@ BaseScreen
         onAccepted:
         {
             calenderGrid.model.get(calenderGrid.currentIndex).opened = !calenderGrid.model.get(calenderGrid.currentIndex).opened
-            stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: calenderGrid.model.get(calenderGrid.currentIndex).video}});
             calenderGrid.focus = true;
+            stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: calenderGrid.model.get(calenderGrid.currentIndex).video}});
         }
         onCancelled:
         {
