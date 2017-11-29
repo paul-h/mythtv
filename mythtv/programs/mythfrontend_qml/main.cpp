@@ -21,6 +21,7 @@
 #include "mythutils.h"
 #include "settings.h"
 #include "urlinterceptor.h"
+#include "process.h"
 
 #define SHAREPATH "file:///usr/share/mythtv/"
 
@@ -80,6 +81,8 @@ int main(int argc, char *argv[])
 
     QCoreApplication::setApplicationName("MythFrontendQML");
     QCoreApplication::setAttribute(Qt::AA_X11InitThreads);
+
+    qmlRegisterType<Process>("Process", 1, 0, "Process");
 
     RegisterQmlVlc();
     QmlVlcConfig& config = QmlVlcConfig::instance();
