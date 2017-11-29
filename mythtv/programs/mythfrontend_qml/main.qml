@@ -114,11 +114,22 @@ ApplicationWindow
          source: mythUtils.findThemeFile("sounds/pock.wav")
     }
 
+    // ticker items grabber process
+    Process
+    {
+        id: tickerProcess
+        onFinished:
+        {
+            if (exitStatus == Process.NormalExit)
+                tickerModel.reload()
+        }
+    }
+
     Timer
     {
         id: tickerUpdateTimer
-        interval: 60000; running: true; repeat: true
-        onTriggered: tickerModel.reload();
+        interval: 600000; running: true; repeat: true
+        onTriggered: tickerProcess.start(settings.sharePath.replace("file://", "") + "/qml/Scripts/ticker-grabber.py", [settings.configPath + "/MythNews/ticker.xml"]);
     }
 
     TickerModel
