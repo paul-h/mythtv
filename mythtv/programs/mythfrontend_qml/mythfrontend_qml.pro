@@ -17,7 +17,7 @@ target.path = $${PREFIX}/bin
 INSTALLS = target
 
 qml.path = $${PREFIX}/share/mythtv/qml
-qml.files += Themes Models MenuThemes main.qml Util.js
+qml.files += Themes Models MenuThemes scripts main.qml Util.js
 
 INSTALLS += qml
 
