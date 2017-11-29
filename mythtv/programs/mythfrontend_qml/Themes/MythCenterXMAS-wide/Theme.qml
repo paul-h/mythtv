@@ -7,7 +7,7 @@ QtObject
     id: root
 
     // screen background
-    property string   backgroundImage:  "background.jpg"
+    property string   backgroundImage:  "background.png"
     property string   backgroundVideo:  settings.configPath + "Themes/videos/Snow_Village.mp4"
     property bool     needsDownload:    true
     property string   downloadCommand:  settings.sharePath.replace("file://", "") + "/qml/Scripts/youtube-dl"
