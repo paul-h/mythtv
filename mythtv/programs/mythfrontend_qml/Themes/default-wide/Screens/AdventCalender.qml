@@ -283,7 +283,7 @@ BaseScreen
         {
             var date = new Date;
             var day = model.get(currentIndex).day;
-            if (date.getMonth() == 11 && day > date.getDate())
+            if (date.getMonth() == 10 || (date.getMonth() == 11 && day > date.getDate()))
             {
                 returnSound.play();
                 notYetdialog.show();
@@ -318,8 +318,9 @@ BaseScreen
 
         title: "Day " + calenderGrid.model.get(calenderGrid.currentIndex).day
         message: calenderGrid.model.get(calenderGrid.currentIndex).title +  "\nDuration: " + calenderGrid.model.get(calenderGrid.currentIndex).duration
+        image: calenderGrid.model.get(calenderGrid.currentIndex).icon
 
-        width: xscale(600); height: yscale(300)
+        width: xscale(600); height: yscale(500)
 
         onAccepted:
         {

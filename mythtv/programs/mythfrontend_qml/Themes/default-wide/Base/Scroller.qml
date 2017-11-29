@@ -4,7 +4,7 @@ Item
 {
     id: root
     property alias model: itemsModel
-    property int currentItem: 0
+    property int currentItem: -1
 
     anchors.bottom: parent.bottom
     clip: true
@@ -14,7 +14,7 @@ Item
         id: itemsModel
         onCountChanged:
         {
-            if (currentItem > count)
+            if (currentItem >= count)
                 currentItem = count;
 
             if (count > 0)
@@ -25,7 +25,7 @@ Item
     Rectangle
     {
         id: background
-        color: "#55101010"
+        color: "#88101010"
         anchors.fill: parent
     }
 
@@ -47,6 +47,8 @@ Item
                 text = itemsModel.get(root.currentItem).text
                 animation.start()
             }
+            else
+                text = ""
         }
 
         SequentialAnimation

@@ -160,6 +160,7 @@ ApplicationWindow
         Component.onCompleted:
         {
             setTitle(true, "Main Menu");
+            tickerProcess.start(settings.sharePath.replace("file://", "") + "/qml/Scripts/ticker-grabber.py", [settings.configPath + "/MythNews/ticker.xml"]);
         }
     }
 

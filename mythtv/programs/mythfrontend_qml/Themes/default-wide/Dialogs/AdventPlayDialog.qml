@@ -5,9 +5,17 @@ BaseDialog
 {
     id: playDialog
 
+    property alias image: icon.source
+
     content: Item
     {
         anchors.fill: parent
+        Image
+        {
+            id: icon
+            x: xscale(150); y: 0
+            width: parent.width - xscale(300); height: yscale(200)
+        }
     }
 
     buttons:
