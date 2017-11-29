@@ -76,9 +76,9 @@ QtObject
 
     // base dialog background
     property color bgDialogColor:       "black"
-    property real  bgDialogOpacity:     120 / 255
+    property real  bgDialogOpacity:     200 / 255
     property color bgDialogBorderColor: "green"
-    property int   bgDialogBorderWidth: 2
+    property int   bgDialogBorderWidth: 3
     property int   bgDialogRadius:      12
 
     // list view
