@@ -7,7 +7,15 @@ QtObject
     id: root
 
     // screen background
-    property string backgroundVideo:    "video/Snow Village 3D Screensaver.mp4"
+    property string   backgroundImage:  "background.jpg"
+    property string   backgroundVideo:  settings.configPath + "Themes/videos/Snow_Village.mp4"
+    property bool     needsDownload:    true
+    property string   downloadCommand:  settings.sharePath.replace("file://", "") + "/qml/Scripts/youtube-dl"
+    property var      downloadOptions:  [
+                                            "-o",  backgroundVideo,
+                                            "-f", "bestvideo[height<=720]+bestaudio/best[height<=720]'",
+                                            "https://www.youtube.com/watch?v=Wgwukejv2fA"
+                                        ]
 
     // main menu font
     property string menuFontFamily:     "Liberation Sans"

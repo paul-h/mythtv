@@ -35,7 +35,6 @@ BaseScreen
         showTitle(true, "Video Metadata Editor (Page 1)");
         showTime(false);
         showTicker(false);
-        showVideo(true);
 
         // save the metadata
         metadata.id = videosModel.get(currentIndex).Id

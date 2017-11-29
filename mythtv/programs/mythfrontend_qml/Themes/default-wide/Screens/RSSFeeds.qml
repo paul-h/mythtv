@@ -17,7 +17,6 @@ BaseScreen
         showTitle(true, "RSS Feeds");
         showTime(true);
         showTicker(false);
-        showVideo(true);
     }
 
     Keys.onPressed:

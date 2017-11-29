@@ -22,7 +22,6 @@ BaseScreen
         showTitle(true, "Search Radio Streams");
         showTime(false);
         showTicker(false);
-        showVideo(true);
     }
 
 //    property bool dateSorterActive: true;

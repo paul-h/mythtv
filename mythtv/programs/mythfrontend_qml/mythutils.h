@@ -15,6 +15,7 @@ class MythUtils : public QObject
 
     Q_INVOKABLE QString findThemeFile(const QString &fileName);
     Q_INVOKABLE bool grabScreen(const QString &fileName);
+    Q_INVOKABLE bool fileExists(const QString &fileName);
 
   private:
     Settings *m_settings;

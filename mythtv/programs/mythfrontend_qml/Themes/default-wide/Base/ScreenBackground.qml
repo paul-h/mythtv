@@ -39,6 +39,11 @@ Item
         videoPlayer.setMute(mute);
     }
 
+    function setVideo(video)
+    {
+        videoPlayer.source = video;
+    }
+
     function pauseVideo(pause)
     {
         if (videoPlayer.visible)
@@ -58,7 +63,7 @@ Item
         id: background
         visible: true
         anchors.fill: parent
-        source: settings.themePath + "ui/background.png"
+        source: mythUtils.findThemeFile(theme.backgroundImage);
     }
 
     // background video
@@ -120,6 +125,6 @@ Item
     Component.onCompleted:
     {
         if (showVideo)
-            videoPlayer.source = settings.qmlPath + theme.backgroundVideo;
+            videoPlayer.source = "file://" + mythUtils.findThemeFile(theme.backgroundVideo);
     }
 }

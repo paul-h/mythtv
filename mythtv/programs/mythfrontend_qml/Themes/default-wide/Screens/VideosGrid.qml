@@ -19,7 +19,6 @@ BaseScreen
         showTitle(true, "Videos Grid View");
         showTime(false);
         showTicker(false);
-        showVideo(true);
     }
 
     SortFilterProxyModel

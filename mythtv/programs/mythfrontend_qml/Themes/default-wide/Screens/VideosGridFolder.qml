@@ -13,7 +13,6 @@ BaseScreen
         showTitle(true, folderModel.folder);
         showTime(false);
         showTicker(false);
-        showVideo(true);
     }
 
     BaseBackground

@@ -16,7 +16,6 @@ BaseScreen
         showTitle(false, "");
         showTime(false);
         showTicker(false);
-        showVideo(true);
         muteAudio(true);
     }
 

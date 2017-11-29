@@ -11,7 +11,6 @@ BaseScreen
         showTitle(false, "");
         showTime(false);
         showTicker(false);
-        showVideo(true);
     }
 
     BaseBackground { anchors.fill: parent; anchors.margins: 10 }

@@ -19,7 +19,6 @@ BaseScreen
         showTitle(true, "Watch Recordings");
         showTime(false);
         showTicker(false);
-        showVideo(true);
     }
 
     property bool dateSorterActive: true;

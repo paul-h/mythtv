@@ -12,8 +12,13 @@
 
 QString MythUtils::findThemeFile(const QString &fileName)
 {
+    // do we have a http file
+    if (fileName.startsWith("http"))
+        return fileName;
+
     // do we have a full path
-    if (QFile::exists(fileName))
+    QString f = fileName;
+    if (QFile::exists(f.remove("file://")))
         return fileName;
 
     // look in the active theme
@@ -43,4 +48,9 @@ bool MythUtils::grabScreen(const QString& fileName)
         return false;
 
     return image.save(fileName, "PNG");
+}
+
+bool MythUtils::fileExists(const QString& fileName)
+{
+    return QFile::exists(fileName);
 }

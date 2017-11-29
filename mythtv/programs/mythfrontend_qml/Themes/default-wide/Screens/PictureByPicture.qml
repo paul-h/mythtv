@@ -12,7 +12,6 @@ BaseScreen
         showTitle(true, "LiveTV");
         showTime(true);
         showTicker(false);
-        showVideo(true);
     }
 
     Keys.onEscapePressed: { video1player.stop(); video2player.stop(); }

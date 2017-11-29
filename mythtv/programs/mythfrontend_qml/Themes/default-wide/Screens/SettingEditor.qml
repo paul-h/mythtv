@@ -11,7 +11,6 @@ BaseScreen
         showTitle(true, "General Settings");
         showTime(false);
         showTicker(false);
-        showVideo(true);
     }
 
     LabelText

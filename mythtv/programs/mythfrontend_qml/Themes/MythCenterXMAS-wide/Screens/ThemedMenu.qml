@@ -12,8 +12,6 @@ BaseScreen
         showTitle(true, model.title);
         showTime(true);
         showTicker(true);
-        showVideo(true);
-
         title.source = settings.themePath + model.logo
     }
 

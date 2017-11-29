@@ -2,6 +2,7 @@ import QtQuick 2.4
 import QtMultimedia 5.4
 import QtQuick.Controls 1.4
 import QtQuick.XmlListModel 2.0
+import Process 1.0
 import Base 1.0
 import Screens 1.0
 import "Models"
@@ -18,11 +19,49 @@ ApplicationWindow
     property double hmult: height / 720
     property alias theme: themeLoader.item
 
+    // theme background video downloader
+    Process
+    {
+        id: themeDLProcess
+        onFinished:
+        {
+            if (exitStatus == Process.NormalExit)
+            {
+                screenBackground.showVideo = true;
+                screenBackground.setVideo("file://" + theme.backgroundVideo);
+                screenBackground.showImage = false;
+            }
+        }
+    }
+
     // theme loader
     Loader
     {
         id: themeLoader
         source: settings.qmlPath + "Theme.qml"
+
+        onLoaded:
+        {
+            if (theme.backgroundVideo != "")
+            {
+                if (theme.needsDownload && !mythUtils.fileExists(theme.backgroundVideo))
+                {
+                    screenBackground.showVideo = false;
+                    screenBackground.showImage = true;
+                    themeDLProcess.start(theme.downloadCommand, theme.downloadOptions);
+                }
+                else
+                {
+                    screenBackground.showVideo = true;
+                    screenBackground.showImage = false;
+                }
+            }
+            else
+            {
+                screenBackground.showVideo = false;
+                screenBackground.showImage = true;
+            }
+        }
     }
 
     function showMouse(show)
@@ -104,8 +143,8 @@ ApplicationWindow
     ScreenBackground
     {
         id: screenBackground
-        showImage: false
-        showVideo: true
+        showImage: true
+        showVideo: false
         showTicker: true
         Component.onCompleted:
         {
