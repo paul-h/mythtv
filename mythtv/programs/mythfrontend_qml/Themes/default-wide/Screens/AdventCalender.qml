@@ -296,6 +296,76 @@ BaseScreen
                 event.accepted = true;
             }
         }
+
+        Keys.onPressed:
+        {
+            if (event.key === Qt.Key_M)
+            {
+                popupMenu.clearMenuItems();
+
+                if (calenderGrid.model.get(calenderGrid.currentIndex).opened)
+                    popupMenu.addMenuItem("Close Window");
+                else
+                    popupMenu.addMenuItem("Open Window");
+
+                popupMenu.addMenuItem("Close All Windows");
+
+                popupMenu.show();
+            }
+            else
+            {
+                event.accepted = false;
+            }
+        }
+    }
+
+    PopupMenu
+    {
+        id: popupMenu
+
+        title: "Menu"
+        message: "Advent Calendar Options"
+
+        onItemSelected:
+        {
+            console.log("PopupMenu accepted signal received!: " + itemText);
+            calenderGrid.focus = true;
+
+            if (itemText == "Close Window")
+            {
+                calenderGrid.model.get(calenderGrid.currentIndex).opened = false;
+            }
+            else if (itemText == "Open Window")
+            {
+                var date = new Date;
+                var day = calenderGrid.model.get(calenderGrid.currentIndex).day;
+                //if (date.getMonth() == 10 || (date.getMonth() == 11 && day > date.getDate()))
+                if (false)
+                {
+                    returnSound.play();
+                    notYetdialog.show();
+                }
+                else
+                {
+                    calenderGrid.model.get(calenderGrid.currentIndex).opened = true
+                    returnSound.play();
+                    playDialog.show();
+                }
+            }
+            else if (itemText == "Close All Windows")
+            {
+                for (var i = 0; i < calenderModel.count; i++)
+                {
+                    calenderGrid.model.get(i).opened = false;
+                    dbUtils.setSetting("Qml_adventDay" + i, settings.hostName,  "closed");
+                }
+            }
+        }
+
+        onCancelled:
+        {
+            calenderGrid.focus = true;
+        }
     }
 
     OkCancelDialog
@@ -324,7 +394,7 @@ BaseScreen
 
         onAccepted:
         {
-            calenderGrid.model.get(calenderGrid.currentIndex).opened = !calenderGrid.model.get(calenderGrid.currentIndex).opened
+            calenderGrid.model.get(calenderGrid.currentIndex).opened = true
             calenderGrid.focus = true;
             stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: calenderGrid.model.get(calenderGrid.currentIndex).video}});
         }
