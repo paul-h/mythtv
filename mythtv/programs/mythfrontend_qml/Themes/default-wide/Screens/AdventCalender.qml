@@ -339,8 +339,7 @@ BaseScreen
             {
                 var date = new Date;
                 var day = calenderGrid.model.get(calenderGrid.currentIndex).day;
-                //if (date.getMonth() == 10 || (date.getMonth() == 11 && day > date.getDate()))
-                if (false)
+                if (date.getMonth() == 10 || (date.getMonth() == 11 && day > date.getDate()))
                 {
                     returnSound.play();
                     notYetdialog.show();
