@@ -328,7 +328,6 @@ BaseScreen
 
         onItemSelected:
         {
-            console.log("PopupMenu accepted signal received!: " + itemText);
             calenderGrid.focus = true;
 
             if (itemText == "Close Window")
