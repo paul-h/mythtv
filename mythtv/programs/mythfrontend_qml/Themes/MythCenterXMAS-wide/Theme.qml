@@ -13,7 +13,7 @@ QtObject
     property string   downloadCommand:  settings.sharePath.replace("file://", "") + "/qml/Scripts/youtube-dl"
     property var      downloadOptions:  [
                                             "-o",  backgroundVideo,
-                                            "-f", "bestvideo[height<=720]+bestaudio/best[height<=720]'",
+                                            "-f", "'bestvideo[height<=720]+bestaudio/best[height<=720]'",
                                             "https://www.youtube.com/watch?v=Wgwukejv2fA"
                                         ]
 
@@ -87,9 +87,9 @@ QtObject
     property color lvRowBackgroundSelected:        "#40ff0000"; // selected not focused
     property color lvRowBackgroundFocusedSelected: "#d0ff0000"; // selected and focused
 
-    property color lvRowTextNormal:          "#88ffffff"; // not selected or focused
+    property color lvRowTextNormal:          "#ffffffff"; // not selected or focused
     property color lvRowTextFocused:         "#ffffffff"; // focused
-    property color lvRowTextSelected:        "#8800aa00"; // selected not focused
+    property color lvRowTextSelected:        "#ff00aa00"; // selected not focused
     property color lvRowTextFocusedSelected: "#ff00aa00"; // selected and focused
 
     property real  lvBackgroundOpacity:      1.0;

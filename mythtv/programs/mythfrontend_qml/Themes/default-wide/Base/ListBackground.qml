@@ -22,8 +22,8 @@ Rectangle
     }
 
     //opacity: theme.lvBackgroundOpacity
-    border.color: theme.lvBackgroundBorderColor
-    border.width: xscale(theme.lvBackgroundBorderWidth)
-    radius: xscale(theme.lvBackgroundBorderRadius)
+    //border.color: theme.lvBackgroundBorderColor
+    //border.width: xscale(theme.lvBackgroundBorderWidth)
+    //radius: xscale(theme.lvBackgroundBorderRadius)
 }
 

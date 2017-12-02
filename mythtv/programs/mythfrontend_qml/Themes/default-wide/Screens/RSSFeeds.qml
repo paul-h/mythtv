@@ -38,6 +38,11 @@ BaseScreen
         }
     }
 
+    BaseBackground
+    {
+        x: xscale(20); y: yscale(50); width: xscale(1240); height: yscale(440)
+    }
+
     Component
     {
         id: listRow
@@ -45,6 +50,7 @@ BaseScreen
         Item
         {
             width: feedList.width; height: yscale(50)
+            z: 99
 
             property bool selected: ListView.isCurrentItem
 
@@ -56,14 +62,11 @@ BaseScreen
                source: if (ico) ico; else mythUtils.findThemeFile("images/grid_noimage.png")
             }
 
-            Text
+            ListText
             {
-                width: feedList.width; height: yscale(50)
-                verticalAlignment: Text.AlignVCenter
                 x: icon.width + xscale(6)
+                width: feedList.width; height: yscale(50)
                 text: name
-                font.pixelSize: 20
-                color: parent.selected ? theme.lvRowTextSelected : theme.lvRowTextNormal
             }
         }
     }
@@ -71,7 +74,7 @@ BaseScreen
     ButtonList
     {
         id: feedList
-        x: xscale(60); y: yscale(60); width: xscale(500); height: yscale((8 * 50) + (7 * 3))
+        x: xscale(30); y: yscale(60); width: xscale(550); height: yscale((8 * 50) + (7 * 3))
         spacing: 3
         focus: true
         clip: true
@@ -158,20 +161,15 @@ BaseScreen
                 id: icon
                 x: xscale(10); y: yscale(10); width: parent.height - xscale(20); height: parent.height - yscale(20)
                 source: findArticleImage(index)
-                opacity: 1.0
             }
 
-            Text
+            ListText
             {
                 id: titleText
 
                 x: icon.width + xscale(20); y: yscale(10); width: parent.width - icon.width - xscale(20)
-
-                font { pixelSize: 18; bold: true }
                 text: title
-                wrapMode: Text.WordWrap
-                color: parent.selected ? theme.lvRowTextSelected : theme.lvRowTextNormal
-                opacity: 1.0
+                multiline: true
             }
 
             BusyIndicator
@@ -189,7 +187,7 @@ BaseScreen
     {
         id: articleList
         property int itemWidth: 190
-        x: xscale(600); y: yscale(60); width: xscale(600); height: yscale(421)
+        x: xscale(600); y: yscale(60); width: xscale(650); height: yscale(421)
         model: feedModel
         clip: true
         delegate: articleDelegate
@@ -208,11 +206,11 @@ BaseScreen
         onCurrentIndexChanged:
         {
             console.log("Current articleList index is:" + currentIndex)
-            console.log("image: " + feedModel.get(articleList.currentIndex).image)
-            console.log("mediaContentUrl: " + feedModel.get(articleList.currentIndex).mediaContentUrl)
-            console.log("enclosureURL: " + feedModel.get(articleList.currentIndex).enclosureUrl)
-            console.log("enclosureType: " + feedModel.get(articleList.currentIndex).enclosureType)
-            console.log("link: " + feedModel.get(articleList.currentIndex).link)
+            console.log("image: " + (feedModel.get(articleList.currentIndex) ? feedModel.get(articleList.currentIndex).image : ""))
+            console.log("mediaContentUrl: " + (feedModel.get(articleList.currentIndex) ? feedModel.get(articleList.currentIndex).mediaContentUrl : ""))
+            console.log("enclosureURL: " + (feedModel.get(articleList.currentIndex) ? feedModel.get(articleList.currentIndex).enclosureUrl : ""))
+            console.log("enclosureType: " + (feedModel.get(articleList.currentIndex) ? feedModel.get(articleList.currentIndex).enclosureType : ""))
+            console.log("link: " + (feedModel.get(articleList.currentIndex) ? feedModel.get(articleList.currentIndex).link : ""))
         }
     }
 
@@ -225,7 +223,7 @@ BaseScreen
     {
         id: articleImage
         x: xscale(30); y: yscale(505); width: xscale(185); height: yscale(185)
-        source: findArticleImage(articleList.currentIndex)
+        source: articleList.currentIndex ? findArticleImage(articleList.currentIndex) : ""
     }
 
     Text
@@ -233,7 +231,7 @@ BaseScreen
         id: titleText
         x: xscale(230); y: yscale(510); width: xscale(900); height: yscale(50)
         font { pixelSize: 24; bold: true }
-        text: feedModel.get(articleList.currentIndex).title
+        text: feedModel.get(articleList.currentIndex) ? feedModel.get(articleList.currentIndex).title : ""
         color: "#ffffff"
     }
 
@@ -243,17 +241,17 @@ BaseScreen
         x: xscale(230); y: yscale(550); width: xscale(900); height: yscale(100)
         font { pixelSize: 18; bold: true }
         wrapMode: Text.WordWrap
-        text: feedModel.get(articleList.currentIndex).description
+        text: feedModel.get(articleList.currentIndex) ? feedModel.get(articleList.currentIndex).description: ""
         color: "#ff00ff"
     }
 
     function findArticleImage(index)
     {
-        if (feedModel.get(index).image != "")
+        if (feedModel.get(index) && feedModel.get(index).image != "")
             return feedModel.get(index).image;
-        else if (feedModel.get(index).mediaContentUrl != "")
+        else if (feedModel.get(index) && feedModel.get(index).mediaContentUrl != "")
             return feedModel.get(index).mediaContentUrl;
-        else if (feedModel.get(index).enclosureType === "image" && feedModel.get(index).enclosureUrl != "")
+        else if (feedModel.get(index) && feedModel.get(index).enclosureType === "image" && feedModel.get(index).enclosureUrl != "")
             return feedModel.get(index).enclosureUrl;
         else if (rssFeedsModel.data(rssFeedsModel.index(feedList.currentIndex, 2)) != "")
             return rssFeedsModel.data(rssFeedsModel.index(feedList.currentIndex, 2))
