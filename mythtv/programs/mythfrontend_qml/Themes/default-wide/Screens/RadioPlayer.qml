@@ -113,6 +113,7 @@ BaseScreen
         Item
         {
             width:streamList.width; height: yscale(50)
+            property bool selected: ListView.isCurrentItem
 
             Image
             {
@@ -123,37 +124,23 @@ BaseScreen
                 else
                     mythUtils.findThemeFile("images/grid_noimage.png")
             }
-            LabelText
+            ListText
             {
                 x: xscale(70); y: 0; width: xscale(350); height: yscale(46)
                 text: broadcaster
             }
 
-            LabelText
+            ListText
             {
                 x: xscale(430); y: 0; width: xscale(370); height: yscale(46)
                 text: channel
             }
 
-            LabelText
+            ListText
             {
                 x: xscale(810); y: 0; width: yscale(370); height: xscale(46)
                 text: genre
             }
-        }
-    }
-
-    Component
-    {
-        id: streamHighlight
-
-        Rectangle
-        {
-            width:streamList.width; height: yscale(50)
-            color: "green"
-            opacity: 0.3
-            radius: xscale(15)
-            border.color: "#dd00ff00"
         }
     }
 
@@ -166,21 +153,7 @@ BaseScreen
         clip: true
         model: radioStreamsModel
         delegate: streamRow
-        highlight: streamHighlight
-
-        Keys.onPressed:
-        {
-            if (event.key === Qt.Key_PageDown)
-            {
-                currentIndex = currentIndex + 6 >= model.count ? model.count - 1 : currentIndex + 6;
-                event.accepted = true;
-            }
-            else if (event.key === Qt.Key_PageUp)
-            {
-                currentIndex = currentIndex - 6 < 0 ? 0 : currentIndex - 6;
-                event.accepted = true;
-            }
-        }
+        highlight: ListHighlight{}
 
         Keys.onEscapePressed: if (stack.depth > 1) {streamPlayer.stop(); stack.pop()} else Qt.quit();
         Keys.onReturnPressed:
@@ -212,6 +185,7 @@ BaseScreen
         Item
         {
             width: playedList.width; height: yscale(50)
+            property bool selected: ListView.isCurrentItem
 
             Image
             {
@@ -222,37 +196,23 @@ BaseScreen
                 else
                     mythUtils.findThemeFile("images/grid_noimage.png")
             }
-            LabelText
+            ListText
             {
                 x: xscale(70); y: 0; width: xscale(910); height: yscale(46)
                 text: title
             }
 
-            LabelText
+            ListText
             {
                 x: xscale(430); y: 0; width: xscale(370); height: yscale(46)
                 text: artist
             }
 
-            LabelText
+            ListText
             {
                 x: xscale(1120); y: 0; width: xscale(100); height: yscale(46)
                 text: Util.milliSecondsToString(length)
             }
-        }
-    }
-
-    Component
-    {
-        id: playedHighlight
-
-        Rectangle
-        {
-            width:playedList.width; height: yscale(50)
-            color: "green"
-            opacity: 0.3
-            radius: xscale(15)
-            border.color: "#dd00ff00"
         }
     }
 
@@ -261,30 +221,16 @@ BaseScreen
         id: playedModel
     }
 
-    ListView
+    ButtonList
     {
         id: playedList
         x: xscale(25); y: yscale(307); width: xscale(1225); height: yscale(150)
 
-        focus: true
+        focus: false
         clip: true
         model: playedModel
         delegate: playedRow
-        highlight: playedHighlight
-
-        Keys.onPressed:
-        {
-            if (event.key === Qt.Key_PageDown)
-            {
-                currentIndex = currentIndex + 6 >= model.count ? model.count - 1 : currentIndex + 6;
-                event.accepted = true;
-            }
-            else if (event.key === Qt.Key_PageUp)
-            {
-                currentIndex = currentIndex - 6 < 0 ? 0 : currentIndex - 6;
-                event.accepted = true;
-            }
-        }
+        highlight: ListHighlight{}
 
         KeyNavigation.left: streamList;
         KeyNavigation.right: streamList;
@@ -388,7 +334,8 @@ BaseScreen
         }
     }
 
-    Timer {
+    Timer
+    {
         interval: 1000; running: true; repeat: true
         onTriggered: if (trackArtistTitle != streamPlayer.mediaDescription.nowPlaying) trackArtistTitle = streamPlayer.mediaDescription.nowPlaying;
     }

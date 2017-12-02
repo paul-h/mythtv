@@ -50,6 +50,7 @@ BaseScreen
         Item
         {
             width:videoList.width; height: yscale(62)
+            property bool selected: ListView.isCurrentItem
 
             Image
             {
