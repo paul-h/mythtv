@@ -14,6 +14,7 @@ Item
     property color  shadowColor: theme.labelShadowColor
     property int    shadowXOffset: theme.labelShadowXOffset
     property int    shadowYOffset: theme.labelShadowYOffset
+    property bool   multiline: false
 
     x: xscale(50); y : 0; width: xscale(300); height: yscale(50)
 
@@ -42,6 +43,7 @@ Item
         clip: true
         elide: Text.ElideRight
         visible: shadowXOffset != 0 || shadowYOffset != 0 ? true : false
+        wrapMode: root.multiline ? Text.WordWrap : Text.NoWrap
     }
 
     Text
@@ -58,14 +60,15 @@ Item
         verticalAlignment: root.verticalAlignment
         clip: true
         elide: Text.ElideRight
+        wrapMode: root.multiline ? Text.WordWrap : Text.NoWrap
         color:
         {
             if (parent.parent.focused)
             {
-                if (parent.parent.selected)
+                if (parent.selected)
                     theme.lvRowTextFocusedSelected;
                 else
-                    theme.lvRowTextFocused;
+                    theme.lvRowTextFocusedSelected; //theme.lvRowTextFocused;
             }
             else
             {
