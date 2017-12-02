@@ -35,7 +35,7 @@ ListModel
     ListElement
     {
         menutext: "Internet Video"
-        loaderSource: "PictureByPicture.qml"
+        loaderSource: "ComingSoon.qml"
         waterMark: "watermark/tv.png"
     }
     ListElement

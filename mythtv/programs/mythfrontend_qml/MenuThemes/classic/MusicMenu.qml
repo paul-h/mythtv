@@ -21,37 +21,37 @@ ListModel
     ListElement
     {
         menutext:"Select Music"
-        loaderSource: "selectmusic.qml"
+        loaderSource: "ComingSoon.qml"
         waterMark: "watermark/music.png"
     }
     ListElement
     {
         menutext: "Import CD"
-        loaderSource: "ripmusic.qml"
+        loaderSource: "ComingSoon.qml"
         waterMark: "watermark/cd_rip.png"
     }
     ListElement
     {
         menutext:"Import Music"
-        loaderSource: "importmusic.qml"
+        loaderSource: "ComingSoon.qml"
         waterMark: "watermark/music.png"
     }
     ListElement
     {
         menutext:"Scan For New  Music"
-        loaderSource: "scanmusic.qml"
+        loaderSource: "ComingSoon.qml"
         waterMark: "watermark/music.png"
     }
     ListElement
     {
         menutext:"Eject CD"
-        loaderSource: ""
+        loaderSource: "ComingSoon.qml"
         waterMark: "watermark/dvd_eject.png"
     }
     ListElement
     {
         menutext:"Music Settings"
-        loaderSource: "musicsettings.qml"
+        loaderSource: "ComingSoon.qml"
         waterMark: "watermark/music_settings.png"
     }
 }
