@@ -167,7 +167,9 @@ BaseScreen
             {
                 id: titleText
 
-                x: icon.width + xscale(20); y: yscale(10); width: parent.width - icon.width - xscale(20)
+                x: icon.width + xscale(20); y: yscale(10)
+                width: parent.width - icon.width - xscale(30)
+                height: parent.height - yscale(20)
                 text: title
                 multiline: true
             }
