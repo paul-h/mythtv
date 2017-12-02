@@ -11,6 +11,9 @@ BaseScreen
     property string trackArtistTitle: ""
     property int trackStart: 0
 
+    // this is necessary because the VLCPlayer sends bad values for the mute changed signal
+    property bool muted: false
+
     Component.onCompleted:
     {
         showTitle(false, "");
@@ -78,6 +81,8 @@ BaseScreen
                 audio.volume = vol;
             else
                 audio.volume = 80
+
+            audio.mute = false
         }
 
         Component.onDestruction:
@@ -345,7 +350,7 @@ BaseScreen
     {
         id: muteIcon
         x: xscale(30); y: yscale(669)
-        source: streamPlayer.audio.mute ? mythUtils.findThemeFile("images/mm_volume.png") : mythUtils.findThemeFile("images/mm_volume_muted.png")
+        source: root.muted ? mythUtils.findThemeFile("images/mm_volume_muted.png") : mythUtils.findThemeFile("images/mm_volume.png")
     }
 
     LabelText
@@ -405,14 +410,15 @@ BaseScreen
         if (amount < 0)
             streamPlayer.audio.volume = Math.max(0.0, streamPlayer.audio.volume + amount);
         else
-            streamPlayer.audio.volume = Math.min(100.0, streamPlayer.audio.volume + amount);
+            streamPlayer.audio.volume = Math.min(200.0, streamPlayer.audio.volume + amount);
 
         dbUtils.setSetting("Qml_radioPlayerVolume", settings.hostName, streamPlayer.audio.volume)
     }
 
     function toggleMute()
     {
-        streamPlayer.audio.mute = !streamPlayer.audio.mute;
+        root.muted = ! root.muted
+        streamPlayer.audio.mute = root.muted;
     }
 }
 
