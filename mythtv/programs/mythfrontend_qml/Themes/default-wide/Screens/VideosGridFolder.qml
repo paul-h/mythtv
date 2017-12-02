@@ -49,12 +49,12 @@ BaseScreen
 
         Item
         {
-            width:videoList.width; height: 50
+            width:videoList.width; height: yscale(62)
 
             Image
             {
                 id: coverImage
-                x: xscale(13); y: yscale(3); height: parent.height - yscale(6); width: height
+                x: xscale(3); y: yscale(3); height: parent.height - yscale(6); width: height
                 asynchronous: true
                 source:
                 {
@@ -71,12 +71,11 @@ BaseScreen
                     }
                 }
             }
-            InfoText
+            ListText
             {
                 width: videoList.width - coverImage.width - xscale(20); height: xscale(50)
-                x: coverImage.width + xscale(20)
+                x: coverImage.width + xscale(5)
                 text: fileName
-
             }
         }
     }
@@ -84,7 +83,7 @@ BaseScreen
     ButtonList
     {
         id: videoList
-        x: xscale(25); y: yscale(65); width: xscale(1230); height: yscale(600)
+        x: xscale(25); y: yscale(65); width: xscale(1230); height: yscale(620)
 
         focus: true
         clip: true

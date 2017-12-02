@@ -15,49 +15,39 @@ BaseScreen
         showTicker(false);
     }
 
+    BaseBackground
+    {
+        x: xscale(15); y: yscale(50); width: xscale(1250); height: yscale(655)
+    }
+
     Component
     {
         id: listRow
 
         Item
         {
-            width:imageList.width; height: 50
+            width:imageList.width; height: yscale(62)
 
             Image
             {
                 id: thumbnail
-                x: 3; y:3; height: parent.height - 6; width: height
+                x: xscale(3); y: yscale(3); height: parent.height - xscale(6); width: height
                 source: fileIsDir ? mythUtils.findThemeFile("images/directory.png") : filePath
                 asynchronous: true
             }
-            Text
+            ListText
             {
-                width:imageList.width; height: 50
-                x: thumbnail.width + 5
+                width:imageList.width; height: parent.height
+                x: thumbnail.width + xscale(5)
                 text: fileName
-
             }
         }
     }
 
-    Component
-    {
-        id: listHighlight
-
-        Rectangle
-        {
-            width:imageList.width; height: 50
-            color: "green"
-            opacity: 0.3
-            radius: 15
-            border.color: "#dd00ff00"
-        }
-    }
-
-    ListView
+    ButtonList
     {
         id: imageList
-        x: 100; y: 100; width: 1000; height: 500
+        x: xscale(25); y: yscale(65); width: xscale(1230); height: yscale(620)
 
         focus: true
         clip: true
@@ -71,26 +61,10 @@ BaseScreen
 
         model: folderModel
         delegate: listRow
-        highlight: listHighlight
-
-        Keys.onPressed:
-        {
-            if (event.key === Qt.Key_PageDown)
-            {
-                currentIndex = currentIndex + 6 >= model.count ? model.count - 1 : currentIndex + 6;
-                event.accepted = true;
-            }
-            else if (event.key === Qt.Key_PageUp)
-            {
-                currentIndex = currentIndex - 6 < 0 ? 0 : currentIndex - 6;
-                event.accepted = true;
-            }
-        }
+        highlight: ListHighlight{}
 
         Keys.onReturnPressed:
         {
-            console.log("filename is: " + model.get(currentIndex, "filePath"));
-
             if (model.get(currentIndex, "fileIsDir"))
                 stack.push({item: Qt.resolvedUrl("IconView.qml"), properties:{folder: model.get(currentIndex, "filePath")}});
             else

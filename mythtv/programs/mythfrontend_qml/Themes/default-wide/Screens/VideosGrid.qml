@@ -75,7 +75,7 @@ BaseScreen
 
         Item
         {
-            width:videoList.width; height: 50
+            width:videoList.width; height: yscale(62)
 
             Image
             {
@@ -86,14 +86,14 @@ BaseScreen
                         else
                             mythUtils.findThemeFile("images/grid_noimage.png")
             }
-            InfoText
+            ListText
             {
                 width: videoList.width - coverImage.width - xscale(20); height: xscale(50)
                 x: coverImage.width + xscale(20)
                 text: SubTitle ? Title + ": " + SubTitle : Title
             }
 
-            InfoText
+            ListText
             {
                 x: xscale(1000);
                 width: xscale(200); height: xscale(50)
@@ -111,7 +111,7 @@ BaseScreen
     ButtonList
     {
         id: videoList
-        x: xscale(25); y: yscale(65); width: xscale(1230); height: yscale(600)
+        x: xscale(25); y: yscale(65); width: xscale(1230); height: yscale(620)
 
         focus: true
         clip: true
