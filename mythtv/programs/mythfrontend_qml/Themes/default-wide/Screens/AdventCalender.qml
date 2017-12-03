@@ -394,7 +394,7 @@ BaseScreen
         {
             calenderGrid.model.get(calenderGrid.currentIndex).opened = true
             calenderGrid.focus = true;
-            stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: calenderGrid.model.get(calenderGrid.currentIndex).video}});
+            stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: calenderGrid.model.get(calenderGrid.currentIndex).video, title1: calenderGrid.model.get(calenderGrid.currentIndex).title}});
         }
         onCancelled:
         {

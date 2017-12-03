@@ -15,6 +15,9 @@ FocusScope
     property bool playbackStarted: false
     signal playbackEnded()
 
+    property string title: ""
+    property string subtitle: ""
+
     Rectangle
     {
         id: background
@@ -111,7 +114,14 @@ FocusScope
             {
                 id: title
                 x: xscale(10); y: yscale(5); width: parent.width - xscale(20)
-                text: mediaplayer.mrl
+                text:
+                {
+                    if (root.title != "")
+                        return root.title
+                    else
+                        return root.source
+                }
+
                 verticalAlignment: Text.AlignTop
             }
 

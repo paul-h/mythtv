@@ -9,6 +9,7 @@ BaseScreen
     defaultFocusItem: player1
     property int layout: 0
     property alias source1: player1.source
+    property alias title1:  player1.title
     property alias source2: player2.source
     property alias source3: player3.source
     property alias source4: player4.source
