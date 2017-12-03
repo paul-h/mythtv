@@ -101,67 +101,33 @@ FocusScope
              }
         }
 
-        Rectangle
+        BaseBackground
         {
             id: infoPanel
-            x: xscale(10); y: parent.height - yscale(100); width: parent.width - xscale(20); height: yscale(90)
+            x: xscale(10); y: parent.height - yscale(120); width: parent.width - xscale(20); height: yscale(110)
             visible: false
-            color: "black"
-            opacity: 0.4
-            radius: xscale(5)
-            border.color: "green"
-            border.width: xscale(3)
 
-            Text
-            {
-                id: pos
-                x: xscale(10); y: yscale(5)
-                text: "Position: " + Util.milliSecondsToString(mediaplayer.time) + " / " + Util.milliSecondsToString(mediaplayer.length)
-                color: "white"
-            }
-
-            Text
-            {
-                id: interlacer
-                x: xscale(200); y: yscale(5)
-                text: "Deinterlacer: " + videoSurface.deinterlacers[videoSurface.currentDeinterlacer]
-                color: "white"
-            }
-
-            Text
-            {
-                id: timeLeft
-                x: xscale(10); y: yscale(20)
-                text: "Remaining :" + Util.milliSecondsToString(mediaplayer.length - mediaplayer.time)
-                color: "white"
-            }
-            Text
-            {
-                id: vol
-                x: xscale(10); y: yscale(35)
-                text: "Volume: " + mediaplayer.volume + "%"
-                color: "white"
-            }
-
-            Text
-            {
-                id: artist
-                x: xscale(500); y: yscale(5)
-                text: if (mediaplayer.metaData && mediaplayer.metaData.albumArtist !== undefined)
-                          "Artist: " + mediaplayer.metaData.albumArtist;
-                      else
-                          "Artist: Unknown";
-                color: "white"
-            }
-            Text
+            TitleText
             {
                 id: title
-                x: xscale(500); y: xscale(20)
-                text: if (mediaplayer.metaData && mediaplayer.metaData.title !== undefined)
-                "Title: " + mediaplayer.metaData.title;
-                else
-                    "Title: Unknown";
-                color: "white"
+                x: xscale(10); y: yscale(5); width: parent.width - xscale(20)
+                text: mediaplayer.mrl
+                verticalAlignment: Text.AlignTop
+            }
+
+            InfoText
+            {
+                id: pos
+                x: xscale(50); y: yscale(45)
+                text: "Position: " + Util.milliSecondsToString(mediaplayer.time) + " / " + Util.milliSecondsToString(mediaplayer.length)
+            }
+
+            InfoText
+            {
+                id: timeLeft
+                x: xscale(945); y: yscale(45)
+                text: "Remaining :" + Util.milliSecondsToString(mediaplayer.length - mediaplayer.time)
+                horizontalAlignment: Text.AlignRight
             }
 
             RowLayout
@@ -216,12 +182,40 @@ FocusScope
             }
         }
 
+        BaseBackground
+        {
+            id: messagePanel
+            x: xscale(100); y: yscale(120); width: xscale(400); height: yscale(110)
+            visible: false
+
+            InfoText
+            {
+                id: messageText
+                anchors.fill: parent
+                horizontalAlignment: Text.AlignHCenter
+            }
+        }
+
         MouseArea
         {
             id: playArea
             anchors.fill: parent
             onPressed: mediaplayer.play();
         }
+    }
+
+    Timer
+    {
+        id: messageTimer
+        interval: 3000; running: false; repeat: false
+        onTriggered: messagePanel.visible = false;
+    }
+
+    function showMessage(message)
+    {
+        messageText.text = message;
+        messagePanel.visible = true;
+        messageTimer.restart();
     }
 
     function isPlaying()
@@ -260,6 +254,8 @@ FocusScope
             mediaplayer.volume = Math.max(0, mediaplayer.volume + amount);
         else
             mediaplayer.volume = Math.min(100, mediaplayer.volume + amount);
+
+        showMessage("Volume: " + mediaplayer.volume + "%");
     }
 
     function getMuted()
@@ -271,11 +267,14 @@ FocusScope
     {
         if (mute != mediaplayer.audio.mute)
             mediaplayer.audio.mute = mute;
+
+        //showMessage("Mute: " + (mute ? "On" : "Off"));
     }
 
     function toggleMute()
     {
         mediaplayer.audio.mute = !mediaplayer.audio.mute;
+        //showMessage("Mute: " + (mediaplayer.audio.mute ? "On" : "Off"));
     }
 
     function setLoopMode(doLoop)
@@ -297,6 +296,8 @@ FocusScope
             mediaplayer.video.deinterlace.enable(videoSurface.deinterlacers[videoSurface.currentDeinterlacer])
         else
             mediaplayer.video.deinterlace.disable()
+
+        showMessage("Deinterlacer: " + videoSurface.deinterlacers[videoSurface.currentDeinterlacer]);
     }
 
     function takeSnapshot(filename)
@@ -306,5 +307,6 @@ FocusScope
                                  {
                                      result.saveToFile(filename);
                                  });
+        showMessage("Snapshot Saved");
     }
 }
