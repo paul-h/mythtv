@@ -17,6 +17,15 @@ Item
 
     x: 50; y : 0; width: 300; height: 50
 
+    Rectangle
+    {
+        anchors.fill: parent
+        color: "transparent"
+        border.color: Qt.rgba(Math.random(), Math.random(), Math.random(), 1)
+        border.width: 1
+        visible: settings.showTextBorder
+    }
+
     Text
     {
         id: shadow
@@ -31,6 +40,7 @@ Item
         horizontalAlignment: root.horizontalAlignment
         verticalAlignment: root.verticalAlignment
         visible: shadowXOffset != 0 || shadowYOffset != 0 ? true : false
+        clip: true
     }
 
     Text
@@ -45,5 +55,6 @@ Item
         x: 0; y: 0;  width: parent.width; height: parent.height
         horizontalAlignment: root.horizontalAlignment
         verticalAlignment: root.verticalAlignment
+        clip: true
     }
 }

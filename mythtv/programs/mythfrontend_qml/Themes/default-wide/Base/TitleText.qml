@@ -40,6 +40,7 @@ Item
         horizontalAlignment: root.horizontalAlignment
         verticalAlignment: root.verticalAlignment
         visible: shadowXOffset != 0 || shadowYOffset != 0 ? true : false
+        clip: true
     }
 
     Text
@@ -54,5 +55,6 @@ Item
         x: 0; y: 0;  width: parent.width; height: parent.height
         horizontalAlignment: root.horizontalAlignment
         verticalAlignment: root.verticalAlignment
+        clip: true
     }
 }
