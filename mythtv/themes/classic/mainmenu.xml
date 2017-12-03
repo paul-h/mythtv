@@ -119,7 +119,7 @@
     <button>
         <type>TV</type>
         <text>New Frontend</text>
-        <description>Start the new QML frontend (eperimental)</description>
+        <description>Start the new QML frontend (experimental)</description>
         <action>EXEC mythfrontend_qml</action>
     </button>
 
