@@ -29,6 +29,9 @@ BaseScreen
         muteAudio(false);
     }
 
+    onWidthChanged: setLayout();
+    onHeightChanged: setLayout();
+
     Keys.onEscapePressed:
     {
         player1.stop();

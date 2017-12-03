@@ -104,18 +104,18 @@ FocusScope
         Rectangle
         {
             id: infoPanel
-            x: 10; y: parent.height - 100; width: parent.width - 20; height: 90
+            x: xscale(10); y: parent.height - yscale(100); width: parent.width - xscale(20); height: yscale(90)
             visible: false
             color: "black"
             opacity: 0.4
-            radius: 5
+            radius: xscale(5)
             border.color: "green"
-            border.width: 3
+            border.width: xscale(3)
 
             Text
             {
                 id: pos
-                x: 10; y: 5
+                x: xscale(10); y: yscale(5)
                 text: "Position: " + Util.milliSecondsToString(mediaplayer.time) + " / " + Util.milliSecondsToString(mediaplayer.length)
                 color: "white"
             }
@@ -123,7 +123,7 @@ FocusScope
             Text
             {
                 id: interlacer
-                x: 200; y: 5
+                x: xscale(200); y: yscale(5)
                 text: "Deinterlacer: " + videoSurface.deinterlacers[videoSurface.currentDeinterlacer]
                 color: "white"
             }
@@ -131,14 +131,14 @@ FocusScope
             Text
             {
                 id: timeLeft
-                x: 10; y: 20
+                x: xscale(10); y: yscale(20)
                 text: "Remaining :" + Util.milliSecondsToString(mediaplayer.length - mediaplayer.time)
                 color: "white"
             }
             Text
             {
                 id: vol
-                x: 10; y: 35
+                x: xscale(10); y: yscale(35)
                 text: "Volume: " + mediaplayer.volume + "%"
                 color: "white"
             }
@@ -146,7 +146,7 @@ FocusScope
             Text
             {
                 id: artist
-                x: 500; y: 5
+                x: xscale(500); y: yscale(5)
                 text: if (mediaplayer.metaData && mediaplayer.metaData.albumArtist !== undefined)
                           "Artist: " + mediaplayer.metaData.albumArtist;
                       else
@@ -156,7 +156,7 @@ FocusScope
             Text
             {
                 id: title
-                x: 500; y: 20
+                x: xscale(500); y: xscale(20)
                 text: if (mediaplayer.metaData && mediaplayer.metaData.title !== undefined)
                 "Title: " + mediaplayer.metaData.title;
                 else
@@ -168,21 +168,21 @@ FocusScope
             {
                 id: toolbar
                 opacity: .55
-                spacing: 10
+                spacing: xscale(10)
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: spacing
-                anchors.leftMargin: spacing * 1.5
-                anchors.rightMargin: spacing * 1.5
+                anchors.leftMargin: spacing * xscale(1.5)
+                anchors.rightMargin: spacing * xscale(1.5)
                 Behavior on anchors.bottomMargin { PropertyAnimation { duration: 250} }
                 Rectangle
                 {
-                    height: 24
+                    height: yscale(24)
                     width: height
-                    radius: width * 0.25
+                    radius: width * xscale(0.25)
                     color: 'black'
-                    border.width: 1
+                    border.width: xscale(1)
                     border.color: 'white'
                     Image
                     {
@@ -198,16 +198,16 @@ FocusScope
                 Rectangle
                 {
                     Layout.fillWidth: true
-                    height: 10
+                    height: yscale(10)
                     color: 'transparent'
-                    border.width: 1
+                    border.width: xscale(1)
                     border.color: 'white'
                     anchors.verticalCenter: parent.verticalCenter
                     Rectangle
                     {
                         width: (parent.width - anchors.leftMargin - anchors.rightMargin) * mediaplayer.position
                         color: 'blue'
-                        anchors.margins: 2
+                        anchors.margins: xscale(2)
                         anchors.top: parent.top
                         anchors.left: parent.left
                         anchors.bottom: parent.bottom
