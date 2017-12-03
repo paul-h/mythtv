@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("dbUtils", &databaseUtils);
 
     QString hostName = QHostInfo::localHostName();
-    QString theme = databaseUtils.getSetting("Qml_theme", hostName, "MythCenter-wide");
+    QString theme = databaseUtils.getSetting("Qml_theme", hostName, "MythCenterXMAS-wide");
 
     // create the settings
     Settings settings;
