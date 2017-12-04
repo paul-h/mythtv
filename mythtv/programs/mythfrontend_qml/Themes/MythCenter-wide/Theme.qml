@@ -7,8 +7,15 @@ QtObject
     id: root
 
     // screen background
-    property string backgroundVideo:     "video/blue_motion_background.mp4"
-
+    property string   backgroundImage:  "background.png"
+    property string   backgroundVideo:  settings.configPath + "Themes/videos/blue_motion_background.mkv"
+    property bool     needsDownload:    true
+    property string   downloadCommand:  settings.sharePath.replace("file://", "") + "/qml/Scripts/youtube-dl"
+    property var      downloadOptions:  [
+                                            "-o",  settings.configPath + "Themes/videos/blue_motion_background",
+                                            "-f", "bestvideo[height<=720]+bestaudio/best[height<=720]",
+                                            "https://www.youtube.com/watch?v=X-dMOvEOQiM"
+                                        ]
     // main menu font
     property string menuFontFamily:     "Liberation Sans"
     property int    menuFontPixelSize:  30

@@ -57,15 +57,6 @@ Item
 
     x: 0; y : 0; width: window.width; height: window.height
 
-    // background image
-    Image
-    {
-        id: background
-        visible: true
-        anchors.fill: parent
-        source: mythUtils.findThemeFile(theme.backgroundImage);
-    }
-
     // background video
     VideoPlayerQmlVLC
     {
@@ -91,11 +82,21 @@ Item
         }
     }
 
+    // background image
+    Image
+    {
+        id: background
+        visible: true
+        anchors.fill: parent
+        source: mythUtils.findThemeFile(theme.backgroundImage)
+    }
+
     // screen title
     TitleText
     {
         id: screenTitle
         text: title
+        width: 900
         visible : true
     }
 
