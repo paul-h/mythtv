@@ -28,6 +28,8 @@ BaseScreen
     Component.onDestruction:
     {
         muteAudio(false);
+        showImage(false);
+        showVideo(true);
     }
 
     onWidthChanged: setLayout();

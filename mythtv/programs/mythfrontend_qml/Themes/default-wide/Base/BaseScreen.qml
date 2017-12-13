@@ -11,6 +11,7 @@ Item
     property bool   oldShowTicker: false
     property bool   oldShowTime: false
     property bool   oldShowVideo: false
+    property bool   oldShowImage: false
 
     x: 0; y: 0; width: parent.width; height: parent.height
 
@@ -36,6 +37,11 @@ Item
         screenBackground.showVideo = show;
     }
 
+    function showImage(show)
+    {
+        screenBackground.showImage = show;
+    }
+
     function muteAudio(mute)
     {
         screenBackground.muteAudio(mute);
@@ -54,6 +60,7 @@ Item
         oldShowTicker = screenBackground.showTicker;
         oldShowTime = screenBackground.showTime;
         oldShowVideo = screenBackground.showVideo;
+        oldShowImage = screenBackground.showImage;
     }
 
     Component.onDestruction:
@@ -64,5 +71,6 @@ Item
         screenBackground.showTicker = oldShowTicker;
         screenBackground.showTime = oldShowTime;
         screenBackground.showVideo = oldShowVideo;
+        screenBackground.showImage = oldShowImage;
     }
 }
