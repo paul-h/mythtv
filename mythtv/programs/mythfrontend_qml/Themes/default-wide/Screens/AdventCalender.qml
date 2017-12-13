@@ -213,10 +213,10 @@ BaseScreen
         ListElement
         {
             day: "21"
-            title: "Snow Village 3D Screensaver"
-            icon: "https://i.ytimg.com/vi/Wgwukejv2fA/hqdefault.jpg"
-            video: "https://www.youtube.com/watch?v=Wgwukejv2fA"
-            duration: "19:44"
+            title: "Christmas in London - Feel The Spirit - City of London - Christmas Lights"
+            icon: "https://i.ytimg.com/vi/eM4PWCsJO1c/hqdefault.jpg"
+            video: "https://www.youtube.com/watch?v=eM4PWCsJO1c"
+            duration: "6:15"
             opened: false
         }
         ListElement
