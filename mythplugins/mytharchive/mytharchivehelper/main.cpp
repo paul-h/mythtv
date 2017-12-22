@@ -73,6 +73,7 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include "external/pxsup2dast.h"
+#include "libavutil/imgutils.h"
 }
 
 // mytharchive headers
@@ -2023,11 +2024,11 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
     for (uint i = 0; i < inputFC->nb_streams; i++)
     {
         AVStream *st = inputFC->streams[i];
-        if (inputFC->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO)
+        if (inputFC->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
         {
             videostream = i;
-            width = st->codec->width;
-            height = st->codec->height;
+            width = st->codecpar->width;
+            height = st->codecpar->height;
             if (st->r_frame_rate.den && st->r_frame_rate.num)
                 fps = av_q2d(st->r_frame_rate);
             else
@@ -2043,7 +2044,8 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
     }
 
     // get the codec context for the video stream
-    AVCodecContext *codecCtx = inputFC->streams[videostream]->codec;
+    AVCodecContext *codecCtx = gCodecMap->getCodecContext
+        (inputFC->streams[videostream]);
 
     // get decoder for video stream
     AVCodec * codec = avcodec_find_decoder(codecCtx->codec_id);
@@ -2069,10 +2071,10 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
         return 1;
     }
     AVPacket pkt;
-    AVPicture orig;
-    AVPicture retbuf;
-    memset(&orig, 0, sizeof(AVPicture));
-    memset(&retbuf, 0, sizeof(AVPicture));
+    AVFrame orig;
+    AVFrame retbuf;
+    memset(&orig, 0, sizeof(AVFrame));
+    memset(&retbuf, 0, sizeof(AVFrame));
     MythAVCopy copyframe;
     MythPictureDeinterlacer deinterlacer(codecCtx->pix_fmt, width, height);
 
@@ -2094,12 +2096,17 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
 
                 avcodec_flush_buffers(codecCtx);
                 av_frame_unref(frame);
-                avcodec_decode_video2(codecCtx, frame, &frameFinished, &pkt);
+                frameFinished = 0;
+                ret = avcodec_receive_frame(codecCtx, frame);
+                if (ret == 0)
+                    frameFinished = 1;
+                if (ret == 0 || ret == AVERROR(EAGAIN))
+                    ret = avcodec_send_packet(codecCtx, &pkt);
                 keyFrame = frame->key_frame;
 
                 while (!frameFinished || !keyFrame)
                 {
-                    av_free_packet(&pkt);
+                    av_packet_unref(&pkt);
                     int res = av_read_frame(inputFC, &pkt);
                     if (res < 0)
                         break;
@@ -2107,7 +2114,11 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
                     {
                         frameNo++;
                         av_frame_unref(frame);
-                        avcodec_decode_video2(codecCtx, frame, &frameFinished, &pkt);
+                        ret = avcodec_receive_frame(codecCtx, frame);
+                        if (ret == 0)
+                            frameFinished = 1;
+                        if (ret == 0 || ret == AVERROR(EAGAIN))
+                            ret = avcodec_send_packet(codecCtx, &pkt);
                         keyFrame = frame->key_frame;
                     }
                 }
@@ -2128,15 +2139,15 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
                         else if (filename.contains("%1"))
                             filename = filename.arg(thumbCount);
 
-                        avpicture_fill(&retbuf, outputbuf,
-                                       AV_PIX_FMT_RGB32, width, height);
+                        av_image_fill_arrays(retbuf.data, retbuf.linesize, outputbuf,
+                            AV_PIX_FMT_RGB32, width, height, IMAGE_ALIGN);
 
                         AVFrame *tmp = frame;
-                        deinterlacer.DeinterlaceSingle((AVPicture*)tmp,
-                                                       (AVPicture*)tmp);
+                        deinterlacer.DeinterlaceSingle((AVFrame*)tmp,
+                                                       (AVFrame*)tmp);
 
                         copyframe.Copy(&retbuf, AV_PIX_FMT_RGB32,
-                                       (AVPicture*) tmp,
+                                       (AVFrame*) tmp,
                                        codecCtx->pix_fmt, width, height);
 
                         QImage img(outputbuf, width, height,
@@ -2164,9 +2175,11 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
                                 if (pkt.stream_index == videostream)
                                 {
                                     frameNo++;
-                                    avcodec_decode_video2(codecCtx, frame,
-                                                         &frameFinished,
-                                                         &pkt);
+                                    ret = avcodec_receive_frame(codecCtx, frame);
+                                    if (ret == 0)
+                                        frameFinished = 1;
+                                    if (ret == 0 || ret == AVERROR(EAGAIN))
+                                        ret = avcodec_send_packet(codecCtx, &pkt);
                                 }
                             }
                         }
@@ -2178,14 +2191,15 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
             }
         }
 
-        av_free_packet(&pkt);
+        av_packet_unref(&pkt);
     }
 
     if (outputbuf)
         delete[] outputbuf;
 
     // close the codec
-    avcodec_close(codecCtx);
+    gCodecMap->freeCodecContext
+        (inputFC->streams[videostream]);
 
     return 0;
 }
@@ -2205,7 +2219,7 @@ static int64_t getFrameCount(AVFormatContext *inputFC, int vid_id)
         {
             count++;
         }
-        av_free_packet(&pkt);
+        av_packet_unref(&pkt);
     }
 
     return count;
@@ -2373,10 +2387,14 @@ static int getFileInfo(QString inFile, QString outFile, int lenMethod)
     {
         AVStream *st = inputFC->streams[i];
         char buf[256];
+        AVCodecContext *avctx = gCodecMap->getCodecContext(st);
+        AVCodecParameters *par = st->codecpar;
 
-        avcodec_string(buf, sizeof(buf), st->codec, false);
+        buf[0]=0;
+        if (avctx)
+            avcodec_string(buf, sizeof(buf), avctx, false);
 
-        switch (inputFC->streams[i]->codec->codec_type)
+        switch (st->codecpar->codec_type)
         {
             case AVMEDIA_TYPE_VIDEO:
             {
@@ -2386,9 +2404,9 @@ static int getFileInfo(QString inFile, QString outFile, int lenMethod)
                 stream.setAttribute("streamindex", i);
                 stream.setAttribute("ffmpegindex", ffmpegIndex++);
                 stream.setAttribute("codec", codec.trimmed());
-                stream.setAttribute("width", st->codec->width);
-                stream.setAttribute("height", st->codec->height);
-                stream.setAttribute("bitrate", (qlonglong)st->codec->bit_rate);
+                stream.setAttribute("width", par->width);
+                stream.setAttribute("height", par->height);
+                stream.setAttribute("bitrate", (qlonglong)par->bit_rate);
 
                 float fps;
                 if (st->r_frame_rate.den && st->r_frame_rate.num)
@@ -2398,11 +2416,12 @@ static int getFileInfo(QString inFile, QString outFile, int lenMethod)
 
                 stream.setAttribute("fps", fps);
 
-                if (st->codec->sample_aspect_ratio.den && st->codec->sample_aspect_ratio.num)
+                if (par->sample_aspect_ratio.den && par->sample_aspect_ratio.num)
                 {
-                    float aspect_ratio = av_q2d(st->codec->sample_aspect_ratio);
+                    float aspect_ratio = av_q2d(par->sample_aspect_ratio);
                     if (QString(inputFC->iformat->name) != "nuv")
-                        aspect_ratio = ((float)st->codec->width / st->codec->height) * aspect_ratio;
+                        aspect_ratio = ((float)par->width
+                        / par->height) * aspect_ratio;
 
                     stream.setAttribute("aspectratio", aspect_ratio);
                 }
@@ -2521,7 +2540,7 @@ static int getFileInfo(QString inFile, QString outFile, int lenMethod)
                 else
                     stream.setAttribute("codec", codec.trimmed());
 
-                stream.setAttribute("channels", st->codec->channels);
+                stream.setAttribute("channels", par->channels);
 
                 AVDictionaryEntry *metatag =
                     av_dict_get(st->metadata, "language", NULL, 0);
@@ -2532,8 +2551,8 @@ static int getFileInfo(QString inFile, QString outFile, int lenMethod)
 
                 stream.setAttribute("id", st->id);
 
-                stream.setAttribute("samplerate", st->codec->sample_rate);
-                stream.setAttribute("bitrate", (qlonglong)st->codec->bit_rate);
+                stream.setAttribute("samplerate", par->sample_rate);
+                stream.setAttribute("bitrate", (qlonglong)par->bit_rate);
 
                 if (st->start_time != (int) AV_NOPTS_VALUE)
                 {
@@ -2588,9 +2607,10 @@ static int getFileInfo(QString inFile, QString outFile, int lenMethod)
             default:
                 LOG(VB_JOBQUEUE, LOG_ERR,
                     QString("Skipping unsupported codec %1 on stream %2")
-                        .arg(inputFC->streams[i]->codec->codec_type).arg(i));
+                        .arg(inputFC->streams[i]->codecpar->codec_type).arg(i));
                 break;
         }
+        gCodecMap->freeCodecContext(st);
     }
 
     // finally save the xml to the file
