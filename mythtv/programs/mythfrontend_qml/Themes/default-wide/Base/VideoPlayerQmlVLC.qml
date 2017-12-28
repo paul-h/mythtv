@@ -135,7 +135,7 @@ FocusScope
             InfoText
             {
                 id: timeLeft
-                x: xscale(945); y: yscale(45)
+                x: parent.width - width - xscale(15); y: yscale(45)
                 text: "Remaining :" + Util.milliSecondsToString(mediaplayer.length - mediaplayer.time)
                 horizontalAlignment: Text.AlignRight
             }
