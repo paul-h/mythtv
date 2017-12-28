@@ -1005,7 +1005,7 @@ int NativeArchive::doImportFile(const QString &xmlFile)
 
             LOG(VB_JOBQUEUE, LOG_INFO,
                 QString("Job: %1, Type: %2, Title: %3").arg(x + 1)
-                .arg(importItem.type).arg(importItem.title + ' ~ ' + importItem.startTime.toString()));
+                .arg(importItem.type).arg(importItem.title + " ~ " + importItem.startTime.toString()));
 
             if (importItem.type == "IPEncoder")
             {
@@ -1038,7 +1038,7 @@ int NativeArchive::doImportFile(const QString &xmlFile)
 
 bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
 {
-    QString title = importItem.title + ' ~ ' + importItem.startTime.toString();
+    QString title = importItem.title + " ~ " + importItem.startTime.toString();
 
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting playback at %1").arg(QDateTime::currentDateTime().toString()));
 
@@ -1194,6 +1194,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
 
 bool NativeArchive::importHDPVR2File(const ImportItem &importItem)
 {
+    (void) importItem;
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Importing a file using HD-PVR2 Encoder method"));
 
     LOG(VB_JOBQUEUE, LOG_INFO, QString("This method is currently not supported"));
@@ -1205,7 +1206,7 @@ bool NativeArchive::importHDPVR2File(const ImportItem &importItem)
 
 bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
 {
-    QString title = importItem.title + ' ~ ' + importItem.startTime.toString();
+    QString title = importItem.title + " ~ " + importItem.startTime.toString();
 
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting playback at %1").arg(QDateTime::currentDateTime().toString()));
 
