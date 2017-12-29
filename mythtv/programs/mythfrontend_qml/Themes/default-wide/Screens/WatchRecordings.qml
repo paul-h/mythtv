@@ -190,7 +190,8 @@ BaseScreen
         Keys.onReturnPressed:
         {
             var hostname = model.get(currentIndex).HostName === settings.hostName ? "localhost" : model.get(currentIndex).HostName
-            var filename = "myth://" + hostname + "/" + model.get(currentIndex).FileName;
+            //var filename = "myth://" + hostname + "/" + model.get(currentIndex).FileName;
+            var filename = settings.masterBackend + "/Content/GetRecording?RecordedId=" + model.get(currentIndex).RecordedId
             console.log("Playing: " + filename);
             stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: filename }});
             event.accepted = true;

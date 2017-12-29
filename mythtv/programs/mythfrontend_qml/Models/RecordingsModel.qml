@@ -44,6 +44,7 @@ XmlListModel
     XmlRole { name: "ChannelIcon"; query: "Channel/IconURL/string()" }
     XmlRole { name: "RecGroup"; query: "Recording/RecGroup/string()" }
     XmlRole { name: "Status"; query: "Recording/Status/string()" }
+    XmlRole { name: "RecordedId"; query: "Recording/RecordedId/number()" }
 
 
     signal loaded();
