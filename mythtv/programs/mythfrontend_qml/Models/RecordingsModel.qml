@@ -5,6 +5,8 @@ XmlListModel
 {
     id: recordingModel
 
+    property var busyDialog
+
     property var titleList: ListModel{}
     property var categoryList: ListModel{}
     property var recGroupList: ListModel{}
@@ -53,7 +55,8 @@ XmlListModel
     {
         if (status == XmlListModel.Ready)
         {
-            screenBackground.showBusyIndicator = false
+            if (busyDialog)
+                busyDialog.hide();
 
             updateLists();
 
@@ -62,12 +65,14 @@ XmlListModel
 
         if (status === XmlListModel.Loading)
         {
-            screenBackground.showBusyIndicator = true
+            if (busyDialog)
+                busyDialog.show();
         }
 
         if (status === XmlListModel.Error)
         {
-            screenBackground.showBusyIndicator = false
+            if (busyDialog)
+                busyDialog.hide();
             console.log("Error: " + errorString + "\n \n \n " + recordingModel.source.toString());
         }
     }

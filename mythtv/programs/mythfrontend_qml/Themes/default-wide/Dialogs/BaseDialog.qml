@@ -24,6 +24,11 @@ FocusScope
         modalDialog.state = "show";
     }
 
+    function hide()
+    {
+        modalDialog.state = "";
+    }
+
     Keys.onEscapePressed:
     {
         modalDialog.state = "";

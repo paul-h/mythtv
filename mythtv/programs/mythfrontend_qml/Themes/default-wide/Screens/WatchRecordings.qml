@@ -38,7 +38,7 @@ BaseScreen
     SortFilterProxyModel
     {
         id: recordingsProxyModel
-        sourceModel: RecordingsModel {}
+        sourceModel: RecordingsModel {busyDialog: busyDialog}
         filters:
         [
             AllOf
@@ -296,6 +296,12 @@ BaseScreen
                 else
                     mythUtils.findThemeFile("images/grid_noimage.png")
         }
+    }
+
+    BusyDialog
+    {
+        id: busyDialog
+        message: "Loading recording list.\nPlease Wait...."
     }
 
     RecordingFilterDialog
