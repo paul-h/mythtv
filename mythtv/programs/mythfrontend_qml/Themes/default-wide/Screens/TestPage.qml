@@ -35,8 +35,15 @@ BaseScreen
             videoplayer.playlist.clear();
             var mrl = mrlEdit.text;
             var options = optionsEdit.text.split("\n");
-            videoplayer.playlist.addWithOptions(mrl, options);
-            videoplayer.playlist.play();
+            if (options.size > 0)
+            {
+                videoplayer.playlist.addWithOptions(mrl, options);
+                videoplayer.playlist.play();
+            }
+            else
+            {
+                videoplayer.source = mrl;
+            }
         }
     }
 
