@@ -1,6 +1,7 @@
 import QtQuick 2.0
 import Base 1.0
 import Dialogs 1.0
+import "../../../Models"
 
 BaseScreen
 {
@@ -150,22 +151,30 @@ BaseScreen
 
             //ListBackground {}
 
+            Image
+            {
+               id: channelImage
+               x: 3; y:3; height: parent.height - 6; width: height
+               source:  if (IconURL)
+                            settings.masterBackend + IconURL;
+                        else
+                            mythUtils.findThemeFile("images/grid_noimage.png")
+            }
             ListText
             {
-                x: xscale(20); y: 0
-                text: modelData.label
+                x: xscale(70); y: 0
+                text: ChanId + " - " + ChanNum
             }
             ListText
             {
                 x: xscale(500); y: 0
-                text: modelData.item
+                text: CallSign
             }
             ListText
             {
                 x: xscale(900); y: 0
-                text: modelData.value
+                text: ChannelName
             }
-
         }
     }
 
@@ -180,64 +189,7 @@ BaseScreen
             spacing: 3
             anchors.fill: parent;
             anchors.margins: xscale(10)
-            model:
-            [
-                {
-                    'label': "Item1",
-                    'value': "Value1",
-                    'item':  "Item1"
-                },
-                {
-                    'label': "Item2",
-                    'value': "Value2",
-                    'item':  "Item2"
-                },
-                {
-                    'label': "Item3",
-                    'value': "Value3",
-                    'item':  "Item3"
-                },
-                {
-                    'label': "Item4",
-                    'value': "Value4",
-                    'item':  "Item4"
-                },
-                {
-                    'label': "Item5",
-                    'value': "Value5",
-                    'item':  "Item5"
-                },
-                {
-                    'label': "Item6",
-                    'value': "Value6",
-                    'item':  "Item6"
-                },
-                {
-                    'label': "Item7",
-                    'value': "Value7",
-                    'item':  "Item7"
-                },
-                {
-                    'label': "Item8",
-                    'value': "Value8",
-                    'item':  "Item8"
-                },
-                {
-                    'label': "Item9",
-                    'value': "Value9",
-                    'item':  "Item9"
-                },
-                {
-                    'label': "Item10",
-                    'value': "Value10",
-                    'item':  "Item10"
-                },
-                {
-                    'label': "Item11",
-                    'value': "Value11",
-                    'item':  "Item11"
-                }
-            ];
+            model: ChannelsModel { sourceId: 6 }
             delegate: listRow
             highlight: ListHighlight {}
 

@@ -74,8 +74,8 @@ BaseScreen
         {
             if (videoList.model.get(videoList.currentIndex).Fanart)
                 settings.masterBackend + videoList.model.get(videoList.currentIndex).Fanart
-                else
-                    ""
+            else
+                ""
         }
     }
 
