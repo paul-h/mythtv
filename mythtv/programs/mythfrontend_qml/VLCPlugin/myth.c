@@ -64,10 +64,10 @@
 /*****************************************************************************
  * Module descriptor
  *****************************************************************************/
-static int   InOpen ( vlc_object_t * );
-static void  InClose( vlc_object_t * );
-static int  SDOpen ( vlc_object_t * );
-static void SDClose( vlc_object_t * );
+static int  InOpen(vlc_object_t *);
+static void InClose(vlc_object_t *);
+static int  SDOpen(vlc_object_t *);
+static void SDClose(vlc_object_t *);
 
 #define CACHING_TEXT N_("Caching value in ms")
 #define CACHING_LONGTEXT N_( \
@@ -83,27 +83,26 @@ static void SDClose( vlc_object_t * );
 VLC_SD_PROBE_HELPER("myth", "MythTV Library", SD_CAT_LAN)
 
 vlc_module_begin()
-    set_shortname( "MythTV" )
-    set_description( N_("MythTV VLC Plugin") )
-    set_capability( "access", 0 )
-    set_category( CAT_INPUT )
-    set_subcategory( SUBCAT_INPUT_ACCESS )
-    add_integer( "myth-caching", 2 * DEFAULT_PTS_DELAY / 1000, 
-                 CACHING_TEXT, CACHING_LONGTEXT, true )
-    add_shortcut( "myth" )
-    set_callbacks( InOpen, InClose )
+    set_shortname("MythTV")
+    set_description(N_("MythTV VLC Plugin"))
+    set_capability("access", 0)
+    set_category(CAT_INPUT)
+    set_subcategory(SUBCAT_INPUT_ACCESS)
+    add_integer("myth-caching", 2 * DEFAULT_PTS_DELAY / 1000,
+                CACHING_TEXT, CACHING_LONGTEXT, true)
+    add_shortcut("myth")
+    set_callbacks(InOpen, InClose)
 
     add_submodule()
-        set_shortname( "MythTV Library")
-        set_description( N_("MythTV Library") )
-        set_category( CAT_PLAYLIST )
-        set_subcategory( SUBCAT_PLAYLIST_SD )
+        set_shortname("MythTV Library")
+        set_description(N_("MythTV Library"))
+        set_category(CAT_PLAYLIST)
+        set_subcategory(SUBCAT_PLAYLIST_SD)
 
-        add_string( "mythbackend-url", NULL, 
-                    SERVER_URL_TEXT, SERVER_URL_LONGTEXT, false )
+        add_string("mythbackend-url", NULL, SERVER_URL_TEXT, SERVER_URL_LONGTEXT, false)
 
-        set_capability( "services_discovery", 0 )
-        set_callbacks( SDOpen, SDClose )
+        set_capability("services_discovery", 0)
+        set_callbacks(SDOpen, SDClose)
 
         VLC_SD_PROBE_SUBMODULE
 
@@ -113,14 +112,12 @@ vlc_module_end()
  * Local prototypes
  *****************************************************************************/
 static ssize_t Read(access_t *, uint8_t *, size_t);
-static int Seek(access_t *, uint64_t);
-static int Control(access_t *, int, va_list);
+static int     Seek(access_t *, uint64_t);
+static int     Control(access_t *, int, va_list);
 
 static void *SDRun(void *data);
 
-//static void GetCutList( access_t *, access_sys_t *, char*, char* );
-
-#define MAKEINT64(lo, hi) ( ((int64_t)hi) << 32 | ((int64_t)(uint32_t)lo) )
+#define MAKEINT64(lo, hi) (((int64_t)hi) << 32 | ((int64_t)(uint32_t)lo))
 
 typedef struct _myth_version_t
 {
@@ -133,8 +130,6 @@ typedef struct _myth_sys_t
 {
     myth_version_t *version;
     char       file_transfer_id[10];
-
-    bool       b_supports_sql_query;
 
     char       sz_remote_ip[NI_MAXNUMERICHOST];
     char       sz_local_ip[NI_MAXNUMERICHOST];
@@ -410,6 +405,7 @@ static int myth_Connect(vlc_object_t *p_access, myth_sys_t *p_sys, bool b_fd_dat
     char *psz_host = var_GetString(p_access, "myth-server");
     int i_port = var_GetInteger(p_access, "myth-port");
     char *psz_filename = var_GetString(p_access, "myth-filename");
+    char *psz_sgroup = var_GetString(p_access, "myth-sgroup");
 
     for (int i = 0; i < 2; i++)
     {
@@ -480,7 +476,13 @@ static int myth_Connect(vlc_object_t *p_access, myth_sys_t *p_sys, bool b_fd_dat
 
         if (b_fd_data)
         {
-            if (myth_Send(p_access, fd, &i_len, &psz_params, "ANN FileTransfer VLC_%s 0[]:[]myth://%s:%d/%s[]:[]Default", p_sys->sz_local_ip, psz_host, i_port, psz_filename))
+#if 0
+            if (myth_Send(p_access, fd, &i_len, &psz_params, "ANN FileTransfer VLC_%s 0[]:[]myth://%s:%d/%s[]:[]%s", p_sys->sz_local_ip, psz_host, i_port, psz_filename, psz_sgroup))
+            {
+                return 0;
+            }
+#endif
+            if (myth_Send(p_access, fd, &i_len, &psz_params, "ANN FileTransfer VLC_%s 0[]:[]%s[]:[]%s", p_sys->sz_local_ip, psz_filename, psz_sgroup))
             {
                 return 0;
             }
@@ -599,10 +601,6 @@ static myth_recording_t ParseRecording(myth_version_t* version, char* psz_params
 
 static int InitialiseCommandConnection(vlc_object_t *p_access, access_sys_t *p_sys)
 {
-    char *psz_params;
-    int   i_len;
-    char *psz_filename = var_GetString(p_access, "myth-filename");
-
     int fd = myth_Connect(p_access, &p_sys->myth, false);
 
     if (!fd)
@@ -612,8 +610,18 @@ static int InitialiseCommandConnection(vlc_object_t *p_access, access_sys_t *p_s
 
     p_sys->fd_cmd = fd;
 
+    return VLC_SUCCESS;
+}
+
+static int QueryFileExists(vlc_object_t *p_access, access_sys_t *p_sys)
+{
+    char *psz_params;
+    int   i_len;
+    char *psz_filename = var_GetString(p_access, "myth-filename");
+    char *psz_sgroup = var_GetString(p_access, "myth-sgroup");
+
     // check file exists
-    if (myth_Send( p_access, p_sys->fd_cmd, &i_len, &psz_params, "QUERY_FILE_EXISTS[]:[]%s[]:[]Default", psz_filename))
+    if (myth_Send( p_access, p_sys->fd_cmd, &i_len, &psz_params, "QUERY_FILE_EXISTS[]:[]%s[]:[]%s", psz_filename, psz_sgroup))
     {
         return VLC_EGENERIC;
     }
@@ -626,6 +634,17 @@ static int InitialiseCommandConnection(vlc_object_t *p_access, access_sys_t *p_s
 
     free(psz_params);
 
+    msg_Info(p_access, "Found file (%s) in storage group (%s)", psz_filename, psz_sgroup);
+
+    return VLC_SUCCESS;
+}
+
+static int QueryRecording(vlc_object_t *p_access, access_sys_t *p_sys)
+{
+    char *psz_params;
+    int   i_len;
+    char *psz_filename = var_GetString(p_access, "myth-filename");
+
     input_thread_t *p_input = access_GetParentInput((access_t *) p_access);
     if (!p_input)
     {
@@ -633,7 +652,7 @@ static int InitialiseCommandConnection(vlc_object_t *p_access, access_sys_t *p_s
         return VLC_SUCCESS;
     }
 
-    if (myth_Send( p_access, fd, &i_len, &psz_params, "QUERY_RECORDINGS Play"))
+    if (myth_Send(p_access, p_sys->fd_cmd, &i_len, &psz_params, "QUERY_RECORDINGS Play"))
     {
         vlc_object_release(p_input);
         return VLC_EGENERIC;
@@ -752,7 +771,7 @@ static void VarInit(access_t *p_access)
     var_Create(p_access, "myth-server", VLC_VAR_STRING);
     var_Create(p_access, "myth-port", VLC_VAR_INTEGER);
     var_Create(p_access, "myth-filename", VLC_VAR_STRING);
-    var_Create(p_access, "myth-storagegroup", VLC_VAR_STRING);
+    var_Create(p_access, "myth-sgroup", VLC_VAR_STRING);
 
     /* for LiveTV */
     var_Create( p_access, "myth-encoder", VLC_VAR_INTEGER);
@@ -795,13 +814,15 @@ static int ParseMRL(access_t *p_access)
         free(val.psz_string);                                               \
     }
 
+    var_Create(p_access, "myth-caching", VLC_VAR_INTEGER | VLC_VAR_DOINHERIT);
+
     while(*psz_parser)
     {
         GET_OPTION_STRING("type")
         else GET_OPTION_STRING("server")
         else GET_OPTION_INT("port")
         else GET_OPTION_STRING("filename")
-        else GET_OPTION_STRING("storagegroup")
+        else GET_OPTION_STRING("sgroup")
         else GET_OPTION_INT("encoder")
         else GET_OPTION_INT("chanid")
         else
@@ -818,7 +839,49 @@ static int ParseMRL(access_t *p_access)
 #undef GET_OPTION_BOOL
 #undef GET_OPTION_STRING
 
-    //TODO sanity check type
+    // sanity check type
+    char *psz_type = var_GetString(p_access, "myth-type");
+
+    if (!psz_type)
+    {
+        val.psz_string = "recording";
+        var_Set(p_access, "myth-type", val);
+    }
+    else if (!strncmp(psz_type, "recording",  strlen("recording")) &&
+             !strncmp(psz_type, "video",      strlen("video")) &&
+             !strncmp(psz_type, "livetv",     strlen("livetv")))
+    {
+        msg_Err(p_access, "unknown type (%s)", psz_type);
+        free(psz_dup);
+        return VLC_EGENERIC;
+    }
+
+    // sanity check server
+    char *psz_server = var_GetString(p_access, "myth-server");
+
+    if (!psz_server)
+    {
+        val.psz_string = "localhost";
+        var_Set(p_access, "myth-server", val);
+    }
+
+    // sanity check port
+    int i_port = var_GetInteger(p_access, "myth-port");
+
+    if (i_port == 0)
+    {
+        val.i_int = IPPORT_MYTH;
+        var_Set(p_access, "myth-port", val);
+    }
+
+    // sanity check storage group
+    char *psz_sgroup = var_GetString(p_access, "myth-sgroup");
+
+    if (!psz_sgroup)
+    {
+        val.psz_string = "default";
+        var_Set(p_access, "myth-server", val);
+    }
 
     free(psz_dup);
     return VLC_SUCCESS;
@@ -855,10 +918,38 @@ static int InOpen(vlc_object_t *p_this)
         return VLC_EGENERIC;
     }
 
+    // initialise the command connection to the backend
+    if (InitialiseCommandConnection(p_this, p_sys))
+        goto exit_error;
+
     if (!strncmp(var_GetString(p_access, "myth-type"), "recording", strlen("recording")))
     {
         msg_Info(p_access, "playing a recording");
         msg_Info(p_access, "type: %s, server: %s, port: %ld, filename: %s", var_GetString(p_access, "myth-type"), var_GetString(p_access, "myth-server"), var_GetInteger(p_access, "myth-port"), var_GetString(p_access, "myth-filename"));
+
+        if (QueryFileExists(p_this, p_sys))
+            goto exit_error;
+
+        if (QueryRecording(p_this, p_sys))
+            goto exit_error;
+
+        // initialise streaming connection
+        p_sys->fd_data = myth_Connect(p_this, &p_sys->myth, true);
+        if (!p_sys->fd_data)
+            goto exit_error;
+    }
+    else if (!strncmp(var_GetString(p_access, "myth-type"), "video", strlen("video")))
+    {
+        msg_Info(p_access, "playing a video");
+        msg_Info(p_access, "type: %s, server: %s, port: %ld, filename: %s", var_GetString(p_access, "myth-type"), var_GetString(p_access, "myth-server"), var_GetInteger(p_access, "myth-port"), var_GetString(p_access, "myth-filename"));
+
+        if (QueryFileExists(p_this, p_sys))
+            goto exit_error;
+
+        // initialise streaming connection
+        p_sys->fd_data = myth_Connect(p_this, &p_sys->myth, true);
+        if (!p_sys->fd_data)
+            goto exit_error;
     }
     else
     {
@@ -866,16 +957,6 @@ static int InOpen(vlc_object_t *p_this)
         msg_Info(p_access, "type: %s, server: %s, port: %ld, filename: %s", var_GetString(p_access, "myth-type"), var_GetString(p_access, "myth-server"), var_GetInteger(p_access, "myth-port"), var_GetString(p_access, "myth-filename"));
         goto exit_error;
     }
-
-    if (InitialiseCommandConnection(p_this, p_sys))
-        goto exit_error;
-
-    // initialise streaming connection
-    p_sys->fd_data = myth_Connect(p_this, &p_sys->myth, true);
-    if (!p_sys->fd_data)
-        goto exit_error;
-
-    var_Create(p_access, "myth-caching", VLC_VAR_INTEGER | VLC_VAR_DOINHERIT);
 
     return VLC_SUCCESS;
 
