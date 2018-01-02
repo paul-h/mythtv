@@ -227,9 +227,10 @@ static int myth_WriteCommand(vlc_object_t *p_access, int fd, char* psz_cmd)
 
     //msg_Info( p_access, "myth_WriteCommand:\"%s%s\"", lenstr, psz_cmd);
 
-    if (net_Printf(VLC_OBJECT(p_access), fd, NULL, "%s%s", lenstr, psz_cmd ) < 0)
+    int res = net_Printf(VLC_OBJECT(p_access), fd, NULL, "%s%s", lenstr, psz_cmd );
+    if (res < 0)
     {
-        msg_Err(p_access, "failed to send command");
+        msg_Err(p_access, "failed to send command. Error code: %d", res);
         return VLC_EGENERIC;
     }
 
@@ -476,12 +477,6 @@ static int myth_Connect(vlc_object_t *p_access, myth_sys_t *p_sys, bool b_fd_dat
 
         if (b_fd_data)
         {
-#if 0
-            if (myth_Send(p_access, fd, &i_len, &psz_params, "ANN FileTransfer VLC_%s 0[]:[]myth://%s:%d/%s[]:[]%s", p_sys->sz_local_ip, psz_host, i_port, psz_filename, psz_sgroup))
-            {
-                return 0;
-            }
-#endif
             if (myth_Send(p_access, fd, &i_len, &psz_params, "ANN FileTransfer VLC_%s 0[]:[]%s[]:[]%s", p_sys->sz_local_ip, psz_filename, psz_sgroup))
             {
                 return 0;
@@ -621,7 +616,7 @@ static int QueryFileExists(vlc_object_t *p_access, access_sys_t *p_sys)
     char *psz_sgroup = var_GetString(p_access, "myth-sgroup");
 
     // check file exists
-    if (myth_Send( p_access, p_sys->fd_cmd, &i_len, &psz_params, "QUERY_FILE_EXISTS[]:[]%s[]:[]%s", psz_filename, psz_sgroup))
+    if (myth_Send(p_access, p_sys->fd_cmd, &i_len, &psz_params, "QUERY_FILE_EXISTS[]:[]%s[]:[]%s", psz_filename, psz_sgroup))
     {
         return VLC_EGENERIC;
     }
@@ -739,6 +734,170 @@ static int QueryRecording(vlc_object_t *p_access, access_sys_t *p_sys)
     return VLC_SUCCESS;
 }
 
+static int QueryLiveTVRecording(vlc_object_t *p_access, access_sys_t *p_sys)
+{
+    char *psz_params;
+    int   i_len;
+    int   i_encoder = var_GetInteger(p_access, "myth-encoder");
+
+    input_thread_t *p_input = access_GetParentInput((access_t *) p_access);
+    if (!p_input)
+    {
+        msg_Dbg( p_access, "Unable to find parent input thread. Access may not be from video." );
+        return VLC_SUCCESS;
+    }
+
+    if (myth_Send(p_access, p_sys->fd_cmd, &i_len, &psz_params, "QUERY_RECORDER %d[]:[]GET_CURRENT_RECORDING", i_encoder))
+    {
+        vlc_object_release(p_input);
+        return VLC_EGENERIC;
+    }
+
+    /* Set meta data */
+    char* psz_url;
+
+    if (p_sys->myth.version == &myth_version_24)
+    {
+        psz_url = myth_token(psz_params, i_len,  8);
+    }
+    else if (p_sys->myth.version == &myth_version_25 || p_sys->myth.version == &myth_version_26)
+    {
+        psz_url = myth_token(psz_params, i_len, 10);
+    }
+    else if (p_sys->myth.version == &myth_version_28 || p_sys->myth.version == &myth_version_29 || p_sys->myth.version == &myth_version_30)
+    {
+        psz_url = myth_token(psz_params, i_len, 12);
+    }
+    else
+    {
+        psz_url = myth_token(psz_params, i_len, 11);
+    }
+
+    msg_Info(p_access, "URL is %s", psz_url);
+
+    input_item_t *p_item = NULL;
+    char psz_datebuf[1000];
+    myth_recording_t recording = ParseRecording(p_sys->myth.version, psz_params, i_len, 0);
+
+    input_Control(p_input, INPUT_ADD_INFO, _("MythTV"), _("MythTV Backend Version"), "%s", p_sys->myth.version->psz_version);
+    input_Control(p_input, INPUT_ADD_INFO, _("MythTV"), _("Myth Protocol"),          "%d", p_sys->myth.version->i_version);
+
+    input_Control(p_input, INPUT_ADD_INFO, _("MythTV"), _("Title"),                  "%s", recording.psz_title);
+    input_Control(p_input, INPUT_ADD_INFO, _("MythTV"), _("Sub title"),              "%s", recording.psz_subtitle);
+    input_Control(p_input, INPUT_ADD_INFO, _("MythTV"), _("Description"),            "%s", recording.psz_description);
+    input_Control(p_input, INPUT_ADD_INFO, _("MythTV"), _("Category"),               "%s", recording.psz_genre);
+    input_Control(p_input, INPUT_ADD_INFO, _("MythTV"), _("Channel"),                "%s", recording.psz_channelName);
+
+    strftime(psz_datebuf, sizeof(psz_datebuf), "%Y-%m-%d %I:%M%p", localtime(&recording.startTime));
+    input_Control(p_input, INPUT_ADD_INFO, _("MythTV"), _("Recording start"),        "%s", psz_datebuf);
+
+    strftime(psz_datebuf, sizeof(psz_datebuf), "%Y-%m-%d %I:%M%p", localtime(&recording.endTime));
+    input_Control(p_input, INPUT_ADD_INFO, _("MythTV"), _("Recording end"),          "%s", psz_datebuf);
+
+    input_Control(p_input, INPUT_ADD_INFO, _("MythTV"), _("File size"),    "%"PRId64" MB", recording.i_fileSize / 1000000);
+    input_Control(p_input, INPUT_ADD_INFO, _("MythTV"), _("Base name"),              "%s", recording.psz_urlBase);
+
+    p_sys->psz_basename = strdup(recording.psz_urlBase);
+
+    p_item = input_GetItem(p_input);
+
+    char* psz_ctitle;
+    if (asprintf(&psz_ctitle, "%s: %s", recording.psz_title, recording.psz_subtitle) != -1)
+    {
+        input_Control(p_input, INPUT_SET_NAME, psz_ctitle);
+        free(psz_ctitle);
+    }
+
+    input_item_SetDescription(p_item, strdup(recording.psz_description));
+
+    msg_Info(p_access, "FOUND recording %s, size: %"PRId64, recording.psz_urlBase, recording.i_fileSize);
+
+    free(psz_params);
+    vlc_object_release(p_input);
+
+    vlc_value_t val;
+    val.psz_string = recording.psz_urlBase;
+    var_Set(p_access, "myth-filename", val);
+
+    return VLC_SUCCESS;
+}
+
+static int SpawnLiveTV(vlc_object_t *p_access, access_sys_t *p_sys)
+{
+    char *psz_params;
+    int i_len;
+    int i_encoder = var_GetInteger(p_access, "myth-encoder");
+    int i_channum = var_GetInteger(p_access, "myth-channum");
+
+    // send command to start LiveTV
+    if (myth_Send(p_access, p_sys->fd_cmd, &i_len, &psz_params, "QUERY_RECORDER %d[]:[]SPAWN_LIVETV[]:[]VLC_%s[]:[]0[]:[]%d", i_encoder, p_sys->myth.sz_local_ip, i_channum))
+    {
+        return VLC_EGENERIC;
+    }
+
+    char *acceptreject = myth_token(psz_params, i_len, 0);
+    if (strncmp(acceptreject, "OK", 2))
+    {
+        msg_Err( p_access, "Failed to start LiveTV");
+        return VLC_EGENERIC;
+    }
+
+    // wait for recorder to start recording
+    int tries = 10;
+    while (tries)
+    {
+        // send command to start LiveTV
+        if (myth_Send(p_access, p_sys->fd_cmd, &i_len, &psz_params, "QUERY_RECORDER %d[]:[]GET_FRAMES_WRITTEN", i_encoder))
+        {
+            return VLC_EGENERIC;
+        }
+
+        char *result = myth_token(psz_params, i_len, 0);
+        msg_Info(p_access, "Waiting for LiveTV result: %s", result);
+        if (atol(result) >= 30)
+        {
+            break;
+        }
+
+        msg_Info(p_access, "Waiting for LiveTV to start. Try: %d", 11 - tries);
+
+        tries--;
+        usleep(500000);
+    }
+
+    free(psz_params);
+
+    msg_Info(p_access, "LiveTV started for encoder (%d) encoder (%d)", i_encoder, i_channum);
+
+    return VLC_SUCCESS;
+}
+
+static int StopLiveTV(vlc_object_t *p_access, access_sys_t *p_sys)
+{
+    char *psz_params;
+    int i_len;
+    int i_encoder = var_GetInteger(p_access, "myth-encoder");
+
+    // send command to stop LiveTV
+    if (myth_Send(p_access, p_sys->fd_cmd, &i_len, &psz_params, "QUERY_RECORDER %d[]:[]STOP_LIVETV", i_encoder))
+    {
+        return VLC_EGENERIC;
+    }
+
+    char *acceptreject = myth_token(psz_params, i_len, 0);
+    if (strncmp(acceptreject, "OK", 2))
+    {
+        msg_Err( p_access, "Failed to stop LiveTV");
+        return VLC_EGENERIC;
+    }
+
+    free(psz_params);
+
+    msg_Info(p_access, "LiveTV stopped for encoder (%d)", i_encoder);
+
+    return VLC_SUCCESS;
+}
+
 static int parseURL(vlc_url_t *url, const char *path)
 {
     if( path == NULL )
@@ -775,7 +934,7 @@ static void VarInit(access_t *p_access)
 
     /* for LiveTV */
     var_Create( p_access, "myth-encoder", VLC_VAR_INTEGER);
-    var_Create( p_access, "myth-chanid", VLC_VAR_INTEGER);
+    var_Create( p_access, "myth-channum", VLC_VAR_INTEGER);
 }
 
 /* */
@@ -824,7 +983,7 @@ static int ParseMRL(access_t *p_access)
         else GET_OPTION_STRING("filename")
         else GET_OPTION_STRING("sgroup")
         else GET_OPTION_INT("encoder")
-        else GET_OPTION_INT("chanid")
+        else GET_OPTION_INT("channum")
         else
         {
             msg_Err(p_access, "unknown option (%s)", psz_parser);
@@ -925,7 +1084,8 @@ static int InOpen(vlc_object_t *p_this)
     if (!strncmp(var_GetString(p_access, "myth-type"), "recording", strlen("recording")))
     {
         msg_Info(p_access, "playing a recording");
-        msg_Info(p_access, "type: %s, server: %s, port: %ld, filename: %s", var_GetString(p_access, "myth-type"), var_GetString(p_access, "myth-server"), var_GetInteger(p_access, "myth-port"), var_GetString(p_access, "myth-filename"));
+        msg_Info(p_access, "type: %s, server: %s, port: %ld, filename: %s", var_GetString(p_access, "myth-type"),
+                 var_GetString(p_access, "myth-server"), var_GetInteger(p_access, "myth-port"), var_GetString(p_access, "myth-filename"));
 
         if (QueryFileExists(p_this, p_sys))
             goto exit_error;
@@ -941,9 +1101,29 @@ static int InOpen(vlc_object_t *p_this)
     else if (!strncmp(var_GetString(p_access, "myth-type"), "video", strlen("video")))
     {
         msg_Info(p_access, "playing a video");
-        msg_Info(p_access, "type: %s, server: %s, port: %ld, filename: %s", var_GetString(p_access, "myth-type"), var_GetString(p_access, "myth-server"), var_GetInteger(p_access, "myth-port"), var_GetString(p_access, "myth-filename"));
+        msg_Info(p_access, "type: %s, server: %s, port: %ld, filename: %s", var_GetString(p_access, "myth-type"),
+                 var_GetString(p_access, "myth-server"), var_GetInteger(p_access, "myth-port"), var_GetString(p_access, "myth-filename"));
 
         if (QueryFileExists(p_this, p_sys))
+            goto exit_error;
+
+        // initialise streaming connection
+        p_sys->fd_data = myth_Connect(p_this, &p_sys->myth, true);
+        if (!p_sys->fd_data)
+            goto exit_error;
+    }
+    else if (!strncmp(var_GetString(p_access, "myth-type"), "livetv", strlen("livetv")))
+    {
+        msg_Info(p_access, "playing LiveTV");
+        msg_Info(p_access, "type: %s, server: %s, port: %ld, encoder: %ld, channum: %ld", var_GetString(p_access, "myth-type"),
+                 var_GetString(p_access, "myth-server"), var_GetInteger(p_access, "myth-port"), 
+                 var_GetInteger(p_access, "myth-encoder"), var_GetInteger(p_access, "myth-channum"));
+
+        // start LiveTV
+        if (SpawnLiveTV(p_this, p_sys))
+            goto exit_error;
+
+        if (QueryLiveTVRecording(p_this, p_sys))
             goto exit_error;
 
         // initialise streaming connection
@@ -974,6 +1154,9 @@ exit_error:
 static void Close(vlc_object_t *p_access, access_sys_t *p_sys)
 {
     msg_Info(p_access, "stopping stream");
+
+    if (!strncmp(var_GetString(p_access, "myth-type"), "livetv", strlen("livetv")))
+        StopLiveTV(p_access, p_sys);
 
     if (p_sys->fd_data != -1)
         net_Close(p_sys->fd_data);
