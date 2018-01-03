@@ -189,7 +189,7 @@ BaseScreen
             spacing: 3
             anchors.fill: parent;
             anchors.margins: xscale(10)
-            model: ChannelsModel { sourceId: 6 }
+            model: ChannelsModel {  }
             delegate: listRow
             highlight: ListHighlight {}
 
@@ -554,30 +554,30 @@ BaseScreen
 
         onItemSelected:
         {
-            console.log("PopupMenu accepted signal received!: " + itemText);
+            console.info("PopupMenu accepted signal received!: " + itemText + " - " + itemData);
             button1.focus = true;
         }
         onCancelled:
         {
-            console.log("PopupMenu cancelled signal received.");
+            console.info("PopupMenu cancelled signal received.");
             button1.focus = true;
         }
 
         Component.onCompleted:
         {
-            addMenuItem("Apple");
-            addMenuItem("Orange");
-            addMenuItem("Banana");
-            addMenuItem("Pear");
-            addMenuItem("Grape");
-            addMenuItem("Lemon");
-            addMenuItem("Pineapple");
+            addMenuItem("Apple", "apples=1");
+            addMenuItem("Orange", "oranges=2");
+            addMenuItem("Banana", "banana=3");
+            addMenuItem("Pear", "pear=4");
+            addMenuItem("Grape", "grape=5");
+            addMenuItem("Lemon", "lemon=6");
+            addMenuItem("Pineapple", "pineapple=7");
 
-            addMenuItem("0,Apple 1");
-            addMenuItem("0,Apple 2");
-            addMenuItem("0,Apple 3");
-            addMenuItem("0,Apple 4");
-            addMenuItem("0,Apple 5");
+            addMenuItem("0,Apple 1", "apple=0,1");
+            addMenuItem("0,Apple 2", "apple=0,2");
+            addMenuItem("0,Apple 3", "apple=0,3");
+            addMenuItem("0,Apple 4", "apple=0,4");
+            addMenuItem("0,Apple 5", "apple=0,5");
         }
     }
 }

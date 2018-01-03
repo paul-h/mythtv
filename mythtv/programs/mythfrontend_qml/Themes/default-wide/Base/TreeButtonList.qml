@@ -169,12 +169,12 @@ FocusScope
         return list;
     }
 
-    function addNode(path)
+    function addNode(path, data)
     {
         var szSplit = path.split(',')
         if (szSplit.length === 1)
         {
-            objRoot.model.append({"itemTitle": szSplit[0], "subNodes": []})
+            objRoot.model.append({"itemTitle": szSplit[0], "itemData": data, "subNodes": []})
         }
         else
         {
@@ -199,7 +199,7 @@ FocusScope
             if (node.subNodes == undefined)
                 node.subNodes = [];
 
-            node.subNodes.append({"itemTitle": szSplit[i], "subNodes": []})
+            node.subNodes.append({"itemTitle": szSplit[i], "itemData": data, "subNodes": []})
         }
     }
 
