@@ -12,6 +12,7 @@ class Settings : public QObject
     Q_PROPERTY(QString themePath READ themePath WRITE setThemePath NOTIFY themePathChanged)
     Q_PROPERTY(QString menuPath READ menuPath WRITE setMenuPath NOTIFY menuPathChanged)
     Q_PROPERTY(QString masterBackend READ masterBackend WRITE setMasterBackend NOTIFY masterBackendChanged)
+    Q_PROPERTY(QString webSocketUrl READ webSocketUrl WRITE setWebSocketUrl NOTIFY webSocketUrlChanged)
     Q_PROPERTY(QString videoPath READ videoPath WRITE setVideoPath NOTIFY videoPathChanged)
     Q_PROPERTY(QString picturePath READ picturePath WRITE setPicturePath NOTIFY picturePathChanged)
     Q_PROPERTY(QString sdChannels READ sdChannels WRITE setSdChannels NOTIFY sdChannelsChanged)
@@ -36,6 +37,7 @@ class Settings : public QObject
      void themePathChanged(void);
      void menuPathChanged(void);
      void masterBackendChanged(void);
+     void webSocketUrlChanged(void);
      void videoPathChanged(void);
      void picturePathChanged(void);
      void sdChannelsChanged(void);
@@ -71,6 +73,9 @@ class Settings : public QObject
     QString masterBackend(void) {return m_masterBackend;}
     void    setMasterBackend(const QString &masterBackend) {m_masterBackend = masterBackend; emit masterBackendChanged(); }
 
+    QString webSocketUrl(void) {return m_webSocketUrl;}
+    void    setWebSocketUrl(const QString &webSocketUrl) {m_webSocketUrl = webSocketUrl; emit webSocketUrlChanged(); }
+
     QString videoPath(void) {return m_videoPath;}
     void    setVideoPath(const QString &videoPath) {m_videoPath = videoPath; emit videoPathChanged();}
 
@@ -105,6 +110,7 @@ class Settings : public QObject
     QString m_menuPath;
 
     QString m_masterBackend;
+    QString m_webSocketUrl;
     QString m_videoPath;
     QString m_picturePath;
     QString m_sdChannels;

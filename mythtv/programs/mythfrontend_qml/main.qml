@@ -2,6 +2,7 @@ import QtQuick 2.4
 import QtMultimedia 5.4
 import QtQuick.Controls 1.4
 import QtQuick.XmlListModel 2.0
+import QtWebSockets 1.0
 import Process 1.0
 import Base 1.0
 import Screens 1.0
@@ -32,6 +33,39 @@ ApplicationWindow
                 screenBackground.showImage = false;
             }
         }
+    }
+
+    WebSocket
+    {
+        id: webSocket
+        url: settings.webSocketUrl
+        onTextMessageReceived:
+        {
+            console.info("Received message: " + message)
+        }
+        onStatusChanged:
+        {
+            if (webSocket.status == WebSocket.Error)
+            {
+                console.info("Error: " + webSocket.errorString)
+            }
+            else if (webSocket.status == WebSocket.Connecting)
+            {
+                console.info("WebSocket: connecting");
+            }
+            else if (webSocket.status == WebSocket.Open)
+            {
+                console.info("WebSocket: Open");
+                webSocket.sendTextMessage("WS_EVENT_ENABLE");
+                webSocket.sendTextMessage("WS_EVENT_SET_FILTER LIVETV_CHAIN RECORDING_LIST_CHANGE UPDATE_FILE_SIZE");
+            }
+            else if (webSocket.status == WebSocket.Closed)
+            {
+                console.info("Socket closed")
+            }
+        }
+
+        active: true
     }
 
     // theme loader

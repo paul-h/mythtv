@@ -9,7 +9,7 @@
 #include <QFile>
 #include <QDir>
 #include <QtWebEngine>
-
+#include <QUrl>
 
 // from QmlVlc
 #include <QmlVlc.h>
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("dbUtils", &databaseUtils);
 
     QString hostName = QHostInfo::localHostName();
-    QString theme = databaseUtils.getSetting("Qml_theme", hostName, "MythCenterXMAS-wide");
+    QString theme = databaseUtils.getSetting("Qml_theme", hostName, "MythCenter-wide");
 
     // create the settings
     Settings settings;
@@ -134,6 +134,12 @@ int main(int argc, char *argv[])
     settings.setVideoPath(databaseUtils.getSetting("Qml_videoPath", hostName));
     settings.setPicturePath(databaseUtils.getSetting("Qml_picturePath", hostName));
     settings.setSdChannels(databaseUtils.getSetting("Qml_sdChannels", hostName));
+
+    // set the websocket url using the master backend as a starting point
+    QUrl url(settings.masterBackend());
+    url.setScheme("ws");
+    url.setPort(url.port() + 5);
+    settings.setWebSocketUrl(url.toString());
 
     // start fullscreen
     settings.setStartFullscreen((databaseUtils.getSetting("Qml_startFullScreen", hostName) == "true"));
