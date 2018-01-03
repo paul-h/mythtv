@@ -5,9 +5,7 @@ XmlListModel
 {
     id: channelsModel
 
-    property int sourceId
-
-    source: settings.masterBackend + "Channel/GetChannelInfoList?SourceID=" + sourceId + "&OnlyVisible=true&Details=false"
+    source: settings.masterBackend + "Channel/GetChannelInfoList?OnlyVisible=true&Details=true"
     query: "/ChannelInfoList/ChannelInfos/ChannelInfo"
 
     XmlRole { name: "ChanId"; query: "ChanId/string()" }
@@ -15,21 +13,23 @@ XmlListModel
     XmlRole { name: "CallSign"; query: "CallSign/string()" }
     XmlRole { name: "IconURL"; query: "IconURL/string()" }
     XmlRole { name: "ChannelName"; query: "ChannelName/string()" }
+    XmlRole { name: "SourceId"; query: "SourceId/string()" }
+
     onStatusChanged:
     {
         if (status == XmlListModel.Ready)
         {
-            console.log("Status: " + "Channels - READY \n" + channelsModel.source.toString());
+            console.info("Status: " + "Channels - Found " + count + " channels");
         }
 
         if (status === XmlListModel.Loading)
         {
-            console.log("Status: " + "Channels - LOADING \n" + channelsModel.source.toString());
+            console.log("Status: " + "Channels - LOADING - " + source.toString());
         }
 
         if (status === XmlListModel.Error)
         {
-            console.log("Status: " + "Channels - ERROR: " + errorString + "\n" + channelsModel.source.toString());
+            console.log("Status: " + "Channels - ERROR: " + errorString + "\n" + source.toString());
         }
     }
 }

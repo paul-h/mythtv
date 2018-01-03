@@ -10,7 +10,7 @@ BaseDialog
 
     property alias model: menuList.model
 
-    signal itemSelected(string itemText)
+    signal itemSelected(string itemText, string itemData)
 
     function show()
     {
@@ -23,9 +23,9 @@ BaseDialog
         menuList.model.clear()
     }
 
-    function addMenuItem(path)
+    function addMenuItem(path, data)
     {
-        menuList.addNode(path);
+        menuList.addNode(path, data);
     }
 
     Keys.onPressed:
@@ -52,7 +52,7 @@ BaseDialog
             onNodeClicked:
             {
                 popupMenu.state = "";
-                popupMenu.itemSelected(node.itemTitle);
+                popupMenu.itemSelected(node.itemTitle, node.itemData);
             }
         }
     }
