@@ -9,28 +9,10 @@ ListModel
 
     ListElement
     {
-        menutext: "Advent Calender"
-        loaderSource:"AdventCalender.qml"
-        waterMark: "watermark/adventcalender.jpg"
-    }
-    ListElement
-    {
         menutext: "TV"
         loaderSource:"ThemedMenu.qml"
         waterMark: "watermark/tv.png"
         menuSource: "RecordingsMenu.qml"
-    }
-    ListElement
-    {
-        menutext: "Test Page 1"
-        loaderSource: "TestPage.qml"
-        waterMark: "watermark/tv.png"
-    }
-    ListElement
-    {
-        menutext: "Test Page 2"
-        loaderSource: "TestPage2.qml"
-        waterMark: "watermark/tv.png"
     }
     ListElement
     {
@@ -94,6 +76,24 @@ ListModel
         loaderSource: "ThemedMenu.qml"
         waterMark: "watermark/zoneminder.png"
         menuSource: "ZoneMinderMenu.qml"
+    }
+    ListElement
+    {
+        menutext: "Advent Calender"
+        loaderSource:"AdventCalender.qml"
+        waterMark: "watermark/adventcalender.jpg"
+    }
+    ListElement
+    {
+        menutext: "Test Page 1"
+        loaderSource: "TestPage.qml"
+        waterMark: "watermark/tv.png"
+    }
+    ListElement
+    {
+        menutext: "Test Page 2"
+        loaderSource: "TestPage2.qml"
+        waterMark: "watermark/tv.png"
     }
     ListElement
     {
