@@ -71,7 +71,7 @@ QtObject
 
     // base background
     property color bgColor:       "#000000"
-    property real  bgOpacity:     60 / 255
+    property real  bgOpacity:     120 / 255
     property color bgBorderColor: "#ffffffff"
     property int   bgBorderWidth: 2
     property int   bgRadius:      12
