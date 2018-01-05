@@ -4,8 +4,9 @@ import QtQuick.XmlListModel 2.0
 XmlListModel
 {
     id: channelsModel
+    property bool details: true
 
-    source: settings.masterBackend + "Channel/GetChannelInfoList?OnlyVisible=true&Details=true"
+    source: settings.masterBackend + "Channel/GetChannelInfoList?OnlyVisible=true&Details=" + (details ? "true" : "false")
     query: "/ChannelInfoList/ChannelInfos/ChannelInfo"
 
     XmlRole { name: "ChanId"; query: "ChanId/string()" }
