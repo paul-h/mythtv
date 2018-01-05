@@ -85,15 +85,10 @@ ListModel
     }
     ListElement
     {
-        menutext: "Test Page 1"
-        loaderSource: "TestPage.qml"
-        waterMark: "watermark/tv.png"
-    }
-    ListElement
-    {
-        menutext: "Test Page 2"
-        loaderSource: "TestPage2.qml"
-        waterMark: "watermark/tv.png"
+        menutext: "Test Pages"
+        loaderSource: "ThemedMenu.qml"
+        waterMark: "watermark/setup.png"
+        menuSource: "TestMenu.qml"
     }
     ListElement
     {
