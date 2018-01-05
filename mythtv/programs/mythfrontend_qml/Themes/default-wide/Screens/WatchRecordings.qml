@@ -38,7 +38,7 @@ BaseScreen
     SortFilterProxyModel
     {
         id: recordingsProxyModel
-        sourceModel: RecordingsModel {busyDialog: busyDialog}
+        sourceModel: recordingsLoader.item
         filters:
         [
             AllOf
@@ -190,9 +190,7 @@ BaseScreen
         Keys.onReturnPressed:
         {
             var hostname = model.get(currentIndex).HostName === settings.hostName ? "localhost" : model.get(currentIndex).HostName
-            //var filename = "myth://" + hostname + "/" + model.get(currentIndex).FileName;
-            var filename = settings.masterBackend + "/Content/GetRecording?RecordedId=" + model.get(currentIndex).RecordedId
-            console.log("Playing: " + filename);
+            var filename = "myth://" + "type=recording:server=" + hostname + ":port=6543:filename=" + model.get(currentIndex).FileName;
             stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: filename }});
             event.accepted = true;
             returnSound.play();

@@ -57,7 +57,7 @@ ApplicationWindow
             {
                 console.info("WebSocket: Open");
                 webSocket.sendTextMessage("WS_EVENT_ENABLE");
-                webSocket.sendTextMessage("WS_EVENT_SET_FILTER LIVETV_CHAIN RECORDING_LIST_CHANGE UPDATE_FILE_SIZE");
+                webSocket.sendTextMessage("WS_EVENT_SET_FILTER LIVETV_CHAIN RECORDING_LIST_CHANGE UPDATE_FILE_SIZE SCHEDULE_CHANGE");
             }
             else if (webSocket.status == WebSocket.Closed)
             {
@@ -96,6 +96,13 @@ ApplicationWindow
                 screenBackground.showImage = true;
             }
         }
+    }
+
+    // recordings loader
+    Loader
+    {
+        id: recordingsLoader
+        source: settings.sharePath + "qml/Models/RecordingsModel.qml"
     }
 
     function showMouse(show)
