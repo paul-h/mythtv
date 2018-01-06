@@ -1708,10 +1708,6 @@ bool PlaybackBox::UpdateUILists(void)
                 if (!isDeletedGroup)
                     continue;
             }
-            else if (pRecgroup.startsWith('.'))
-            {
-                continue;
-            }
             // Optionally ignore LiveTV programs if not viewing LiveTV group
             else if (!(m_viewMask & VIEW_LIVETVGRP) &&
                      !isLiveTvGroup && isLiveTVProg)
