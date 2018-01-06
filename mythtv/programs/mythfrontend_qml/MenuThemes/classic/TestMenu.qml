@@ -14,7 +14,7 @@ ListModel
     }
     ListElement
     {
-        menutext: "Tree Componnent Test"
+        menutext: "Tree Component Test"
         loaderSource: "TestPage2.qml"
         waterMark: "watermark/setup.png"
     }
