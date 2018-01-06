@@ -23,8 +23,8 @@ QtObject
     property color  menuFontColor:      "white"
     property real   menuShadowAlpha:    100 / 255
     property color  menuShadowColor:    "#000000"
-    property int    menuShadowXOffset:  3
-    property int    menuShadowYOffset:  3
+    property int    menuShadowXOffset:  2
+    property int    menuShadowYOffset:  2
 
     // title text
     property string titleFontFamily:     "Liberation Sans"
@@ -33,8 +33,8 @@ QtObject
     property color  titleFontColor:      "#00ff00"
     property real   titleShadowAlpha:    100 / 255
     property color  titleShadowColor:    "#000000"
-    property int    titleShadowXOffset:  3
-    property int    titleShadowYOffset:  3
+    property int    titleShadowXOffset:  2
+    property int    titleShadowYOffset:  2
 
     // label text
     property string labelFontFamily:     "Droid Sans"

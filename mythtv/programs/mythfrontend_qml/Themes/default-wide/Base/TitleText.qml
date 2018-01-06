@@ -36,7 +36,7 @@ Item
         font.bold: root.fontBold
         color: root.shadowColor
         opacity: root.shadowAlpha
-        x: shadowXOffset; y: shadowYOffset; width: parent.width; height: parent.height
+        x: xscale(shadowXOffset); y: yscale(shadowYOffset); width: parent.width; height: parent.height
         horizontalAlignment: root.horizontalAlignment
         verticalAlignment: root.verticalAlignment
         visible: shadowXOffset != 0 || shadowYOffset != 0 ? true : false
