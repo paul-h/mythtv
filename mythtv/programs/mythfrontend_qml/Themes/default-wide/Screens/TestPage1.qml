@@ -181,7 +181,7 @@ BaseScreen
     Item
     {
         id: topGroup
-        x: xscale(20); y: yscale(260); width: xscale(1280 - 40); height: yscale(229)
+        x: xscale(20); y: yscale(270); width: xscale(1280 - 40); height: yscale(229)
         BaseBackground { anchors.fill: parent }
         ButtonList
         {
@@ -199,8 +199,8 @@ BaseScreen
         }
     }
 
-    LabelText { x: xscale(20); y: yscale(90); text: "LabelText:" }
-    InfoText { x: xscale(300); y: yscale(90); text: "InfoText" }
+    LabelText { x: xscale(300); y: yscale(20); text: "URL:" }
+    InfoText { x: xscale(300); y: yscale(75); text: "Options" }
 /*
     Item
     {
@@ -270,8 +270,8 @@ BaseScreen
     {
         id: bottomGroup
         x: xscale(20); y: yscale(510); width: xscale(1280 - 40); height: yscale(200)
-        
-        BaseBackground 
+
+        BaseBackground
         {
             anchors.fill: parent
         }
@@ -405,29 +405,29 @@ BaseScreen
     BaseButton
     {
         id: button1;
-        x: xscale(100); y: yscale(150); width: xscale(250);
+        x: xscale(20); y: yscale(50); width: xscale(250);
         text: "Show Modal Dialog";
-        KeyNavigation.right: button2;
+        KeyNavigation.right: mrlEdit;
         KeyNavigation.left: videoplayer;
-        KeyNavigation.down: list;
+        KeyNavigation.down: button2;
         onClicked: dialog.show();
     }
 
     BaseButton
     {
         id: button2;
-        x: xscale(400); y: yscale(500); width: xscale(400);
+        x: xscale(20); y: yscale(110); width: xscale(250);
         text: "Another Button";
         KeyNavigation.left: button1;
         KeyNavigation.right: videoplayer;
-        KeyNavigation.down: mrlEdit;
+        KeyNavigation.down: checkbox1;
         onClicked: console.log("button 2 clicked");
     }
 
     BaseEdit
     {
         id: mrlEdit
-        x: xscale(400); y: yscale(20); width: xscale(400);
+        x: xscale(420); y: yscale(20); width: xscale(400);
         text: "http://192.168.1.110:55555/Film4";
         KeyNavigation.left: button1;
         KeyNavigation.right: videoplayer;
@@ -441,7 +441,7 @@ BaseScreen
     BaseMultilineEdit
     {
         id: optionsEdit
-        x: xscale(400); y: yscale(75); width: xscale(400); height: yscale(170)
+        x: xscale(420); y: yscale(75); width: xscale(400); height: yscale(170)
         text: "";
         KeyNavigation.left: button1;
         KeyNavigation.right: videoplayer;
@@ -456,12 +456,27 @@ BaseScreen
     BaseCheckBox
     {
         id: checkbox1
-        x: xscale(100); y: yscale(215)
+        x: xscale(20); y: yscale(165)
         checked: true
         KeyNavigation.left: optionsEdit;
         KeyNavigation.right: videoplayer;
-        KeyNavigation.down: list;
+        KeyNavigation.down: selector;
         onChanged: console.log("check is now: " + checked);
+    }
+
+    BaseSelector
+    {
+        id: selector
+        x: 20; y: 210; width: 250
+        showBackground: false
+        pageCount: 5
+        model: selectorModel
+
+        KeyNavigation.up: checkbox1;
+        KeyNavigation.down: list;
+
+        onItemClicked: console.info("selector item clicked: " + index + " (" + model.get(index).itemText + ")");
+        onItemSelected: console.info("selector item selected: " + index + " (" + model.get(index).itemText + ")");
     }
 
     OkCancelDialog
@@ -486,62 +501,41 @@ BaseScreen
             button1.focus = true;
         }
     }
-/*
+
     ListModel
     {
-        id: menuModel
+        id: selectorModel
 
-        ListElement 
+        ListElement
         {
-            itemTitle: "Apple"
-            subNodes:
-            [
-                ListElement
-                {
-                    itemTitle: "Apple 1"
-                },
-                ListElement
-                {
-                    itemTitle: "Apple 2"
-                },
-                ListElement
-                {
-                    itemTitle: "Apple 3"
-                },
-                ListElement
-                {
-                    itemTitle: "Apple 4"
-                },
-                ListElement
-                {
-                    itemTitle: "Apple 5"
-                },
-                ListElement
-                {
-                    itemTitle: "Apple 6"
-                }
-            ]
+            itemText: "Apple"
         }
-        ListElement {
-            itemTitle: "Orange"
+        ListElement
+        {
+            itemText: "Orange"
         }
-        ListElement {
-            itemTitle: "Banana"
+        ListElement
+        {
+            itemText: "Banana"
         }
-        ListElement {
-            itemTitle: "Pear"
+        ListElement
+        {
+            itemText: "Pear"
         }
-        ListElement {
-            itemTitle: "Grape"
+        ListElement
+        {
+            itemText: "Grape"
         }
-        ListElement {
-            itemTitle: "Lemon"
+        ListElement
+        {
+            itemText: "Lemon"
         }
-        ListElement {
-            itemTitle: "Pineapple"
+        ListElement
+        {
+            itemText: "Pineapple"
         }
     }
-*/
+
     PopupMenu
     {
         id: popupMenu
