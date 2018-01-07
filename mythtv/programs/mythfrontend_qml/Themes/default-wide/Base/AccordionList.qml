@@ -72,7 +72,7 @@ FocusScope
             height: headerItemRect.height + subItemsRect.height
 
             // Top level list item.
-            ListItem
+            AccordionListItem
             {
                 id: headerItemRect
                 x: 0; y: 0
@@ -148,7 +148,7 @@ FocusScope
                         model: attributes
                         width: subItemsRect.width
 
-                        ListItem
+                        AccordionListItem
                         {
                             id: subListItem
                             width: delegate.width

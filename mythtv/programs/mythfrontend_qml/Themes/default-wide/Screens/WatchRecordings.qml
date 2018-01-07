@@ -105,14 +105,8 @@ BaseScreen
     {
         id: listRow
 
-        Item
+        ListItem
         {
-            width: parent.width; height: yscale(50)
-            property bool selected: ListView.isCurrentItem
-            property bool focused: videoList.focus
-
-            //ListBackground {}
-
             Image
             {
                 id: coverImage
@@ -146,16 +140,14 @@ BaseScreen
         }
     }
 
-    ListView
+    ButtonList
     {
         id: videoList
         x: xscale(435); y: yscale(65); width: xscale(815); height: yscale(360)
 
-        focus: true
         clip: true
         model: recordingsProxyModel
         delegate: listRow
-        highlight: ListHighlight {}
 
         Keys.onPressed:
         {

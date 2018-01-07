@@ -104,14 +104,8 @@ BaseScreen
     {
         id: listRow
 
-        Item
+        ListItem
         {
-            width: parent.width; height: yscale(50)
-            property bool selected: ListView.isCurrentItem
-            property bool focused: streamList.focus
-
-            //ListBackground {}
-
             Image
             {
                 id: coverImage
@@ -145,16 +139,14 @@ BaseScreen
         }
     }
 
-    ListView
+    ButtonList
     {
         id: streamList
         x: xscale(20); y: yscale(65); width: xscale(1240); height: yscale(360)
 
-        focus: true
         clip: true
         model: streamsProxyModel
         delegate: listRow
-        highlight: ListHighlight {}
 
         Keys.onPressed:
         {

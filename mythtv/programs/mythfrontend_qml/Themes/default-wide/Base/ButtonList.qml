@@ -5,9 +5,11 @@ ListView
     id: root
     x: xscale(100); y: yscale(100); width: xscale(1000); height: yscale(500)
 
+    focus: false
     clip: true
     model: {}
     delegate: {}
+    highlight: ListHighlight {}
 
     signal itemClicked(int index);
     signal itemSelected(int index);

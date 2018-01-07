@@ -47,10 +47,9 @@ BaseScreen
     {
         id: listRow
 
-        Item
+        ListItem
         {
-            width:videoList.width; height: yscale(62)
-            property bool selected: ListView.isCurrentItem
+            height: yscale(62)
 
             Image
             {
@@ -86,7 +85,6 @@ BaseScreen
         id: videoList
         x: xscale(25); y: yscale(65); width: xscale(1230); height: yscale(620)
 
-        focus: true
         clip: true
 
         FolderListModel
@@ -98,7 +96,6 @@ BaseScreen
 
         model: folderModel
         delegate: listRow
-        highlight: ListHighlight{}
 
         Keys.onReturnPressed:
         {

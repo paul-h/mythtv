@@ -77,10 +77,8 @@ BaseScreen
     {
         id: listRow
 
-        Item
+        ListItem
         {
-            width: statusList.width; height: 50
-
             Image
             {
                id: channelImage
@@ -90,31 +88,16 @@ BaseScreen
                         else
                             "images/grid_noimage.png"
             }
-            Text
+            ListText
             {
                 width: statusList.width; height: 50
                 x: channelImage.width + 5
                 text: name + " ~ " + callsign + " ~ " + channo + " ~ " + xmltvid
-
             }
         }
     }
 
-    Component
-    {
-        id: listHighlight
-
-        Rectangle
-        {
-            width:sdChannelList.width; height: 50
-            color: "green"
-            opacity: 0.3
-            radius: 15
-            border.color: "#dd00ff00"
-        }
-    }
-
-    ListView
+    ButtonList
     {
         id: statusList
         x: xscale(60); y: yscale(270); width: xscale(1180); height: yscale(380)
@@ -123,7 +106,6 @@ BaseScreen
         clip: true
         model: SDChannelsModel {}
         delegate: listRow
-        highlight: listHighlight
 
         Keys.onPressed:
         {

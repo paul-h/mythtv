@@ -45,19 +45,12 @@ BaseScreen
         }
     }
 
-
     Component
     {
         id: listRow
 
-        Item
+        ListItem
         {
-            width: sdChannelList.width; height: 50
-            property bool selected: ListView.isCurrentItem
-            property bool focused: sdChannelList.focus
-
-            ListBackground {}
-
             Image
             {
                id: channelImage
@@ -69,7 +62,6 @@ BaseScreen
                 width:sdChannelList.width; height: 50
                 x: channelImage.width + 5
                 text: name + " ~ " + callsign + " ~ " + channo + " ~ " + xmltvid
-
             }
         }
     }
@@ -79,10 +71,8 @@ BaseScreen
         id: sdChannelList
         x: 50; y: 30; width: 500; height: 500
 
-        focus: true
         model: SDChannelsModel {}
         delegate: listRow
-        //highlight: listHighlight
 
         Keys.onReturnPressed:
         {
@@ -97,14 +87,8 @@ BaseScreen
     {
         id: streamRow
 
-        Item
+        ListItem
         {
-            width:dbChannelList.width; height: 50
-            property bool selected: ListView.isCurrentItem
-            property bool focused: dbChannelList.focus
-
-            ListBackground {}
-
             Image
             {
                 id: radioIcon
@@ -112,7 +96,7 @@ BaseScreen
                 source: if (icon)
                     settings.masterBackend + "Guide/GetChannelIcon?ChanId=" + chanid
                 else
-                    "images/grid_noimage.png"
+                    mythUtils.findThemeFile("images/grid_noimage.png")
             }
 
             ListText
@@ -130,7 +114,6 @@ BaseScreen
         id: dbChannelList
         x: 600; y: 30; width: 500; height: 500
 
-        focus: true
         model: dbChannelsModel
         delegate: streamRow
 

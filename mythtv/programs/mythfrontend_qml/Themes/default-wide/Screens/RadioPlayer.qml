@@ -110,11 +110,8 @@ BaseScreen
     {
         id: streamRow
 
-        Item
+        ListItem
         {
-            width:streamList.width; height: yscale(50)
-            property bool selected: ListView.isCurrentItem
-
             Image
             {
                 id: radioIcon
@@ -144,16 +141,14 @@ BaseScreen
         }
     }
 
-    ListView
+    ButtonList
     {
         id: streamList
         x: xscale(25); y: yscale(25); width: xscale(1225); height: yscale(250)
 
-        focus: true
         clip: true
         model: radioStreamsModel
         delegate: streamRow
-        highlight: ListHighlight{}
 
         Keys.onEscapePressed: if (stack.depth > 1) {streamPlayer.stop(); stack.pop()} else Qt.quit();
         Keys.onReturnPressed:
@@ -182,11 +177,8 @@ BaseScreen
     {
         id: playedRow
 
-        Item
+        ListItem
         {
-            width: playedList.width; height: yscale(50)
-            property bool selected: ListView.isCurrentItem
-
             Image
             {
                 id: radioIcon
@@ -226,11 +218,9 @@ BaseScreen
         id: playedList
         x: xscale(25); y: yscale(307); width: xscale(1225); height: yscale(150)
 
-        focus: false
         clip: true
         model: playedModel
         delegate: playedRow
-        highlight: ListHighlight{}
 
         KeyNavigation.left: streamList;
         KeyNavigation.right: streamList;

@@ -76,10 +76,8 @@ BaseScreen
     {
         id: listRow
 
-        Item
+        ListItem
         {
-            width:channelList.width; height: yscale(50)
-
             Image
             {
                id: channelImage
@@ -107,11 +105,9 @@ BaseScreen
         id: channelList
         x: xscale(50); y: yscale(440); width: xscale(1080); height: yscale(200)
 
-        focus: true
         clip: true
         model: vboxChannelsModel
         delegate: listRow
-        highlight: ListHighlight {}
 
         Keys.onPressed:
         {

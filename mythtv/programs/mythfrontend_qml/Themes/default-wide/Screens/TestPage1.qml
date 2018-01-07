@@ -143,14 +143,8 @@ BaseScreen
     Component
     {
         id: listRow
-        Item
+        ListItem
         {
-            width: parent.width; height: yscale(50)
-            property bool selected: ListView.isCurrentItem
-            property bool focused: ListView.view.focus
-
-            //ListBackground {}
-
             Image
             {
                id: channelImage
@@ -191,7 +185,6 @@ BaseScreen
             anchors.margins: xscale(10)
             model: ChannelsModel {  }
             delegate: listRow
-            highlight: ListHighlight {}
 
             KeyNavigation.left: button1;
             KeyNavigation.right: accordianList;

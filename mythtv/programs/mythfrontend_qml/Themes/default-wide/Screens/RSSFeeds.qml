@@ -53,6 +53,7 @@ BaseScreen
             z: 99
 
             property bool selected: ListView.isCurrentItem
+            property bool focused: feedList.focus
 
             Image
             {
@@ -76,11 +77,9 @@ BaseScreen
         id: feedList
         x: xscale(30); y: yscale(60); width: xscale(550); height: yscale((8 * 50) + (7 * 3))
         spacing: 3
-        focus: true
         clip: true
         model: rssFeedsModel
         delegate: listRow
-        highlight: ListHighlight {}
 
         onCurrentIndexChanged:
         {
@@ -154,6 +153,7 @@ BaseScreen
             height: yscale(103)
 
             property bool selected: ListView.isCurrentItem
+            property bool focused: articleList.focus
             property real itemSize: articleList.itemWidth
 
             Image
@@ -189,11 +189,11 @@ BaseScreen
     {
         id: articleList
         property int itemWidth: 190
+
         x: xscale(600); y: yscale(60); width: xscale(650); height: yscale(421)
         model: feedModel
         clip: true
         delegate: articleDelegate
-        highlight: ListHighlight {}
         spacing: 3
 
         KeyNavigation.left: feedList;
@@ -225,7 +225,7 @@ BaseScreen
     {
         id: articleImage
         x: xscale(30); y: yscale(505); width: xscale(185); height: yscale(185)
-        source: articleList.currentIndex ? findArticleImage(articleList.currentIndex) : ""
+        source: findArticleImage(articleList.currentIndex)
     }
 
     Text

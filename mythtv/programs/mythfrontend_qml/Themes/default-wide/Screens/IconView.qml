@@ -24,9 +24,9 @@ BaseScreen
     {
         id: listRow
 
-        Item
+        ListItem
         {
-            width:imageList.width; height: yscale(62)
+            height: yscale(62)
 
             Image
             {
@@ -49,7 +49,6 @@ BaseScreen
         id: imageList
         x: xscale(25); y: yscale(65); width: xscale(1230); height: yscale(620)
 
-        focus: true
         clip: true
 
         FolderListModel
@@ -61,7 +60,6 @@ BaseScreen
 
         model: folderModel
         delegate: listRow
-        highlight: ListHighlight{}
 
         Keys.onReturnPressed:
         {

@@ -1,6 +1,7 @@
 module Base
 Accordion 1.0 Accordion.qml
 AccordionList 1.0 AccordionList.qml
+AccordionListItem 1.0 AccordionListItem.qml
 AccordionListModel 1.0 AccordionListModel.qml
 BaseBackground 1.0 BaseBackground.qml
 BaseButton 1.0 BaseButton.qml
