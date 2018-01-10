@@ -83,7 +83,10 @@ BaseScreen
             if (channelList.focus)
                 timeSelector.selectPrevious();
             else
+            {
                 channelSelector.selectPrevious();
+                channelList.currentIndex = channelSelector.currentIndex;
+            }
 
             event.accepted = true;
         }
@@ -92,7 +95,10 @@ BaseScreen
             if (channelList.focus)
                 timeSelector.selectNext();
             else
+            {
                 channelSelector.selectNext();
+                channelList.currentIndex = channelSelector.currentIndex;
+            }
 
             event.accepted = true;
         }

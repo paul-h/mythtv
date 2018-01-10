@@ -7,6 +7,7 @@ FocusScope
     property alias model: selectorList.model
     property bool showBackground: true
     property int pageCount: 10
+    property alias currentIndex: selectorList.currentIndex;
 
     signal itemSelected(int index);
     signal itemClicked(int index);
