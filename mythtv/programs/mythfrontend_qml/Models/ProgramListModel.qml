@@ -57,7 +57,6 @@ XmlListModel
         if (sort != "")
            res += "Sort=" + sort;
 
-        console.info("Guide url: " + res);
         return res;
     }
 
@@ -79,7 +78,7 @@ XmlListModel
     {
         if (status == XmlListModel.Ready)
         {
-            console.info("Status: " + "Guide - Found " + count + " programs");
+            console.log("Status: " + "Guide - Found " + count + " programs");
         }
 
         if (status === XmlListModel.Loading)

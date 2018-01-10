@@ -9,7 +9,7 @@ ListModel
     ListElement
     {
         menutext: "Programme Guide"
-        loaderSource:"ComingSoon.qml"
+        loaderSource:"ProgramGuide.qml"
         waterMark: "watermark/clock.png"
     }
     ListElement
