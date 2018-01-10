@@ -9,12 +9,14 @@ BaseDialog
     height: yscale(600)
 
     property alias model: menuList.model
+    property bool restoreSelected: false
 
     signal itemSelected(string itemText, string itemData)
 
     function show()
     {
-        menuList.setFocusedNode(0);
+        if (!restoreSelected)
+            menuList.setFocusedNode(0);
         popupMenu.state = "show";
     }
 
@@ -51,6 +53,7 @@ BaseDialog
             focus: true
             onNodeClicked:
             {
+                console.log("node.itemTitle: " + node.itemTitle + ", node.itemData: " + node.itemData);
                 popupMenu.state = "";
                 popupMenu.itemSelected(node.itemTitle, node.itemData);
             }
