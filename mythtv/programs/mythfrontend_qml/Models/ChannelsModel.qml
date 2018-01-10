@@ -4,9 +4,40 @@ import QtQuick.XmlListModel 2.0
 XmlListModel
 {
     id: channelsModel
+    property int  sourceId: -1
+    property int  channelGroupId: -1
+    property int  startIndex: -1
+    property int  itemCount: -1
     property bool details: true
+    property bool onlyVisible: true
+    property bool orderByName: false
+    property bool groupByCallsign: true
 
-    source: settings.masterBackend + "Channel/GetChannelInfoList?OnlyVisible=true&Details=" + (details ? "true" : "false")
+    source:
+    {
+        var url = settings.masterBackend + "Channel/GetChannelInfoList?Details=" + (details ? "true" : "false")
+
+        if (sourceId != -1)
+            url += "&SourceId=" + sourceId;
+
+        if (channelGroupId != -1)
+            url += "&ChannelGroupId=" + channelGroupId;
+
+        if (startIndex != -1)
+            url += "&StartIndex=" + startIndex;
+
+        if (itemCount != -1)
+            url += "&Count=" + itemCount;
+
+        if (orderByName)
+            url += "&OrderByName=true"
+
+        if (groupByCallsign)
+            url += "&GroupByCallsign=true"
+
+        return url;
+    }
+
     query: "/ChannelInfoList/ChannelInfos/ChannelInfo"
 
     XmlRole { name: "ChanId"; query: "ChanId/string()" }
