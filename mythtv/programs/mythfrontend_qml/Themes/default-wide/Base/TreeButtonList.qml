@@ -1,7 +1,6 @@
 import QtQuick 2.0
 import Base 1.0
 
-
 FocusScope
 {
     id: objRoot
@@ -72,14 +71,8 @@ FocusScope
     Component
     {
         id: listItem
-        Item
+        ListItem
         {
-            width: parent.width; height: yscale(50)
-            property bool selected: ListView.isCurrentItem
-            property bool focused: ListView.view.focus
-
-            ListBackground {}
-
             ListText
             {
                 x: xscale(20); y: 0
