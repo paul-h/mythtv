@@ -217,5 +217,22 @@ FocusScope
     {
         selectorList.currentIndex = selectorList.currentIndex - 1 < 0 ? 0 : selectorList.currentIndex - 1;
     }
+
+    function selectItem(item)
+    {
+        for (var x = 1; x < model.count; x++)
+        {
+            if (model.get(x).itemText == item)
+            {
+                selectorList.positionViewAtIndex(x, ListView.Beginning);
+                selectorList.currentIndex = x;
+                return;
+            }
+        }
+
+        // didn't find it so default to the first item
+        selectorList.positionViewAtIndex(0, ListView.Beginning);
+        selectorList.currentIndex = 0;
+    }
 }
 
