@@ -17,11 +17,43 @@ XmlListModel
     property string sort: ""
     property bool   decending: false
 
-    source:
+    query: "/ProgramList/Programs/Program"
+
+    XmlRole { name: "StartTime"; query: "xs:dateTime(StartTime)"}
+    XmlRole { name: "EndTime"; query: "xs:dateTime(EndTime)" }
+    XmlRole { name: "Title"; query: "Title/string()" }
+    XmlRole { name: "SubTitle"; query: "SubTitle/string()" }
+    XmlRole { name: "Description"; query: "Description/string()" }
+    XmlRole { name: "Category"; query: "Category/string()" }
+    XmlRole { name: "Season"; query: "Season/string()" }
+    XmlRole { name: "Episode"; query: "Episode/string()" }
+    XmlRole { name: "TotalEpisodes"; query: "TotalEpisodes/string()" }
+    XmlRole { name: "RecordingStatus"; query: "Recording/Status/string()" }
+    XmlRole { name: "AirDate"; query: "xs:date(Airdate)" }
+
+    onStatusChanged:
+    {
+        if (status == XmlListModel.Ready)
+        {
+            console.log("Status: " + "Guide - Found " + count + " programs");
+        }
+
+        if (status === XmlListModel.Loading)
+        {
+            console.log("Status: " + "Guide - LOADING - " + source.toString());
+        }
+
+        if (status === XmlListModel.Error)
+        {
+            console.log("Status: " + "Guide - ERROR: " + errorString + "\n" + source.toString());
+        }
+    }
+
+    function load()
     {
         var res = settings.masterBackend + "Guide/GetProgramList?";
 
-        if (count != -1)
+        if (getCount != -1)
             res += "&count=" + getCount;
 
         if (startTime != "")
@@ -57,38 +89,8 @@ XmlListModel
         if (sort != "")
            res += "Sort=" + sort;
 
-        return res;
-    }
+        console.log("ProgramListModel url: " + res.toString());
 
-    query: "/ProgramList/Programs/Program"
-
-    XmlRole { name: "StartTime"; query: "xs:dateTime(StartTime)"}
-    XmlRole { name: "EndTime"; query: "xs:dateTime(EndTime)" }
-    XmlRole { name: "Title"; query: "Title/string()" }
-    XmlRole { name: "SubTitle"; query: "SubTitle/string()" }
-    XmlRole { name: "Description"; query: "Description/string()" }
-    XmlRole { name: "Category"; query: "Category/string()" }
-    XmlRole { name: "Season"; query: "Season/string()" }
-    XmlRole { name: "Episode"; query: "Episode/string()" }
-    XmlRole { name: "TotalEpisodes"; query: "TotalEpisodes/string()" }
-    XmlRole { name: "RecordingStatus"; query: "Recording/Status/string()" }
-    XmlRole { name: "AirDate"; query: "xs:date(Airdate)" }
-
-    onStatusChanged:
-    {
-        if (status == XmlListModel.Ready)
-        {
-            console.log("Status: " + "Guide - Found " + count + " programs");
-        }
-
-        if (status === XmlListModel.Loading)
-        {
-            console.log("Status: " + "Guide - LOADING - " + source.toString());
-        }
-
-        if (status === XmlListModel.Error)
-        {
-            console.log("Status: " + "Guide - ERROR: " + errorString + "\n" + source.toString());
-        }
+        source = res;
     }
 }

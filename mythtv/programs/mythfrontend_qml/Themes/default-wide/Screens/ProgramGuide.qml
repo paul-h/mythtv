@@ -81,7 +81,14 @@ BaseScreen
         if (event.key === Qt.Key_Less)
         {
             if (channelList.focus)
+            {
                 timeSelector.selectPrevious();
+                var now = timeSelector.model.get(timeSelector.currentIndex).itemData;
+                guideModel.startTime = Qt.formatDateTime(now, "yyyy-MM-ddThh:mm:ss");
+                now.setDate(now.getDate() + 1);
+                guideModel.endTime = Qt.formatDateTime(now, "yyyy-MM-ddThh:mm:ss");
+                guideModel.load();
+            }
             else
             {
                 channelSelector.selectPrevious();
@@ -93,7 +100,14 @@ BaseScreen
         else if (event.key === Qt.Key_Greater)
         {
             if (channelList.focus)
+            {
                 timeSelector.selectNext();
+                var now = timeSelector.model.get(timeSelector.currentIndex).itemData;
+                guideModel.startTime = Qt.formatDateTime(now, "yyyy-MM-ddThh:mm:ss");
+                now.setDate(now.getDate() + 1);
+                guideModel.endTime = Qt.formatDateTime(now, "yyyy-MM-ddThh:mm:ss");
+                guideModel.load();
+            }
             else
             {
                 channelSelector.selectNext();
@@ -163,7 +177,7 @@ BaseScreen
                     now = mythUtils.addMinutes(now, 30);
                 }
 
-                timeModel.append({"itemText": Qt.formatDateTime(now, "ddd dd/MM  hh:mm")})
+                timeModel.append({"itemText": Qt.formatDateTime(now, "ddd dd/MM  hh:mm"), itemData: now})
             }
         }
     }
@@ -247,6 +261,7 @@ BaseScreen
         onItemSelected:
         {
             guideModel.chanId = model.get(currentIndex).ChanId;
+            guideModel.load();
             channelSelector.selectItem(model.get(currentIndex).ChanNum + " " + model.get(currentIndex).ChannelName);
         }
     }
