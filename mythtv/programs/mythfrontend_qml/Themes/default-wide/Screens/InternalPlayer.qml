@@ -23,7 +23,7 @@ BaseScreen
 
         property int sourceId
 
-        sourceModel: ChannelsModel {}
+        sourceModel: ChannelsModel { groupByCallsign: false }
 
         filters:
         [
