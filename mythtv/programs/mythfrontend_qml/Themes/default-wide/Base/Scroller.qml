@@ -74,7 +74,7 @@ Item
                 property: "x"
                 from: 0
                 to: if (text2.contentWidth - text2.width > 0) - (text2.contentWidth - text2.width); else 0
-                duration: if (text2.contentWidth - text2.width > 0) (text2.contentWidth - text2.width) * 25; else 5000
+                duration: if (text2.contentWidth - text2.width > 0) (text2.contentWidth - text2.width) * (10 * (1 / wmult)); else 5000
                 loops: 1
                 onFromChanged: restart()
             }
