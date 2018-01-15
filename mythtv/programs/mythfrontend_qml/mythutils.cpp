@@ -54,3 +54,9 @@ bool MythUtils::fileExists(const QString& fileName)
 {
     return QFile::exists(fileName);
 }
+
+QDateTime MythUtils::addMinutes(const QDateTime& dateTime, int minutes)
+{
+    return dateTime.addSecs(minutes * 60);
+}
+
