@@ -380,7 +380,7 @@ void NuppelVideoRecorder::SetOptionsFromProfile(RecordingProfile *profile,
     SetOption("vbiformat", gCoreContext->GetSetting("VbiFormat"));
     SetOption("audiodevice", audiodev);
 
-    QString setting = QString::null;
+    QString setting;
     const StandardSetting *tmp = profile->byName("videocodec");
     if (tmp)
         setting = tmp->getValue();
@@ -443,7 +443,7 @@ void NuppelVideoRecorder::SetOptionsFromProfile(RecordingProfile *profile,
         SetIntOption(profile, "rtjpeglumafilter");
     }
 
-    setting = QString::null;
+    setting.clear();
     if ((tmp = profile->byName("audiocodec")))
         setting = tmp->getValue();
 

@@ -780,7 +780,7 @@ bool MythContextPrivate::PromptForDatabaseParams(const QString &error)
  */
 QString MythContextPrivate::TestDBconnection(bool prompt)
 {
-    QString err    = QString::null;
+    QString err;
     QString host;
 
     // Jan 20, 2017
@@ -1015,7 +1015,7 @@ QString MythContextPrivate::TestDBconnection(bool prompt)
     EnableDBerrors();
     ResetDatabase();
 
-    return QString::null;
+    return QString();
 }
 
 // Show the Gui Startup window.
@@ -1184,7 +1184,7 @@ int MythContextPrivate::UPnPautoconf(const int milliSeconds)
 
     // We don't actually know the backend's access PIN, so this will
     // only work for ones that have PIN access disabled (i.e. 0000)
-    int ret = (UPnPconnect(BE, QString::null)) ? 1 : -1;
+    int ret = (UPnPconnect(BE, QString())) ? 1 : -1;
 
     BE->DecrRef();
 

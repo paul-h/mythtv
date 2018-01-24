@@ -526,7 +526,7 @@ static void InitMSqlQueryInfo(MSqlQueryInfo &qi)
 
 
 MSqlQuery::MSqlQuery(const MSqlQueryInfo &qi)
-         : QSqlQuery(QString::null, qi.qsqldb)
+         : QSqlQuery(QString(), qi.qsqldb)
 {
     m_isConnected = false;
     m_db = qi.db;
@@ -950,7 +950,7 @@ void MSqlAddMoreBindings(MSqlBindings &output, MSqlBindings &addfrom)
 }
 
 struct Holder {
-    Holder( const QString& hldr = QString::null, int pos = -1 )
+    Holder( const QString& hldr = QString(), int pos = -1 )
         : holderName( hldr ), holderPos( pos ) {}
 
     bool operator==( const Holder& h ) const

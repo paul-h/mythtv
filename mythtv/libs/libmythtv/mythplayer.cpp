@@ -145,7 +145,7 @@ MythPlayer::MythPlayer(PlayerFlags flags)
       watchingrecording(false),
       transcoding(false),
       hasFullPositionMap(false),    limitKeyRepeat(false),
-      errorMsg(QString::null),      errorType(kError_None),
+                                    errorType(kError_None),
       // Chapter stuff
       jumpchapter(0),
       // Bookmark stuff
@@ -4765,7 +4765,7 @@ bool MythPlayer::GetRawAudioState(void) const
 QString MythPlayer::GetXDS(const QString &key) const
 {
     if (!decoder)
-        return QString::null;
+        return QString();
     return decoder->GetXDS(key);
 }
 

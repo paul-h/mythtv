@@ -28,7 +28,6 @@ CC608Decoder::CC608Decoder(CC608Input *ccr)
       xds_cur_service(-1),
       xds_crc_passed(0),            xds_crc_failed(0),
       xds_lock(QMutex::Recursive),
-      xds_net_call(QString::null),  xds_net_name(QString::null),
       xds_tsid(0)
 {
     memset(last_seen, 0, sizeof(last_seen));
@@ -86,7 +85,7 @@ CC608Decoder::CC608Decoder(CC608Input *ccr)
     for (uint i = 0; i < 2; i++)
     {
         xds_rating_systems[i] = 0;
-        xds_program_name[i]   = QString::null;
+        xds_program_name[i].clear();
     }
 
     init_xds_program_type(xds_program_type_string);
@@ -1177,7 +1176,7 @@ QString CC608Decoder::GetXDS(const QString &key) const
     else if (key == "tsid")
         return QString::number(xds_tsid);
 
-    return QString::null;
+    return QString();
 }
 
 static int b1_to_service[16] =

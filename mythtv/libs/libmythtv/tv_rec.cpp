@@ -1679,21 +1679,21 @@ bool TVRec::GetDevices(uint inputid,
 
     // General options
     test = query.value(0).toString();
-    if (test != QString::null)
+    if (!test.isEmpty())
         gen_opts.videodev = test;
 
     test = query.value(1).toString();
-    if (test != QString::null)
+    if (!test.isEmpty())
         gen_opts.vbidev = test;
 
     test = query.value(2).toString();
-    if (test != QString::null)
+    if (!test.isEmpty())
         gen_opts.audiodev = test;
 
     gen_opts.audiosamplerate = max(testnum, query.value(3).toInt());
 
     test = query.value(4).toString();
-    if (test != QString::null)
+    if (!test.isEmpty())
         gen_opts.inputtype = test;
 
     gen_opts.skip_btaudio = query.value(5).toUInt();
@@ -1720,7 +1720,7 @@ bool TVRec::GetDevices(uint inputid,
     firewire_opts.speed       = query.value(fireoff + 0).toUInt();
 
     test = query.value(fireoff + 1).toString();
-    if (test != QString::null)
+    if (!test.isEmpty())
         firewire_opts.model = test;
 
     firewire_opts.connection  = query.value(fireoff + 2).toUInt();
@@ -1732,7 +1732,7 @@ bool TVRec::GetDevices(uint inputid,
 
 QString TVRec::GetStartChannel(uint inputid)
 {
-    QString startchan = QString::null;
+    QString startchan;
 
     LOG(VB_RECORD, LOG_INFO, LOC + QString("GetStartChannel(%1)")
         .arg(inputid));
@@ -2533,7 +2533,7 @@ bool TVRec::IsBusy(InputInfo *busy_input, int time_buffer) const
 
         if (timeLeft <= time_buffer)
         {
-            QString channum = QString::null, input = QString::null;
+            QString channum, input;
             if (pendinfo.info->QueryTuningInfo(channum, input))
             {
                 busy_input->inputid = channel->GetInputID();
@@ -3044,7 +3044,7 @@ QString TVRec::GetInput(void) const
 {
     if (channel)
         return channel->GetInputName();
-    return QString::null;
+    return QString();
 }
 
 /** \fn TVRec::GetSourceID(void) const
@@ -3074,7 +3074,7 @@ QString TVRec::SetInput(QString input)
     if (!channel)
     {
         LOG(VB_RECORD, LOG_INFO, LOC + "SetInput() -- end  no channel class");
-        return QString::null;
+        return QString();
     }
 
     LOG(VB_RECORD, LOG_INFO, LOC + "SetInput(" + origIn + ":" + input +
@@ -3411,7 +3411,7 @@ void TVRec::RingBufferChanged(
 QString TVRec::TuningGetChanNum(const TuningRequest &request,
                                 QString &input) const
 {
-    QString channum = QString::null;
+    QString channum;
 
     if (request.program)
     {

@@ -537,7 +537,7 @@ void MythUIHelper::LoadQtConfig(void)
     if (themename == "default")
         themename = "defaultmenu";
 
-    d->m_menuthemepathname = FindMenuThemeDir(themename) + '/';
+    d->m_menuthemepathname = FindMenuThemeDir(themename);
 }
 
 Settings *MythUIHelper::qtconfig(void)
@@ -766,7 +766,7 @@ bool MythUIHelper::IsImageInCache(const QString &url)
 
 QString MythUIHelper::GetThemeCacheDir(void)
 {
-    static QString oldcachedir = QString::null;
+    static QString oldcachedir;
     QString tmpcachedir = GetThemeBaseCacheDir() + "/" +
                           GetMythDB()->GetSetting("Theme", DEFAULT_UI_THEME) +
                           "." + QString::number(d->m_screenwidth) +

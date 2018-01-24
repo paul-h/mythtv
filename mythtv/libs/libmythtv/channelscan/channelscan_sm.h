@@ -102,8 +102,8 @@ class ChannelScanSM : public MPEGStreamListener,
 
     bool ScanTransports(
         int src, const QString &std, const QString &mod, const QString &table,
-        const QString &table_start = QString::null,
-        const QString &table_end   = QString::null);
+        const QString &table_start = QString(),
+        const QString &table_end   = QString());
     bool ScanTransportsStartingOn(
         int sourceid, const QMap<QString,QString> &valueMap);
     bool ScanTransport(uint mplexid, bool follow_nit);
@@ -120,6 +120,7 @@ class ChannelScanSM : public MPEGStreamListener,
     void SetSignalTimeout(uint val)    { m_signalTimeout = val; }
     void SetChannelTimeout(uint val)   { m_channelTimeout = val; }
     void SetScanDTVTunerType(DTVTunerType t) { m_scanDTVTunerType = t; }
+    void SetScanDTVTunerType(int t) { m_scanDTVTunerType = DTVTunerType(t); }
 
     uint GetSignalTimeout(void)  const { return m_signalTimeout; }
     uint GetChannelTimeout(void) const { return m_channelTimeout; }

@@ -188,7 +188,7 @@ VideoOutput *VideoOutput::Create(
     LOG(VB_PLAYBACK, LOG_INFO, LOC + "Allowed renderers (filt: " + decoder +
             "): " + to_comma_list(renderers));
 
-    QString renderer = QString::null;
+    QString renderer;
 
     VideoDisplayProfile *vprof = new VideoDisplayProfile();
 
@@ -401,7 +401,6 @@ VideoOutput::VideoOutput() :
     db_display_dim(0,0),
     db_aspectoverride(kAspect_Off), db_adjustfill(kAdjustFill_Off),
     db_letterbox_colour(kLetterBoxColour_Black),
-    db_deint_filtername(QString::null),
 
     // Video parameters
     video_codec_id(kCodec_NONE),        db_vdisp_profile(NULL),
@@ -532,7 +531,7 @@ QString VideoOutput::GetFilters(void) const
 {
     if (db_vdisp_profile)
         return db_vdisp_profile->GetFilters();
-    return QString::null;
+    return QString();
 }
 
 void VideoOutput::SetVideoFrameRate(float playback_fps)
@@ -620,7 +619,7 @@ bool VideoOutput::SetupDeinterlace(bool interlaced,
                     QString("Failed to approve '%1' deinterlacer "
                             "as a software deinterlacer")
                         .arg(m_deintfiltername));
-                m_deintfiltername = QString::null;
+                m_deintfiltername.clear();
             }
             else
             {

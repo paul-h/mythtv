@@ -391,8 +391,7 @@ FreqTableSelector::FreqTableSelector(const VideoSource &parent) :
 }
 
 TransFreqTableSelector::TransFreqTableSelector(uint _sourceid) :
-    sourceid(_sourceid),
-    loaded_freq_table(QString::null)
+    sourceid(_sourceid)
 {
     setLabel(QObject::tr("Channel frequency table"));
 
@@ -422,7 +421,7 @@ void TransFreqTableSelector::Load(void)
         return;
     }
 
-    loaded_freq_table = QString::null;
+    loaded_freq_table.clear();
 
     if (query.next())
     {
@@ -778,8 +777,8 @@ class VideoDevice : public CaptureCardComboBoxSetting
     VideoDevice(const CaptureCard &parent,
                 uint    minor_min = 0,
                 uint    minor_max = UINT_MAX,
-                QString card      = QString::null,
-                QString driver    = QString::null) :
+                QString card      = QString(),
+                QString driver    = QString()) :
         CaptureCardComboBoxSetting(parent, true, "videodevice")
     {
         setLabel(QObject::tr("Video device"));
@@ -815,7 +814,7 @@ class VideoDevice : public CaptureCardComboBoxSetting
         // Needed to make both compiler and doxygen happy.
         (void) absPath;
 
-        fillSelectionsFromDir(dir, 0, 255, QString::null, QString::null, false);
+        fillSelectionsFromDir(dir, 0, 255, QString(), QString(), false);
     }
 
     uint fillSelectionsFromDir(const QDir& dir,
@@ -901,7 +900,7 @@ class VBIDevice : public CaptureCardComboBoxSetting
                                    "vbidevice")
     {
         setLabel(QObject::tr("VBI device"));
-        setFilter(QString::null, QString::null);
+        setFilter(QString(), QString());
         setHelpText(QObject::tr("Device to read VBI (captions) from."));
     };
 
@@ -932,7 +931,7 @@ class VBIDevice : public CaptureCardComboBoxSetting
         // Needed to make both compiler and doxygen happy.
         (void) absPath;
 
-        fillSelectionsFromDir(dir, QString::null, QString::null);
+        fillSelectionsFromDir(dir, QString(), QString());
     }
 
     uint fillSelectionsFromDir(const QDir &dir, const QString &card,
@@ -1093,7 +1092,7 @@ class DVBCardNum : public CaptureCardComboBoxSetting
                         "should change to the name and type of your card. "
                         "If the card cannot be opened, an error message "
                         "will be displayed."));
-        fillSelections(QString::null);
+        fillSelections(QString());
     };
 
     /// \brief Adds all available cards to list
@@ -1143,7 +1142,7 @@ class DVBCardNum : public CaptureCardComboBoxSetting
     virtual void Load(void)
     {
         clearSelections();
-        addSelection(QString::null);
+        addSelection(QString());
 
         StandardSetting::Load();
 
@@ -1449,10 +1448,7 @@ void HDHomeRunTunerIndex::UpdateDevices(const QString &v)
 }
 
 HDHomeRunDeviceID::HDHomeRunDeviceID(const CaptureCard &parent) :
-    MythUITextEditSetting(new CaptureCardDBStorage(this, parent, "videodevice")),
-    _ip(QString::null),
-    _tuner(QString::null),
-    _overridedeviceid(QString::null)
+    MythUITextEditSetting(new CaptureCardDBStorage(this, parent, "videodevice"))
 {
     setLabel(tr("Device ID"));
     setHelpText(tr("Device ID of HDHomeRun device"));
@@ -1495,7 +1491,7 @@ void HDHomeRunDeviceID::Load(void)
     if (!_overridedeviceid.isEmpty())
     {
         setValue(_overridedeviceid);
-        _overridedeviceid = QString::null;
+        _overridedeviceid.clear();
     }
 }
 
@@ -1701,10 +1697,7 @@ void VBoxTunerIndex::UpdateDevices(const QString &v)
 }
 
 VBoxDeviceID::VBoxDeviceID(const CaptureCard &parent) :
-    MythUITextEditSetting(new CaptureCardDBStorage(this, parent, "videodevice")),
-    _ip(QString::null),
-    _tuner(QString::null),
-    _overridedeviceid(QString::null)
+    MythUITextEditSetting(new CaptureCardDBStorage(this, parent, "videodevice"))
 {
     setLabel(tr("Device ID"));
     setHelpText(tr("Device ID of VBox device"));
@@ -1735,7 +1728,7 @@ void VBoxDeviceID::Load(void)
     if (!_overridedeviceid.isEmpty())
     {
         setValue(_overridedeviceid);
-        _overridedeviceid = QString::null;
+        _overridedeviceid.clear();
     }
 }
 
@@ -1881,7 +1874,7 @@ class ASIDevice : public CaptureCardComboBoxSetting
         CaptureCardComboBoxSetting(parent, true, "videodevice")
     {
         setLabel(QObject::tr("ASI device"));
-        fillSelections(QString::null);
+        fillSelections(QString());
     };
 
     /// \brief Adds all available cards to list
@@ -1947,7 +1940,7 @@ class ASIDevice : public CaptureCardComboBoxSetting
     virtual void Load(void)
     {
         clearSelections();
-        addSelection(QString::null);
+        addSelection(QString());
         GetStorage()->Load();
         fillSelections(getValue());
     }
@@ -2429,7 +2422,7 @@ V4LConfigurationGroup::V4LConfigurationGroup(CaptureCard& a_parent,
 {
     setVisible(false);
     QString drv = "(?!ivtv|hdpvr|(saa7164(.*))).*";
-    VideoDevice *device = new VideoDevice(parent, 0, 15, QString::null, drv);
+    VideoDevice *device = new VideoDevice(parent, 0, 15, QString(), drv);
 
     cardinfo->setLabel(tr("Probed info"));
     cardinfo->setEnabled(false);
@@ -2449,7 +2442,7 @@ V4LConfigurationGroup::V4LConfigurationGroup(CaptureCard& a_parent,
 
 void V4LConfigurationGroup::probeCard(const QString &device)
 {
-    QString cn = tr("Failed to open"), ci = cn, dn = QString::null;
+    QString cn = tr("Failed to open"), ci = cn, dn;
 
     QByteArray adevice = device.toLatin1();
     int videofd = open(adevice.constData(), O_RDWR);
@@ -2474,7 +2467,7 @@ MPEGConfigurationGroup::MPEGConfigurationGroup(CaptureCard &a_parent,
 {
     setVisible(false);
     QString drv = "ivtv|(saa7164(.*))";
-    device    = new VideoDevice(parent, 0, 15, QString::null, drv);
+    device    = new VideoDevice(parent, 0, 15, QString(), drv);
     vbidevice = new VBIDevice(parent);
     vbidevice->setVisible(false);
 
@@ -2494,7 +2487,7 @@ MPEGConfigurationGroup::MPEGConfigurationGroup(CaptureCard &a_parent,
 
 void MPEGConfigurationGroup::probeCard(const QString &device)
 {
-    QString cn = tr("Failed to open"), ci = cn, dn = QString::null;
+    QString cn = tr("Failed to open"), ci = cn, dn;
 
     QByteArray adevice = device.toLatin1();
     int videofd = open(adevice.constData(), O_RDWR);
@@ -2614,13 +2607,13 @@ void ExternalConfigurationGroup::probeApp(const QString & path)
 HDPVRConfigurationGroup::HDPVRConfigurationGroup(CaptureCard &a_parent,
                                                  CardType &a_cardtype) :
     parent(a_parent), cardinfo(new GroupSetting()),
-    audioinput(new TunerCardAudioInput(parent, QString::null, "HDPVR")),
+    audioinput(new TunerCardAudioInput(parent, QString(), "HDPVR")),
     vbidevice(NULL)
 {
     setVisible(false);
 
     VideoDevice *device =
-        new VideoDevice(parent, 0, 15, QString::null, "hdpvr");
+        new VideoDevice(parent, 0, 15, QString(), "hdpvr");
 
     cardinfo->setLabel(tr("Probed info"));
     cardinfo->setEnabled(false);
@@ -2640,7 +2633,7 @@ HDPVRConfigurationGroup::HDPVRConfigurationGroup(CaptureCard &a_parent,
 
 void HDPVRConfigurationGroup::probeCard(const QString &device)
 {
-    QString cn = tr("Failed to open"), ci = cn, dn = QString::null;
+    QString cn = tr("Failed to open"), ci = cn, dn;
 
     int videofd = open(device.toLocal8Bit().constData(), O_RDWR);
     if (videofd >= 0)
@@ -2698,7 +2691,7 @@ void V4L2encGroup::probeCard(const QString &device_name)
     if (m_device->getSubSettings()->size() == 0)
     {
         TunerCardAudioInput* audioinput =
-            new TunerCardAudioInput(m_parent, QString::null, "V4L2");
+            new TunerCardAudioInput(m_parent, QString(), "V4L2");
         if (audioinput->fillSelections(device_name) > 1)
         {
             audioinput->setName("AudioInput");
@@ -2811,7 +2804,7 @@ QString CaptureCard::GetRawCardType(void) const
 {
     int cardid = getCardID();
     if (cardid <= 0)
-        return QString::null;
+        return QString();
     return CardUtil::GetRawInputType(cardid);
 }
 

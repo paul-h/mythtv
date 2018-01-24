@@ -320,7 +320,7 @@ bool ProfileItem::IsValid(QString *reason) const
     }
 
     if (reason)
-        *reason = QString::null;
+        *reason = QString();
 
     return true;
 }
@@ -378,8 +378,7 @@ pref_map_t  VideoDisplayProfile::dec_name;
 safe_list_t VideoDisplayProfile::safe_decoders;
 
 VideoDisplayProfile::VideoDisplayProfile()
-    : lock(QMutex::Recursive), last_size(0,0), last_rate(0.0f),
-      last_video_renderer(QString::null)
+    : lock(QMutex::Recursive), last_size(0,0), last_rate(0.0f)
 {
     QMutexLocker locker(&safe_lock);
     init_statics();
@@ -540,11 +539,11 @@ QString VideoDisplayProfile::GetPreference(const QString &key) const
     QMutexLocker locker(&lock);
 
     if (key.isEmpty())
-        return QString::null;
+        return QString();
 
     pref_map_t::const_iterator it = pref.find(key);
     if (it == pref.end())
-        return QString::null;
+        return QString();
 
     QString pref = *it;
     pref.detach();
@@ -1754,7 +1753,7 @@ QString VideoDisplayProfile::GetBestVideoRenderer(const QStringList &renderers)
     init_statics();
 
     uint    top_priority = 0;
-    QString top_renderer = QString::null;
+    QString top_renderer;
 
     QStringList::const_iterator it = renderers.begin();
     for (; it != renderers.end(); ++it)

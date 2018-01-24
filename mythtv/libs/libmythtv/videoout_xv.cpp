@@ -322,7 +322,7 @@ class XvAttributes
 {
   public:
     XvAttributes() :
-        description(QString::null), xv_flags(0), feature_flags(0) {}
+        xv_flags(0), feature_flags(0) {}
     XvAttributes(const QString &a, uint b, uint c) :
         description(a), xv_flags(b), feature_flags(c)
         { description.detach(); }
@@ -366,7 +366,7 @@ int VideoOutputXv::GrabSuitableXvPort(MythXDisplay* disp, Window root,
                                       QString *adaptor_name)
 {
     if (adaptor_name)
-        *adaptor_name = QString::null;
+        *adaptor_name = QString();
 
     // create list of requirements to check in order..
     vector<XvAttributes> req;
@@ -409,7 +409,7 @@ int VideoOutputXv::GrabSuitableXvPort(MythXDisplay* disp, Window root,
         return -1;
     }
 
-    QString lastAdaptorName = QString::null;
+    QString lastAdaptorName;
     int port = -1;
 
     // find an Xv port
@@ -601,7 +601,7 @@ bool VideoOutputXv::InitXVideo()
 {
     MythXLocker lock(disp);
     disp->StartLog();
-    QString adaptor_name = QString::null;
+    QString adaptor_name;
     const QSize video_dim = window.GetVideoDim();
     xv_port = GrabSuitableXvPort(disp, disp->GetRoot(), kCodec_MPEG2,
                                  video_dim.width(), video_dim.height(),
@@ -819,7 +819,7 @@ bool VideoOutputXv::InitSetupBuffers(void)
     db_vdisp_profile->SetInput(window.GetVideoDim());
     QStringList renderers = allowed_video_renderers(
                                 video_codec_id, disp, XJ_curwin);
-    QString     renderer  = QString::null;
+    QString     renderer;
 
     QString tmp = db_vdisp_profile->GetVideoRenderer();
     LOG(VB_PLAYBACK, LOG_INFO, LOC + "InitSetupBuffers() " +

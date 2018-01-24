@@ -1756,7 +1756,7 @@ void MythDownloadManager::updateCookieJar(void)
 QString MythDownloadManager::getHeader(const QUrl& url, const QString& header)
 {
     if (!m_manager || !m_manager->cache())
-        return QString::null;
+        return QString();
 
     m_infoLock->lock();
     QNetworkCacheMetaData metadata = m_manager->cache()->metaData(url);
@@ -1785,7 +1785,7 @@ QString MythDownloadManager::getHeader(const QNetworkCacheMetaData &cacheData,
         }
     }
 
-    return QString::null;
+    return QString();
 }
 
 

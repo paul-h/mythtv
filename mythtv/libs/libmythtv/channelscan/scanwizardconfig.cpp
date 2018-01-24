@@ -81,7 +81,7 @@ bool ScanWizard::DoTestDecryption(void) const
 void ScanTypeSetting::SetInput(const QString &cardids_inputname)
 {
     uint    cardid    = 0;
-    QString inputname = QString::null;
+    QString inputname;
     if (!InputSelector::Parse(cardids_inputname, cardid, inputname))
         return;
 
@@ -317,7 +317,8 @@ QString ScanOptionalConfig::GetFrequencyTable(void) const
 bool ScanOptionalConfig::GetFrequencyTableRange(
     QString &start, QString &end) const
 {
-    start = end  = QString::null;
+    start.clear();
+    end.clear();
 
     int st = scanType->getValue().toInt();
     if (ScanTypeSetting::FullScan_ATSC == st)

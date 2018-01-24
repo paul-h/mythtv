@@ -491,7 +491,7 @@ QString getSymlinkTarget(const QString &start_file,
             .arg(maxLinks));
 #endif
 
-    QString   link     = QString::null;
+    QString   link;
     QString   cur_file = start_file; cur_file.detach();
     QFileInfo fi(cur_file);
 
@@ -529,10 +529,10 @@ QString getSymlinkTarget(const QString &start_file,
 
     LOG(VB_GENERAL, LOG_DEBUG,
             QString("getSymlinkTarget() -> '%1'")
-            .arg((!fi.isSymLink()) ? cur_file : QString::null));
+            .arg((!fi.isSymLink()) ? cur_file : QString()));
 #endif
 
-    return (!fi.isSymLink()) ? cur_file : QString::null;
+    return (!fi.isSymLink()) ? cur_file : QString();
 }
 
 bool IsMACAddress(QString MAC)
