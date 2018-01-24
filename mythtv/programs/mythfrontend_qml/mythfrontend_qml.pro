@@ -10,9 +10,6 @@ INCLUDEPATH += QmlVlc
 QT += qml quick sql xml webengine
 CONFIG += c++11
 
-#CONFIG+=declarative_debug
-#CONFIG+=qml_debug
-
 TEMPLATE = app
 
 TARGET = mythfrontend_qml
@@ -31,7 +28,9 @@ QMAKE_CLEAN += $(TARGET)
 
 # Input
 HEADERS += sqlquerymodel.h databaseutils.h urlinterceptor.h settings.h mythutils.h process.h downloadmanager.h
+HEADERS += mythincrementalmodel.h
 
 SOURCES += main.cpp
 SOURCES += sqlquerymodel.cpp databaseutils.cpp urlinterceptor.cpp mythutils.cpp downloadmanager.cpp
+SOURCES += mythincrementalmodel.cpp
 
