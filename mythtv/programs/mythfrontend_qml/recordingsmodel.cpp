@@ -5,6 +5,8 @@
 RecordingsModel::RecordingsModel(QObject *parent, Settings *settings)
     : MythIncrementalModel(parent, settings)
 {
+    m_descending = true;
+
     // program
     addRole("Title");
     addRole("SubTitle");
@@ -68,15 +70,23 @@ void RecordingsModel::setStorageGroup(const QString &storageGroup)
     reload();
 }
 
+void RecordingsModel::setDescending(bool descending)
+{
+    m_descending = descending;
+    reload();
+}
+
 // construct the download URL and start the download
 void RecordingsModel::startDownload(void)
 {
     // take the first one from the list of pending pending downloads
     int startIndex =  m_pendingDownloads.isEmpty() ? 0 : m_pendingDownloads.takeFirst();
     int count = qMax(m_count, (m_pendingDownloads.isEmpty() ? 0 : (m_pendingDownloads.last() - startIndex)));
+    QString descending = (m_descending ? "true" : "false");
 
     // start download of xml from server
-    QString sUrl = QString("%1Dvr/GetRecordedList?startindex=%2&count=%3").arg(m_settings->masterBackend()).arg(startIndex).arg(count);
+    QString sUrl = QString("%1Dvr/GetRecordedList?startindex=%2&count=%3&Descending=%4")
+            .arg(m_settings->masterBackend()).arg(startIndex).arg(count).arg(descending);
 
     if (!m_title.isEmpty())
         sUrl.append(QString("&TitleRegEx=%1").arg(m_title));
