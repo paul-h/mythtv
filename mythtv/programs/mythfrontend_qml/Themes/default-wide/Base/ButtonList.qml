@@ -25,7 +25,7 @@ ListView
 
         if (event.key === Qt.Key_PageDown)
         {
-            currentIndex = currentIndex + rowCount >= model.count ? model.count - 1 : currentIndex + rowCount;
+            currentIndex = currentIndex + rowCount >= count ? count - 1 : currentIndex + rowCount;
             event.accepted = true;
         }
         else if (event.key === Qt.Key_PageUp)
