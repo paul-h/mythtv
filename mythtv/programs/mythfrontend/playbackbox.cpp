@@ -2332,6 +2332,13 @@ void PlaybackBox::PlayX(const ProgramInfo &pginfo,
     Close();
 }
 
+void PlaybackBox::ClearBookmark()
+{
+    ProgramInfo *pginfo = GetCurrentProgram();
+    if (pginfo)
+        pginfo->SaveBookmark(0);
+}
+
 void PlaybackBox::StopSelected(void)
 {
     ProgramInfo *pginfo = GetCurrentProgram();
@@ -2527,6 +2534,9 @@ bool PlaybackBox::Play(
 
     m_playingSomething = true;
     int initIndex = m_recordingList->StopLoad();
+
+    if (!gCoreContext->GetNumSetting("UseProgStartMark", 0))
+        ignoreProgStart = true;
 
     uint flags =
         (inPlaylist          ? kStartTVInPlayList       : kStartTVNoFlags) |
@@ -3113,10 +3123,15 @@ MythMenu* PlaybackBox::createPlayFromMenu()
 
     if (pginfo->IsBookmarkSet())
         menu->AddItem(tr("Play from bookmark"), SLOT(PlayFromBookmark()));
+
     if (pginfo->QueryLastPlayPos())
         menu->AddItem(tr("Play from last played position"),
                       SLOT(PlayFromLastPlayPos()));
+
     menu->AddItem(tr("Play from beginning"), SLOT(PlayFromBeginning()));
+
+    if (pginfo->IsBookmarkSet())
+        menu->AddItem(tr("Clear bookmark"), SLOT(ClearBookmark()));
 
     return menu;
 }
