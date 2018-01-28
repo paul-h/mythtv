@@ -123,3 +123,5 @@ class Settings : public QObject
     bool    m_showTextBorder;
     bool    m_startFullscreen;
 };
+
+extern Settings *gSettings;

@@ -16,6 +16,7 @@
 #include <QmlVlc/QmlVlcConfig.h>
 
 // mythfrontend_qml
+#include "recordingsmodel.h"
 #include "sqlquerymodel.h"
 #include "databaseutils.h"
 #include "mythutils.h"
@@ -30,6 +31,10 @@ static QString dbPort;
 static QString dbUser;
 static QString dbPassword;
 static QString dbName;
+
+//#undef QT_NO_DEBUG_OUTPUT
+
+extern Settings *gSettings = NULL;
 
 static bool loadDBSettings(void)
 {
@@ -83,6 +88,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setAttribute(Qt::AA_X11InitThreads);
 
     qmlRegisterType<Process>("Process", 1, 0, "Process");
+    qmlRegisterType<RecordingsModel>("RecordingsModel", 1, 0, "RecordingsModel");
 
     RegisterQmlVlc();
     QmlVlcConfig& config = QmlVlcConfig::instance();
@@ -123,51 +129,51 @@ int main(int argc, char *argv[])
     QString theme = databaseUtils.getSetting("Qml_theme", hostName, "MythCenter-wide");
 
     // create the settings
-    Settings settings;
+    gSettings = new Settings;
 
-    settings.setThemeName(theme);
-    settings.setHostName(hostName);
-    settings.setConfigPath(QDir::homePath() + "/.mythtv/");
-    settings.setSharePath(QString(SHAREPATH));
-    settings.setQmlPath(QString(SHAREPATH) + "qml/Themes/" + theme + "/");
-    settings.setMasterBackend(databaseUtils.getSetting("Qml_masterBackend", hostName));
-    settings.setVideoPath(databaseUtils.getSetting("Qml_videoPath", hostName));
-    settings.setPicturePath(databaseUtils.getSetting("Qml_picturePath", hostName));
-    settings.setSdChannels(databaseUtils.getSetting("Qml_sdChannels", hostName));
+    gSettings->setThemeName(theme);
+    gSettings->setHostName(hostName);
+    gSettings->setConfigPath(QDir::homePath() + "/.mythtv/");
+    gSettings->setSharePath(QString(SHAREPATH));
+    gSettings->setQmlPath(QString(SHAREPATH) + "qml/Themes/" + theme + "/");
+    gSettings->setMasterBackend(databaseUtils.getSetting("Qml_masterBackend", hostName));
+    gSettings->setVideoPath(databaseUtils.getSetting("Qml_videoPath", hostName));
+    gSettings->setPicturePath(databaseUtils.getSetting("Qml_picturePath", hostName));
+    gSettings->setSdChannels(databaseUtils.getSetting("Qml_sdChannels", hostName));
 
     // set the websocket url using the master backend as a starting point
-    QUrl url(settings.masterBackend());
+    QUrl url(gSettings->masterBackend());
     url.setScheme("ws");
     url.setPort(url.port() + 5);
-    settings.setWebSocketUrl(url.toString());
+    gSettings->setWebSocketUrl(url.toString());
 
     // start fullscreen
-    settings.setStartFullscreen((databaseUtils.getSetting("Qml_startFullScreen", hostName) == "true"));
+    gSettings->setStartFullscreen((databaseUtils.getSetting("Qml_startFullScreen", hostName) == "true"));
 
     // vbox
-    settings.setVboxFreeviewIP(databaseUtils.getSetting("Qml_vboxFreeviewIP", hostName));
-    settings.setVboxFreesatIP(databaseUtils.getSetting("Qml_vboxFreesatIP", hostName));
+    gSettings->setVboxFreeviewIP(databaseUtils.getSetting("Qml_vboxFreeviewIP", hostName));
+    gSettings->setVboxFreesatIP(databaseUtils.getSetting("Qml_vboxFreesatIP", hostName));
 
     // hdmiEncoder
-    settings.setHdmiEncoder(databaseUtils.getSetting("Qml_hdmiEncoder", hostName));
+    gSettings->setHdmiEncoder(databaseUtils.getSetting("Qml_hdmiEncoder", hostName));
 
     // look for the theme in ~/.mythtv/themes
     if (QFile::exists(QString(QDir::homePath() + "/.mythtv/themes/") + theme + "/themeinfo.xml"))
-        settings.setThemePath(QString(QDir::homePath() + "/.mythtv/themes/") + theme + "/");
+        gSettings->setThemePath(QString(QDir::homePath() + "/.mythtv/themes/") + theme + "/");
     else
-        settings.setThemePath(QString(SHAREPATH) + "themes/" + theme + "/");
+        gSettings->setThemePath(QString(SHAREPATH) + "themes/" + theme + "/");
 
     // menu theme
     QString menuTheme = "classic"; // just use this for now
-    settings.setMenuPath(QString(SHAREPATH) + "qml/MenuThemes/" + menuTheme + "/");
+    gSettings->setMenuPath(QString(SHAREPATH) + "qml/MenuThemes/" + menuTheme + "/");
 
     // show text borders debug flag
-    settings.setShowTextBorder(false);
+    gSettings->setShowTextBorder(false);
 
-    engine.rootContext()->setContextProperty("settings", &settings);
+    engine.rootContext()->setContextProperty("settings", gSettings);
 
     // create the myth utils
-    MythUtils mythUtils(&settings, &engine);
+    MythUtils mythUtils(&engine);
     engine.rootContext()->setContextProperty("mythUtils", &mythUtils);
 
     // create the radio streams model
@@ -196,11 +202,9 @@ int main(int argc, char *argv[])
     dbChannelsModel->setQuery("SELECT chanid, channum, callsign, name, icon, xmltvid FROM channel ORDER BY cast(channum as unsigned);", db);
     engine.rootContext()->setContextProperty("dbChannelsModel", dbChannelsModel);
 
-    MythQmlAbstractUrlInterceptor interceptor(&engine, &settings);
+    MythQmlAbstractUrlInterceptor interceptor(&engine);
     interceptor.setTheme(theme);
     engine.setUrlInterceptor(&interceptor);
-
-    //engine.addImportPath(QString(SHAREPATH) + "qml/");
 
     engine.addImportPath(QString(SHAREPATH) + "qml/Themes/default-wide");
 

@@ -1,8 +1,8 @@
 import QtQuick 2.0
-import "../../../Models"
 import Base 1.0
 import Dialogs 1.0
 import SortFilterProxyModel 0.2
+import RecordingsModel 1.0
 
 BaseScreen
 {
@@ -11,6 +11,7 @@ BaseScreen
     property string filterTitle
     property string filterCategory
     property string filterRecGroup
+    property bool dateSorterActive: true
 
     defaultFocusItem: videoList
 
@@ -19,51 +20,6 @@ BaseScreen
         showTitle(true, "Watch Recordings");
         showTime(false);
         showTicker(false);
-    }
-
-    property bool dateSorterActive: true;
-
-    property list<QtObject> dateSorter:
-    [
-        RoleSorter { roleName: "StartTime"; ascendingOrder: false}
-    ]
-
-    property list<QtObject> episodeSorter:
-    [
-        RoleSorter { roleName: "Title" },
-        RoleSorter { roleName: "Season" },
-        RoleSorter { roleName: "Episode" }
-    ]
-
-    SortFilterProxyModel
-    {
-        id: recordingsProxyModel
-        sourceModel: recordingsLoader.item
-        filters:
-        [
-            AllOf
-            {
-                RegExpFilter
-                {
-                    roleName: "Title"
-                    pattern: filterTitle
-                    caseSensitivity: Qt.CaseInsensitive
-                }
-                RegExpFilter
-                {
-                    roleName: "Category"
-                    pattern: filterCategory
-                    caseSensitivity: Qt.CaseInsensitive
-                }
-                RegExpFilter
-                {
-                    roleName: "RecGroup"
-                    pattern: filterRecGroup
-                    caseSensitivity: Qt.CaseInsensitive
-                }
-            }
-        ]
-        sorters: dateSorter
     }
 
     Image
@@ -82,7 +38,7 @@ BaseScreen
     InfoText
     {
         x: xscale(1050); y: yscale(5); width: xscale(200);
-        text: (videoList.currentIndex + 1) + " of " + recordingsProxyModel.count;
+        text: (videoList.currentIndex + 1) + " of " + recordingsModel.totalAvailable;
         horizontalAlignment: Text.AlignRight
     }
 
@@ -120,7 +76,7 @@ BaseScreen
             {
                 x: coverImage.width + xscale(20)
                 width: xscale(450); height: yscale(50)
-                text: SubTitle ? Title + ": " + SubTitle : Title
+                text: if (Title) (SubTitle ? Title + ": " + SubTitle : Title); else ""
                 fontColor: theme.labelFontColor
             }
             ListText
@@ -140,28 +96,28 @@ BaseScreen
         }
     }
 
+    RecordingsModel
+    {
+        id: recordingsModel
+        onTotalAvailableChanged:
+        {
+            videoList.positionViewAtIndex(0, ListView.Beginning);
+            videoList.currentIndex = 0;
+        }
+    }
+
     ButtonList
     {
         id: videoList
         x: xscale(435); y: yscale(65); width: xscale(815); height: yscale(360)
 
         clip: true
-        model: recordingsProxyModel
+        model: recordingsModel
         delegate: listRow
 
         Keys.onPressed:
         {
-            if (event.key === Qt.Key_PageDown)
-            {
-                currentIndex = currentIndex + 6 >= model.count ? model.count - 1 : currentIndex + 6;
-                event.accepted = true;
-            }
-            else if (event.key === Qt.Key_PageUp)
-            {
-                currentIndex = currentIndex - 6 < 0 ? 0 : currentIndex - 6;
-                event.accepted = true;
-            }
-            else if (event.key === Qt.Key_M)
+            if (event.key === Qt.Key_M)
             {
                 filterDialog.filterTitle = root.filterTitle;
                 filterDialog.filterCategory = root.filterCategory;
@@ -171,9 +127,9 @@ BaseScreen
             else if (event.key === Qt.Key_S)
             {
                 if (dateSorterActive)
-                    recordingsProxyModel.sorters = episodeSorter;
+                    recordingsModel.sort = "Title,Season,Episode";
                 else
-                    recordingsProxyModel.sorters = dateSorter
+                    recordingsModel.sort = "StartTime";
 
                 dateSorterActive = !dateSorterActive;
             }
@@ -228,8 +184,8 @@ BaseScreen
         x: xscale(300); y: yscale(530); width: xscale(50); height: yscale(50)
         source:
         {
-            if (videoList.model.get(videoList.currentIndex).ChannelIcon)
-                settings.masterBackend + videoList.model.get(videoList.currentIndex).ChannelIcon
+            if (videoList.model.get(videoList.currentIndex).IconURL)
+                settings.masterBackend + videoList.model.get(videoList.currentIndex).IconURL
             else
                 ""
         }
@@ -239,7 +195,7 @@ BaseScreen
     {
         x: xscale(400); y: yscale(530)
         width: xscale(900); height: yscale(50)
-        text: videoList.model.get(videoList.currentIndex).ChannelNo + " - " + videoList.model.get(videoList.currentIndex).ChannelCallSign + " - " + videoList.model.get(videoList.currentIndex).ChannelName
+        text: videoList.model.get(videoList.currentIndex).ChanNum + " - " + videoList.model.get(videoList.currentIndex).CallSign + " - " + videoList.model.get(videoList.currentIndex).ChannelName
     }
 
     InfoText
@@ -281,7 +237,7 @@ BaseScreen
         x: xscale(980); y: yscale(480); height: yscale(200); width: 100
         source:
         {
-            if (videoList.model.get(videoList.currentIndex).Fanart)
+            if (videoList.model.get(videoList.currentIndex).Coverart)
                 settings.masterBackend + videoList.model.get(videoList.currentIndex).Coverart
                 else
                     mythUtils.findThemeFile("images/grid_noimage.png")
@@ -301,7 +257,7 @@ BaseScreen
         title: "Filter Recordings"
         message: ""
 
-        recordingsModel: recordingsProxyModel.sourceModel
+        model: recordingsModel
 
         width: 600; height: 500
 
@@ -312,6 +268,7 @@ BaseScreen
             root.filterTitle = filterTitle;
             root.filterCategory = filterCategory;
             root.filterRecGroup = filterRecGroup;
+            recordingsModel.titleRegExp = filterTitle;
         }
         onCancelled:
         {

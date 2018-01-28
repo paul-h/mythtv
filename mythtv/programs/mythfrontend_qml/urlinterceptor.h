@@ -7,7 +7,7 @@
 class MythQmlAbstractUrlInterceptor : public QQmlAbstractUrlInterceptor
 {
   public:
-    MythQmlAbstractUrlInterceptor(QQmlApplicationEngine *engine, Settings *settings) { m_qmlEngine = engine; m_settings = settings;}
+    MythQmlAbstractUrlInterceptor(QQmlApplicationEngine *engine) { m_qmlEngine = engine; }
 
     QUrl intercept(const QUrl &url, DataType type);
 
@@ -15,7 +15,6 @@ class MythQmlAbstractUrlInterceptor : public QQmlAbstractUrlInterceptor
 
   private:
     QQmlApplicationEngine *m_qmlEngine;
-    Settings *m_settings;
     QString m_theme;
     QString m_activeThemePath;
     QString m_defaultThemePath;

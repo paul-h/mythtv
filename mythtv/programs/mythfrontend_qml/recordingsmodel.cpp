@@ -1,9 +1,9 @@
 #include <QDomDocument>
 
+#include "settings.h"
 #include "recordingsmodel.h"
 
-RecordingsModel::RecordingsModel(QObject *parent, Settings *settings)
-    : MythIncrementalModel(parent, settings)
+RecordingsModel::RecordingsModel(void) : MythIncrementalModel()
 {
     m_descending = true;
 
@@ -76,17 +76,32 @@ void RecordingsModel::setDescending(bool descending)
     reload();
 }
 
+void RecordingsModel::setSort(const QString &sort)
+{
+    m_sort = sort;
+    reload();
+}
+
 // construct the download URL and start the download
 void RecordingsModel::startDownload(void)
 {
-    // take the first one from the list of pending pending downloads
-    int startIndex =  m_pendingDownloads.isEmpty() ? 0 : m_pendingDownloads.takeFirst();
-    int count = qMax(m_count, (m_pendingDownloads.isEmpty() ? 0 : (m_pendingDownloads.last() - startIndex)));
+    // defaults
+    int startIndex = 0;
+    int count = m_count;
+
+    // use the first and last pending items
+    if (!m_pendingDownloads.isEmpty())
+    {
+        qSort(m_pendingDownloads.begin(), m_pendingDownloads.end());
+        startIndex =  m_pendingDownloads.first();
+        count = qMax(m_count, m_pendingDownloads.last() - startIndex + 1);
+    }
+
     QString descending = (m_descending ? "true" : "false");
 
     // start download of xml from server
     QString sUrl = QString("%1Dvr/GetRecordedList?startindex=%2&count=%3&Descending=%4")
-            .arg(m_settings->masterBackend()).arg(startIndex).arg(count).arg(descending);
+            .arg(gSettings->masterBackend()).arg(startIndex).arg(count).arg(descending);
 
     if (!m_title.isEmpty())
         sUrl.append(QString("&TitleRegEx=%1").arg(m_title));
@@ -96,6 +111,9 @@ void RecordingsModel::startDownload(void)
 
     if (!m_storageGroup.isEmpty())
         sUrl.append(QString("&StorageGroup=%1").arg(m_storageGroup));
+
+    if (!m_sort.isEmpty())
+        sUrl.append(QString("&Sort=%1").arg(m_sort));
 
     QUrl url(sUrl);
     m_downloadManager->append(url);
@@ -131,6 +149,7 @@ void RecordingsModel::processDownload(QByteArray buffer)
             int totalAvailable = totalNode.toElement().text().simplified().toInt();
             if (m_totalAvailable < totalAvailable)
             {
+                beginResetModel();
                 for (int x = 0; x < totalAvailable - m_totalAvailable; x++)
                 {
                     m_data.append(nullptr);
@@ -138,8 +157,9 @@ void RecordingsModel::processDownload(QByteArray buffer)
 
                 m_totalAvailable = m_data.count();
                 emit totalAvailableChanged();
+                endResetModel();
             }
-       }
+        }
 
         // get the StartIndex
         int startIndex = 0;

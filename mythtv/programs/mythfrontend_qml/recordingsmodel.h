@@ -11,13 +11,14 @@ class RecordingsModel : public MythIncrementalModel
 {
     Q_OBJECT
 public:
-    RecordingsModel(QObject *parent, Settings *settings);
+    RecordingsModel(void);
     ~RecordingsModel(void) {};
 
     Q_PROPERTY(QString titleRegExp READ titleRegExp WRITE setTitleRegExp NOTIFY titleRegExpChanged)
     Q_PROPERTY(QString recGroup READ recGroup WRITE setRecGroup NOTIFY recGroupChanged)
     Q_PROPERTY(QString storageGroup READ storageGroup WRITE setStorageGroup NOTIFY storageGroupChanged)
     Q_PROPERTY(bool descending READ descending WRITE setDescending NOTIFY descendingChanged)
+    Q_PROPERTY(QString sort READ getSort WRITE setSort NOTIFY sortChanged)
 
     QString titleRegExp(void) { return m_title; }
     void setTitleRegExp(const QString &title);
@@ -31,11 +32,15 @@ public:
     bool descending(void) { return m_descending; }
     void setDescending(bool descending);
 
+    QString getSort(void) { return m_sort; }
+    void setSort(const QString &sort);
+
  signals:
-     void titleRegExpChanged(void);
-     void recGroupChanged(void);
-     void storageGroupChanged(void);
-     void descendingChanged(void);
+    void titleRegExpChanged(void);
+    void recGroupChanged(void);
+    void storageGroupChanged(void);
+    void descendingChanged(void);
+    void sortChanged(void);
 
   protected slots:
     virtual void startDownload(void);
@@ -46,6 +51,7 @@ public:
     QString m_recGroup;
     QString m_storageGroup;
     bool    m_descending;
+    QString m_sort;
 };
 
 #endif // RECORDINGSMODEL_H

@@ -8,7 +8,7 @@ BaseDialog
     width: xscale(500)
     height: yscale(500)
 
-    property var recordingsModel
+    property var model
 
     property alias filterTitle: titleEdit.text
     property alias filterCategory: categoryEdit.text
@@ -53,7 +53,7 @@ BaseDialog
             onClicked:
             {
                 _searchField = "title"
-                searchDialog.model = root.recordingsModel.titleList
+                searchDialog.model = root.model.titleList
                 searchDialog.show();
             }
         }
@@ -90,7 +90,7 @@ BaseDialog
             onClicked:
             {
                 _searchField = "category"
-                searchDialog.model = root.recordingsModel.categoryList
+                searchDialog.model = root.model.categoryList
                 searchDialog.show();
             }
         }
@@ -127,7 +127,7 @@ BaseDialog
             onClicked:
             {
                 _searchField = "recgroup"
-                searchDialog.model = root.recordingsModel.recGroupList
+                searchDialog.model = root.model.recGroupList
                 searchDialog.show();
             }
         }

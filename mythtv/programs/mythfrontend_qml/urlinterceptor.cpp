@@ -10,10 +10,12 @@
 
 QUrl MythQmlAbstractUrlInterceptor::intercept(const QUrl &url, DataType type)
 {
+    Q_UNUSED(type)
+
     QString sUrl = url.toString();
 
     // we are only interested in our theme urls
-    if (!sUrl.startsWith(m_settings->sharePath()) || sUrl.endsWith("qmldir"))
+    if (!sUrl.startsWith(gSettings->sharePath()) || sUrl.endsWith("qmldir"))
         return url;
 
     // look in the map first
@@ -61,8 +63,8 @@ void MythQmlAbstractUrlInterceptor::setTheme(const QString& theme)
 {
    m_theme = theme;
 
-   m_defaultThemePath = m_settings->sharePath() + "qml/Themes/default-wide";
-   m_activeThemePath = m_settings->sharePath() + "qml/Themes/" + m_theme;
+   m_defaultThemePath = gSettings->sharePath() + "qml/Themes/default-wide";
+   m_activeThemePath = gSettings->sharePath() + "qml/Themes/" + m_theme;
 
    m_fileMap.clear();
 }

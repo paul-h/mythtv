@@ -3,11 +3,9 @@
 
 #include "mythincrementalmodel.h"
 
-MythIncrementalModel::MythIncrementalModel(QObject *parent, Settings *settings)
-    : QAbstractListModel(parent)
+MythIncrementalModel::MythIncrementalModel(void)
+    : QAbstractListModel(nullptr)
 {
-    m_settings = settings;
-
     m_count = 10;
     m_totalAvailable = 0;
     m_lastRole = Qt::UserRole + 1;
@@ -120,12 +118,16 @@ void MythIncrementalModel::reload(void)
 
 void MythIncrementalModel::clearData()
 {
+    beginRemoveRows(QModelIndex(), 0, m_data.count() - 1);
+
     for (int x = 0; x < m_data.count(); x++)
         delete m_data.at(x);
 
     m_data.clear();
 
     m_totalAvailable = 0;
+
+    endRemoveRows();
 }
 
 void MythIncrementalModel::addStringData(RowData* row, const QDomNode &node, const QByteArray &roleName)

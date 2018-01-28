@@ -98,13 +98,6 @@ ApplicationWindow
         }
     }
 
-    // recordings loader
-    Loader
-    {
-        id: recordingsLoader
-        source: settings.sharePath + "qml/Models/RecordingsModel.qml"
-    }
-
     function showMouse(show)
     {
          if (show)

@@ -16,7 +16,7 @@ class MythIncrementalModel : public QAbstractListModel
 {
     Q_OBJECT
 public:
-    MythIncrementalModel(QObject *parent, Settings *settings);
+    MythIncrementalModel(void);
     ~MythIncrementalModel(void);
 
     Q_PROPERTY(int totalAvailable READ totalAvailable NOTIFY totalAvailableChanged)
@@ -57,8 +57,6 @@ protected:
     void addDoubleData(RowData *row, const QDomNode &node, const QByteArray &roleName);
     void addDateData(RowData *row, const QDomNode &node, const QByteArray &roleName);
     void addBoolData(RowData *row, const QDomNode &node, const QByteArray &roleName);
-
-    Settings *m_settings;
 
     DownloadManager *m_downloadManager;
 
