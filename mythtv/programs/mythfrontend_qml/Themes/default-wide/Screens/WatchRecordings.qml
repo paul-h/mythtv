@@ -1,7 +1,6 @@
 import QtQuick 2.0
 import Base 1.0
 import Dialogs 1.0
-import SortFilterProxyModel 0.2
 import RecordingsModel 1.0
 
 BaseScreen
@@ -13,7 +12,7 @@ BaseScreen
     property string filterRecGroup
     property bool dateSorterActive: true
 
-    defaultFocusItem: videoList
+    defaultFocusItem: recordingList
 
     Component.onCompleted:
     {
@@ -28,8 +27,8 @@ BaseScreen
         x: xscale(0); y: yscale(0); width: xscale(1280); height: yscale(720)
         source:
         {
-            if (videoList.model.get(videoList.currentIndex).Fanart)
-                settings.masterBackend + videoList.model.get(videoList.currentIndex).Fanart
+            if (recordingList.model.get(recordingList.currentIndex).Fanart)
+                settings.masterBackend + recordingList.model.get(recordingList.currentIndex).Fanart
             else
                 ""
         }
@@ -38,24 +37,16 @@ BaseScreen
     InfoText
     {
         x: xscale(1050); y: yscale(5); width: xscale(200);
-        text: (videoList.currentIndex + 1) + " of " + recordingsModel.totalAvailable;
+        text: (recordingList.currentIndex + 1) + " of " + recordingsModel.totalAvailable;
         horizontalAlignment: Text.AlignRight
     }
 
     BaseBackground
     {
-        x: xscale(15); y: yscale(50); width: xscale(400); height: yscale(400)
+        x: xscale(10); y: yscale(50); width: parent.width - xscale(20); height: yscale(380)
     }
 
-    BaseBackground
-    {
-        x: xscale(425); y: yscale(50); width: xscale(835); height: yscale(400)
-    }
-
-    BaseBackground
-    {
-        x: xscale(15); y: yscale(465); width: xscale(1250); height: yscale(240)
-    }
+    BaseBackground { x: xscale(10); y: yscale(445); width: parent.width - xscale(20); height: yscale(230) }
 
     Component
     {
@@ -75,20 +66,35 @@ BaseScreen
             ListText
             {
                 x: coverImage.width + xscale(20)
-                width: xscale(450); height: yscale(50)
+                width: xscale(650); height: yscale(50)
                 text: if (Title) (SubTitle ? Title + ": " + SubTitle : Title); else ""
                 fontColor: theme.labelFontColor
             }
             ListText
             {
-                x: coverImage.width + xscale(480)
+                x: xscale(700)
+                width: xscale(190); height: yscale(50)
+                horizontalAlignment: Text.AlignRight
+                text:
+                {
+                    if (Season != 0 || Episode != 0)
+                        return "S:" + Season + " E:" + Episode;
+                    else if (Airdate != "")
+                        return Qt.formatDateTime(Airdate, "(yyyy)");
+                    else
+                        return ""
+                }
+            }
+            ListText
+            {
+                x: coverImage.width + xscale(900)
                 width: xscale(190); height: yscale(50)
                 horizontalAlignment: Text.AlignRight
                 text: Qt.formatDateTime(StartTime, "ddd dd/MM/yy")
             }
             ListText
             {
-                x: coverImage.width + xscale(680)
+                x: coverImage.width + xscale(1100)
                 width: xscale(80); height: yscale(50)
                 horizontalAlignment: Text.AlignRight
                 text: Qt.formatDateTime(StartTime, "hh:mm")
@@ -101,15 +107,15 @@ BaseScreen
         id: recordingsModel
         onTotalAvailableChanged:
         {
-            videoList.positionViewAtIndex(0, ListView.Beginning);
-            videoList.currentIndex = 0;
+            recordingList.positionViewAtIndex(0, ListView.Beginning);
+            recordingList.currentIndex = 0;
         }
     }
 
     ButtonList
     {
-        id: videoList
-        x: xscale(435); y: yscale(65); width: xscale(815); height: yscale(360)
+        id: recordingList
+        x: xscale(20); y: yscale(65); width: xscale(1240); height: yscale(350)
 
         clip: true
         model: recordingsModel
@@ -119,19 +125,34 @@ BaseScreen
         {
             if (event.key === Qt.Key_M)
             {
+            }
+            else if (event.key === Qt.Key_F1)
+            {
+                // RED
+            }
+            else if (event.key === Qt.Key_F2)
+            {
+                // GREEN
                 filterDialog.filterTitle = root.filterTitle;
                 filterDialog.filterCategory = root.filterCategory;
                 filterDialog.filterRecGroup = root.filterRecGroup;
                 filterDialog.show();
             }
-            else if (event.key === Qt.Key_S)
+            else if (event.key === Qt.Key_F3)
             {
+                // YELLOW
                 if (dateSorterActive)
                     recordingsModel.sort = "Title,Season,Episode";
                 else
                     recordingsModel.sort = "StartTime";
 
                 dateSorterActive = !dateSorterActive;
+
+                sort.text = "Sort " + (dateSorterActive ? "(Date & Time)" : "(Season & Episode)")
+            }
+            else if (event.key === Qt.Key_F4)
+            {
+                //BLUE
             }
         }
 
@@ -145,17 +166,17 @@ BaseScreen
         }
     }
 
-    InfoText
+    TitleText
     {
-        x: xscale(30); y: yscale(480)
+        x: xscale(30); y: yscale(450)
         width: xscale(900); height: yscale(50)
         text:
         {
-            var title = videoList.model.get(videoList.currentIndex).Title;
-            var subtitle = videoList.model.get(videoList.currentIndex).SubTitle;
-            var season = videoList.model.get(videoList.currentIndex).Season;
-            var episode = videoList.model.get(videoList.currentIndex).Episode;
-            var total = videoList.model.get(videoList.currentIndex).TotalEpisodes;
+            var title = recordingList.model.get(recordingList.currentIndex).Title;
+            var subtitle = recordingList.model.get(recordingList.currentIndex).SubTitle;
+            var season = recordingList.model.get(recordingList.currentIndex).Season;
+            var episode = recordingList.model.get(recordingList.currentIndex).Episode;
+            var total = recordingList.model.get(recordingList.currentIndex).TotalEpisodes;
             var result = "";
 
             if (title != undefined && title.length > 0)
@@ -181,11 +202,11 @@ BaseScreen
     Image
     {
         id: channelImage
-        x: xscale(300); y: yscale(530); width: xscale(50); height: yscale(50)
+        x: xscale(300); y: yscale(500); width: xscale(50); height: yscale(50)
         source:
         {
-            if (videoList.model.get(videoList.currentIndex).IconURL)
-                settings.masterBackend + videoList.model.get(videoList.currentIndex).IconURL
+            if (recordingList.model.get(recordingList.currentIndex).IconURL)
+                settings.masterBackend + recordingList.model.get(recordingList.currentIndex).IconURL
             else
                 ""
         }
@@ -193,25 +214,26 @@ BaseScreen
 
     InfoText
     {
-        x: xscale(400); y: yscale(530)
+        x: xscale(400); y: yscale(500)
         width: xscale(900); height: yscale(50)
-        text: videoList.model.get(videoList.currentIndex).ChanNum + " - " + videoList.model.get(videoList.currentIndex).CallSign + " - " + videoList.model.get(videoList.currentIndex).ChannelName
+        text: recordingList.model.get(recordingList.currentIndex).ChanNum + " - " + recordingList.model.get(recordingList.currentIndex).CallSign + " - " + recordingList.model.get(recordingList.currentIndex).ChannelName
     }
 
     InfoText
     {
-        x: xscale(30); y: yscale(530)
+        x: xscale(30); y: yscale(500)
         width: xscale(900); height: yscale(50)
-        text: Qt.formatDateTime(videoList.model.get(videoList.currentIndex).StartTime, "ddd dd MMM yyyy hh:mm")
+        text: Qt.formatDateTime(recordingList.model.get(recordingList.currentIndex).StartTime, "ddd dd MMM yyyy hh:mm")
     }
+
     InfoText
     {
-        x: xscale(30); y: yscale(580)
+        x: xscale(30); y: yscale(550)
         width: xscale(900); height: yscale(100)
         text:
         {
-            if (videoList.model.get(videoList.currentIndex).Description != undefined)
-                videoList.model.get(videoList.currentIndex).Description
+            if (recordingList.model.get(recordingList.currentIndex).Description != undefined)
+                recordingList.model.get(recordingList.currentIndex).Description
             else
                 ""
         }
@@ -224,8 +246,8 @@ BaseScreen
 //         x: xscale(300); y: yscale(480); height: yscale(60); width: 300
 //         source:
 //         {
-//             if (videoList.model.get(videoList.currentIndex).Banner)
-//                 settings.masterBackend + videoList.model.get(videoList.currentIndex).Banner
+//             if (recordingList.model.get(recordingList.currentIndex).Banner)
+//                 settings.masterBackend + recordingList.model.get(recordingList.currentIndex).Banner
 //             else
 //                 ""
 //         }
@@ -234,20 +256,64 @@ BaseScreen
     Image
     {
         id: coverartImage
-        x: xscale(980); y: yscale(480); height: yscale(200); width: 100
+        x: xscale(1130); y: yscale(460); height: yscale(200); width: 120
         source:
         {
-            if (videoList.model.get(videoList.currentIndex).Coverart)
-                settings.masterBackend + videoList.model.get(videoList.currentIndex).Coverart
+            if (recordingList.model.get(recordingList.currentIndex).Coverart)
+                settings.masterBackend + recordingList.model.get(recordingList.currentIndex).Coverart
                 else
                     mythUtils.findThemeFile("images/grid_noimage.png")
         }
     }
 
-    BusyDialog
+    Image
     {
-        id: busyDialog
-        message: "Loading recording list.\nPlease Wait...."
+        x: xscale(30); y: yscale(682); width: xscale(32); height: yscale(32)
+        source: mythUtils.findThemeFile("images/red_bullet.png")
+    }
+
+    InfoText
+    {
+        x: xscale(65); y: yscale(682); width: xscale(250); height: yscale(32)
+        text: "Options"
+    }
+
+    Image
+    {
+        x: xscale(350); y: yscale(682); width: xscale(32); height: yscale(32)
+        source: mythUtils.findThemeFile("images/green_bullet.png")
+    }
+
+    InfoText
+    {
+        id: show
+        x: xscale(385); y: yscale(682); width: xscale(250); height: yscale(32)
+        text: "Show (All Recordings)"
+    }
+
+    Image
+    {
+        x: xscale(670); y: yscale(682); width: xscale(32); height: yscale(32)
+        source: mythUtils.findThemeFile("images/yellow_bullet.png")
+    }
+
+    InfoText
+    {
+        id: sort
+        x: xscale(705); y: yscale(682); width: xscale(250); height: yscale(32)
+        text: "Sort (Time)"
+    }
+
+    Image
+    {
+        x: xscale(990); y: yscale(682); width: xscale(32); height: yscale(32)
+        source: mythUtils.findThemeFile("images/blue_bullet.png")
+    }
+
+    InfoText
+    {
+        x: xscale(1025); y: yscale(682); width: xscale(250); height: yscale(32)
+        text: "Info"
     }
 
     RecordingFilterDialog
@@ -263,16 +329,23 @@ BaseScreen
 
         onAccepted:
         {
-            videoList.focus = true;
+            recordingList.focus = true;
 
             root.filterTitle = filterTitle;
             root.filterCategory = filterCategory;
             root.filterRecGroup = filterRecGroup;
             recordingsModel.titleRegExp = filterTitle;
+            //recordingsModel.category = filterCategory;
+            recordingsModel.recGroup = filterRecGroup;
+
+            if (filterTitle == "" && filterCategory == "" && filterRecGroup == "")
+                show.text = "Show (All Recordings)";
+            else
+                show.text = "Show (Filtered Recordings)";
         }
         onCancelled:
         {
-            videoList.focus = true;
+            recordingList.focus = true;
         }
     }
 }
