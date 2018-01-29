@@ -66,13 +66,13 @@ BaseScreen
             ListText
             {
                 x: coverImage.width + xscale(20)
-                width: xscale(650); height: yscale(50)
+                width: xscale(670); height: yscale(50)
                 text: if (Title) (SubTitle ? Title + ": " + SubTitle : Title); else ""
                 fontColor: theme.labelFontColor
             }
             ListText
             {
-                x: xscale(700)
+                x: xscale(745)
                 width: xscale(190); height: yscale(50)
                 horizontalAlignment: Text.AlignRight
                 text:
@@ -174,9 +174,6 @@ BaseScreen
         {
             var title = recordingList.model.get(recordingList.currentIndex).Title;
             var subtitle = recordingList.model.get(recordingList.currentIndex).SubTitle;
-            var season = recordingList.model.get(recordingList.currentIndex).Season;
-            var episode = recordingList.model.get(recordingList.currentIndex).Episode;
-            var total = recordingList.model.get(recordingList.currentIndex).TotalEpisodes;
             var result = "";
 
             if (title != undefined && title.length > 0)
@@ -185,14 +182,29 @@ BaseScreen
             if (subtitle != undefined && subtitle.length > 0)
                 result += " - " + subtitle;
 
+            return result;
+        }
+    }
+
+    InfoText
+    {
+        x: xscale(970); y: yscale(450)
+        width: xscale(140); height: yscale(50)
+        fontColor: "grey"
+        horizontalAlignment: Text.AlignRight
+        text:
+        {
+            var season = recordingList.model.get(recordingList.currentIndex).Season;
+            var episode = recordingList.model.get(recordingList.currentIndex).Episode;
+            var total = recordingList.model.get(recordingList.currentIndex).TotalEpisodes;
+            var result = "";
+
             if (season > 0 && episode > 0)
             {
-                result += " (s:" + season + " e:" + episode
+                result = "s:" + season + " e:" + episode
 
                 if (total > 0)
                     result += " of " + total;
-
-                result += ")";
             }
 
             return result;
@@ -256,7 +268,7 @@ BaseScreen
     Image
     {
         id: coverartImage
-        x: xscale(1130); y: yscale(460); height: yscale(200); width: 120
+        x: xscale(1130); y: yscale(460); height: yscale(200); width: xscale(120)
         source:
         {
             if (recordingList.model.get(recordingList.currentIndex).Coverart)
@@ -325,7 +337,7 @@ BaseScreen
 
         model: recordingsModel
 
-        width: 600; height: 500
+        width: xscale(600); height: yscale(500)
 
         onAccepted:
         {

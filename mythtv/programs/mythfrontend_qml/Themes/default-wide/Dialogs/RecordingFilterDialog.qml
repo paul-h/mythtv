@@ -60,7 +60,7 @@ BaseDialog
 
         InfoText
         {
-            x: 20; y: 110
+            x: xscale(20); y: yscale(110)
             width: xscale(300); height: yscale(30)
             text: "Category"
         }
@@ -97,7 +97,7 @@ BaseDialog
 
         InfoText
         {
-            x: 20; y: 210
+            x: xscale(20); y: yscale(210)
             width: xscale(250); height: yscale(30)
             text: "Recording Group"
         }
@@ -179,7 +179,7 @@ BaseDialog
         title: "Search"
         message: ""
 
-        width: 600; height: 500
+        width: xscale(600); height: yscale(500)
 
         onAccepted:
         {
