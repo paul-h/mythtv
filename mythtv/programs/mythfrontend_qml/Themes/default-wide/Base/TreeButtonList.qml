@@ -112,7 +112,7 @@ FocusScope
         if (nodeID == _focusedList)
             objRoot.nodeSelected(lists[nodeID].model.get(index));
 
-        if (nodeID == _focusedList && lists[nodeID].model.get(index).subNodes && nodeID >= lists.length - 1)
+        if (nodeID == _focusedList && lists[nodeID].model.get(index).subNodes.count && nodeID >= lists.length - 1)
         {
             // we need to add a new list for this node
             lists[nodeID + 1] = createList(nodeID + 1, lists[nodeID].model.get(index).subNodes);
@@ -122,7 +122,7 @@ FocusScope
 
         if (nodeID < lists.length - 1)
         {
-            if (lists[nodeID].model.get(index).subNodes)
+            if (lists[nodeID].model.get(index).subNodes.count)
             {
                 lists[nodeID + 1].model = lists[nodeID].model.get(index).subNodes;
             }
