@@ -1,5 +1,6 @@
 import QtQuick 2.0
 import Base 1.0
+import "../../../Models"
 
 BaseDialog
 {
@@ -76,6 +77,8 @@ BaseDialog
             KeyNavigation.down: recGroupEdit;
         }
 
+        ProgCategoryModel {id: progCategoryModel}
+
         BaseButton
         {
             id: categoryButton
@@ -90,7 +93,7 @@ BaseDialog
             onClicked:
             {
                 _searchField = "category"
-                searchDialog.model = root.model.categoryList
+                searchDialog.model = progCategoryModel;
                 searchDialog.show();
             }
         }
@@ -113,6 +116,8 @@ BaseDialog
             KeyNavigation.right: recGroupButton;
         }
 
+        RecGroupModel {id: recGroupModel}
+
         BaseButton
         {
             id: recGroupButton
@@ -126,8 +131,8 @@ BaseDialog
 
             onClicked:
             {
-                _searchField = "recgroup"
-                searchDialog.model = root.model.recGroupList
+                _searchField = "recgroup";
+                searchDialog.model = recGroupModel;
                 searchDialog.show();
             }
         }

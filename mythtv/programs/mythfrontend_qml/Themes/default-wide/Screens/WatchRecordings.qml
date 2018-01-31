@@ -158,6 +158,8 @@ BaseScreen
                 else
                     recordingsModel.sort = "StartTime";
 
+                recordingsModel.reload();
+
                 dateSorterActive = !dateSorterActive;
 
                 sort.text = "Sort " + (dateSorterActive ? "(Date & Time)" : "(Season & Episode)")
@@ -337,8 +339,9 @@ BaseScreen
             root.filterCategory = filterCategory;
             root.filterRecGroup = filterRecGroup;
             recordingsModel.titleRegExp = filterTitle;
-            //recordingsModel.category = filterCategory;
+            recordingsModel.category = filterCategory;
             recordingsModel.recGroup = filterRecGroup;
+            recordingsModel.reload();
 
             if (filterTitle == "" && filterCategory == "" && filterRecGroup == "")
                 show.text = "Show (All Recordings)";
@@ -379,7 +382,10 @@ BaseScreen
         startTime.text = Qt.formatDateTime(recordingList.model.get(recordingList.currentIndex).StartTime, "ddd dd MMM yyyy hh:mm")
 
         // category
-        programCategory.text = recordingList.model.get(recordingList.currentIndex).Category
+        if (recordingList.model.get(recordingList.currentIndex).Category != undefined)
+            programCategory.text = recordingList.model.get(recordingList.currentIndex).Category
+        else
+            programCategory.text = ""
 
         // channel
         channel.text = recordingList.model.get(recordingList.currentIndex).ChanNum + " - " + recordingList.model.get(recordingList.currentIndex).CallSign + " - " + recordingList.model.get(recordingList.currentIndex).ChannelName

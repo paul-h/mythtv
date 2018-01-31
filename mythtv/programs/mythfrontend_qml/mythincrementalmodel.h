@@ -21,6 +21,7 @@ public:
 
     Q_PROPERTY(int totalAvailable READ totalAvailable NOTIFY totalAvailableChanged)
 
+    Q_INVOKABLE void reload(void);
     Q_INVOKABLE QVariant getData(int row, int role = Qt::DisplayRole) const;
     Q_INVOKABLE QVariantMap get(int row) const;
 
@@ -46,7 +47,6 @@ protected slots:
 protected:
     void setTotalAvailable(int available);
 
-    void reload(void);
     void clearData(void);
     RowData *addNewRow(void);
 

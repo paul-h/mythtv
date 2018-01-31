@@ -55,31 +55,31 @@ RecordingsModel::RecordingsModel(void) : MythIncrementalModel()
 void RecordingsModel::setTitleRegExp(const QString &title)
 {
     m_title = title;
-    reload();
 }
 
 void RecordingsModel::setRecGroup(const QString &recGroup)
 {
     m_recGroup = recGroup;
-    reload();
 }
 
 void RecordingsModel::setStorageGroup(const QString &storageGroup)
 {
     m_storageGroup = storageGroup;
-    reload();
+}
+
+void RecordingsModel::setCategory(const QString &category)
+{
+    m_category = category;
 }
 
 void RecordingsModel::setDescending(bool descending)
 {
     m_descending = descending;
-    reload();
 }
 
 void RecordingsModel::setSort(const QString &sort)
 {
     m_sort = sort;
-    reload();
 }
 
 // construct the download URL and start the download
@@ -111,6 +111,9 @@ void RecordingsModel::startDownload(void)
 
     if (!m_storageGroup.isEmpty())
         sUrl.append(QString("&StorageGroup=%1").arg(m_storageGroup));
+
+    if (!m_category.isEmpty())
+        sUrl.append(QString("&Category=%1").arg(m_category));
 
     if (!m_sort.isEmpty())
         sUrl.append(QString("&Sort=%1").arg(m_sort));
