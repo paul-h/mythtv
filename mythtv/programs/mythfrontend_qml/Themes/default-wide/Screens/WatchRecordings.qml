@@ -25,13 +25,6 @@ BaseScreen
     {
         id: fanartImage
         x: xscale(0); y: yscale(0); width: xscale(1280); height: yscale(720)
-        source:
-        {
-            if (recordingList.model.get(recordingList.currentIndex).Fanart)
-                settings.masterBackend + recordingList.model.get(recordingList.currentIndex).Fanart
-            else
-                ""
-        }
     }
 
     InfoText
@@ -87,17 +80,30 @@ BaseScreen
             }
             ListText
             {
-                x: coverImage.width + xscale(900)
+                x: coverImage.width + xscale(880)
                 width: xscale(190); height: yscale(50)
                 horizontalAlignment: Text.AlignRight
                 text: Qt.formatDateTime(StartTime, "ddd dd/MM/yy")
             }
             ListText
             {
-                x: coverImage.width + xscale(1100)
+                x: coverImage.width + xscale(1075)
                 width: xscale(80); height: yscale(50)
                 horizontalAlignment: Text.AlignRight
                 text: Qt.formatDateTime(StartTime, "hh:mm")
+            }
+            Image
+            {
+                id: recordingIcon
+                x: xscale(1205); y: yscale(10); height: parent.height - yscale(20); width: height
+                source: if (Status === "Recording") mythUtils.findThemeFile("images/record.png"); else ""
+                SequentialAnimation
+                {
+                    running: (Status === "Recording")
+                    loops: Animation.Infinite
+                    NumberAnimation { target: recordingIcon; property: "opacity"; to: 0.5; duration: 1000 }
+                    NumberAnimation { target: recordingIcon; property: "opacity"; to: 1.0; duration: 1000 }
+                }
             }
         }
     }
@@ -109,6 +115,12 @@ BaseScreen
         {
             recordingList.positionViewAtIndex(0, ListView.Beginning);
             recordingList.currentIndex = 0;
+        }
+        onDataChanged:
+        {
+            console.log("onDatachanged row: " + topLeft.row + ", currentIndex: " + recordingList.currentIndex);
+            if (topLeft.row == recordingList.currentIndex)
+                updateProgramDetails();
         }
     }
 
@@ -164,92 +176,77 @@ BaseScreen
             event.accepted = true;
             returnSound.play();
         }
+
+        onCurrentIndexChanged: updateProgramDetails();
     }
 
     TitleText
     {
+        id: title
         x: xscale(30); y: yscale(450)
-        width: xscale(900); height: yscale(50)
-        text:
-        {
-            var title = recordingList.model.get(recordingList.currentIndex).Title;
-            var subtitle = recordingList.model.get(recordingList.currentIndex).SubTitle;
-            var result = "";
-
-            if (title != undefined && title.length > 0)
-                result = title;
-
-            if (subtitle != undefined && subtitle.length > 0)
-                result += " - " + subtitle;
-
-            return result;
-        }
-    }
-
-    InfoText
-    {
-        x: xscale(970); y: yscale(450)
-        width: xscale(140); height: yscale(50)
-        fontColor: "grey"
-        horizontalAlignment: Text.AlignRight
-        text:
-        {
-            var season = recordingList.model.get(recordingList.currentIndex).Season;
-            var episode = recordingList.model.get(recordingList.currentIndex).Episode;
-            var total = recordingList.model.get(recordingList.currentIndex).TotalEpisodes;
-            var result = "";
-
-            if (season > 0 && episode > 0)
-            {
-                result = "s:" + season + " e:" + episode
-
-                if (total > 0)
-                    result += " of " + total;
-            }
-
-            return result;
-        }
+        width: xscale(930); height: yscale(50)
     }
 
     Image
     {
-        id: channelImage
-        x: xscale(300); y: yscale(500); width: xscale(50); height: yscale(50)
-        source:
-        {
-            if (recordingList.model.get(recordingList.currentIndex).IconURL)
-                settings.masterBackend + recordingList.model.get(recordingList.currentIndex).IconURL
-            else
-                ""
-        }
+        id: channelIcon
+        x: xscale(365); y: yscale(510); width: xscale(30); height: yscale(30)
     }
 
     InfoText
     {
+        id: channel
         x: xscale(400); y: yscale(500)
         width: xscale(900); height: yscale(50)
-        text: recordingList.model.get(recordingList.currentIndex).ChanNum + " - " + recordingList.model.get(recordingList.currentIndex).CallSign + " - " + recordingList.model.get(recordingList.currentIndex).ChannelName
     }
 
     InfoText
     {
+        id: startTime
         x: xscale(30); y: yscale(500)
-        width: xscale(900); height: yscale(50)
-        text: Qt.formatDateTime(recordingList.model.get(recordingList.currentIndex).StartTime, "ddd dd MMM yyyy hh:mm")
+        width: xscale(330); height: yscale(50)
     }
 
     InfoText
     {
-        x: xscale(30); y: yscale(550)
+        id: description
+        x: xscale(30); y: yscale(540)
         width: xscale(900); height: yscale(100)
-        text:
-        {
-            if (recordingList.model.get(recordingList.currentIndex).Description != undefined)
-                recordingList.model.get(recordingList.currentIndex).Description
-            else
-                ""
-        }
         multiline: true
+    }
+
+    InfoText
+    {
+        id: recordingStatus
+        x: xscale(970); y: yscale(450)
+        width: xscale(140); height: yscale(50)
+        horizontalAlignment: Text.AlignRight
+        fontColor: "red";
+        text: "Recording"
+        visible: false
+    }
+
+    InfoText
+    {
+        id: programCategory
+        x: xscale(20); y: yscale(630); width: xscale(220)
+        fontColor: "grey"
+    }
+
+    InfoText
+    {
+        id: programEpisode
+        x: xscale(400); y: yscale(630); width: xscale(320)
+        horizontalAlignment: Text.AlignHCenter
+        fontColor: "grey"
+    }
+
+    InfoText
+    {
+        id: programFirstAired
+        x: xscale(890); y: yscale(630); width: xscale(220)
+        fontColor: "grey"
+        horizontalAlignment: Text.AlignRight
     }
 
 //     Image
@@ -269,13 +266,6 @@ BaseScreen
     {
         id: coverartImage
         x: xscale(1130); y: yscale(460); height: yscale(200); width: xscale(120)
-        source:
-        {
-            if (recordingList.model.get(recordingList.currentIndex).Coverart)
-                settings.masterBackend + recordingList.model.get(recordingList.currentIndex).Coverart
-                else
-                    mythUtils.findThemeFile("images/grid_noimage.png")
-        }
     }
 
     Image
@@ -360,6 +350,80 @@ BaseScreen
             recordingList.focus = true;
         }
     }
+
+    function updateProgramDetails()
+    {
+        // title and subtitle
+        var progtitle = recordingList.model.get(recordingList.currentIndex).Title;
+        var subtitle = recordingList.model.get(recordingList.currentIndex).SubTitle;
+        var result = "";
+
+        if (progtitle != undefined && progtitle.length > 0)
+            result = progtitle;
+
+        if (subtitle != undefined && subtitle.length > 0)
+            result += " - " + subtitle;
+
+        title.text = result;
+
+        // description
+        if (recordingList.model.get(recordingList.currentIndex).Description != undefined)
+            description.text = recordingList.model.get(recordingList.currentIndex).Description
+        else
+            description.text = ""
+
+        // recording
+        recordingStatus.visible = (recordingList.model.get(recordingList.currentIndex).Status == "Recording");
+
+        // start time
+        startTime.text = Qt.formatDateTime(recordingList.model.get(recordingList.currentIndex).StartTime, "ddd dd MMM yyyy hh:mm")
+
+        // category
+        programCategory.text = recordingList.model.get(recordingList.currentIndex).Category
+
+        // channel
+        channel.text = recordingList.model.get(recordingList.currentIndex).ChanNum + " - " + recordingList.model.get(recordingList.currentIndex).CallSign + " - " + recordingList.model.get(recordingList.currentIndex).ChannelName
+
+        // channel icon
+        if (recordingList.model.get(recordingList.currentIndex).IconURL)
+            channelIcon.source = settings.masterBackend + recordingList.model.get(recordingList.currentIndex).IconURL
+        else
+            channelIcon.source = ""
+
+        // season and episode
+        var season = recordingList.model.get(recordingList.currentIndex).Season
+        var episode = recordingList.model.get(recordingList.currentIndex).Episode
+        var total = recordingList.model.get(recordingList.currentIndex).TotalEpisodes
+        var res = ""
+
+        if (season > 0)
+            res = "Season: " + season + " ";
+        if (episode > 0)
+        {
+            res += " Episode: " + episode;
+
+            if (total > 0)
+                res += "/" + total;
+        }
+
+        programEpisode.text = res;
+
+        // first aired
+        if (recordingList.model.get(recordingList.currentIndex).Airdate != undefined)
+            programFirstAired.text = "First Aired: " + Qt.formatDateTime(recordingList.model.get(recordingList.currentIndex).Airdate, "dd/MM/yyyy");
+        else
+            programFirstAired.text = ""
+
+        // fan art
+        if (recordingList.model.get(recordingList.currentIndex).Fanart)
+            fanartImage.source = settings.masterBackend + recordingList.model.get(recordingList.currentIndex).Fanart
+        else
+            fanartImage.source =  ""
+
+        // cover art
+        if (recordingList.model.get(recordingList.currentIndex).Coverart)
+            coverartImage.source = settings.masterBackend + recordingList.model.get(recordingList.currentIndex).Coverart
+        else
+            coverartImage.source = mythUtils.findThemeFile("images/grid_noimage.png")
+    }
 }
-
-
