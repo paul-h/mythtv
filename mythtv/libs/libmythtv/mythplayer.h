@@ -239,6 +239,7 @@ class MTV_PUBLIC MythPlayer
     virtual char *GetScreenGrab(int secondsin, int &bufflen,
                                 int &vw, int &vh, float &ar);
     InteractiveTV *GetInteractiveTV(void);
+    VideoOutput *GetVideoOutput(void)       { return videoOutput; }
 
     // Title stuff
     virtual bool SwitchTitle(int /*title*/) { return false; }
@@ -373,6 +374,7 @@ class MTV_PUBLIC MythPlayer
     static const double kInaccuracyFull;
 
     void SaveTotalFrames(void);
+    void SetErrored(const QString &reason);
 
   protected:
     // Initialization
@@ -404,7 +406,6 @@ class MTV_PUBLIC MythPlayer
     MuteState IncrMuteState(void)           { return audio.IncrMuteState();      }
 
     // Non-const gets
-    VideoOutput *GetVideoOutput(void)       { return videoOutput; }
     OSD         *GetOSD(void)               { return osd;         }
     virtual void SeekForScreenGrab(uint64_t &number, uint64_t frameNum,
                                    bool absolute);
@@ -563,7 +564,6 @@ class MTV_PUBLIC MythPlayer
     // Private Sets
     void SetPlayingInfo(const ProgramInfo &pginfo);
     void SetPlaying(bool is_playing);
-    void SetErrored(const QString &reason);
     void ResetErrored(void);
 
     // Private Gets

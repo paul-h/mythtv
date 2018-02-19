@@ -93,6 +93,10 @@ __inline AVRational GetAVTimeBaseQ()
 
 #define LOC QString("AFD: ")
 
+// Maximum number of sequential invalid data packet errors
+// before we try switching to software decoder
+#define SEQ_PKT_ERR_MAX 10
+
 static const int max_video_queue_size = 220;
 
 static int cc608_parity(uint8_t byte);
@@ -406,6 +410,7 @@ AvFormatDecoder::AvFormatDecoder(MythPlayer *parent,
       playerFlags(flags),
       video_codec_id(kCodec_NONE),
       maxkeyframedist(-1),
+      averror_count(0),
       // Closed Caption & Teletext decoders
       ignore_scte(0),
       invert_scte_field(0),
@@ -1444,10 +1449,19 @@ static enum AVPixelFormat get_format_vdpau(struct AVCodecContext *avctx,
                                            const enum AVPixelFormat *valid_fmts)
 {
     AvFormatDecoder *nd = (AvFormatDecoder *)(avctx->opaque);
-    if (nd && nd->GetPlayer())
+    MythPlayer *player = NULL;
+    VideoOutputVDPAU *videoOut = NULL;
+    if (nd)
+        player =  nd->GetPlayer();
+    if (player)
+        videoOut = (VideoOutputVDPAU*)(player->GetVideoOutput());
+
+    if (videoOut)
     {
         static uint8_t *dummy[1] = { 0 };
-        avctx->hwaccel_context = nd->GetPlayer()->GetDecoderContext(NULL, dummy[0]);
+        avctx->hwaccel_context = player->GetDecoderContext(NULL, dummy[0]);
+        MythRenderVDPAU *render = videoOut->getRender();
+        render->BindContext(avctx);
         if (avctx->hwaccel_context)
         {
             ((AVVDPAUContext*)(avctx->hwaccel_context))->render2 =
@@ -2353,6 +2367,8 @@ int AvFormatDecoder::ScanStreams(bool novideo)
                 break;
             }
 
+            if (averror_count > SEQ_PKT_ERR_MAX)
+                gCodecMap->freeCodecContext(ic->streams[selTrack]);
             AVCodecContext *enc = gCodecMap->getCodecContext(ic->streams[selTrack]);
             StreamInfo si(selTrack, 0, 0, 0, 0);
 
@@ -2409,8 +2425,9 @@ int AvFormatDecoder::ScanStreams(bool novideo)
             // The OpenMAX decoder supports H264 high 10, 422 and 444 profiles
             if (dec != "openmax")
 #endif
-            if (force_sw_decode(enc))
+            if (averror_count > SEQ_PKT_ERR_MAX || force_sw_decode(enc))
             {
+                averror_count = 0;
                 dec = "ffmpeg";
                 if (FlagIsSet(kDecodeAllowGPU))
                 {
@@ -3452,49 +3469,6 @@ int AvFormatDecoder::H264PreProcessPkt(AVStream *stream, AVPacket *pkt)
                         .arg(avFPS).arg(seqFPS));
             }
 
-            // HACK HACK HACK - begin
-
-            // The ffmpeg H.264 decoder currently does not support
-            // resolution changes when thread_count!=1, so we
-            // close and re-open the codec for resolution changes.
-
-            bool do_it = HAVE_THREADS && res_changed;
-            for (uint i = 0; do_it && (i < ic->nb_streams); i++)
-            {
-                AVCodecContext *enc = gCodecMap->getCodecContext(ic->streams[i]);
-                if ((AVMEDIA_TYPE_VIDEO == enc->codec_type) &&
-                    (kCodec_H264 == video_codec_id) &&
-                    (enc->codec) && (enc->thread_count>1))
-                {
-                    QMutexLocker locker(avcodeclock);
-                    // flush all buffers
-                    avcodec_flush_buffers(enc);
-                    gCodecMap->freeCodecContext(ic->streams[i]);
-                    enc = gCodecMap->getCodecContext(ic->streams[i]);
-                    int open_val = avcodec_open2(enc, enc->codec, NULL);
-                    if (open_val < 0)
-                    {
-                        LOG(VB_GENERAL, LOG_ERR, LOC +
-                            QString("Could not re-open codec 0x%1, "
-                                    "id(%2) type(%3) "
-                                    "aborting. reason %4")
-                            .arg((uint64_t)enc,0,16)
-                            .arg(ff_codec_id_string(enc->codec_id))
-                            .arg(ff_codec_type_string(enc->codec_type))
-                            .arg(open_val));
-                    }
-                    else
-                    {
-                        LOG(VB_GENERAL, LOG_INFO, LOC +
-                            QString("Re-opened codec 0x%1, id(%2) type(%3)")
-                            .arg((uint64_t)enc,0,16)
-                            .arg(ff_codec_id_string(enc->codec_id))
-                            .arg(ff_codec_type_string(enc->codec_type)));
-                    }
-                }
-            }
-
-            // HACK HACK HACK - end
         }
 
         HandleGopStart(pkt, true);
@@ -3619,8 +3593,22 @@ bool AvFormatDecoder::ProcessVideoPacket(AVStream *curstream, AVPacket *pkt)
             QString("video decode error: %1 (%2)")
             .arg(av_make_error_string(error, sizeof(error), ret))
             .arg(gotpicture));
+        if (ret == AVERROR_INVALIDDATA)
+        {
+            if (++averror_count > SEQ_PKT_ERR_MAX)
+            {
+                // If erroring on GPU assist, try switching to software decode
+                if (codec_is_std(video_codec_id))
+                    m_parent->SetErrored(QObject::tr("Video Decode Error"));
+                else
+                    m_streams_changed = true;
+            }
+        }
         return false;
     }
+    // averror_count counts sequential errors, so if you have a successful
+    // packet then reset it
+    averror_count = 0;
 
     if (!gotpicture)
     {

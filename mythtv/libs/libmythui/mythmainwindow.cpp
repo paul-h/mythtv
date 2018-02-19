@@ -1093,12 +1093,6 @@ void MythMainWindow::Init(QString forcedpainter, bool mayReInit)
     setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
     resize(d->screenwidth, d->screenheight);
 
-    GetMythUI()->ThemeWidget(this);
-#ifdef Q_OS_MAC
-    // QPalette inheritance appears broken on mac, so there's no point setting the palette
-    // to the top widget each time. Instead we apply the default palette to the whole application
-    qApp->setPalette(palette());
-#endif
     Show();
 
     if (!GetMythDB()->GetNumSetting("HideMouseCursor", 0))
@@ -1217,7 +1211,13 @@ void MythMainWindow::Init(QString forcedpainter, bool mayReInit)
 
     // Redraw the window now to avoid race conditions in EGLFS (Qt5.4) if a
     // 2nd window (e.g. TVPlayback) is created before this is redrawn.
-    if (qApp->platformName().contains("egl"))
+#ifdef ANDROID
+    LOG(VB_GENERAL, LOG_INFO, QString("Platform name is %1").arg(qApp->platformName()));
+#   define EARLY_SHOW_PLATFORM_NAME_CHECK "android"
+#else
+#   define EARLY_SHOW_PLATFORM_NAME_CHECK "egl"
+#endif
+    if (qApp->platformName().contains(EARLY_SHOW_PLATFORM_NAME_CHECK))
         qApp->processEvents();
 
     if (!GetMythDB()->GetNumSetting("HideMouseCursor", 0))

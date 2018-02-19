@@ -3071,7 +3071,7 @@ bool Scheduler::AssignGroupInput(RecordingInfo &ri)
     }
 
     if (!bestid)
-        bestid;
+        bestid = betterid;
 
     if (bestid)
     {
@@ -3400,7 +3400,12 @@ void Scheduler::ShutdownServer(int prerollseconds, QDateTime &idleSince)
         {
             QString time_ts;
             setwakeup_cmd.replace("$time",
-                                  time_ts.setNum(restarttime.toTime_t()));
+#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
+                                  time_ts.setNum(restarttime.toTime_t())
+#else
+                                  time_ts.setNum(restarttime.toSecsSinceEpoch())
+#endif
+                );
         }
         else
             setwakeup_cmd.replace(

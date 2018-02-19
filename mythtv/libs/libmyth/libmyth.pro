@@ -127,7 +127,7 @@ LIBS += -L../libmythservicecontracts         -lmythservicecontracts-$${LIBVERSIO
 # Install headers so that plugins can compile independently
 inc.path = $${PREFIX}/include/mythtv/
 inc.files  = dialogbox.h mythcontext.h
-inc.files += mythwidgets.h remotefile.h oldsettings.h volumecontrol.h
+inc.files += mythwidgets.h remotefile.h volumecontrol.h
 inc.files += settings.h mythdialogs.h
 inc.files += audio/audiooutput.h audio/audiosettings.h
 inc.files += audio/audiooutputsettings.h audio/audiooutpututil.h
@@ -273,6 +273,9 @@ LIBS += $$EXTRA_LIBS $$LATE_LIBS
 DISTFILES += \
     Makefile
 
-test_clean.commands = cd test/ && $(MAKE) -f Makefile clean
+test_clean.commands = -cd test/ && $(MAKE) -f Makefile clean
 clean.depends = test_clean
 QMAKE_EXTRA_TARGETS += test_clean clean
+test_distclean.commands = -cd test/ && $(MAKE) -f Makefile distclean
+distclean.depends = test_distclean
+QMAKE_EXTRA_TARGETS += test_distclean distclean
