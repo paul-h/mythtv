@@ -92,7 +92,7 @@ void RecordingsModel::startDownload(void)
     // use the first and last pending items
     if (!m_pendingDownloads.isEmpty())
     {
-        qSort(m_pendingDownloads.begin(), m_pendingDownloads.end());
+         std::sort(m_pendingDownloads.begin(), m_pendingDownloads.end());
         startIndex =  m_pendingDownloads.first();
         count = qMax(m_count, m_pendingDownloads.last() - startIndex + 1);
     }

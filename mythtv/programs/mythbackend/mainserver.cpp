@@ -6082,7 +6082,11 @@ void MainServer::HandleChangeStorageGroup(const QStringList &command,
     {
         QString chanid = command[x];
         QString starttime = command[x + 1];
+#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
         QDateTime recstartts = MythDate::fromTime_t(starttime.toULongLong());
+#else
+        QDateTime recstartts = MythDate::fromSecsSinceEpoch(starttime.toLongLong());
+#endif
         ProgramInfo pginfo(chanid.toUInt(), recstartts);
 
         if (pginfo.GetChanID())
