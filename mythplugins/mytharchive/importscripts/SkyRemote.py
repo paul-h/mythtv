@@ -10,7 +10,7 @@ import xml.dom.minidom
 from socket import *
 import HTMLParser
 
-skyAddress = "192.168.1.120"                            # IP Address of Sky+HD Box
+skyAddress = "192.168.1.130"                            # IP Address of Sky+HD Box
 skyPort =    "49153"
 skyChannelsFile = "/etc/mythtv/sky_channel_guide.txt"   # Location of Channel Data
 sleepTime = 2.0                                         # Amount of time to sleep between changing channel,
