@@ -149,6 +149,14 @@ BaseScreen
                 videoPlayer.source = "myth://type=livetv:server=" + hostname + ":sgroup=default:encoder=" + encoderNum + ":channum=" + chanNum
             }
         }
+        else if (event.key === Qt.Key_A)
+        {
+            channelGroupsModel.addChannelToGroup(channelList.model.get(channelList.currentIndex).ChanId, 1)
+        }
+        else if (event.key === Qt.Key_R)
+        {
+            channelGroupsModel.removeChannelFromGroup(channelList.model.get(channelList.currentIndex).ChanId, 1)
+        }
     }
 
     ListModel { id: timeModel }
