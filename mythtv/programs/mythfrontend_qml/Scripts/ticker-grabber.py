@@ -22,8 +22,8 @@ if __name__ == '__main__':
 
     # List of RSS feeds that we will fetch and combine
     feedurls = [
-        ('BBC Weather Observations',   'http://open.live.bbc.co.uk/weather/feeds/en/2644547/observations.rss'),
-        ('BBC Weather 3 Day Forecast', 'http://open.live.bbc.co.uk/weather/feeds/en/2644547/3dayforecast.rss'),
+        ('BBC Weather Observations',   'https://weather-broker-cdn.api.bbci.co.uk/en/observation/rss/2644547'),
+        ('BBC Weather 3 Day Forecast', 'https://weather-broker-cdn.api.bbci.co.uk/en/forecast/rss/3day/2644547'),
         ('BBC News - UK',              'http://feeds.bbci.co.uk/news/uk/rss.xml')
     ]
 
