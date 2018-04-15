@@ -2,6 +2,8 @@ import QtQuick 2.0
 import "../../../Models"
 import Qt.labs.folderlistmodel 2.1
 import Base 1.0
+import Process 1.0
+import Dialogs 1.0
 
 BaseScreen
 {
@@ -18,6 +20,58 @@ BaseScreen
     BaseBackground
     {
         x: xscale(15); y: yscale(50); width: xscale(1250); height: yscale(655)
+    }
+
+    Keys.onPressed:
+    {
+        if (event.key === Qt.Key_F1)
+        {
+            ffmpegProcess.start("/usr/bin/mythffmpeg", ["-i",  "file://" + videoList.model.get(videoList.currentIndex, "filePath"),
+                                                        "-vcodec", "copy", "-acodec", "copy",
+                                                        "file://" + videoList.model.get(videoList.currentIndex, "filePath") + "_clean.mp4"
+                                                       ]);
+        }
+        else if (event.key === Qt.Key_F2)
+        {
+        }
+    }
+
+    // ffmpeg cleanup script
+    Process
+    {
+        id: ffmpegProcess
+        onFinished:
+        {
+            if (exitStatus == Process.NormalExit)
+                dialog.message = "ffmpeg finished OK"
+            else
+                dialog.message = "ffmpeg failed!!"
+
+            dialog.show();
+        }
+    }
+
+    OkCancelDialog
+    {
+        id: dialog
+
+        title: "ffmpeg process"
+        message: ""
+        rejectButtonText: ""
+        acceptButtonText: "OK"
+
+        width: xscale(600); height: yscale(300)
+
+        onAccepted:
+        {
+            console.log("Dialog accepted signal received!");
+            videoList.focus = true;
+        }
+        onCancelled:
+        {
+            console.log("Dialog cancelled signal received.");
+            videoList.focus = true;
+        }
     }
 
     Image
