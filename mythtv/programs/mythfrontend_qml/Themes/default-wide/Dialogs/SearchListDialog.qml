@@ -7,7 +7,7 @@ BaseDialog
     id: searchDialog
 
     width: xscale(500)
-    height: yscale(500)
+    height: yscale(600)
 
     property alias model: listProxyModel.sourceModel
 
@@ -35,14 +35,9 @@ BaseDialog
     Component
     {
         id: listRow
-        Item
+        ListItem
         {
             width: parent.width; height: yscale(50)
-            property bool selected: ListView.isCurrentItem
-            property bool focused: itemList.focus
-
-            ListBackground {}
-
             ListText
             {
                 x: xscale(20); y: 0
@@ -76,7 +71,7 @@ BaseDialog
 
             x: xscale(20); y: yscale(60)
             width: parent.width - xscale(40);
-            height: parent.height - yscale(60);
+            height: parent.height - yscale(70);
 
             KeyNavigation.up: searchEdit;
             KeyNavigation.down: acceptButton;

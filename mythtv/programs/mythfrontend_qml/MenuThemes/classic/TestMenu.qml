@@ -14,6 +14,12 @@ ListModel
     }
     ListElement
     {
+        menutext: "Sidebar"
+        loaderSource:"TestPage3.qml"
+        waterMark: "watermark/setup.png"
+    }
+    ListElement
+    {
         menutext: "Tree Component Test"
         loaderSource: "TestPage2.qml"
         waterMark: "watermark/setup.png"

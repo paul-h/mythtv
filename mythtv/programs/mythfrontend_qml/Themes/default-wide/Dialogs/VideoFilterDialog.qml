@@ -74,7 +74,7 @@ BaseDialog
             KeyNavigation.left: titleButton;
             KeyNavigation.right: typeButton;
             KeyNavigation.down: genreEdit;
-            onTextHasChanged: console.log("Type is now: " + text);
+            onEditingFinished: console.log("Type is now: " + text);
         }
 
         BaseButton

@@ -74,7 +74,7 @@ BaseDialog
             KeyNavigation.left: broadcasterButton;
             KeyNavigation.right: channelButton;
             KeyNavigation.down: genreEdit;
-            onTextHasChanged: console.log("Type is now: " + text);
+            onEditingFinished: console.log("Type is now: " + text);
         }
 
         BaseButton

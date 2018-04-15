@@ -1,5 +1,5 @@
 import QtQuick 2.0
-import VLCQt 1.0
+import VLCQt 1.2
 
 import "../../../Util.js" as Util
 

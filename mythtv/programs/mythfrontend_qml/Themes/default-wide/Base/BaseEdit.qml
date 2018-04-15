@@ -1,10 +1,12 @@
-import QtQuick 2.0
+import QtQuick 2.7
 
 FocusScope
 {
+    id: root
     property alias text: editText.text
 
-    signal textHasChanged();
+    signal textEdited();
+    signal editingFinished()
 
     x: 0; y: 0; width: xscale(200); height: yscale(50)
     focus: false
@@ -82,8 +84,6 @@ FocusScope
     onFocusChanged: updateState()
     onEnabledChanged: updateState()
 
-    Keys.onReturnPressed: textHasChanged();
-
     Rectangle
     {
         id: background
@@ -113,6 +113,10 @@ FocusScope
         font.family: "Helvetica"
         font.pointSize: 20
         color: theme.txTextColorNormal
+
+        Keys.onReturnPressed: root.editingFinished();
+        onTextChanged: root.textEdited()
+
     }
 }
 

@@ -194,6 +194,19 @@ BaseScreen
 
     LabelText { x: xscale(300); y: yscale(20); text: "URL:" }
     InfoText { x: xscale(300); y: yscale(75); text: "Options" }
+
+    DropDown
+    {
+        id: dropDown
+        x: 100; y: 100
+        width: 400
+        height: 50
+        expandedHeight: 500
+        labelText: "Category"
+        editText: "Test"
+        model: ProgCategoryModel {}
+        onItemChanged: console.log("New category is: " +  editText)
+    }
 /*
     Item
     {
@@ -425,7 +438,7 @@ BaseScreen
         KeyNavigation.left: button1;
         KeyNavigation.right: videoplayer;
         KeyNavigation.down: optionsEdit;
-        onTextHasChanged:
+        onEditingFinished:
         {
             console.log("text is now: " + text);
         }
@@ -440,10 +453,6 @@ BaseScreen
         KeyNavigation.right: videoplayer;
         KeyNavigation.up: mrlEdit;
         KeyNavigation.down: checkbox1;
-        onTextHasChanged:
-        {
-            console.log("text is now: " + text);
-        }
     }
 
     BaseCheckBox

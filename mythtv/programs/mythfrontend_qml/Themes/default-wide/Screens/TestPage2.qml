@@ -22,6 +22,20 @@ BaseScreen
         treeView.addNode("Year");
         treeView.addNode("Rating");
 
+        // All
+        treeView.addNode("0,Title 1");
+        treeView.addNode("0,Title 2");
+        treeView.addNode("0,Title 3");
+        treeView.addNode("0,Title 4");
+        treeView.addNode("0,Title 5");
+        treeView.addNode("0,Title 6");
+        treeView.addNode("0,Title 7");
+        treeView.addNode("0,Title 8");
+        treeView.addNode("0,Title 9");
+        treeView.addNode("0,Title 10");
+        treeView.addNode("0,Title 11");
+        treeView.addNode("0,Title 12");
+
         // title
         treeView.addNode("1,All");
         treeView.addNode("1,Type");
