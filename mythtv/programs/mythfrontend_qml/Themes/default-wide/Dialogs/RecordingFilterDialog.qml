@@ -184,8 +184,6 @@ BaseDialog
         title: "Search"
         message: ""
 
-        width: xscale(600); height: yscale(500)
-
         onAccepted:
         {
             titleButton.focus = true;
