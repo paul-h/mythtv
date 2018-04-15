@@ -1215,80 +1215,8 @@ static HostComboBoxSetting * CurrentPlaybackProfile()
                                     "Current Video Playback Profile"));
 
     QString host = gCoreContext->GetHostName();
+    VideoDisplayProfile::CreateProfiles(host);
     QStringList profiles = VideoDisplayProfile::GetProfiles(host);
-    if (profiles.empty())
-    {
-        VideoDisplayProfile::CreateProfiles(host);
-        profiles = VideoDisplayProfile::GetProfiles(host);
-    }
-    if (profiles.empty())
-        return grouptrigger;
-
-    if (!profiles.contains("Normal") &&
-        !profiles.contains("High Quality") &&
-        !profiles.contains("Slim"))
-    {
-        VideoDisplayProfile::CreateNewProfiles(host);
-        profiles = VideoDisplayProfile::GetProfiles(host);
-    }
-
-#ifdef USING_VDPAU
-    if (!profiles.contains("VDPAU Normal") &&
-        !profiles.contains("VDPAU High Quality") &&
-        !profiles.contains("VDPAU Slim"))
-    {
-        VideoDisplayProfile::CreateVDPAUProfiles(host);
-        profiles = VideoDisplayProfile::GetProfiles(host);
-    }
-#endif
-
-#if defined(Q_OS_MACX)
-    if (VDALibrary::GetVDALibrary() != NULL)
-    {
-        if (!profiles.contains("VDA Normal") &&
-            !profiles.contains("VDA High Quality") &&
-            !profiles.contains("VDA Slim"))
-        {
-            VideoDisplayProfile::CreateVDAProfiles(host);
-            profiles = VideoDisplayProfile::GetProfiles(host);
-        }
-    }
-#endif
-
-#ifdef USING_OPENGL_VIDEO
-    if (!profiles.contains("OpenGL Normal") &&
-        !profiles.contains("OpenGL High Quality") &&
-        !profiles.contains("OpenGL Slim"))
-    {
-        VideoDisplayProfile::CreateOpenGLProfiles(host);
-        profiles = VideoDisplayProfile::GetProfiles(host);
-    }
-#endif
-
-#ifdef USING_GLVAAPI
-    if (!profiles.contains("VAAPI Normal"))
-    {
-        VideoDisplayProfile::CreateVAAPIProfiles(host);
-        profiles = VideoDisplayProfile::GetProfiles(host);
-    }
-#endif
-
-#ifdef USING_OPENMAX
-    if (!profiles.contains("OpenMAX Normal") &&
-        !profiles.contains("OpenMAX High Quality"))
-    {
-        VideoDisplayProfile::CreateOpenMAXProfiles(host);
-        profiles = VideoDisplayProfile::GetProfiles(host);
-    }
-    // Special case for user upgrading from version that only
-    // has OpenMAX Normal
-    else if (!profiles.contains("OpenMAX High Quality"))
-    {
-        VideoDisplayProfile::CreateOpenMAXProfiles(host,1);
-        profiles = VideoDisplayProfile::GetProfiles(host);
-    }
-#endif
-
 
     QString profile = VideoDisplayProfile::GetDefaultProfileName(host);
     if (!profiles.contains(profile))
@@ -1654,23 +1582,6 @@ static HostCheckBoxSetting *ClearSavedPosition()
                                          "disabled, you can mark the "
                                          "beginning with rewind then save "
                                          "position."));
-    return gc;
-}
-
-static HostCheckBoxSetting *AltClearSavedPosition()
-{
-    HostCheckBoxSetting *gc = new HostCheckBoxSetting("AltClearSavedPosition");
-
-    gc->setLabel(PlaybackSettings::tr("Alternate clear and save bookmark"));
-
-    gc->setValue(true);
-
-    gc->setHelpText(PlaybackSettings::tr("During playback the SELECT key "
-                                         "(Enter or Space) will alternate "
-                                         "between \"Bookmark Saved\" and "
-                                         "\"Bookmark Cleared\". If disabled, "
-                                         "the SELECT key will save the current "
-                                         "position for each keypress."));
     return gc;
 }
 
@@ -4017,7 +3928,6 @@ void PlaybackSettings::Load(void)
     general->addChild(AudioReadAhead());
     general->addChild(JumpToProgramOSD());
     general->addChild(ClearSavedPosition());
-    general->addChild(AltClearSavedPosition());
     general->addChild(UseProgStartMark());
     general->addChild(AutomaticSetWatched());
     general->addChild(ContinueEmbeddedTVPlay());

@@ -8077,10 +8077,8 @@ elif enabled gcc; then
 #    check_cflags -Werror=missing-prototypes
     check_cflags -Werror=return-type
     check_cflags -Werror=vla
-    check_cflags -Wformat
     check_cflags -fdiagnostics-color=auto
     enabled extra_warnings || check_disable_warning -Wno-maybe-uninitialized
-    check_cflags -Werror=format-security
 elif enabled llvm_gcc; then
     check_cflags -mllvm -stack-alignment=16
 elif enabled clang; then
@@ -8174,8 +8172,15 @@ if enabled gxx; then
         append CCONFIG "use_hidesyms"
     fi
     check_cxxflags -Wmissing-declarations
-    check_cxxflags -Wno-switch
     check_cxxflags -Woverloaded-virtual
+    # Ubuntu 16.04 uses gcc 5.4.0 which complains about '[[clang::fallthrough]]'
+    gxx_major_version=$(echo $gxx_version | sed -e 's/\([[:digit:]]\)\{1,\}.*/\1/')
+    if test $gxx_major_version -lt 7; then
+        if enabled arm; then
+            check_cxxflags -Wno-psabi
+        fi
+        check_cxxflags -Wno-attributes
+    fi
     check_cxxflags -funit-at-a-time
 elif enabled icpc; then
     # 177: function declared but never referenced (triggers on Q_OBJECT)
@@ -8188,9 +8193,6 @@ elif enabled icpc; then
     check_cxxflags -wd177,192,592,913,10181,13200
     check_cxxflags -std=c++11
 elif enabled clangxx; then
-    # The self assign warning triggers on headers that use x=x;
-    # to suppress warnings about unused parameters.
-    check_cxxflags -Wno-self-assign
     # The constant-logical-operand only gives use false positives
     # for constant logical operands meant to be optimized away.
     check_cxxflags -Wno-constant-logical-operand
