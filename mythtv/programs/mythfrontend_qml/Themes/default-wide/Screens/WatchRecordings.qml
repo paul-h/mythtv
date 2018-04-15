@@ -1,7 +1,8 @@
-import QtQuick 2.0
+import QtQuick 2.7
 import Base 1.0
 import Dialogs 1.0
 import RecordingsModel 1.0
+import "../../../Models"
 
 BaseScreen
 {
@@ -11,6 +12,7 @@ BaseScreen
     property string filterCategory
     property string filterRecGroup
     property bool dateSorterActive: true
+    property bool showFanart: false
 
     defaultFocusItem: recordingList
 
@@ -21,10 +23,80 @@ BaseScreen
         showTicker(false);
     }
 
+    states: State
+    {
+            name: "filter"
+            PropertyChanges { target: listBackground; x: 300 }
+            PropertyChanges { target: recordingList; x: 310; KeyNavigation.left: titleEdit; KeyNavigation.right: titleEdit; }
+            PropertyChanges { target: filterBackground; x: 10; visible: true; focus: true }
+            PropertyChanges { target: titleEdit; focus: true }
+    }
+
+    transitions: Transition
+    {
+        from: ""; to: "filter"; reversible: true
+        ParallelAnimation
+        {
+            NumberAnimation { target: listBackground; property: "x"; duration: 500; easing.type: Easing.InOutQuad }
+            NumberAnimation { target: recordingList; property: "x"; duration: 500; easing.type: Easing.InOutQuad }
+            NumberAnimation { target: filterBackground; property: "x"; duration: 500; easing.type: Easing.InOutQuad }
+        }
+    }
+
+    Keys.onPressed:
+    {
+        if (event.key === Qt.Key_M)
+        {
+        }
+        else if (event.key === Qt.Key_F1)
+        {
+            // RED
+            if (root.state == "")
+            {
+                root.state = "filter";
+                filterBackground.state = "";
+                titleEdit.focus = true;
+            }
+            else
+            {
+                root.state = ""
+                recordingList.focus = true;
+            }
+        }
+        else if (event.key === Qt.Key_F2)
+        {
+            // GREEN
+            filterDialog.filterTitle = root.filterTitle;
+            filterDialog.filterCategory = root.filterCategory;
+            filterDialog.filterRecGroup = root.filterRecGroup;
+            filterDialog.show();
+        }
+        else if (event.key === Qt.Key_F3)
+        {
+            // YELLOW
+            if (dateSorterActive)
+                recordingsModel.sort = "Title,Season,Episode";
+            else
+                recordingsModel.sort = "StartTime";
+
+            recordingsModel.reload();
+
+            dateSorterActive = !dateSorterActive;
+
+            sort.text = "Sort " + (dateSorterActive ? "(Date & Time)" : "(Season & Episode)")
+        }
+        else if (event.key === Qt.Key_F4)
+        {
+            //BLUE
+            showFanart = !showFanart;
+        }
+    }
+
     Image
     {
         id: fanartImage
         x: xscale(0); y: yscale(0); width: xscale(1280); height: yscale(720)
+        visible: root.showFanart
     }
 
     InfoText
@@ -34,9 +106,131 @@ BaseScreen
         horizontalAlignment: Text.AlignRight
     }
 
+    FocusScope
+    {
+        id: filterBackground
+        x: xscale(-290); y: yscale(50); width: xscale(280); height: yscale(380)
+        visible: false
+        focus: false
+
+        states:
+        [
+            State
+            {
+                name: ""
+                PropertyChanges { target: flickable; contentY: 0 }
+            },
+            State
+            {
+                name: "title"
+                PropertyChanges { target: flickable; contentY: 0 }
+            },
+            State
+            {
+                name: "category"
+                PropertyChanges { target: flickable; contentY: titleLabel.height + titleEdit.height + yscale(15)}
+            },
+            State
+            {
+                name: "recgroup"
+                PropertyChanges { target: flickable; contentY: titleLabel.height + titleEdit.height + categoryDropDown.height + yscale(20)}
+            }
+        ]
+
+        BaseBackground
+        {
+            anchors.fill: parent
+        }
+
+        LabelText
+        {
+            x: xscale(5); y: yscale(5); width: parent.width - xscale(10);
+            horizontalAlignment: Text.AlignHCenter
+            text: "Recordings Filter"
+        }
+
+        Flickable
+        {
+            id: flickable
+            x: xscale(5); y: yscale(50); width: parent.width - xscale(10); height: parent.height - yscale(50)
+            clip: true
+
+            Behavior on contentY {NumberAnimation {duration: 500; easing.type: Easing.InOutQuad}}
+
+            Column
+            {
+                spacing: yscale(5)
+                anchors.fill: parent
+
+                move: Transition
+                {
+                    NumberAnimation { properties: "x,y,height"; duration: 500; easing.type: Easing.InOutQuad }
+                }
+
+                add: Transition
+                {
+                    NumberAnimation { properties: "x,y,height"; duration: 500; easing.type: Easing.InOutQuad }
+                }
+
+                InfoText
+                {
+                    id: titleLabel
+                    x: 0; //y: yscale(35)
+                    width: parent.width; height: yscale(30)
+                    text: "Title"
+                }
+
+                BaseEdit
+                {
+                    id: titleEdit
+                    x: 0;
+                    width: parent.width;
+                    height: 50
+                    text: "";
+                    focus: false
+                    KeyNavigation.up: recGroupDropDown;
+                    KeyNavigation.down: categoryDropDown;
+                    onEditingFinished:  { filterBackground.state = ""; updateFilter(); }
+                    onTextChanged: if (filterBackground.state != "title") filterBackground.state = "title"; //else filterBackground.state = "";
+                }
+
+                DropDown
+                {
+                    id: categoryDropDown
+                    x: 0;
+                    width: parent.width
+                    height: 80
+                    expandedHeight: 330
+                    labelText: "Category"
+                    model: ProgCategoryModel {}
+                    onItemChanged: updateFilter();
+                    onStateChanged: if (state == "expanded") filterBackground.state = "category"; else filterBackground.state = ""
+                    KeyNavigation.down: recGroupDropDown;
+                    KeyNavigation.up: titleEdit;
+                }
+
+                DropDown
+                {
+                    id: recGroupDropDown
+                    x: 0;
+                    width: parent.width
+                    height: 50
+                    expandedHeight: 330
+                    labelText: "Recording Group"
+                    model: RecGroupModel {}
+                    onItemChanged: updateFilter();
+                    onStateChanged: if (state == "expanded") filterBackground.state = "recgroup"; else filterBackground.state = ""
+                    KeyNavigation.up: categoryDropDown
+                    KeyNavigation.down: titleEdit
+                }
+            }
+        }
+    }
+
     BaseBackground
     {
-        x: xscale(10); y: yscale(50); width: parent.width - xscale(20); height: yscale(380)
+        id: listBackground
+        x: xscale(10); y: yscale(50); width: parent.width - x - xscale(10); height: yscale(380)
     }
 
     BaseBackground { x: xscale(10); y: yscale(445); width: parent.width - xscale(20); height: yscale(230) }
@@ -127,48 +321,10 @@ BaseScreen
     ButtonList
     {
         id: recordingList
-        x: xscale(20); y: yscale(65); width: xscale(1240); height: yscale(350)
+        x: xscale(20); y: yscale(65); width: parent.width - x - xscale(20); height: yscale(350)
 
-        clip: true
         model: recordingsModel
         delegate: listRow
-
-        Keys.onPressed:
-        {
-            if (event.key === Qt.Key_M)
-            {
-            }
-            else if (event.key === Qt.Key_F1)
-            {
-                // RED
-            }
-            else if (event.key === Qt.Key_F2)
-            {
-                // GREEN
-                filterDialog.filterTitle = root.filterTitle;
-                filterDialog.filterCategory = root.filterCategory;
-                filterDialog.filterRecGroup = root.filterRecGroup;
-                filterDialog.show();
-            }
-            else if (event.key === Qt.Key_F3)
-            {
-                // YELLOW
-                if (dateSorterActive)
-                    recordingsModel.sort = "Title,Season,Episode";
-                else
-                    recordingsModel.sort = "StartTime";
-
-                recordingsModel.reload();
-
-                dateSorterActive = !dateSorterActive;
-
-                sort.text = "Sort " + (dateSorterActive ? "(Date & Time)" : "(Season & Episode)")
-            }
-            else if (event.key === Qt.Key_F4)
-            {
-                //BLUE
-            }
-        }
 
         Keys.onReturnPressed:
         {
@@ -334,24 +490,25 @@ BaseScreen
         onAccepted:
         {
             recordingList.focus = true;
-
-            root.filterTitle = filterTitle;
-            root.filterCategory = filterCategory;
-            root.filterRecGroup = filterRecGroup;
-            recordingsModel.titleRegExp = filterTitle;
-            recordingsModel.category = filterCategory;
-            recordingsModel.recGroup = filterRecGroup;
-            recordingsModel.reload();
-
-            if (filterTitle == "" && filterCategory == "" && filterRecGroup == "")
-                show.text = "Show (All Recordings)";
-            else
-                show.text = "Show (Filtered Recordings)";
+            updateFilter();
         }
         onCancelled:
         {
             recordingList.focus = true;
         }
+    }
+
+    function updateFilter()
+    {
+        recordingsModel.titleRegExp = titleEdit.text;
+        recordingsModel.category = categoryDropDown.editText;
+        recordingsModel.recGroup = recGroupDropDown.editText;
+        recordingsModel.reload();
+
+        if (recordingsModel.titleRegExp == "" && recordingsModel.category == "" && recordingsModel.recGroup == "")
+            show.text = "Show (All Recordings)";
+        else
+            show.text = "Show (Filtered Recordings)";
     }
 
     function updateProgramDetails()
