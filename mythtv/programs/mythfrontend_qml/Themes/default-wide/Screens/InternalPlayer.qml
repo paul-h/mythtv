@@ -158,24 +158,24 @@ BaseScreen
 
             if (root.layout > 0)
             {
-            for (var x = 0; x < captureCardModel.count; x++)
-            {
-                var cardDisplayName = captureCardModel.get(x).DisplayName;
-                popupMenu.addMenuItem("2," + cardDisplayName)
-
-                // add the channels for this card
-                channelsProxyModel.sourceId = captureCardModel.get(x).SourceId
-
-                for (var y = 0; y < channelsProxyModel.count; y++)
+                for (var x = 0; x < captureCardModel.count; x++)
                 {
-                    var title = "2," + x + "," + channelsProxyModel.get(y).ChanNum + " - " + channelsProxyModel.get(y).ChannelName;
-                    var data = "source=2\nmyth://type=livetv:server=" + captureCardModel.get(x).HostName + ":encoder=" + captureCardModel.get(x).CardId + ":channum=" + channelsProxyModel.get(y).ChanNum;
-                    popupMenu.addMenuItem(title, data);
-                }
-            }
+                    var cardDisplayName = captureCardModel.get(x).DisplayName;
+                    popupMenu.addMenuItem("2," + cardDisplayName)
 
-            popupMenu.addMenuItem("2,Recording");
-            popupMenu.addMenuItem("2,Video");
+                    // add the channels for this card
+                    channelsProxyModel.sourceId = captureCardModel.get(x).SourceId
+
+                    for (var y = 0; y < channelsProxyModel.count; y++)
+                    {
+                        var title = "2," + x + "," + channelsProxyModel.get(y).ChanNum + " - " + channelsProxyModel.get(y).ChannelName;
+                        var data = "source=2\nmyth://type=livetv:server=" + captureCardModel.get(x).HostName + ":encoder=" + captureCardModel.get(x).CardId + ":channum=" + channelsProxyModel.get(y).ChanNum;
+                        popupMenu.addMenuItem(title, data);
+                    }
+                }
+
+                popupMenu.addMenuItem("2,Recording");
+                popupMenu.addMenuItem("2,Video");
             }
 
             if (root.layout > 3)
@@ -284,6 +284,9 @@ BaseScreen
             player1.width = root.width;
             player1.height = root.height;
 
+            if (player1.source != dbUtils.getSetting("Qml_player1Source", settings.hostName))
+                player1.source = dbUtils.getSetting("Qml_player1Source", settings.hostName)
+
             player1.play();
             player2.stop();
             player3.stop();
@@ -308,6 +311,11 @@ BaseScreen
             player2.y = yscale(50);
             player2.width = xscale(400);
             player2.height = yscale(225);
+
+            if (player1.source != dbUtils.getSetting("Qml_player1Source", settings.hostName))
+                player1.source = dbUtils.getSetting("Qml_player1Source", settings.hostName)
+            if (player2.source != dbUtils.getSetting("Qml_player2Source", settings.hostName))
+                player2.source = dbUtils.getSetting("Qml_player2Source", settings.hostName)
 
             player1.play();
             player2.play();
@@ -334,6 +342,11 @@ BaseScreen
             player2.width = root.width / 2;
             player2.height = player2.width / 1.77777777;
 
+            if (player1.source != dbUtils.getSetting("Qml_player1Source", settings.hostName))
+                player1.source = dbUtils.getSetting("Qml_player1Source", settings.hostName)
+            if (player2.source != dbUtils.getSetting("Qml_player2Source", settings.hostName))
+                player2.source = dbUtils.getSetting("Qml_player2Source", settings.hostName)
+
             player1.play();
             player2.play();
             player3.stop();
@@ -358,6 +371,11 @@ BaseScreen
             player2.y = (root.height - 255) / 2;
             player2.width = xscale(400);
             player2.height = yscale(225);
+
+            if (player1.source != dbUtils.getSetting("Qml_player1Source", settings.hostName))
+                player1.source = dbUtils.getSetting("Qml_player1Source", settings.hostName)
+            if (player2.source != dbUtils.getSetting("Qml_player2Source", settings.hostName))
+                player2.source = dbUtils.getSetting("Qml_player2Source", settings.hostName)
 
             player1.play();
             player2.play();
@@ -388,6 +406,13 @@ BaseScreen
             player3.y = yscale(400);
             player3.width = xscale(400);
             player3.height = yscale(225);
+
+            if (player1.source != dbUtils.getSetting("Qml_player1Source", settings.hostName))
+                player1.source = dbUtils.getSetting("Qml_player1Source", settings.hostName)
+            if (player2.source != dbUtils.getSetting("Qml_player2Source", settings.hostName))
+                player2.source = dbUtils.getSetting("Qml_player2Source", settings.hostName)
+            if (player3.source != dbUtils.getSetting("Qml_player3Source", settings.hostName))
+                player3.source = dbUtils.getSetting("Qml_player3Source", settings.hostName)
 
             player1.play();
             player2.play();
@@ -423,6 +448,15 @@ BaseScreen
             player4.y = root.height / 2;
             player4.width = root.width / 2;
             player4.height = root.height / 2;;
+
+            if (player1.source != dbUtils.getSetting("Qml_player1Source", settings.hostName))
+                player1.source = dbUtils.getSetting("Qml_player1Source", settings.hostName)
+            if (player2.source != dbUtils.getSetting("Qml_player2Source", settings.hostName))
+                player2.source = dbUtils.getSetting("Qml_player2Source", settings.hostName)
+            if (player3.source != dbUtils.getSetting("Qml_player3Source", settings.hostName))
+                player3.source = dbUtils.getSetting("Qml_player3Source", settings.hostName)
+            if (player4.source != dbUtils.getSetting("Qml_player4Source", settings.hostName))
+                player4.source = dbUtils.getSetting("Qml_player4Source", settings.hostName)
 
             player1.play();
             player2.play();
@@ -489,13 +523,25 @@ BaseScreen
                if (list.length == 2)
                 {
                     if (list[0] == "source=1")
+                    {
+                        dbUtils.setSetting("Qml_player1Source", settings.hostName, list[1])
                         player1.source = list[1];
+                    }
                     else if (list[0] == "source=2")
+                    {
+                        dbUtils.setSetting("Qml_player2Source", settings.hostName, list[1])
                         player2.source = list[1];
+                    }
                     else if (list[0] == "source=3")
+                    {
+                        dbUtils.setSetting("Qml_player3Source", settings.hostName, list[1])
                         player3.source = list[1];
+                    }
                     else if (list[0] == "source=4")
+                    {
+                        dbUtils.setSetting("Qml_player3Source", settings.hostName, list[1])
                         player4.source = list[1];
+                    }
                 }
             }
         }
