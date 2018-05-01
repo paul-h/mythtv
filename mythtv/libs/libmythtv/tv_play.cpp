@@ -5056,7 +5056,7 @@ void TV::SetBookmark(PlayerContext *ctx, bool clear)
             ctx->player->SetBookmark(true);
             SetOSDMessage(ctx, tr("Bookmark Cleared"));
         }
-        else if (IsBookmarkAllowed(ctx))
+        else // if (IsBookmarkAllowed(ctx))
         {
             ctx->player->SetBookmark();
             osdInfo info;
@@ -5080,7 +5080,7 @@ bool TV::ActivePostQHandleAction(PlayerContext *ctx, const QStringList &actions)
 
     if (has_action(ACTION_SETBOOKMARK, actions))
     {
-        if (!islivetv || !CommitQueuedInput(ctx))
+        if (!CommitQueuedInput(ctx))
         {
             ctx->LockDeletePlayer(__FILE__, __LINE__);
             SetBookmark(ctx, false);
@@ -5089,7 +5089,7 @@ bool TV::ActivePostQHandleAction(PlayerContext *ctx, const QStringList &actions)
     }
     if (has_action(ACTION_TOGGLEBOOKMARK, actions))
     {
-        if (!islivetv || !CommitQueuedInput(ctx))
+        if (!CommitQueuedInput(ctx))
         {
             ctx->LockDeletePlayer(__FILE__, __LINE__);
             SetBookmark(ctx, ctx->player->GetBookmark());
@@ -6611,7 +6611,11 @@ void TV::UpdateNavDialog(PlayerContext *ctx)
     if (osd && osd->DialogVisible(OSD_DLG_NAVIGATE))
     {
         osdInfo info;
-        bool paused = ContextIsPaused(ctx, __FILE__, __LINE__);
+        ctx->LockDeletePlayer(__FILE__, __LINE__);
+        bool paused = (ctx->player
+            && (ctx->ff_rew_state || ctx->ff_rew_speed != 0
+                || ctx->player->IsPaused()));
+        ctx->UnlockDeletePlayer(__FILE__, __LINE__);
         info.text["paused"] = (paused ? "Y" : "N");
         bool muted = ctx->player->IsMuted();
         info.text["muted"] = (muted ? "Y" : "N");
@@ -6773,6 +6777,7 @@ bool TV::SeekHandleAction(PlayerContext *actx, const QStringList &actions,
                    /*timeIsOffset*/true,
                    /*honorCutlist*/!(flags & kIgnoreCutlist));
     }
+    UpdateNavDialog(actx);
     return true;
 }
 
@@ -11095,14 +11100,13 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
             hide = false;
         }
         else
-        {
-            LOG(VB_GENERAL, LOG_ERR, LOC +
-                "Unknown menu action selected: " + action);
-            hide = false;
-        }
+            handled = false;
     }
-    else if (StateIsPlaying(actx->GetState()))
+    else
+        handled = false;
+    if (!handled && StateIsPlaying(actx->GetState()))
     {
+        handled = true;
         if (action == ACTION_JUMPTODVDROOTMENU ||
             action == ACTION_JUMPTODVDCHAPTERMENU ||
             action == ACTION_JUMPTOPOPUPMENU ||
@@ -11155,21 +11159,23 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
             DoQueueTranscode(actx, "Medium Quality");
         else if (action == "QUEUETRANSCODE_LOW")
             DoQueueTranscode(actx, "Low Quality");
-        else if (action == ACTION_TOGGLEBOOKMARK
-                || action == ACTION_SETBOOKMARK)
-            ActivePostQHandleAction(actx, QStringList(action));
         else
-        {
-            bool isDVD = actx->buffer && actx->buffer->IsDVD();
-            bool isMenuOrStill = actx->buffer && actx->buffer->IsInDiscMenuOrStillFrame();
-            handled = ActiveHandleAction(actx, QStringList(action), isDVD, isMenuOrStill);
-        }
-        if (!handled)
-        {
-            LOG(VB_GENERAL, LOG_ERR, LOC +
-                "Unknown menu action selected: " + action);
-            hide = false;
-        }
+            handled = false;
+    }
+    if (!handled)
+    {
+        bool isDVD = actx->buffer && actx->buffer->IsDVD();
+        bool isMenuOrStill = actx->buffer && actx->buffer->IsInDiscMenuOrStillFrame();
+        handled = ActiveHandleAction(actx, QStringList(action), isDVD, isMenuOrStill);
+    }
+    if (!handled)
+            handled = ActivePostQHandleAction(actx, QStringList(action));
+
+    if (!handled)
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            "Unknown menu action selected: " + action);
+        hide = false;
     }
 
     if (hide)
