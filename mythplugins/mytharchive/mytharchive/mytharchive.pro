@@ -38,31 +38,31 @@ SOURCES += dbcheck.cpp archiveutil.cpp selectdestination.cpp
 SOURCES += mythburn.cpp themeselector.cpp editmetadata.cpp thumbfinder.cpp
 SOURCES += exportnative.cpp importnative.cpp importfile.cpp importeditmetadata.cpp
 
-burnuifiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/themes/default
+burnuifiles.path = $${PREFIX}/share/mythtv/themes/default
 burnuifiles.files = mythburn-ui.xml
 
-scriptfiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/mytharchive/scripts
+scriptfiles.path = $${PREFIX}/share/mythtv/mytharchive/scripts
 scriptfiles.files = ../mythburn/scripts/*
 
-importscriptfiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/mytharchive/scripts
+importscriptfiles.path = $${PREFIX}/share/mythtv/mytharchive/scripts
 importscriptfiles.files = ../importscripts/*
 
-introfiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/mytharchive/intro
+introfiles.path = $${PREFIX}/share/mythtv/mytharchive/intro
 introfiles.files = ../mythburn/intro/*.mpg
 
-musicfiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/mytharchive/music
+musicfiles.path = $${PREFIX}/share/mythtv/mytharchive/music
 musicfiles.files = ../mythburn/music/*.ac3
 
-imagefiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/mytharchive/images
+imagefiles.path = $${PREFIX}/share/mythtv/mytharchive/images
 imagefiles.files = ../mythburn/images/*.png
 
-themefiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/mytharchive/themes
+themefiles.path = $${PREFIX}/share/mythtv/mytharchive/themes
 themefiles.files = ../mythburn/themes/*
 
-profilefiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/mytharchive/encoder_profiles
+profilefiles.path = $${PREFIX}/share/mythtv/mytharchive/encoder_profiles
 profilefiles.files = ../mythburn/encoder_profiles/*.xml
 
-nativeuifiles.path = $${SYSROOT}$${PREFIX}/share/mythtv/themes/default
+nativeuifiles.path = $${PREFIX}/share/mythtv/themes/default
 nativeuifiles.files = mythnative-ui.xml
 
 INSTALLS +=  scriptfiles introfiles themefiles imagefiles musicfiles
