@@ -4706,7 +4706,6 @@ case $target_os in
         # Workaround compile errors from missing u_int/uint def
         CPPFLAGS=`echo $CPPFLAGS | sed 's/-D_POSIX_C_SOURCE=200112//'`
         disable ivtv
-        disable v4l2
         enable backend
         enable pic
         ;;
@@ -5964,12 +5963,16 @@ enabled libx264           && { use_pkg_config libx264 x264 "stdint.h x264.h" x26
                              require_cpp_condition x264.h "X264_BUILD >= 118" &&
                              { check_cpp_condition x264.h "X264_MPEG2" &&
                                enable libx262; }
-enabled libxml2           && require_pkg_config libxml2 libxml-2.0 libxml2/libxml/xmlversion.h xmlCheckVersion
+enabled libxml2           && require_pkg_config libxml2 libxml-2.0 libxml/xmlversion.h xmlCheckVersion
 enabled opengl            && { check_lib opengl GL/glx.h glXGetProcAddress "-lGL" ||
                                check_lib opengl windows.h wglGetProcAddress "-lopengl32 -lgdi32" ||
                                check_lib opengl OpenGL/gl3.h glGetError "-Wl,-framework,OpenGL" ||
                                check_lib opengl ES2/gl.h glGetError "-isysroot=${sysroot} -Wl,-framework,OpenGLES" ||
                                check_lib opengl GLES/gl.h glGetError "-Wl,-framework,OpenGLES" ||
+                               { check_pkg_config GLESv2 glesv2 GLES2/gl2.h glGetError &&
+                                 check_pkg_config EGL egl EGL/egl.h eglGetProcAddress &&
+                                 enable opengl
+                               } ||
                                { check_lib GLESv2 GLES2/gl2.h glGetError "-lGLESv2" &&
                                  check_lib EGL EGL/egl.h eglGetProcAddress "-lEGL" &&
                                  enable opengl
@@ -6774,6 +6777,7 @@ if enabled bindings_perl; then
         disable_bindings_perl "Net::UPnP::ControlPoint"
     check_pl_lib "IO::Socket::INET6"  ||
         disable_bindings_perl "IO::Socket::INET6"
+    check_pl_lib "XML::Simple"  || disable_bindings_perl "XML::Simple"
 fi
 
 # Check for php dependencies
