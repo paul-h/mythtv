@@ -589,10 +589,14 @@ def GetPlanner(xmlfile):
                 recordingNode.appendChild(node)
                 print "actual duration: %s" % actualDuration
 
+                description = ""
+                if len(item.getElementsByTagName('dc:description')) > 0:
+                    description = getText(item.getElementsByTagName('dc:description')[0])
+
                 node = itemsDOM.createElement("description")
-                node.appendChild(itemsDOM.createTextNode(getText(item.getElementsByTagName('dc:description')[0])))
+                node.appendChild(itemsDOM.createTextNode(description))
                 recordingNode.appendChild(node)
-                print "description: %s" % getText(item.getElementsByTagName('dc:description')[0])
+                print "description: %s" % description
 
                 node = itemsDOM.createElement("filename")
                 node.appendChild(itemsDOM.createTextNode(getText(item.getElementsByTagName('res')[0])))
