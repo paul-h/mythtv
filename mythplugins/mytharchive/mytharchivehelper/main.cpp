@@ -103,6 +103,7 @@ class NativeArchive
       bool importIPEncoderFile(const ImportItem &importItem);
       bool importHDPVR2File(const ImportItem &importItem);
       bool importIntensityProFile(const ImportItem &importItem);
+      bool importMagewellFile(const ImportItem &importItem);
 };
 
 NativeArchive::NativeArchive(void)
@@ -1019,6 +1020,10 @@ int NativeArchive::doImportFile(const QString &xmlFile)
             {
                 result |= importIntensityProFile(importItem);
             }
+            else if (importItem.type == "Magewell")
+            {
+                result |= importMagewellFile(importItem);
+            }
             else
             {
                 LOG(VB_JOBQUEUE, LOG_INFO, QString("Got an unknown import type '%1'").arg(importItem.type));
@@ -1243,6 +1248,167 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
     if (cmd2.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - bmdcapture exited with result: %1").arg(cmd2.data()->GetExitCode()));
+        return false;
+    }
+
+    // re-encode the lossless huffyuv to mp4
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting reencoding at %1").arg(QDateTime::currentDateTime().toString()));
+
+    QString ffmpegFile = getTempDirectory() + "work/video.mp4";
+    QString ffmpgCommand = QString("mythffmpeg -y -i %1 %2").arg(videoFile).arg(ffmpegFile);
+
+    QScopedPointer<MythSystem> cmd3(MythSystem::Create(ffmpgCommand, kMSRunShell));
+    cmd3->Wait(0);
+    if (cmd3.data()->GetExitCode() != GENERIC_EXIT_OK)
+    {
+        LOG(VB_GENERAL, LOG_ERR, QString("ERROR - mythffmpeg exited with result: %1").arg(cmd3.data()->GetExitCode()));
+        return false;
+    }
+
+    // create a mxml file with the metadata for this recording
+    QStringList categories(importItem.category.split(','));
+    QDate releaseDate = importItem.year > 0 ? QDate(importItem.year, 1, 1) : importItem.startTime.date();
+    MetadataLookup *lookup = new MetadataLookup(kMetadataVideo, kProbableTelevision, QVariant(), kLookupSearch, false, false, false, false, false,
+                                                "", videoFile, importItem.title, categories, 0.0, importItem.subtitle, "", importItem.description,
+                                                importItem.season, importItem.episode, importItem.startTime, 0,  importItem.chanNo,
+                                                importItem.chanSign, importItem.chanName, importItem.certification, importItem.year,
+                                                releaseDate, importItem.duration / 60, importItem.duration, "",
+                                                PeopleMap(), "", ArtworkMap(), DownloadMap());
+
+    if (categories.contains("Movies", Qt::CaseInsensitive))
+        lookup->SetVideoContentType(kContentMovie);
+    else
+        lookup->SetVideoContentType(kContentTelevision);
+
+    QDomDocument mxmlDoc = CreateMetadataXML(lookup);
+
+    // save the mxml to the file
+    QFile f(mxmlFile);
+    if (!f.open(QIODevice::WriteOnly))
+    {
+        LOG(VB_GENERAL, LOG_ERR, QString("Failed to open mxml file for writing - %1").arg(mxmlFile));
+        return false;
+    }
+
+    QTextStream t(&f);
+    t << mxmlDoc.toString(4);
+    f.close();
+
+    // workout where to save the file in the Video storage group
+    QString dstFile = filenameFromMetadataLookup(lookup);
+    QString saveFilename;
+
+    // copy the recording to the Video storage group
+    if (gCoreContext->GetMasterHostName() == gCoreContext->GetHostName())
+    {
+        StorageGroup sGroup("Videos", gCoreContext->GetHostName());
+        QString path = sGroup.GetFirstDir(true);
+        saveFilename = path + dstFile + ".mp4";
+    }
+    else
+    {
+        saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mp4", "Videos");
+    }
+
+    // check if this file already exists
+    if (RemoteFile::Exists(saveFilename))
+    {
+        LOG(VB_JOBQUEUE, LOG_WARNING, QString("File already exists %1").arg(saveFilename));
+        int x = 1;
+
+        while (x < 100)
+        {
+            if (gCoreContext->GetMasterHostName() == gCoreContext->GetHostName())
+            {
+                StorageGroup sGroup("Videos", gCoreContext->GetHostName());
+                QString path = sGroup.GetFirstDir(true);
+                saveFilename = path + dstFile + QString("-%1").arg(x) + ".mp4";
+            }
+            else
+            {
+                saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + QString("-%1").arg(x) + ".mp4", "Videos");
+            }
+
+            if (!RemoteFile::Exists(saveFilename))
+            {
+                dstFile = dstFile + QString("-%1").arg(x);
+                break;
+            }
+
+            x++;
+        }
+    }
+
+    // copy the recording to the Video storage group
+    saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mp4", "Videos");
+
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Copying video file to %1").arg(saveFilename));
+
+    bool result = copyFile(videoFile, saveFilename);
+    if (!result)
+    {
+        LOG(VB_GENERAL, LOG_ERR, QString("Failed to copy video file to %1").arg(saveFilename));
+        return false;
+    }
+
+    // copy the metadata xml file to the Video storage group
+    saveFilename = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(), 0, dstFile + ".mxml", "Videos");
+
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Copying xml file to %1").arg(saveFilename));
+
+    result = copyFile(mxmlFile, saveFilename);
+    if (!result)
+    {
+        LOG(VB_GENERAL, LOG_ERR, QString("Failed to copy xml file to %1").arg(saveFilename));
+        return false;
+    }
+
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("*** Importing %1 completed sucessfully ***").arg(title));
+
+    return true;
+}
+
+bool NativeArchive::importMagewellFile(const ImportItem &importItem)
+{
+    QString title = importItem.title + " ~ " + importItem.startTime.toString();
+
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting playback at %1").arg(QDateTime::currentDateTime().toString()));
+
+    // start playing the recording
+    QString command = gCoreContext->GetSetting("MythArchivePlayFileCommand");
+    command.replace("%FILENAME%", importItem.filename);
+
+    QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
+    cmd->Wait(0);
+    if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
+    {
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("Command exited with result: %1").arg(cmd.data()->GetExitCode()));
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("Command was: %1").arg(command));
+        return false;
+    }
+
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting recording").arg(title));
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Duration is %1, Expected end is: %2")
+        .arg(formatTime(importItem.actualDuration)).arg(QDateTime::currentDateTime().addSecs(importItem.actualDuration).toString()));
+
+    //FIXME the frames per second should be a setting?
+    QString time = QDateTime::fromTime_t(importItem.actualDuration).toUTC().toString("hh:mm:ss");
+    QString videoFile = getTempDirectory() + "work/video.nut";
+    QString mxmlFile = getTempDirectory() + "work/video.mxml";
+
+    LOG(VB_JOBQUEUE, LOG_INFO, QString("Duration: %1").arg(time));
+
+    // record the raw hdmi output to huffyuv
+    QString recCommand = QString("mythffmpeg -f alsa -ac 2 -i hw:1,0 -f v4l2 -i /dev/video0 -r %1 -s 1920x1080 -t %2 "
+                                 "-vcodec huffyuv -aspect 16:9 -acodec copy -f nut -y %3")
+                              .arg(FPS).arg(time).arg(videoFile);
+
+    QScopedPointer<MythSystem> cmd2(MythSystem::Create(recCommand, kMSRunShell));
+    cmd2->Wait(0);
+    if (cmd2.data()->GetExitCode() != GENERIC_EXIT_OK)
+    {
+        LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - mythffmpeg exited with result: %1").arg(cmd2.data()->GetExitCode()));
         return false;
     }
 
