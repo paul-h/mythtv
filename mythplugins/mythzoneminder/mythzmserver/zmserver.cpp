@@ -91,7 +91,11 @@ int     g_majorVersion = 0;
 int     g_minorVersion = 0;
 int     g_revisionVersion = 0;
 
+time_t  g_lastHousekeeping = 0;
 time_t  g_lastDBKick = 0;
+
+bool    g_pendingZmAudit = false;
+time_t  g_lastZmAudit = 0;
 
 // returns true if the ZM version >= the requested version
 bool checkVersion(int major, int minor, int revision)
@@ -198,6 +202,36 @@ void connectToDatabase(void)
         cout << "Error: Can't select database: " << mysql_error(&g_dbConn) << endl;
         exit(mysql_errno(&g_dbConn));
     }
+}
+
+void houseKeeping(bool debug)
+{
+    kickDatabase(debug);
+    checkZmAudit(debug);
+
+    g_lastHousekeeping = time(NULL);
+}
+
+void checkZmAudit(bool debug)
+{
+    if (!g_pendingZmAudit || time(NULL) < g_lastZmAudit + ZMAUDIT_TIME)
+        return;
+
+    if (debug)
+        cout << "Running ZmAudit" << endl;
+
+    // run zmaudit.pl to clean up orphaned db entries etc
+    string command(g_binPath + "/zmaudit.pl &");
+
+    if (debug)
+        cout << "Running command: " << command << endl;
+
+    errno = 0;
+    if (system(command.c_str()) < 0 && errno)
+        cerr << "Failed to run '" << command << "'" << endl;
+
+    g_lastZmAudit = time(NULL);
+    g_pendingZmAudit = false;
 }
 
 void kickDatabase(bool debug)
@@ -1569,10 +1603,7 @@ void ZMServer::handleDeleteEvent(vector<string> tokens)
     }
 
     // run zmaudit.pl to clean everything up
-    string command(g_binPath + "/zmaudit.pl &");
-    errno = 0;
-    if (system(command.c_str()) < 0 && errno)
-        cerr << "Failed to run '" << command << "'" << endl;
+    g_pendingZmAudit = true;
 
     send(outStr);
 }
@@ -1616,15 +1647,8 @@ void ZMServer::handleRunZMAudit(void)
 {
     string outStr("");
 
-    // run zmaudit.pl to clean up orphaned db entries etc
-    string command(g_binPath + "/zmaudit.pl &");
-
-    if (m_debug)
-        cout << "Running command: " << command << endl;
-
-    errno = 0;
-    if (system(command.c_str()) < 0 && errno)
-        cerr << "Failed to run '" << command << "'" << endl;
+    // run zmaudit.pl if it is not already running
+    g_pendingZmAudit = true;
 
     ADD_STR(outStr, "OK")
     send(outStr);

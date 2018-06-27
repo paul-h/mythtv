@@ -29,6 +29,8 @@ using namespace std;
 extern bool checkVersion(int major, int minor, int revision);
 extern void loadZMConfig(const string &configfile);
 extern void connectToDatabase(void);
+extern void houseKeeping(bool debug);
+extern void checkZmAudit(bool debug);
 extern void kickDatabase(bool debug);
 
 // these are shared by all ZMServer's
@@ -45,8 +47,15 @@ extern int     g_majorVersion;
 extern int     g_minorVersion;
 extern int     g_revisionVersion;
 
-#define DB_CHECK_TIME 60
+#define HOUSEKEEPING_TIME 60
+extern time_t  g_lastHousekeeping;
+
+#define DB_CHECK_TIME 600
 extern time_t  g_lastDBKick;
+
+#define ZMAUDIT_TIME 300
+extern bool    g_pendingZmAudit;
+extern time_t  g_lastZmAudit;
 
 const string FUNCTION_MONITOR = "Monitor";
 const string FUNCTION_MODECT  = "Modect";

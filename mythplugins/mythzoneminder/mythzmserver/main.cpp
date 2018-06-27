@@ -37,7 +37,7 @@
 #define ZM_CONFIG "/etc/zm.conf"
 
 // Care should be taken to keep these in sync with the exit codes in
-// libmythbase/exitcodes.h (which is not included here to keep this code 
+// libmythbase/exitcodes.h (which is not included here to keep this code
 // separate from mythtv libraries).
 #define EXIT_OK                      0
 #define EXIT_INVALID_CMDLINE         132
@@ -272,7 +272,7 @@ int main(int argc, char **argv)
     while (!quit)
     {
         // the maximum time select() should wait
-        timeout.tv_sec = DB_CHECK_TIME;
+        timeout.tv_sec = HOUSEKEEPING_TIME;
         timeout.tv_usec = 0;
 
         read_fds = master; // copy it
@@ -286,8 +286,8 @@ int main(int argc, char **argv)
         else if (res == 0)
         {
             // select timed out
-            // just kick the DB connection to keep it alive
-            kickDatabase(debug);
+            // just run the house keeping tasks
+            houseKeeping(debug);
             continue;
         }
 
@@ -355,6 +355,9 @@ int main(int argc, char **argv)
                     {
                         ZMServer *server = serverList[i];
                         quit = server->processRequest(buf, nbytes);
+
+                        if (time(NULL) > g_lastHousekeeping + HOUSEKEEPING_TIME)
+                            houseKeeping(debug);
                     }
                 }
             }
