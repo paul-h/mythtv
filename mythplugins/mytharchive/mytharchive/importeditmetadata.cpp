@@ -61,6 +61,7 @@ bool ImportEditMetadataDialog::Create(void)
     new MythUIButtonListItem(m_importTypeSelector, tr("IP Encoder"),    qVariantFromValue(QString("IPEncoder")));
     new MythUIButtonListItem(m_importTypeSelector, tr("HD-PVR2"),       qVariantFromValue(QString("HDPVR2")));
     new MythUIButtonListItem(m_importTypeSelector, tr("Intensity Pro"), qVariantFromValue(QString("IntensityPro")));
+    new MythUIButtonListItem(m_importTypeSelector, tr("Magewell"),      qVariantFromValue(QString("Magewell")));
     m_importTypeSelector->SetValueByData(qVariantFromValue(m_sourceImportItem->type));
 
     m_titleEdit->SetText(m_sourceImportItem->title);
