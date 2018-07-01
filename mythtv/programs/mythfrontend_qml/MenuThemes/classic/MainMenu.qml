@@ -17,8 +17,9 @@ ListModel
     ListElement
     {
         menutext: "Internet Video"
-        loaderSource: "ComingSoon.qml"
-        waterMark: "watermark/tv.png"
+        loaderSource: "ThemedMenu.qml"
+        waterMark: "watermark/stream.png"
+        menuSource: "InternetVideoMenu.qml"
     }
     ListElement
     {
