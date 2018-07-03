@@ -2,6 +2,7 @@ import QtQuick 2.0
 import QtQuick.Controls 1.4
 import QtWebEngine 1.3
 import Base 1.0
+import Dialogs 1.0
 
 BaseScreen
 {
@@ -29,7 +30,25 @@ BaseScreen
     Action
     {
         shortcut: "F8"
-        onTriggered: { root.fullscreen = !root.fullscreen; showTitle(!root.fullscreen, "Web Browser"); }
+        onTriggered: toggleFullscreen()
+    }
+
+    Action
+    {
+        shortcut: "+"
+        onTriggered: zoom(true);
+    }
+
+    Action
+    {
+        shortcut: "-"
+        onTriggered: zoom(false);
+    }
+
+    Action
+    {
+        shortcut: "M"
+        onTriggered: popupMenu.show();
     }
 
     WebEngineView
@@ -41,6 +60,89 @@ BaseScreen
         height: root.fullscreen ? parent.height : parent.height - yscale(60)
         url: "https://www.google.co.uk"
         settings.pluginsEnabled : true
+    }
+
+    PopupMenu
+    {
+        id: popupMenu
+
+        title: "Menu"
+        message: "Browser Options"
+        width: xscale(400); height: yscale(600)
+
+        onItemSelected:
+        {
+            if (itemData === "enterurl")
+            {
+                textEditDialog.show()
+                return;
+            }
+            else if (itemData === "zoomin")
+                zoom(true);
+            else if (itemData === "zoomout")
+                zoom(false);
+            else if (itemData === "fullscreen")
+                toggleFullscreen();
+
+            browser.focus = true;
+        }
+        onCancelled:
+        {
+            browser.focus = true;
+        }
+
+        Component.onCompleted:
+        {
+            addMenuItem("Enter URL", "enterurl");
+            addMenuItem("Zoom In", "zoomin");
+            addMenuItem("Zoom Out", "zoomout");
+            addMenuItem("Toggle Fullscreen", "fullscreen");
+        }
+    }
+
+    TextEditDialog
+    {
+        id: textEditDialog
+
+        title: "Enter URL"
+        message: "Enter URL you want to show."
+
+        //rejectButtonText: ""
+        //acceptButtonText: "Save"
+
+        width: xscale(600); height: yscale(350)
+
+        onResultText:
+        {
+            if (text.startsWith("http://") || text.startsWith("https://"))
+                browser.url = text
+            else
+                browser.url = "http://" + text
+
+            browser.focus = true
+        }
+        onCancelled:
+        {
+            browser.focus = true
+        }
+    }
+
+    function zoom(zoomIn)
+    {
+        if (zoomIn)
+        {
+            browser.zoomFactor = Math.min(5,  browser.zoomFactor + 0.25)
+        }
+        else
+        {
+            browser.zoomFactor = Math.max(0.25,  browser.zoomFactor - 0.25)
+        }
+    }
+
+    function toggleFullscreen()
+    {
+        root.fullscreen = !root.fullscreen;
+        root.showTitle(!root.fullscreen, "Web Browser");
     }
 }
 
