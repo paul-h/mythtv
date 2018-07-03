@@ -9,7 +9,8 @@ BaseScreen
     id: root
     defaultFocusItem: browser
     property alias url: browser.url
-    property bool fullscreen: true
+    property alias zoomFactor: browser.zoomFactor
+    property bool fullscreen: false
 
     Component.onCompleted:
     {
@@ -96,7 +97,7 @@ BaseScreen
             addMenuItem("Enter URL", "enterurl");
             addMenuItem("Zoom In", "zoomin");
             addMenuItem("Zoom Out", "zoomout");
-            addMenuItem("Toggle Fullscreen", "fullscreen");
+            addMenuItem("Toggle Full Screen", "fullscreen");
         }
     }
 
@@ -106,9 +107,6 @@ BaseScreen
 
         title: "Enter URL"
         message: "Enter URL you want to show."
-
-        //rejectButtonText: ""
-        //acceptButtonText: "Save"
 
         width: xscale(600); height: yscale(350)
 

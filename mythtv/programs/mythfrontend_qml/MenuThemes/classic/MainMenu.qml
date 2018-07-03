@@ -44,8 +44,9 @@ ListModel
     ListElement
     {
         menutext:"Weather"
-        loaderSource: "ComingSoon.qml"
+        loaderSource: "ThemedMenu.qml"
         waterMark: "watermark/weather.png"
+        menuSource: "WeatherMenu.qml"
     }
     ListElement
     {
