@@ -549,6 +549,12 @@ unique(){
     eval "$var=\"${uniq_list}\""
 }
 
+unique2(){
+    var=$1
+    r=$(echo $(eval echo \$$var) | awk '{for (i=1;i<=NF;i++) if (!a[$i]++) printf("%s%s",$i,FS)}{printf("\n")}')
+    eval "$var=\"${r}\""
+}
+
 add_cppflags(){
     append CPPFLAGS "$@"
 }
@@ -1281,7 +1287,7 @@ check_exec_cxx(){
 }
 
 non_standard_header(){
-    test x"$1" != "x/usr/include"
+    test x"$1" != "x/usr/include" -a  x"$1" != "x/usr/local/include"
 }
 
 x86_mmx_cpus="pentium-mmx,pentium2,pentium3,pentium3m,pentium-m"
@@ -3033,6 +3039,7 @@ for opt do
 #FFmpeg original
         --extra-ldflags=*)
             add_ldflags $optval
+	    ffmpeg_extra_ldflags="$optval"
         ;;
         --extra-ldexeflags=*)
             add_ldexeflags $optval
@@ -6976,6 +6983,7 @@ cd external/FFmpeg
 eval ./configure \
 $ffopts \
 --extra-cflags='"$ffmpeg_extra_cflags"' \
+--extra-ldflags='"$ffmpeg_extra_ldflags"' \
 --enable-stripping \
 --strip='"echo skipping strip"' \
 --disable-manpages  \
@@ -7225,6 +7233,16 @@ echo "x264                      ${libx264-no}"
 echo "x265 (HEVC)               ${libx265-no}"
 echo "vpx                       ${libvpx-no}"
 echo ""
+
+# Remove redundant elements from variables
+unique2 CFLAGS
+unique2 extralibs
+
+if test $target_os = "freebsd"; then
+    #Strip certain paths (qmake will add them back at the end of the list)
+    LDFLAGS=`echo $LDFLAGS | sed -e 's/-L\/usr\/local\/lib$//'     -e 's/-L\/usr\/local\/lib / /'`
+    CFLAGS=`echo $CFLAGS   | sed -e 's/-I\/usr\/local\/include$//' -e 's/-I\/usr\/local\/include / /'`
+fi
 
 MYTH_CONFIG_H=libs/libmythbase/mythconfig.h
 MYTH_CONFIG_MAK=libs/libmythbase/mythconfig.mak
