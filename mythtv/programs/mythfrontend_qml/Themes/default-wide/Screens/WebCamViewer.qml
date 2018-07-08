@@ -111,6 +111,62 @@ BaseScreen
             video: "https://www.skylinewebcams.com/webcam/united-kingdom/england/blackpool/blackpool.html?w=227"
             player: "WebBrowser"
         }
+        ListElement
+        {
+            webcam: "13"
+            title: "West Somerset Railway - Bishops Lydeard"
+            icon: "http://www.wsr.org.uk/2018/07/001.jpg"
+            video: "http://maybach.railcam.co.uk:8080/BishopsLydeard_59234/embed.html"
+            player: "WebBrowser"
+        }
+        ListElement
+        {
+            webcam: "14"
+            title: "West Somerset Railway - Crowcombe Heathfield"
+            icon: "http://www.wsr.org.uk/2018/07/001.jpg"
+            video: "http://maybach.railcam.co.uk:8080/Crowcombe_72940/embed.html"
+            player: "WebBrowser"
+        }
+        ListElement
+        {
+            webcam: "15"
+            title: "West Somerset Railway - Blue Anchor"
+            icon: "http://www.wsr.org.uk/2018/07/001.jpg"
+            video: "http://maybach.railcam.co.uk:8080/BlueAnchor_68938/embed.html"
+            player: "WebBrowser"
+        }
+        ListElement
+        {
+            webcam: "16"
+            title: "West Somerset Railway - Seaward Way Crossing"
+            icon: "http://www.wsr.org.uk/2018/07/001.jpg"
+            video: "http://maybach.railcam.co.uk:8080/Minehead2_43582/embed.html"
+            player: "WebBrowser"
+        }
+        ListElement
+        {
+            webcam: "17"
+            title: "West Somerset Railway - Minehead Station"
+            icon: "http://www.wsr.org.uk/2018/07/001.jpg"
+            video: "http://maybach.railcam.co.uk:8080/Minehead_05286/embed.html"
+            player: "WebBrowser"
+        }
+        ListElement
+        {
+            webcam: "18"
+            title: "Live 24/7 Downtown Bangor, MI Live Eye Cam"
+            icon: "https://i.ytimg.com/vi/gMDeJE4uWTc/hqdefault.jpg"
+            video: "https://www.youtube.com/TV#/watch/video/control?v=gMDeJE4uWTc&resume"
+            player: "YouTube"
+        }
+        ListElement
+        {
+            webcam: "19"
+            title: "Isle of Wight Steam Ralway - Havenstreet"
+            icon: "http://www.iwsteamrailway.co.uk/files/images/crossing-staff-90permission-steve-taylorjpg.jpg"
+            video: "http://www.camsecure.co.uk/webcam/iwsteam/cam.html"
+            player: "WebBrowser"
+        }
     }
 
     GridView
@@ -173,6 +229,8 @@ BaseScreen
                 event.accepted = false;
             }
         }
+
+        onCurrentIndexChanged: showTitle(true, webcamGrid.model.get(webcamGrid.currentIndex).title)
     }
 
     PopupMenu
