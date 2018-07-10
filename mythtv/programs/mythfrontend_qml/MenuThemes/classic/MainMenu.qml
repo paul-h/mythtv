@@ -50,12 +50,6 @@ ListModel
     }
     ListElement
     {
-        menutext:"Weather Station"
-        loaderSource: "ComingSoon.qml"
-        waterMark: "watermark/weather.png"
-    }
-    ListElement
-    {
         menutext:"News Feeds"
         loaderSource: "RSSFeeds.qml"
         waterMark: "watermark/news.png"
