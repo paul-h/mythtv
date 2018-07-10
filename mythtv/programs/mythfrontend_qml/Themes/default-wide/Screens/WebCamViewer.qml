@@ -20,7 +20,7 @@ BaseScreen
             title: "Railcam Free View Channel"
             icon: "https://i.ytimg.com/vi/bSaz5KDqVgg/hqdefault.jpg"
             //video: "https://www.youtube.com/watch?v=bSaz5KDqVgg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=bSaz5KDqVgg&resume"
+            video: "https://www.youtube.com/TV#/watch/video/control?v=bSaz5KDqVgg"
             player: "YouTube"
         }
         ListElement
@@ -28,7 +28,7 @@ BaseScreen
             webcam: "2"
             title: "Dawlish Beach Cams, Blenheim Cam"
             icon: "https://i.ytimg.com/vi/tf7GnMEH2T8/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=tf7GnMEH2T8&resume"
+            video: "https://www.youtube.com/TV#/watch/video/control?v=tf7GnMEH2T8"
             player: "YouTube"
         }
         ListElement
@@ -36,7 +36,7 @@ BaseScreen
             webcam: "3"
             title: "Dawlish Beach Cams, Salty Cottage Cam, Teignmouth"
             icon: "https://i.ytimg.com/vi/nE2DizZtb4U/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=nE2DizZtb4U&resume"
+            video: "https://www.youtube.com/TV#/watch/video/control?v=nE2DizZtb4U"
             player: "YouTube"
         }
         ListElement
@@ -44,7 +44,7 @@ BaseScreen
             webcam: "4"
             title: "LIVE Trains Railway 24/24 Train Driver's View: Cab Ride Line Railroad in Winter!"
             icon: "https://i.ytimg.com/vi/eFtWa01E1-o/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=eFtWa01E1-o&resume"
+            video: "https://www.youtube.com/TV#/watch/video/control?v=eFtWa01E1-o"
             player: "YouTube"
         }
         ListElement
@@ -52,7 +52,7 @@ BaseScreen
             webcam: "5"
             title: "Molti Treni Senza Sosta"
             icon: "https://i.ytimg.com/vi/9rZEAnuj1mI/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=9rZEAnuj1mI&resume"
+            video: "https://www.youtube.com/TV#/watch/video/control?v=9rZEAnuj1mI"
             player: "YouTube"
         }
         ListElement
@@ -60,7 +60,7 @@ BaseScreen
             webcam: "6"
             title: "Riding The Rails TV - 24/7 Cab Ride Views from around the world!"
             icon: "https://i.ytimg.com/vi/E_-rumvbqdo/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=E_-rumvbqdo&resume"
+            video: "https://www.youtube.com/TV#/watch/video/control?v=E_-rumvbqdo"
             player: "YouTube"
         }
         ListElement
@@ -68,7 +68,7 @@ BaseScreen
             webcam: "7"
             title: "Bridport Harbour (West Bay)"
             icon: "https://i.ytimg.com/vi/vnlOhiN-bBI/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=vnlOhiN-bBI&resume"
+            video: "https://www.youtube.com/TV#/watch/video/control?v=vnlOhiN-bBI"
             player: "YouTube"
         }
         ListElement
@@ -76,7 +76,7 @@ BaseScreen
             webcam: "8"
             title: "La Grange, Kentucky USA - Virtual Railfan LIVE"
             icon: "https://i.ytimg.com/vi/8OE1aS91yvQ/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=8OE1aS91yvQ&resume"
+            video: "https://www.youtube.com/TV#/watch/video/control?v=8OE1aS91yvQ"
             player: "YouTube"
         }
         ListElement
@@ -84,7 +84,7 @@ BaseScreen
             webcam: "9"
             title: "La Plata, Missouri USA - Virtual Railfan LIVE"
             icon: "https://i.ytimg.com/vi/l06NXHeXIs8/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=l06NXHeXIs8&resume"
+            video: "https://www.youtube.com/TV#/watch/video/control?v=l06NXHeXIs8"
             player: "YouTube"
         }
         ListElement
@@ -92,7 +92,7 @@ BaseScreen
             webcam: "10"
             title: "Hastings Pier Webcam and English Channel LIVE HD"
             icon: "https://i.ytimg.com/vi/aRWsI8l-n5E/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=aRWsI8l-n5E&resume"
+            video: "https://www.youtube.com/TV#/watch/video/control?v=aRWsI8l-n5E"
             player: "YouTube"
         }
         ListElement
@@ -156,16 +156,24 @@ BaseScreen
             webcam: "18"
             title: "Live 24/7 Downtown Bangor, MI Live Eye Cam"
             icon: "https://i.ytimg.com/vi/gMDeJE4uWTc/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=gMDeJE4uWTc&resume"
+            video: "https://www.youtube.com/TV#/watch/video/control?v=gMDeJE4uWTc"
             player: "YouTube"
         }
         ListElement
         {
             webcam: "19"
-            title: "Isle of Wight Steam Ralway - Havenstreet"
+            title: "Isle of Wight Steam Railway - Havenstreet"
             icon: "http://www.iwsteamrailway.co.uk/files/images/crossing-staff-90permission-steve-taylorjpg.jpg"
             video: "http://www.camsecure.co.uk/webcam/iwsteam/cam.html"
             player: "WebBrowser"
+        }
+        ListElement
+        {
+            webcam: "20"
+            title: "Hamptons.com Shelter Island South Ferry Cam LIVE!"
+            icon: "https://i.ytimg.com/vi/UmsfUJ8dF3U/hqdefault.jpg"
+            video: "https://www.youtube.com/TV#/watch/video/control?v=UmsfUJ8dF3U"
+            player: "YouTube"
         }
     }
 
