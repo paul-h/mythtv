@@ -16,7 +16,7 @@ ListModel
     }
     ListElement
     {
-        menutext: "BBC Forcast"
+        menutext: "BBC Forecast"
         loaderSource:"WebBrowser.qml"
         waterMark: "watermark/weather.png"
         url: "https://www.bbc.co.uk/weather/0/2644547"
@@ -24,7 +24,7 @@ ListModel
     }
     ListElement
     {
-        menutext: "Met Office Forcast"
+        menutext: "Met Office Forecast"
         loaderSource:"WebBrowser.qml"
         waterMark: "watermark/weather.png"
         url: "https://www.metoffice.gov.uk/public/weather/forecast/gcw16xq5y"
@@ -43,7 +43,15 @@ ListModel
         menutext:"Rain Radar"
         loaderSource: "WebBrowser.qml"
         waterMark: "watermark/weather.png"
-        url: "http://192.168.1.33/weewx/simple/index.html"
+        url: "http://192.168.1.33/weewx/simple/radar.html"
+        zoom: 1.0
+    }
+    ListElement
+    {
+        menutext: "Met Office Video Forecast"
+        loaderSource:"WebBrowser.qml"
+        waterMark: "watermark/weather.png"
+        url: "http://192.168.1.33/weewx/simple/video_forecast.html"
         zoom: 1.0
     }
 }
