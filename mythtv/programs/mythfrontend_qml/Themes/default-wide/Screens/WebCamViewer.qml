@@ -1,191 +1,123 @@
 import QtQuick 2.0
 import Base 1.0
 import Dialogs 1.0
+import "../../../Models"
+import SortFilterProxyModel 0.2
 
 BaseScreen
 {
     defaultFocusItem: webcamGrid
 
+    property string filterCategory
+    property bool titleSorterActive: true
+
     Component.onCompleted:
     {
         showTitle(true, "WebCam Viewer");
+        showTime(false);
+        showTicker(false);
     }
 
-    ListModel
+    property list<QtObject> titleSorter:
+    [
+        RoleSorter { roleName: "title"; ascendingOrder: true}
+    ]
+
+    property list<QtObject> idSorter:
+    [
+        RoleSorter { roleName: "id" }
+    ]
+
+    WebCamModel{ id: webCamModel }
+
+    SortFilterProxyModel
     {
-        id: webcamModel
-        ListElement
+        id: webcamProxyModel
+        sourceModel: webCamModel
+        filters:
+        [
+            AllOf
+            {
+                RegExpFilter
+                {
+                    roleName: "categories"
+                    pattern: filterCategory
+                    caseSensitivity: Qt.CaseInsensitive
+                }
+            }
+        ]
+        sorters: titleSorter
+    }
+
+    Keys.onPressed:
+    {
+        if (event.key === Qt.Key_M)
         {
-            webcam: "1"
-            title: "Railcam Free View Channel"
-            icon: "https://i.ytimg.com/vi/bSaz5KDqVgg/hqdefault.jpg"
-            //video: "https://www.youtube.com/watch?v=bSaz5KDqVgg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=bSaz5KDqVgg"
-            player: "YouTube"
         }
-        ListElement
+        else if (event.key === Qt.Key_F1)
         {
-            webcam: "2"
-            title: "Dawlish Beach Cams, Blenheim Cam"
-            icon: "https://i.ytimg.com/vi/tf7GnMEH2T8/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=tf7GnMEH2T8"
-            player: "YouTube"
+            // RED
+            if (titleSorterActive)
+            {
+                webcamProxyModel.sorters = idSorter;
+                sort.text = "Sort (No.)";
+            }
+            else
+            {
+                webcamProxyModel.sorters = titleSorter;
+                sort.text = "Sort (Name)";
+            }
+
+            titleSorterActive = !titleSorterActive;
         }
-        ListElement
+        else if (event.key === Qt.Key_F2)
         {
-            webcam: "3"
-            title: "Dawlish Beach Cams, Salty Cottage Cam, Teignmouth"
-            icon: "https://i.ytimg.com/vi/nE2DizZtb4U/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=nE2DizZtb4U"
-            player: "YouTube"
+            // GREEN
+            searchDialog.model = webCamModel.categoryList
+            searchDialog.show();
         }
-        ListElement
+        else if (event.key === Qt.Key_F3)
         {
-            webcam: "4"
-            title: "LIVE Trains Railway 24/24 Train Driver's View: Cab Ride Line Railroad in Winter!"
-            icon: "https://i.ytimg.com/vi/eFtWa01E1-o/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=eFtWa01E1-o"
-            player: "YouTube"
+            // YELLOW
         }
-        ListElement
+        else if (event.key === Qt.Key_F4)
         {
-            webcam: "5"
-            title: "Molti Treni Senza Sosta"
-            icon: "https://i.ytimg.com/vi/9rZEAnuj1mI/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=9rZEAnuj1mI"
-            player: "YouTube"
+            //BLUE
+            if (webcamGrid.model.get(webcamGrid.currentIndex).website != undefined)
+            {
+                stack.push({item: Qt.resolvedUrl("WebBrowser.qml"), properties:{url: webcamGrid.model.get(webcamGrid.currentIndex).website }});
+            }
+
+            event.accepted = true;
+            returnSound.play();
         }
-        ListElement
-        {
-            webcam: "6"
-            title: "Riding The Rails TV - 24/7 Cab Ride Views from around the world!"
-            icon: "https://i.ytimg.com/vi/E_-rumvbqdo/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=E_-rumvbqdo"
-            player: "YouTube"
-        }
-        ListElement
-        {
-            webcam: "7"
-            title: "Bridport Harbour (West Bay)"
-            icon: "https://i.ytimg.com/vi/vnlOhiN-bBI/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=vnlOhiN-bBI"
-            player: "YouTube"
-        }
-        ListElement
-        {
-            webcam: "8"
-            title: "La Grange, Kentucky USA - Virtual Railfan LIVE"
-            icon: "https://i.ytimg.com/vi/8OE1aS91yvQ/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=8OE1aS91yvQ"
-            player: "YouTube"
-        }
-        ListElement
-        {
-            webcam: "9"
-            title: "La Plata, Missouri USA - Virtual Railfan LIVE"
-            icon: "https://i.ytimg.com/vi/l06NXHeXIs8/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=l06NXHeXIs8"
-            player: "YouTube"
-        }
-        ListElement
-        {
-            webcam: "10"
-            title: "Hastings Pier Webcam and English Channel LIVE HD"
-            icon: "https://i.ytimg.com/vi/aRWsI8l-n5E/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=aRWsI8l-n5E"
-            player: "YouTube"
-        }
-        ListElement
-        {
-            webcam: "11"
-            title: "Jersey Beach Cam - St. Ouen Bay"
-            icon: "https://www.freedomholidays.com/_common/updateable/images/property/dsc_87822219a203d7.jpg?v=9160518"
-            video: "https://portal.hdontap.com/s/embed/?stream=watersplash_visitjersey-CUST&ratio=16:9"
-            player: "WebBrowser"
-        }
-        ListElement
-        {
-            webcam: "12"
-            title: "Blackpool - Promenade"
-            icon: "https://upload.wikimedia.org/wikipedia/commons/1/12/Blackpool_promenade_-_DSC07199.JPG"
-            video: "https://www.skylinewebcams.com/webcam/united-kingdom/england/blackpool/blackpool.html?w=227"
-            player: "WebBrowser"
-        }
-        ListElement
-        {
-            webcam: "13"
-            title: "West Somerset Railway - Bishops Lydeard"
-            icon: "http://www.wsr.org.uk/2018/07/001.jpg"
-            video: "http://maybach.railcam.co.uk:8080/BishopsLydeard_59234/embed.html"
-            player: "WebBrowser"
-        }
-        ListElement
-        {
-            webcam: "14"
-            title: "West Somerset Railway - Crowcombe Heathfield"
-            icon: "http://www.wsr.org.uk/2018/07/001.jpg"
-            video: "http://maybach.railcam.co.uk:8080/Crowcombe_72940/embed.html"
-            player: "WebBrowser"
-        }
-        ListElement
-        {
-            webcam: "15"
-            title: "West Somerset Railway - Blue Anchor"
-            icon: "http://www.wsr.org.uk/2018/07/001.jpg"
-            video: "http://maybach.railcam.co.uk:8080/BlueAnchor_68938/embed.html"
-            player: "WebBrowser"
-        }
-        ListElement
-        {
-            webcam: "16"
-            title: "West Somerset Railway - Seaward Way Crossing"
-            icon: "http://www.wsr.org.uk/2018/07/001.jpg"
-            video: "http://maybach.railcam.co.uk:8080/Minehead2_43582/embed.html"
-            player: "WebBrowser"
-        }
-        ListElement
-        {
-            webcam: "17"
-            title: "West Somerset Railway - Minehead Station"
-            icon: "http://www.wsr.org.uk/2018/07/001.jpg"
-            video: "http://maybach.railcam.co.uk:8080/Minehead_05286/embed.html"
-            player: "WebBrowser"
-        }
-        ListElement
-        {
-            webcam: "18"
-            title: "Live 24/7 Downtown Bangor, MI Live Eye Cam"
-            icon: "https://i.ytimg.com/vi/gMDeJE4uWTc/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=gMDeJE4uWTc"
-            player: "YouTube"
-        }
-        ListElement
-        {
-            webcam: "19"
-            title: "Isle of Wight Steam Railway - Havenstreet"
-            icon: "http://www.iwsteamrailway.co.uk/files/images/crossing-staff-90permission-steve-taylorjpg.jpg"
-            video: "http://www.camsecure.co.uk/webcam/iwsteam/cam.html"
-            player: "WebBrowser"
-        }
-        ListElement
-        {
-            webcam: "20"
-            title: "Hamptons.com Shelter Island South Ferry Cam LIVE!"
-            icon: "https://i.ytimg.com/vi/UmsfUJ8dF3U/hqdefault.jpg"
-            video: "https://www.youtube.com/TV#/watch/video/control?v=UmsfUJ8dF3U"
-            player: "YouTube"
-        }
+    }
+
+    BaseBackground
+    {
+        id: listBackground
+        x: xscale(10); y: yscale(50); width: parent.width - x - xscale(10); height: yscale(400)
+    }
+
+    BaseBackground { x: xscale(10); y: yscale(465); width: parent.width - xscale(20); height: yscale(210) }
+
+    InfoText
+    {
+        x: xscale(1050); y: yscale(5); width: xscale(200);
+        text: (webcamGrid.currentIndex + 1) + " of " + webcamGrid.model.count;
+        horizontalAlignment: Text.AlignRight
     }
 
     GridView
     {
         id: webcamGrid
-        x: xscale(50)
-        y: yscale(50)
-        width: xscale(1280) - xscale(96)
-        height: yscale(720) - yscale(100)
-        cellWidth: xscale(197)
-        cellHeight: yscale(155)
+        x: xscale(22)
+        y: yscale(60)
+        width: xscale(1280) - xscale(44)
+        height: yscale(390)
+        cellWidth: xscale(206)
+        cellHeight: yscale(130)
+        clip: true
 
         Component
         {
@@ -203,7 +135,7 @@ BaseScreen
         }
 
         highlight: Rectangle { z: 99; color: "red"; opacity: 0.4; radius: 5 }
-        model: webcamModel
+        model: webcamProxyModel
         delegate: webcamDelegate
         focus: true
 
@@ -211,14 +143,14 @@ BaseScreen
         {
             returnSound.play();
             if (webcamGrid.model.get(webcamGrid.currentIndex).player === "YouTube")
-                stack.push({item: Qt.resolvedUrl("YouTube.qml"), properties:{url: webcamGrid.model.get(webcamGrid.currentIndex).video}});
+                stack.push({item: Qt.resolvedUrl("YouTube.qml"), properties:{url: webcamGrid.model.get(webcamGrid.currentIndex).url}});
             else if (webcamGrid.model.get(webcamGrid.currentIndex).player === "WebBrowser")
             {
-                var url = webcamGrid.model.get(webcamGrid.currentIndex).video
+                var url = webcamGrid.model.get(webcamGrid.currentIndex).url
                 stack.push({item: Qt.resolvedUrl("WebBrowser.qml"), properties:{url: url, fullscreen: true, zoom: 1.0}});
             }
                 else
-                stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: webcamGrid.model.get(webcamGrid.currentIndex).video, title1: webcamGrid.model.get(webcamGrid.currentIndex).title}});
+                stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: webcamGrid.model.get(webcamGrid.currentIndex).url, title1: webcamGrid.model.get(webcamGrid.currentIndex).title}});
             event.accepted = true;
         }
 
@@ -226,11 +158,8 @@ BaseScreen
         {
             if (event.key === Qt.Key_M)
             {
-                popupMenu.clearMenuItems();
-
-                popupMenu.addMenuItem("Close All Windows");
-
-                popupMenu.show();
+                searchDialog.model = webCamModel.categoryList
+                searchDialog.show();
             }
             else
             {
@@ -238,7 +167,95 @@ BaseScreen
             }
         }
 
-        onCurrentIndexChanged: showTitle(true, webcamGrid.model.get(webcamGrid.currentIndex).title)
+        onCurrentIndexChanged: updateWebcamDetails();
+    }
+
+    TitleText
+    {
+        id: title
+        x: xscale(30); y: yscale(470)
+        width: xscale(900); height: yscale(65)
+        verticalAlignment: Text.AlignTop
+        multiline: true
+    }
+
+    Image
+    {
+        id: webcamIcon
+        x: xscale(950); y: yscale(480); width: xscale(300); height: yscale(178)
+    }
+
+    InfoText
+    {
+        id: description
+        x: xscale(30); y: yscale(540)
+        width: xscale(900); height: yscale(100)
+        verticalAlignment: Text.AlignTop
+        multiline: true
+    }
+
+    InfoText
+    {
+        id: category
+        x: xscale(30); y: yscale(630); width: xscale(900)
+        fontColor: "grey"
+    }
+
+    Image
+    {
+        id: websiteIcon
+        x: xscale(900); y: yscale(630); width: xscale(32); height: yscale(32)
+        source: mythUtils.findThemeFile("images/website.png")
+    }
+
+    Image
+    {
+        x: xscale(30); y: yscale(682); width: xscale(32); height: yscale(32)
+        source: mythUtils.findThemeFile("images/red_bullet.png")
+    }
+
+    InfoText
+    {
+        id: sort
+        x: xscale(65); y: yscale(682); width: xscale(250); height: yscale(32)
+        text: "Sort (Name)"
+    }
+
+    Image
+    {
+        x: xscale(350); y: yscale(682); width: xscale(32); height: yscale(32)
+        source: mythUtils.findThemeFile("images/green_bullet.png")
+    }
+
+    InfoText
+    {
+        id: show
+        x: xscale(385); y: yscale(682); width: xscale(250); height: yscale(32)
+        text: "Show (All Webcams)"
+    }
+
+    Image
+    {
+        x: xscale(670); y: yscale(682); width: xscale(32); height: yscale(32)
+        source: mythUtils.findThemeFile("images/yellow_bullet.png")
+    }
+
+    InfoText
+    {
+        x: xscale(705); y: yscale(682); width: xscale(250); height: yscale(32)
+        text: ""
+    }
+
+    Image
+    {
+        x: xscale(990); y: yscale(682); width: xscale(32); height: yscale(32)
+        source: mythUtils.findThemeFile("images/blue_bullet.png")
+    }
+
+    InfoText
+    {
+        x: xscale(1025); y: yscale(682); width: xscale(250); height: yscale(32)
+        text: "Go To Website"
     }
 
     PopupMenu
@@ -262,5 +279,64 @@ BaseScreen
         {
             webcamGrid.focus = true;
         }
+    }
+
+    SearchListDialog
+    {
+        id: searchDialog
+
+        title: "Choose a category"
+        message: ""
+
+        onAccepted:
+        {
+            webcamGrid.focus = true;
+
+        }
+        onCancelled:
+        {
+            webcamGrid.focus = true;
+        }
+
+        onItemSelected:
+        {
+            if (itemText != "<All Webcams>")
+            {
+                filterCategory = itemText;
+                show.text = "Show (" + itemText + ")"
+            }
+            else
+            {
+                filterCategory = "";
+                show.text = "Show (All Webcams)"
+
+            }
+
+            webcamGrid.focus = true;
+
+            updateWebcamDetails()
+        }
+    }
+
+    function updateWebcamDetails()
+    {
+        title.text = webcamGrid.model.get(webcamGrid.currentIndex).title;
+
+        // description
+        if (webcamGrid.model.get(webcamGrid.currentIndex).description != undefined)
+            description.text = webcamGrid.model.get(webcamGrid.currentIndex).description
+        else
+            description.text = ""
+
+        // category
+        category.text = webcamGrid.model.get(webcamGrid.currentIndex).categories;
+
+        // icon
+        if (webcamGrid.model.get(webcamGrid.currentIndex).icon)
+            webcamIcon.source = webcamGrid.model.get(webcamGrid.currentIndex).icon
+        else
+            webcamIcon.source = ""
+
+        websiteIcon.visible = ((webcamGrid.model.get(webcamGrid.currentIndex).website != undefined && webcamGrid.model.get(webcamGrid.currentIndex).website != "" ) ? true : false)
     }
 }
