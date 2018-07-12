@@ -140,6 +140,7 @@ int main(int argc, char *argv[])
     gSettings->setVideoPath(databaseUtils.getSetting("Qml_videoPath", hostName));
     gSettings->setPicturePath(databaseUtils.getSetting("Qml_picturePath", hostName));
     gSettings->setSdChannels(databaseUtils.getSetting("Qml_sdChannels", hostName));
+    gSettings->setWebcamPath(databaseUtils.getSetting("Qml_webcamPath", hostName));
 
     // set the websocket url using the master backend as a starting point
     QUrl url(gSettings->masterBackend());
