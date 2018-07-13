@@ -134,7 +134,7 @@ BaseScreen
                 else if (model.get(currentIndex).loaderSource === "WebBrowser.qml")
                 {
                     var url = model.get(currentIndex).url
-                    var zoom = model.get(currentIndex).zoom
+                    var zoom = xscale(model.get(currentIndex).zoom)
                     stack.push({item: Qt.resolvedUrl("WebBrowser.qml"), properties:{url: url, fullscreen: true, zoomFactor: zoom}});
                 }
                 else

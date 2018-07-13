@@ -85,7 +85,10 @@ BaseScreen
             //BLUE
             if (webcamGrid.model.get(webcamGrid.currentIndex).website != undefined)
             {
-                stack.push({item: Qt.resolvedUrl("WebBrowser.qml"), properties:{url: webcamGrid.model.get(webcamGrid.currentIndex).website }});
+                var website = webcamGrid.model.get(webcamGrid.currentIndex).website;
+                var zoom = xscale(webcamGrid.model.get(webcamGrid.currentIndex).zoom);
+                console.info("Zoom: " + zoom);
+                stack.push({item: Qt.resolvedUrl("WebBrowser.qml"), properties:{url: website, zoomFactor: zoom}});
             }
 
             event.accepted = true;
@@ -130,7 +133,7 @@ BaseScreen
                 y: yscale(5)
                 opacity: 1.0
                 width: webcamGrid.cellWidth - 10; height: webcamGrid.cellHeight - 10
-                source: icon
+                source: getIconURL(icon);
             }
         }
 
@@ -318,6 +321,19 @@ BaseScreen
         }
     }
 
+    function getIconURL(iconURL)
+    {
+        if (iconURL)
+        {
+            if (iconURL.startsWith("file://") || iconURL.startsWith("http://") || iconURL.startsWith("https://"))
+                return iconURL;
+            else
+                return settings.webcamPath + "/" + iconURL;
+        }
+
+        return ""
+    }
+
     function updateWebcamDetails()
     {
         title.text = webcamGrid.model.get(webcamGrid.currentIndex).title;
@@ -332,10 +348,7 @@ BaseScreen
         category.text = webcamGrid.model.get(webcamGrid.currentIndex).categories;
 
         // icon
-        if (webcamGrid.model.get(webcamGrid.currentIndex).icon)
-            webcamIcon.source = webcamGrid.model.get(webcamGrid.currentIndex).icon
-        else
-            webcamIcon.source = ""
+        webcamIcon.source = getIconURL(webcamGrid.model.get(webcamGrid.currentIndex).icon);
 
         websiteIcon.visible = ((webcamGrid.model.get(webcamGrid.currentIndex).website != undefined && webcamGrid.model.get(webcamGrid.currentIndex).website != "" ) ? true : false)
     }

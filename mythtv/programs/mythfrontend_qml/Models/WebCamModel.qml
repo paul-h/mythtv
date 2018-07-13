@@ -15,6 +15,7 @@ XmlListModel
     XmlRole { name: "icon"; query: "icon/string()" }
     XmlRole { name: "url"; query: "url/string()" }
     XmlRole { name: "website"; query: "website/string()" }
+    XmlRole { name: "zoom"; query: "zoom/number()" }
     XmlRole { name: "player"; query: "player/string()" }
     XmlRole { name: "categories"; query: "string-join(categories/category/@name, ', ')" }
 
