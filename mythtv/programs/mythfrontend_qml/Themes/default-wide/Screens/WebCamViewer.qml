@@ -87,7 +87,6 @@ BaseScreen
             {
                 var website = webcamGrid.model.get(webcamGrid.currentIndex).website;
                 var zoom = xscale(webcamGrid.model.get(webcamGrid.currentIndex).zoom);
-                console.info("Zoom: " + zoom);
                 stack.push({item: Qt.resolvedUrl("WebBrowser.qml"), properties:{url: website, zoomFactor: zoom}});
             }
 
