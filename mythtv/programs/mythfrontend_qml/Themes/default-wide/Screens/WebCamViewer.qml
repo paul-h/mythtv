@@ -16,6 +16,22 @@ BaseScreen
         showTitle(true, "WebCam Viewer");
         showTime(false);
         showTicker(false);
+
+        while (stack.busy) {};
+
+        filterCategory = dbUtils.getSetting("Qml_lastWebcamCategory", settings.hostName)
+
+        if (filterCategory == "<All Webcams>" || filterCategory == "")
+            show.text = "Show (All Webcams)"
+        else
+            show.text = "Show (" + filterCategory + ")"
+
+        webcamProxyModel.sourceModel = webcamModel
+    }
+
+    Component.onDestruction:
+    {
+        dbUtils.setSetting("Qml_lastWebcamCategory", settings.hostName, filterCategory)
     }
 
     property list<QtObject> titleSorter:
@@ -28,12 +44,11 @@ BaseScreen
         RoleSorter { roleName: "id" }
     ]
 
-    WebCamModel{ id: webCamModel }
+    WebCamModel{ id: webcamModel }
 
     SortFilterProxyModel
     {
         id: webcamProxyModel
-        sourceModel: webCamModel
         filters:
         [
             AllOf
@@ -73,7 +88,7 @@ BaseScreen
         else if (event.key === Qt.Key_F2)
         {
             // GREEN
-            searchDialog.model = webCamModel.categoryList
+            searchDialog.model = webcamModel.categoryList
             searchDialog.show();
         }
         else if (event.key === Qt.Key_F3)
@@ -131,6 +146,7 @@ BaseScreen
                 x: xscale(5)
                 y: yscale(5)
                 opacity: 1.0
+                asynchronous: true
                 width: webcamGrid.cellWidth - 10; height: webcamGrid.cellHeight - 10
                 source: getIconURL(icon);
             }
@@ -160,7 +176,7 @@ BaseScreen
         {
             if (event.key === Qt.Key_M)
             {
-                searchDialog.model = webCamModel.categoryList
+                searchDialog.model = webcamModel.categoryList
                 searchDialog.show();
             }
             else
@@ -185,6 +201,7 @@ BaseScreen
     {
         id: webcamIcon
         x: xscale(950); y: yscale(480); width: xscale(300); height: yscale(178)
+        asynchronous: true
     }
 
     InfoText
@@ -219,7 +236,7 @@ BaseScreen
     InfoText
     {
         id: sort
-        x: xscale(65); y: yscale(682); width: xscale(250); height: yscale(32)
+        x: xscale(65); y: yscale(682); width: xscale(285); height: yscale(32)
         text: "Sort (Name)"
     }
 
@@ -232,7 +249,7 @@ BaseScreen
     InfoText
     {
         id: show
-        x: xscale(385); y: yscale(682); width: xscale(250); height: yscale(32)
+        x: xscale(385); y: yscale(682); width: xscale(285); height: yscale(32)
         text: "Show (All Webcams)"
     }
 
@@ -244,7 +261,7 @@ BaseScreen
 
     InfoText
     {
-        x: xscale(705); y: yscale(682); width: xscale(250); height: yscale(32)
+        x: xscale(705); y: yscale(682); width: xscale(285); height: yscale(32)
         text: ""
     }
 
@@ -256,7 +273,7 @@ BaseScreen
 
     InfoText
     {
-        x: xscale(1025); y: yscale(682); width: xscale(250); height: yscale(32)
+        x: xscale(1025); y: yscale(682); width: xscale(285); height: yscale(32)
         text: "Go To Website"
     }
 
