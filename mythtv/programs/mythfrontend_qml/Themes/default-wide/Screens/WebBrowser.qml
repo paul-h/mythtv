@@ -1,6 +1,6 @@
 import QtQuick 2.0
 import QtQuick.Controls 1.4
-import QtWebEngine 1.3
+import QtWebEngine 1.5
 import Base 1.0
 import Dialogs 1.0
 
@@ -24,7 +24,9 @@ BaseScreen
 
     Action
     {
+        id: escapeAction
         shortcut: "Escape"
+        enabled: browser.focus
         onTriggered: if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
     }
 
@@ -32,24 +34,28 @@ BaseScreen
     {
         shortcut: "F8"
         onTriggered: toggleFullscreen()
+        enabled: browser.focus
     }
 
     Action
     {
         shortcut: "+"
         onTriggered: zoom(true);
+        enabled: browser.focus
     }
 
     Action
     {
         shortcut: "-"
         onTriggered: zoom(false);
+        enabled: browser.focus
     }
 
     Action
     {
         shortcut: "M"
         onTriggered: popupMenu.show();
+        enabled: browser.focus
     }
 
     WebEngineView
@@ -62,6 +68,15 @@ BaseScreen
         zoomFactor: xscale(1.0)
         url: "https://www.google.co.uk"
         settings.pluginsEnabled : true
+
+        onNewViewRequested:
+        {
+            var website = request.requestedUrl.toString();
+            var zoom = zoomFactor;
+            stack.push({item: Qt.resolvedUrl("WebBrowser.qml"), properties:{url: website, zoomFactor: zoom}});
+        }
+        onFullScreenRequested: request.accept();
+        onNavigationRequested: request.action = WebEngineNavigationRequest.AcceptRequest;
     }
 
     PopupMenu
