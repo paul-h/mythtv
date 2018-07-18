@@ -27,7 +27,13 @@ BaseScreen
         id: escapeAction
         shortcut: "Escape"
         enabled: browser.focus
-        onTriggered: if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
+        onTriggered:
+        {
+            if (browser.canGoBack)
+                browser.goBack();
+            else
+                if (stack.depth > 1) {stack.pop(); escapeSound.play();} else Qt.quit();
+        }
     }
 
     Action
