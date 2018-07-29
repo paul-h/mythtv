@@ -1078,6 +1078,9 @@ static int InOpen(vlc_object_t *p_obj)
     p_sys->i_filesize_last_updated = 0;
     p_sys->b_eofing = false;
 
+    p_sys->b_eof = false;
+    p_sys->i_pos = 0;
+
     p_sys->i_size = 0;
     p_sys->i_title = 0;
     p_sys->i_seekpoint = 0;
@@ -1155,6 +1158,12 @@ static int InOpen(vlc_object_t *p_obj)
         goto exit_error;
     }
 
+    p_access->pf_read = Read;
+    p_access->pf_block = NULL;
+    p_access->pf_seek = Seek;
+    p_access->pf_control = Control;
+
+    msg_Info(p_access, "InOpen exiting with VLC_SUCCESS");
     return VLC_SUCCESS;
 
 exit_error:
@@ -1200,10 +1209,10 @@ static int _Seek(stream_t *p_access, int64_t i_pos)
 {
     access_sys_t *p_sys = p_access->p_sys;
 
+    msg_Info(p_access, "_Seek: seeking to %"PRId64" / %"PRId64, i_pos, p_sys->i_size);
+
     if( i_pos < 0 )
         return VLC_EGENERIC;
-
-    msg_Info(p_access, "seeking to %"PRId64" / %"PRId64, i_pos, p_sys->i_size);
 
     char *psz_params;
     int i_plen;
@@ -1239,7 +1248,9 @@ static int Seek(stream_t *p_access, uint64_t i_pos)
 {
     access_sys_t *p_sys = p_access->p_sys;
 
-    int val = _Seek(p_access->p_sys, i_pos);
+    msg_Info(p_access, "Seek(): seeking to %"PRId64" / %"PRId64, i_pos, p_sys->i_size);
+
+    int val = _Seek(p_access, i_pos);
     if (val)
         return val;
 
@@ -1267,9 +1278,9 @@ static ssize_t Read(stream_t *p_access, uint8_t *p_buffer, size_t i_len)
     if (p_sys->b_eof)
         return 0;
 
-    msg_Dbg(p_access, "Want Read %"PRId64, i_len);
+    //msg_Info(p_access, "Want Read %"PRId64, i_len);
 
-    msg_Dbg(p_access, "REQUEST_BLOCK %"PRId64, i_len);
+    //msg_Info(p_access, "REQUEST_BLOCK %"PRId64, i_len);
     if (myth_Send(VLC_OBJECT(p_access), p_sys->fd_cmd, &i_plen, &psz_params, "QUERY_FILETRANSFER %s[]:[]REQUEST_BLOCK[]:[]%d",
                   p_sys->myth.file_transfer_id, i_len))
     {
@@ -1278,7 +1289,7 @@ static ssize_t Read(stream_t *p_access, uint8_t *p_buffer, size_t i_len)
 
     i_will_receive = atoi(myth_token(psz_params, i_plen, 0));
 
-    msg_Dbg(p_access, "i_will_receive %d", i_will_receive);
+    //msg_Info(p_access, "i_will_receive %d", i_will_receive);
     if (i_will_receive <= 0)
     {
         msg_Dbg(p_access, "SET EOFing");
@@ -1294,7 +1305,7 @@ static ssize_t Read(stream_t *p_access, uint8_t *p_buffer, size_t i_len)
     // check if last block now read
     if (p_sys->b_eofing && i_will_receive == 0)
     {
-        msg_Dbg(p_access, "SET EOF from eofing");
+        msg_Info(p_access, "SET EOF from eofing");
         p_sys->b_eof = true;
         return 0;
     }
@@ -1332,20 +1343,20 @@ static ssize_t Read(stream_t *p_access, uint8_t *p_buffer, size_t i_len)
             if (p_sys->i_size != i_newsize)
             {
                 p_sys->i_size = i_newsize;
-               msg_Dbg(p_access, "new file size %"PRId64" position %"PRId64, i_newsize, p_sys->i_pos);
+               msg_Info(p_access, "new file size %"PRId64" position %"PRId64, i_newsize, p_sys->i_pos);
             }
         }
 
         free(psz_params);
     }
 
-    int i_read = net_Read(p_access, p_sys->fd_data, p_buffer, i_len);
+    int i_read = net_Read(p_access, p_sys->fd_data, p_buffer, i_will_receive);
 
-    msg_Dbg(p_access, "i_read %d", i_read);
+    //msg_Info(p_access, "i_read %d", i_read);
 
     if (i_read <= 0)
     {
-        msg_Dbg(p_access, "SET EOF because i_read nothing");
+        msg_Info(p_access, "SET EOF because i_read nothing");
         p_sys->b_eof = true;
     }
     else
@@ -1374,6 +1385,7 @@ static ssize_t Read(stream_t *p_access, uint8_t *p_buffer, size_t i_len)
         }
     }
 
+    //msg_Info(p_access, "Read(): exiting Wanted%"PRId64" got%"PRId64 , i_len, i_read);
     return i_read;
 }
 
@@ -1390,6 +1402,8 @@ static int Control(stream_t *p_access, int i_query, va_list args)
     int          i_idx;
     access_sys_t *p_sys = p_access->p_sys;
 
+    //msg_Info(p_access, "Control query %d", i_query);
+    
     switch(i_query)
     {
         /* */
@@ -1399,7 +1413,7 @@ static int Control(stream_t *p_access, int i_query, va_list args)
             break;
         case STREAM_CAN_FASTSEEK:
             pb_bool = (bool*)va_arg(args, bool*);
-            *pb_bool = true;
+            *pb_bool = false;
             break;
         case STREAM_CAN_PAUSE:
             pb_bool = (bool*)va_arg(args, bool*);
@@ -1477,7 +1491,7 @@ static int Control(stream_t *p_access, int i_query, va_list args)
             /* TODO handle editions as titles */
             i_idx = (int)va_arg(args, int);
             p_sys->i_title = i_idx;
-            msg_Err( p_access, "STREAM_SET_TITLE %d", i_idx);
+            msg_Info( p_access, "STREAM_SET_TITLE %d", i_idx);
             //if (i_idx < p_sys->used_segments.size())
             //{
             //    p_sys->JumpTo(*p_sys->used_segments[i_idx], NULL);
