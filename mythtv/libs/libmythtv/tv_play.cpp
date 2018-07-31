@@ -1309,7 +1309,7 @@ bool TV::Init(bool createWindow)
         }
 
         // main window sizing
-        int maxWidth = 1920, maxHeight = 1440;
+        int maxWidth = 3840, maxHeight = 2160;
         if (switchMode)
         {
             DisplayRes *display_res = DisplayRes::GetDisplayRes();
@@ -3693,12 +3693,18 @@ bool TV::eventFilter(QObject *o, QEvent *e)
 
     // Intercept keypress events unless they need to be handled by a main UI
     // screen (e.g. GuideGrid, ProgramFinder)
-    QScopedPointer<QEvent> sNewEvent(NULL);
-    if (GetMythMainWindow()->keyLongPressFilter(&e, sNewEvent))
+
+    if ( (QEvent::KeyPress == e->type() || QEvent::KeyRelease == e->type())
+        && ignoreKeyPresses )
         return false;
 
+    QScopedPointer<QEvent> sNewEvent(NULL);
+    if (GetMythMainWindow()->keyLongPressFilter(&e, sNewEvent))
+        return true;
+
     if (QEvent::KeyPress == e->type())
-        return ignoreKeyPresses ? false : event(e);
+        return event(e);
+
     if (MythGestureEvent::kEventType == e->type())
         return ignoreKeyPresses ? false : event(e);
 
