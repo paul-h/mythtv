@@ -23,6 +23,7 @@
 #include "settings.h"
 #include "urlinterceptor.h"
 #include "process.h"
+#include "keypresslistener.h"
 
 #define SHAREPATH "file:///usr/share/mythtv/"
 
@@ -34,7 +35,7 @@ static QString dbName;
 
 //#undef QT_NO_DEBUG_OUTPUT
 
-extern Settings *gSettings = NULL;
+Settings *gSettings = NULL;
 
 static bool loadDBSettings(void)
 {
@@ -176,6 +177,10 @@ int main(int argc, char *argv[])
     // create the myth utils
     MythUtils mythUtils(&engine);
     engine.rootContext()->setContextProperty("mythUtils", &mythUtils);
+
+    // create keypresslistener
+    KeyPressListener kpl;
+    engine.rootContext()->setContextProperty("keyPressListener", &kpl);
 
     // create the radio streams model
     SqlQueryModel *radioStreamsModel = new SqlQueryModel(&engine);
