@@ -32,6 +32,6 @@ LIBS += -lmythmetadata-$$LIBVERSION
 # libmythtv dependencies
 using_live: LIBS += -lmythlivemedia-$$LIBVERSION
 using_mheg: LIBS += -lmythfreemheg-$$LIBVERSION
-using_hdhomerun: LIBS += -lmythhdhomerun-$$LIBVERSION
+using_hdhomerun: LIBS += -lhdhomerun
 
 QT += xml sql opengl network
