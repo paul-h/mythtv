@@ -1750,9 +1750,6 @@ bool HLSRingBuffer::IsHTTPLiveStreaming(QByteArray *s)
 bool HLSRingBuffer::TestForHTTPLiveStreaming(const QString &filename)
 {
     bool isHLS = false;
-    avcodeclock->lock();
-    av_register_all();
-    avcodeclock->unlock();
     URLContext *context;
 
     // Do a peek on the URL to test the format
@@ -2381,7 +2378,6 @@ void HLSRingBuffer::SanityCheck(const HLSStream *hls) const
 HLSSegment *HLSRingBuffer::GetSegment(int segnum, int timeout)
 {
     HLSSegment *segment = NULL;
-    int retries = 0;
     int stream = m_streamworker->StreamForSegment(segnum);
     if (stream < 0)
     {
@@ -2393,6 +2389,7 @@ HLSSegment *HLSRingBuffer::GetSegment(int segnum, int timeout)
         LOG(VB_PLAYBACK, LOG_WARNING, LOC +
             LOC + QString("waiting to get segment %1")
             .arg(segnum));
+        int retries = 0;
         while (!m_error && (stream < 0) && (retries < 10))
         {
             m_streamworker->WaitForSignal(timeout);
@@ -2678,7 +2675,7 @@ void HLSRingBuffer::WaitUntilBuffered(void)
         return;
 
     if (m_streamworker->GotBufferedSegments(m_playback->Segment(), 2) ||
-        (!live && (live || m_streamworker->IsAtEnd())))
+        (!live && m_streamworker->IsAtEnd()))
     {
         return;
     }
@@ -2691,7 +2688,7 @@ void HLSRingBuffer::WaitUntilBuffered(void)
     int retries = 0;
     while (!m_error && !m_interrupted &&
            (m_streamworker->CurrentPlaybackBuffer(false) < 2) &&
-           (live || (!live && !m_streamworker->IsAtEnd())))
+           (live || !m_streamworker->IsAtEnd()))
     {
         m_streamworker->WaitForSignal(1000);
         retries++;

@@ -131,8 +131,7 @@ bool CardUtil::IsCableCardPresent(uint inputid,
         if (!hdhr)
             return false;
 
-        int oob = -1;
-        oob = hdhomerun_device_get_oob_status(hdhr, NULL, &status);
+        int oob = hdhomerun_device_get_oob_status(hdhr, NULL, &status);
 
         // if no OOB tuner, oob will be < 1.  If no CC present, OOB
         // status will be "none."
@@ -2268,7 +2267,6 @@ QString CardUtil::GetHDHRdesc(const QString &device)
 
 #ifdef USING_HDHOMERUN
     bool      deviceIsIP = false;
-    uint32_t  dev;
 
     if (device.contains('.'))  // Simplistic check, but also allows DNS names
         deviceIsIP = true;
@@ -2276,7 +2274,7 @@ QString CardUtil::GetHDHRdesc(const QString &device)
     {
         bool validID;
 
-        dev = device.toUInt(&validID, 16);
+        uint32_t dev = device.toUInt(&validID, 16);
         if (!validID || !hdhomerun_discover_validate_device_id(dev))
             return QObject::tr("Invalid Device ID");
     }
@@ -2597,8 +2595,7 @@ bool CardUtil::IsVBoxPresent(uint inputid)
         url = query.value(0).toString();
 
     //now get just the IP address from the url
-    QString ip ="";
-    ip = url.host();
+    QString ip = url.host();
     LOG(VB_GENERAL, LOG_INFO, QString("VBOX IP found (%1) for inputid (%2)")
                 .arg(ip).arg(inputid));
 

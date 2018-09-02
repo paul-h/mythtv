@@ -235,8 +235,6 @@ static int CalcTrackLength(const MythUtilCommandLineParser &cmdline)
         return GENERIC_EXIT_NOT_OK;
     }
 
-    av_register_all();
-
     AVFormatContext *inputFC = NULL;
     AVInputFormat *fmt = NULL;
 
@@ -477,11 +475,10 @@ static int FindLyrics(const MythUtilCommandLineParser &cmdline)
 
     QStringList scripts;
     QFileInfoList::const_iterator it = list.begin();
-    const QFileInfo *fi;
 
     while (it != list.end())
     {
-        fi = &(*it);
+        const QFileInfo *fi = &(*it);
         ++it;
         LOG(VB_GENERAL, LOG_NOTICE, QString("Found lyric script at: %1").arg(fi->filePath()));
         scripts.append(fi->filePath());

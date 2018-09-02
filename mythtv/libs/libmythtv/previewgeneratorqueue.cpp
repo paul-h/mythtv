@@ -226,7 +226,7 @@ bool PreviewGeneratorQueue::event(QEvent *e)
     if (e->type() != (QEvent::Type) MythEvent::MythEventMessage)
         return QObject::event(e);
 
-    MythEvent *me = (MythEvent*)e;
+    MythEvent *me = static_cast<MythEvent*>(e);
     if (me->Message() == "GET_PREVIEW")
     {
         const QStringList &list = me->ExtraDataList();
@@ -236,7 +236,6 @@ bool PreviewGeneratorQueue::event(QEvent *e)
         QSize outputsize;
         QString outputfile;
         long long time = -1LL;
-        bool time_fmt_sec;
         if (it != list.end())
             token = (*it++);
         if (it != list.end())
@@ -250,7 +249,7 @@ bool PreviewGeneratorQueue::event(QEvent *e)
         QString fn;
         if (it != list.end())
         {
-            time_fmt_sec = (*it++).toInt() != 0;
+            bool time_fmt_sec = (*it++).toInt() != 0;
             fn = GeneratePreviewImage(evinfo, outputsize, outputfile,
                                       time, time_fmt_sec, token);
         }
@@ -551,7 +550,7 @@ QString PreviewGeneratorQueue::GeneratePreviewImage(
             LOG(VB_PLAYBACK, LOG_INFO, LOC +
                 QString("Requested preview for '%1'").arg(key));
         }
-        else if (attempts >= m_maxAttempts)
+        else
         {
             LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("Attempted to generate preview for '%1' "

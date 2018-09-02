@@ -1144,7 +1144,7 @@ void MainServer::customEvent(QEvent *e)
 
     if ((MythEvent::Type)(e->type()) == MythEvent::MythEventMessage)
     {
-        MythEvent *me = (MythEvent *)e;
+        MythEvent *me = static_cast<MythEvent *>(e);
 
         QString message = me->Message();
         QString error;
@@ -2513,13 +2513,12 @@ void MainServer::DeleteRecordedFiles(DeleteStruct *ds)
     QString basename;
     QString hostname;
     QString storagegroup;
-    bool deleteInDB;
     while (query.next())
     {
         basename = query.value(0).toString();
         hostname = query.value(1).toString();
         storagegroup = query.value(2).toString();
-        deleteInDB = false;
+        bool deleteInDB = false;
 
         if (basename == QFileInfo(ds->m_filename).fileName())
             deleteInDB = true;
@@ -4229,7 +4228,6 @@ void MainServer::HandleLockTuner(PlaybackSock *pbs, int cardid)
     QString pbshost = pbs->getHostname();
 
     QStringList strlist;
-    int retval;
 
     EncoderLink *encoder = NULL;
     QString enchost;
@@ -4262,7 +4260,7 @@ void MainServer::HandleLockTuner(PlaybackSock *pbs, int cardid)
 
     if (encoder)
     {
-        retval = encoder->LockTuner();
+        int retval = encoder->LockTuner();
 
         if (retval != -1)
         {
@@ -5546,7 +5544,6 @@ bool MainServer::HandleDeleteFile(QString filename, QString storagegroup,
 
     QFile checkFile(fullfile);
     bool followLinks = gCoreContext->GetNumSetting("DeletesFollowLinks", 0);
-    int fd = -1;
     off_t size = 0;
 
     // This will open the file and unlink the dir entry.  The actual file
@@ -5554,7 +5551,7 @@ bool MainServer::HandleDeleteFile(QString filename, QString storagegroup,
     // Since stat fails after unlinking on some filesystems, get the size first
     const QFileInfo info(fullfile);
     size = info.size();
-    fd = DeleteFile(fullfile, followLinks);
+    int fd = DeleteFile(fullfile, followLinks);
 
     if ((fd < 0) && checkFile.exists())
     {
@@ -7241,11 +7238,10 @@ void MainServer::HandleMusicGetLyricGrabbers(const QStringList &/*slist*/, Playb
 
     QStringList scripts;
     QFileInfoList::const_iterator it = list.begin();
-    const QFileInfo *fi;
 
     while (it != list.end())
     {
-        fi = &(*it);
+        const QFileInfo *fi = &(*it);
         ++it;
         LOG(VB_FILE, LOG_NOTICE, QString("Found lyric script at: %1").arg(fi->filePath()));
         scripts.append(fi->filePath());

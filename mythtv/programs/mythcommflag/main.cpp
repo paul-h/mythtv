@@ -473,7 +473,7 @@ static void incomingCustomEvent(QEvent* e)
 {
     if ((MythEvent::Type)(e->type()) == MythEvent::MythEventMessage)
     {
-        MythEvent *me = (MythEvent *)e;
+        MythEvent *me = static_cast<MythEvent *>(e);
         QString message = me->Message();
 
         message = message.simplified();
@@ -1280,12 +1280,11 @@ int main(int argc, char *argv[])
         if (query.exec() && query.isActive() && query.size() > 0)
         {
             QDateTime starttime;
-            uint chanid;
 
             while (query.next())
             {
                 starttime = MythDate::fromString(query.value(1).toString());
-                chanid = query.value(0).toUInt();
+                uint chanid = query.value(0).toUInt();
 
                 if (!cmdline.toBool("force") && !cmdline.toBool("rebuild"))
                 {

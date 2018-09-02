@@ -150,10 +150,12 @@ Playlist::Playlist(void) :
     m_name(tr("oops")),
     m_parent(NULL),
     m_changed(false),
-    m_doSave(true),
+    m_doSave(true)
+#ifdef CD_WRTITING_FIXED
     m_progress(NULL),
     m_proc(NULL),
     m_procExitVal(0)
+#endif
 {
 }
 
@@ -378,10 +380,10 @@ void Playlist::shuffleTracks(MusicPlayer::ShuffleMode shuffleMode)
             QMultiMap<int, MusicMetadata::IdType> songMap;
             for (int x = 0;  x < m_songs.count(); x++)
             {
-                uint32_t album_order;
                 MusicMetadata *mdata = getRawSongAt(x);
                 if (mdata)
                 {
+                    uint32_t album_order;
                     album = album = mdata->Album() + " ~ " + QString("%1").arg(mdata->getAlbumId());;
                     if ((Ialbum = album_map.find(album)) == album_map.end())
                     {
@@ -446,10 +448,10 @@ void Playlist::shuffleTracks(MusicPlayer::ShuffleMode shuffleMode)
             QMultiMap<int, MusicMetadata::IdType> songMap;
             for (int x = 0; x < m_songs.count(); x++)
             {
-                uint32_t artist_order;
                 MusicMetadata *mdata = getRawSongAt(x);
                 if (mdata)
                 {
+                    uint32_t artist_order;
                     artist = mdata->Artist() + " ~ " + mdata->Title();
                     if ((Iartist = artist_map.find(artist)) == artist_map.end())
                     {
@@ -1130,8 +1132,8 @@ MusicMetadata* Playlist::getRawSongAt(int pos) const
 }
 
 // Here begins CD Writing things. ComputeSize, CreateCDMP3 & CreateCDAudio
-// FIXME non of this is currently used
-
+// FIXME none of this is currently used
+#ifdef CD_WRTITING_FIXED
 void Playlist::computeSize(double &size_in_MB, double &size_in_sec)
 {
     //double child_MB;
@@ -1457,3 +1459,4 @@ int Playlist::CreateCDAudio(void)
 {
     return -1;
 }
+#endif

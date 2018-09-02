@@ -605,9 +605,8 @@ bool ThemeChooser::keyPressEvent(QKeyEvent *event)
     if (GetFocusWidget()->keyPressEvent(event))
         return true;
 
-    bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("Theme Chooser", event, actions);
+    bool handled = GetMythMainWindow()->TranslateKeyPress("Theme Chooser", event, actions);
 
     for (int i = 0; i < actions.size() && !handled; ++i)
     {
@@ -820,7 +819,7 @@ void ThemeChooser::customEvent(QEvent *e)
 {
     if ((MythEvent::Type)(e->type()) == MythEvent::MythEventMessage)
     {
-        MythEvent *me = (MythEvent *)e;
+        MythEvent *me = static_cast<MythEvent *>(e);
         QStringList tokens = me->Message().split(" ", QString::SkipEmptyParts);
 
         if (tokens.isEmpty())
@@ -981,11 +980,10 @@ bool ThemeChooser::removeThemeDir(const QString &dirname)
     dir.setFilter(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     QFileInfoList list = dir.entryInfoList();
     QFileInfoList::const_iterator it = list.begin();
-    const QFileInfo *fi;
 
     while (it != list.end())
     {
-        fi = &(*it++);
+        const QFileInfo *fi = &(*it++);
         if (fi->isFile() && !fi->isSymLink())
         {
             if (!QFile::remove(fi->absoluteFilePath()))
@@ -1069,8 +1067,6 @@ void ThemeUpdateChecker::checkForUpdate(void)
         return;
 
     ThemeInfo *localTheme = NULL;
-    int locMaj = 0;
-    int locMin = 0;
 
     if (RemoteFile::Exists(m_infoPackage))
     {
@@ -1096,6 +1092,9 @@ void ThemeUpdateChecker::checkForUpdate(void)
 
             if (RemoteFile::Exists(infoXML))
             {
+                int locMaj = 0;
+                int locMin = 0;
+
                 ThemeInfo *remoteTheme = new ThemeInfo(remoteThemeDir);
                 if (!remoteTheme || remoteTheme->GetType() & THEME_UNKN)
                 {

@@ -2967,7 +2967,6 @@ MythMenu* PlaybackBox::createPlaylistJobMenu(void)
     QString jobTitle;
     QString command;
     QList<uint>::Iterator it;
-    ProgramInfo *tmpItem;
     bool isTranscoding = true;
     bool isFlagging = true;
     bool isMetadataLookup = true;
@@ -2978,7 +2977,7 @@ MythMenu* PlaybackBox::createPlaylistJobMenu(void)
 
     for(it = m_playList.begin(); it != m_playList.end(); ++it)
     {
-        tmpItem = FindProgramInUILists(*it);
+        ProgramInfo *tmpItem = FindProgramInUILists(*it);
         if (tmpItem)
         {
             if (!JobQueue::IsJobQueuedOrRunning(
@@ -3535,11 +3534,11 @@ void PlaybackBox::doAllowRerecord()
 
 void PlaybackBox::doPlaylistAllowRerecord()
 {
-    ProgramInfo *pginfo;
     QList<uint>::Iterator it;
 
     for (it = m_playList.begin(); it != m_playList.end(); ++it)
     {
+        ProgramInfo *pginfo;
         if ((pginfo = FindProgramInUILists(*it)))
         {
             RecordingInfo ri(*pginfo);
@@ -3621,12 +3620,11 @@ void PlaybackBox::doPlaylistJobQueueJob(int jobType, int jobFlags)
 
 void PlaybackBox::stopPlaylistJobQueueJob(int jobType)
 {
-    ProgramInfo *tmpItem;
     QList<uint>::Iterator it;
 
     for (it = m_playList.begin(); it != m_playList.end(); ++it)
     {
-        tmpItem = FindProgramInUILists(*it);
+        ProgramInfo *tmpItem = FindProgramInUILists(*it);
         if (tmpItem &&
             (JobQueue::IsJobQueuedOrRunning(
                 jobType,
@@ -4026,9 +4024,8 @@ bool PlaybackBox::keyPressEvent(QKeyEvent *event)
     if (GetFocusWidget()->keyPressEvent(event))
         return true;
 
-    bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend",
+    bool handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend",
                                                      event, actions);
 
     for (int i = 0; i < actions.size() && !handled; ++i)
@@ -4163,7 +4160,7 @@ void PlaybackBox::customEvent(QEvent *event)
     }
     else if ((MythEvent::Type)(event->type()) == MythEvent::MythEventMessage)
     {
-        MythEvent *me = (MythEvent *)event;
+        MythEvent *me = static_cast<MythEvent *>(event);
         QString message = me->Message();
 
         if (message.startsWith("RECORDING_LIST_CHANGE"))
@@ -5019,11 +5016,11 @@ void PlaybackBox::ShowPlayGroupChanger(bool use_playlist)
 
 void PlaybackBox::doPlaylistExpireSetting(bool turnOn)
 {
-    ProgramInfo *tmpItem;
     QList<uint>::Iterator it;
 
     for (it = m_playList.begin(); it != m_playList.end(); ++it)
     {
+        ProgramInfo *tmpItem;
         if ((tmpItem = FindProgramInUILists(*it)))
         {
             if (!tmpItem->IsAutoExpirable() && turnOn)
@@ -5036,11 +5033,11 @@ void PlaybackBox::doPlaylistExpireSetting(bool turnOn)
 
 void PlaybackBox::doPlaylistWatchedSetting(bool turnOn)
 {
-    ProgramInfo *tmpItem;
     QList<uint>::Iterator it;
 
     for (it = m_playList.begin(); it != m_playList.end(); ++it)
     {
+        ProgramInfo *tmpItem;
         if ((tmpItem = FindProgramInUILists(*it)))
         {
             tmpItem->SaveWatched(turnOn);

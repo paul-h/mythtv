@@ -689,8 +689,7 @@ GuideGrid::~GuideGrid()
 bool GuideGrid::keyPressEvent(QKeyEvent *event)
 {
     QStringList actions;
-    bool handled = false;
-    handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", event, actions);
+    bool handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", event, actions);
 
     if (handled)
         return true;
@@ -703,7 +702,7 @@ bool GuideGrid::keyPressEvent(QKeyEvent *event)
         {
             QString chanNum = actions[0];
             bool isNum;
-            chanNum.toInt(&isNum);
+            (void)chanNum.toInt(&isNum);
             if (isNum)
             {
                 // see if we can find a matching channel before creating the JumpToChannel otherwise
@@ -1885,7 +1884,7 @@ void GuideGrid::customEvent(QEvent *event)
 {
     if ((MythEvent::Type)(event->type()) == MythEvent::MythEventMessage)
     {
-        MythEvent *me = (MythEvent *)event;
+        MythEvent *me = static_cast<MythEvent *>(event);
         QString message = me->Message();
 
         if (message == "SCHEDULE_CHANGE")

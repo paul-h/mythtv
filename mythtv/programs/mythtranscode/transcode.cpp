@@ -490,7 +490,6 @@ int Transcode::TranscodeFile(const QString &inputname,
             }
 
             int segmentSize = hls->GetSegmentSize();
-            int audioOnlyBitrate = 0;
 
             LOG(VB_GENERAL, LOG_NOTICE,
                 QString("HLS: Using segment size of %1 seconds")
@@ -498,7 +497,7 @@ int Transcode::TranscodeFile(const QString &inputname,
 
             if (!hlsDisableAudioOnly)
             {
-                audioOnlyBitrate = hls->GetAudioOnlyBitrate();
+                int audioOnlyBitrate = hls->GetAudioOnlyBitrate();
 
                 avfw2 = new AVFormatWriter();
                 avfw2->SetContainer("mpegts");
@@ -897,6 +896,7 @@ int Transcode::TranscodeFile(const QString &inputname,
     // Do not use padding when compressing to RTjpeg or when in fifomode.
     // The RTjpeg compressor doesn't know how to handle strides different to
     // video width.
+    // cppcheck-suppress knownConditionTrueFalse
     bool nonAligned = vidsetting == "RTjpeg" || !fifodir.isEmpty(); 
     bool rescale =
         (video_width != newWidth) || (video_height != newHeight)

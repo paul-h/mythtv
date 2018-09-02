@@ -629,7 +629,7 @@ void UPNPScanner::replyFinished(QNetworkReply *reply)
     }
     else if (description)
     {
-        if (!valid || (valid && !ParseDescription(url, reply)))
+        if (!valid || !ParseDescription(url, reply))
         {
             // if there will be no more attempts, update the logs
             CheckFailure(url);
@@ -652,7 +652,7 @@ void UPNPScanner::customEvent(QEvent *event)
         return;
 
     // UPnP events
-    MythEvent *me  = (MythEvent *)event;
+    MythEvent *me  = static_cast<MythEvent *>(event);
     QString    ev  = me->Message();
 
     if (ev == "UPNP_STARTSCAN")

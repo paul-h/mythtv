@@ -422,7 +422,7 @@ bool PreviewGenerator::event(QEvent *e)
     if (e->type() != (QEvent::Type) MythEvent::MythEventMessage)
         return QObject::event(e);
 
-    MythEvent *me = (MythEvent*)e;
+    MythEvent *me = static_cast<MythEvent*>(e);
     if (me->Message() != "GENERATED_PIXMAP" || me->ExtraDataCount() < 3)
         return QObject::event(e);
 
@@ -827,7 +827,7 @@ char *PreviewGenerator::GetScreenGrab(
     }
 
     RingBuffer *rbuf = RingBuffer::Create(filename, false, false, 0);
-    if (!rbuf->IsOpen())
+    if (!rbuf || !rbuf->IsOpen())
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Previewer could not open file: " +
                 QString("'%1'").arg(filename));

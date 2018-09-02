@@ -952,11 +952,6 @@ void AvFormatDecoder::Reset(bool reset_video_data, bool seek_reset,
 bool AvFormatDecoder::CanHandle(char testbuf[kDecoderProbeBufferSize],
                                 const QString &filename, int testbufsize)
 {
-    {
-        QMutexLocker locker(avcodeclock);
-        av_register_all();
-    }
-
     AVProbeData probe;
     memset(&probe, 0, sizeof(AVProbeData));
 
@@ -1781,11 +1776,9 @@ static int cc608_parity(uint8_t byte)
 
 static void cc608_build_parity_table(int *parity_table)
 {
-    uint8_t byte;
-    int parity_v;
-    for (byte = 0; byte <= 127; byte++)
+    for (uint8_t byte = 0; byte <= 127; byte++)
     {
-        parity_v = cc608_parity(byte);
+        int parity_v = cc608_parity(byte);
         /* CC uses odd parity (i.e., # of 1's in byte is odd.) */
         parity_table[byte] = parity_v;
         parity_table[byte | 0x80] = !parity_v;
@@ -3103,7 +3096,6 @@ void AvFormatDecoder::DecodeCCx08(const uint8_t *buf, uint len, bool scte)
         uint data2    = buf[cur+2];
         uint data     = (data2 << 8) | data1;
         uint cc_type  = cc_code & 0x03;
-        uint field;
 
         if (!cc_valid)
         {
@@ -3114,6 +3106,7 @@ void AvFormatDecoder::DecodeCCx08(const uint8_t *buf, uint len, bool scte)
 
         if (scte || cc_type <= 0x1) // EIA-608 field-1/2
         {
+            uint field;
             if (cc_type == 0x2)
             {
                 // SCTE repeated field
@@ -3597,7 +3590,6 @@ bool AvFormatDecoder::ProcessVideoPacket(AVStream *curstream, AVPacket *pkt)
 {
     int retryCount = 0;
     int ret = 0, gotpicture = 0;
-    int64_t pts = 0;
     AVCodecContext *context = gCodecMap->getCodecContext(curstream);
     MythAVFrame mpa_pic;
     if (!mpa_pic)
@@ -3638,7 +3630,6 @@ bool AvFormatDecoder::ProcessVideoPacket(AVStream *curstream, AVPacket *pkt)
             //  into separate routines or separate threads.
             //  Also now that it always consumes a whole buffer some code
             //  in the caller may be able to be optimized.
-            ret = 0;
             ret = avcodec_receive_frame(context, mpa_pic);
 
             if (ret == 0)
@@ -3721,6 +3712,8 @@ bool AvFormatDecoder::ProcessVideoPacket(AVStream *curstream, AVPacket *pkt)
 
         if (!use_frame_timing)
         {
+            int64_t pts = 0;
+
             // Detect faulty video timestamps using logic from ffplay.
             if (pkt->dts != (int64_t)AV_NOPTS_VALUE)
             {
@@ -5474,7 +5467,6 @@ bool AvFormatDecoder::SetupAudioStream(void)
     AVStream *curstream = NULL;
     AVCodecContext *ctx = NULL;
     AudioInfo old_in    = audioIn;
-    bool using_passthru = false;
     int requested_channels;
 
     if ((currentTrack[kTrackTypeAudio] >= 0) && ic &&
@@ -5504,7 +5496,7 @@ bool AvFormatDecoder::SetupAudioStream(void)
             return false;
         }
 
-        using_passthru = DoPassThrough(curstream->codecpar, false);
+        bool using_passthru = DoPassThrough(curstream->codecpar, false);
 
         requested_channels = ctx->channels;
         ctx->request_channel_layout =
@@ -5624,8 +5616,8 @@ bool AvFormatDecoder::SetupAudioStream(void)
 
 void AvFormatDecoder::av_update_stream_timings_video(AVFormatContext *ic)
 {
-    int64_t start_time, start_time1, end_time, end_time1;
-    int64_t duration, duration1, filesize;
+    int64_t start_time, end_time;
+    int64_t duration;
     AVStream *st = NULL;
 
     start_time = INT64_MAX;
@@ -5645,18 +5637,18 @@ void AvFormatDecoder::av_update_stream_timings_video(AVFormatContext *ic)
 
    duration = INT64_MIN;
    if (st->start_time != (int64_t)AV_NOPTS_VALUE && st->time_base.den) {
-       start_time1= av_rescale_q(st->start_time, st->time_base, AV_TIME_BASE_Q);
+       int64_t start_time1= av_rescale_q(st->start_time, st->time_base, AV_TIME_BASE_Q);
        if (start_time1 < start_time)
            start_time = start_time1;
        if (st->duration != (int64_t)AV_NOPTS_VALUE) {
-           end_time1 = start_time1 +
+           int64_t end_time1 = start_time1 +
                       av_rescale_q(st->duration, st->time_base, AV_TIME_BASE_Q);
            if (end_time1 > end_time)
                end_time = end_time1;
        }
    }
    if (st->duration != (int64_t)AV_NOPTS_VALUE) {
-       duration1 = av_rescale_q(st->duration, st->time_base, AV_TIME_BASE_Q);
+       int64_t duration1 = av_rescale_q(st->duration, st->time_base, AV_TIME_BASE_Q);
        if (duration1 > duration)
            duration = duration1;
    }
@@ -5668,6 +5660,7 @@ void AvFormatDecoder::av_update_stream_timings_video(AVFormatContext *ic)
         }
     }
     if (duration != INT64_MIN) {
+        int64_t filesize;
         ic->duration = duration;
         if (ic->pb && (filesize = avio_size(ic->pb)) > 0) {
             /* compute the bitrate */

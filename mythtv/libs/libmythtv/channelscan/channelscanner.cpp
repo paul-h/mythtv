@@ -52,7 +52,7 @@ ChannelScanner::ChannelScanner() :
 #ifdef USING_VBOX
     vboxScanner(NULL),
 #endif
-    freeToAirOnly(false), serviceRequirements(kRequireAV)
+    freeToAirOnly(false), addFullTS(false), serviceRequirements(kRequireAV)
 {
 }
 
@@ -519,6 +519,7 @@ void ChannelScanner::PreScanCommon(
     bool using_rotor = false;
 
 #ifdef USING_DVB
+    // cppcheck-suppress redundantAssignment
     dvbm = sigmonScanner->GetDVBSignalMonitor();
     if (dvbm && mon)
         using_rotor = mon->HasFlags(SignalMonitor::kDVBSigMon_WaitForPos);

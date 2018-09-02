@@ -553,11 +553,10 @@ bool VideoOutputXv::InitVideoBuffers(bool use_xv, bool use_shm)
     bool done = false;
 
     // Create ffmpeg VideoFrames
-    if (!done)
-        vbuffers.Init(31, true, 1, 12, 4, 2);
+    vbuffers.Init(31, true, 1, 12, 4, 2);
 
     // Fall back to XVideo if there is an xv_port
-    if (!done && use_xv)
+    if (use_xv)
         done = InitXVideo();
 
     // only HW accel allowed for PIP and PBP
@@ -1549,11 +1548,10 @@ static void calc_bob(FrameScanType scan, int imgh, int disphoff,
     xv_dest_y_incr = dst_half_line_in_src;
     // nVidia v 66.29, does proper compensation when imgh==frame_height
     // but we need to compensate when the difference is >= 5%
-    int mod = 0;
     if (frame_height>=(int)(imgh+(0.05*frame_height)) && 2==field)
     {
         //int nrml = (int) round((((double)disphoff)/frame_height) - 0.00001);
-        mod = -dst_half_line_in_src;
+        int mod = -dst_half_line_in_src;
         dest_y += mod;
         xv_dest_y_incr -= mod;
     }
@@ -1596,10 +1594,10 @@ void VideoOutputXv::ShowXVideo(FrameScanType scan)
     const QRect display_video_rect = (vsz_enabled && chroma_osd) ?
                                       vsz_desired_display_rect :
                                       window.GetDisplayVideoRect();
-    int field = 3, src_y = video_rect.top(), dest_y = display_video_rect.top(),
-        xv_src_y_incr = 0, xv_dest_y_incr = 0;
+    int field = 3, src_y = video_rect.top(), dest_y = display_video_rect.top();
     if (m_deinterlacing && (m_deintfiltername == "bobdeint"))
     {
+        int xv_src_y_incr = 0, xv_dest_y_incr = 0;
         calc_bob(scan,
                  video_rect.height(), display_video_rect.height(),
                  video_rect.top(),    display_video_rect.top(),

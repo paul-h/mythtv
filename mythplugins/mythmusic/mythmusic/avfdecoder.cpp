@@ -137,12 +137,11 @@ ShoutCastMetaMap ShoutCastMetaParser::parseMeta(const QString &mdata)
 {
     ShoutCastMetaMap result;
     int title_begin_pos = mdata.indexOf("StreamTitle='");
-    int title_end_pos;
 
     if (title_begin_pos >= 0)
     {
         title_begin_pos += 13;
-        title_end_pos = mdata.indexOf("';", title_begin_pos);
+        int title_end_pos = mdata.indexOf("';", title_begin_pos);
         QString title = mdata.mid(title_begin_pos, title_end_pos - title_begin_pos);
         QRegExp rx;
         rx.setPattern(m_meta_format);
@@ -297,9 +296,6 @@ bool avfDecoder::initialize()
         error("avfDecoder: couldn't allocate memory");
         return false;
     }
-
-    // register av codecs
-    av_register_all();
 
     output()->PauseUntilBuffered();
 

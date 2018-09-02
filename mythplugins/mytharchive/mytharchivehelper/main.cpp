@@ -404,13 +404,12 @@ int NativeArchive::getFieldList(QStringList &fieldList, const QString &tableName
 int NativeArchive::exportRecording(QDomElement   &itemNode,
                                    const QString &saveDirectory)
 {
-    QString chanID, startTime, title = "", filename = "";
-    bool doDelete = false;
+    QString chanID, startTime;
     QString dbVersion = gCoreContext->GetSetting("DBSchemaVer", "");
 
-    title = fixFilename(itemNode.attribute("title"));
-    filename = itemNode.attribute("filename");
-    doDelete = (itemNode.attribute("delete", "0") == "0");
+    QString title = fixFilename(itemNode.attribute("title"));
+    QString filename = itemNode.attribute("filename");
+    bool doDelete = (itemNode.attribute("delete", "0") == "0");
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Archiving %1 (%2), do delete: %3")
             .arg(title).arg(filename).arg(doDelete));
 
@@ -627,15 +626,13 @@ int NativeArchive::exportRecording(QDomElement   &itemNode,
 int NativeArchive::exportVideo(QDomElement   &itemNode,
                                const QString &saveDirectory)
 {
-    QString title = "", filename = "";
-    bool doDelete = false;
     QString dbVersion = gCoreContext->GetSetting("DBSchemaVer", "");
     int intID = 0, categoryID = 0;
     QString coverFile = "";
 
-    title = fixFilename(itemNode.attribute("title"));
-    filename = itemNode.attribute("filename");
-    doDelete = (itemNode.attribute("delete", "0") == "0");
+    QString title = fixFilename(itemNode.attribute("title"));
+    QString filename = itemNode.attribute("filename");
+    bool doDelete = (itemNode.attribute("delete", "0") == "0");
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Archiving %1 (%2), do delete: %3")
             .arg(title).arg(filename).arg(doDelete));
 
@@ -2161,8 +2158,6 @@ static int doImportFile(const QString &inFile)
 
 static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int frameCount)
 {
-    av_register_all();
-
     // Open recording
     LOG(VB_JOBQUEUE, LOG_INFO, QString("grabThumbnail(): Opening '%1'")
             .arg(inFile));
@@ -2509,8 +2504,6 @@ static int64_t getFrameCount(const QString &filename, float fps)
 
 static int getFileInfo(QString inFile, QString outFile, int lenMethod)
 {
-    av_register_all();
-
     // Open recording
     LOG(VB_JOBQUEUE , LOG_INFO, QString("getFileInfo(): Opening '%1'")
             .arg(inFile));

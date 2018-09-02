@@ -131,11 +131,8 @@ ThumbFinder::~ThumbFinder()
 
 bool ThumbFinder::Create(void)
 {
-    bool foundtheme = false;
-
     // Load the theme for this screen
-    foundtheme = LoadWindowFromXML("mythburn-ui.xml", "thumbfinder", this);
-
+    bool foundtheme = LoadWindowFromXML("mythburn-ui.xml", "thumbfinder", this);
     if (!foundtheme)
         return false;
 
@@ -177,9 +174,8 @@ bool ThumbFinder::keyPressEvent(QKeyEvent *event)
     if (GetFocusWidget()->keyPressEvent(event))
         return true;
 
-    bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("Archive", event, actions);
+    bool handled = GetMythMainWindow()->TranslateKeyPress("Archive", event, actions);
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
@@ -559,8 +555,6 @@ bool ThumbFinder::getThumbImages()
 
 bool ThumbFinder::initAVCodec(const QString &inFile)
 {
-    av_register_all();
-
     // Open recording
     LOG(VB_JOBQUEUE, LOG_INFO, QString("ThumbFinder: Opening '%1'")
             .arg(inFile));
@@ -974,11 +968,11 @@ int ThumbFinder::calcFinalDuration()
         {
             frm_dir_map_t::const_iterator it;
 
-            int start, end, cutLen = 0;
+            int cutLen = 0;
 
             for (it = m_deleteMap.begin(); it != m_deleteMap.end(); ++it)
             {
-                start = it.key();
+                int start = it.key();
 
                 ++it;
                 if (it == m_deleteMap.end())
@@ -987,7 +981,7 @@ int ThumbFinder::calcFinalDuration()
                     break;
                 }
 
-                end = it.key();
+                int end = it.key();
                 cutLen += end - start;
             }
             return m_archiveItem->duration - (int) (cutLen / m_fps);

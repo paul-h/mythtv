@@ -151,8 +151,6 @@ NuppelVideoRecorder::NuppelVideoRecorder(TVRec *rec, ChannelBase *channel) :
     picture_format = AV_PIX_FMT_YUV420P;
     v4l2_pixelformat = 0;
 
-    avcodec_register_all();
-
     mpa_vidcodec = 0;
     mpa_vidctx = NULL;
 
@@ -745,7 +743,7 @@ void NuppelVideoRecorder::Initialize(void)
         ringBuffer = RingBuffer::Create("output.nuv", true);
         weMadeBuffer = true;
         livetv = false;
-        if (!ringBuffer->IsOpen())
+        if (!ringBuffer || !ringBuffer->IsOpen())
         {
             _error = "Could not open RingBuffer";
             LOG(VB_GENERAL, LOG_ERR, LOC + _error);
@@ -763,11 +761,9 @@ void NuppelVideoRecorder::Initialize(void)
 
 int NuppelVideoRecorder::AudioInit(bool skipdevice)
 {
-    int blocksize;
-    int tmp;
-
     if (!skipdevice)
     {
+        int blocksize;
         audio_device = AudioInput::CreateDevice(audiodevice.toLatin1());
         if (!audio_device)
         {
@@ -802,6 +798,7 @@ int NuppelVideoRecorder::AudioInit(bool skipdevice)
 
     if (compressaudio)
     {
+        int tmp;
         gf = lame_init();
         lame_set_bWriteVbrTag(gf, 0);
         lame_set_quality(gf, mp3quality);
@@ -922,6 +919,7 @@ void NuppelVideoRecorder::InitFilters(void)
 void NuppelVideoRecorder::InitBuffers(void)
 {
     int videomegs;
+    // cppcheck-suppress variableScope
     int audiomegs = 2;
 
     if (!video_buffer_size)
@@ -992,6 +990,7 @@ void NuppelVideoRecorder::ResizeVideoBuffers(void)
 
 void NuppelVideoRecorder::StreamAllocate(void)
 {
+    delete [] strm;
     strm = new signed char[width * height * 2 + 10];
 }
 
@@ -1975,7 +1974,6 @@ void NuppelVideoRecorder::BufferIt(unsigned char *buf, int len, bool forcekey)
 {
     int act;
     long tcres;
-    int fn;
     struct timeval now;
 
     act = act_video_buffer;
@@ -1996,7 +1994,7 @@ void NuppelVideoRecorder::BufferIt(unsigned char *buf, int len, bool forcekey)
             tf = 2;
         else
         {
-            fn = tcres - oldtc;
+            int fn = tcres - oldtc;
 
      // the difference should be less than 1,5*timeperframe or we have
      // missed at least one frame, this code might be inaccurate!
@@ -2106,7 +2104,6 @@ void NuppelVideoRecorder::WriteFileHeader(void)
 void NuppelVideoRecorder::WriteHeader(void)
 {
     struct rtframeheader frameheader;
-    static unsigned long int tbls[128];
 
     if (!videoFilters)
         InitFilters();
@@ -2126,6 +2123,8 @@ void NuppelVideoRecorder::WriteHeader(void)
     }
     else
     {
+        static unsigned long int tbls[128];
+
         frameheader.comptype = 'R'; // compressor data for RTjpeg
         frameheader.packetlength = sizeof(tbls);
 
@@ -2879,6 +2878,7 @@ void NuppelVideoRecorder::WriteVideo(VideoFrame *frame, bool skipsync,
     lzo_uint out_len = OUT_LEN;
     struct rtframeheader frameheader;
     int raw = 0, compressthis = compression;
+    // cppcheck-suppress variableScope
     uint8_t *planes[3] = {
         frame->buf + frame->offsets[0],
         frame->buf + frame->offsets[1],
@@ -3105,9 +3105,6 @@ static void bswap_16_buf(short int *buf, int buf_cnt, int audio_channels)
 void NuppelVideoRecorder::WriteAudio(unsigned char *buf, int fnum, int timecode)
 {
     struct rtframeheader frameheader;
-    double mt;
-    double eff;
-    double abytes;
 
     if (last_block == 0)
     {
@@ -3141,13 +3138,13 @@ void NuppelVideoRecorder::WriteAudio(unsigned char *buf, int fnum, int timecode)
                              // of recording and the first timestamp, maybe we
                              // can calculate the audio-video +-lack at the
                             // beginning too
-        abytes = (double)audiobytes; // - (double)audio_buffer_size;
+        double abytes = (double)audiobytes; // - (double)audio_buffer_size;
                                      // wrong guess ;-)
         // need seconds instead of msec's
-        mt = (double)timecode;
+        double mt = (double)timecode;
         if (mt > 0.0)
         {
-            eff = (abytes / mt) * (100000.0 / audio_bytes_per_sample);
+            double eff = (abytes / mt) * (100000.0 / audio_bytes_per_sample);
             effectivedsp = (int)eff;
         }
     }

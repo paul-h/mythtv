@@ -11,14 +11,14 @@
 class MTV_PUBLIC TSStreamData : public MPEGStreamData
 {
   public:
-    TSStreamData(int cardnum);
+    explicit TSStreamData(int cardnum);
     virtual ~TSStreamData() { ; }
 
     virtual bool ProcessTSPacket(const TSPacket& tspacket);
 
     using MPEGStreamData::Reset;
-    virtual void Reset(int desiredProgram) { ; }
-    virtual bool HandleTables(uint pid, const PSIPTable &psip) { return true; }
+    virtual void Reset(int /* desiredProgram */) { ; }
+    virtual bool HandleTables(uint /* pid */, const PSIPTable & /* psip */) { return true; }
 };
 
 #endif
