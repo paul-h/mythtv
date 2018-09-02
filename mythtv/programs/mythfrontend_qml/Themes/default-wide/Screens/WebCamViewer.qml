@@ -174,8 +174,17 @@ BaseScreen
                 var zoomFactor = xscale(1.0)
                 stack.push({item: Qt.resolvedUrl("RailCam.qml"), properties:{videoUrl: url, website: website, zoomFactor: zoomFactor}});
             }
+            else if (webcamGrid.model.get(webcamGrid.currentIndex).player === "StreamLink")
+            {
+                var url = webcamGrid.model.get(webcamGrid.currentIndex).url;
+                var port = "4545"
+                var command = "streamlink"
+                var parameters = ["--player-external-http", "--player-external-http-port", port, url, "best"]
+                stack.push({item: Qt.resolvedUrl("StreamLink.qml"), properties:{command: command, parameters: parameters, port: port}});
+            }
             else
                 stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: webcamGrid.model.get(webcamGrid.currentIndex).url, title1: webcamGrid.model.get(webcamGrid.currentIndex).title}});
+
             event.accepted = true;
         }
 

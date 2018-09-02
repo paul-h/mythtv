@@ -11,6 +11,8 @@ FocusScope
     //property alias playlist: mediaplayer.playlist
     property alias source: mediaplayer.source
     property alias volume: mediaplayer.volume
+    property alias fillMode: mediaplayer.fillMode
+
     property bool loop: false
     property bool playbackStarted: false
     signal playbackEnded()

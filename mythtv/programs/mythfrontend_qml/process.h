@@ -20,7 +20,12 @@ public:
         QProcess::start(program, args);
     }
 
-    Q_INVOKABLE QByteArray readAll() 
+    Q_INVOKABLE void stop()
+    {
+        QProcess::terminate();
+    }
+
+    Q_INVOKABLE QByteArray readAll()
     {
         return QProcess::readAll();
     }
