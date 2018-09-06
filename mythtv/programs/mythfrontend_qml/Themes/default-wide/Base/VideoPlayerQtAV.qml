@@ -33,7 +33,7 @@ FocusScope
         property alias source: mediaplayer.source
 
         color: "black"
-
+        layer.enabled: false
         anchors.fill: parent
 
 //        VideoFilter
@@ -45,11 +45,13 @@ FocusScope
         Video
         {
             id: mediaplayer
+            visible: (status === MediaPlayer.Buffered && playbackState === MediaPlayer.PlayingState);
             focus: true
             autoPlay: true
+            backgroundColor: "black"
             anchors.fill: parent
             subtitle.engines: ["FFmpeg"]
-            videoCodecPriority: ["CUDA", "FFmpeg"]
+            videoCodecPriority: ["CUDA", "FFmpeg", "VAAPI"]
             audioBackends: ["OpenAL", "Pulse", "Null"]
 //            videoFilters: [vf]
             Keys.onReturnPressed: root.togglePaused();
@@ -80,6 +82,28 @@ FocusScope
                     console.log("supportedAudioBackends: " + supportedAudioBackends);
                 else
                     event.accepted = false;
+            }
+
+            onStatusChanged:
+            {
+                if (status == MediaPlayer.NoMedia)
+                    console.info("status: no media");
+                else if (status == status == MediaPlayer.Loading)
+                    console.info("status: loading");
+                else if (status == MediaPlayer.Loaded)
+                    console.info("status: loaded");
+                else if (status == MediaPlayer.Buffering)
+                    console.info("status: buffering");
+                else if (status == MediaPlayer.Stalled)
+                    console.info("status: Stalled");
+                else if (status == MediaPlayer.Buffered)
+                    console.info("status: Buffered");
+                else if (status == MediaPlayer.EndOfMedia)
+                    console.info("status: EndOfMedia");
+                else if (status == MediaPlayer.InvalidMedia)
+                    console.info("status: InvalidMedia");
+                else if (status == MediaPlayer.UnknownStatus)
+                    console.info("status: UnknownStatus");
             }
         }
 

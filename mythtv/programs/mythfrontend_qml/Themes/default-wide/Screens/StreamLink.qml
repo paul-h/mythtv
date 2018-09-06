@@ -93,32 +93,27 @@ BaseScreen
             }
         }
     }
+/*
+    VideoPlayerQmlVLC
+    {
+        id: player
 
-//    VideoPlayerQmlVLC
-//    {
-//        id: player
-//
-//        visible: true;
-//        anchors.fill: parent
+        visible: true;
+        anchors.fill: parent
 
-//        onPlaybackEnded:
-//        {
+        onPlaybackEnded:
+        {
             //stop();
             //stack.pop();
-//        }
-//    }
-
-    Rectangle
-    {
-        color: "black"
-        anchors.fill: parent
+        }
     }
+*/
 
     VideoPlayerQtAV
     {
         id: player
 
-        visible: false;
+        visible: true;
         anchors.fill: parent
         fillMode: VideoOutput.Stretch
 
@@ -128,5 +123,5 @@ BaseScreen
             //stack.pop();
         }
     }
- }
+}
 
