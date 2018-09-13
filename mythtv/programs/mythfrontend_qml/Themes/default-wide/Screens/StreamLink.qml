@@ -8,11 +8,12 @@ import QtAV 1.5
 BaseScreen
 {
     id: root
-    defaultFocusItem: player
+    defaultFocusItem: playerVLC
     property string command
     property var    parameters
     property string port
     property string log
+    property bool   useQtAV: false
 
     Component.onCompleted:
     {
@@ -27,7 +28,8 @@ BaseScreen
 
     Keys.onEscapePressed:
     {
-        player.stop();
+        playerVLC.stop();
+        playerQtAV.stop();
         streamLinkProcess.kill();
     }
 
@@ -42,8 +44,8 @@ BaseScreen
         else if (event.key === Qt.Key_F1)
         {
             // RED
-            player.source = "http://127.0.1.1:" + port + "/";
-            player.play();
+            useQtAV = !useQtAV;
+            startPlayer();
         }
         else if (event.key === Qt.Key_F2)
         {
@@ -87,16 +89,14 @@ BaseScreen
                 stack.pop();
             else if (log.includes("Starting server, access with one of:"))
             {
-                player.source = "http://127.0.1.1:" + port + "/";
-                player.play();
-                player.visible = true;
+                startPlayer();
             }
         }
     }
-/*
+
     VideoPlayerQmlVLC
     {
-        id: player
+        id: playerVLC
 
         visible: true;
         anchors.fill: parent
@@ -107,13 +107,12 @@ BaseScreen
             //stack.pop();
         }
     }
-*/
 
     VideoPlayerQtAV
     {
-        id: player
+        id: playerQtAV
 
-        visible: true;
+        visible: false;
         anchors.fill: parent
         fillMode: VideoOutput.Stretch
 
@@ -121,6 +120,28 @@ BaseScreen
         {
             //stop();
             //stack.pop();
+        }
+    }
+
+    function startPlayer()
+    {
+        if (root.useQtAV)
+        {
+            playerVLC.stop();
+            playerVLC.visible = false
+
+            playerQtAV.visible = true;
+            playerQtAV.source = "http://127.0.1.1:" + port + "/";
+            playerQtAV.play();
+        }
+        else
+        {
+            playerQtAV.stop();
+            playerQtAV.visible = false
+
+            playerVLC.visible = true;
+            playerVLC.source = "http://127.0.1.1:" + port + "/";
+            playerVLC.play();
         }
     }
 }
