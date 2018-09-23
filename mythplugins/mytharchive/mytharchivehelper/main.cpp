@@ -2171,7 +2171,7 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
     }
 
     // Getting stream information
-    int ret = avformat_find_stream_info(inputFC, NULL);
+    int ret = avformat_find_stream_info(inputFC, nullptr);
     if (ret < 0)
     {
         LOG(VB_JOBQUEUE, LOG_ERR,
@@ -2212,14 +2212,14 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
     // get decoder for video stream
     AVCodec * codec = avcodec_find_decoder(codecCtx->codec_id);
 
-    if (codec == NULL)
+    if (codec == nullptr)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, "Couldn't find codec for video stream");
         return 1;
     }
 
     // open codec
-    if (avcodec_open2(codecCtx, codec, NULL) < 0)
+    if (avcodec_open2(codecCtx, codec, nullptr) < 0)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, "Couldn't open codec for video stream");
         return 1;
@@ -2517,7 +2517,7 @@ static int getFileInfo(QString inFile, QString outFile, int lenMethod)
     }
 
     // Getting stream information
-    int ret = avformat_find_stream_info(inputFC, NULL);
+    int ret = avformat_find_stream_info(inputFC, nullptr);
 
     if (ret < 0)
     {
@@ -2703,7 +2703,7 @@ static int getFileInfo(QString inFile, QString outFile, int lenMethod)
                 stream.setAttribute("channels", par->channels);
 
                 AVDictionaryEntry *metatag =
-                    av_dict_get(st->metadata, "language", NULL, 0);
+                    av_dict_get(st->metadata, "language", nullptr, 0);
                 if (metatag)
                     stream.setAttribute("language", metatag->value);
                 else
@@ -2741,7 +2741,7 @@ static int getFileInfo(QString inFile, QString outFile, int lenMethod)
                 stream.setAttribute("codec", codec.trimmed());
 
                 AVDictionaryEntry *metatag =
-                    av_dict_get(st->metadata, "language", NULL, 0);
+                    av_dict_get(st->metadata, "language", nullptr, 0);
                 if (metatag)
                     stream.setAttribute("language", metatag->value);
                 else
@@ -2997,7 +2997,7 @@ int main(int argc, char **argv)
     {
         LOG(VB_GENERAL, LOG_ERR, "Failed to init MythContext, exiting.");
         delete gContext;
-        gContext = NULL;
+        gContext = nullptr;
         return GENERIC_EXIT_NO_MYTHCONTEXT;
     }
 
@@ -3170,7 +3170,7 @@ int main(int argc, char **argv)
         cmdline.PrintHelp();
 
     delete gContext;
-    gContext = NULL;
+    gContext = nullptr;
 
     exit(res);
 }

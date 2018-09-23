@@ -335,7 +335,7 @@ void ProgDetails::loadPage(void)
     int audioprop = 0, videoprop = 0, subtype = 0, generic = 0;
     bool recorded = false;
 
-    RecordingRule* record = NULL;
+    RecordingRule* record = nullptr;
     if (m_progInfo.GetRecordingRuleID())
     {
         record = new RecordingRule();
@@ -449,6 +449,8 @@ void ProgDetails::loadPage(void)
         attr += tr("720p Resolution") + ", ";
     if  (videoprop & VID_1080)
         attr += tr("1080i/p Resolution") + ", ";
+    if  (videoprop & VID_DAMAGED)
+        attr += tr("Damaged") + ", ";
 
     if (subtype & SUB_HARDHEAR)
         attr += tr("CC","Closed Captioned") + ", ";

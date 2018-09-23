@@ -82,7 +82,7 @@ void MetadataImageDownload::run()
 
     // Always handle thumbnails first, they're higher priority.
     ThumbnailData *thumb;
-    while ((thumb = moreThumbs()) != NULL)
+    while ((thumb = moreThumbs()) != nullptr)
     {
         QString sFilename = getDownloadFilename(thumb->title, thumb->url);
 
@@ -331,7 +331,7 @@ void MetadataImageDownload::run()
 ThumbnailData* MetadataImageDownload::moreThumbs()
 {
     QMutexLocker lock(&m_mutex);
-    ThumbnailData *ret = NULL;
+    ThumbnailData *ret = nullptr;
 
     if (!m_thumbnailList.isEmpty())
         ret = m_thumbnailList.takeFirst();

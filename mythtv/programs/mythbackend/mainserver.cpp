@@ -151,7 +151,7 @@ class ProcessRequestRunnable : public QRunnable
         if (m_sock)
         {
             m_sock->DecrRef();
-            m_sock = NULL;
+            m_sock = nullptr;
         }
     }
 
@@ -159,7 +159,7 @@ class ProcessRequestRunnable : public QRunnable
     {
         m_parent.ProcessRequest(m_sock);
         m_sock->DecrRef();
-        m_sock = NULL;
+        m_sock = nullptr;
     }
 
   private:
@@ -178,7 +178,7 @@ class FreeSpaceUpdater : public QRunnable
     ~FreeSpaceUpdater()
     {
         QMutexLocker locker(&m_parent.masterFreeSpaceListLock);
-        m_parent.masterFreeSpaceListUpdater = NULL;
+        m_parent.masterFreeSpaceListUpdater = nullptr;
         m_parent.masterFreeSpaceListWait.wakeAll();
     }
 
@@ -239,15 +239,15 @@ const int FreeSpaceUpdater::kExitTimeout = 61000;
 MainServer::MainServer(bool master, int port,
                        QMap<int, EncoderLink *> *tvList,
                        Scheduler *sched, AutoExpire *expirer) :
-    encoderList(tvList), mythserver(NULL),
-    metadatafactory(NULL),
-    masterFreeSpaceListUpdater(NULL),
-    masterServerReconnect(NULL),
-    masterServer(NULL), ismaster(master), threadPool("ProcessRequestPool"),
+    encoderList(tvList), mythserver(nullptr),
+    metadatafactory(nullptr),
+    masterFreeSpaceListUpdater(nullptr),
+    masterServerReconnect(nullptr),
+    masterServer(nullptr), ismaster(master), threadPool("ProcessRequestPool"),
     masterBackendOverride(false),
     m_sched(sched), m_expirer(expirer), m_addChildInputLock(),
-    deferredDeleteTimer(NULL),
-    autoexpireUpdateTimer(NULL), m_exitCode(GENERIC_EXIT_OK),
+    deferredDeleteTimer(nullptr),
+    autoexpireUpdateTimer(nullptr), m_exitCode(GENERIC_EXIT_OK),
     m_stopped(false)
 {
     PreviewGeneratorQueue::CreatePreviewGeneratorQueue(
@@ -343,7 +343,7 @@ MainServer::MainServer(bool master, int port,
     masterFreeSpaceList << "0";
     masterFreeSpaceList << "0";
 
-    masterFreeSpaceListUpdater = (master ? new FreeSpaceUpdater(*this) : NULL);
+    masterFreeSpaceListUpdater = (master ? new FreeSpaceUpdater(*this) : nullptr);
     if (masterFreeSpaceListUpdater)
     {
         MThreadPool::globalInstance()->startReserved(
@@ -373,7 +373,7 @@ void MainServer::Stop()
 
     // since Scheduler::SetMainServer() isn't thread-safe
     // we need to shut down the scheduler thread before we
-    // can call SetMainServer(NULL)
+    // can call SetMainServer(nullptr)
     if (m_sched)
         m_sched->Stop();
 
@@ -384,17 +384,17 @@ void MainServer::Stop()
     {
         mythserver->disconnect();
         mythserver->deleteLater();
-        mythserver = NULL;
+        mythserver = nullptr;
     }
 
     if (m_sched)
     {
         m_sched->Wait();
-        m_sched->SetMainServer(NULL);
+        m_sched->SetMainServer(nullptr);
     }
 
     if (m_expirer)
-        m_expirer->SetMainServer(NULL);
+        m_expirer->SetMainServer(nullptr);
 
     {
         QMutexLocker locker(&masterFreeSpaceListLock);
@@ -1270,7 +1270,7 @@ void MainServer::customEvent(QEvent *e)
                 {
                     recInfo.ForgetHistory();
                 }
-                DoHandleDeleteRecording(recInfo, NULL, false, true, false);
+                DoHandleDeleteRecording(recInfo, nullptr, false, true, false);
             }
             else
             {
@@ -1318,7 +1318,7 @@ void MainServer::customEvent(QEvent *e)
 
             if (recInfo.GetChanID())
             {
-                DoHandleStopRecording(recInfo, NULL);
+                DoHandleStopRecording(recInfo, nullptr);
             }
             else
             {
@@ -1353,9 +1353,9 @@ void MainServer::customEvent(QEvent *e)
             if (recInfo.GetChanID())
             {
                 if (tokens[0] == "FORCE_DELETE_RECORDING")
-                    DoHandleDeleteRecording(recInfo, NULL, true, false, forget);
+                    DoHandleDeleteRecording(recInfo, nullptr, true, false, forget);
                 else
-                    DoHandleDeleteRecording(recInfo, NULL, force, false, forget);
+                    DoHandleDeleteRecording(recInfo, nullptr, force, false, forget);
             }
             else
             {
@@ -1386,7 +1386,7 @@ void MainServer::customEvent(QEvent *e)
 
             if (recInfo.GetChanID())
             {
-                DoHandleUndeleteRecording(recInfo, NULL);
+                DoHandleUndeleteRecording(recInfo, nullptr);
             }
             else
             {
@@ -1923,7 +1923,7 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
         for (++it; it != slist.end(); ++it)
             checkfiles += *it;
 
-        FileTransfer *ft = NULL;
+        FileTransfer *ft = nullptr;
         bool writemode = false;
         bool usereadahead = true;
         int timeout_ms = 2000;
@@ -2172,7 +2172,7 @@ void MainServer::HandleQueryRecordings(QString type, PlaybackSock *pbs)
     for (it = destination.begin(); it != destination.end(); ++it)
     {
         ProgramInfo *proginfo = *it;
-        PlaybackSock *slave = NULL;
+        PlaybackSock *slave = nullptr;
 
         if (proginfo->GetHostname() != gCoreContext->GetHostName())
             slave = GetSlaveByHostname(proginfo->GetHostname());
@@ -2271,7 +2271,7 @@ void MainServer::HandleQueryRecording(QStringList &slist, PlaybackSock *pbs)
 
     MythSocket *pbssock = pbs->getSocket();
     QString command = slist[1].toUpper();
-    ProgramInfo *pginfo = NULL;
+    ProgramInfo *pginfo = nullptr;
 
     if (command == "BASENAME")
     {
@@ -2795,7 +2795,7 @@ bool MainServer::TruncateAndClose(ProgramInfo *pginfo, int fd,
 void MainServer::HandleCheckRecordingActive(QStringList &slist,
                                             PlaybackSock *pbs)
 {
-    MythSocket *pbssock = NULL;
+    MythSocket *pbssock = nullptr;
     if (pbs)
         pbssock = pbs->getSocket();
 
@@ -2867,7 +2867,7 @@ void MainServer::HandleStopRecording(QStringList &slist, PlaybackSock *pbs)
 void MainServer::DoHandleStopRecording(
     RecordingInfo &recinfo, PlaybackSock *pbs)
 {
-    MythSocket *pbssock = NULL;
+    MythSocket *pbssock = nullptr;
     if (pbs)
         pbssock = pbs->getSocket();
 
@@ -2970,7 +2970,7 @@ void MainServer::HandleDeleteRecording(QString &chanid, QString &starttime,
 
     if (!recinfo.GetChanID()) // !recinfo.GetRecordingID()
     {
-        MythSocket *pbssock = NULL;
+        MythSocket *pbssock = nullptr;
         if (pbs)
             pbssock = pbs->getSocket();
 
@@ -3003,7 +3003,7 @@ void MainServer::DoHandleDeleteRecording(
     bool forceMetadataDelete, bool expirer, bool forgetHistory)
 {
     int resultCode = -1;
-    MythSocket *pbssock = NULL;
+    MythSocket *pbssock = nullptr;
     if (pbs)
         pbssock = pbs->getSocket();
 
@@ -3031,7 +3031,7 @@ void MainServer::DoHandleDeleteRecording(
     }
 
     // Stop the recording if it's still in progress.
-    DoHandleStopRecording(recinfo, NULL);
+    DoHandleStopRecording(recinfo, nullptr);
 
     if (justexpire && !forceMetadataDelete &&
         recinfo.GetFilesize() > (1024 * 1024) )
@@ -3165,7 +3165,7 @@ void MainServer::DoHandleUndeleteRecording(
 {
     int ret = -1;
 
-    MythSocket *pbssock = NULL;
+    MythSocket *pbssock = nullptr;
     if (pbs)
         pbssock = pbs->getSocket();
 
@@ -3295,7 +3295,7 @@ bool MainServer::HandleAddChildInput(uint inputid)
             }
 
             PlaybackSock *pbs = enc->GetSocket();
-            enc = new EncoderLink(childid, NULL, hostname);
+            enc = new EncoderLink(childid, nullptr, hostname);
             enc->SetSocket(pbs);
             (*encoderList)[childid] = enc;
         }
@@ -3337,7 +3337,7 @@ void MainServer::HandleForgetRecording(QStringList &slist, PlaybackSock *pbs)
     if (recinfo.GetChanID())
         recinfo.ForgetHistory();
 
-    MythSocket *pbssock = NULL;
+    MythSocket *pbssock = nullptr;
     if (pbs)
         pbssock = pbs->getSocket();
     if (pbssock)
@@ -4229,7 +4229,7 @@ void MainServer::HandleLockTuner(PlaybackSock *pbs, int cardid)
 
     QStringList strlist;
 
-    EncoderLink *encoder = NULL;
+    EncoderLink *encoder = nullptr;
     QString enchost;
 
     TVRec::inputsLock.lockForRead();
@@ -4311,7 +4311,7 @@ void MainServer::HandleFreeTuner(int cardid, PlaybackSock *pbs)
 {
     MythSocket *pbssock = pbs->getSocket();
     QStringList strlist;
-    EncoderLink *encoder = NULL;
+    EncoderLink *encoder = nullptr;
 
     TVRec::inputsLock.lockForRead();
     QMap<int, EncoderLink *>::Iterator iter = encoderList->find(cardid);
@@ -5060,7 +5060,7 @@ void MainServer::HandleIsActiveBackendQuery(QStringList &slist,
     if (gCoreContext->GetHostName() != queryhostname)
     {
         PlaybackSock *slave = GetSlaveByHostname(queryhostname);
-        if (slave != NULL)
+        if (slave != nullptr)
         {
             retlist << "TRUE";
             slave->DecrRef();
@@ -5494,7 +5494,7 @@ void MainServer::DoTruncateThread(DeleteStruct *ds)
 {
     if (gCoreContext->GetNumSetting("TruncateDeletesSlowly", 0))
     {
-        TruncateAndClose(NULL, ds->m_fd, ds->m_filename, ds->m_size);
+        TruncateAndClose(nullptr, ds->m_fd, ds->m_filename, ds->m_size);
     }
     else
     {
@@ -5588,7 +5588,7 @@ void MainServer::HandleCutMapQuery(const QString &chanid,
                                    const QString &starttime,
                                    PlaybackSock *pbs, bool commbreak)
 {
-    MythSocket *pbssock = NULL;
+    MythSocket *pbssock = nullptr;
     if (pbs)
         pbssock = pbs->getSocket();
 
@@ -5672,7 +5672,7 @@ void MainServer::HandleBookmarkQuery(const QString &chanid,
 //   a ProgramInfo structure in a string list.
 // Return value is a long-long encoded as two separate values
 {
-    MythSocket *pbssock = NULL;
+    MythSocket *pbssock = nullptr;
     if (pbs)
         pbssock = pbs->getSocket();
 
@@ -5705,7 +5705,7 @@ void MainServer::HandleSetBookmark(QStringList &tokens,
 //   a ProgramInfo structure in a string list.  The two longs are the two
 //   portions of the bookmark value to set.
 
-    MythSocket *pbssock = NULL;
+    MythSocket *pbssock = nullptr;
     if (pbs)
         pbssock = pbs->getSocket();
 
@@ -5741,7 +5741,7 @@ void MainServer::HandleSettingQuery(QStringList &tokens, PlaybackSock *pbs)
 // Format: QUERY_SETTING <hostname> <setting>
 // Returns setting value as a string
 
-    MythSocket *pbssock = NULL;
+    MythSocket *pbssock = nullptr;
     if (pbs)
         pbssock = pbs->getSocket();
 
@@ -5770,7 +5770,7 @@ void MainServer::HandleDownloadFile(const QStringList &command,
     QString outFile;
     QStringList retlist;
 
-    MythSocket *pbssock = NULL;
+    MythSocket *pbssock = nullptr;
     if (pbs)
         pbssock = pbs->getSocket();
 
@@ -6108,7 +6108,7 @@ void MainServer::HandleSetSetting(QStringList &tokens,
                                   PlaybackSock *pbs)
 {
 // Format: SET_SETTING <hostname> <setting> <value>
-    MythSocket *pbssock = NULL;
+    MythSocket *pbssock = nullptr;
     if (pbs)
         pbssock = pbs->getSocket();
 
@@ -7466,7 +7466,7 @@ void MainServer::HandleGetRecorderNum(QStringList &slist, PlaybackSock *pbs)
     QStringList::const_iterator it = slist.begin() + 1;
     ProgramInfo pginfo(it, slist.end());
 
-    EncoderLink *encoder = NULL;
+    EncoderLink *encoder = nullptr;
 
     TVRec::inputsLock.lockForRead();
     QMap<int, EncoderLink *>::Iterator iter = encoderList->begin();
@@ -7512,7 +7512,7 @@ void MainServer::HandleGetRecorderFromNum(QStringList &slist,
     MythSocket *pbssock = pbs->getSocket();
 
     int recordernum = slist[1].toInt();
-    EncoderLink *encoder = NULL;
+    EncoderLink *encoder = nullptr;
     QStringList strlist;
 
     TVRec::inputsLock.lockForRead();
@@ -8091,7 +8091,7 @@ void MainServer::connectionClosed(MythSocket *socket)
             playbackList.erase(it);
             sockListLock.unlock();
             masterServer->DecrRef();
-            masterServer = NULL;
+            masterServer = nullptr;
             MythEvent me("LOCAL_RECONNECT_TO_MASTER");
             gCoreContext->dispatch(me);
             return;
@@ -8118,7 +8118,7 @@ void MainServer::connectionClosed(MythSocket *socket)
                         if (!elink->IsFallingAsleep())
                             isFallingAsleep = false;
 
-                        elink->SetSocket(NULL);
+                        elink->SetSocket(nullptr);
                         if (m_sched)
                             disconnectedSlaves.push_back(elink->GetInputID());
                     }
@@ -8244,7 +8244,7 @@ void MainServer::connectionClosed(MythSocket *socket)
 PlaybackSock *MainServer::GetSlaveByHostname(const QString &hostname)
 {
     if (!ismaster)
-        return NULL;
+        return nullptr;
 
     sockListLock.lockForRead();
 
@@ -8263,13 +8263,13 @@ PlaybackSock *MainServer::GetSlaveByHostname(const QString &hostname)
 
     sockListLock.unlock();
 
-    return NULL;
+    return nullptr;
 }
 
 PlaybackSock *MainServer::GetMediaServerByHostname(const QString &hostname)
 {
     if (!ismaster)
-        return NULL;
+        return nullptr;
 
     QReadLocker rlock(&sockListLock);
 
@@ -8285,13 +8285,13 @@ PlaybackSock *MainServer::GetMediaServerByHostname(const QString &hostname)
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
 /// Warning you must hold a sockListLock lock before calling this
 PlaybackSock *MainServer::GetPlaybackBySock(MythSocket *sock)
 {
-    PlaybackSock *retval = NULL;
+    PlaybackSock *retval = nullptr;
 
     vector<PlaybackSock *>::iterator it = playbackList.begin();
     for (; it != playbackList.end(); ++it)
@@ -8309,7 +8309,7 @@ PlaybackSock *MainServer::GetPlaybackBySock(MythSocket *sock)
 /// Warning you must hold a sockListLock lock before calling this
 FileTransfer *MainServer::GetFileTransferByID(int id)
 {
-    FileTransfer *retval = NULL;
+    FileTransfer *retval = nullptr;
 
     vector<FileTransfer *>::iterator it = fileTransferList.begin();
     for (; it != fileTransferList.end(); ++it)
@@ -8327,7 +8327,7 @@ FileTransfer *MainServer::GetFileTransferByID(int id)
 /// Warning you must hold a sockListLock lock before calling this
 FileTransfer *MainServer::GetFileTransferBySock(MythSocket *sock)
 {
-    FileTransfer *retval = NULL;
+    FileTransfer *retval = nullptr;
 
     vector<FileTransfer *>::iterator it = fileTransferList.begin();
     for (; it != fileTransferList.end(); ++it)
@@ -8353,7 +8353,7 @@ LiveTVChain *MainServer::GetExistingChain(const QString &id)
             return *it;
     }
 
-    return NULL;
+    return nullptr;
 }
 
 LiveTVChain *MainServer::GetExistingChain(const MythSocket *sock)
@@ -8367,7 +8367,7 @@ LiveTVChain *MainServer::GetExistingChain(const MythSocket *sock)
             return *it;
     }
 
-    return NULL;
+    return nullptr;
 }
 
 LiveTVChain *MainServer::GetChainWithRecording(const ProgramInfo &pginfo)
@@ -8381,7 +8381,7 @@ LiveTVChain *MainServer::GetChainWithRecording(const ProgramInfo &pginfo)
             return *it;
     }
 
-    return NULL;
+    return nullptr;
 }
 
 void MainServer::AddToChains(LiveTVChain *chain)
@@ -8572,7 +8572,7 @@ void MainServer::reconnectTimeout(void)
         (strlist[0] == "ERROR"))
     {
         masterServerSock->DecrRef();
-        masterServerSock = NULL;
+        masterServerSock = nullptr;
         if (strlist.empty())
         {
             LOG(VB_GENERAL, LOG_ERR, LOC +

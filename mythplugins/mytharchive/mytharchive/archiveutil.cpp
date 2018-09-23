@@ -199,7 +199,7 @@ bool extractDetailsFromFilename(const QString &inFile,
 
 ProgramInfo *getProgramInfoForFile(const QString &inFile)
 {
-    ProgramInfo *pinfo = NULL;
+    ProgramInfo *pinfo = nullptr;
     QString chanID, startTime;
 
     bool bIsMythRecording = extractDetailsFromFilename(inFile, chanID, startTime);
@@ -216,7 +216,7 @@ ProgramInfo *getProgramInfoForFile(const QString &inFile)
         else
         {
             delete pinfo;
-            pinfo = NULL;
+            pinfo = nullptr;
         }
     }
 

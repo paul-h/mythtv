@@ -119,7 +119,7 @@ class PlaybackBox : public ScheduleCommon
     } killStateType;
 
     PlaybackBox(MythScreenStack *parent, QString name,
-                TV *player = NULL, bool showTV = false);
+                TV *player = nullptr, bool showTV = false);
    ~PlaybackBox(void);
 
     bool Create(void);
@@ -143,10 +143,10 @@ class PlaybackBox : public ScheduleCommon
     void ItemLoaded(MythUIButtonListItem *item);
     void selected(MythUIButtonListItem *item);
     void updateRecGroup(MythUIButtonListItem *sel_item);
-    void PlayFromBookmarkOrProgStart(MythUIButtonListItem *item = NULL);
-    void PlayFromBookmark(MythUIButtonListItem *item = NULL);
-    void PlayFromBeginning(MythUIButtonListItem *item = NULL);
-    void PlayFromLastPlayPos(MythUIButtonListItem *item = NULL);
+    void PlayFromBookmarkOrProgStart(MythUIButtonListItem *item = nullptr);
+    void PlayFromBookmark(MythUIButtonListItem *item = nullptr);
+    void PlayFromBeginning(MythUIButtonListItem *item = nullptr);
+    void PlayFromLastPlayPos(MythUIButtonListItem *item = nullptr);
     void deleteSelected(MythUIButtonListItem *item);
     void ClearBookmark();
     void SwitchList(void);
@@ -312,7 +312,7 @@ class PlaybackBox : public ScheduleCommon
 
     bool IsUsageUIVisible(void) const;
 
-    void updateIcons(const ProgramInfo *pginfo = NULL);
+    void updateIcons(const ProgramInfo *pginfo = nullptr);
     void UpdateUsageUI(void);
     void updateGroupInfo(const QString &groupname, const QString &grouplabel);
 

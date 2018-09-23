@@ -489,10 +489,6 @@ MetadataLookup::MetadataLookup(
 {
 }
 
-MetadataLookup::~MetadataLookup()
-{
-}
-
 QList<PersonInfo> MetadataLookup::GetPeople(PeopleType type) const
 {
     QList<PersonInfo> ret;
@@ -654,7 +650,7 @@ QDomDocument CreateMetadataXML(ProgramInfo *pginfo)
         doc = CreateMetadataXML(lookup);
 
     lookup->DecrRef();
-    lookup = NULL;
+    lookup = nullptr;
 
     return doc;
 }

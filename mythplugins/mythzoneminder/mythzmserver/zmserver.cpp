@@ -113,13 +113,13 @@ void loadZMConfig(const string &configfile)
     char line[512];
     char val[250];
 
-    if ( (cfg = fopen(configfile.c_str(), "r")) == NULL )
+    if ( (cfg = fopen(configfile.c_str(), "r")) == nullptr )
     {
         fprintf(stderr,"Can't open %s\n", configfile.c_str());
         exit(1);
     }
 
-    while ( fgets( line, sizeof(line), cfg ) != NULL )
+    while ( fgets( line, sizeof(line), cfg ) != nullptr )
     {
         char *line_ptr = line;
         // Trim off any cr/lf line endings
@@ -191,7 +191,7 @@ void connectToDatabase(void)
     mysql_options(&g_dbConn, MYSQL_OPT_RECONNECT, &reconnect);
 
     if (!mysql_real_connect(&g_dbConn, g_server.c_str(), g_user.c_str(),
-         g_password.c_str(), 0, 0, 0, 0))
+         g_password.c_str(), nullptr, 0, nullptr, 0))
     {
         cout << "Error: Can't connect to server: " <<  mysql_error(&g_dbConn) << endl;
         exit(mysql_errno( &g_dbConn));
@@ -236,13 +236,13 @@ void checkZmAudit(bool debug)
 
 void kickDatabase(bool debug)
 {
-    if (time(NULL) < g_lastDBKick + DB_CHECK_TIME)
+    if (time(nullptr) < g_lastDBKick + DB_CHECK_TIME)
         return;
 
     if (debug)
         cout << "Kicking database connection" << endl;
 
-    g_lastDBKick = time(NULL);
+    g_lastDBKick = time(nullptr);
 
     if (mysql_query(&g_dbConn, "SELECT NULL;") == 0)
     {
@@ -264,9 +264,9 @@ void kickDatabase(bool debug)
 MONITOR::MONITOR(void) :
     name(""), type(""), function(""), enabled(0), device(""), host(""),
     image_buffer_count(0),  width(0), height(0), bytes_per_pixel(3), mon_id(0),
-    shared_images(NULL), last_read(0), status(""), palette(0),
-    controllable(0), trackMotion(0), mapFile(-1), shm_ptr(NULL),
-    shared_data(NULL), shared_data26(NULL), id("")
+    shared_images(nullptr), last_read(0), status(""), palette(0),
+    controllable(0), trackMotion(0), mapFile(-1), shm_ptr(nullptr),
+    shared_data(nullptr), shared_data26(nullptr), id("")
 {
 }
 
@@ -304,7 +304,7 @@ void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
         if (debug)
             cout << "Opened mmap file: " << mmap_filename.str() << endl;
 
-        shm_ptr = mmap(NULL, shared_data_size, PROT_READ,
+        shm_ptr = mmap(nullptr, shared_data_size, PROT_READ,
                        MAP_SHARED, mapFile, 0x0);
         if (shm_ptr == MAP_FAILED)
         {
@@ -317,7 +317,7 @@ void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
                 cout << "Failed to close mmap file" << endl;
 
             mapFile = -1;
-            shm_ptr = NULL;
+            shm_ptr = nullptr;
 
             return;
         }
@@ -336,7 +336,7 @@ void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
     }
 #endif
 
-    if (shm_ptr == NULL)
+    if (shm_ptr == nullptr)
     {
         // fail back to shmget() functionality if mapping memory above failed.
         int shmid;
@@ -360,10 +360,10 @@ void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
             return;
         }
 
-        shm_ptr = shmat(shmid, 0, SHM_RDONLY);
+        shm_ptr = shmat(shmid, nullptr, SHM_RDONLY);
 
 
-        if (shm_ptr == NULL)
+        if (shm_ptr == nullptr)
         {
             cout << "Failed to shmat for monitor: " << mon_id << endl;
             status = "Error";
@@ -373,7 +373,7 @@ void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
 
     if (checkVersion(1, 26, 0))
     {
-        shared_data = NULL;
+        shared_data = nullptr;
         shared_data26 = (SharedData26*)shm_ptr;
 
         shared_images = (unsigned char*) shm_ptr +
@@ -388,7 +388,7 @@ void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
     }
     else
     {
-        shared_data26 = NULL;
+        shared_data26 = nullptr;
         shared_data = (SharedData*)shm_ptr;
 
         shared_images = (unsigned char*) shm_ptr +
@@ -400,10 +400,10 @@ void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
 bool MONITOR::isValid(void)
 {
     if (checkVersion(1, 26, 0))
-        return shared_data26 != NULL && shared_images != NULL;
+        return shared_data26 != nullptr && shared_images != nullptr;
 
     // must be version >= 1.24.0 and < 1.26.0
-    return  shared_data != NULL && shared_images != NULL;
+    return  shared_data != nullptr && shared_images != nullptr;
 }
 
 
@@ -1057,7 +1057,7 @@ string ZMServer::runCommand(string command)
     FILE *fd = popen(command.c_str(), "r");
     char buffer[100];
 
-    while (fgets(buffer, sizeof(buffer), fd) != NULL)
+    while (fgets(buffer, sizeof(buffer), fd) != nullptr)
     {
         outStr += buffer;
     }
@@ -1204,7 +1204,7 @@ void ZMServer::handleGetAnalysisFrame(vector<string> tokens)
 
     // get the 'alarm' frames from the Frames table for this event
     MYSQL_RES *res;
-    MYSQL_ROW row = NULL;
+    MYSQL_ROW row = nullptr;
 
     string sql("");
     sql += "SELECT FrameId FROM Frames ";
@@ -1443,7 +1443,7 @@ void ZMServer::handleGetFrameList(vector<string> tokens)
     row = mysql_fetch_row(res);
 
     // make sure we have some frames to display
-    if (row[1] == NULL || row[2] == NULL)
+    if (row[1] == nullptr || row[2] == nullptr)
     {
         sendError(ERROR_NO_FRAMES);
         return;
