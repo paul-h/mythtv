@@ -1,5 +1,5 @@
 import QtQuick 2.0
-import QtQuick.Controls 1.4
+import QtQuick.Controls 1.5
 import QtWebEngine 1.5
 import Base 1.0
 import Dialogs 1.0
@@ -18,9 +18,15 @@ BaseScreen
         showTime(false);
         showTicker(false);
         showMouse(true);
+        pauseVideo(true);
+        showVideo(false);
     }
 
-    Component.onDestruction: showMouse(false)
+    Component.onDestruction:
+    {
+        showMouse(false)
+        pauseVideo(false);
+    }
 
     Action
     {

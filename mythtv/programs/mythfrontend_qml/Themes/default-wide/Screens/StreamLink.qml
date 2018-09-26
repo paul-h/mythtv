@@ -20,10 +20,17 @@ BaseScreen
         showTitle(false, "");
         showTime(false);
         showTicker(false);
+        pauseVideo(true);
+        showVideo(false);
 
         while (stack.busy) {};
 
         streamLinkProcess.start(command, parameters);
+    }
+
+    Component.onDestruction:
+    {
+        pauseVideo(false);
     }
 
     Keys.onEscapePressed:
