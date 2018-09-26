@@ -12,9 +12,7 @@ BaseScreen
         showTitle(true, model.title);
         showTime(true);
         showTicker(true);
-        showVideo(true);
-
-        title.source = settings.themePath + model.logo
+        title.source = mythUtils.findThemeFile(model.logo)
     }
 
     Loader
@@ -38,15 +36,6 @@ BaseScreen
         width: xscale(sourceSize.width)
         height: yscale(sourceSize.height)
         source: mythUtils.findThemeFile("ui/mythtv_logo.png")
-    }
-
-    Image
-    {
-        id: horizon
-        x: xscale(550); y: yscale(500)
-        width: xscale(sourceSize.width)
-        height: yscale(sourceSize.height)
-        source: mythUtils.findThemeFile("ui/horizon.png")
     }
 
     Rectangle
@@ -131,12 +120,6 @@ BaseScreen
                     menuLoader.source = settings.menuPath + model.get(currentIndex).menuSource;
                     stack.push({item: Qt.resolvedUrl("ThemedMenu.qml"), properties:{model: menuLoader.item}});
                 }
-                else if (model.get(currentIndex).loaderSource === "WebBrowser.qml")
-                {
-                    var url = model.get(currentIndex).url
-                    var zoom = xscale(model.get(currentIndex).zoom)
-                    stack.push({item: Qt.resolvedUrl("WebBrowser.qml"), properties:{url: url, fullscreen: true, zoomFactor: zoom}});
-                }
                 else
                 {
                     stack.push({item: Qt.resolvedUrl(model.get(currentIndex).loaderSource)})
@@ -144,29 +127,6 @@ BaseScreen
 
                 event.accepted = true;
             }
-
-            onCurrentItemChanged: watermark.swapImage(mythUtils.findThemeFile(model.get(currentIndex).waterMark))
         }
     }
-
-    FadeImage
-    {
-        id: watermark
-        x: xscale(832); y: yscale(196); width: xscale(300); height: yscale(300)
-        source: mythUtils.findThemeFile("watermark/tv.png")
-    }
-
-
-    //    ReflectionImage {
-    //        id: reflectionImage
-    //        // main image
-    //        x:832
-    //        y:196
-    //        width:  200; height: 200
-    //    }
-
-    //    Scroller {
-    //        text: "<b>NEWS</b> This is some very loooooog ticker text that gets displayed whenever you're seeing this ticker here, bla bla bla..."
-    //    }
 }
-
