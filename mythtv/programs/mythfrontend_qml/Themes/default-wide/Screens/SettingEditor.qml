@@ -310,6 +310,11 @@ BaseScreen
             settings.startFullscreen = startFullscreenCheck.checked;
             settings.webcamPath      = webcamPathEdit.text;
 
+            // update the theme path and reload the theme
+            settings.qmlPath = settings.sharePath + "qml/Themes/" + settings.themeName + "/";
+            themeLoader.source = settings.qmlPath + "Theme.qml";
+            screenBackground.setVideo("file://" + theme.backgroundVideo);
+
             returnSound.play();
             stack.pop();
         }
