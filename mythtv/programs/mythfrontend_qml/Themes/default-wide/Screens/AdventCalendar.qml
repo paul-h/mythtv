@@ -4,37 +4,38 @@ import Dialogs 1.0
 
 BaseScreen
 {
-    defaultFocusItem: calenderGrid
+    defaultFocusItem: calendarGrid
 
     Component.onCompleted:
     {
         console.log("init completed");
-        showTitle(true, "Advent Calender 2017");
+        showTitle(true, "Advent Calendar 2017");
 
-        for (var i = 0; i < calenderModel.count; i++)
+        for (var i = 0; i < calendarModel.count; i++)
         {
             var day = dbUtils.getSetting("Qml_adventDay" + i, settings.hostName);
-            calenderGrid.model.get(i).opened = (day == "opened");
+            calendarGrid.model.get(i).opened = (day == "opened");
         }
     }
 
     Component.onDestruction:
     {
-        for (var i = 0; i < calenderModel.count; i++)
+        for (var i = 0; i < calendarModel.count; i++)
         {
-            var opened = calenderGrid.model.get(i).opened;
+            var opened = calendarGrid.model.get(i).opened;
             dbUtils.setSetting("Qml_adventDay" + i, settings.hostName, opened ? "opened" : "closed");
         }
     }
 
     ListModel
     {
-        id: calenderModel
+        id: calendarModel
         ListElement
         {
             day: "1"
             title: "Dave`s Model Railway Christmas Video"
             icon: "https://i.ytimg.com/vi/5xf55ayahlE/hqdefault.jpg"
+            //https://www.youtube.com/watch?v=HYyCSuNnxp0
             video: "https://www.youtube.com/watch?v=5xf55ayahlE"
             duration: "15:46"
             opened: false
@@ -250,7 +251,7 @@ BaseScreen
 
     GridView
     {
-        id: calenderGrid
+        id: calendarGrid
         x: xscale(50)
         y: yscale(50)
         width: xscale(1280) - xscale(96)
@@ -260,7 +261,7 @@ BaseScreen
 
         Component
         {
-            id: calenderDelegate
+            id: calendarDelegate
             Image
             {
                 id: wrapper
@@ -268,15 +269,15 @@ BaseScreen
                 x: xscale(5)
                 y: yscale(5)
                 opacity: 1.0
-                width: calenderGrid.cellWidth - 10; height: calenderGrid.cellHeight - 10
-                source: opened ? icon : mythUtils.findThemeFile("images/advent_calender/day" + day + ".png")
+                width: calendarGrid.cellWidth - 10; height: calendarGrid.cellHeight - 10
+                source: opened ? icon : mythUtils.findThemeFile("images/advent_calendar/day" + day + ".png")
                 //source: icon
             }
         }
 
         highlight: Rectangle { z: 99; color: "red"; opacity: 0.4; radius: 5 }
-        model: calenderModel
-        delegate: calenderDelegate
+        model: calendarModel
+        delegate: calendarDelegate
         focus: true
 
         Keys.onReturnPressed:
@@ -303,7 +304,7 @@ BaseScreen
             {
                 popupMenu.clearMenuItems();
 
-                if (calenderGrid.model.get(calenderGrid.currentIndex).opened)
+                if (calendarGrid.model.get(calendarGrid.currentIndex).opened)
                     popupMenu.addMenuItem("Close Window");
                 else
                     popupMenu.addMenuItem("Open Window");
@@ -328,16 +329,16 @@ BaseScreen
 
         onItemSelected:
         {
-            calenderGrid.focus = true;
+            calendarGrid.focus = true;
 
             if (itemText == "Close Window")
             {
-                calenderGrid.model.get(calenderGrid.currentIndex).opened = false;
+                calendarGrid.model.get(calendarGrid.currentIndex).opened = false;
             }
             else if (itemText == "Open Window")
             {
                 var date = new Date;
-                var day = calenderGrid.model.get(calenderGrid.currentIndex).day;
+                var day = calendarGrid.model.get(calendarGrid.currentIndex).day;
                 if (date.getMonth() == 10 || (date.getMonth() == 11 && day > date.getDate()))
                 {
                     returnSound.play();
@@ -345,16 +346,16 @@ BaseScreen
                 }
                 else
                 {
-                    calenderGrid.model.get(calenderGrid.currentIndex).opened = true
+                    calendarGrid.model.get(calendarGrid.currentIndex).opened = true
                     returnSound.play();
                     playDialog.show();
                 }
             }
             else if (itemText == "Close All Windows")
             {
-                for (var i = 0; i < calenderModel.count; i++)
+                for (var i = 0; i < calendarModel.count; i++)
                 {
-                    calenderGrid.model.get(i).opened = false;
+                    calendarGrid.model.get(i).opened = false;
                     dbUtils.setSetting("Qml_adventDay" + i, settings.hostName,  "closed");
                 }
             }
@@ -362,7 +363,7 @@ BaseScreen
 
         onCancelled:
         {
-            calenderGrid.focus = true;
+            calendarGrid.focus = true;
         }
     }
 
@@ -376,29 +377,29 @@ BaseScreen
 
         width: xscale(600); height: yscale(300)
 
-        onAccepted:  calenderGrid.focus = true
-        onCancelled: calenderGrid.focus = true
+        onAccepted:  calendarGrid.focus = true
+        onCancelled: calendarGrid.focus = true
     }
 
     AdventPlayDialog
     {
         id: playDialog
 
-        title: "Day " + calenderGrid.model.get(calenderGrid.currentIndex).day
-        message: calenderGrid.model.get(calenderGrid.currentIndex).title +  "\nDuration: " + calenderGrid.model.get(calenderGrid.currentIndex).duration
-        image: calenderGrid.model.get(calenderGrid.currentIndex).icon
+        title: "Day " + calendarGrid.model.get(calendarGrid.currentIndex).day
+        message: calendarGrid.model.get(calendarGrid.currentIndex).title +  "\nDuration: " + calendarGrid.model.get(calendarGrid.currentIndex).duration
+        image: calendarGrid.model.get(calendarGrid.currentIndex).icon
 
         width: xscale(600); height: yscale(500)
 
         onAccepted:
         {
-            calenderGrid.model.get(calenderGrid.currentIndex).opened = true
-            calenderGrid.focus = true;
-            stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: calenderGrid.model.get(calenderGrid.currentIndex).video, title1: calenderGrid.model.get(calenderGrid.currentIndex).title}});
+            calendarGrid.model.get(calendarGrid.currentIndex).opened = true
+            calendarGrid.focus = true;
+            stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: calendarGrid.model.get(calendarGrid.currentIndex).video, title1: calendarGrid.model.get(calendarGrid.currentIndex).title}});
         }
         onCancelled:
         {
-            calenderGrid.focus = true;
+            calendarGrid.focus = true;
         }
     }
 }

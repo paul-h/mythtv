@@ -75,9 +75,9 @@ ListModel
     }
     ListElement
     {
-        menutext: "Advent Calender"
-        loaderSource:"AdventCalender.qml"
-        waterMark: "watermark/adventcalender.jpg"
+        menutext: "Advent Calendar"
+        loaderSource:"AdventCalendar.qml"
+        waterMark: "watermark/adventcalendar.jpg"
     }
     ListElement
     {

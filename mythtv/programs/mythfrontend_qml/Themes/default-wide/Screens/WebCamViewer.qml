@@ -23,7 +23,7 @@ BaseScreen
 
         while (stack.busy) {};
 
-        // get list of webcam webcam paths
+        // get list of webcam paths
         webcamPaths =  settings.webcamPath.split(",")
 
         path = dbUtils.getSetting("Qml_lastWebcamPath", settings.hostName, webcamPaths[0])
