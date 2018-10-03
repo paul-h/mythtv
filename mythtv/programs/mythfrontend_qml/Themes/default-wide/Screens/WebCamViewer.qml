@@ -8,16 +8,29 @@ BaseScreen
 {
     defaultFocusItem: webcamGrid
 
+    property var webcamPaths
+    property int webcamPathIndex: 0
+
     property string filterCategory
     property bool titleSorterActive: true
 
     Component.onCompleted:
     {
+        var path;
         showTitle(true, "WebCam Viewer");
         showTime(false);
         showTicker(false);
 
         while (stack.busy) {};
+
+        // get list of webcam webcam paths
+        webcamPaths =  settings.webcamPath.split(",")
+
+        path = dbUtils.getSetting("Qml_lastWebcamPath", settings.hostName, webcamPaths[0])
+        path = path.replace("/WebCam.xml", "")
+        webcamPathIndex = webcamPaths.indexOf(path)
+        webcamModel.source = path + "/WebCam.xml"
+
 
         filterCategory = dbUtils.getSetting("Qml_lastWebcamCategory", settings.hostName)
 
@@ -31,6 +44,7 @@ BaseScreen
 
     Component.onDestruction:
     {
+        dbUtils.setSetting("Qml_lastWebcamPath", settings.hostName, webcamPaths[webcamPathIndex])
         dbUtils.setSetting("Qml_lastWebcamCategory", settings.hostName, filterCategory)
     }
 
@@ -107,6 +121,22 @@ BaseScreen
 
             event.accepted = true;
             returnSound.play();
+        }
+        else if (event.key === Qt.Key_F5)
+        {
+            webcamPathIndex++;
+
+            if (webcamPathIndex >= webcamPaths.length)
+                webcamPathIndex = 0;
+
+            filterCategory = "";
+            show.text = "Show (All Webcams)"
+
+            titleSorterActive = true
+            webcamProxyModel.sorters = titleSorter;
+            sort.text = "Sort (Name)";
+
+            webcamModel.source = webcamPaths[webcamPathIndex] + "/WebCam.xml"
         }
     }
 
@@ -293,29 +323,6 @@ BaseScreen
         text: "Go To Website"
     }
 
-    PopupMenu
-    {
-        id: popupMenu
-
-        title: "Menu"
-        message: "Webcam Viewer Options"
-
-        onItemSelected:
-        {
-            webcamGrid.focus = true;
-
-            if (itemText == "Close All Windows")
-            {
-                //TODO
-            }
-        }
-
-        onCancelled:
-        {
-            webcamGrid.focus = true;
-        }
-    }
-
     SearchListDialog
     {
         id: searchDialog
@@ -360,7 +367,7 @@ BaseScreen
             if (iconURL.startsWith("file://") || iconURL.startsWith("http://") || iconURL.startsWith("https://"))
                 return iconURL;
             else
-                return settings.webcamPath + "/" + iconURL;
+                return webcamPaths[webcamPathIndex] + "/" + iconURL;
         }
 
         return ""
