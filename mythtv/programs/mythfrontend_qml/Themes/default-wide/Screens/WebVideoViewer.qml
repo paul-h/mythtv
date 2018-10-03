@@ -8,16 +8,29 @@ BaseScreen
 {
     defaultFocusItem: webvideoGrid
 
+    property var webVideoPaths
+    property int webVideoPathIndex: 0
+
     property string filterCategory
     property bool titleSorterActive: true
 
     Component.onCompleted:
     {
+        var path;
+
         showTitle(true, "Web Video Viewer");
         showTime(false);
         showTicker(false);
 
         while (stack.busy) {};
+
+        // get list of webcam paths
+        webVideoPaths =  settings.webcamPath.split(",")
+
+        path = dbUtils.getSetting("Qml_lastWebvideoPath", settings.hostName, webVideoPaths[0])
+        path = path.replace("/WebVideo.xml", "")
+        webVideoPathIndex = webVideoPaths.indexOf(path)
+        webVideoModel.source = path + "/WebVideo.xml"
 
         filterCategory = dbUtils.getSetting("Qml_lastWebvideoCategory", settings.hostName)
 
@@ -31,6 +44,7 @@ BaseScreen
 
     Component.onDestruction:
     {
+        dbUtils.setSetting("Qml_lastWebvideoPath", settings.hostName, webVideoPaths[webVideoPathIndex])
         dbUtils.setSetting("Qml_lastWebvideoCategory", settings.hostName, filterCategory)
     }
 
@@ -107,6 +121,22 @@ BaseScreen
 
             event.accepted = true;
             returnSound.play();
+        }
+        else if (event.key === Qt.Key_F5)
+        {
+            webVideoPathIndex++;
+
+            if (webVideoPathIndex >= webVideoPaths.length)
+                webVideoPathIndex = 0;
+
+            filterCategory = "";
+            show.text = "Show (All Web Videos)"
+
+            titleSorterActive = true
+            webvideoProxyModel.sorters = titleSorter;
+            sort.text = "Sort (Name)";
+
+            webVideoModel.source = webVideoPaths[webVideoPathIndex] + "/WebVideo.xml"
         }
     }
 
@@ -293,29 +323,6 @@ BaseScreen
         text: "Go To Website"
     }
 
-    PopupMenu
-    {
-        id: popupMenu
-
-        title: "Menu"
-        message: "Web Video Viewer Options"
-
-        onItemSelected:
-        {
-            webvideoGrid.focus = true;
-
-            if (itemText == "Close All Windows")
-            {
-                //TODO
-            }
-        }
-
-        onCancelled:
-        {
-            webvideoGrid.focus = true;
-        }
-    }
-
     SearchListDialog
     {
         id: searchDialog
@@ -360,7 +367,7 @@ BaseScreen
             if (iconURL.startsWith("file://") || iconURL.startsWith("http://") || iconURL.startsWith("https://"))
                 return iconURL;
             else
-                return settings.webcamPath + "/" + iconURL;
+                return webVideoPaths[webVideoPathIndex] + "/" + iconURL;
         }
 
         return ""
