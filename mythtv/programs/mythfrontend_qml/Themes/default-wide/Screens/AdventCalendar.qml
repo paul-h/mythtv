@@ -305,11 +305,11 @@ BaseScreen
                 popupMenu.clearMenuItems();
 
                 if (calendarGrid.model.get(calendarGrid.currentIndex).opened)
-                    popupMenu.addMenuItem("Close Window");
+                    popupMenu.addMenuItem("", "Close Window");
                 else
-                    popupMenu.addMenuItem("Open Window");
+                    popupMenu.addMenuItem("", "Open Window");
 
-                popupMenu.addMenuItem("Close All Windows");
+                popupMenu.addMenuItem("", "Close All Windows");
 
                 popupMenu.show();
             }

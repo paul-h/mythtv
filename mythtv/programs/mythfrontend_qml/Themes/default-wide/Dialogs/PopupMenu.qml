@@ -25,9 +25,9 @@ BaseDialog
         menuList.model.clear()
     }
 
-    function addMenuItem(path, data)
+    function addMenuItem(path, title, data)
     {
-        menuList.addNode(path, data);
+        menuList.addNode(path, title, data);
     }
 
     Keys.onPressed:

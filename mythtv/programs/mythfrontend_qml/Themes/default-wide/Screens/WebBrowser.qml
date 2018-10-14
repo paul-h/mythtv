@@ -122,10 +122,10 @@ BaseScreen
 
         Component.onCompleted:
         {
-            addMenuItem("Enter URL", "enterurl");
-            addMenuItem("Zoom In", "zoomin");
-            addMenuItem("Zoom Out", "zoomout");
-            addMenuItem("Toggle Full Screen", "fullscreen");
+            addMenuItem("", "Enter URL", "enterurl");
+            addMenuItem("", "Zoom In", "zoomin");
+            addMenuItem("", "Zoom Out", "zoomout");
+            addMenuItem("", "Toggle Full Screen", "fullscreen");
         }
     }
 
