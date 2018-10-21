@@ -182,7 +182,7 @@ BaseScreen
             }
         }
 
-        highlight: Rectangle { z: 99; color: "red"; opacity: 0.4; radius: 5 }
+        highlight: Rectangle { z: 99; color: "orange"; opacity: 0.5; radius: 5}
         model: webcamProxyModel
         delegate: webcamDelegate
         focus: true
@@ -190,31 +190,10 @@ BaseScreen
         Keys.onReturnPressed:
         {
             returnSound.play();
-            if (webcamGrid.model.get(webcamGrid.currentIndex).player === "YouTube")
-                stack.push({item: Qt.resolvedUrl("YouTube.qml"), properties:{url: webcamGrid.model.get(webcamGrid.currentIndex).url}});
-            else if (webcamGrid.model.get(webcamGrid.currentIndex).player === "WebBrowser")
-            {
-                var url = webcamGrid.model.get(webcamGrid.currentIndex).url
-                stack.push({item: Qt.resolvedUrl("WebBrowser.qml"), properties:{url: url, fullscreen: true, zoom: 1.0}});
-            }
-            else if (webcamGrid.model.get(webcamGrid.currentIndex).player === "RailCam")
-            {
-                var url = webcamGrid.model.get(webcamGrid.currentIndex).url;
-                var website = webcamGrid.model.get(webcamGrid.currentIndex).website;
-                var zoomFactor = xscale(1.0)
-                stack.push({item: Qt.resolvedUrl("RailCam.qml"), properties:{videoUrl: url, website: website, zoomFactor: zoomFactor}});
-            }
-            else if (webcamGrid.model.get(webcamGrid.currentIndex).player === "StreamLink")
-            {
-                var url = webcamGrid.model.get(webcamGrid.currentIndex).url;
-                var port = "4545"
-                var command = "streamlink"
-                var parameters = ["--player-external-http", "--player-external-http-port", port, url, "best"]
-                stack.push({item: Qt.resolvedUrl("StreamLink.qml"), properties:{command: command, parameters: parameters, port: port}});
-            }
-            else
-                stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: webcamGrid.model.get(webcamGrid.currentIndex).url, title1: webcamGrid.model.get(webcamGrid.currentIndex).title}});
-
+            var url = webcamGrid.model.get(webcamGrid.currentIndex).url;
+            var website = webcamGrid.model.get(webcamGrid.currentIndex).website;
+            var zoomFactor = xscale(1.0)
+            stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{feedList:  webcamGrid.model, currentFeed: webcamGrid.currentIndex}});
             event.accepted = true;
         }
 

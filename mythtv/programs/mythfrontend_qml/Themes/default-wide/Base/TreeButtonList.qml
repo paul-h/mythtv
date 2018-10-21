@@ -106,7 +106,7 @@ FocusScope
     {
         var i;
 
-        if (lists[nodeID].model === undefined ||  lists[nodeID].model.get(index) === undefined)
+        if (lists[nodeID].model === null || lists[nodeID].model === undefined ||  lists[nodeID].model.get(index) === undefined)
             return;
 
         if (nodeID == _focusedList)
@@ -232,6 +232,20 @@ FocusScope
             node = node.subNode.get(parseInt(szSplit[i]))
         }
         */
+    }
+
+    function reset()
+    {
+        model.clear();
+
+        for (var x = 0; x < lists.length; x++)
+            lists[x].destroy();
+
+        lists.length = 0;
+        lists.push(createList(0, model));
+        lists[0].focus = true;
+        _focusedList = 0;
+        nodeSelectedHandler(0, 0);
     }
 
     function getActiveNodePath()

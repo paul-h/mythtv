@@ -17,12 +17,13 @@ BaseDialog
     {
         if (!restoreSelected)
             menuList.setFocusedNode(0);
+
         popupMenu.state = "show";
     }
 
     function clearMenuItems()
     {
-        menuList.model.clear()
+        menuList.reset();
     }
 
     function addMenuItem(path, title, data)

@@ -93,6 +93,8 @@ FocusScope
                      changeVolume(1.0);
                  else if (event.key === Qt.Key_F11)
                      toggleMute();
+                 else if (event.key === Qt.Key_F10)
+                     mediaplayer.play();
                  else if (event.key === Qt.Key_D)
                      toggleInterlacer();
                  else if (event.key === Qt.Key_PageUp && mediaplayer.seekable)
@@ -285,6 +287,16 @@ FocusScope
     {
         mediaplayer.audio.mute = !mediaplayer.audio.mute;
         //showMessage("Mute: " + (mediaplayer.audio.mute ? "On" : "Off"));
+    }
+
+    function getPosition()
+    {
+        return mediaplayer.time;
+    }
+
+    function getDuration()
+    {
+        return mediaplayer.length;
     }
 
     function setLoopMode(doLoop)
