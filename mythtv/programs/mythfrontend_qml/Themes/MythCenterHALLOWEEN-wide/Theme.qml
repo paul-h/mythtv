@@ -77,23 +77,23 @@ QtObject
     // base dialog background
     property color bgDialogColor:       "black"
     property real  bgDialogOpacity:     200 / 255
-    property color bgDialogBorderColor: "orange"
+    property color bgDialogBorderColor: "purple"
     property int   bgDialogBorderWidth: 3
     property int   bgDialogRadius:      12
 
     // list view
     property color lvRowBackgroundNormal:          "#40111111"; // not selected or focused
     property color lvRowBackgroundFocused:         "#80111111"; // focused
-    property color lvRowBackgroundSelected:        "#40ff0000"; // selected not focused
-    property color lvRowBackgroundFocusedSelected: "#d0ff0000"; // selected and focused
+    property color lvRowBackgroundSelected:        "#4000aa00"; // selected not focused
+    property color lvRowBackgroundFocusedSelected: "#d000aa00"; // selected and focused
 
     property color lvRowTextNormal:          "#ffffffff"; // not selected or focused
     property color lvRowTextFocused:         "#ffffffff"; // focused
-    property color lvRowTextSelected:        "#ff00aa00"; // selected not focused
-    property color lvRowTextFocusedSelected: "#ff00aa00"; // selected and focused
+    property color lvRowTextSelected:        "#ffffa700"; // selected not focused
+    property color lvRowTextFocusedSelected: "#ffffa700"; // selected and focused
 
     property real  lvBackgroundOpacity:      1.0;
-    property color lvBackgroundBorderColor:  "red";
+    property color lvBackgroundBorderColor:  "green";
     property int   lvBackgroundBorderWidth:  2;
     property int   lvBackgroundBorderRadius: 10;
 
@@ -101,16 +101,16 @@ QtObject
     property int   btBorderWidth: 3
     property int   btBorderRadius: 4
 
-    property color btBorderColorNormal:          "#880000"
-    property color btBorderColorFocused:         "#aa0000"
-    property color btBorderColorSelected:        "#dd0000"
-    property color btBorderColorFocusedSelected: "#ff0000"
+    property color btBorderColorNormal:          "#008c00"
+    property color btBorderColorFocused:         "#00a500"
+    property color btBorderColorSelected:        "#00d500"
+    property color btBorderColorFocusedSelected: "#00f500"
     property color btBorderColorDisabled:        "#aaaaaa"
 
-    property color btTextColorNormal:          "#008800"
-    property color btTextColorFocused:         "#00aa00"
-    property color btTextColorSelected:        "#00dd00"
-    property color btTextColorFocusedSelected: "#00ff00"
+    property color btTextColorNormal:          "#ff8800"
+    property color btTextColorFocused:         "#ffaa00"
+    property color btTextColorSelected:        "#ffdd00"
+    property color btTextColorFocusedSelected: "#ffff00"
     property color btTextColorDisabled:        "#888888"
 
     // text edit
@@ -123,17 +123,17 @@ QtObject
     readonly property color colorNone : "transparent";
 
     // background gradients
-    property color colorNormalStart: "#78aa0000"
-    property color colorNormalStop:  "#78880000"
+    property color colorNormalStart: "#7800aa00"
+    property color colorNormalStop:  "#78008800"
 
-    property color colorFocusedStart: "#c8ff0000"
-    property color colorFocusedStop:  "#c8dd0000"
+    property color colorFocusedStart: "#c800ff00"
+    property color colorFocusedStop:  "#c800dd00"
 
-    property color colorSelectedStart: "#c8ff0000"
-    property color colorSelectedStop:  "#c8dd0000"
+    property color colorSelectedStart: "#c800ff00"
+    property color colorSelectedStop:  "#c800dd00"
 
-    property color colorFocusedSelectedStart: "#c8ff0000"
-    property color colorFocusedSelectedStop:  "#c8ff0000"
+    property color colorFocusedSelectedStart: "#c800ff00"
+    property color colorFocusedSelectedStop:  "#c800ff00"
 
     property color colorDisabledStart: "#80cccccc"
     property color colorDisabledStop:  "#80111111"
