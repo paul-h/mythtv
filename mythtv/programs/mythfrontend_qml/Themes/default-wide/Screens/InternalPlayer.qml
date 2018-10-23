@@ -42,7 +42,6 @@ BaseScreen
 
         setLayout(0);
 
-        getActivePlayer().showInfo(true);
         showInfo(true);
     }
 
@@ -156,14 +155,22 @@ BaseScreen
             setLayout(0);
 
         }
+        else if (event.key === Qt.Key_Less)
+        {
+            getActivePlayer().skipBack();
+            showInfo(true);
+        }
+        else if (event.key === Qt.Key_Greater)
+        {
+            getActivePlayer().skipForward();
+            showInfo(true);
+        }
         else if (event.key === Qt.Key_S)
         {
             getActivePlayer().takeSnapshot();
         }
         else if (event.key === Qt.Key_I)
         {
-            getActivePlayer().showInfo(false);
-
             showInfo(false);
         }
         else if (event.key === Qt.Key_M)
@@ -641,6 +648,7 @@ BaseScreen
 
         return mediaPlayer1;
     }
+
     function showInfo(restart)
     {
         if (restart)
@@ -660,5 +668,7 @@ BaseScreen
                 infoTimer.start();
             }
         }
+
+        getActivePlayer().showInfo(restart);
     }
 }

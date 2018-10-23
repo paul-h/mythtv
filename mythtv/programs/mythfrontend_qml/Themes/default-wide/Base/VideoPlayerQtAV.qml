@@ -267,6 +267,16 @@ FocusScope
             mediaplayer.play();
     }
 
+    function skipBack()
+    {
+        mediaplayer.seek(mediaplayer.position - 30000);
+    }
+
+    function skipForward()
+    {
+        mediaplayer.seek(mediaplayer.position - 30000);
+    }
+
     function changeVolume(amount)
     {
         if (amount < 0)

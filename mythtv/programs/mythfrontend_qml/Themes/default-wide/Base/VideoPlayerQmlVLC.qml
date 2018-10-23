@@ -260,6 +260,16 @@ FocusScope
         if (mediaplayer.state === VlcPlayer.Paused) mediaplayer.play(); else mediaplayer.pause();
     }
 
+    function skipBack()
+    {
+        if (mediaplayer.seekable) mediaplayer.time = mediaplayer.time - 30000;
+    }
+
+    function skipForward()
+    {
+        if (mediaplayer.seekable) mediaplayer.time = mediaplayer.time + 30000;
+    }
+
     function changeVolume(amount)
     {
         if (amount < 0)
