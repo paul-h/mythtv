@@ -430,6 +430,14 @@ FocusScope
             webPlayer.url = "";
     }
 
+    function togglePaused()
+    {
+        if (getActivePlayer() === "VLC")
+            vlcPlayer.togglePaused();
+        else if (getActivePlayer() === "QTAV")
+            qtAVPlayer.togglePaused();
+    }
+
     function toggleMute()
     {
         if (getActivePlayer() === "VLC")
@@ -448,6 +456,14 @@ FocusScope
             webPlayer.triggerWebAction(WebEngineView.ToggleMediaMute);
             showMessage("Mute: " + (webPlayer.audioMuted ? "On" : "Off"));
         }
+    }
+
+    function changeVolume(amount)
+    {
+        if (getActivePlayer() === "VLC")
+            vlcPlayer.changeVolume(amount);
+        else if (getActivePlayer() === "QTAV")
+            qtAVPlayer.changeVolume(amount);
     }
 
     function skipBack()

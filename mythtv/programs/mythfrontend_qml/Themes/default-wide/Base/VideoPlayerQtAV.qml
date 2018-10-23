@@ -279,6 +279,8 @@ FocusScope
 
     function changeVolume(amount)
     {
+        amount = amount / 100
+
         if (amount < 0)
             mediaplayer.volume = Math.max(0.0, mediaplayer.volume + amount);
         else

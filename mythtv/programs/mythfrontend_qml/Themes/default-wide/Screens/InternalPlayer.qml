@@ -155,6 +155,11 @@ BaseScreen
             setLayout(0);
 
         }
+        else if (event.key === Qt.Key_P)
+        {
+            getActivePlayer().togglePaused();
+            showInfo(true);
+        }
         else if (event.key === Qt.Key_Less)
         {
             getActivePlayer().skipBack();
@@ -164,6 +169,14 @@ BaseScreen
         {
             getActivePlayer().skipForward();
             showInfo(true);
+        }
+        else if (event.key === Qt.Key_BracketLeft)
+        {
+            getActivePlayer().changeVolume(-1.0);
+        }
+        else if (event.key === Qt.Key_BracketRight)
+        {
+            getActivePlayer().changeVolume(1.0);
         }
         else if (event.key === Qt.Key_S)
         {
