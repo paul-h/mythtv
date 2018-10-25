@@ -127,6 +127,11 @@ FocusScope
             //stop();
             //stack.pop();
         }
+
+        onShowMessage:
+        {
+            root.showMessage(message);
+        }
     }
 
     VideoPlayerQtAV
@@ -144,6 +149,12 @@ FocusScope
         {
             //stop();
             //stack.pop();
+        }
+
+        onShowMessage:
+        {
+            console.log("Got show message signal");
+            root.showMessage(message);
         }
     }
 
@@ -195,7 +206,7 @@ FocusScope
             text:
             {
                 if (getActivePlayer() === "VLC")
-                    return Util.milliSecondsToString(vlcPlayer.getDuration()) + " / " + Util.milliSecondsToString(vlcPlayer.getPosition())
+                    return Util.milliSecondsToString(vlcPlayer.getDuration() - vlcPlayer.getPosition())
                 else
                     "Remaining :" + "N/A"
             }
@@ -228,11 +239,6 @@ FocusScope
                     source: mythUtils.findThemeFile("images/play.png") //mediaplayer.playing ? mythUtils.findThemeFile("images/play.png") : mythUtils.findThemeFile("images/pause.png")
                     anchors.centerIn: parent
                 }
-                MouseArea
-                {
-                    anchors.fill: parent
-                    //onClicked: mediaplayer.togglePause()
-                }
             }
             Rectangle
             {
@@ -244,7 +250,15 @@ FocusScope
                 anchors.verticalCenter: parent.verticalCenter
                 Rectangle
                 {
-                    width: (parent.width - anchors.leftMargin - anchors.rightMargin) * 1 //mediaplayer.position
+                    width:
+                    {
+                        var position = 1;
+
+                        if (getActivePlayer() === "VLC")
+                            position = vlcPlayer.getPosition() / vlcPlayer.getDuration();
+
+                        return (parent.width - anchors.leftMargin - anchors.rightMargin) * position;
+                    }
                     color: 'blue'
                     anchors.margins: xscale(2)
                     anchors.top: parent.top
@@ -466,20 +480,28 @@ FocusScope
             qtAVPlayer.changeVolume(amount);
     }
 
-    function skipBack()
+    function skipBack(time)
     {
         if (getActivePlayer() === "VLC")
-            vlcPlayer.skipBack();
+            vlcPlayer.skipBack(time);
         else if (getActivePlayer() === "QTAV")
-            qtAVPlayer.skipBack();
+            qtAVPlayer.skipBack(time);
     }
 
-    function skipForward()
+    function skipForward(time)
     {
         if (getActivePlayer() === "VLC")
-            vlcPlayer.skipForward();
+            vlcPlayer.skipForward(time);
         else if (getActivePlayer() === "QTAV")
-            qtAVPlayer.skipBack();
+            qtAVPlayer.skipForward(time);
+    }
+
+    function toggleInterlacer()
+    {
+        if (getActivePlayer() === "VLC")
+            vlcPlayer.toggleInterlacer();
+        else if (getActivePlayer() === "QTAV")
+            qtAVPlayer.toggleInterlacer();
     }
 
     function takeSnapshot()
@@ -528,6 +550,7 @@ FocusScope
             }
             else
             {
+                railcamBrowser.zoomFactor = xscale(root.feedList.get(root.currentFeed).zoom)
                 railcamBrowser.url = root.feedList.get(root.currentFeed).website;
                 railcamBrowser.visible = true;
             }

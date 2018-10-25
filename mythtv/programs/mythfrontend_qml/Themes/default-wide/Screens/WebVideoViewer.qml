@@ -190,30 +190,7 @@ BaseScreen
         Keys.onReturnPressed:
         {
             returnSound.play();
-            if (webvideoGrid.model.get(webvideoGrid.currentIndex).player === "YouTube")
-                stack.push({item: Qt.resolvedUrl("YouTube.qml"), properties:{url: webvideoGrid.model.get(webvideoGrid.currentIndex).url}});
-            else if (webvideoGrid.model.get(webvideoGrid.currentIndex).player === "WebBrowser")
-            {
-                var url = webvideoGrid.model.get(webvideoGrid.currentIndex).url
-                stack.push({item: Qt.resolvedUrl("WebBrowser.qml"), properties:{url: url, fullscreen: true, zoom: 1.0}});
-            }
-            else if (webvideoGrid.model.get(webvideoGrid.currentIndex).player === "RailCam")
-            {
-                var url = webvideoGrid.model.get(webvideoGrid.currentIndex).url;
-                var website = webvideoGrid.model.get(webvideoGrid.currentIndex).website;
-                var zoomFactor = xscale(1.0)
-                stack.push({item: Qt.resolvedUrl("RailCam.qml"), properties:{videoUrl: url, website: website, zoomFactor: zoomFactor}});
-            }
-            else if (webvideoGrid.model.get(webvideoGrid.currentIndex).player === "StreamLink")
-            {
-                var url = webvideoGrid.model.get(webvideoGrid.currentIndex).url;
-                var port = "4545"
-                var command = "streamlink"
-                var parameters = ["--player-external-http", "--player-external-http-port", port, url, "best"]
-                stack.push({item: Qt.resolvedUrl("StreamLink.qml"), properties:{command: command, parameters: parameters, port: port}});
-            }
-            else
-                stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{source1: webvideoGrid.model.get(webvideoGrid.currentIndex).url, title1: webvideoGrid.model.get(webvideoGrid.currentIndex).title}});
+            stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{feedList:  webvideoGrid.model, currentFeed: webvideoGrid.currentIndex}});
 
             event.accepted = true;
         }

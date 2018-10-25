@@ -15,17 +15,9 @@ FocusScope
 
     property bool loop: false
     property bool playbackStarted: false
+
     signal playbackEnded()
-
-    property string title: ""
-    property string subtitle: ""
-
-    property bool fullscreen: false
-
-    property int _oldX
-    property int _oldY
-    property int _oldWidth
-    property int _oldHeight
+    signal showMessage(string message)
 
     Rectangle
     {
@@ -54,35 +46,6 @@ FocusScope
             videoCodecPriority: ["CUDA", "FFmpeg", "VAAPI"]
             audioBackends: ["OpenAL", "Pulse", "Null"]
 //            videoFilters: [vf]
-            Keys.onReturnPressed: root.togglePaused();
-            Keys.onLeftPressed: seek(position - 30000);
-            Keys.onRightPressed: seek(position + 30000);
-            Keys.onPressed:
-            {
-                if (event.key === Qt.Key_I)
-                {
-                    if (infoPanel.visible)
-                        infoPanel.visible = false;
-                    else
-                        infoPanel.visible = true;
-                }
-                else if (event.key === Qt.Key_O)
-                    stop();
-                else if (event.key === Qt.Key_P)
-                    root.togglePaused();
-                else if (event.key === Qt.Key_BracketLeft)
-                    changeVolume(-0.01);
-                else if (event.key === Qt.Key_BracketRight)
-                    changeVolume(0.01);
-                else if (event.key === Qt.Key_M)
-                    toggleMute();
-                else if (event.key === Qt.Key_W)
-                    toggleFullscreen();
-                else if (event.key === Qt.Key_H)
-                    console.log("supportedAudioBackends: " + supportedAudioBackends);
-                else
-                    event.accepted = false;
-            }
 
             onStatusChanged:
             {
@@ -107,128 +70,6 @@ FocusScope
             }
         }
 
-        BaseBackground
-        {
-            id: infoPanel
-            x: xscale(10); y: parent.height - yscale(120); width: parent.width - xscale(20); height: yscale(110)
-            visible: false
-
-            TitleText
-            {
-                id: title
-                x: xscale(10); y: yscale(5); width: parent.width - xscale(20)
-                text:
-                {
-                    if (root.title != "")
-                        return root.title
-                    else
-                        return root.source
-                }
-
-                verticalAlignment: Text.AlignTop
-            }
-
-            InfoText
-            {
-                id: pos
-                x: xscale(50); y: yscale(45)
-                text: "Position: " + Util.milliSecondsToString(mediaplayer.position) + " / " + Util.milliSecondsToString(mediaplayer.duration)
-            }
-
-            InfoText
-            {
-                id: timeLeft
-                x: parent.width - width - xscale(15); y: yscale(45)
-                text: "Remaining :" + Util.milliSecondsToString(mediaplayer.duration - mediaplayer.position)
-                horizontalAlignment: Text.AlignRight
-            }
-
-            RowLayout
-            {
-                id: toolbar
-                opacity: .55
-                spacing: xscale(10)
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: spacing
-                anchors.leftMargin: spacing * xscale(1.5)
-                anchors.rightMargin: spacing * xscale(1.5)
-                Behavior on anchors.bottomMargin { PropertyAnimation { duration: 250} }
-                Rectangle
-                {
-                    height: yscale(24)
-                    width: height
-                    radius: width * xscale(0.25)
-                    color: 'black'
-                    border.width: xscale(1)
-                    border.color: 'white'
-                    Image
-                    {
-                        source: mediaplayer.playing ? mythUtils.findThemeFile("images/play.png") : mythUtils.findThemeFile("images/pause.png")
-                        anchors.centerIn: parent
-                    }
-                    MouseArea
-                    {
-                        anchors.fill: parent
-                        onClicked: mediaplayer.togglePause()
-                    }
-                }
-                Rectangle
-                {
-                    Layout.fillWidth: true
-                    height: yscale(10)
-                    color: 'transparent'
-                    border.width: xscale(1)
-                    border.color: 'white'
-                    anchors.verticalCenter: parent.verticalCenter
-                    Rectangle
-                    {
-                        width: (parent.width - anchors.leftMargin - anchors.rightMargin) *  (mediaplayer.position / mediaplayer.duration)
-                        color: 'blue'
-                        anchors.margins: xscale(2)
-                        anchors.top: parent.top
-                        anchors.left: parent.left
-                        anchors.bottom: parent.bottom
-                    }
-                }
-            }
-        }
-
-        BaseBackground
-        {
-            id: messagePanel
-            x: xscale(100); y: yscale(120); width: xscale(400); height: yscale(110)
-            visible: false
-
-            InfoText
-            {
-                id: messageText
-                anchors.fill: parent
-                horizontalAlignment: Text.AlignHCenter
-            }
-        }
-        MouseArea
-        {
-            id: playArea
-            anchors.fill: parent
-            onPressed: mediaplayer.play();
-        }
-
-    }
-
-    Timer
-    {
-        id: messageTimer
-        interval: 3000; running: false; repeat: false
-        onTriggered: messagePanel.visible = false;
-    }
-
-    function showMessage(message)
-    {
-        messageText.text = message;
-        messagePanel.visible = true;
-        messageTimer.restart();
     }
 
     function isPlaying()
@@ -267,14 +108,14 @@ FocusScope
             mediaplayer.play();
     }
 
-    function skipBack()
+    function skipBack(time)
     {
-        mediaplayer.seek(mediaplayer.position - 30000);
+        mediaplayer.seek(mediaplayer.position - time);
     }
 
-    function skipForward()
+    function skipForward(time)
     {
-        mediaplayer.seek(mediaplayer.position - 30000);
+        mediaplayer.seek(mediaplayer.position - time);
     }
 
     function changeVolume(amount)
@@ -322,33 +163,6 @@ FocusScope
         //FIXME
         console.info("saving snapshot to: " + filename);
         showMessage("Saving snapshots not currently available in this player");
-    }
-
-    function toggleFullscreen()
-    {
-        if (root.fullscreen)
-        {
-            root.fullscreen = false;
-            root.x = root._oldX;
-            root.y = root._oldY;
-            root.width = root._oldWidth;
-            root.height = root._oldHeight;
-        }
-        else
-        {
-            root.fullscreen = true;
-            root._oldX = root.x;
-            root._oldY = root.y;
-            root._oldWidth = root.width;
-            root._oldHeight = root.height;
-
-            root.x = 0;
-            root.y = 0;
-            root.width = window.width;
-            root.height = window.height;
-
-            mediaplayer.focus = true;
-        }
     }
 }
 

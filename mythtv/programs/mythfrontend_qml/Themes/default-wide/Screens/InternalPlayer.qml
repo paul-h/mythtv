@@ -155,6 +155,10 @@ BaseScreen
             setLayout(0);
 
         }
+        else if (event.key === Qt.Key_O)
+        {
+            getActivePlayer().stop();
+        }
         else if (event.key === Qt.Key_P)
         {
             getActivePlayer().togglePaused();
@@ -162,12 +166,22 @@ BaseScreen
         }
         else if (event.key === Qt.Key_Less)
         {
-            getActivePlayer().skipBack();
+            getActivePlayer().skipBack(30000); // 30 seconds
             showInfo(true);
         }
         else if (event.key === Qt.Key_Greater)
         {
-            getActivePlayer().skipForward();
+            getActivePlayer().skipForward(30000); // 30 seconds
+            showInfo(true);
+        }
+        else if (event.key === Qt.Key_PageUp)
+        {
+            getActivePlayer().skipBack(600000); // 10 minutes
+            showInfo(true);
+        }
+        else if (event.key === Qt.Key_PageDown)
+        {
+            getActivePlayer().skipForward(600000); // 10 minutes
             showInfo(true);
         }
         else if (event.key === Qt.Key_BracketLeft)
@@ -177,6 +191,10 @@ BaseScreen
         else if (event.key === Qt.Key_BracketRight)
         {
             getActivePlayer().changeVolume(1.0);
+        }
+        else if (event.key === Qt.Key_D)
+        {
+              getActivePlayer().toggleInterlacer();
         }
         else if (event.key === Qt.Key_S)
         {
