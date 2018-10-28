@@ -26,6 +26,8 @@ FocusScope
         {
             id: mediaplayer
 
+            property bool seekable: true
+
             onStateChanged:
             {
                 if (playbackStarted && position > 0 && state === VlcPlayer.Ended)
@@ -41,6 +43,7 @@ FocusScope
                 }
             }
 
+            onMediaPlayerSeekableChanged: mediaplayer.seekable = seekable
             onPlayingChanged: muteTimer.start()
         }
 

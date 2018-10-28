@@ -163,12 +163,12 @@ BaseScreen
             getActivePlayer().togglePaused();
             showInfo(true);
         }
-        else if (event.key === Qt.Key_Less)
+        else if (event.key === Qt.Key_Less || event.key === Qt.Key_Comma)
         {
             getActivePlayer().skipBack(30000); // 30 seconds
             showInfo(true);
         }
-        else if (event.key === Qt.Key_Greater)
+        else if (event.key === Qt.Key_Greater || event.key === Qt.Key_Period)
         {
             getActivePlayer().skipForward(30000); // 30 seconds
             showInfo(true);
