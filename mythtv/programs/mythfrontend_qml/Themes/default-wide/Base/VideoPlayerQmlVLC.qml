@@ -8,6 +8,7 @@ FocusScope
     property alias volume: mediaplayer.volume
     property bool loop: false
     property bool playbackStarted: false
+    property bool muteAudio: false
 
     signal playbackEnded()
     signal showMessage(string message)
@@ -25,8 +26,6 @@ FocusScope
         {
             id: mediaplayer
 
-            property bool seekable: true
-
             onStateChanged:
             {
                 if (playbackStarted && position > 0 && state === VlcPlayer.Ended)
@@ -37,15 +36,19 @@ FocusScope
 
                 if (state === VlcPlayer.Playing)
                 {
-                    //audio.mute = false;
-                    
+                    audio.mute = root.muteAudio;
                     playbackStarted = true;
                 }
             }
 
-            audio.onMuteChanged: console.log("Mute: " + audio.mute);
+            onPlayingChanged: muteTimer.start()
+        }
 
-            onMediaPlayerSeekableChanged: mediaplayer.seekable = seekable
+        Timer
+        {
+            id: muteTimer
+            interval: 500; running: false; repeat: false
+            onTriggered: mediaplayer.audio.mute = root.muteAudio;
         }
 
         VlcVideoSurface
@@ -114,21 +117,22 @@ FocusScope
 
     function getMuted()
     {
-        return !mediaplayer.audio.mute;
+        return root.muteAudio;
     }
 
     function setMute(mute)
     {
+        root.muteAudio = mute;
+
         if (mute != mediaplayer.audio.mute)
             mediaplayer.audio.mute = mute;
-
-        //showMessage("Mute: " + (mute ? "On" : "Off"));
     }
 
     function toggleMute()
     {
-        mediaplayer.audio.mute = !mediaplayer.audio.mute;
-        //showMessage("Mute: " + (mediaplayer.audio.mute ? "On" : "Off"));
+        root.muteAudio = !root.muteAudio;
+
+        mediaplayer.audio.mute = root.muteAudio;
     }
 
     function getPosition()

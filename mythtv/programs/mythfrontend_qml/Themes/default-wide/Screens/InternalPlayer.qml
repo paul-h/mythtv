@@ -29,7 +29,6 @@ BaseScreen
 
         mediaPlayer1.feedList = feedList;
         mediaPlayer1.currentFeed = currentFeed;
-        mediaPlayer1.startPlayback();
 
         mediaPlayer2.feedList = feedList;
         mediaPlayer2.currentFeed = currentFeed + 1;
@@ -276,6 +275,8 @@ BaseScreen
         id: mediaPlayer1
         visible: false
         enabled: visible
+
+        onPlaybackEnded: if (layout === 0) { stop(); stack.pop(); }
     }
 
     MediaPlayer

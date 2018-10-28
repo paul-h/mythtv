@@ -115,7 +115,7 @@ FocusScope
 
     function skipForward(time)
     {
-        mediaplayer.seek(mediaplayer.position - time);
+        mediaplayer.seek(mediaplayer.position + time);
     }
 
     function changeVolume(amount)
@@ -132,12 +132,12 @@ FocusScope
 
     function getMuted()
     {
-        return mediaplayer.audio.mute;
+        return mediaplayer.muted;
     }
 
     function setMute(mute)
     {
-        if (mute != mediaplayer.mediaplayer.muted)
+        if (mute != mediaplayer.muted)
             mediaplayer.muted = mute;
     }
 

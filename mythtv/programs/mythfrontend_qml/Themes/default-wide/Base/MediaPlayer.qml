@@ -24,13 +24,14 @@ FocusScope
     property string player: ""
 
     property bool showBorder: true
+    property bool muteAudio: false
 
-    Component.onCompleted:
+    signal playbackEnded()
+
+    Component.onDestruction:
     {
-        startPlayback();
+         showMouse(false)
     }
-
-    Component.onDestruction: showMouse(false)
 
     Process
     {
@@ -54,11 +55,12 @@ FocusScope
 
             if (log.includes("No playable streams found on this URL"))
             {
-                //TODO show error message here
-                console.log("No playable streams found on this URL");
+                showMessage("No playable streams found!");
+                checkProcessTimer.stop();
             }
             else if (log.includes("Starting server, access with one of:"))
             {
+                checkProcessTimer.stop();
                 qtAVPlayer.visible = true;
                 switchURL("http://127.0.1.1:" + streamlinkPort + "/");
             }
@@ -124,8 +126,7 @@ FocusScope
 
         onPlaybackEnded:
         {
-            //stop();
-            //stack.pop();
+            root.playbackEnded()
         }
 
         onShowMessage:
@@ -147,13 +148,11 @@ FocusScope
 
         onPlaybackEnded:
         {
-            //stop();
-            //stack.pop();
+            root.playbackEnded()
         }
 
         onShowMessage:
         {
-            console.log("Got show message signal");
             root.showMessage(message);
         }
     }
@@ -316,7 +315,6 @@ FocusScope
 
         var newPlayer = root.feedList.get(root.currentFeed).player;
         switchPlayer(newPlayer);
-        root.player = newPlayer;
 
         var newURL = root.feedList.get(root.currentFeed).url;
         switchURL(newURL);
@@ -324,6 +322,9 @@ FocusScope
 
     function switchPlayer(newPlayer)
     {
+        streamLinkProcess.stop();
+        checkProcessTimer.running = false;
+
         // we always need to restart the StreamLink process even if it is already running
         if (newPlayer === "StreamLink")
         {
@@ -335,6 +336,7 @@ FocusScope
             var url = root.feedList.get(root.currentFeed).url;
             var command = "streamlink"
             var parameters = ["--player-external-http", "--player-external-http-port", streamlinkPort, url, "best"]
+
             streamLinkProcess.start(command, parameters);
 
             checkProcessTimer.running = true;
@@ -345,9 +347,6 @@ FocusScope
 
         if (newPlayer === root.player)
             return;
-
-        streamLinkProcess.kill();
-        checkProcessTimer.running = false;
 
         if (newPlayer === "VLC" || newPlayer === "Internal")
         {
@@ -383,8 +382,6 @@ FocusScope
     {
         railcamBrowser.visible = false;
         railcamBrowser.url = "";
-
-        stop();
 
         if (root.player === "VLC" || root.player === "Internal")
         {
@@ -430,6 +427,9 @@ FocusScope
 
     function stop()
     {
+        streamLinkProcess.stop();
+        checkProcessTimer.running = false;
+
         if (getActivePlayer() === "VLC")
         {
             vlcPlayer.stop();
@@ -454,22 +454,23 @@ FocusScope
 
     function toggleMute()
     {
+        root.muteAudio = !root.muteAudio;
+
         if (getActivePlayer() === "VLC")
         {
-            vlcPlayer.toggleMute();
-            showMessage("Mute: " + (vlcPlayer.getMuted() ? "On" : "Off"));
+            vlcPlayer.setMute(root.muteAudio);
         }
         else if (getActivePlayer() === "QTAV")
         {
-            qtAVPlayer.toggleMute();
-            showMessage("Mute: " + (qtAVPlayer.getMuted() ? "On" : "Off"));
+            qtAVPlayer.setMute(root.muteAudio);
         }
         else if (getActivePlayer() === "BROWSER")
         {
-            webPlayer.audioMuted = !webPlayer.audioMuted;
+            webPlayer.audioMuted = root.muteAudio;
             webPlayer.triggerWebAction(WebEngineView.ToggleMediaMute);
-            showMessage("Mute: " + (webPlayer.audioMuted ? "On" : "Off"));
         }
+
+        showMessage("Mute: " + (root.muteAudio ? "On" : "Off"));
     }
 
     function changeVolume(amount)
