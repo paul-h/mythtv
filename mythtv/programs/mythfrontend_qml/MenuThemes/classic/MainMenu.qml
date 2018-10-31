@@ -59,6 +59,8 @@ ListModel
         menutext:"Web"
         loaderSource: "WebBrowser.qml"
         waterMark: "watermark/browser.png"
+        url: "https://www.google.co.uk"
+        zoom: 1.0
     }
     ListElement
     {

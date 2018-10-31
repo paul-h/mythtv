@@ -77,9 +77,9 @@ BaseScreen
         y: root.fullscreen ? 0 : yscale(50);
         width: root.fullscreen ? parent.width : parent.width - xscale(20);
         height: root.fullscreen ? parent.height : parent.height - yscale(60)
-        zoomFactor: xscale(1.0)
-        url: "https://www.google.co.uk"
-        settings.pluginsEnabled : true
+
+        settings.pluginsEnabled: true
+        settings.javascriptCanOpenWindows: true;
 
         onNewViewRequested:
         {
