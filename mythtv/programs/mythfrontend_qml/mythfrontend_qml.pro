@@ -26,6 +26,8 @@ QML_IMPORT_PATH = Themes Models MenuThemes
 
 QMAKE_CLEAN += $(TARGET)
 
+LIBS += $$system(pkg-config --libs libVLCQtQml)
+
 # Input
 HEADERS += sqlquerymodel.h databaseutils.h urlinterceptor.h settings.h mythutils.h process.h downloadmanager.h
 HEADERS += mythincrementalmodel.h recordingsmodel.h keypresslistener.h

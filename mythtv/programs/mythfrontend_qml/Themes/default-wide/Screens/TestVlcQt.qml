@@ -10,7 +10,7 @@ BaseScreen
 
     Component.onCompleted:
     {
-        showTitle(true, "QtAV Player Test");
+        showTitle(true, "VLC-Qt Player Test");
         showTime(false);
         showTicker(false);
         screenBackground.muteAudio(true);
@@ -38,11 +38,12 @@ BaseScreen
         KeyNavigation.down: videoPlayer;
     }
 
-    VideoPlayerQtAV
+    VideoPlayerVLC
     {
         id: videoPlayer
         x: xscale(50); width: parent.width - xscale(100);
         y: yscale(110); height: parent.height - yscale(140);
+        source: ""
 
         KeyNavigation.up: urlEdit;
         KeyNavigation.down: urlEdit;
