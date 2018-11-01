@@ -26,7 +26,7 @@
 #include "keypresslistener.h"
 
 // from vlc_qt
-#include <VLCQtQml/Qml.h>
+//#include <VLCQtQml/Qml.h>
 
 #define SHAREPATH "file:///usr/share/mythtv/"
 
@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
     config.enableLoopPlayback(false);
     config.setTrustedEnvironment(true);
 
-    VlcQml::registerTypes();
+    //VlcQml::registerTypes();
 
     QQmlApplicationEngine engine;
 
