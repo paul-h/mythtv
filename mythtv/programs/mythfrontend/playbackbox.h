@@ -3,12 +3,10 @@
 #ifndef PLAYBACKBOX_H_
 #define PLAYBACKBOX_H_
 
-// ANSI C headers
-#include <stdint.h> // for [u]int[32,64]_t
-
 // C++ headers
-#include <vector>
+#include <cstdint> // for [u]int[32,64]_t
 #include <deque>
+#include <vector>
 using namespace std;
 
 #include <QStringList>
@@ -122,11 +120,11 @@ class PlaybackBox : public ScheduleCommon
                 TV *player = nullptr, bool showTV = false);
    ~PlaybackBox(void);
 
-    bool Create(void);
-    virtual void Load(void);
-    virtual void Init(void);
-    bool keyPressEvent(QKeyEvent *);
-    void customEvent(QEvent *event);
+    bool Create(void) override; // MythScreenType
+    void Load(void) override; // MythScreenType
+    void Init(void) override; // MythScreenType
+    bool keyPressEvent(QKeyEvent *) override; // MythScreenType
+    void customEvent(QEvent *event) override; // ScheduleCommon
 
     void setInitialRecGroup(QString initialGroup) { m_recGroup = initialGroup; }
     static void * RunPlaybackBox(void *player, bool);
@@ -289,7 +287,7 @@ class PlaybackBox : public ScheduleCommon
               bool ignoreLastPlayPos,
               bool underNetworkControl);
 
-    virtual ProgramInfo *GetCurrentProgram(void) const;
+    ProgramInfo *GetCurrentProgram(void) const override; // ScheduleCommon
 
     void togglePlayListItem(ProgramInfo *pginfo);
     void randomizePlayList(void);
@@ -330,7 +328,7 @@ class PlaybackBox : public ScheduleCommon
     void HandleUpdateProgramInfoFileSizeEvent(uint recordingID, uint64_t filesize);
 
     void ScheduleUpdateUIList(void);
-    void ShowMenu(void);
+    void ShowMenu(void) override; // MythScreenType
     bool CreatePopupMenu(const QString &title);
     void DisplayPopupMenu(void);
     //bool CreatePopupMenu(const QString &title, const ProgramInfo &pginfo)
@@ -486,7 +484,7 @@ class GroupSelector : public MythScreenType
                   const QStringList &list, const QStringList &data,
                   const QString &selected);
 
-    bool Create(void);
+    bool Create(void) override; // MythScreenType
 
   signals:
     void result(QString);
@@ -511,7 +509,7 @@ class ChangeView : public MythScreenType
     ChangeView(MythScreenStack *lparent, MythScreenType *parentScreen,
                int viewMask);
 
-    bool Create(void);
+    bool Create(void) override; // MythScreenType
 
   signals:
     void save();
@@ -531,7 +529,7 @@ class PasswordChange : public MythScreenType
   public:
     PasswordChange(MythScreenStack *lparent, QString oldpassword);
 
-    bool Create(void);
+    bool Create(void) override; // MythScreenType
 
   signals:
     void result(const QString &);
@@ -555,7 +553,7 @@ class RecMetadataEdit : public MythScreenType
   public:
     RecMetadataEdit(MythScreenStack *lparent, ProgramInfo *pginfo);
 
-    bool Create(void);
+    bool Create(void) override; // MythScreenType
 
   signals:
     void result(const QString &, const QString &, const QString &,
@@ -567,7 +565,7 @@ class RecMetadataEdit : public MythScreenType
     void OnSearchListSelection(RefCountHandler<MetadataLookup> lookup);
 
   private:
-    void customEvent(QEvent *event);
+    void customEvent(QEvent *event) override; // MythUIType
     void QueryComplete(MetadataLookup *lookup);
 
     MythUITextEdit     *m_titleEdit;
@@ -591,7 +589,7 @@ class HelpPopup : public MythScreenType
   public:
     explicit HelpPopup(MythScreenStack *lparent);
 
-    bool Create(void);
+    bool Create(void) override; // MythScreenType
 
   private:
     void addItem(const QString &state, const QString &text);

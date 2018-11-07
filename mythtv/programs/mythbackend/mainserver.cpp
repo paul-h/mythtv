@@ -1,15 +1,15 @@
-#include <list>
-#include <cstdlib>
-#include <iostream>
 #include <algorithm>
 #include <cerrno>
-#include <memory>
 #include <chrono> // for milliseconds
+#include <cmath>
+#include <cstdlib>
+#include <fcntl.h>
+#include <iostream>
+#include <list>
+#include <memory>
 #include <thread> // for sleep_for
 using namespace std;
 
-#include <math.h>
-#include <fcntl.h>
 #include "mythconfig.h"
 
 #ifndef _WIN32
@@ -155,7 +155,7 @@ class ProcessRequestRunnable : public QRunnable
         }
     }
 
-    virtual void run(void)
+    void run(void) override // QRunnable
     {
         m_parent.ProcessRequest(m_sock);
         m_sock->DecrRef();
@@ -182,7 +182,7 @@ class FreeSpaceUpdater : public QRunnable
         m_parent.masterFreeSpaceListWait.wakeAll();
     }
 
-    virtual void run(void)
+    void run(void) override // QRunnable
     {
         while (true)
         {
@@ -3213,15 +3213,20 @@ void MainServer::DoHandleUndeleteRecording(
  * \par        RESCHEDULE_RECORDINGS
  * Requests that all recordings after the current time be rescheduled.
  */
-void MainServer::HandleRescheduleRecordings(const QStringList &/*request*/,
+void MainServer::HandleRescheduleRecordings(const QStringList &request,
                                             PlaybackSock *pbs)
 {
-     ScheduledRecording::RescheduleMatch(0, 0, 0, QDateTime(),
-                                         "HandleRescheduleRecordings");
+    QStringList result;
+    if (m_sched)
+    {
+        m_sched->Reschedule(request);
+        result = QStringList(QString::number(1));
+    }
+    else
+        result = QStringList(QString::number(0));
 
     if (pbs)
     {
-        QStringList result  = QStringList( QString::number(1) );
         MythSocket *pbssock = pbs->getSocket();
         if (pbssock)
             SendResponse(pbssock, result);

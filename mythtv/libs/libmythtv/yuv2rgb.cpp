@@ -23,13 +23,12 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
+#include <algorithm>
+#include <cinttypes>
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
-#include <algorithm>
-#include <inttypes.h>
-#include <limits.h>
 #include "mythconfig.h"
-#include "mythtvexp.h"      // for MUNUSED
 
 #if HAVE_MMX
 extern "C" {
@@ -71,8 +70,7 @@ int has_altivec(void)
 static void yuv420_argb32_non_mmx(unsigned char *image, unsigned char *py,
                            unsigned char *pu, unsigned char *pv,
                            int h_size, int v_size, int rgb_stride,
-                           int y_stride, int uv_stride, int alphaones)
-   MUNUSED; /* <- suppress compiler warning */
+                           int y_stride, int uv_stride, int alphaones);
 
 /* CPU_MMXEXT/CPU_MMX adaptation layer */
 

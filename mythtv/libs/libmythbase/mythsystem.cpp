@@ -20,11 +20,9 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-// C headers
-#include <stdint.h>
-
-// POSIX header
-#include <signal.h> // for SIGXXX
+// C++ headers
+#include <cstdint>
+#include <csignal> // for SIGXXX
 
 // Qt headers
 #include <QStringList>
@@ -37,8 +35,6 @@
 #include "mythsystem.h"
 #include "exitcodes.h"
 
-// temporary debugging headers
-#include <iostream>
 using namespace std;
 
 class MythSystemLegacyWrapper : public MythSystem
@@ -82,25 +78,25 @@ class MythSystemLegacyWrapper : public MythSystem
         Wait(0);
     }
 
-    uint GetFlags(void) const MOVERRIDE
+    uint GetFlags(void) const override // MythSystem
     {
         return m_flags;
     }
 
     /// Returns the starting path of the program
-    QString GetStartingPath(void) const MOVERRIDE
+    QString GetStartingPath(void) const override // MythSystem
     {
         return m_legacy->GetDirectory();
     }
 
     /// Return the CPU Priority of the program
-    Priority GetCPUPriority(void) const MOVERRIDE
+    Priority GetCPUPriority(void) const override // MythSystem
     {
         return kNormalPriority;
     }
 
     /// Return the Disk Priority of the program
-    Priority GetDiskPriority(void) const MOVERRIDE
+    Priority GetDiskPriority(void) const override // MythSystem
     {
         return kNormalPriority;
     }
@@ -111,7 +107,7 @@ class MythSystemLegacyWrapper : public MythSystem
     ///         think it is running even though it is not.
     /// WARNING The legacy timeout is in seconds not milliseconds,
     ///         timeout will be rounded.
-    bool Wait(uint timeout_ms) MOVERRIDE
+    bool Wait(uint timeout_ms) override // MythSystem
     {
         timeout_ms = (timeout_ms >= 1000) ? timeout_ms + 500 :
             ((timeout_ms == 0) ? 0 : 1000);
@@ -124,7 +120,7 @@ class MythSystemLegacyWrapper : public MythSystem
     /// Returns the standard input stream for the program
     /// if the kMSStdIn flag was passed to the constructor.
     /// Note: This is not safe!
-    QIODevice *GetStandardInputStream(void) MOVERRIDE
+    QIODevice *GetStandardInputStream(void) override // MythSystem
     {
         if (!(kMSStdIn & m_flags))
             return nullptr;
@@ -140,7 +136,7 @@ class MythSystemLegacyWrapper : public MythSystem
 
     /// Returns the standard output stream for the program
     /// if the kMSStdOut flag was passed to the constructor.
-    QIODevice *GetStandardOutputStream(void) MOVERRIDE
+    QIODevice *GetStandardOutputStream(void) override // MythSystem
     {
         if (!(kMSStdOut & m_flags))
             return nullptr;
@@ -158,7 +154,7 @@ class MythSystemLegacyWrapper : public MythSystem
 
     /// Returns the standard error stream for the program
     /// if the kMSStdErr flag was passed to the constructor.
-    QIODevice *GetStandardErrorStream(void) MOVERRIDE
+    QIODevice *GetStandardErrorStream(void) override // MythSystem
     {
         if (!(kMSStdErr & m_flags))
             return nullptr;
@@ -175,7 +171,7 @@ class MythSystemLegacyWrapper : public MythSystem
     }
 
     /// Sends the selected signal to the program
-    void Signal(MythSignal sig) MOVERRIDE
+    void Signal(MythSignal sig) override // MythSystem
     {
         m_legacy->Signal(sig);
     }
@@ -186,7 +182,7 @@ class MythSystemLegacyWrapper : public MythSystem
      *  Returns -2 if the program has not yet been collected.
      *  Returns an exit code 0..255 if the program exited with exit code.
      */
-    int GetExitCode(void) const MOVERRIDE
+    int GetExitCode(void) const override // MythSystem
     {
         // FIXME doesn't actually know why program exited.
         //       if program returns 142 then we will forever

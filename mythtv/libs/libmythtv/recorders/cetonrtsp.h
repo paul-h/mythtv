@@ -7,7 +7,7 @@
 #ifndef CETONRTSP_H
 #define CETONRTSP_H
 
-#include <stdint.h>
+#include <cstdint>
 
 #include <QObject>
 #include <QMap>
@@ -50,7 +50,7 @@ protected:
     QStringList splitLines(const QByteArray &lines);
     QString readParameters(const QString &key, Params &parameters);
     QUrl GetBaseUrl(void);
-    void timerEvent(QTimerEvent*);
+    void timerEvent(QTimerEvent*) override; // QObject
 
     QTcpSocket *_socket;
     uint        _sequenceNumber;

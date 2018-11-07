@@ -14,7 +14,7 @@
 #include "cetonchannel.h"
 
 #define LOC QString("CetonSigMon[%1](%2): ") \
-            .arg(capturecardnum).arg(channel->GetDevice())
+            .arg(inputid).arg(channel->GetDevice())
 
 /**
  *  \brief Initializes signal lock and signal values.
@@ -43,7 +43,7 @@ CetonSignalMonitor::CetonSignalMonitor(int db_cardnum,
 
     AddFlags(kSigMon_WaitForSig);
 
-    streamHandler = CetonStreamHandler::Get(_channel->GetDevice());
+    streamHandler = CetonStreamHandler::Get(channel->GetDevice(), inputid);
 }
 
 /** \fn CetonSignalMonitor::~CetonSignalMonitor()
@@ -53,7 +53,7 @@ CetonSignalMonitor::~CetonSignalMonitor()
 {
     LOG(VB_CHANNEL, LOG_INFO, LOC + "dtor");
     Stop();
-    CetonStreamHandler::Return(streamHandler);
+    CetonStreamHandler::Return(streamHandler, inputid);
 }
 
 /** \fn CetonSignalMonitor::Stop(void)

@@ -1,9 +1,14 @@
 #ifndef _FRAME_H
 #define _FRAME_H
 
-#include <string.h>
+#ifdef __cplusplus
+#include <cstdint>
+#include <cstring>
+#else
 #include <stdint.h>
-#include "mythtvexp.h" // for MUNUSED
+#include <string.h>
+#endif
+#include "mythtvexp.h" // for MTV_PUBLIC
 
 #ifdef __cplusplus
 extern "C" {
@@ -95,10 +100,10 @@ static inline void init(VideoFrame *vf, VideoFrameType _codec,
                         const int *p = nullptr,
                         const int *o = nullptr,
                         float _aspect = -1.0f, double _rate = -1.0f,
-                        int _aligned = 64) MUNUSED;
+                        int _aligned = 64);
 static inline void clear(VideoFrame *vf);
 static inline bool compatible(const VideoFrame *a,
-                              const VideoFrame *b) MUNUSED;
+                              const VideoFrame *b);
 static inline int  bitsperpixel(VideoFrameType type);
 
 static inline void init(VideoFrame *vf, VideoFrameType _codec,

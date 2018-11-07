@@ -1,5 +1,5 @@
+#include <cstdio>
 #include <iostream>
-#include <stdio.h>
 using namespace std;
 
 #include <QString>
@@ -604,7 +604,7 @@ static bool doUpgradeTVDatabaseSchema(void)
        const char *updates[] = {
 "ALTER TABLE cardinput DROP COLUMN freetoaironly;",
 "ALTER TABLE cardinput DROP COLUMN radioservices;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1245", dbver))
             return false;
@@ -618,7 +618,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "ALTER TABLE capturecard DROP COLUMN dbox2_port;",
 "ALTER TABLE capturecard DROP COLUMN dbox2_httpport;",
 "ALTER TABLE capturecard DROP COLUMN dbox2_host;",
-""
+nullptr
 };
        if (!performActualUpdate(updates, "1246", dbver))
             return false;
@@ -630,7 +630,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "ALTER TABLE recorded ADD COLUMN bookmarkupdate timestamp default 0 NOT NULL",
 "UPDATE recorded SET bookmarkupdate = lastmodified+1 WHERE bookmark = 1",
 "UPDATE recorded SET bookmarkupdate = lastmodified WHERE bookmark = 0",
-""
+nullptr
 };
        if (!performActualUpdate(updates, "1247", dbver))
             return false;
@@ -644,7 +644,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "INSERT INTO recordingprofiles SET name = \"Live TV\", profilegroup = 14;",
 "INSERT INTO recordingprofiles SET name = \"High Quality\", profilegroup = 14;",
 "INSERT INTO recordingprofiles SET name = \"Low Quality\", profilegroup = 14;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1248", dbver))
             return false;
@@ -655,7 +655,7 @@ static bool doUpgradeTVDatabaseSchema(void)
        const char *updates[] = {
 "DELETE FROM keybindings WHERE action = 'CUSTOMEDIT' "
    "AND context = 'TV Frontend' AND keylist = 'E';",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1249", dbver))
             return false;
@@ -750,7 +750,7 @@ static bool doUpgradeTVDatabaseSchema(void)
     {
        const char *updates[] = {
 "UPDATE recorded SET bookmark = 1 WHERE bookmark != 0;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1251", dbver))
             return false;
@@ -868,7 +868,7 @@ static bool doUpgradeTVDatabaseSchema(void)
         {
             const char *updates[] = {
                 "ALTER TABLE videosource ADD dvb_nit_id INT(6) DEFAULT -1;",
-                ""
+                nullptr
             };
             if (!performActualUpdate(updates, "1254", dbver))
                 return false;
@@ -879,7 +879,7 @@ static bool doUpgradeTVDatabaseSchema(void)
     {
        const char *updates[] = {
 "ALTER TABLE cardinput DROP COLUMN shareable;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1255", dbver))
             return false;
@@ -893,7 +893,7 @@ static bool doUpgradeTVDatabaseSchema(void)
     "WHEN '3' THEN 'Alt+Esc' WHEN '4' THEN 'Esc' ELSE '' END), hostname "
     "FROM settings WHERE value = 'AllowQuitShutdown' GROUP BY hostname) "
     "ON DUPLICATE KEY UPDATE keylist = VALUES(keylist);",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1256", dbver))
             return false;
@@ -903,7 +903,7 @@ static bool doUpgradeTVDatabaseSchema(void)
     {
         const char *updates[] = {
 "ALTER TABLE record DROP COLUMN tsdefault;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1257", dbver))
             return false;
@@ -955,7 +955,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "  downloadable BOOL NOT NULL,"
 "  customhtml BOOL NOT NULL,"
 "  countries VARCHAR(255) NOT NULL) ENGINE=MyISAM DEFAULT CHARSET=utf8;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1258", dbver))
             return false;
@@ -1159,7 +1159,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "       SUBSTRING(programid, 3)) WHERE length(programid) = 12;",
 "UPDATE program SET programid=CONCAT(SUBSTRING(programid, 1, 2), '00', "
 "       SUBSTRING(programid, 3)) WHERE length(programid) = 12;",
-""
+nullptr
 };
             if (!performActualUpdate(updates, "1261", dbver))
                 return false;
@@ -1199,7 +1199,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "    NOT NULL default '';",
 "ALTER TABLE customexample MODIFY COLUMN whereclause VARCHAR(10000) "
 "    NOT NULL default '';",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1262", dbver))
             return false;
@@ -1210,7 +1210,7 @@ static bool doUpgradeTVDatabaseSchema(void)
         const char *updates[] = {
 "INSERT INTO recgrouppassword (recgroup, password) SELECT 'All Programs',data FROM settings WHERE value='AllRecGroupPassword' LIMIT 1;",
 "DELETE FROM settings WHERE value='AllRecGroupPassword';",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1263", dbver))
             return false;
@@ -1223,7 +1223,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "UPDATE settings SET hostname = NULL WHERE value='ISO639Language1' AND data != 'aar' AND hostname IS NOT NULL LIMIT 1;",
 "DELETE FROM settings WHERE value='ISO639Language0' AND hostname IS NOT NULL;",
 "DELETE FROM settings WHERE value='ISO639Language1' AND hostname IS NOT NULL;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1264", dbver))
             return false;
@@ -1242,7 +1242,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "UPDATE displayprofiles SET data = 'ffmpeg' WHERE data = 'xvmc'",
 "UPDATE displayprofiles SET data = 'xv-blit' WHERE data = 'xvmc-blit'",
 "UPDATE displayprofiles SET data = 'softblend' WHERE data = 'ia44blend'",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1265", dbver))
             return false;
@@ -1259,7 +1259,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;",
 "ALTER TABLE recorded MODIFY COLUMN lastmodified "
 "  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1266", dbver))
             return false;
@@ -1272,7 +1272,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 
         const char *updates[] = {
 "DELETE FROM settings WHERE value = 'mythvideo.DBSchemaVer'",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1267", dbver))
             return false;
@@ -1282,7 +1282,7 @@ static bool doUpgradeTVDatabaseSchema(void)
     {
         const char *updates[] = {
 "ALTER TABLE channel MODIFY xmltvid VARCHAR(255) NOT NULL DEFAULT '';",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1268", dbver))
             return false;
@@ -1293,7 +1293,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 
         const char *updates[] = {
 "DELETE FROM keybindings WHERE action='PREVSOURCE' AND keylist='Ctrl+Y';",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1269", dbver))
             return false;
@@ -1316,7 +1316,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "INSERT INTO recordingprofiles SET name = \"Live TV\", profilegroup = 16;",
 "INSERT INTO recordingprofiles SET name = \"High Quality\", profilegroup = 16;",
 "INSERT INTO recordingprofiles SET name = \"Low Quality\", profilegroup = 16;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1270", dbver))
             return false;
@@ -1327,7 +1327,7 @@ static bool doUpgradeTVDatabaseSchema(void)
         const char *updates[] = {
 "ALTER TABLE oldrecorded ADD future TINYINT(1) NOT NULL DEFAULT 0;",
 "UPDATE oldrecorded SET future=0;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1271", dbver))
             return false;
@@ -1344,7 +1344,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "ALTER TABLE oldrecorded MODIFY generic TINYINT(1) NOT NULL;",
 "ALTER TABLE oldrecorded ADD INDEX (future);",
 "ALTER TABLE oldrecorded ADD INDEX (starttime, chanid);",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1272", dbver))
             return false;
@@ -1357,7 +1357,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "DROP INDEX starttime ON oldrecorded;",
 "ALTER TABLE recordmatch ADD INDEX (chanid, starttime, manualid);",
 "ALTER TABLE oldrecorded ADD INDEX (chanid, starttime);",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1273", dbver))
             return false;
@@ -1370,7 +1370,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "  DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00';",
 "ALTER TABLE internetcontentarticles MODIFY COLUMN `date` "
 "  DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00';",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1274", dbver))
@@ -1404,7 +1404,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "  WHERE modulation LIKE '%qam128%';",
 "UPDATE dtv_multiplex SET modulation='qam_256'"
 "  WHERE modulation LIKE '%qam256%';",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1275", dbver))
             return false;
@@ -1428,7 +1428,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "  KEY `msgtime` (`msgtime`), "
 "  KEY `level` (`level`) "
 ") ENGINE=MyISAM DEFAULT CHARSET=utf8; ",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1276", dbver))
             return false;
@@ -1455,7 +1455,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "    VALUES (4, 'Commercial free', 'channel.commmethod = -2', 0);",
 "INSERT INTO recordfilter (filterid, description, clause, newruledefault) "
 "    VALUES (5, 'High definition', 'program.hdtv > 0', 0);",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1277", dbver))
@@ -1476,7 +1476,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "ALTER TABLE oldrecorded ADD inetref VARCHAR(40) NOT NULL AFTER programid;",
 "ALTER TABLE oldrecorded ADD season SMALLINT(5) NOT NULL AFTER description;",
 "ALTER TABLE oldrecorded ADD episode SMALLINT(5) NOT NULL AFTER season;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1278", dbver))
             return false;
@@ -1492,7 +1492,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "    coverart TEXT NOT NULL, "
 "    fanart TEXT NOT NULL, "
 "    banner TEXT NOT NULL) ENGINE=MyISAM DEFAULT CHARSET=utf8;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1279", dbver))
             return false;
@@ -1568,7 +1568,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "ALTER TABLE program ADD INDEX (description(255));",
 "ALTER TABLE oldrecorded ADD INDEX (subtitle);",
 "ALTER TABLE oldrecorded ADD INDEX (description(255));",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1281", dbver))
             return false;
@@ -1581,7 +1581,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "AFTER externalcommand;",
 "ALTER TABLE cardinput ADD changer_model VARCHAR(128) "
 "AFTER changer_device;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1282", dbver))
             return false;
@@ -1596,7 +1596,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "    IN ('TelevisionGrabber', "
 "        'MovieGrabber', "
 "        'mythgame.MetadataGrabber');",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1283", dbver))
@@ -1612,7 +1612,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "UPDATE record SET dupin = dupin & ~0xe0",
 "INSERT INTO recordfilter (filterid, description, clause, newruledefault) "
 "    VALUES (6, 'This Episode', '(program.programid <> '''' AND program.programid = RECTABLE.programid) OR (program.programid = '''' AND program.subtitle = RECTABLE.subtitle AND program.description = RECTABLE.description)', 0);",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1284", dbver))
@@ -1624,7 +1624,7 @@ static bool doUpgradeTVDatabaseSchema(void)
         const char *updates[] = {
 "REPLACE INTO recordfilter (filterid, description, clause, newruledefault) "
 "    VALUES (6, 'This Episode', '(RECTABLE.programid <> '''' AND program.programid = RECTABLE.programid) OR (RECTABLE.programid = '''' AND program.subtitle = RECTABLE.subtitle AND program.description = RECTABLE.description)', 0);",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1285", dbver))
@@ -1642,7 +1642,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "INSERT INTO recordingprofiles SET name = \"Live TV\", profilegroup = 17;",
 "INSERT INTO recordingprofiles SET name = \"High Quality\", profilegroup = 17;",
 "INSERT INTO recordingprofiles SET name = \"Low Quality\", profilegroup = 17;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1286", dbver))
             return false;
@@ -1725,7 +1725,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "    outdir VARCHAR(256) NOT NULL, "
 "    outbase VARCHAR(128) NOT NULL "
 ") ENGINE=MyISAM DEFAULT CHARSET=utf8; ",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1288", dbver))
@@ -1737,7 +1737,7 @@ static bool doUpgradeTVDatabaseSchema(void)
         const char *updates[] = {
 "ALTER TABLE recordedprogram CHANGE COLUMN videoprop videoprop "
 "    SET('HDTV', 'WIDESCREEN', 'AVC', '720', '1080', 'DAMAGED') NOT NULL; ",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1289", dbver))
             return false;
@@ -1751,7 +1751,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "DROP TABLE IF EXISTS netvisionsites;",
 "DROP TABLE IF EXISTS netvisiontreegrabbers;",
 "DROP TABLE IF EXISTS netvisiontreeitems;",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1290", dbver))
@@ -1772,7 +1772,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 " ADD COLUMN filename VARCHAR(255) NOT NULL DEFAULT '' AFTER thread, "
 " ADD COLUMN line INT(11) NOT NULL DEFAULT '0' AFTER filename, "
 " ADD COLUMN function VARCHAR(255) NOT NULL DEFAULT '' AFTER line;",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1291", dbver))
@@ -1785,7 +1785,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "UPDATE recorded r, recordedprogram rp SET r.duplicate=0 "
 "   WHERE r.chanid=rp.chanid AND r.progstart=rp.starttime AND "
 "      FIND_IN_SET('DAMAGED', rp.videoprop);",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1292", dbver))
@@ -1800,7 +1800,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "  ADD COLUMN livetvorder INT(10) UNSIGNED NOT NULL DEFAULT '0';",
 "UPDATE cardinput SET schedorder = cardinputid;",
 "UPDATE cardinput SET livetvorder = cardid;",
-""
+nullptr
 };
 
         if (gCoreContext->GetNumSetting("LastFreeCard", 0))
@@ -1824,7 +1824,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "UPDATE recordfilter SET description='This episode' WHERE filterid=6",
 "REPLACE INTO recordfilter (filterid, description, clause, newruledefault) "
 "    VALUES (7, 'This series', '(RECTABLE.seriesid <> '''' AND program.seriesid = RECTABLE.seriesid)', 0);",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1294", dbver))
@@ -1868,7 +1868,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "ALTER TABLE videometadata ADD contenttype set('MOVIE', 'TELEVISION', 'ADULT', 'MUSICVIDEO', 'HOMEVIDEO') NOT NULL default ''",
 "UPDATE videometadata SET contenttype = 'MOVIE';",
 "UPDATE videometadata SET contenttype = 'TELEVISION' WHERE season > 0 OR episode > 0;",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1295", dbver))
@@ -1946,7 +1946,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "VARCHAR(128) CHARACTER SET utf8 COLLATE utf8_general_ci "
 "NOT NULL",
 "ALTER TABLE videocollection CHANGE genre genre VARCHAR(128) NULL DEFAULT ''",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1297", dbver))
@@ -1959,7 +1959,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "ALTER TABLE videometadata CHANGE collectionref collectionref INT(10) "
 "NOT NULL DEFAULT -1",
 "UPDATE videometadata SET collectionref = '-1'",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1298", dbver))
@@ -2007,7 +2007,7 @@ static bool doUpgradeTVDatabaseSchema(void)
         const char *updates[] = {
 "ALTER TABLE recordmatch ADD COLUMN findid INT NOT NULL DEFAULT 0",
 "ALTER TABLE recordmatch ADD INDEX (recordid, findid)",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1300", dbver))
@@ -2029,7 +2029,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "  bitrate INT(10) UNSIGNED NOT NULL,"
 "  PRIMARY KEY (iptvid)"
 ") ENGINE=MyISAM DEFAULT CHARSET=utf8;",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1301", dbver))
@@ -2324,7 +2324,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "  `order`          SMALLINT UNSIGNED NOT NULL DEFAULT 1,"
 "  PRIMARY KEY `part` (`videoid`, `order`)"
 ") ENGINE=MyISAM DEFAULT CHARSET=utf8;",
-""
+nullptr
 };
 
 // removed "UNIQUE KEY path (`storagegroup`, `hostname`, `filename`)" from
@@ -2339,7 +2339,7 @@ static bool doUpgradeTVDatabaseSchema(void)
         const char *updates[] = {
 "ALTER TABLE channel MODIFY COLUMN icon varchar(255) NOT NULL DEFAULT '';",
 "UPDATE channel SET icon='' WHERE icon='none';",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1308", dbver))
             return false;
@@ -2378,7 +2378,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "UPDATE record SET type = 2 WHERE type = 9",
 // Convert old, find weekly to new, find weekly
 "UPDATE record SET type = 5 WHERE type = 10",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1309", dbver))
             return false;
@@ -2392,7 +2392,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "  VALUES (10, 'This channel', 'channel.callsign = RECTABLE.station', 0)",
 // Convert old, Channel rules to All with channel filter
 "UPDATE record SET type = 4, filter = filter|1024 WHERE type = 3",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1310", dbver))
             return false;
@@ -2420,7 +2420,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "     FROM `oldhousekeeping`;",
 // Delete old data
 "DROP TABLE `oldhousekeeping`;",
-""
+nullptr
 };
 
         if (!performActualUpdate(updates, "1311", dbver))
@@ -2448,7 +2448,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "    WHERE `value` = 'HardwareProfileLastUpdated';",
 // Clear out old settings
 "DELETE FROM `settings` WHERE `value` = 'HardwareProfileLastUpdated';",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1312", dbver))
             return false;
@@ -2460,7 +2460,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 // DVD bookmark updates
 "DELETE FROM `dvdbookmark` WHERE `framenum` = 0;",
 "ALTER TABLE dvdbookmark ADD COLUMN dvdstate varchar(1024) NOT NULL DEFAULT '';",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1313", dbver))
             return false;
@@ -2483,7 +2483,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "cardtype = \"HDPVR\" AND channel_timeout < 15000;",
             "UPDATE capturecard SET channel_timeout = 12000 WHERE "
             "cardtype = \"MPEG\" AND channel_timeout < 12000;",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1314", dbver))
             return false;
@@ -2496,7 +2496,7 @@ static bool doUpgradeTVDatabaseSchema(void)
         const char *updates[] = {
             "UPDATE settings SET data=REPLACE(data, 'tmdb.py', 'tmdb3.py') "
              "WHERE value='MovieGrabber'",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1315", dbver))
             return false;
@@ -2507,7 +2507,7 @@ static bool doUpgradeTVDatabaseSchema(void)
         const char *updates[] = {
 "ALTER TABLE program ADD INDEX title_subtitle_start (title, subtitle, starttime);",
 "ALTER TABLE program DROP INDEX title;",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1316", dbver))
             return false;
@@ -2525,7 +2525,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "ALTER TABLE recorded CHANGE COLUMN seriesid seriesid varchar(64);",
 "ALTER TABLE recordedprogram CHANGE COLUMN programid programid varchar(64);",
 "ALTER TABLE recordedprogram CHANGE COLUMN seriesid seriesid varchar(64);",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1317", dbver))
             return false;
@@ -2566,7 +2566,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "INSERT INTO settings VALUES ('ImageSlideShowTime', 3500, NULL);",
             "INSERT INTO settings VALUES ('ImageTransitionType', 1, NULL);",
             "INSERT INTO settings VALUES ('ImageTransitionTime', 1000, NULL);",
-            ""
+            nullptr
         };
 
         if (!performActualUpdate(&updates[0], "1318", dbver))
@@ -2582,7 +2582,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "ALTER TABLE recordedprogram "
             " ADD COLUMN season INT(4) NOT NULL DEFAULT '0', "
             " ADD COLUMN episode INT(4) NOT NULL DEFAULT '0';",
-            ""
+            nullptr
         };
 
         if (!performActualUpdate(&updates[0], "1319", dbver))
@@ -2597,7 +2597,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             " ADD COLUMN totalepisodes INT(4) NOT NULL DEFAULT '0';",
             "ALTER TABLE recordedprogram "
             " ADD COLUMN totalepisodes INT(4) NOT NULL DEFAULT '0';",
-            ""
+            nullptr
         };
 
         if (!performActualUpdate(&updates[0], "1320", dbver))
@@ -2633,7 +2633,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             // Populate those columns with the corresponding recgroupid from the new recgroups table
             "UPDATE recorded, recgroups SET recorded.recgroupid = recgroups.recgroupid WHERE recorded.recgroup = recgroups.recgroup;",
             "UPDATE record, recgroups SET record.recgroupid = recgroups.recgroupid WHERE record.recgroup = recgroups.recgroup;",
-            ""
+            nullptr
         };
 
 
@@ -2647,7 +2647,7 @@ static bool doUpgradeTVDatabaseSchema(void)
         const char *updates[] = {
             "ALTER TABLE `housekeeping` ADD COLUMN `lastsuccess` DATETIME;",
             "UPDATE `housekeeping` SET `lastsuccess`=`lastrun`;",
-            ""
+            nullptr
         };
 
         if (!performActualUpdate(&updates[0], "1322", dbver))
@@ -2675,7 +2675,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "DELETE FROM settings WHERE value='AutoMetadataLookup';",
             "DELETE FROM housekeeping WHERE tag='DailyCleanup';",
             "DELETE FROM housekeeping WHERE tag='ThemeChooserInfoCacheUpdate';",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1323", dbver))
             return false;
@@ -2689,7 +2689,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             " ADD COLUMN scr_userband INTEGER UNSIGNED NOT NULL DEFAULT 0 AFTER address, "
             " ADD COLUMN scr_frequency INTEGER UNSIGNED NOT NULL DEFAULT 1400 AFTER scr_userband, "
             " ADD COLUMN scr_pin INTEGER  NOT NULL DEFAULT '-1' AFTER scr_frequency;",
-            ""
+            nullptr
         };
 
         if (!performActualUpdate(updates, "1324", dbver))
@@ -2703,7 +2703,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             " DROP PRIMARY KEY, "
             " ADD recordedid INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, "
             " ADD UNIQUE KEY (chanid, starttime) ;",
-            ""
+            nullptr
         };
 
         if (!performActualUpdate(updates, "1325", dbver))
@@ -2714,7 +2714,7 @@ static bool doUpgradeTVDatabaseSchema(void)
     {
         const char *updates[] = {
             "ALTER TABLE recorded ADD inputname VARCHAR(32);",
-            ""
+            nullptr
         };
 
         if (!performActualUpdate(&updates[0], "1326", dbver))
@@ -2736,7 +2736,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 "  ADDTIME(RECTABLE.startdate, RECTABLE.starttime), ''Etc/UTC'', ''SYSTEM''), "
 "  CONVERT_TZ(program.starttime, ''Etc/UTC'', ''SYSTEM''))) MOD 10080 "
 "  NOT BETWEEN 11 AND 10069', 0)",
-""
+nullptr
 };
         if (!performActualUpdate(updates, "1327", dbver))
             return false;
@@ -2755,7 +2755,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "ALTER TABLE record DROP INDEX chanid",
             "ALTER TABLE record ADD UNIQUE INDEX "
             " (chanid, starttime, startdate, title, type)",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1328", dbver))
             return false;
@@ -2775,7 +2775,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "CHANGE audio_type audio_codec varchar(255) NOT NULL DEFAULT '';"
             "ALTER TABLE recordedfile "
             "CHANGE video_type video_codec varchar(255) NOT NULL DEFAULT '';",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1329", dbver))
             return false;
@@ -2793,7 +2793,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "ADD COLUMN video_max_bitrate MEDIUMINT UNSIGNED NOT NULL DEFAULT 0, " // Kbps
             "ADD COLUMN audio_avg_bitrate MEDIUMINT UNSIGNED NOT NULL DEFAULT 0, " // Kbps
             "ADD COLUMN audio_max_bitrate MEDIUMINT UNSIGNED NOT NULL DEFAULT 0 ;", // Kbps
-            ""
+           nullptr
         };
         if (!performActualUpdate(updates, "1330", dbver))
             return false;
@@ -2941,7 +2941,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "    SET i.cardinputid = i.cardid + @maxcardid + @maxcardinputid",
             "UPDATE cardinput i "
             "    SET i.cardinputid = i.cardid",
-            ""
+            nullptr
         };
 
         if (!performUpdateSeries(updates))
@@ -3012,7 +3012,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "        c.schedorder = i.schedorder, "
             "        c.livetvorder = i.livetvorder",
             "TRUNCATE cardinput",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1333", dbver))
             return false;
@@ -3026,7 +3026,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "    MODIFY COLUMN inputname VARCHAR(32) NOT NULL DEFAULT 'None'",
             "UPDATE capturecard c "
             "    SET inputname = 'None' WHERE inputname = '' ",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1334", dbver))
             return false;
@@ -3041,7 +3041,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "        NOT NULL DEFAULT 1, "
             "    MODIFY COLUMN livetvorder INT(10) UNSIGNED "
             "        NOT NULL DEFAULT 1",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1335", dbver))
             return false;
@@ -3062,7 +3062,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "    replace(selectclause, 'cardinputid', 'cardid')",
             "UPDATE powerpriority SET selectclause = "
             "    replace(selectclause, 'cardinput', 'capturecard')",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1336", dbver))
             return false;
@@ -3086,7 +3086,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "      c.videodevice = mins.videodevice and "
             "      c.inputname = mins.inputname and "
             "      c.cardid <> mins.cardid",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1337", dbver))
             return false;
@@ -3105,7 +3105,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "ALTER TABLE record MODIFY last_delete DATETIME NULL",
             "UPDATE record SET last_delete = NULL "
             "    WHERE last_delete = '0000-00-00 00:00:00'",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1338", dbver))
             return false;
@@ -3139,7 +3139,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             " ) ENGINE=MyISAM DEFAULT CHARSET=utf8;",
             "INSERT INTO users SET username='admin'," // Temporary default account
             " password_digest='bcd911b2ecb15ffbd6d8e6e744d60cf6';",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1339", dbver))
             return false;
@@ -3204,7 +3204,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             // Add filter to ignore episodes (e.g. in a person search)
             "REPLACE INTO recordfilter (filterid, description, clause, newruledefault) "
             "  VALUES (11, 'No episodes', 'program.category_type <> ''series''', 0)",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1341", dbver))
             return false;
@@ -3214,7 +3214,7 @@ static bool doUpgradeTVDatabaseSchema(void)
     {
         const char *updates[] = {
             "UPDATE profilegroups SET cardtype='FREEBOX' WHERE cardtype='Freebox'",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1342", dbver))
             return false;
@@ -3232,7 +3232,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             // Increase the size of inputgroup.inputgroupname.
             "ALTER TABLE inputgroup "
             "    MODIFY COLUMN inputgroupname VARCHAR(128)",
-            ""
+            nullptr
         };
 
         if (!performUpdateSeries(updates))
@@ -3293,7 +3293,7 @@ static bool doUpgradeTVDatabaseSchema(void)
 
             // "BackendWSPort" was removed in caaaeef8166722888012f4ecaf3e9b0f09df512a
             "DELETE FROM settings WHERE value='BackendWSPort';",
-            ""
+            nullptr
         };
 
         if (!performActualUpdate(&updates[0], "1344", dbver))
@@ -3313,7 +3313,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "       ) p "
             "SET cc.reclimit = p.cnt "
             "WHERE cc.cardid = p.cardid OR cc.parentid = p.cardid",
-            ""
+            nullptr
         };
 
         if (!performActualUpdate(&updates[0], "1345", dbver))
@@ -3325,7 +3325,7 @@ static bool doUpgradeTVDatabaseSchema(void)
         const char *updates[] = {
             "ALTER TABLE capturecard ADD COLUMN "
             "    schedgroup TINYINT(1) DEFAULT 0 NOT NULL",
-            ""
+            nullptr
         };
 
         if (!performActualUpdate(&updates[0], "1346", dbver))
@@ -3435,7 +3435,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             // Delete obsolete settings
             "delete from settings "
                 "where value in ('WatchTVGuide');",
-            ""
+            nullptr
         };
 
         if (!performActualUpdate(&updates[0], "1347", dbver))
@@ -3449,7 +3449,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             "ALTER TABLE record MODIFY COLUMN enddate DATE DEFAULT NULL",
             "ALTER TABLE record MODIFY COLUMN starttime TIME DEFAULT NULL",
             "ALTER TABLE record MODIFY COLUMN endtime TIME DEFAULT NULL",
-            ""
+            nullptr
         };
         if (!performActualUpdate(updates, "1348", dbver))
             return false;
@@ -4803,7 +4803,7 @@ bool InitializeMythSchema(void)
 "INSERT INTO videotypes VALUES (30,'swf','Internal',0,0);",
 "INSERT INTO videotypes VALUES (31,'f4v','Internal',0,0);",
 "INSERT INTO videotypes VALUES (32,'nuv','Internal',0,0);",
-""
+nullptr
 };
 
     QString dbver = "";

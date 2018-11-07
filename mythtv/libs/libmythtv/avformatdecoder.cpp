@@ -1,12 +1,10 @@
-// C headers
-#include <cassert>
-#include <unistd.h>
-#include <cmath>
-#include <stdint.h>
-
 // C++ headers
 #include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstdint>
 #include <iostream>
+#include <unistd.h>
 using namespace std;
 
 #include <QTextCodec>
@@ -1504,7 +1502,7 @@ static enum AVPixelFormat get_format_vdpau(struct AVCodecContext *avctx,
 #ifdef USING_DXVA2
 // Declared separately to allow attribute
 static enum AVPixelFormat get_format_dxva2(struct AVCodecContext *,
-                                           const enum AVPixelFormat *) MUNUSED;
+                                           const enum AVPixelFormat *);
 
 enum AVPixelFormat get_format_dxva2(struct AVCodecContext *avctx,
                                     const enum AVPixelFormat *valid_fmts)
@@ -1540,7 +1538,7 @@ static bool IS_VAAPI_PIX_FMT(enum AVPixelFormat fmt)
 #ifdef USING_VAAPI
 // Declared separately to allow attribute
 static enum AVPixelFormat get_format_vaapi(struct AVCodecContext *,
-                                         const enum AVPixelFormat *) MUNUSED;
+                                         const enum AVPixelFormat *);
 
 enum AVPixelFormat get_format_vaapi(struct AVCodecContext *avctx,
                                          const enum AVPixelFormat *valid_fmts)
@@ -1565,7 +1563,7 @@ enum AVPixelFormat get_format_vaapi(struct AVCodecContext *avctx,
 #endif
 
 #ifdef USING_VAAPI2
-static enum AVPixelFormat get_format_vaapi2(struct AVCodecContext *avctx,
+static enum AVPixelFormat get_format_vaapi2(struct AVCodecContext */*avctx*/,
                                            const enum AVPixelFormat *valid_fmts)
 {
     enum AVPixelFormat ret = AV_PIX_FMT_NONE;
@@ -1582,10 +1580,9 @@ static enum AVPixelFormat get_format_vaapi2(struct AVCodecContext *avctx,
 #endif
 
 #ifdef USING_MEDIACODEC
-static enum AVPixelFormat get_format_mediacodec(struct AVCodecContext *avctx,
+static enum AVPixelFormat get_format_mediacodec(struct AVCodecContext */*avctx*/,
                                            const enum AVPixelFormat *valid_fmts)
 {
-    Q_UNUSED(avctx);
     enum AVPixelFormat ret = AV_PIX_FMT_NONE;
     while (*valid_fmts != AV_PIX_FMT_NONE) {
         if (*valid_fmts == AV_PIX_FMT_MEDIACODEC)
@@ -2638,14 +2635,12 @@ int AvFormatDecoder::ScanStreams(bool novideo)
             if (private_dec)
                 thread_count = 1;
 
-            if (!codec_is_std(video_codec_id))
-                thread_count = 1;
-
             use_frame_timing = false;
-            if (! private_dec
+            if (! ringBuffer->IsDVD()
                 && (codec_is_std(video_codec_id)
                     || codec_is_mediacodec(video_codec_id)
-                    || codec_is_vaapi2(video_codec_id)))
+                    || codec_is_vaapi2(video_codec_id)
+                    || GetCodecDecoderName() == "openmax"))
                 use_frame_timing = true;
 
             if (FlagIsSet(kDecodeSingleThreaded))
@@ -3016,6 +3011,10 @@ void release_avf_buffer(void *opaque, uint8_t *data)
 
     if (nd && nd->GetPlayer())
         nd->GetPlayer()->DeLimboFrame(frame);
+}
+
+static void dummy_release_avf_buffer(void * /*opaque*/, uint8_t * /*data*/)
+{
 }
 
 #ifdef USING_VDPAU
@@ -3940,6 +3939,10 @@ bool AvFormatDecoder::ProcessVideoFrame(AVStream *stream, AVFrame *mpa_pic)
     {
         AVFrame *tmp_frame = nullptr;
         AVFrame *use_frame = nullptr;
+        VideoFrame *xf = picframe;
+        picframe = m_parent->GetNextVideoFrame();
+        unsigned char *buf = picframe->buf;
+        bool used_picframe=false;
 #ifdef USING_VAAPI2
         if (IS_VAAPI_PIX_FMT((AVPixelFormat)mpa_pic->format))
         {
@@ -3947,48 +3950,73 @@ bool AvFormatDecoder::ProcessVideoFrame(AVStream *stream, AVFrame *mpa_pic)
             tmp_frame = av_frame_alloc();
             use_frame = tmp_frame;
             /* retrieve data from GPU to CPU */
-            if ((ret = av_hwframe_transfer_data(use_frame, mpa_pic, 0)) < 0) {
+            AVPixelFormat *formats = nullptr;
+            ret = av_hwframe_transfer_get_formats(mpa_pic->hw_frames_ctx,
+                AV_HWFRAME_TRANSFER_DIRECTION_FROM,
+                &formats, 0);
+            if (ret==0)
+            {
+                for (AVPixelFormat *format = formats; *format != AV_PIX_FMT_NONE; format++)
+                {
+                    if (*format == AV_PIX_FMT_YUV420P)
+                    {
+                        // Retrieve the picture directly into the Video Frame Buffer
+                        used_picframe = true;
+                        use_frame->format = AV_PIX_FMT_YUV420P;
+                        for (int i = 0; i < 3; i++)
+                        {
+                            use_frame->data[i]     = buf + picframe->offsets[i];
+                            use_frame->linesize[i] = picframe->pitches[i];
+                        }
+                        // Dummy release method - we do not want to free the buffer
+                        AVBufferRef *buffer =
+                            av_buffer_create((uint8_t*)picframe, 0, dummy_release_avf_buffer, this, 0);
+                        use_frame->buf[0] = buffer;
+                        use_frame->width = mpa_pic->width;
+                        use_frame->height = mpa_pic->height;
+                        break;
+                    }
+                }
+            }
+            if ((ret = av_hwframe_transfer_data(use_frame, mpa_pic, 0)) < 0)
+            {
                 LOG(VB_GENERAL, LOG_ERR, LOC
                     + QString("Error %1 transferring the data to system memory")
                         .arg(ret));
                 av_frame_free(&use_frame);
                 return false;
             }
+            av_freep(&formats);
         }
         else
 #endif // USING_VAAPI2
             use_frame = mpa_pic;
 
-        AVFrame tmppicture;
-
-        VideoFrame *xf = picframe;
-        picframe = m_parent->GetNextVideoFrame();
-
-        unsigned char *buf = picframe->buf;
-        av_image_fill_arrays(tmppicture.data, tmppicture.linesize,
-            buf, AV_PIX_FMT_YUV420P, use_frame->width,
-                       use_frame->height, IMAGE_ALIGN);
-        tmppicture.data[0] = buf + picframe->offsets[0];
-        tmppicture.data[1] = buf + picframe->offsets[1];
-        tmppicture.data[2] = buf + picframe->offsets[2];
-        tmppicture.linesize[0] = picframe->pitches[0];
-        tmppicture.linesize[1] = picframe->pitches[1];
-        tmppicture.linesize[2] = picframe->pitches[2];
-
-        QSize dim = get_video_dim(*context);
-        sws_ctx = sws_getCachedContext(sws_ctx, use_frame->width,
-                                       use_frame->height, (AVPixelFormat)use_frame->format,
-                                       use_frame->width, use_frame->height,
-                                       AV_PIX_FMT_YUV420P, SWS_FAST_BILINEAR,
-                                       nullptr, nullptr, nullptr);
-        if (!sws_ctx)
+        if (!used_picframe)
         {
-            LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to allocate sws context");
-            return false;
-        }
-        sws_scale(sws_ctx, use_frame->data, use_frame->linesize, 0, dim.height(),
-                  tmppicture.data, tmppicture.linesize);
+            AVFrame tmppicture;
 
+            tmppicture.data[0] = buf + picframe->offsets[0];
+            tmppicture.data[1] = buf + picframe->offsets[1];
+            tmppicture.data[2] = buf + picframe->offsets[2];
+            tmppicture.linesize[0] = picframe->pitches[0];
+            tmppicture.linesize[1] = picframe->pitches[1];
+            tmppicture.linesize[2] = picframe->pitches[2];
+
+            QSize dim = get_video_dim(*context);
+            sws_ctx = sws_getCachedContext(sws_ctx, use_frame->width,
+                                        use_frame->height, (AVPixelFormat)use_frame->format,
+                                        use_frame->width, use_frame->height,
+                                        AV_PIX_FMT_YUV420P, SWS_FAST_BILINEAR,
+                                        nullptr, nullptr, nullptr);
+            if (!sws_ctx)
+            {
+                LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to allocate sws context");
+                return false;
+            }
+            sws_scale(sws_ctx, use_frame->data, use_frame->linesize, 0, dim.height(),
+                    tmppicture.data, tmppicture.linesize);
+        }
         if (xf)
         {
             // Set the frame flags, but then discard it
@@ -4015,6 +4043,8 @@ bool AvFormatDecoder::ProcessVideoFrame(AVStream *stream, AVFrame *mpa_pic)
         pts = mpa_pic->pts;
         if (pts == AV_NOPTS_VALUE)
             pts = mpa_pic->pkt_dts;
+        if (pts == AV_NOPTS_VALUE)
+            pts = mpa_pic->reordered_opaque;
         if (pts == AV_NOPTS_VALUE)
         {
             LOG(VB_GENERAL, LOG_ERR, LOC + "No PTS found - unable to process video.");
@@ -4052,7 +4082,7 @@ bool AvFormatDecoder::ProcessVideoFrame(AVStream *stream, AVFrame *mpa_pic)
         int prior = fpsMultiplier;
         if (fpschange > 1.9 && fpschange < 2.1)
             fpsMultiplier = 2;
-        if (fpschange > 0.5 && fpschange < 0.6)
+        if (fpschange > 0.9 && fpschange < 1.1)
             fpsMultiplier = 1;
         if (fpsMultiplier != prior)
             m_parent->SetFrameRate(fps);
@@ -4984,21 +5014,26 @@ bool AvFormatDecoder::ProcessAudioPacket(AVStream *curstream, AVPacket *pkt,
         if (firstloop && pkt->pts != (int64_t)AV_NOPTS_VALUE)
             lastapts = (long long)(av_q2d(curstream->time_base) * pkt->pts * 1000);
 
-        if (skipaudio && selectedTrack[kTrackTypeVideo].av_stream_index > -1)
+        if (!use_frame_timing)
         {
-            if ((lastapts < lastvpts - (10.0 / fps)) || lastvpts == 0)
-                break;
-            else
-                skipaudio = false;
-        }
+            // This code under certain conditions causes jump backwards to lose
+            // audio.
+            if (skipaudio && selectedTrack[kTrackTypeVideo].av_stream_index > -1)
+            {
+                if ((lastapts < lastvpts - (10.0 / fps)) || lastvpts == 0)
+                    break;
+                else
+                    skipaudio = false;
+            }
 
-        // skip any audio frames preceding first video frame
-        if (firstvptsinuse && firstvpts && (lastapts < firstvpts))
-        {
-            LOG(VB_PLAYBACK | VB_TIMESTAMP, LOG_INFO, LOC +
-                QString("discarding early audio timecode %1 %2 %3")
-                    .arg(pkt->pts).arg(pkt->dts).arg(lastapts));
-            break;
+            // skip any audio frames preceding first video frame
+            if (firstvptsinuse && firstvpts && (lastapts < firstvpts))
+            {
+                LOG(VB_PLAYBACK | VB_TIMESTAMP, LOG_INFO, LOC +
+                    QString("discarding early audio timecode %1 %2 %3")
+                        .arg(pkt->pts).arg(pkt->dts).arg(lastapts));
+                break;
+            }
         }
         firstvptsinuse = false;
 

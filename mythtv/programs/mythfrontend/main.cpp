@@ -1,8 +1,7 @@
-#include <fcntl.h>
-#include <signal.h>
 #include <cerrno>
-#include <stdlib.h>
-
+#include <csignal>
+#include <cstdlib>
+#include <fcntl.h>
 #include <iostream>
 using namespace std;
 
@@ -213,7 +212,7 @@ namespace
         {
         }
 
-        bool Create()
+        bool Create() override // MythScreenType
         {
             QString msg = tr("DVD/Video contains a bookmark");
             QString btn0msg = tr("Play from bookmark");
@@ -234,7 +233,7 @@ namespace
             return true;
         }
 
-        void customEvent(QEvent *event)
+        void customEvent(QEvent *event) override // MythUIType
         {
             if (event->type() == DialogCompletionEvent::kEventType)
             {

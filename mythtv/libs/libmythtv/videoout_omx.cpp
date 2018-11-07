@@ -60,6 +60,7 @@ using namespace omxcontext;
 
 // VideoFrame <> OMX_BUFFERHEADERTYPE
 #define FRAMESETHDR(f,h) ((f)->priv[3] = reinterpret_cast<unsigned char* >(h))
+#define FRAMESETHDRNONE(f) ((f)->priv[3] = nullptr)
 #define FRAME2HDR(f) ((OMX_BUFFERHEADERTYPE*)((f)->priv[3]))
 #define HDR2FRAME(h) ((VideoFrame*)((h)->pAppPrivate))
 
@@ -86,13 +87,14 @@ class MythRenderEGL : public MythRenderOpenGL2ES
   public:
     MythRenderEGL();
 
-    virtual void makeCurrent();
-    virtual void doneCurrent();
+    void makeCurrent() override; // MythRenderOpenGL
+    void doneCurrent() override; // MythRenderOpenGL
 #ifdef USE_OPENGL_QT5
-    virtual void swapBuffers();
+    void swapBuffers() override; // MythRenderOpenGL
 #else
-    virtual void swapBuffers() const;
-    virtual bool create(const QGLContext * = 0) { return isValid(); }
+    void swapBuffers() const override; // QGLContext
+    bool create(const QGLContext * = nullptr) override // QGLContext
+        { return isValid(); }
 #endif
 
   protected:
@@ -120,13 +122,13 @@ class GlOsdThread : public MThread
             MThread("GlOsdThread")
         {
             isRunning = true;
-            m_osdImage = 0;
-            m_EGLRender = 0;
-            m_Painter = 0;
+            m_osdImage = nullptr;
+            m_EGLRender = nullptr;
+            m_Painter = nullptr;
             rectsChanged = false;
             m_lock.lock();
         }
-        virtual void run()
+        void run() override // MThread
         {
             RunProlog();
             m_EGLRender = new MythRenderEGL();
@@ -143,8 +145,8 @@ class GlOsdThread : public MThread
             {
                 LOG(VB_GENERAL, LOG_ERR, LOC + __func__ +
                     ": failed to create MythRenderEGL for OSD");
-                m_EGLRender = 0;
-                m_Painter = 0;
+                m_EGLRender = nullptr;
+                m_Painter = nullptr;
                 isRunning = false;
             }
             m_lock.unlock();
@@ -176,11 +178,11 @@ class GlOsdThread : public MThread
                 m_lock.unlock();
             }
             if (m_osdImage)
-                m_osdImage->DecrRef(), m_osdImage = 0;
+                m_osdImage->DecrRef(), m_osdImage = nullptr;
             if (m_Painter)
-                delete m_Painter, m_Painter = 0;
+                delete m_Painter, m_Painter = nullptr;
             if (m_EGLRender)
-                m_EGLRender->DecrRef(), m_EGLRender = 0;
+                m_EGLRender->DecrRef(), m_EGLRender = nullptr;
             RunEpilog();
         }
         // All of the below methods are called from another thread
@@ -280,10 +282,10 @@ VideoOutputOMX::VideoOutputOMX() :
     m_backgroundscreen(nullptr), m_videoPaused(false)
 {
 #ifdef OSD_EGL
-    m_context = 0;
-    m_osdpainter = 0;
-    m_threaded_osdpainter = 0;
-    m_glOsdThread = 0;
+    m_context = nullptr;
+    m_osdpainter = nullptr;
+    m_threaded_osdpainter = nullptr;
+    m_glOsdThread = nullptr;
     m_changed = false;
 #endif
     init(&av_pause_frame, FMT_YV12, nullptr, 0, 0, 0);
@@ -330,17 +332,17 @@ VideoOutputOMX::~VideoOutputOMX()
 
 #ifdef OSD_EGL
     if (m_osdpainter)
-        delete m_osdpainter, m_osdpainter = 0;
+        delete m_osdpainter, m_osdpainter = nullptr;
     if (m_context)
-        m_context->DecrRef(), m_context = 0;
+        m_context->DecrRef(), m_context = nullptr;
     if (m_glOsdThread)
     {
         m_glOsdThread->shutdown();
         delete m_glOsdThread;
-        m_glOsdThread = 0;
+        m_glOsdThread = nullptr;
     }
     if (m_threaded_osdpainter)
-        delete m_threaded_osdpainter, m_threaded_osdpainter = 0;
+        delete m_threaded_osdpainter, m_threaded_osdpainter = nullptr;
 #endif
 
     if (m_backgroundscreen)
@@ -444,8 +446,8 @@ bool VideoOutputOMX::Init(          // Return true if successful
             LOG(VB_GENERAL, LOG_ERR, LOC + __func__ +
                 ": failed to create MythRenderEGL");
             render->DecrRef();
-            m_context = 0;
-            m_osdpainter = 0;
+            m_context = nullptr;
+            m_osdpainter = nullptr;
         }
     }
     if (GetOSDRenderer() == "threaded")
@@ -980,7 +982,7 @@ bool VideoOutputOMX::DisplayOSD(VideoFrame *frame, OSD *osd)
         {
             LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("OSD size changed."));
             m_glOsdThread->m_osdImage->DecrRef();
-            m_glOsdThread->m_osdImage = 0;
+            m_glOsdThread->m_osdImage = nullptr;
         }
         if (!m_glOsdThread->m_osdImage)
         {
@@ -1414,7 +1416,7 @@ OMX_ERRORTYPE VideoOutputOMX::FreeBuffersCB()
         assert(hdr->nSize == sizeof(OMX_BUFFERHEADERTYPE));
         assert(hdr->nVersion.nVersion == OMX_VERSION);
         assert(vf == HDR2FRAME(hdr));
-        FRAMESETHDR(vf, nullptr);
+        FRAMESETHDRNONE(vf);
 
         OMX_ERRORTYPE e = OMX_FreeBuffer(cmpnt.Handle(), cmpnt.Base(), hdr);
         if (e != OMX_ErrorNone)
@@ -1432,7 +1434,7 @@ MythRenderEGL::MythRenderEGL() :
     MythRenderOpenGL2ES(MythRenderFormat()),
     m_display(EGL_NO_DISPLAY),
     m_context(EGL_NO_CONTEXT),
-    m_window(0),
+    m_window(nullptr),
     m_surface(EGL_NO_SURFACE)
 {
     // Disable flush to get performance improvement

@@ -2,9 +2,11 @@
  *  Copyright (C) David C.J. Matthews 2005, 2006
  *     Derived from dsmcc by Richard Palmer
  */
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdio>
+#include <cstdlib>
 #include <zlib.h>
+#undef Z_NULL
+#define Z_NULL nullptr
 
 #include "dsmccobjcarousel.h"
 #include "dsmccreceiver.h"

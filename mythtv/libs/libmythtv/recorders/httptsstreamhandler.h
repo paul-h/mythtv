@@ -20,13 +20,13 @@ class HTTPTSStreamHandler : public IPTVStreamHandler
 {
     friend class HTTPReader;
   public:
-    static HTTPTSStreamHandler* Get(const IPTVTuningData& tuning);
-    static void Return(HTTPTSStreamHandler * & ref);
+    static HTTPTSStreamHandler* Get(const IPTVTuningData& tuning, int inputid);
+    static void Return(HTTPTSStreamHandler * & ref, int inputid);
 
 protected:
-    explicit HTTPTSStreamHandler(const IPTVTuningData &tuning);
+    explicit HTTPTSStreamHandler(const IPTVTuningData &tuning, int inputid);
     virtual ~HTTPTSStreamHandler(void);
-    virtual void run(void);
+    void run(void) override; // MThread
 
   protected:
     HTTPReader*             m_reader;

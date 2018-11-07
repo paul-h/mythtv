@@ -1,7 +1,6 @@
 
-// c
+// c++
 #include <cstdlib>
-#include <stdlib.h>
 #include <unistd.h>
 
 // qt
@@ -40,7 +39,7 @@ class GetRecordingListThread : public MThread
         start();
     }
 
-    virtual void run(void)
+    void run(void) override // MThread
     {
         RunProlog();
         m_parent->getRecordingList();

@@ -14,8 +14,7 @@
 #include <QUrl>
 #include <QTcpSocket>
 
-#include "stdlib.h"
-
+#include <cstdlib>
 #include <unistd.h> // for usleep()
 
 // libmythbase
@@ -138,7 +137,7 @@ class RemoteFileDownloadThread : public QRunnable
         m_dlInfo->detach();
     }
 
-    void run()
+    void run() override // QRunnable
     {
         bool ok = false;
 

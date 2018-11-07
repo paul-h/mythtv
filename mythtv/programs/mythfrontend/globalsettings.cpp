@@ -86,6 +86,71 @@ static HostTextEditSetting *VAAPIDevice()
 }
 #endif
 
+static HostCheckBoxSetting *PlaybackAVSync2()
+{
+    HostCheckBoxSetting *gc = new HostCheckBoxSetting("PlaybackAVSync2");
+
+    gc->setLabel(PlaybackSettings::tr("Enable new timestamp based playback speed (AVSync2)"));
+
+    gc->setHelpText(PlaybackSettings::tr("Simplified timing and synchronization method. "
+        "This may offer smoother video playback. Note there is a setting that can be used "
+        "for fine tuning playback (press right arrow)."));
+    gc->setValue(false);
+
+    return gc;
+}
+
+static HostSpinBoxSetting *AVSync2AdjustMS()
+// was previously *DecodeExtraAudio()
+{
+    HostSpinBoxSetting *gc = new HostSpinBoxSetting("AVSync2AdjustMS",1,40,1,1);
+
+    gc->setLabel(PlaybackSettings::tr("AVSync2 audio correction (ms)"));
+
+    gc->setValue(10);
+
+    gc->setHelpText(PlaybackSettings::tr(
+        "When using AVSync2, if video playback is speeding up and slowing down every few seconds, reduce "
+        "this value. For quicker recovery of audio sync after jumps, increase this value. "
+        "Values can be from 1 to 40. Default is 10."));
+    return gc;
+}
+
+static HostCheckBoxSetting *OpenGLYV12()
+{
+    HostCheckBoxSetting *gc = new HostCheckBoxSetting("OpenGLYV12");
+
+    gc->setLabel(PlaybackSettings::tr("Allow YV12 (YUV 4:2:0) pixel format for OpenGL"));
+
+    gc->setHelpText(PlaybackSettings::tr("Disabling one or more pixel formats may help with picture "
+                                         "problems when using "
+                                         "OpenGL video rendering. By default YV12 is disabled for "
+                                         "android and enabled for other systems."));
+#ifdef ANDROID
+#define YV12DEFAULT false
+#else
+#define YV12DEFAULT true
+#endif
+
+    gc->setValue(YV12DEFAULT);
+
+    return gc;
+}
+
+static HostCheckBoxSetting *OpenGLUYVY()
+{
+    HostCheckBoxSetting *gc = new HostCheckBoxSetting("OpenGLUYVY");
+
+    gc->setLabel(PlaybackSettings::tr("Allow UYVY (YUV 4:2:2) pixel format for OpenGL"));
+
+    gc->setHelpText(PlaybackSettings::tr("Disabling one or more pixel formats may help with picture "
+                                         "problems when using "
+                                         "OpenGL video rendering. By default UYVY is enabled. "));
+    gc->setValue(true);
+
+    return gc;
+}
+
 #if CONFIG_DEBUGTYPE
 static HostCheckBoxSetting *FFmpegDemuxer()
 {
@@ -669,7 +734,7 @@ PlaybackProfileItemConfig::PlaybackProfileItemConfig(
     codecs    = new TransMythUIComboBoxSetting(true);
     framerate = new TransTextEditSetting();
     decoder   = new TransMythUIComboBoxSetting();
-    max_cpus  = new TransMythUISpinBoxSetting(1, HAVE_THREADS ? 4 : 1, 1, true);
+    max_cpus  = new TransMythUISpinBoxSetting(1, HAVE_THREADS ? 8 : 1, 1, true);
     skiploop  = new TransMythUICheckBoxSetting();
     vidrend   = new TransMythUIComboBoxSetting();
     osdrend   = new TransMythUIComboBoxSetting();
@@ -1425,7 +1490,8 @@ static HostComboBoxSetting *MenuTheme()
     return gc;
 }
 
-static HostComboBoxSetting MUNUSED *DecodeVBIFormat()
+#if 0
+static HostComboBoxSetting *DecodeVBIFormat()
 {
     QString beVBI = gCoreContext->GetSetting("VbiFormat");
     QString fmt = beVBI.toLower().left(4);
@@ -1448,6 +1514,7 @@ static HostComboBoxSetting MUNUSED *DecodeVBIFormat()
 
     return gc;
 }
+#endif
 
 static HostComboBoxSetting *SubtitleCodec()
 {
@@ -1676,6 +1743,23 @@ static HostCheckBoxSetting *EndOfRecordingExitPrompt()
     gc->setHelpText(PlaybackSettings::tr("If enabled, a menu will be displayed "
                                          "allowing you to delete the recording "
                                          "when it has finished playing."));
+    return gc;
+}
+
+static HostCheckBoxSetting *MusicChoiceEnabled()
+{
+    HostCheckBoxSetting *gc = new HostCheckBoxSetting("MusicChoiceEnabled");
+
+    gc->setLabel(PlaybackSettings::tr("Enable Music Choice"));
+
+    gc->setValue(false);
+
+    gc->setHelpText(PlaybackSettings::tr("Enable this to improve playing of Music Choice channels "
+                                         "or recordings from those channels. "
+                                         "These are audio channels with slide show "
+                                         "from some cable providers. "
+                                         "In unusual situations this could cause lip sync problems "
+                                         "watching normal videos or TV shows."));
     return gc;
 }
 
@@ -3791,7 +3875,7 @@ class ShutDownRebootSetting : public GroupSetting
   public:
     ShutDownRebootSetting();
   private slots:
-    void childChanged(StandardSetting *);
+    void childChanged(StandardSetting *) override; // StandardSetting
   private:
     StandardSetting * m_overrideExitMenu;
     StandardSetting * m_haltCommand;
@@ -3928,10 +4012,10 @@ class PlayBackScaling : public GroupSetting
 {
   public:
     PlayBackScaling();
-    virtual void updateButton(MythUIButtonListItem *item);
+    void updateButton(MythUIButtonListItem *item) override; // GroupSetting
 
   private slots:
-    virtual void childChanged(StandardSetting *);
+    void childChanged(StandardSetting *) override; // StandardSetting
 
   private:
     StandardSetting * m_VertScan;
@@ -4077,11 +4161,6 @@ void PlaybackSettings::Load(void)
 {
     GroupSetting* general = new GroupSetting();
     general->setLabel(tr("General Playback"));
-    general->addChild(RealtimePriority());
-#ifdef USING_VAAPI2
-    general->addChild(VAAPIDevice());
-#endif
-    general->addChild(AudioReadAhead());
     general->addChild(JumpToProgramOSD());
     general->addChild(ClearSavedPosition());
     general->addChild(UseProgStartMark());
@@ -4102,7 +4181,22 @@ void PlaybackSettings::Load(void)
     general->addChild(PIPLocationComboBox());
     general->addChild(PlaybackExitPrompt());
     general->addChild(EndOfRecordingExitPrompt());
+    general->addChild(MusicChoiceEnabled());
     addChild(general);
+
+    GroupSetting* advanced = new GroupSetting();
+    advanced->setLabel(tr("Advanced Playback Settings"));
+    advanced->addChild(RealtimePriority());
+    advanced->addChild(AudioReadAhead());
+#ifdef USING_VAAPI2
+    advanced->addChild(VAAPIDevice());
+#endif
+    HostCheckBoxSetting *avsync2 = PlaybackAVSync2();
+    advanced->addChild(avsync2);
+    avsync2->addTargetedChild("1",AVSync2AdjustMS());
+    advanced->addChild(OpenGLYV12());
+    advanced->addChild(OpenGLUYVY());
+    addChild(advanced);
 
     m_playbackProfiles = CurrentPlaybackProfile();
     addChild(m_playbackProfiles);
@@ -4309,11 +4403,11 @@ class GuiDimension : public GroupSetting
 {
     public:
         GuiDimension();
-        //virtual QString getValue();
-        virtual void updateButton(MythUIButtonListItem *item);
+        //QString getValue() override; // StandardSetting
+        void updateButton(MythUIButtonListItem *item) override; // GroupSetting
 
     private slots:
-        virtual void childChanged(StandardSetting *);
+        void childChanged(StandardSetting *) override; // StandardSetting
     private:
         StandardSetting *m_width;
         StandardSetting *m_height;

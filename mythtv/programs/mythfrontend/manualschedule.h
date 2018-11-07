@@ -1,8 +1,8 @@
 #ifndef MANUALSCHEDULE_H_
 #define MANUALSCHEDULE_H_
 
-// ANSI C
-#include <stdint.h> // for [u]int[32,64]_t
+// C++
+#include <cstdint> // for [u]int[32,64]_t
 
 #include <QDateTime>
 #include <QStringList>
@@ -25,7 +25,7 @@ class ManualSchedule : public MythScreenType
     explicit ManualSchedule(MythScreenStack *parent);
    ~ManualSchedule(void) = default;
 
-    bool Create(void);
+    bool Create(void) override; // MythScreenType
 
   protected slots:
     void dateChanged(void);

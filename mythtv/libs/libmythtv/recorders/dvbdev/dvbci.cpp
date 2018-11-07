@@ -25,22 +25,23 @@
  */
 
 #include "dvbci.h"
-#include <errno.h>
-#include <ctype.h>
+
+#include <cctype>
+#include <cerrno>
+#include <cstring>
+#include <ctime>
+#include <fcntl.h>
 #include <linux/dvb/ca.h>
+#include <netinet/in.h>
+#include <poll.h>
+#include <sys/ioctl.h>
+#include <sys/time.h>
+#include <unistd.h>
 #ifdef __FreeBSD__
 #  include <stdlib.h>
 #else
 #  include <malloc.h>
 #endif
-#include <netinet/in.h>
-#include <poll.h>
-#include <string.h>
-#include <sys/ioctl.h>
-#include <sys/time.h>
-#include <time.h>
-#include <unistd.h>
-#include <fcntl.h>
 
 #include <QString>
 
@@ -870,7 +871,7 @@ private:
   int state;
 public:
   cCiResourceManager(int SessionId, cCiTransportConnection *Tc);
-  virtual bool Process(int Length = 0, const uint8_t *Data = nullptr);
+  bool Process(int Length = 0, const uint8_t *Data = nullptr) override; // cCiSession
   };
 
 cCiResourceManager::cCiResourceManager(int SessionId, cCiTransportConnection *Tc)
@@ -941,7 +942,7 @@ private:
 public:
   cCiApplicationInformation(int SessionId, cCiTransportConnection *Tc);
   virtual ~cCiApplicationInformation();
-  virtual bool Process(int Length = 0, const uint8_t *Data = nullptr);
+  bool Process(int Length = 0, const uint8_t *Data = nullptr) override; // cCiSession
   bool EnterMenu(void);
   char *GetApplicationString() { return strdup(menuString); };
   uint16_t GetApplicationManufacturer() { return applicationManufacturer; };
@@ -1021,7 +1022,7 @@ private:
   bool needCaPmt;
 public:
   cCiConditionalAccessSupport(int SessionId, cCiTransportConnection *Tc);
-  virtual bool Process(int Length = 0, const uint8_t *Data = nullptr);
+  bool Process(int Length = 0, const uint8_t *Data = nullptr) override; // cCiSession
   const unsigned short *GetCaSystemIds(void) { return caSystemIds; }
   bool SendPMT(cCiCaPmt &CaPmt);
   bool NeedCaPmt(void) { return needCaPmt; }
@@ -1103,7 +1104,7 @@ private:
   bool SendDateTime(void);
 public:
   cCiDateTime(int SessionId, cCiTransportConnection *Tc);
-  virtual bool Process(int Length = 0, const uint8_t *Data = nullptr);
+  bool Process(int Length = 0, const uint8_t *Data = nullptr) override; // cCiSession
   void SetTimeOffset(double offset);
   };
 
@@ -1233,8 +1234,8 @@ private:
 public:
   cCiMMI(int SessionId, cCiTransportConnection *Tc);
   virtual ~cCiMMI();
-  virtual bool Process(int Length = 0, const uint8_t *Data = nullptr);
-  virtual bool HasUserIO(void) { return menu || enquiry; }
+  bool Process(int Length = 0, const uint8_t *Data = nullptr) override; // cCiSession
+  bool HasUserIO(void) override { return menu || enquiry; } // cCiSession
   cCiMenu *Menu(void);
   cCiEnquiry *Enquiry(void);
   bool SendMenuAnswer(uint8_t Selection);

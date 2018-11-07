@@ -24,7 +24,7 @@
 #include <QEventLoop>
 #include <QTimer>
 
-#include <stdint.h>
+#include <cstdint>
 
 /**
  * \class WebSocketServer
@@ -51,7 +51,7 @@ class UPNP_PUBLIC WebSocketServer : public ServerPool
     }
 
   protected slots:
-    virtual void newTcpConnection(qt_socket_fd_t socket); // QTcpServer
+    void newTcpConnection(qt_socket_fd_t socket) override; // QTcpServer
 
   protected:
     mutable QReadWriteLock  m_rwlock;
@@ -166,7 +166,7 @@ class WebSocketWorkerThread : public QRunnable
                         );
     virtual ~WebSocketWorkerThread() = default;
 
-    virtual void run(void);
+    void run(void) override; // QRunnable
 
   private:
     WebSocketServer  &m_webSocketServer;

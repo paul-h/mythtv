@@ -26,11 +26,11 @@ class DarwinFirewireDevice;
 class DarwinAVCInfo : public AVCInfo
 {
   public:
-    DarwinAVCInfo() :%
-        fw_node_ref(nullptr), fw_device_ref(nullptr),
-        fw_service_ref(nullptr), avc_service_ref(nullptr),
-        fw_device_notifier_ref(nullptr),
-        avc_handle(nullptr), fw_handle(nullptr) { }
+    DarwinAVCInfo() :
+        fw_node_ref(0), fw_device_ref(0),
+        fw_service_ref(0), avc_service_ref(0),
+        fw_device_notifier_ref(0),
+        avc_handle(0), fw_handle(0) { }
 
     void Update(uint64_t _guid, DarwinFirewireDevice *dev,
                 IONotificationPortRef notify_port,
@@ -45,10 +45,10 @@ class DarwinAVCInfo : public AVCInfo
     bool OpenDeviceInterface(CFRunLoopRef &thread_cf_ref);
     void CloseDeviceInterface(void);
 
-    virtual bool SendAVCCommand(
+    bool SendAVCCommand(
         const vector<uint8_t> &cmd,
         vector<uint8_t>       &result,
-        int                   retry_cnt);
+        int                   retry_cnt) override; // AVCInfo
 
     bool GetDeviceNodes(int &local_node, int &remote_node);
 

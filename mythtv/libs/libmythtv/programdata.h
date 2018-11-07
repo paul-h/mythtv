@@ -2,11 +2,9 @@
 #define _PROGRAMDATA_H_
 
 // C++ headers
+#include <cstdint>
 #include <vector>
 using namespace std;
-
-// POSIX headers
-#include <stdint.h>
 
 // Qt headers
 #include <QString>
@@ -246,9 +244,9 @@ class MTV_PUBLIC ProgInfo : public DBEvent
 
     ProgInfo(const ProgInfo &other);
 
-    uint InsertDB(MSqlQuery &query, uint chanid) const;
+    uint InsertDB(MSqlQuery &query, uint chanid) const override; // DBEvent
 
-    void Squeeze(void);
+    void Squeeze(void) override; // DBEvent
 
     ProgInfo &operator=(const ProgInfo&);
 

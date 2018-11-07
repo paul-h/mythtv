@@ -787,7 +787,7 @@ check_cflags(){
 
 check_cxxflags(){
     log check_cxxflags "$@"
-    check_cxx "$@" <<EOF && add_cxxflags "$@" || echolog "WARNING! An unknown C++ compiler flag in: \"$@\". Option(s) will be ignored."
+    check_cxx "$@" <<EOF && add_cxxflags "$@" || log "WARNING! An unknown C++ compiler flag in: \"$@\". Option(s) will be ignored."
 class X {};
 int x;
 EOF
@@ -3865,6 +3865,7 @@ test -n "$cc_type" && enable $cc_type ||
 if $cxx -v 2>&1 | grep -qi ^gcc; then
     cxx_type=gxx
     gxx_version=$($cxx -dumpversion)
+    gxx_major=$(echo $gxx_version | sed "s/\([0-9]*\).*/\\1/")
 elif $cxx --version 2>/dev/null | grep -q Intel; then
     cxx_type=icpc
     gxx_version="AV_STRINGIFY(__INTEL_COMPILER)"
@@ -3877,7 +3878,8 @@ elif $cxx --version 2>/dev/null | grep -q clang; then
     cxx_type=clangxx
     gxx_version="AV_STRINGIFY(__CLANG_COMPILER)"
     cxx_ident=$($cxx --version | head -n1)
-    clangxx_version=$($cxx -dumpversion)
+    clangxx_version=$($cxx -dumpversion) # GCC equivalent version
+    clangxx_major=$(echo $cxx_ident | sed "s/.*version \([0-9]*\).*/\\1/")
     speed_cxxflags='-O3'
     size_cxxflags='-Os'
     noopt_cxxflags='-O1'
@@ -5835,9 +5837,16 @@ if ! disabled openmax; then
     if test -f /opt/vc/include/IL/OMX_Broadcom.h \
         && test -f /opt/vc/lib/libopenmaxil.so ; then
         enable openmax_broadcom
-    elif test -f /usr/include/bellagio/omxcore.h \
-        && test -f /usr/lib/libomxil-bellagio.so; then
-        enable openmax_bellagio
+    elif test -f /usr/include/bellagio/omxcore.h ; then
+        if test -f /usr/lib/libomxil-bellagio.so \
+           -o -f /usr/lib32/libomxil-bellagio.so \
+           -o -f /usr/lib64/libomxil-bellagio.so ; then
+            enable openmax
+            enable openmax_bellagio
+            add_extralibs -lomxil-bellagio
+        else
+            disable openmax
+        fi
     else
         disable openmax
     fi
@@ -6464,6 +6473,47 @@ else
     qt_libs="-L${sysroot}/$(${qmake} -query QT_INSTALL_LIBS)"
 fi
 
+qt_compiler_check() {
+    log "qt_compiler_check $@"
+    "qt_compiler_check $@" >> $logfile 2>&1
+    check_ecxx ${qt_inc} <<EOF
+#include <QtCore/QtCore>
+#ifndef $1
+   Fail this test compile with garbage!!!
+#endif
+int x;
+EOF
+}
+
+qt_compiler_check Q_COMPILER_NULLPTR && enable require_nullptr
+case "$cc_type" in
+    gcc)
+        # Gcc < 6 doesn't seem to ignore warnings in system headers
+        if [ $gxx_major -lt 6 ] ; then
+            disable require_nullptr
+        fi
+        ;;
+    clang)
+        if [ $clangxx_major -lt 6 ]; then
+            # The zero-as-null-pointer-constant warning wasn't added
+            # until clang 5.0, and clang < 6 doesn't seem to ignore
+            # warnings in all system headers.
+            disable require_nullptr
+        fi
+        # Clang on FreeBSD doesn't ignore warnings in system headers.
+        # A trivial test shows that Clang defaults /usr/local/include
+        # to a system directory, but somehow this gets messed up in
+        # MythTV builds.
+        if test $target_os = "freebsd"; then
+            disable require_nullptr
+        fi
+        ## Not yet tested on MacOSX.
+        if test $target_os = "darwin"; then
+            disable require_nullptr
+        fi
+        ;;
+esac
+
 if $(pkg-config --exists Qt5WebKit) || $(pkg-config --exists QtWebKit) ; then
     enable qtwebkit
 else
@@ -6826,6 +6876,16 @@ if enabled gxx; then
     check_cxxflags -funit-at-a-time
     # Don't complain about over-aligned types
     check_cxxflags -faligned-new
+    if enabled require_nullptr; then
+        check_cxxflags -Wzero-as-null-pointer-constant
+    fi
+    # Ubuntu 16.04 has problems with this flag.  Its not GCC or Qt, as
+    # both older compilers and/or older Qt versions on other systems
+    # produce clean output.  This is a simple check to eliminate that
+    # specific version (and more, but it gets the job done).
+    if [ $qt_version -ge $(version2num "5.7.0") ]; then
+        check_cxxflags -Wsuggest-override
+    fi
 elif enabled icpc; then
     # 177: function declared but never referenced (triggers on Q_OBJECT)
     # 192: icpc confused by Qt %0-%99 in strings
@@ -6850,8 +6910,19 @@ elif enabled clangxx; then
     check_cxxflags -Wimplicit-fallthrough
     # Clang needs this to link on Fedora
     add_extralibs -lstdc++
-    # Don't complain about over-aligned types
-    check_cxxflags -faligned-allocation
+    # Don't complain about over-aligned types.
+    if test $target_os = "freebsd"; then
+        # The libc++ library on FreeBSD 10 is missing the required
+        # new() function and doesn't work with this flag enabled.
+        if test $(uname -K) -gt 1100000; then
+            check_cxxflags -faligned-allocation
+        fi
+    else
+        check_cxxflags -faligned-allocation
+    fi
+    if enabled require_nullptr; then
+        check_cxxflags -Wzero-as-null-pointer-constant
+    fi
 fi
 
 # Check for python dependencies
@@ -7086,7 +7157,8 @@ fi
 ffmpeg_extra_cflags="$extra_cflags -w"
 
 ## Call FFmpeg configure here
-echo -e '\n#### FFmpeg CONFIGURATION ####'
+echo
+echo '#### FFmpeg CONFIGURATION ####'
 currentpwd="$PWD"
 cd external/FFmpeg
 eval ./configure \
@@ -7114,7 +7186,8 @@ cd "$currentpwd"
 
 if test "$quiet" != "yes"; then
 
-echo '\n#### MythTV CONFIGURATION ####'
+echo
+echo '#### MythTV CONFIGURATION ####'
 echo "# Basic Settings"
 echo "Qt minimum version        $QT_MIN_VERSION_STR"
 echo "Qt installed version      `$qmake -query QT_VERSION`"
@@ -7348,6 +7421,10 @@ echo "xvid                      ${libxvid-no}"
 echo "x264                      ${libx264-no}"
 echo "x265 (HEVC)               ${libx265-no}"
 echo "vpx                       ${libvpx-no}"
+echo ""
+
+echo "# Compilation Options"
+echo "Require c++11 nullptr     ${require_nullptr-no}"
 echo ""
 
 # Remove redundant elements from variables

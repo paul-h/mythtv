@@ -1,13 +1,12 @@
 
 #include "tv_play.h"
 
-#include <cstdlib>
-#include <cstdarg>
-#include <cmath>
-#include <stdint.h>
-
 #include <algorithm>
 #include <chrono> // for milliseconds
+#include <cmath>
+#include <cstdarg>
+#include <cstdint>
+#include <cstdlib>
 #include <thread> // for sleep_for
 
 using namespace std;
@@ -185,7 +184,7 @@ class DDLoader : public QRunnable
     void SetParent(TV *parent) { m_parent = parent; }
     void SetSourceID(uint sourceid) { m_sourceid = sourceid; }
 
-    virtual void run(void)
+    void run(void) override // QRunnable
     {
         if (m_parent)
             m_parent->RunLoadDDMap(m_sourceid);
@@ -1129,11 +1128,11 @@ TV::TV(void)
     setObjectName("TV");
     keyRepeatTimer.start();
 
-    sleep_times.push_back(SleepTimerInfo(tr("Off",   "Sleep timer"),       0));
-    sleep_times.push_back(SleepTimerInfo(tr("30m",   "Sleep timer"),   30*60));
-    sleep_times.push_back(SleepTimerInfo(tr("1h",    "Sleep timer"),    60*60));
-    sleep_times.push_back(SleepTimerInfo(tr("1h30m", "Sleep timer"), 90*60));
-    sleep_times.push_back(SleepTimerInfo(tr("2h",    "Sleep timer"),   120*60));
+    sleep_times.emplace_back(tr("Off",   "Sleep timer"),      0);
+    sleep_times.emplace_back(tr("30m",   "Sleep timer"),  30*60);
+    sleep_times.emplace_back(tr("1h",    "Sleep timer"),  60*60);
+    sleep_times.emplace_back(tr("1h30m", "Sleep timer"),  90*60);
+    sleep_times.emplace_back(tr("2h",    "Sleep timer"), 120*60);
 
     playerLock.lockForWrite();
     player.push_back(new PlayerContext(kPlayerInUseID));
@@ -13528,7 +13527,7 @@ void TV::HandleSaveLastPlayPosEvent(void)
     public:
         PositionSaver(const ProgramInfo &pginfo, uint64_t frame) :
             m_pginfo(pginfo), m_frame(frame) {}
-        virtual void run(void)
+        void run(void) override // QRunnable
         {
             LOG(VB_PLAYBACK, LOG_DEBUG,
                 QString("PositionSaver frame=%1").arg(m_frame));

@@ -1,12 +1,10 @@
 
 #include "mythuiimage.h"
 
-// C
+// C++
+#include <cstdint>
 #include <cstdlib>
-#include <time.h>
-
-// POSIX
-#include <stdint.h>
+#include <ctime>
 
 // QT
 #include <QFile>
@@ -518,7 +516,7 @@ class ImageLoadThread : public QRunnable
     {
     }
 
-    void run()
+    void run() override // QRunnable
     {
         bool aborted = false;
         QString filename =  m_imageProperties.filename;

@@ -7,14 +7,12 @@
 //
 
 #include "config.h"
-#include <stdint.h>
-#include <inttypes.h>
-
-// C
-#include <cmath>
-#include <cstdlib>
 
 // C++
+#include <cinttypes>
+#include <cmath>
+#include <cstdint>
+#include <cstdlib>
 #include <iostream>
 using namespace std;
 
@@ -647,20 +645,20 @@ bool Synaesthesia::draw(QPainter *p, const QColor &back)
 static class SynaesthesiaFactory : public VisFactory
 {
   public:
-    const QString &name(void) const
+    const QString &name(void) const override // VisFactory
     {
         static QString name = QCoreApplication::translate("Visualizers",
                                                           "Synaesthesia");
         return name;
     }
 
-    uint plugins(QStringList *list) const
+    uint plugins(QStringList *list) const override // VisFactory
     {
         *list << name();
         return 1;
     }
 
-    VisualBase *create(MainVisual *parent,  const QString &pluginName) const
+    VisualBase *create(MainVisual *parent,  const QString &pluginName) const override // VisFactory
     {
         (void)parent;
         (void)pluginName;
