@@ -1,0 +1,166 @@
+import QtQuick 2.0
+import QmlVlc 0.1
+import QtWebEngine 1.3
+
+Item
+{
+    id: root
+    property string source: ""
+    //property alias volume: mediaplayer.volume
+    property bool loop: false
+    property bool playbackStarted: false
+    property bool muteAudio: false
+    property int playerState: -1
+    property int volume: 0
+    property int position: 0
+    property int duration: 0
+
+    signal playbackEnded()
+    signal showMessage(string message)
+
+    property bool _playerLoaded: false
+
+    onSourceChanged:
+    {
+         if (_playerLoaded)
+            browser.runJavaScript("loadVideo(" + source + ");");
+    }
+
+    WebEngineView
+    {
+        id: browser
+        x: 0
+        y: 0
+        visible: parent.visible
+        enabled: visible
+        width: parent.width
+        height: parent.height
+        backgroundColor: "black"
+        url: if (visible) mythUtils.findThemeFile("HTML/YouTube.html"); else "";
+        settings.pluginsEnabled : true
+
+        onLoadingChanged:
+        {
+            if (loadRequest.status == WebEngineLoadRequest.LoadSucceededStatus && root.source != "")
+            {
+                _playerLoaded = true;
+                runJavaScript("loadVideo(" + root.source + ")");
+                statusUpdateTimer.start();
+            }
+        }
+    }
+
+    Timer
+    {
+        id: statusUpdateTimer
+        interval: 1000; running: false; repeat: true
+        onTriggered:
+        {
+            browser.runJavaScript("getPlayerState();", function (result) { root.playerState = result;});
+            browser.runJavaScript("getPosition();", function (result) { root.position = result * 1000;});
+            browser.runJavaScript("getDuration();", function (result) { root.duration = result * 1000;});
+            browser.runJavaScript("getVolume();", function (result) { root.volume = result;});
+        }
+    }
+
+    function isPlaying()
+    {
+        return root.playerState === 1;
+    }
+
+    function play()
+    {
+        browser.runJavaScript("playVideo();");
+    }
+
+    function stop()
+    {
+        browser.runJavaScript("stopVideo();");
+    }
+
+    function pause()
+    {
+        browser.runJavaScript("pauseVideo();");
+    }
+
+    function getPaused()
+    {
+        return root.playerState === 2;
+    }
+
+    function togglePaused()
+    {
+        browser.runJavaScript("togglePaused();");
+    }
+
+    function skipBack(time)
+    {
+        browser.runJavaScript("skipBack(" + time + ");");
+    }
+
+    function skipForward(time)
+    {
+        browser.runJavaScript("skipForward(" + time + ");");
+    }
+
+    function changeVolume(amount)
+    {
+        if (amount < 0)
+            root.volume = Math.max(0, root.volume + amount);
+        else
+            root.volume = Math.min(100, root.volume + amount);
+
+        browser.runJavaScript("changeVolume(" + root.volume + ");");
+
+        showMessage("Volume: " + root.volume + "%");
+    }
+
+    function getMuted()
+    {
+        return root.muteAudio;
+    }
+
+    function setMute(mute)
+    {
+        root.muteAudio = mute;
+
+        browser.runJavaScript("setMute(" + mute + ");");
+    }
+
+    function toggleMute()
+    {
+        root.muteAudio = !root.muteAudio;
+
+        browser.runJavaScript("setMute(" + root.muteAudio + ");");
+    }
+
+    function getPosition()
+    {
+        return root.position;
+    }
+
+    function getDuration()
+    {
+        return root.duration;
+    }
+
+    function setLoopMode(doLoop)
+    {
+        browser.runJavaScript("setLoopMode(" + doLoop + ");");
+    }
+
+    function toggleInterlacer()
+    {
+        showMessage("Deinterlacers are not supported by this player");
+    }
+
+    function takeSnapshot(filename)
+    {
+        console.info("saving snapshot to: " + filename);
+        browser.grabToImage(function(result)
+                                 {
+                                     result.saveToFile(filename);
+                                 });
+        showMessage("Snapshot Saved");
+    }
+}
