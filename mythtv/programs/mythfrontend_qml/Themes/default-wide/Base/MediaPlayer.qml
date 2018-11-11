@@ -583,6 +583,8 @@ FocusScope
             vlcPlayer.takeSnapshot(filename)
         else if (getActivePlayer() === "YOUTUBE")
             youtubePlayer.takeSnapshot(filename)
+        else if (getActivePlayer() === "QTAV")
+            qtAVPlayer.takeSnapshot(filename)
         else
             console.log("Media Player '" + root.player + "' does not support taking snapshots");
     }

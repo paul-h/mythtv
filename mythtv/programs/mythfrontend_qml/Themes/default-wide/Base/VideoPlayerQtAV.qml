@@ -160,9 +160,12 @@ FocusScope
 
     function takeSnapshot(filename)
     {
-        //FIXME
         console.info("saving snapshot to: " + filename);
-        showMessage("Saving snapshots not currently available in this player");
+        mediaplayer.grabToImage(function(result)
+                                {
+                                    result.saveToFile(filename);
+                                });
+        showMessage("Snapshot Saved");
     }
 }
 
