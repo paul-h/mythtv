@@ -70,17 +70,20 @@ Item
 
     function play()
     {
-        browser.runJavaScript("playVideo();");
+        if (_playerLoaded)
+            browser.runJavaScript("playVideo();");
     }
 
     function stop()
     {
-        browser.runJavaScript("stopVideo();");
+        if (_playerLoaded)
+            browser.runJavaScript("stopVideo();");
     }
 
     function pause()
     {
-        browser.runJavaScript("pauseVideo();");
+        if (_playerLoaded)
+            browser.runJavaScript("pauseVideo();");
     }
 
     function getPaused()
@@ -90,21 +93,27 @@ Item
 
     function togglePaused()
     {
-        browser.runJavaScript("togglePaused();");
+        if (_playerLoaded)
+            browser.runJavaScript("togglePaused();");
     }
 
     function skipBack(time)
     {
-        browser.runJavaScript("skipBack(" + time + ");");
+        if (_playerLoaded)
+            browser.runJavaScript("skipBack(" + time + ");");
     }
 
     function skipForward(time)
     {
-        browser.runJavaScript("skipForward(" + time + ");");
+        if (_playerLoaded)
+            browser.runJavaScript("skipForward(" + time + ");");
     }
 
     function changeVolume(amount)
     {
+        if (!_playerLoaded)
+            return;
+
         if (amount < 0)
             root.volume = Math.max(0, root.volume + amount);
         else
@@ -122,6 +131,9 @@ Item
 
     function setMute(mute)
     {
+        if (!_playerLoaded)
+            return;
+
         root.muteAudio = mute;
 
         browser.runJavaScript("setMute(" + mute + ");");
@@ -129,6 +141,9 @@ Item
 
     function toggleMute()
     {
+        if (!_playerLoaded)
+            return;
+
         root.muteAudio = !root.muteAudio;
 
         browser.runJavaScript("setMute(" + root.muteAudio + ");");
@@ -146,7 +161,8 @@ Item
 
     function setLoopMode(doLoop)
     {
-        browser.runJavaScript("setLoopMode(" + doLoop + ");");
+        if (_playerLoaded)
+            browser.runJavaScript("setLoopMode(" + doLoop + ");");
     }
 
     function toggleInterlacer()
