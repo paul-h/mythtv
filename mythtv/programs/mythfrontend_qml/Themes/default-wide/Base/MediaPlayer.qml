@@ -351,6 +351,7 @@ FocusScope
     {
         streamLinkProcess.stop();
         checkProcessTimer.running = false;
+        streamLinkProcess.waitForFinished();
 
         // we always need to restart the StreamLink process even if it is already running
         if (newPlayer === "StreamLink")
@@ -478,6 +479,7 @@ FocusScope
     {
         streamLinkProcess.stop();
         checkProcessTimer.running = false;
+        streamLinkProcess.waitForFinished();
 
         if (getActivePlayer() === "VLC")
         {

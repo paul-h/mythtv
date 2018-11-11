@@ -29,4 +29,14 @@ public:
     {
         return QProcess::readAll();
     }
+
+    Q_INVOKABLE int getState()
+    {
+        return QProcess::state();
+    }
+
+    Q_INVOKABLE bool waitForFinished(int msecs = 30000)
+    {
+        return QProcess::waitForFinished(msecs);
+    }
 };
