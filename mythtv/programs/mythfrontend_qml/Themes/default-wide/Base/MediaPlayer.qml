@@ -316,9 +316,18 @@ FocusScope
 
     function showMessage(message)
     {
-        messageText.text = message;
-        messagePanel.visible = true;
-        messageTimer.restart();
+        if (message != "")
+        {
+            messageText.text = message;
+            messagePanel.visible = true;
+            messageTimer.restart();
+        }
+        else
+        {
+            messageText.text = message;
+            messagePanel.visible = false;
+            messageTimer.stop();
+        }
     }
 
     function getActivePlayer()
@@ -353,6 +362,11 @@ FocusScope
         checkProcessTimer.running = false;
         streamLinkProcess.waitForFinished();
 
+        youtubePlayer.stop();
+        vlcPlayer.stop();
+        qtAVPlayer.stop();
+        webPlayer.url = "";
+
         // we always need to restart the StreamLink process even if it is already running
         if (newPlayer === "StreamLink")
         {
@@ -371,6 +385,8 @@ FocusScope
             checkProcessTimer.running = true;
 
             root.player = newPlayer;
+
+            showMessage("Starting Streamer. Please Wait....")
             return;
         }
 
@@ -432,11 +448,6 @@ FocusScope
     {
         railcamBrowser.visible = false;
         railcamBrowser.url = "";
-
-        youtubePlayer.stop();
-        vlcPlayer.stop();
-        qtAVPlayer.stop();
-        webPlayer.url = "";
 
         if (root.player === "VLC" || root.player === "Internal")
         {

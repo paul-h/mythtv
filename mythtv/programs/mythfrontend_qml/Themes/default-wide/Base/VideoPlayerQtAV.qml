@@ -22,7 +22,6 @@ FocusScope
     Rectangle
     {
         id: background
-        property alias source: mediaplayer.source
 
         color: "black"
         layer.enabled: false
@@ -50,26 +49,47 @@ FocusScope
             onStatusChanged:
             {
                 if (status == MediaPlayer.NoMedia)
+                {
                     console.info("status: no media");
+                    showMessage("No Media");
+                }
                 else if (status == status == MediaPlayer.Loading)
+                {
                     console.info("status: loading");
+                }
                 else if (status == MediaPlayer.Loaded)
+                {
                     console.info("status: loaded");
+                }
                 else if (status == MediaPlayer.Buffering)
+                {
                     console.info("status: buffering");
+                    showMessage("Buffering");
+                }
                 else if (status == MediaPlayer.Stalled)
+                {
                     console.info("status: Stalled");
+                }
                 else if (status == MediaPlayer.Buffered)
+                {
                     console.info("status: Buffered");
+                    showMessage("");
+                }
                 else if (status == MediaPlayer.EndOfMedia)
+                {
                     console.info("status: EndOfMedia");
+                    playbackEnded();
+                }
                 else if (status == MediaPlayer.InvalidMedia)
+                {
                     console.info("status: InvalidMedia");
+                }
                 else if (status == MediaPlayer.UnknownStatus)
+                {
                     console.info("status: UnknownStatus");
+                }
             }
         }
-
     }
 
     function isPlaying()
