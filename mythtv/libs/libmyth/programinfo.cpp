@@ -1573,9 +1573,9 @@ void ProgramInfo::ToStringList(QStringList &list) const
 #define DATETIME_FROM_LIST(x) \
     do { NEXT_STR();                                                    \
          if (ts.isEmpty() or (ts.toUInt() == kInvalidDateTime)) {       \
-              x = QDateTime();                                          \
+              (x) = QDateTime();                                        \
          } else {                                                       \
-              x = MythDate::fromSecsSinceEpoch(ts.toLongLong());        \
+              (x) = MythDate::fromSecsSinceEpoch(ts.toLongLong());      \
          }                                                              \
     } while (0)
 #endif
@@ -2749,7 +2749,7 @@ QString ProgramInfo::GetPlaybackURL(
 
     // Check to see if we should stream from the master backend
     if ((checkMaster) &&
-        (gCoreContext->GetNumSetting("MasterBackendOverride", 0)) &&
+        (gCoreContext->GetBoolSetting("MasterBackendOverride", false)) &&
         (RemoteCheckFile(this, false)))
     {
         tmpURL = gCoreContext->GenMythURL(gCoreContext->GetMasterHostName(),

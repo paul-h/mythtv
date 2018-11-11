@@ -70,7 +70,7 @@ MusicCommon::MusicCommon(MythScreenStack *parent, MythScreenType *parentScreen,
     m_coverartImage(nullptr),     m_currentPlaylist(nullptr),
     m_playedTracksList(nullptr),  m_visualizerVideo(nullptr)
 {
-    m_cycleVisualizer = gCoreContext->GetNumSetting("VisualCycleOnSongChange", 0);
+    m_cycleVisualizer = gCoreContext->GetBoolSetting("VisualCycleOnSongChange", false);
 
     if (LCD *lcd = LCD::Get())
     {
@@ -248,7 +248,7 @@ void MusicCommon::init(bool startPlayback)
 
         m_fullscreenBlank = false;
 
-        m_randomVisualizer = gCoreContext->GetNumSetting("VisualRandomize", 0);
+        m_randomVisualizer = gCoreContext->GetBoolSetting("VisualRandomize", false);
 
         m_currentVisual = m_mainvisual->getCurrentVisual();
 
@@ -265,7 +265,7 @@ void MusicCommon::init(bool startPlayback)
             startVisualizer();
     }
 
-    m_controlVolume = gCoreContext->GetNumSetting("MythControlsVolume", 0);
+    m_controlVolume = gCoreContext->GetBoolSetting("MythControlsVolume", false);
     updateVolume();
 
     if (m_movingTracksState)
@@ -613,7 +613,7 @@ bool MusicCommon::keyPressEvent(QKeyEvent *e)
         if (gPlayer->isPlaying() && gCoreContext->GetSetting("MusicJumpPointAction", "stop") == "stop")
             gPlayer->stop(true);
 
-        return false;
+        return MythScreenType::keyPressEvent(e);
     }
 
     QStringList actions;
@@ -2691,7 +2691,7 @@ void MusicCommon::playFirstTrack()
 //---------------------------------------------------------
 // MythMusicVolumeDialog
 //---------------------------------------------------------
-#define MUSICVOLUMEPOPUPTIME 4 * 1000
+#define MUSICVOLUMEPOPUPTIME (4 * 1000)
 
 MythMusicVolumeDialog::MythMusicVolumeDialog(MythScreenStack *parent, const char *name)
          : MythScreenType(parent, name, false),

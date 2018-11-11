@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <thread> // for sleep_for
+#include <assert.h>
 
 using namespace std;
 
@@ -210,12 +211,17 @@ class DDLoader : public QRunnable
     QWaitCondition m_wait;
 };
 
+static const MenuBase dummy_menubase;
+
 class MenuNodeTuple
 {
 public:
     MenuNodeTuple(const MenuBase &menu, const QDomNode &node) :
         m_menu(menu), m_node(node) {}
-    MenuNodeTuple(void) : m_menu(MenuBase()) {}
+    MenuNodeTuple(void) : m_menu(dummy_menubase)
+        {
+            assert("Should never be reached.");
+        }
     const MenuBase &m_menu;
     const QDomNode  m_node;
 };
@@ -1272,8 +1278,8 @@ bool TV::Init(bool createWindow)
 
     if (createWindow)
     {
-        bool fullscreen = !gCoreContext->GetNumSetting("GuiSizeForTV", 0);
-        bool switchMode = gCoreContext->GetNumSetting("UseVideoModes", 0);
+        bool fullscreen = !gCoreContext->GetBoolSetting("GuiSizeForTV", false);
+        bool switchMode = gCoreContext->GetBoolSetting("UseVideoModes", false);
 
         saved_gui_bounds = QRect(GetMythMainWindow()->geometry().topLeft(),
                                  GetMythMainWindow()->size());
@@ -2250,7 +2256,7 @@ TVState TV::RemoveRecording(TVState state)
 }
 
 #define TRANSITION(ASTATE,BSTATE) \
-   ((ctxState == ASTATE) && (desiredNextState == BSTATE))
+   ((ctxState == (ASTATE)) && (desiredNextState == (BSTATE)))
 
 #define SET_NEXT() do { nextState = desiredNextState; changed = true; } while(0)
 #define SET_LAST() do { nextState = ctxState; changed = true; } while(0)
@@ -2633,7 +2639,7 @@ void TV::HandleStateChange(PlayerContext *mctx, PlayerContext *ctx)
     {
         if (!ctx->IsPIP())
             GetMythUI()->DisableScreensaver();
-        bool switchMode = gCoreContext->GetNumSetting("UseVideoModes", 0);
+        bool switchMode = gCoreContext->GetBoolSetting("UseVideoModes", false);
         // player_bounds is not applicable when switching modes so
         // skip this logic in that case.
         if (!switchMode)
@@ -8197,7 +8203,7 @@ void TV::UpdateOSDProgInfo(const PlayerContext *ctx, const char *whichInfo)
     InfoMap infoMap;
     ctx->GetPlayingInfoMap(infoMap);
 
-    QString nightmode = gCoreContext->GetNumSetting("NightModeEnabled", 0)
+    QString nightmode = gCoreContext->GetBoolSetting("NightModeEnabled", false)
                             ? "yes" : "no";
     infoMap["nightmode"] = nightmode;
 
@@ -8218,7 +8224,7 @@ void TV::UpdateOSDStatus(const PlayerContext *ctx, osdInfo &info,
     if (osd)
     {
         osd->ResetWindow("osd_status");
-        QString nightmode = gCoreContext->GetNumSetting("NightModeEnabled", 0)
+        QString nightmode = gCoreContext->GetBoolSetting("NightModeEnabled", false)
                                 ? "yes" : "no";
         info.text.insert("nightmode", nightmode);
         osd->SetValues("osd_status", info.values, timeout);
@@ -9872,7 +9878,7 @@ void TV::customEvent(QEvent *e)
 
         // player_bounds is not applicable when switching modes so
         // skip this logic in that case.
-        bool switchMode = gCoreContext->GetNumSetting("UseVideoModes", 0);
+        bool switchMode = gCoreContext->GetBoolSetting("UseVideoModes", false);
         if (!switchMode
             && (!db_use_gui_size_for_tv || !db_use_fixed_size))
         {
@@ -12024,7 +12030,7 @@ bool TV::MenuItemDisplayPlayback(const MenuItemContext &c)
         {
             if (m_tvm_sup != kPictureAttributeSupported_None)
             {
-                active = gCoreContext->GetNumSetting("NightModeEnabled", 0);
+                active = gCoreContext->GetBoolSetting("NightModeEnabled", false);
                 BUTTON2(actionName,
                         tr("Disable Night Mode"), tr("Enable Night Mode"));
             }
@@ -12638,7 +12644,7 @@ void TV::FillOSDMenuJumpRec(PlayerContext* ctx, const QString &category,
         QMutexLocker locker(&progListsLock);
         progLists.clear();
         vector<ProgramInfo*> *infoList = RemoteGetRecordedList(0);
-        bool LiveTVInAllPrograms = gCoreContext->GetNumSetting("LiveTVInAllPrograms",0);
+        bool LiveTVInAllPrograms = gCoreContext->GetBoolSetting("LiveTVInAllPrograms",false);
         if (infoList)
         {
             QList<QString> titles_seen;
@@ -12926,7 +12932,7 @@ bool TV::HandleJumpToProgramAction(
     return true;
 }
 
-#define MINUTE 60*1000
+#define MINUTE (60*1000)
 
 void TV::ToggleSleepTimer(const PlayerContext *ctx, const QString &time)
 {

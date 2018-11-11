@@ -205,7 +205,7 @@ static int has_codec_parameters(AVStream *st)
     AVCodecContext *avctx = nullptr;
 
 #define FAIL(errmsg) do {                                     \
-    LOG(VB_PLAYBACK, LOG_DEBUG, LOC + errmsg);                \
+    LOG(VB_PLAYBACK, LOG_DEBUG, LOC + (errmsg));              \
     return 0;                                                 \
 } while (0)
 
@@ -1094,7 +1094,7 @@ int AvFormatDecoder::OpenFile(RingBuffer *rbuffer, bool novideo,
     }
 
     if (!strcmp(fmt->name, "mpegts") &&
-        gCoreContext->GetNumSetting("FFMPEGTS", false))
+        gCoreContext->GetBoolSetting("FFMPEGTS", false))
     {
         AVInputFormat *fmt2 = av_find_input_format("mpegts-ffmpeg");
         if (fmt2)

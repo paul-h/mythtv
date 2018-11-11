@@ -156,7 +156,7 @@ VideoOutputXv::VideoOutputXv()
     LOG(VB_PLAYBACK, LOG_INFO, LOC + "ctor");
     memset(&av_pause_frame, 0, sizeof(av_pause_frame));
 
-    if (gCoreContext->GetNumSetting("UseVideoModes", 0))
+    if (gCoreContext->GetBoolSetting("UseVideoModes", false))
         display_res = DisplayRes::GetDisplayRes(true);
 }
 
@@ -321,16 +321,15 @@ void VideoOutputXv::MoveResizeWindow(QRect new_rect)
 class XvAttributes
 {
   public:
-    XvAttributes() :
-        xv_flags(0), feature_flags(0) {}
+    XvAttributes() = default;
     XvAttributes(const QString &a, uint b, uint c) :
         description(a), xv_flags(b), feature_flags(c)
         { description.detach(); }
 
   public:
     QString description;
-    uint    xv_flags;
-    uint    feature_flags;
+    uint    xv_flags {0};
+    uint    feature_flags {0};
 
     static const uint kFeatureNone      = 0x00;
     static const uint kFeatureChromakey = 0x01;
@@ -794,7 +793,7 @@ bool VideoOutputXv::CreateOSD(void)
 do { \
     if (test) \
     { \
-        LOG(VB_GENERAL, LOG_ERR, LOC + msg + " Exiting playback."); \
+        LOG(VB_GENERAL, LOG_ERR, LOC + (msg) + " Exiting playback."); \
         errorState = kError_Unknown; \
         return false; \
     } \
