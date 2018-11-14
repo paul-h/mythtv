@@ -9,7 +9,7 @@ BaseScreen
     Component.onCompleted:
     {
         console.log("init completed");
-        showTitle(true, "Advent Calendar 2017");
+        showTitle(true, "Advent Calendar 2018");
 
         for (var i = 0; i < calendarModel.count; i++)
         {
@@ -33,242 +33,241 @@ BaseScreen
         ListElement
         {
             day: "1"
-            title: "Dave`s Model Railway Christmas Video"
-            icon: "https://i.ytimg.com/vi/5xf55ayahlE/hqdefault.jpg"
-            //https://www.youtube.com/watch?v=HYyCSuNnxp0
-            url: "https://www.youtube.com/watch?v=5xf55ayahlE"
-            player: "YouTube"
-            duration: "15:46"
+            title: "Christmas Trains Galore!"
+            icon: "https://i.ytimg.com/vi/TjEbRcojUyA/hqdefault.jpg"
+            url: "https://www.youtube.com/watch?v=TjEbRcojUyA"
+            player: "Internal"
+            duration: "25:05"
             opened: false
         }
         ListElement
         {
             day: "2"
-            title: "A Christmas Kiss - Daniel O'Donnell Feat. Mrs Merton"
-            icon: "https://i.ytimg.com/vi/djJxHJBxlPc/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=djJxHJBxlPc"
-            player: "Internal"
-            duration: "3:10"
+            title: "Winter Wonderland On Ice FULL SHOW 2017 SeaWorld Orlando Christmas Ice Skating Show"
+            icon: "https://i.ytimg.com/vi/UFmcZXwRa_g/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=UFmcZXwRa_g"
+            player: "YouTube"
+            duration: "26:44"
             opened: false
         }
         ListElement
         {
             day: "3"
-            title: "The Short Christmas Tree - The Good Life - BBC"
-            icon: "https://i.ytimg.com/vi/RnH4st9So5E/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=RnH4st9So5E"
-            player: "Internal"
-            duration: "3:01"
+            title: "The Christmas Shoes"
+            icon: "https://i.ytimg.com/vi/MpkI7GW2V34/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=MpkI7GW2V34"
+            player: "YouTubeTV"
+            duration: "5:11"
             opened: false
         }
         ListElement
         {
             day: "4"
-            title: "Tom Chambers & Oti Mabuse Charleston to 'Santa Claus Is Comin' To Town' - Christmas Special: 2015"
-            icon: "https://i.ytimg.com/vi/I1xauVkThQk/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=I1xauVkThQk"
-            player: "Internal"
-            duration: "1:53"
+            title: "Top 10 Most Heartwarming Christmas Commercials Ever Made"
+            icon: "https://i.ytimg.com/vi/QcqMxBKN4Os/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=QcqMxBKN4Os"
+            player: "YouTube"
+            duration: "17:31"
             opened: false
         }
         ListElement
         {
             day: "5"
-            title: "6 BEST CHRISTMAS LIGHT DISPLAYS EVER!!!"
-            icon: "https://i.ytimg.com/vi/-VL9dQHMMfo/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=-VL9dQHMMfo"
+            title: "Million Dollar Homes Decorated with Christmas Lights in Montreal, QC, Canada!"
+            icon: "https://i.ytimg.com/vi/1yeH5hbP4TI/hqdefault.jpg"
+            url: "https://www.youtube.com/watch?v=1yeH5hbP4TI"
             player: "Internal"
-            duration: "12:21"
+            duration: "4:55"
             opened: false
         }
         ListElement
         {
             day: "6"
-            title: "Merry Christmas Cute Video (Jingle Bells Song)"
-            icon: "https://i.ytimg.com/vi/F6eM-9wYhQU/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=F6eM-9wYhQU"
-            player: "Internal"
-            duration: "2:24"
+            title: "Happy New Year 2018 ! Best Christmas Show Dance Jingle Bells"
+            icon: "https://i.ytimg.com/vi/QReh4CJ1wHo/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=QReh4CJ1wHo"
+            player: "YouTubeTV"
+            duration: "10:34"
             opened: false
         }
         ListElement
         {
             day: "7"
-            title: "East Lancashire Railway Santa Specials"
-            icon: "https://i.ytimg.com/vi/qkuqAqJLcrY/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=qkuqAqJLcrY"
-            player: "Internal"
-            duration: "1:53"
+            title: "Top 10 Most Funniest Christmas Die Laughing Commercials Ever"
+            icon: "https://i.ytimg.com/vi/6mThgQ813zY/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=6mThgQ813zY"
+            player: "YouTube"
+            duration: "13:08"
             opened: false
         }
         ListElement
         {
             day: "8"
-            title: "BBC1 Christmas Idents 1967 to 2015"
-            icon: "https://i.ytimg.com/vi/X3wmpGOwzHE/hqdefault.jpg"
-            url: "http://www.youtube.com/watch?v=X3wmpGOwzHE"
+            title: "It'll Be Alright on the Night 3 (ITV, 25th December 1981)"
+            icon: "https://i.ytimg.com/vi/HYyCSuNnxp0/hqdefault.jpg"
+            url: "https://www.youtube.com/watch?v=HYyCSuNnxp0"
             player: "Internal"
-            duration: "20:54"
+            duration: "1:01:15"
             opened: false
         }
         ListElement
         {
             day: "9"
-            player: "Internal"
-            title: "Santa By Steam on the South Devon Railway, Buckfastleigh"
-            icon: "https://i.ytimg.com/vi/8Afq9dK7CwM/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=8Afq9dK7CwM"
-            duration: "1:27"
+            title: "The Tractors Santa Claus Is Coming (In a boogie-woogie choo-choo train)"
+            icon: "https://i.ytimg.com/vi/iYO8mrsgw9g/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=iYO8mrsgw9g"
+            player: "YouTubeTV"
+            duration: "3:54"
             opened: false
         }
         ListElement
         {
             day: "10"
-            title: "2016 Claires Christmas Village"
-            icon: "https://i.ytimg.com/vi/KvwmxC_zv4M/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=KvwmxC_zv4M"
-            player: "Internal"
-            duration: "13:43"
+            title: "Christmas cats compilation"
+            icon: "https://i.ytimg.com/vi/L1x0lrutyZA/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=L1x0lrutyZA"
+            player: "YouTube"
+            duration: "5:43"
             opened: false
         }
         ListElement
         {
             day: "11"
-            title: "Very emotional Christmas advert 2015"
-            icon: "https://i.ytimg.com/vi/FMZ3eYbLx7g/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=FMZ3eYbLx7g"
-            player: "Internal"
-            duration: "3:38"
+            title: "Merry Christmas Everyone (Collectable Version (DVD) - Re-mastered audio 2004)"
+            icon: "https://i.ytimg.com/vi/ZeyHl1tQeaQ/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=ZeyHl1tQeaQ"
+            player: "YouTubeTV"
+            duration: "4:35"
             opened: false
         }
         ListElement
         {
             day: "12"
-            title: "Wizzard - I Wish It Could Be Christmas Everyday"
-            icon: "https://i.ytimg.com/vi/bnczB6LXkqE/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=bnczB6LXkqE"
-            player: "Internal"
-            duration: "4:54"
+            title: "Santa And The Christmas Train"
+            icon: "https://i.ytimg.com/vi/M97RF9QYEPE/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=M97RF9QYEPE"
+            player: "YouTube"
+            duration: "8:09"
             opened: false
         }
         ListElement
         {
             day: "13"
-            title: "John Lewis Adverts Christmas 2007-2015"
-            icon: "https://i.ytimg.com/vi/VrvoJn1T_ok/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=VrvoJn1T_ok"
-            player: "Internal"
-            duration: "14:17"
+            title: "Santa's Got a Hot Rod"
+            icon: "https://i.ytimg.com/vi/HpXTUD57njs/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=HpXTUD57njs"
+            player: "YouTube"
+            duration: "4:10"
             opened: false
         }
         ListElement
         {
             day: "14"
-            title: "2 Hrs of Christmas Classics with Christmas images"
-            icon: "https://i.ytimg.com/vi/K-C0ADqtkjw/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=K-C0ADqtkjw"
-            player: "Internal"
-            duration: "2:09:09"
+            title: "Christmas Lights Train Ride"
+            icon: "https://i.ytimg.com/vi/IKj9C3vICXM/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=IKj9C3vICXM"
+            player: "YouTube"
+            duration: "9:17"
             opened: false
         }
         ListElement
         {
             day: "15"
-            title: "Mel & Kim - Rockin' Around The Christmas Tree"
-            icon: "https://i.ytimg.com/vi/hdnaPAJgAQI/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=hdnaPAJgAQI"
-            player: "Internal"
-            duration: "00:00"
+            title: "The Dean Martin Christmas Show (December 21, 1967)"
+            icon: "https://i.ytimg.com/vi/Bf_hHU1Yu7o/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=Bf_hHU1Yu7o"
+            player: "YouTube"
+            duration: "51:28"
             opened: false
         }
         ListElement
         {
             day: "16"
-            title: "CP HOLIDAY CHRISTMAS TRAIN IN MONTREAL QUEBEC"
-            icon: "https://i.ytimg.com/vi/lA3IQXkqexo/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=lA3IQXkqexo"
-            player: "Internal"
-            duration: "10:06"
+            title: "Mickey's Once Upon A Christmastime Parade at Very Merry Christmas Party - with Princesses, Frozen"
+            icon: "https://i.ytimg.com/vi/hSB7-vcKZMA/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=hSB7-vcKZMA"
+            player: "YouTube"
+            duration: "15:41"
             opened: false
         }
         ListElement
         {
             day: "17"
-            title: "Christmas adverts 80s uk"
-            icon: "https://i.ytimg.com/vi/Nh9XX_9PPOI/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=Nh9XX_9PPOI"
-            player: "Internal"
-            duration: "5:48"
+            title: "O Come All Ye Faithful - Epic Flash Mob Carol #LIGHTtheWORLD | The Five Strings"
+            icon: "https://i.ytimg.com/vi/XI2c9yptr4U/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=XI2c9yptr4U"
+            player: "YouTube"
+            duration: "4:43"
             opened: false
         }
         ListElement
         {
             day: "18"
-            title: "Helen Skelton Jives to 'All I Want For Christmas' - Strictly Come Dancing Christmas Special - BBC"
-            icon: "https://i.ytimg.com/vi/cI6-SC6VdpA/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=cI6-SC6VdpA"
-            player: "Internal"
-            duration: "1:47"
+            title: "The Strictly Cast dance to a medley of 'Auld Lang Syne' and ‘Underneath the Tree’ - Strictly 2016"
+            icon: "https://i.ytimg.com/vi/u4fwcR2HJJ0/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=u4fwcR2HJJ0"
+            player: "YouTube"
+            duration: "2:59"
             opened: false
         }
         ListElement
         {
             day: "19"
-            title: "Peter Kay's Car Share Christmas Special"
-            icon: "https://i.ytimg.com/vi/38Ko4EPGdJY/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=38Ko4EPGdJY"
-            player: "Internal"
-            duration: "6:06"
+            title: "Christmas Animation - The Snowman"
+            icon: "https://i.ytimg.com/vi/sOyJ3FExfSE/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=sOyJ3FExfSE"
+            player: "YouTubeTV"
+            duration: "2:04"
             opened: false
         }
         ListElement
         {
             day: "20"
-            title: "2015 Santa Parade , Kings Park Fire Department"
-            icon: "https://i.ytimg.com/vi/0JPT13OUVV8/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=0JPT13OUVV8"
-            player: "Internal"
-            duration: "4:27"
+            title: "Christmas Steam on the Romney, Hythe & Dymchurch Railway (December 1990)"
+            icon: "https://i.ytimg.com/vi/9P4Ucvyv96Q/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=9P4Ucvyv96Q"
+            player: "YouTube"
+            duration: "28:13"
             opened: false
         }
         ListElement
         {
             day: "21"
-            title: "Christmas in London - Feel The Spirit - City of London - Christmas Lights"
-            icon: "https://i.ytimg.com/vi/eM4PWCsJO1c/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=eM4PWCsJO1c"
-            player: "Internal"
-            duration: "6:15"
+            title: "LONDON WALK | Oxford Street Christmas Lights and Xmas Window Displays"
+            icon: "https://i.ytimg.com/vi/oWfX1PjIEPQ/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=oWfX1PjIEPQ"
+            player: "YouTube"
+            duration: "21:16"
             opened: false
         }
         ListElement
         {
             day: "22"
-            title: "Mariah Carey - All I Want For Christmas Is You"
-            icon: "https://i.ytimg.com/vi/yXQViqx6GMY/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=yXQViqx6GMY"
-            player: "Internal"
-            duration: "3:55"
+            title: "Eric Clapton - White Christmas (Performance Video)"
+            icon: "https://i.ytimg.com/vi/QFNEQ9ybrGI/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=QFNEQ9ybrGI"
+            player: "YouTubeTV"
+            duration: "3:01"
             opened: false
         }
         ListElement
         {
             day: "23"
-            title: "BBC Video Tape Department - Entire 1979 Christmas Tape."
-            icon: "https://i.ytimg.com/vi/jmVXtjqKkYY/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=jmVXtjqKkYY"
-            player: "Internal"
-            duration: "56:18"
+            title: "The Little Drummer Boy - Božič s Prifarci"
+            icon: "https://i.ytimg.com/vi/LDyZToH2k3s/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=LDyZToH2k3s"
+            player: "YouTube"
+            duration: "9:06"
             opened: false
         }
         ListElement
         {
             day: "24"
-            title: "2016 Nesconset,NY Fire Department Santa Claus Parade 17/12/16"
-            icon: "https://i.ytimg.com/vi/SJLRWBKO9A8/hqdefault.jpg"
-            url: "https://www.youtube.com/watch?v=SJLRWBKO9A8"
-            player: "Internal"
-            duration: "9:06"
+            title: "The Andy Williams Christmas Show (1966)"
+            icon: "https://i.ytimg.com/vi/pFb2qZfmh4M/hqdefault.jpg"
+            url: "https://www.youtube.com/TV#/watch/video/control?v=pFb2qZfmh4M"
+            player: "YouTubeTV"
+            duration: "43:43"
             opened: false
         }
     }
