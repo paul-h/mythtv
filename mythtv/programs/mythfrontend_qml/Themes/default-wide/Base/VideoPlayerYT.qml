@@ -29,12 +29,10 @@ Item
     WebEngineView
     {
         id: browser
-        x: 0
-        y: 0
+
+        anchors.fill: parent
         visible: parent.visible
         enabled: visible
-        width: parent.width
-        height: parent.height
         backgroundColor: "black"
         url: if (visible) mythUtils.findThemeFile("HTML/YouTube.html"); else "";
         settings.pluginsEnabled : true
@@ -48,6 +46,9 @@ Item
                 statusUpdateTimer.start();
             }
         }
+
+        onWidthChanged: setSize(width, height)
+        onHeightChanged: setSize(width, height)
     }
 
     Timer
@@ -61,6 +62,12 @@ Item
             browser.runJavaScript("getDuration();", function (result) { root.duration = result * 1000;});
             browser.runJavaScript("getVolume();", function (result) { root.volume = result;});
         }
+    }
+
+    function setSize(width, height)
+    {
+        if (_playerLoaded)
+            browser.runJavaScript("setSize(" + width + "," + height + ");");
     }
 
     function isPlaying()
