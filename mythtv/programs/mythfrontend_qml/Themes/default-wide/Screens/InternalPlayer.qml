@@ -664,6 +664,8 @@ BaseScreen
             mediaPlayer3.play();
             mediaPlayer4.play();
         }
+
+        mediaPlayer1.focus = true;
     }
 
     Timer
