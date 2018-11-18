@@ -20,6 +20,8 @@ BaseScreen
 
     property bool _actionsEnabled: true
 
+    signal feedChanged(int index)
+
     Component.onCompleted:
     {
         showTitle(true, "Media Player");
@@ -96,6 +98,8 @@ BaseScreen
         {
             getActivePlayer().previousFeed();
             showInfo(true);
+
+            feedChanged(getActivePlayer().currentFeed);
         }
     }
 
@@ -107,6 +111,8 @@ BaseScreen
         {
             getActivePlayer().nextFeed();
             showInfo(true);
+
+            feedChanged(getActivePlayer().currentFeed);
         }
     }
 

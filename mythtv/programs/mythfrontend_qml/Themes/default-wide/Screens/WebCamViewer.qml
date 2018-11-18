@@ -193,7 +193,8 @@ BaseScreen
             var url = webcamGrid.model.get(webcamGrid.currentIndex).url;
             var website = webcamGrid.model.get(webcamGrid.currentIndex).website;
             var zoomFactor = xscale(1.0)
-            stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{feedList:  webcamGrid.model, currentFeed: webcamGrid.currentIndex}});
+            var item = stack.push({item: Qt.resolvedUrl("InternalPlayer.qml"), properties:{feedList:  webcamGrid.model, currentFeed: webcamGrid.currentIndex}});
+            item.feedChanged.connect(feedChanged);
             event.accepted = true;
         }
 
@@ -337,6 +338,11 @@ BaseScreen
 
             updateWebcamDetails()
         }
+    }
+
+    function feedChanged(index)
+    {
+        webcamGrid.currentIndex = index;
     }
 
     function getIconURL(iconURL)
