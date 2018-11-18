@@ -77,13 +77,13 @@ Item
 
     function play()
     {
-        if (_playerLoaded)
+        if (_playerLoaded && !isPlaying())
             browser.runJavaScript("playVideo();");
     }
 
     function stop()
     {
-        if (_playerLoaded)
+        if (_playerLoaded  && isPlaying())
             browser.runJavaScript("stopVideo();");
     }
 

@@ -26,6 +26,8 @@ FocusScope
     property bool showBorder: true
     property bool muteAudio: false
 
+    property bool _playbackStarted: false
+
     signal playbackEnded()
 
     Component.onDestruction:
@@ -483,7 +485,24 @@ FocusScope
 
     function play()
     {
-        startPlayback();
+        if (!_playbackStarted)
+        {
+            _playbackStarted = true;
+            startPlayback();
+        }
+        else
+        {
+            if (getActivePlayer() === "VLC")
+                vlcPlayer.play();
+            else if (getActivePlayer() === "QTAV")
+                qtAVPlayer.play();
+            else if (getActivePlayer() === "YOUTUBE")
+                youtubePlayer.play();
+            else if (getActivePlayer() === "BROWSER")
+            {
+                // nothing to do
+            }
+        }
     }
 
     function stop()
