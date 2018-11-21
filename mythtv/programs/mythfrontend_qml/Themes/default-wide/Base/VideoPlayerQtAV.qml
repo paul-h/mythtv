@@ -17,7 +17,7 @@ FocusScope
     property bool playbackStarted: false
 
     signal playbackEnded()
-    signal showMessage(string message)
+    signal showMessage(string message, int timeOut)
 
     Rectangle
     {
@@ -51,7 +51,7 @@ FocusScope
                 if (status == MediaPlayer.NoMedia)
                 {
                     console.info("status: no media");
-                    showMessage("No Media");
+                    showMessage("No Media", settings.osdTimeoutMedium);
                 }
                 else if (status == status == MediaPlayer.Loading)
                 {
@@ -64,7 +64,7 @@ FocusScope
                 else if (status == MediaPlayer.Buffering)
                 {
                     console.info("status: buffering");
-                    showMessage("Buffering");
+                    showMessage("Buffering", settings.osdTimeoutLong);
                 }
                 else if (status == MediaPlayer.Stalled)
                 {
@@ -73,7 +73,7 @@ FocusScope
                 else if (status == MediaPlayer.Buffered)
                 {
                     console.info("status: Buffered");
-                    showMessage("");
+                    showMessage("", settings.osdTimeoutShort);
                 }
                 else if (status == MediaPlayer.EndOfMedia)
                 {
@@ -147,7 +147,7 @@ FocusScope
         else
             mediaplayer.volume = Math.min(1.0, mediaplayer.volume + amount);
 
-        showMessage("Volume: " + Math.round(mediaplayer.volume * 100) + "%");
+        showMessage("Volume: " + Math.round(mediaplayer.volume * 100) + "%", settings.osdTimeoutMedium);
     }
 
     function getMuted()
@@ -175,7 +175,7 @@ FocusScope
     {
         //FIXME
 
-        showMessage("Deinterlacer: N/A");
+        showMessage("Deinterlacer: N/A", settings.osdTimeoutMedium);
     }
 
     function takeSnapshot(filename)
@@ -185,7 +185,7 @@ FocusScope
                                 {
                                     result.saveToFile(filename);
                                 });
-        showMessage("Snapshot Saved");
+        showMessage("Snapshot Saved", settings.osdTimeoutMedium);
     }
 }
 

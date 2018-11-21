@@ -57,7 +57,7 @@ FocusScope
 
             if (log.includes("No playable streams found on this URL"))
             {
-                showMessage("No playable streams found!");
+                showMessage("No playable streams found!", settings.osdTimeoutMedium);
                 checkProcessTimer.stop();
             }
             else if (log.includes("Starting server, access with one of:"))
@@ -132,7 +132,7 @@ FocusScope
 
         onShowMessage:
         {
-            root.showMessage(message);
+            root.showMessage(message, timeOut);
         }
     }
 
@@ -152,7 +152,7 @@ FocusScope
 
         onShowMessage:
         {
-            root.showMessage(message);
+            root.showMessage(message, timeOut);
         }
     }
 
@@ -174,7 +174,7 @@ FocusScope
 
         onShowMessage:
         {
-            root.showMessage(message);
+            root.showMessage(message, timeOut);
         }
     }
 
@@ -316,12 +316,16 @@ FocusScope
         }
     }
 
-    function showMessage(message)
+    function showMessage(message, timeOut)
     {
+        if (!timeOut)
+            timeOut = settings.osdTimeoutMedium;
+
         if (message != "")
         {
             messageText.text = message;
             messagePanel.visible = true;
+            messageTimer.interval = timeOut
             messageTimer.restart();
         }
         else
@@ -388,7 +392,7 @@ FocusScope
 
             root.player = newPlayer;
 
-            showMessage("Starting Streamer. Please Wait....")
+            showMessage("Starting Streamer. Please Wait....", settings.osdTimeoutLong)
             return;
         }
 
@@ -559,7 +563,7 @@ FocusScope
             youtubePlayer.setMute(root.muteAudio);
         }
 
-        showMessage("Mute: " + (root.muteAudio ? "On" : "Off"));
+        showMessage("Mute: " + (root.muteAudio ? "On" : "Off"), settings.osdTimeoutMedium);
     }
 
     function changeVolume(amount)

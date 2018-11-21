@@ -11,7 +11,7 @@ FocusScope
     property bool muteAudio: false
 
     signal playbackEnded()
-    signal showMessage(string message)
+    signal showMessage(string message, int timeOut)
 
     Rectangle
     {
@@ -115,7 +115,7 @@ FocusScope
         else
             mediaplayer.volume = Math.min(100, mediaplayer.volume + amount);
 
-        showMessage("Volume: " + mediaplayer.volume + "%");
+        showMessage("Volume: " + mediaplayer.volume + "%", settings.osdTimeoutMedium);
     }
 
     function getMuted()
@@ -168,7 +168,7 @@ FocusScope
         else
             mediaplayer.video.deinterlace.disable()
 
-        showMessage("Deinterlacer: " + videoSurface.deinterlacers[videoSurface.currentDeinterlacer]);
+        showMessage("Deinterlacer: " + videoSurface.deinterlacers[videoSurface.currentDeinterlacer], settings.osdTimeoutMedium);
     }
 
     function takeSnapshot(filename)
@@ -178,6 +178,6 @@ FocusScope
                                  {
                                      result.saveToFile(filename);
                                  });
-        showMessage("Snapshot Saved");
+        showMessage("Snapshot Saved", settings.osdTimeoutMedium);
     }
 }

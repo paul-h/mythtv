@@ -177,6 +177,11 @@ int main(int argc, char *argv[])
     // show text borders debug flag
     gSettings->setShowTextBorder(false);
 
+    // default OSD timeouts TODO add user settings for these?
+    gSettings->setOsdTimeoutShort(4000);
+    gSettings->setOsdTimeoutMedium(8000);
+    gSettings->setOsdTimeoutLong(30000);
+
     engine.rootContext()->setContextProperty("settings", gSettings);
 
     // create the myth utils

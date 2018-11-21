@@ -6,7 +6,6 @@ Item
 {
     id: root
     property string source: ""
-    //property alias volume: mediaplayer.volume
     property bool loop: false
     property bool playbackStarted: false
     property bool muteAudio: false
@@ -16,7 +15,7 @@ Item
     property int duration: 0
 
     signal playbackEnded()
-    signal showMessage(string message)
+    signal showMessage(string message, int timeOut)
 
     property bool _playerLoaded: false
 
@@ -128,7 +127,7 @@ Item
 
         browser.runJavaScript("changeVolume(" + root.volume + ");");
 
-        showMessage("Volume: " + root.volume + "%");
+        showMessage("Volume: " + root.volume + "%", settings.osdTimeoutMedium);
     }
 
     function getMuted()
@@ -174,7 +173,7 @@ Item
 
     function toggleInterlacer()
     {
-        showMessage("Deinterlacers are not supported by this player");
+        showMessage("Deinterlacers are not supported by this player", settings.osdTimeoutMedium);
     }
 
     function takeSnapshot(filename)
@@ -184,6 +183,6 @@ Item
                                  {
                                      result.saveToFile(filename);
                                  });
-        showMessage("Snapshot Saved");
+        showMessage("Snapshot Saved", settings.osdTimeoutMedium);
     }
 }
