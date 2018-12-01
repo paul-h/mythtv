@@ -8,13 +8,13 @@ QtObject
 
     // screen background
     property string   backgroundImage:  "background.png"
-    property string   backgroundVideo:  settings.configPath + "Themes/videos/Snow_Village.mp4"
+    property string   backgroundVideo:  settings.configPath + "Themes/videos/SlideShow.mkv"
     property bool     needsDownload:    true
     property string   downloadCommand:  settings.sharePath.replace("file://", "") + "/qml/Scripts/youtube-dl"
     property var      downloadOptions:  [
-                                            "-o",  settings.configPath + "Themes/videos/Snow_Village",
+                                            "-o",  settings.configPath + "Themes/videos/SlideShow",
                                             "-f", "bestvideo[height<=720]+bestaudio/best[height<=720]",
-                                            "https://www.youtube.com/watch?v=Wgwukejv2fA"
+                                            "https://www.youtube.com/watch?v=8jSXYrHoinU"
                                         ]
 
     // main menu font
