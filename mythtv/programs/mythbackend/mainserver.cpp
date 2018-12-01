@@ -1142,7 +1142,7 @@ void MainServer::customEvent(QEvent *e)
         }
     }
 
-    if ((MythEvent::Type)(e->type()) == MythEvent::MythEventMessage)
+    if (e->type() == MythEvent::MythEventMessage)
     {
         MythEvent *me = static_cast<MythEvent *>(e);
 
@@ -3581,7 +3581,7 @@ void MainServer::HandleQueryCheckFile(QStringList &slist, PlaybackSock *pbs)
         (recinfo.GetHostname() != gCoreContext->GetHostName()) &&
         (checkSlaves))
     {
-        PlaybackSock *slave = GetSlaveByHostname(recinfo.GetHostname());
+        PlaybackSock *slave = GetMediaServerByHostname(recinfo.GetHostname());
 
         if (slave)
         {
@@ -3769,7 +3769,7 @@ void MainServer::HandleQueryGuideDataThrough(PlaybackSock *pbs)
     if (GuideDataThrough.isNull())
         strlist << QString("0000-00-00 00:00");
     else
-        strlist << QDateTime(GuideDataThrough).toString("yyyy-MM-dd hh:mm");
+        strlist << GuideDataThrough.toString("yyyy-MM-dd hh:mm");
 
     SendResponse(pbssock, strlist);
 }
@@ -6723,7 +6723,7 @@ void MainServer::HandleMusicTagChangeImage(const QStringList &slist, PlaybackSoc
         {
             AlbumArtImage oldImage = *image;
 
-            image->imageType = (ImageType) newType;
+            image->imageType = newType;
 
             if (image->imageType == oldImage.imageType)
             {
@@ -6770,7 +6770,7 @@ void MainServer::HandleMusicTagChangeImage(const QStringList &slist, PlaybackSoc
                 oldImage.filename = artGroup.FindFile("AlbumArt/" + image->filename);
 
                 QFileInfo fi(oldImage.filename);
-                image->filename = QString(fi.path() + "/%1-%2.jpg")
+                image->filename = fi.path() + QString("/%1-%2.jpg")
                                           .arg(mdata->ID())
                                           .arg(AlbumArtImages::getTypeFilename(image->imageType));
 
@@ -6801,7 +6801,7 @@ void MainServer::HandleMusicTagChangeImage(const QStringList &slist, PlaybackSoc
                 QFileInfo fi(oldImage.filename);
 
                 // get the new images filename
-                image->filename = QString(fi.absolutePath() + "/%1.jpg")
+                image->filename = fi.absolutePath() + QString("/%1.jpg")
                         .arg(AlbumArtImages::getTypeFilename(image->imageType));
 
                 if (image->filename != oldImage.filename && QFile::exists(oldImage.filename))
