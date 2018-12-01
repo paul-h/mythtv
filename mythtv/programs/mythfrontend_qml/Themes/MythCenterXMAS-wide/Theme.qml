@@ -119,6 +119,10 @@ QtObject
     property color txTextBackgroundColorNormal:  "#a8ffffff"
     property color txTextBackgroundColorFocused: "#c8ffffff"
 
+    // ticker text
+    property color tiTextColor:       "gold"
+    property color tiBackgroundColor: "#88101010"
+
     readonly property color colorDumb : "#FF00FF"; // magenta
     readonly property color colorNone : "transparent";
 
