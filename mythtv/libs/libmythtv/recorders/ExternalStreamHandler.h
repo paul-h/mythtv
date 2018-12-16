@@ -60,8 +60,9 @@ class ExternIO
 class ExternalStreamHandler : public StreamHandler
 {
     enum constants { MAX_API_VERSION = 2,
-                     PACKET_SIZE = 188 * 32768,
-                     TOO_FAST_SIZE = 188 * 4196 };
+                     TS_PACKET_SIZE = 188,
+                     PACKET_SIZE = TS_PACKET_SIZE * 8192,
+                     TOO_FAST_SIZE = TS_PACKET_SIZE * 32768 };
 
   public:
     static ExternalStreamHandler *Get(const QString &devicename,
@@ -70,12 +71,14 @@ class ExternalStreamHandler : public StreamHandler
 
   public:
     explicit ExternalStreamHandler(const QString & path, int inputid,
-				   int majorid);
+                                   int majorid);
     ~ExternalStreamHandler(void) { CloseApp(); }
 
     void run(void) override; // MThread
     void PriorityEvent(int fd) override; // DeviceReaderCB
 
+    QString GetDescription(void) { return m_loc; }
+    QString UpdateDescription(void);
     bool IsAppOpen(void);
     bool IsTSOpen(void);
     bool HasTuner(void) const { return m_hasTuner; }
@@ -107,6 +110,7 @@ class ExternalStreamHandler : public StreamHandler
     bool OpenApp(void);
     void CloseApp(void);
 
+    QString        m_loc;
     int            m_majorid;
     QMutex         m_IO_lock;
     ExternIO      *m_IO;
@@ -115,7 +119,6 @@ class ExternalStreamHandler : public StreamHandler
     bool           m_tsopen;
     int            m_io_errcnt;
     bool           m_poll_mode;
-    bool           m_notify;
 
     int            m_apiVersion;
     uint           m_serialNo;
@@ -124,6 +127,7 @@ class ExternalStreamHandler : public StreamHandler
 
     QByteArray     m_replay_buffer;
     bool           m_replay;
+    bool           m_xon;
 
     // for implementing Get & Return
     static QMutex                            m_handlers_lock;

@@ -29,8 +29,8 @@
 #include "tv_rec.h"
 
 #define LOC QString("ExternalRec[%1](%2): ") \
-            .arg(tvrec ? tvrec->GetInputId() : -1) \
-            .arg(m_channel->GetDevice())
+            .arg(m_channel->GetInputID())    \
+            .arg(m_channel->GetDescription())
 
 ExternalRecorder::ExternalRecorder(TVRec *rec, ExternalChannel *channel) :
     DTVRecorder(rec), m_channel(channel), m_stream_handler(nullptr)
@@ -81,8 +81,6 @@ void ExternalRecorder::run(void)
 
     StartNewFile();
 
-    m_stream_handler->LockReplay();
-
     m_h264_parser.Reset();
     _wait_for_keyframe_option = true;
     _seen_sps = false;
@@ -91,9 +89,7 @@ void ExternalRecorder::run(void)
     _stream_data->AddWritingListener(this);
     m_stream_handler->AddListener(_stream_data, false, true);
 
-    m_stream_handler->ReplayStream();
-    m_stream_handler->UnlockReplay();
-
+    StartStreaming();
 
     while (IsRecordingRequested() && !IsErrored())
     {
@@ -143,8 +139,8 @@ bool ExternalRecorder::Open(void)
     ResetForNewFile();
 
     m_stream_handler = ExternalStreamHandler::Get(m_channel->GetDevice(),
-						  m_channel->GetInputID(),
-						  m_channel->GetMajorID());
+                                                  m_channel->GetInputID(),
+                                                  m_channel->GetMajorID());
 
     if (m_stream_handler)
     {
