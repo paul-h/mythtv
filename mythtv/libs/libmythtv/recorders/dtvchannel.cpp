@@ -55,15 +55,13 @@ void DTVChannel::SetDTVInfo(uint atsc_major, uint atsc_minor,
 QString DTVChannel::GetSIStandard(void) const
 {
     QMutexLocker locker(&dtvinfo_lock);
-    QString tmp = sistandard; tmp.detach();
-    return tmp;
+    return sistandard;
 }
 
 void DTVChannel::SetSIStandard(const QString &si_std)
 {
     QMutexLocker locker(&dtvinfo_lock);
     sistandard = si_std.toLower();
-    sistandard.detach();
 }
 
 QString DTVChannel::GetSuggestedTuningMode(bool is_live_tv) const
@@ -78,19 +76,14 @@ QString DTVChannel::GetSuggestedTuningMode(bool is_live_tv) const
 
     QMutexLocker locker(&dtvinfo_lock);
     if (!useQuickTuning && ((sistandard == "atsc") || (sistandard == "dvb")))
-    {
-        QString tmp = sistandard; tmp.detach();
-        return tmp;
-    }
-
+        return sistandard;
     return "mpeg";
 }
 
 QString DTVChannel::GetTuningMode(void) const
 {
     QMutexLocker locker(&dtvinfo_lock);
-    QString tmp = tuningMode; tmp.detach();
-    return tmp;
+    return tuningMode;
 }
 
 vector<DTVTunerType> DTVChannel::GetTunerTypes(void) const
@@ -105,7 +98,6 @@ void DTVChannel::SetTuningMode(const QString &tuning_mode)
 {
     QMutexLocker locker(&dtvinfo_lock);
     tuningMode = tuning_mode.toLower();
-    tuningMode.detach();
 }
 
 /** \brief Returns cached MPEG PIDs for last tuned channel.
@@ -269,8 +261,8 @@ bool DTVChannel::SetChannelByString(const QString &channum)
     {
         if (IsIPTV())
         {
-            int chanid = ChannelUtil::GetChanID(m_sourceid, channum);
-            IPTVTuningData tuning = ChannelUtil::GetIPTVTuningData(chanid);
+            int chanid2 = ChannelUtil::GetChanID(m_sourceid, channum);
+            IPTVTuningData tuning = ChannelUtil::GetIPTVTuningData(chanid2);
             if (!Tune(tuning, false))
             {
                 LOG(VB_GENERAL, LOG_ERR, loc + "Tuning to IPTV URL");
@@ -337,8 +329,8 @@ bool DTVChannel::SetChannelByString(const QString &channum)
     {
         // We need to pull the pid_cache since there are no tuning tables
         pid_cache_t pid_cache;
-        int chanid = ChannelUtil::GetChanID(m_sourceid, channum);
-        ChannelUtil::GetCachedPids(chanid, pid_cache);
+        int chanid3 = ChannelUtil::GetChanID(m_sourceid, channum);
+        ChannelUtil::GetCachedPids(chanid3, pid_cache);
         if (pid_cache.empty())
         {
             LOG(VB_GENERAL, LOG_ERR, loc + "PID cache is empty");

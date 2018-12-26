@@ -605,37 +605,10 @@ void TV::InitKeys(void)
             "Change Group View"), "");
     REG_KEY("TV Frontend", ACTION_LISTRECORDEDEPISODES, QT_TRANSLATE_NOOP("MythControls",
             "List recorded episodes"), "");
-    /*
-     * TODO when consolidating database version 1348 into initialize, you can delete
-     * the following upgrade code and replace bkmKeys and togBkmKeys  with "" in the
-     * REG_KEY for ACTION_SETBOOKMARK and ACTION_TOGGLEBOOKMARK.
-     */
-    // Bookmarks - Instead of SELECT to add or toggle,
-    // Use separate bookmark actions. This code is to convert users
-    // who may already be using SELECT. If they are not already using
-    // this frontend then nothing will be assigned to bookmark actions.
-    QString bkmKeys;
-    QString togBkmKeys;
-    // Check if this is a new frontend - if PAUSE returns
-    // "?" then frontend is new, never used before, so we will not assign
-    // any default bookmark keys
-    QString testKey = GetMythMainWindow()->GetKey("TV Playback", ACTION_PAUSE);
-    if (testKey != "?")
-    {
-        int alternate = gCoreContext->GetNumSetting("AltClearSavedPosition",0);
-        QString selectKeys = GetMythMainWindow()->GetKey("Global", ACTION_SELECT);
-        if (selectKeys != "?")
-        {
-            if (alternate)
-                togBkmKeys = selectKeys;
-            else
-                bkmKeys = selectKeys;
-        }
-    }
     REG_KEY("TV Playback", ACTION_SETBOOKMARK, QT_TRANSLATE_NOOP("MythControls",
-            "Add Bookmark"), bkmKeys);
+            "Add Bookmark"), "");
     REG_KEY("TV Playback", ACTION_TOGGLEBOOKMARK, QT_TRANSLATE_NOOP("MythControls",
-            "Toggle Bookmark"), togBkmKeys);
+            "Toggle Bookmark"), "");
     REG_KEY("TV Playback", "BACK", QT_TRANSLATE_NOOP("MythControls",
             "Exit or return to DVD menu"), "Esc");
     REG_KEY("TV Playback", ACTION_MENUCOMPACT, QT_TRANSLATE_NOOP("MythControls",
@@ -7517,9 +7490,7 @@ void TV::ToggleChannelFavorite(PlayerContext *ctx, QString changroup_name)
 QString TV::GetQueuedInput(void) const
 {
     QMutexLocker locker(&timerIdLock);
-    QString ret = queuedInput;
-    ret.detach();
-    return ret;
+    return queuedInput;
 }
 
 int TV::GetQueuedInputAsInt(bool *ok, int base) const
@@ -7547,9 +7518,7 @@ QString TV::GetQueuedChanNum(void) const
     // strip whitespace at end of string
     queuedChanNum = queuedChanNum.trimmed();
 
-    QString ret = queuedChanNum;
-    ret.detach();
-    return ret;
+    return queuedChanNum;
 }
 
 /**
@@ -7685,7 +7654,6 @@ bool TV::ProcessSmartChannel(const PlayerContext *ctx, QString &inputStr)
 
     QMutexLocker locker(&timerIdLock);
     inputStr = queuedChanNum;
-    inputStr.detach();
     if (!queueInputTimerId)
         queueInputTimerId = StartTimer(10, __LINE__);
 
@@ -8003,8 +7971,8 @@ void TV::ChangeChannel(const PlayerContext *ctx, const ChannelInfoList &options)
             HideOSDWindow(ctx, "osd_input");
 
             QMutexLocker locker(&timerIdLock);
-            queuedInput   = channum; queuedInput.detach();
-            queuedChanNum = channum; queuedChanNum.detach();
+            queuedInput   = channum;
+            queuedChanNum = channum;
             queuedChanID  = chanid;
             if (!queueInputTimerId)
                 queueInputTimerId = StartTimer(10, __LINE__);
@@ -8044,8 +8012,8 @@ void TV::PopPreviousChannel(PlayerContext *ctx, bool immediate_change)
     if (cur_channum != prev_channum && !prev_channum.isEmpty())
     {
         QMutexLocker locker(&timerIdLock);
-        queuedInput   = prev_channum; queuedInput.detach();
-        queuedChanNum = prev_channum; queuedChanNum.detach();
+        queuedInput   = prev_channum;
+        queuedChanNum = prev_channum;
         queuedChanID  = 0;
         if (!queueInputTimerId)
             queueInputTimerId = StartTimer(10, __LINE__);
@@ -8293,10 +8261,7 @@ void TV::UpdateOSDSignal(const PlayerContext *ctx, const QStringList &strlist)
     if (!osd || browsehelper->IsBrowsing() || !queuedChanNum.isEmpty())
     {
         if (&ctx->lastSignalMsg != &strlist)
-        {
             ctx->lastSignalMsg = strlist;
-            ctx->lastSignalMsg.detach();
-        }
         ReturnOSDLock(ctx, osd);
 
         QMutexLocker locker(&timerIdLock);
@@ -9839,7 +9804,6 @@ void TV::customEvent(QEvent *e)
                 (tokens2[1] != "ANSWER") && (tokens2[1] != "RESPONSE"))
             {
                 QMutexLocker locker(&timerIdLock);
-                message.detach();
                 networkControlCommands.enqueue(message);
                 if (!networkControlTimerId)
                     networkControlTimerId = StartTimer(1, __LINE__);
@@ -10717,9 +10681,7 @@ QString TV::GetDataDirect(QString key, QString value, QString field,
         InfoMap::const_iterator it_field = (*it_val).find(field);
         if (it_field != (*it_val).end())
         {
-            QString ret = *it_field;
-            ret.detach();
-            return ret;
+            return *it_field;
         }
     }
 
@@ -10749,9 +10711,7 @@ QString TV::GetDataDirect(QString key, QString value, QString field,
         InfoMap::const_iterator it_field = (*best_match).find(field);
         if (it_field != (*best_match).end())
         {
-            QString ret = *it_field;
-            ret.detach();
-            return ret;
+            return *it_field;
         }
     }
 
@@ -11075,8 +11035,8 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
                 if (cur_channum != new_channum && !new_channum.isEmpty())
                 {
                     QMutexLocker locker(&timerIdLock);
-                    queuedInput   = new_channum; queuedInput.detach();
-                    queuedChanNum = new_channum; queuedChanNum.detach();
+                    queuedInput   = new_channum;
+                    queuedChanNum = new_channum;
                     queuedChanID  = 0;
                     if (!queueInputTimerId)
                         queueInputTimerId = StartTimer(10, __LINE__);

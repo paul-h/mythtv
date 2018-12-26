@@ -2,30 +2,21 @@
 
 // MythTV headers
 #include "avcinfo.h"
+#ifndef GUID_ONLY
 #include "firewiredevice.h"
+#endif
 
 QString guid_to_string(uint64_t guid)
 {
-    QString g0 = QString("%1").arg((uint32_t) (guid >> 32), 0, 16);
-    QString g1 = QString("%1").arg((uint32_t) guid, 0, 16);
-
-    while (g0.length() < 8)
-        g0 = "0" + g0;
-    while (g1.length() < 8)
-        g1 = "0" + g1;
-
-    return g0.toUpper() + g1.toUpper();
+    return QString("%1").arg(guid, 16, 16, QLatin1Char('0')).toUpper();
 }
 
 uint64_t string_to_guid(const QString &guid)
 {
-    // QString::toULongLong() is not supported in older Qt's..
-    QString guid_l = guid.right(8);
-    QString guid_h = guid.left(guid.length() - 8);
-    return ((guid_h.toULong(nullptr, 16)) << 32 |
-            (guid_l.toULong(nullptr, 16)));
+    return guid.toULongLong(nullptr, 16);
 }
 
+#ifndef GUID_ONLY
 AVCInfo::AVCInfo() :
     port(-1), node(-1),
     guid(0), specid(0), vendorid(0), modelid(0),
@@ -41,7 +32,6 @@ AVCInfo::AVCInfo(const AVCInfo &o) :
     firmware_revision(o.firmware_revision),
     product_name(o.product_name)
 {
-    product_name.detach();
     memcpy(unit_table, o.unit_table, sizeof(unit_table));
 }
 
@@ -55,7 +45,6 @@ AVCInfo &AVCInfo::operator=(const AVCInfo &o)
     modelid  = o.modelid;
     firmware_revision = o.firmware_revision;
     product_name = o.product_name;
-    product_name.detach();
     memcpy(unit_table, o.unit_table, sizeof(unit_table));
 
     return *this;
@@ -143,3 +132,4 @@ QString AVCInfo::GetSubunitInfoString(void) const
 
     return str;
 }
+#endif

@@ -494,7 +494,7 @@ QString getSymlinkTarget(const QString &start_file,
 #endif
 
     QString   link;
-    QString   cur_file = start_file; cur_file.detach();
+    QString   cur_file = start_file;
     QFileInfo fi(cur_file);
 
     if (intermediaries)
@@ -515,9 +515,6 @@ QString getSymlinkTarget(const QString &start_file,
 
         fi = QFileInfo(cur_file);
     }
-
-    if (intermediaries)
-        intermediaries->detach();
 
 #if 0
     if (intermediaries)
@@ -1098,14 +1095,7 @@ int naturalCompare(const QString &_a, const QString &_b, Qt::CaseSensitivity cas
         // compare these sequences
         const QStringRef& subA(a.midRef(begSeqA - a.unicode(), currA - begSeqA));
         const QStringRef& subB(b.midRef(begSeqB - b.unicode(), currB - begSeqB));
-
-// QStringRef::localeAwareCompare is buggy on Qt < 5.3, taking significant time
-// to complete. So we use compare instead with those versions of Qt.
-#if (QT_VERSION < QT_VERSION_CHECK(5, 3, 0))
-        const int cmp = QStringRef::compare(subA, subB);
-#else
         const int cmp = QStringRef::localeAwareCompare(subA, subB);
-#endif
 
         if (cmp != 0)
         {

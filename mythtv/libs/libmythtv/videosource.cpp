@@ -76,7 +76,6 @@ VideoSourceSelector::VideoSourceSelector(uint           _initial_sourceid,
     card_types(_card_types),
     must_have_mplexid(_must_have_mplexid)
 {
-    card_types.detach();
     setLabel(tr("Video Source"));
 }
 
@@ -404,9 +403,9 @@ TransFreqTableSelector::TransFreqTableSelector(uint _sourceid) :
 
 void TransFreqTableSelector::Load(void)
 {
-    int idx = getValueIndex(gCoreContext->GetSetting("FreqTable"));
-    if (idx >= 0)
-        setValue(idx);
+    int idx1 = getValueIndex(gCoreContext->GetSetting("FreqTable"));
+    if (idx1 >= 0)
+        setValue(idx1);
 
     if (!sourceid)
         return;
@@ -432,9 +431,9 @@ void TransFreqTableSelector::Load(void)
         if (!loaded_freq_table.isEmpty() &&
             (loaded_freq_table.toLower() != "default"))
         {
-            int idx = getValueIndex(loaded_freq_table);
-            if (idx >= 0)
-                setValue(idx);
+            int idx2 = getValueIndex(loaded_freq_table);
+            if (idx2 >= 0)
+                setValue(idx2);
         }
     }
 }
@@ -1575,7 +1574,6 @@ void VBoxIP::setEnabled(bool e)
     else
     {
         _oldValue = getValue();
-        _oldValue.detach();
     }
 }
 

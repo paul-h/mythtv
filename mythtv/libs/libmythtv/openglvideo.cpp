@@ -162,7 +162,6 @@ bool OpenGLVideo::Init(MythRenderOpenGL *glcontext, VideoColourSpace *colourspac
     bool glsl    = gl_features & kGLSL;
     bool shaders = glsl || (gl_features & kGLExtFragProg);
     bool fbos    = gl_features & kGLExtFBufObj;
-    bool pbos    = gl_features & kGLExtPBufObj;
 
     #ifdef ANDROID
     #define YV12DEFAULT false
@@ -172,8 +171,6 @@ bool OpenGLVideo::Init(MythRenderOpenGL *glcontext, VideoColourSpace *colourspac
 
     bool yv12 = gCoreContext->GetBoolSetting("OpenGLYV12", YV12DEFAULT)
         && !getenv("OPENGL_NOYV12");
-    bool uyvy = gCoreContext->GetBoolSetting("OpenGLUYVY", true)
-        && !getenv("OPENGL_NOUYVY");
     bool ycbcr   = (gl_features & kGLMesaYCbCr) || (gl_features & kGLAppleYCbCr);
 
     // warn about the lite profile when it offers no benefit
@@ -192,14 +189,11 @@ bool OpenGLVideo::Init(MythRenderOpenGL *glcontext, VideoColourSpace *colourspac
         videoTextureType = GL_YCBCR_MESA;
     else if ((!shaders || preferYCBCR) && (gl_features & kGLAppleYCbCr))
         videoTextureType = GL_YCBCR_422_APPLE;
-    else if (glsl && fbos && !(pbos && uyvy) && yv12)
+    else if (glsl && fbos && yv12)
         videoTextureType = MYTHTV_YV12;
-    else if (shaders && fbos && uyvy)
-        videoTextureType = MYTHTV_UYVY;
 
     // colourspace adjustments require shaders to operate on YUV textures
     if ((GL_BGRA != videoTextureType) &&
-        (MYTHTV_UYVY != videoTextureType) &&
         (MYTHTV_YV12 != videoTextureType))
     {
         colourSpace->SetSupportedAttributes(kPictureAttributeSupported_None);
@@ -228,7 +222,7 @@ bool OpenGLVideo::Init(MythRenderOpenGL *glcontext, VideoColourSpace *colourspac
     GLuint tex = CreateVideoTexture(video_dim, inputTextureSize);
     bool    ok = false;
 
-    if ((GL_BGRA == videoTextureType) || (MYTHTV_UYVY == videoTextureType))
+    if ((GL_BGRA == videoTextureType))
         ok = tex && AddFilter(kGLFilterYUV2RGB);
     else if (MYTHTV_YV12 == videoTextureType)
         ok = tex && AddFilter(kGLFilterYV12RGB);
@@ -246,12 +240,9 @@ bool OpenGLVideo::Init(MythRenderOpenGL *glcontext, VideoColourSpace *colourspac
         else if (MYTHTV_YV12 == videoTextureType)
             LOG(VB_GENERAL, LOG_INFO, LOC +
                 "Using YV12 input textures.");
-        else if (MYTHTV_UYVY == videoTextureType)
-            LOG(VB_GENERAL, LOG_INFO, LOC +
-                "Using custom UYVY input textures.");
         else
             LOG(VB_GENERAL, LOG_INFO, LOC +
-                "Using plain BGRA input textures.");
+                "Using plain UYVY input textures.");
         inputTextures.push_back(tex);
     }
     else
@@ -309,9 +300,6 @@ void OpenGLVideo::CheckResize(bool deinterlacing, bool allow)
     bool resize_down = (video_disp_dim.height() > display_video_rect.height()) &&
                         deinterlacing && allow;
 
-    // UYVY packed pixels must be sampled exactly and any overscan settings will
-    // break sampling - so always force an extra stage
-    resize_down |= videoTextureType == MYTHTV_UYVY;
     // Extra stage needed on Fire Stick 4k, maybe others, because of blank screen when playing.
     resize_down |= gCoreContext->GetBoolSetting("OpenGLExtraStage", false);
 
@@ -773,12 +761,6 @@ uint OpenGLVideo::CreateVideoTexture(QSize size, QSize &tex_size)
                                             GL_UNSIGNED_SHORT_8_8_MESA,
                                             GL_YCBCR_422_APPLE, GL_RGBA);
     }
-    else if (MYTHTV_UYVY == videoTextureType)
-    {
-        QSize fix(size.width() / 2, size.height());
-        tmp_tex = gl_context->CreateTexture(fix, use_pbo, textureType,
-                                            GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA);
-    }
     else if (MYTHTV_YV12 == videoTextureType)
     {
         // 4:1:1 YVU planar (12bpp)
@@ -879,15 +861,13 @@ void OpenGLVideo::UpdateInputFrame(const VideoFrame *frame, bool soft_bob)
             buf = frame->buf;
         }
     }
-    else if (!filters.count(kGLFilterYUV2RGB) ||
-        MYTHTV_UYVY == videoTextureType)
+    else if (!filters.count(kGLFilterYUV2RGB))
     {
         // software conversion
         AVFrame img_out;
         AVPixelFormat out_fmt = AV_PIX_FMT_BGRA;
         if ((GL_YCBCR_MESA == videoTextureType) ||
-            (GL_YCBCR_422_APPLE == videoTextureType) ||
-            (MYTHTV_UYVY == videoTextureType))
+            (GL_YCBCR_422_APPLE == videoTextureType))
         {
             out_fmt = AV_PIX_FMT_UYVY422;
         }
@@ -920,7 +900,6 @@ void OpenGLVideo::SetSoftwareDeinterlacer(const QString &filter)
     if (softwareDeinterlacer != filter)
         CheckResize(false, filter != "bobdeint");
     softwareDeinterlacer = filter;
-    softwareDeinterlacer.detach();
 }
 
 /**
@@ -967,8 +946,6 @@ void OpenGLVideo::PrepareFrame(bool topfieldfirst, FrameScanType scan,
         float trueheight = (float)(actual ? video_dim.height() :
                                             video_disp_dim.height());
         float width = video_disp_dim.width();
-        if ((type == kGLFilterYUV2RGB) && (videoTextureType == MYTHTV_UYVY))
-            width /= 2.0f;
 
         QRectF trect(QPoint(0, 0), QSize(width, trueheight));
 
@@ -1222,15 +1199,6 @@ static const QString tex_fast =
 static const QString var_fast =
 "TEMP tmp, res;\n";
 
-static const QString var_col =
-"TEMP col;\n";
-
-static const QString select_col =
-"MUL col, tex.xxxx, %8;\n"
-"FRC col, col;\n"
-"SUB col, col, 0.5;\n"
-"CMP res, col, res.rabg, res.rgba;\n";
-
 static const QString end_fast =
 "DPH tmp.r, res.arbg, yuv[0];\n"
 "DPH tmp.g, res.arbg, yuv[1];\n"
@@ -1358,7 +1326,6 @@ QString OpenGLVideo::GetProgramString(OpenGLFilterType name,
         case kGLFilterYUV2RGB:
         {
             bool need_tex = true;
-            bool packed = MYTHTV_UYVY == videoTextureType;
             QString deint_bit = "";
             if (deint != "")
             {
@@ -1392,10 +1359,8 @@ QString OpenGLVideo::GetProgramString(OpenGLFilterType name,
 
             ret += attrib_fast;
             ret += (deint != "") ? var_deint : "";
-            ret += packed ? var_col : "";
             ret += var_fast + (need_tex ? tex_fast : "");
             ret += deint_bit;
-            ret += packed ? select_col : "";
             ret += end_fast;
         }
             break;
@@ -1480,10 +1445,6 @@ static const QString YUV2RGBVertexShader =
 "    v_texcoord0 = a_texcoord0;\n"
 "}\n";
 
-static const QString SelectColumn =
-"    if (fract(v_texcoord0.x * %8) < 0.5)\n"
-"        yuva = yuva.rabg;\n";
-
 static const QString YUV2RGBFragmentShader =
 "GLSL_DEFINES"
 "uniform GLSL_SAMPLER s_texture0;\n"
@@ -1492,7 +1453,6 @@ static const QString YUV2RGBFragmentShader =
 "void main(void)\n"
 "{\n"
 "    vec4 yuva    = GLSL_TEXTURE(s_texture0, v_texcoord0);\n"
-"SELECT_COLUMN"
 "    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
 "}\n";
 
@@ -1506,7 +1466,6 @@ static const QString OneFieldShader[2] = {
 "    float field = v_texcoord0.y + (step(0.5, fract(v_texcoord0.y * %2)) * %3);\n"
 "    field       = clamp(field, 0.0, %9);\n"
 "    vec4 yuva   = GLSL_TEXTURE(s_texture0, vec2(v_texcoord0.x, field));\n"
-"SELECT_COLUMN"
 "    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
 "}\n",
 
@@ -1518,7 +1477,6 @@ static const QString OneFieldShader[2] = {
 "{\n"
 "    vec2 field   = vec2(0.0, step(0.5, 1.0 - fract(v_texcoord0.y * %2)) * %3);\n"
 "    vec4 yuva    = GLSL_TEXTURE(s_texture0, v_texcoord0 + field);\n"
-"SELECT_COLUMN"
 "    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
 "}\n"
 };
@@ -1537,7 +1495,6 @@ static const QString LinearBlendShader[2] = {
 "    vec4 below = GLSL_TEXTURE(s_texture0, v_texcoord0 - line);\n"
 "    if (fract(v_texcoord0.y * %2) >= 0.5)\n"
 "        yuva = mix(above, below, 0.5);\n"
-"SELECT_COLUMN"
 "    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
 "}\n",
 
@@ -1553,7 +1510,6 @@ static const QString LinearBlendShader[2] = {
 "    vec4 below = GLSL_TEXTURE(s_texture0, v_texcoord0 - line);\n"
 "    if (fract(v_texcoord0.y * %2) < 0.5)\n"
 "        yuva = mix(above, below, 0.5);\n"
-"SELECT_COLUMN"
 "    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
 "}\n"
 };
@@ -1588,7 +1544,6 @@ static const QString KernelShader[2] = {
 "        yuva = (line00 * -0.0625) + yuva;\n"
 "        yuva = (line40 * -0.0625) + yuva;\n"
 "    }\n"
-"SELECT_COLUMN"
 "    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
 "}\n",
 
@@ -1620,7 +1575,6 @@ static const QString KernelShader[2] = {
 "        yuva = (line00 * -0.0625) + yuva;\n"
 "        yuva = (line40 * -0.0625) + yuva;\n"
 "    }\n"
-"SELECT_COLUMN"
 "    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
 "}\n"
 };
@@ -1736,8 +1690,8 @@ static const QString YV12RGBOneFieldVertexShader[2] = {
 "}\n"
 };
 
-static const QString YV12RGBLinearBlendFragmentShader =
-"//YV12RGBLinearBlendFragmentShader\n"
+static const QString YV12RGBLinearBlendFragmentShader[2] = {
+"// YV12RGBLinearBlendFragmentShader - Top\n"
 "GLSL_DEFINES"
 "uniform GLSL_SAMPLER s_texture0; // 4:1:1 YVU planar\n"
 "uniform mat4 COLOUR_UNIFORM;\n"
@@ -1745,32 +1699,49 @@ static const QString YV12RGBLinearBlendFragmentShader =
 SAMPLEYVU
 "void main(void)\n"
 "{\n"
-"    vec2 texcoord;\n"
-"    texcoord = v_texcoord0 - vec2(0.0, %3);\n"
-"    vec3 yvu1 = sampleYVU(s_texture0, texcoord);\n"
-"    vec3 yvu2 = sampleYVU(s_texture0, v_texcoord0);\n"
-"    texcoord = v_texcoord0 + vec2(0.0, %3);\n"
-"    texcoord.t = min(texcoord.t, %HEIGHT% - %3);\n"
-"    vec3 yvu3 = sampleYVU(s_texture0, texcoord);\n"
-"    vec3 yvu = (yvu1 + 2.0 * yvu2 + yvu3) / 4.0;\n"
-"    gl_FragColor = vec4(yvu, 1.0) * COLOUR_UNIFORM;\n"
-"}\n";
+"    vec3 current = sampleYVU(s_texture0, v_texcoord0);\n"
+"    if (fract(v_texcoord0.y * %2) >= 0.5)\n"
+"    {\n"
+"        vec3 above = sampleYVU(s_texture0, vec2(v_texcoord0.x, min(v_texcoord0.y + %3, %HEIGHT% - %3)));\n"
+"        vec3 below = sampleYVU(s_texture0, vec2(v_texcoord0.x, max(v_texcoord0.y - %3, 0.0)));\n"
+"        current = mix(above, below, 0.5);\n"
+"    }\n"
+"    gl_FragColor = vec4(current, 1.0) * COLOUR_UNIFORM;\n"
+"}\n",
+
+"// YV12RGBLinearBlendFragmentShader - Bottom\n"
+"GLSL_DEFINES"
+"uniform GLSL_SAMPLER s_texture0; // 4:1:1 YVU planar\n"
+"uniform mat4 COLOUR_UNIFORM;\n"
+"varying vec2 v_texcoord0;\n"
+SAMPLEYVU
+"void main(void)\n"
+"{\n"
+"    vec3 current = sampleYVU(s_texture0, v_texcoord0);\n"
+"    if (fract(v_texcoord0.y * %2) < 0.5)\n"
+"    {\n"
+"        vec3 above = sampleYVU(s_texture0, vec2(v_texcoord0.x, min(v_texcoord0.y + %3, %HEIGHT% - %3)));\n"
+"        vec3 below = sampleYVU(s_texture0, vec2(v_texcoord0.x, max(v_texcoord0.y - %3, 0.0)));\n"
+"        current = mix(above, below, 0.5);\n"
+"    }\n"
+"    gl_FragColor = vec4(current, 1.0) * COLOUR_UNIFORM;\n"
+"}\n"};
 
 #define KERNELYVU "\
-vec3 kernelYVU(in vec3 yvu)\n\
+vec3 kernelYVU(in vec3 yvu, GLSL_SAMPLER texture1, GLSL_SAMPLER texture2)\n\
 {\n\
     vec2 twoup   = v_texcoord0 - vec2(0.0, %4);\n\
     vec2 twodown = v_texcoord0 + vec2(0.0, %4);\n\
     twodown.t = min(twodown.t, %HEIGHT% - %3);\n\
     vec2 onedown = v_texcoord0 + vec2(0.0, %3);\n\
     onedown.t = min(onedown.t, %HEIGHT% - %3);\n\
-    vec3 line0   = sampleYVU(s_texture0, twoup);\n\
-    vec3 line1   = sampleYVU(s_texture0, v_texcoord0 - vec2(0.0, %3));\n\
-    vec3 line3   = sampleYVU(s_texture0, onedown);\n\
-    vec3 line4   = sampleYVU(s_texture0, twodown);\n\
-    vec3 line00  = sampleYVU(s_texture1, twoup);\n\
-    vec3 line20  = sampleYVU(s_texture1, v_texcoord0);\n\
-    vec3 line40  = sampleYVU(s_texture1, twodown);\n\
+    vec3 line0   = sampleYVU(texture1, twoup);\n\
+    vec3 line1   = sampleYVU(texture1, v_texcoord0 - vec2(0.0, %3));\n\
+    vec3 line3   = sampleYVU(texture1, onedown);\n\
+    vec3 line4   = sampleYVU(texture1, twodown);\n\
+    vec3 line00  = sampleYVU(texture2, twoup);\n\
+    vec3 line20  = sampleYVU(texture2, v_texcoord0);\n\
+    vec3 line40  = sampleYVU(texture2, twodown);\n\
     yvu *=           0.125;\n\
     yvu += line20 *  0.125;\n\
     yvu += line1  *  0.5;\n\
@@ -1785,16 +1756,16 @@ vec3 kernelYVU(in vec3 yvu)\n\
 static const QString YV12RGBKernelShader[2] = {
 "//YV12RGBKernelShader 1\n"
 "GLSL_DEFINES"
-"uniform GLSL_SAMPLER s_texture0, s_texture1; // 4:1:1 YVU planar\n"
+"uniform GLSL_SAMPLER s_texture1, s_texture2; // 4:1:1 YVU planar\n"
 "uniform mat4 COLOUR_UNIFORM;\n"
 "varying vec2 v_texcoord0;\n"
 SAMPLEYVU
 KERNELYVU
 "void main(void)\n"
 "{\n"
-"    vec3 yvu = sampleYVU(s_texture0, v_texcoord0);\n"
+"    vec3 yvu = sampleYVU(s_texture1, v_texcoord0);\n"
 "    if (fract(v_texcoord0.t * %2) >= 0.5)\n"
-"        yvu = kernelYVU(yvu);\n"
+"        yvu = kernelYVU(yvu, s_texture1, s_texture2);\n"
 "    gl_FragColor = vec4(yvu, 1.0) * COLOUR_UNIFORM;\n"
 "}\n",
 
@@ -1807,9 +1778,9 @@ SAMPLEYVU
 KERNELYVU
 "void main(void)\n"
 "{\n"
-"    vec3 yvu = sampleYVU(s_texture0, v_texcoord0);\n"
+"    vec3 yvu = sampleYVU(s_texture1, v_texcoord0);\n"
 "    if (fract(v_texcoord0.t * %2) < 0.5)\n"
-"        yvu = kernelYVU(yvu);\n"
+"        yvu = kernelYVU(yvu, s_texture1, s_texture0);\n"
 "    gl_FragColor = vec4(yvu, 1.0) * COLOUR_UNIFORM;\n"
 "}\n"
 };
@@ -1834,9 +1805,6 @@ void OpenGLVideo::GetProgramStrings(QString &vertex, QString &fragment,
                 fragment = KernelShader[bottom];
             else
                 fragment = YUV2RGBFragmentShader;
-
-            fragment.replace("SELECT_COLUMN", MYTHTV_UYVY == videoTextureType ?
-                                              SelectColumn : "");
             break;
         }
         case kGLFilterYV12RGB:
@@ -1849,7 +1817,7 @@ void OpenGLVideo::GetProgramStrings(QString &vertex, QString &fragment,
                      deint == "opengldoubleratelinearblend")
             {
                 vertex = YV12RGBVertexShader;
-                fragment = YV12RGBLinearBlendFragmentShader;
+                fragment = YV12RGBLinearBlendFragmentShader[bottom];
             }
             else if (deint == "openglkerneldeint" ||
                      deint == "opengldoubleratekerneldeint")

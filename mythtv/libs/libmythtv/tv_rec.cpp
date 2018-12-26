@@ -433,10 +433,10 @@ void TVRec::CancelNextRecording(bool cancel)
  */
 RecStatus::Type TVRec::StartRecording(ProgramInfo *pginfo)
 {
-    RecordingInfo ri(*pginfo);
-    ri.SetDesiredStartTime(ri.GetRecordingStartTime());
-    ri.SetDesiredEndTime(ri.GetRecordingEndTime());
-    RecordingInfo *rcinfo = &ri;
+    RecordingInfo ri1(*pginfo);
+    ri1.SetDesiredStartTime(ri1.GetRecordingStartTime());
+    ri1.SetDesiredEndTime(ri1.GetRecordingEndTime());
+    RecordingInfo *rcinfo = &ri1;
 
     LOG(VB_RECORD, LOG_INFO, LOC + QString("StartRecording(%1)")
             .arg(rcinfo->toString(ProgramInfo::kTitleSubtitle)));
@@ -587,8 +587,8 @@ RecStatus::Type TVRec::StartRecording(ProgramInfo *pginfo)
     bool did_switch = false;
     if (!cancelNext && (GetState() == kState_RecordingOnly))
     {
-        RecordingInfo *ri = SwitchRecordingRingBuffer(*rcinfo);
-        did_switch = (nullptr != ri);
+        RecordingInfo *ri2 = SwitchRecordingRingBuffer(*rcinfo);
+        did_switch = (nullptr != ri2);
         if (did_switch)
         {
             // Make sure scheduler is allowed to end this recording
@@ -2310,7 +2310,6 @@ bool TVRec::CheckChannel(QString name) const
 static QString add_spacer(const QString &channel, const QString &spacer)
 {
     QString chan = channel;
-    chan.detach();
     if ((chan.length() >= 2) && !spacer.isEmpty())
         return chan.left(chan.length()-1) + spacer + chan.right(1);
     return chan;
@@ -3735,19 +3734,19 @@ void TVRec::TuningFrequency(const TuningRequest &request)
     QString input   = request.input;
     QString channum = request.channel;
 
-    bool ok;
+    bool ok1;
     if (channel)
     {
         channel->Open();
         if (!channum.isEmpty())
-            ok = channel->SetChannelByString(channum);
+            ok1 = channel->SetChannelByString(channum);
         else
-            ok = false;
+            ok1 = false;
     }
     else
-        ok = true;
+        ok1 = true;
 
-    if (!ok)
+    if (!ok1)
     {
         if (!(request.flags & kFlagLiveTV) || !(request.flags & kFlagEITScan))
         {
@@ -3789,21 +3788,21 @@ void TVRec::TuningFrequency(const TuningRequest &request)
     if (use_dr)
     {
         // We need there to be a ringbuffer for these modes
-        bool ok;
+        bool ok2;
         RecordingInfo *tmp = pseudoLiveTVRecording;
         pseudoLiveTVRecording = nullptr;
 
         tvchain->SetInputType("DUMMY");
 
         if (!ringBuffer)
-            ok = CreateLiveTVRingBuffer(channum);
+            ok2 = CreateLiveTVRingBuffer(channum);
         else
-            ok = SwitchLiveTVRingBuffer(channum, true, false);
+            ok2 = SwitchLiveTVRingBuffer(channum, true, false);
         pseudoLiveTVRecording = tmp;
 
         tvchain->SetInputType(genOpt.inputtype);
 
-        if (!ok)
+        if (!ok2)
         {
             LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create RingBuffer 1");
             return;

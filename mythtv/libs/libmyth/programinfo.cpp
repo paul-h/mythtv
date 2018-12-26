@@ -31,6 +31,7 @@ using std::min;
 #include "mythdb.h"
 #include "compat.h"
 #include "mythcdrom.h"
+#include "mythsorthelper.h"
 
 #include <unistd.h> // for getpid()
 
@@ -43,7 +44,7 @@ static int init_tr(void);
 int pginfo_init_statics() { return ProgramInfo::InitStatics(); }
 QMutex ProgramInfo::staticDataLock;
 ProgramInfoUpdater *ProgramInfo::updater;
-int dummy = pginfo_init_statics();
+int force_init = pginfo_init_statics();
 bool ProgramInfo::usingProgIDAuth = true;
 
 const static uint kInvalidDateTime = (uint)-1;
@@ -152,7 +153,9 @@ ProgramInfo::CategoryType string_to_myth_category_type(const QString &category_t
  */
 ProgramInfo::ProgramInfo(void) :
     title(),
+    sortTitle(),
     subtitle(),
+    sortSubtitle(),
     description(),
     season(0),
     episode(0),
@@ -224,12 +227,12 @@ ProgramInfo::ProgramInfo(void) :
     availableStatus(asAvailable),
     spread(-1),
     startCol(-1),
-    sortTitle(),
 
     // Private
     inUseForWhat(),
     positionMapDBReplacement(nullptr)
 {
+    ensureSortFields();
 }
 
 /** \fn ProgramInfo::ProgramInfo(const ProgramInfo &other)
@@ -237,7 +240,9 @@ ProgramInfo::ProgramInfo(void) :
  */
 ProgramInfo::ProgramInfo(const ProgramInfo &other) :
     title(other.title),
+    sortTitle(other.sortTitle),
     subtitle(other.subtitle),
+    sortSubtitle(other.sortSubtitle),
     description(other.description),
     season(other.season),
     episode(other.episode),
@@ -307,12 +312,12 @@ ProgramInfo::ProgramInfo(const ProgramInfo &other) :
     availableStatus(other.availableStatus),
     spread(other.spread),
     startCol(other.startCol),
-    sortTitle(other.sortTitle),
 
     // Private
     inUseForWhat(),
     positionMapDBReplacement(other.positionMapDBReplacement)
 {
+    ensureSortFields();
 }
 
 /** \fn ProgramInfo::ProgramInfo(uint _recordedid)
@@ -342,6 +347,8 @@ ProgramInfo::ProgramInfo(uint _recordedid)
             .arg(_recordedid));
         clear();
     }
+
+    ensureSortFields();
 }
 
 /** \fn ProgramInfo::ProgramInfo(uint _chanid, const QDateTime &_recstartts)
@@ -353,6 +360,7 @@ ProgramInfo::ProgramInfo(uint _chanid, const QDateTime &_recstartts) :
     clear();
 
     LoadProgramFromRecorded(_chanid, _recstartts);
+    ensureSortFields();
 }
 
 /** \fn ProgramInfo::ProgramInfo()
@@ -361,7 +369,9 @@ ProgramInfo::ProgramInfo(uint _chanid, const QDateTime &_recstartts) :
 ProgramInfo::ProgramInfo(
     uint  _recordedid,
     const QString &_title,
+    const QString &_sortTitle,
     const QString &_subtitle,
+    const QString &_sortSubtitle,
     const QString &_description,
     uint  _season,
     uint  _episode,
@@ -421,7 +431,9 @@ ProgramInfo::ProgramInfo(
     const QString &_inputname,
     const QDateTime &_bookmarkupdate) :
     title(_title),
+    sortTitle(_sortTitle),
     subtitle(_subtitle),
+    sortSubtitle(_sortSubtitle),
     description(_description),
     season(_season),
     episode(_episode),
@@ -494,7 +506,6 @@ ProgramInfo::ProgramInfo(
     availableStatus(asAvailable),
     spread(-1),
     startCol(-1),
-    sortTitle(),
 
     // Private
     inUseForWhat(),
@@ -504,6 +515,7 @@ ProgramInfo::ProgramInfo(
         originalAirDate = QDate();
 
     SetPathname(_pathname);
+    ensureSortFields();
 }
 
 /** \fn ProgramInfo::ProgramInfo()
@@ -511,7 +523,9 @@ ProgramInfo::ProgramInfo(
  */
 ProgramInfo::ProgramInfo(
     const QString &_title,
+    const QString &_sortTitle,
     const QString &_subtitle,
+    const QString &_sortSubtitle,
     const QString &_description,
     uint  _season,
     uint  _episode,
@@ -541,7 +555,9 @@ ProgramInfo::ProgramInfo(
 
     bool duplicate) :
     title(_title),
+    sortTitle(_sortTitle),
     subtitle(_subtitle),
+    sortSubtitle(_sortSubtitle),
     description(_description),
     season(_season),
     episode(_episode),
@@ -611,12 +627,12 @@ ProgramInfo::ProgramInfo(
     availableStatus(asAvailable),
     spread(-1),
     startCol(-1),
-    sortTitle(),
 
     // Private
     inUseForWhat(),
     positionMapDBReplacement(nullptr)
 {
+    ensureSortFields();
 }
 
 /** \fn ProgramInfo::ProgramInfo()
@@ -624,7 +640,9 @@ ProgramInfo::ProgramInfo(
  */
 ProgramInfo::ProgramInfo(
     const QString &_title,
+    const QString &_sortTitle,
     const QString &_subtitle,
+    const QString &_sortSubtitle,
     const QString &_description,
     const QString &_syndicatedepisode,
     const QString &_category,
@@ -668,7 +686,9 @@ ProgramInfo::ProgramInfo(
 
     const ProgramList &schedList) :
     title(_title),
+    sortTitle(_sortTitle),
     subtitle(_subtitle),
+    sortSubtitle(_sortSubtitle),
     description(_description),
     season(_season),
     episode(_episode),
@@ -741,7 +761,6 @@ ProgramInfo::ProgramInfo(
     availableStatus(asAvailable),
     spread(-1),
     startCol(-1),
-    sortTitle(),
 
     // Private
     inUseForWhat(),
@@ -794,6 +813,7 @@ ProgramInfo::ProgramInfo(
             s.recstatus == RecStatus::Failing)
         recstatus = s.recstatus;
     }
+    ensureSortFields();
 }
 
 /** \fn ProgramInfo::ProgramInfo()
@@ -801,7 +821,9 @@ ProgramInfo::ProgramInfo(
  */
 ProgramInfo::ProgramInfo(
     const QString &_title,
+    const QString &_sortTitle,
     const QString &_subtitle,
+    const QString &_sortSubtitle,
     const QString &_description,
     uint  _season,
     uint  _episode,
@@ -827,7 +849,9 @@ ProgramInfo::ProgramInfo(
     const QString &_inetref,
     const QString &_inputname) :
     title(_title),
+    sortTitle(_sortTitle),
     subtitle(_subtitle),
+    sortSubtitle(_sortSubtitle),
     description(_description),
     season(_season),
     episode(_episode),
@@ -897,12 +921,12 @@ ProgramInfo::ProgramInfo(
     availableStatus(asAvailable),
     spread(-1),
     startCol(-1),
-    sortTitle(),
 
     // Private
     inUseForWhat(),
     positionMapDBReplacement(nullptr)
 {
+    ensureSortFields();
 }
 
 /** \fn ProgramInfo::ProgramInfo(const QString &_pathname)
@@ -939,6 +963,7 @@ ProgramInfo::ProgramInfo(const QString &_pathname) :
         SetPathname(QFileInfo(_pathname).absoluteFilePath());
     else
         SetPathname(_pathname);
+    ensureSortFields();
 }
 
 /** \fn ProgramInfo::ProgramInfo()
@@ -947,7 +972,9 @@ ProgramInfo::ProgramInfo(const QString &_pathname) :
 ProgramInfo::ProgramInfo(const QString &_pathname,
                          const QString &_plot,
                          const QString &_title,
+                         const QString &_sortTitle,
                          const QString &_subtitle,
+                         const QString &_sortSubtitle,
                          const QString &_director,
                          int _season, int _episode,
                          const QString &_inetref,
@@ -959,7 +986,9 @@ ProgramInfo::ProgramInfo(const QString &_pathname,
     clear();
 
     title = _title;
+    sortTitle = _sortTitle;
     subtitle = _subtitle;
+    sortSubtitle = _sortSubtitle;
     description = _plot;
     season = _season;
     episode = _episode;
@@ -979,6 +1008,7 @@ ProgramInfo::ProgramInfo(const QString &_pathname,
         pn = determineURLType(_pathname);
 
     SetPathname(pn);
+    ensureSortFields();
 }
 
 /** \fn ProgramInfo::ProgramInfo()
@@ -1023,6 +1053,7 @@ ProgramInfo::ProgramInfo(const QString &_title, uint _chanid,
 
     description = title =
         QString("%1 (%2)").arg(title).arg(QObject::tr("Manual Record"));
+    ensureSortFields();
 }
 
 /** \fn ProgramInfo::ProgramInfo()
@@ -1038,6 +1069,7 @@ ProgramInfo::ProgramInfo(
     category = _category;
     startts  = _startts;
     endts    = _endts;
+    ensureSortFields();
 }
 
 
@@ -1060,7 +1092,9 @@ void ProgramInfo::clone(const ProgramInfo &other,
          startts == other.startts);
 
     title = other.title;
+    sortTitle = other.sortTitle;
     subtitle = other.subtitle;
+    sortSubtitle = other.sortSubtitle;
     description = other.description;
     season = other.season;
     episode = other.episode;
@@ -1136,43 +1170,19 @@ void ProgramInfo::clone(const ProgramInfo &other,
     {
         spread = other.spread;
         startCol = other.startCol;
-        sortTitle = other.sortTitle;
         availableStatus = other.availableStatus;
 
         inUseForWhat = other.inUseForWhat;
         positionMapDBReplacement = other.positionMapDBReplacement;
     }
-
-    title.detach();
-    subtitle.detach();
-    description.detach();
-    category.detach();
-
-    chanstr.detach();
-    chansign.detach();
-    channame.detach();
-    chanplaybackfilters.detach();
-
-    recgroup.detach();
-    playgroup.detach();
-
-    pathname.detach();
-    hostname.detach();
-    storagegroup.detach();
-
-    seriesid.detach();
-    programid.detach();
-    inetref.detach();
-
-    sortTitle.detach();
-    inUseForWhat.detach();
-    inputname.detach();
 }
 
 void ProgramInfo::clear(void)
 {
     title.clear();
+    sortTitle.clear();
     subtitle.clear();
+    sortSubtitle.clear();
     description.clear();
     season = 0;
     episode = 0;
@@ -1203,8 +1213,6 @@ void ProgramInfo::clear(void)
     programid.clear();
     inetref.clear();
     catType = kCategoryNone;
-
-    sortTitle.clear();
 
     recpriority = 0;
 
@@ -1371,6 +1379,33 @@ bool ProgramInfo::operator==(const ProgramInfo& rhs)
         return false;
 
     return true;
+}
+
+/**
+ *  \brief Ensure that the sortTitle and sortSubtitle fields are set.
+ */
+void ProgramInfo::ensureSortFields(void)
+{
+    std::shared_ptr<MythSortHelper>sh = getMythSortHelper();
+
+    if (sortTitle.isEmpty() and not title.isEmpty())
+        sortTitle = sh->doTitle(title);
+    if (sortSubtitle.isEmpty() and not subtitle.isEmpty())
+        sortSubtitle = sh->doTitle(subtitle);
+}
+
+void ProgramInfo::SetTitle(const QString &t, const QString &st)
+{
+    title = t;
+    sortTitle = st;
+    ensureSortFields();
+}
+
+void ProgramInfo::SetSubtitle(const QString &st, const QString &sst)
+{
+    subtitle = st;
+    sortSubtitle = sst;
+    ensureSortFields();
 }
 
 /// \brief Creates a unique string that can be used to identify a recording.
@@ -1676,10 +1711,11 @@ bool ProgramInfo::FromStringList(QStringList::const_iterator &it,
         availableStatus = asAvailable;
         spread = -1;
         startCol = -1;
-        sortTitle = QString();
         inUseForWhat = QString();
         positionMapDBReplacement = nullptr;
     }
+
+    ensureSortFields();
 
     return true;
 }
@@ -1705,15 +1741,21 @@ void ProgramInfo::ToMap(InfoMap &progMap,
 
     progMap["title"] = title;
     progMap["subtitle"] = subtitle;
+    progMap["sorttitle"] = sortTitle;
+    progMap["sortsubtitle"] = sortSubtitle;
 
     QString tempSubTitle = title;
+    QString tempSortSubtitle = sortTitle;
     if (!subtitle.trimmed().isEmpty())
     {
         tempSubTitle = QString("%1 - \"%2\"")
             .arg(tempSubTitle).arg(subtitle);
+        tempSortSubtitle = QString("%1 - \"%2\"")
+            .arg(tempSortSubtitle).arg(sortSubtitle);
     }
 
     progMap["titlesubtitle"] = tempSubTitle;
+    progMap["sorttitlesubtitle"] = tempSortSubtitle;
 
     progMap["description"] = progMap["description0"] = description;
 
@@ -2145,7 +2187,6 @@ bool ProgramInfo::LoadProgramFromRecorded(
 
         // everything below this line (in context) is not serialized
         spread = startCol = -1;
-        sortTitle.clear();
         availableStatus = asAvailable;
         inUseForWhat.clear();
         positionMapDBReplacement = nullptr;
@@ -2275,7 +2316,6 @@ bool ProgramInfo::LoadProgramFromRecorded(
     // Extra stuff which is not serialized and may get lost.
     /**/// spread
     /**/// startCol
-    /**/// sortTitle
     /**/// availableStatus
     /**/// inUseForWhat
     /**/// postitionMapDBReplacement
@@ -2570,7 +2610,6 @@ static ProgramInfoType discover_program_info_type(
 void ProgramInfo::SetPathname(const QString &pn) const
 {
     pathname = pn;
-    pathname.detach();
 
     ProgramInfoType pit = discover_program_info_type(chanid, pathname, false);
     const_cast<ProgramInfo*>(this)->SetProgramInfoType(pit);
@@ -5571,18 +5610,18 @@ static bool FromProgramQuery(const QString &sql, const MSqlBindings &bindings,
     count = 0;
 
     QString columns = QString(
-        "program.chanid, program.starttime, program.endtime, "
-        "program.title, program.subtitle, program.description, "
-        "program.category, channel.channum, channel.callsign, "
-        "channel.name, program.previouslyshown, channel.commmethod, "
-        "channel.outputfilters, program.seriesid, program.programid, "
-        "program.airdate, program.stars, program.originalairdate, "
-        "program.category_type, oldrecstatus.recordid, "
-        "oldrecstatus.rectype, oldrecstatus.recstatus, "
-        "oldrecstatus.findid, program.videoprop+0, program.audioprop+0, "
-        "program.subtitletypes+0, program.syndicatedepisodenumber, "
-        "program.partnumber, program.parttotal, "
-        "program.season, program.episode, program.totalepisodes ");
+        "program.chanid,          program.starttime,       program.endtime,         " //  0-2
+        "program.title,           program.subtitle,        program.description,     " //  3-5
+        "program.category,        channel.channum,         channel.callsign,        " //  6-8
+        "channel.name,            program.previouslyshown, channel.commmethod,      " //  9-11
+        "channel.outputfilters,   program.seriesid,        program.programid,       " // 12-14
+        "program.airdate,         program.stars,           program.originalairdate, " // 15-17
+        "program.category_type,   oldrecstatus.recordid,                            " // 18-19
+        "oldrecstatus.rectype,    oldrecstatus.recstatus,                           " // 20-21
+        "oldrecstatus.findid,     program.videoprop+0,     program.audioprop+0,     " // 22-24
+        "program.subtitletypes+0, program.syndicatedepisodenumber,                  " // 25-26
+        "program.partnumber,      program.parttotal,                                " // 27-28
+        "program.season,          program.episode,         program.totalepisodes ");  // 29-31
 
     QString querystr = QString(
         "SELECT %1 "
@@ -5760,7 +5799,9 @@ bool LoadFromProgram( ProgramList &destination,
         destination.push_back(
             new ProgramInfo(
                 query.value(3).toString(), // title
+                QString(),                 // sortTitle
                 query.value(4).toString(), // subtitle
+                QString(),                 // sortSubtitle
                 query.value(5).toString(), // description
                 query.value(26).toString(), // syndicatedepisodenumber
                 query.value(6).toString(), // category
@@ -5960,7 +6001,9 @@ bool LoadFromOldRecorded(ProgramList &destination, const QString &sql,
 
         destination.push_back(new ProgramInfo(
             query.value(3).toString(),
+            QString(),
             query.value(4).toString(),
+            QString(),
             query.value(5).toString(),
             query.value(6).toUInt(),
             query.value(7).toUInt(),
@@ -6174,7 +6217,9 @@ bool LoadFromRecorded(
             new ProgramInfo(
                 query.value(55).toUInt(),
                 query.value(0).toString(),
+                QString(),
                 query.value(1).toString(),
+                QString(),
                 query.value(2).toString(),
                 season,
                 episode,

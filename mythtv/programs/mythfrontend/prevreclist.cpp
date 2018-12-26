@@ -32,6 +32,7 @@ using namespace std;
 //MythTV
 #include "mythcorecontext.h"
 #include "mythdb.h"
+#include "mythmiscutil.h"
 #include "xmlparsebase.h"
 #include "recordinginfo.h"
 #include "recordingrule.h"
@@ -180,13 +181,17 @@ void PrevRecordedList::Load(void)
 static bool comp_sorttitle_lt(
     const ProgramInfo *a, const ProgramInfo *b)
 {
-    return a->sortTitle.compare(b->sortTitle,Qt::CaseInsensitive) < 0;
+    QString a_st = a->GetSortTitle();
+    QString b_st = b->GetSortTitle();
+    return naturalCompare(a_st,b_st) < 0;
 }
 
 static bool comp_sorttitle_lt_rev(
     const ProgramInfo *a, const ProgramInfo *b)
 {
-    return b->sortTitle.compare(a->sortTitle,Qt::CaseInsensitive) < 0;
+    QString a_st = a->GetSortTitle();
+    QString b_st = b->GetSortTitle();
+    return naturalCompare(b_st, a_st) < 0;
 }
 
 static bool comp_sortdate_lt(
@@ -222,17 +227,11 @@ bool PrevRecordedList::LoadTitles(void)
         return false;
     }
 
-    const QRegExp prefixes(
-        tr("^(The |A |An )",
-           "Regular Expression for what to ignore when sorting"));
-
     while (query.next())
     {
         QString title(query.value(0).toString());
         ProgramInfo *program = new ProgramInfo();
         program->SetTitle(title);
-        program->sortTitle = title;
-        program->sortTitle.remove(prefixes);
         m_titleData.push_back(program);
     }
     if (m_reverseSort)
@@ -269,15 +268,14 @@ bool PrevRecordedList::LoadDates(void)
 
     ProgramInfo *program = new ProgramInfo();
     program->SetRecordingStartTime(QDateTime::currentDateTime());
-    program->SetTitle(tr("Last two weeks"));
-    program->sortTitle = "0000/00";
+    program->SetTitle(tr("Last two weeks"), "0000/00");
     m_titleData.push_back(program);
 
     while (query.next())
     {
         int year(query.value(0).toInt());
         int month(query.value(1).toInt());
-        ProgramInfo *program = new ProgramInfo();
+        program = new ProgramInfo();
         QDate startdate(year,month,1);
         QDateTime starttime(startdate);
         program->SetRecordingStartTime(starttime);
@@ -286,8 +284,7 @@ bool PrevRecordedList::LoadDates(void)
         QLocale locale = gCoreContext->GetLocale()->ToQLocale();
         QString title = QString("%1 %2").
             arg(locale.monthName(month)).arg(year);
-        program->SetTitle(title);
-        program->sortTitle = date;
+        program->SetTitle(title, date);
         m_titleData.push_back(program);
     }
     if (m_reverseSort)
@@ -427,7 +424,7 @@ void PrevRecordedList::LoadShowsByDate(void)
 {
     MSqlBindings bindings;
     int selected = m_titleList->GetCurrentPos();
-    QString sortTitle = m_titleData[selected]->sortTitle;
+    QString sortTitle = m_titleData[selected]->GetSortTitle();
     QStringList dateParts = sortTitle.split('/');
     if (dateParts.size() != 2)
     {

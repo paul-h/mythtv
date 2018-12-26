@@ -41,7 +41,6 @@ using namespace std;
 #include "previewgenerator.h"
 #include "commandlineparser.h"
 #include "mythsystemevent.h"
-#include "loggingserver.h"
 #include "mythlogging.h"
 #include "signalhandling.h"
 #include "cleanupguard.h"
@@ -102,9 +101,9 @@ int preview_helper(uint chanid, QDateTime starttime,
             return GENERIC_EXIT_NOT_OK;
         }
         pginfo = new ProgramInfo(
-            infile, ""/*plot*/, ""/*title*/, ""/*subtitle*/, ""/*director*/,
-            0/*season*/, 0/*episode*/, ""/*inetref*/, 120/*length_in_minutes*/,
-            1895/*year*/, ""/*id*/);
+            infile, ""/*plot*/, ""/*title*/, ""/*sortTitle*/, ""/*subtitle*/,
+            ""/*sortSubtitle*/, ""/*director*/, 0/*season*/, 0/*episode*/,
+            ""/*inetref*/, 120/*length_in_minutes*/, 1895/*year*/, ""/*id*/);
     }
     else
     {
@@ -191,7 +190,6 @@ int main(int argc, char **argv)
     signallist << SIGRTMIN;
 #endif
     SignalHandler::Init(signallist);
-    SignalHandler::SetHandler(SIGHUP, logSigHup);
 #endif
 
     if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)

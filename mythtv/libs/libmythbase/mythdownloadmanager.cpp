@@ -60,12 +60,6 @@ class MythDownloadInfo
             m_reply->deleteLater();
     }
 
-    void detach(void)
-    {
-        m_url.detach();
-        m_outFile.detach();
-    }
-
     bool IsDone(void)
     {
         QMutexLocker lock(&m_lock);
@@ -126,10 +120,7 @@ class RemoteFileDownloadThread : public QRunnable
     RemoteFileDownloadThread(MythDownloadManager *parent,
                              MythDownloadInfo *dlInfo) :
         m_parent(parent),
-        m_dlInfo(dlInfo)
-    {
-        m_dlInfo->detach();
-    }
+        m_dlInfo(dlInfo) {}
 
     void run() override // QRunnable
     {
@@ -376,8 +367,6 @@ void MythDownloadManager::queueItem(const QString &url, QNetworkRequest *req,
     dlInfo->m_requestType = reqType;
     dlInfo->m_reload  = reload;
 
-    dlInfo->detach();
-
     QMutexLocker locker(m_infoLock);
     m_downloadQueue.push_back(dlInfo);
     m_queueWaitCond.wakeAll();
@@ -399,7 +388,7 @@ bool MythDownloadManager::processItem(const QString &url, QNetworkRequest *req,
                                       const QString &dest, QByteArray *data,
                                       const MRequestType reqType,
                                       const bool reload,
-                                      AuthCallback authCallback, void *authArg,
+                                      AuthCallback authCallbackFn, void *authArg,
                                    const QHash<QByteArray, QByteArray> *headers)
 {
     MythDownloadInfo *dlInfo = new MythDownloadInfo;
@@ -411,7 +400,7 @@ bool MythDownloadManager::processItem(const QString &url, QNetworkRequest *req,
     dlInfo->m_requestType = reqType;
     dlInfo->m_reload   = reload;
     dlInfo->m_syncMode = true;
-    dlInfo->m_authCallback = authCallback;
+    dlInfo->m_authCallback = authCallbackFn;
     dlInfo->m_authArg  = authArg;
     dlInfo->m_headers  = headers;
 
@@ -544,16 +533,16 @@ bool MythDownloadManager::download(QNetworkRequest *req, QByteArray *data)
  *  \param url     URI to download.
  *  \param dest    Destination filename.
  *  \param reload  Whether to force reloading of the URL or not
- *  \param authCallback AuthCallback function for use with authentication
+ *  \param authCallbackFn AuthCallback function for use with authentication
  *  \param authArg Opaque argument for callback function
  *  \param headers Hash of optional HTTP header to add to the request
  *  \return true if download was successful, false otherwise.
  */
 bool MythDownloadManager::downloadAuth(const QString &url, const QString &dest,
-               const bool reload, AuthCallback authCallback, void *authArg,
+               const bool reload, AuthCallback authCallbackFn, void *authArg,
                const QHash<QByteArray, QByteArray> *headers)
 {
-    return processItem(url, nullptr, dest, nullptr, kRequestGet, reload, authCallback,
+    return processItem(url, nullptr, dest, nullptr, kRequestGet, reload, authCallbackFn,
                        authArg, headers);
 }
 
@@ -651,13 +640,13 @@ bool MythDownloadManager::post(QNetworkRequest *req, QByteArray *data)
 /** \brief Posts data to a url via the QNetworkAccessManager
  *  \param url      URL to post to
  *  \param data     Location holding post and response data
- *  \param authCallback AuthCallback function for authentication
+ *  \param authCallbackFn AuthCallback function for authentication
  *  \param authArg Opaque argument for callback function
  *  \param headers Hash of optional HTTP headers to add to the request
  *  \return true if post was successful, false otherwise.
  */
 bool MythDownloadManager::postAuth(const QString &url, QByteArray *data,
-                                   AuthCallback authCallback, void *authArg,
+                                   AuthCallback authCallbackFn, void *authArg,
                                    const QHash<QByteArray, QByteArray> *headers)
 {
     LOG(VB_FILE, LOG_DEBUG, LOC + QString("postAuth('%1', '%2')")
@@ -669,7 +658,7 @@ bool MythDownloadManager::postAuth(const QString &url, QByteArray *data,
         return false;
     }
 
-    return processItem(url, nullptr, nullptr, data, kRequestPost, false, authCallback,
+    return processItem(url, nullptr, nullptr, data, kRequestPost, false, authCallbackFn,
                        authArg, headers);
 }
 

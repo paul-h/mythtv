@@ -200,9 +200,7 @@ class VAAPIDisplay : ReferenceCounter
 
     QString GetDriver(void)
     {
-        QString ret = m_driver;
-        m_driver.detach();
-        return ret;
+        return m_driver;
     }
 
     static VAAPIDisplay *GetDisplay(VAAPIDisplayType display_type, bool noreuse)
@@ -872,9 +870,9 @@ bool VAAPIContext::CopySurfaceToTexture(const void* buf, uint texture,
 
     int field = VA_FRAME_PICTURE;
     if (scan == kScan_Interlaced)
-        field = VA_TOP_FIELD;
-    else if (scan == kScan_Intr2ndField)
         field = VA_BOTTOM_FIELD;
+    else if (scan == kScan_Intr2ndField)
+        field = VA_TOP_FIELD;
 
     m_display->m_x_disp->Lock();
     INIT_ST;

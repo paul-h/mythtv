@@ -14,6 +14,7 @@ using namespace std;
 #include <QLocale>
 
 // MythTV
+#include "mythmiscutil.h"
 #include "scheduledrecording.h"
 #include "mythuibuttonlist.h"
 #include "mythuistatetype.h"
@@ -901,14 +902,14 @@ void ProgLister::FillViewList(const QString &view)
             {
                 QString qphrase = view;
 
-                MSqlQuery query(MSqlQuery::InitCon());
-                query.prepare("REPLACE INTO keyword (phrase, searchtype)"
+                MSqlQuery query2(MSqlQuery::InitCon());
+                query2.prepare("REPLACE INTO keyword (phrase, searchtype)"
                               "VALUES(:VIEW, :SEARCHTYPE );");
-                query.bindValue(":VIEW", qphrase);
-                query.bindValue(":SEARCHTYPE", m_searchType);
-                if (!query.exec())
+                query2.bindValue(":VIEW", qphrase);
+                query2.bindValue(":SEARCHTYPE", m_searchType);
+                if (!query2.exec())
                     MythDB::DBError("ProgLister::FillViewList -- "
-                                    "replace keyword", query);
+                                    "replace keyword", query2);
 
                 m_viewList.push_back(qphrase);
                 m_viewTextList.push_back(qphrase);
@@ -1056,8 +1057,10 @@ class plTitleSort : public plCompare
   public:
     bool operator()(const ProgramInfo *a, const ProgramInfo *b) override // plCompare
     {
-        if (a->sortTitle != b->sortTitle)
-            return (a->sortTitle < b->sortTitle);
+        if (a->GetSortTitle() != b->GetSortTitle())
+            return naturalCompare(a->GetSortTitle(), b->GetSortTitle());
+        if (a->GetSortSubtitle() != b->GetSortSubtitle())
+            return naturalCompare(a->GetSortSubtitle(), b->GetSortSubtitle());
 
         if (a->GetRecordingStatus() == b->GetRecordingStatus())
             return a->GetScheduledStartTime() < b->GetScheduledStartTime();
@@ -1089,8 +1092,10 @@ class plPrevTitleSort : public plCompare
 
     bool operator()(const ProgramInfo *a, const ProgramInfo *b) override // plCompare
     {
-        if (a->sortTitle != b->sortTitle)
-            return (a->sortTitle < b->sortTitle);
+        if (a->GetSortTitle() != b->GetSortTitle())
+            return naturalCompare(a->GetSortTitle(), b->GetSortTitle());
+        if (a->GetSortSubtitle() != b->GetSortSubtitle())
+            return naturalCompare(a->GetSortSubtitle(), b->GetSortSubtitle());
 
         if (a->GetProgramID() != b->GetProgramID())
             return a->GetProgramID() < b->GetProgramID();
@@ -1389,19 +1394,6 @@ void ProgLister::FillItemList(bool restorePosition, bool updateDisp)
         LoadFromProgram(m_itemList, where, bindings, m_schedList);
     }
 
-    const QRegExp prefixes(
-        tr("^(The |A |An )",
-           "Regular Expression for what to ignore when sorting"));
-    for (uint i = 0; i < m_itemList.size(); i++)
-    {
-        ProgramInfo *s = m_itemList[i];
-        if (s)
-        {
-            s->sortTitle = (m_type == plTitle) ? s->GetSubtitle() : s->GetTitle();
-            s->sortTitle.remove(prefixes);
-        }
-    }
-
     if (m_type == plNewListings || m_titleSort)
     {
         SortList(kTitleSort, m_reverseSort);
@@ -1412,9 +1404,9 @@ void ProgLister::FillItemList(bool restorePosition, bool updateDisp)
             ProgramList::iterator it = m_itemList.begin();
             while (it != m_itemList.end())
             {
-                if ((*it)->sortTitle != curtitle)
+                if ((*it)->GetSortTitle() != curtitle)
                 {
-                    curtitle = (*it)->sortTitle;
+                    curtitle = (*it)->GetSortTitle();
                     ++it;
                 }
                 else

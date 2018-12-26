@@ -53,7 +53,6 @@ using namespace std;
 #include "mythsystemevent.h"
 #include "hardwareprofile.h"
 #include "signalhandling.h"
-#include "loggingserver.h"
 
 #include "compat.h"  // For SIG* on MinGW
 #include "exitcodes.h"
@@ -116,12 +115,11 @@ using namespace std;
 #include "bonjourregister.h"
 #endif
 
-static ExitPrompter   *exitPopup = nullptr;
-static MythThemedMenu *menu;
+static ExitPrompter   *g_exitPopup = nullptr;
+static MythThemedMenu *g_menu;
 
-static QString         logfile;
 static MediaRenderer  *g_pUPnp   = nullptr;
-static MythPluginManager *pmanager = nullptr;
+static MythPluginManager *g_pmanager = nullptr;
 
 static void handleExit(bool prompt);
 static void resetAllKeys(void);
@@ -273,8 +271,8 @@ namespace
         MythAirplayServer::Cleanup();
 #endif
 
-        delete exitPopup;
-        exitPopup = nullptr;
+        delete g_exitPopup;
+        g_exitPopup = nullptr;
 
         AudioOutput::Cleanup();
 
@@ -286,10 +284,10 @@ namespace
             g_pUPnp = nullptr;
         }
 
-        if (pmanager)
+        if (g_pmanager)
         {
-            delete pmanager;
-            pmanager = nullptr;
+            delete g_pmanager;
+            g_pmanager = nullptr;
         }
 
         delete gContext;
@@ -1185,10 +1183,10 @@ static void handleExit(bool prompt)
 {
     if (prompt)
     {
-        if (!exitPopup)
-            exitPopup = new ExitPrompter();
+        if (!g_exitPopup)
+            g_exitPopup = new ExitPrompter();
 
-        exitPopup->handleExit();
+        g_exitPopup->handleExit();
     }
     else
         qApp->quit();
@@ -1197,22 +1195,22 @@ static void handleExit(bool prompt)
 static bool RunMenu(QString themedir, QString themename)
 {
     QByteArray tmp = themedir.toLocal8Bit();
-    menu = new MythThemedMenu(QString(tmp.constData()), "mainmenu.xml",
+    g_menu = new MythThemedMenu(QString(tmp.constData()), "mainmenu.xml",
                               GetMythMainWindow()->GetMainStack(), "mainmenu");
 
-    if (menu->foundTheme())
+    if (g_menu->foundTheme())
     {
         LOG(VB_GENERAL, LOG_NOTICE, QString("Found mainmenu.xml for theme '%1'")
                 .arg(themename));
-        menu->setCallback(TVMenuCallback, gContext);
-        GetMythMainWindow()->GetMainStack()->AddScreen(menu);
+        g_menu->setCallback(TVMenuCallback, gContext);
+        GetMythMainWindow()->GetMainStack()->AddScreen(g_menu);
         return true;
     }
 
     LOG(VB_GENERAL, LOG_ERR,
         QString("Couldn't find mainmenu.xml for theme '%1'") .arg(themename));
-    delete menu;
-    menu = nullptr;
+    delete g_menu;
+    g_menu = nullptr;
 
     return false;
 }
@@ -1275,9 +1273,9 @@ static int internal_play_media(const QString &mrl, const QString &plot,
     }
 
     ProgramInfo *pginfo = new ProgramInfo(
-        mrl, plot, title, subtitle, director, season, episode,
-        inetref, lenMins, (year.toUInt()) ? year.toUInt() : 1900,
-        id);
+        mrl, plot, title, QString(), subtitle, QString(),
+        director, season, episode, inetref, lenMins,
+        (year.toUInt()) ? year.toUInt() : 1900, id);
 
     pginfo->SetProgramInfoType(pginfo->DiscoverProgramInfoType());
 
@@ -1361,10 +1359,10 @@ static int internal_play_media(const QString &mrl, const QString &plot,
 static void gotoMainMenu(void)
 {
     // Reset the selected button to the first item.
-    MythThemedMenuState *menu = dynamic_cast<MythThemedMenuState *>
+    MythThemedMenuState *lmenu = dynamic_cast<MythThemedMenuState *>
         (GetMythMainWindow()->GetMainStack()->GetTopScreen());
-    if (menu)
-        menu->m_buttonList->SetItemCurrent(0);
+    if (lmenu)
+        lmenu->m_buttonList->SetItemCurrent(0);
 }
 
 // If the theme specified in the DB is somehow broken, try a standard one:
@@ -1467,9 +1465,9 @@ static int reloadTheme(void)
 
     GetMythUI()->LoadQtConfig();
 
-    if (menu)
+    if (g_menu)
     {
-        menu->Close();
+        g_menu->Close();
     }
 #if CONFIG_DARWIN
     GetMythMainWindow()->Init(gLoaded ? OPENGL2_PAINTER : QT_PAINTER);
@@ -1874,9 +1872,7 @@ int main(int argc, char **argv)
 #ifdef Q_OS_ANDROID
     //QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
 #endif
-#if QT_VERSION >= QT_VERSION_CHECK(5,3,0)
     QApplication::setSetuidAllowed(true);
-#endif
     new QApplication(argc, argv);
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHFRONTEND);
 
@@ -1899,7 +1895,6 @@ int main(int argc, char **argv)
     SignalHandler::Init(signallist);
     SignalHandler::SetHandler(SIGUSR1, handleSIGUSR1);
     SignalHandler::SetHandler(SIGUSR2, handleSIGUSR2);
-    SignalHandler::SetHandler(SIGHUP, logSigHup);
 #endif
 
     int retval;
@@ -1982,9 +1977,7 @@ int main(int argc, char **argv)
         return GENERIC_EXIT_OK;
     }
 
-#if QT_VERSION >= QT_VERSION_CHECK(5,3,0)
     qApp->setSetuidAllowed(true);
-#endif
 
     if (revokeRoot() != 0)
     {
@@ -2088,8 +2081,8 @@ int main(int argc, char **argv)
 
     setHttpProxy();
 
-    pmanager = new MythPluginManager();
-    gCoreContext->SetPluginManager(pmanager);
+    g_pmanager = new MythPluginManager();
+    gCoreContext->SetPluginManager(g_pmanager);
 
     MediaMonitor *mon = MediaMonitor::GetMediaMonitor();
     if (mon)
@@ -2142,12 +2135,12 @@ int main(int argc, char **argv)
 
     if (cmdline.toBool("runplugin"))
     {
-        QStringList plugins = pmanager->EnumeratePlugins();
+        QStringList plugins = g_pmanager->EnumeratePlugins();
 
         if (plugins.contains(cmdline.toString("runplugin")))
-            pmanager->run_plugin(cmdline.toString("runplugin"));
+            g_pmanager->run_plugin(cmdline.toString("runplugin"));
         else if (plugins.contains("myth" + cmdline.toString("runplugin")))
-            pmanager->run_plugin("myth" + cmdline.toString("runplugin"));
+            g_pmanager->run_plugin("myth" + cmdline.toString("runplugin"));
         else
         {
             LOG(VB_GENERAL, LOG_ERR,
@@ -2200,7 +2193,7 @@ int main(int argc, char **argv)
 
     delete sysEventHandler;
 
-    pmanager->DestroyAllPlugins();
+    g_pmanager->DestroyAllPlugins();
 
     if (mon)
         mon->deleteLater();

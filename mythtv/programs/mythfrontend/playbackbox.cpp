@@ -224,17 +224,15 @@ static PlaybackBox::ViewMask m_viewMaskToggle(PlaybackBox::ViewMask mask,
 
 static QString construct_sort_title(
     QString title, PlaybackBox::ViewMask viewmask,
-    PlaybackBox::ViewTitleSort titleSort, int recpriority,
-    const QRegExp &prefixes)
+    PlaybackBox::ViewTitleSort sortType, int recpriority)
 {
     if (title.isEmpty())
         return title;
 
     QString sTitle = title;
 
-    sTitle.remove(prefixes);
     if (viewmask == PlaybackBox::VIEW_TITLES &&
-            titleSort == PlaybackBox::TitleSortRecPriority)
+            sortType == PlaybackBox::TitleSortRecPriority)
     {
         // Also incorporate recpriority (reverse numeric sort). In
         // case different episodes of a recording schedule somehow
@@ -395,7 +393,6 @@ void * PlaybackBox::RunPlaybackBox(void * player, bool showTV)
 PlaybackBox::PlaybackBox(MythScreenStack *parent, QString name,
                          TV *player, bool /*showTV*/)
     : ScheduleCommon(parent, name),
-      m_prefixes(QObject::tr("^(The |A |An )")),
       m_titleChaff(" \\(.*\\)$"),
       // UI variables
       m_recgroupList(nullptr),
@@ -1347,11 +1344,7 @@ void PlaybackBox::UpdateUIRecGroupList(void)
     if (m_recGroupIdx < 0 || !m_recgroupList || m_recGroups.size() < 2)
         return;
 
-#if QT_VERSION < QT_VERSION_CHECK(5,3,0)
-    const bool wasBlocked = m_recgroupList->blockSignals(true);
-#else
     QSignalBlocker blocker(m_recgroupList);
-#endif
 
     m_recgroupList->Reset();
 
@@ -1373,9 +1366,6 @@ void PlaybackBox::UpdateUIRecGroupList(void)
             m_recgroupList->SetItemCurrent(item);
         item->SetText(name);
     }
-#if QT_VERSION < QT_VERSION_CHECK(5,3,0)
-    m_recgroupList->blockSignals(wasBlocked);
-#endif
 }
 
 void PlaybackBox::UpdateUIGroupList(const QStringList &groupPreferences)
@@ -1778,8 +1768,8 @@ bool PlaybackBox::UpdateUILists(void)
             if ((m_viewMask & VIEW_TITLES) && (!isLiveTVProg || isLiveTvGroup))
             {
                 sTitle = construct_sort_title(
-                            p->GetTitle(), m_viewMask, titleSort,
-                            p->GetRecordingPriority(), m_prefixes);
+                            p->GetSortTitle(), m_viewMask, titleSort,
+                            p->GetRecordingPriority());
                 sTitle = sTitle.toLower();
 
                 if (!sortedList.contains(sTitle))
@@ -3211,7 +3201,6 @@ MythMenu* PlaybackBox::createJobMenu()
 
     MythMenu *menu = new MythMenu(title, this, "slotmenu");
 
-    QString jobTitle;
     QString command;
 
     bool add[7] =
