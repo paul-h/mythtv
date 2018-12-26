@@ -32,8 +32,8 @@ class ImportFile : public MythScreenType
 
     ~ImportFile(void);
 
-    bool Create();
-    bool keyPressEvent(QKeyEvent *e);
+    bool Create() override; // MythScreenType
+    bool keyPressEvent(QKeyEvent *e) override; // MythScreenType
 
    signals:
     void haveResult(bool ok);
@@ -56,7 +56,7 @@ class ImportFile : public MythScreenType
     void editorClosed(bool ok, ImportItem *item);
 
   private:
-    void Init(void);
+    void Init(void) override; // MythScreenType
     void updateRecordingList(void);
     void updateSelectedList(void);
     void updateCategorySelector(void);

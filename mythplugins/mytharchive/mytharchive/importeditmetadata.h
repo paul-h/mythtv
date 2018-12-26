@@ -23,8 +23,8 @@ class ImportEditMetadataDialog : public MythScreenType
     ImportEditMetadataDialog(MythScreenStack *parent, ImportItem *sourceImportItem);
     ~ImportEditMetadataDialog();
 
-    bool Create(void);
-    bool keyPressEvent(QKeyEvent *e);
+    bool Create(void) override; // MythScreenType
+    bool keyPressEvent(QKeyEvent *e) override; // MythScreenType
 
   signals:
     void haveResult(bool ok, ImportItem *item);

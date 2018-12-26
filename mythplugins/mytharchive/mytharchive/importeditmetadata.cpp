@@ -13,16 +13,16 @@ ImportEditMetadataDialog::ImportEditMetadataDialog(
     MythScreenStack *parent, ImportItem *sourceImportItem) :
     MythScreenType(parent, "ImportEditMetadataDialog"),
     m_sourceImportItem(sourceImportItem),
-    m_titleEdit(NULL),
-    m_subtitleEdit(NULL),
-    m_descriptionEdit(NULL),
-    m_starttimeEdit(NULL),
-    m_categoryEdit(NULL),
-    m_seasonSpin(NULL),
-    m_episodeSpin(NULL),
-    m_yearSpin(NULL),
-    m_cancelButton(NULL),
-    m_okButton(NULL)
+    m_titleEdit(nullptr),
+    m_subtitleEdit(nullptr),
+    m_descriptionEdit(nullptr),
+    m_starttimeEdit(nullptr),
+    m_categoryEdit(nullptr),
+    m_seasonSpin(nullptr),
+    m_episodeSpin(nullptr),
+    m_yearSpin(nullptr),
+    m_cancelButton(nullptr),
+    m_okButton(nullptr)
 {
 }
 

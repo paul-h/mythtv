@@ -54,7 +54,7 @@ class GetImportRecordingListThread : public MThread
         start();
     }
 
-    virtual void run(void)
+    virtual void run(void) override // MThread
     {
         RunProlog();
         m_parent->getRecordingList();
@@ -73,7 +73,7 @@ class GetImportRecordingThread : public MThread
         start();
     }
 
-    virtual void run(void)
+    virtual void run(void) override // MThread
     {
         RunProlog();
         m_parent->doGetRecording();
@@ -86,16 +86,16 @@ class GetImportRecordingThread : public MThread
 ImportFile::ImportFile(
     MythScreenStack *parent) :
     MythScreenType(parent, "ImportFile"),
-    m_recordingButtonList(NULL),
-    m_okButton(NULL),
-    m_cancelButton(NULL),
-    m_categorySelector(NULL),
-    m_titleText(NULL),
-    m_datetimeText(NULL),
-    m_filesizeText(NULL),
-    m_durationText(NULL),
-    m_descriptionText(NULL),
-    m_previewImage(NULL)
+    m_recordingButtonList(nullptr),
+    m_okButton(nullptr),
+    m_cancelButton(nullptr),
+    m_categorySelector(nullptr),
+    m_titleText(nullptr),
+    m_datetimeText(nullptr),
+    m_filesizeText(nullptr),
+    m_durationText(nullptr),
+    m_descriptionText(nullptr),
+    m_previewImage(nullptr)
 {
 }
 
