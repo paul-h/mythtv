@@ -558,6 +558,11 @@ ExternalStreamHandler::ExternalStreamHandler(const QString & path,
              logPropagateArgs.split(' ', QString::SkipEmptyParts);
     m_app = m_args.first();
     m_args.removeFirst();
+
+    // Pass one (and only one) 'quiet'
+    if (!m_args.contains("--quiet") && !m_args.contains("-q"))
+        m_args << "--quiet";
+
     m_args << "--inputid" << QString::number(majorid);
     LOG(VB_RECORD, LOG_INFO, LOC + QString("args \"%1\"")
         .arg(m_args.join(" ")));
@@ -765,7 +770,7 @@ void ExternalStreamHandler::run(void)
 
         if (len < TS_PACKET_SIZE)
         {
-            if (data_short_err++ == 0)
+            if (m_xon && data_short_err++ == 0)
                 LOG(VB_RECORD, LOG_INFO, LOC + "Waiting for a full TS packet.");
             std::this_thread::sleep_for(std::chrono::microseconds(50));
             continue;
@@ -1167,13 +1172,6 @@ bool ExternalStreamHandler::StopStreaming(void)
 
     QMutexLocker locker(&m_stream_lock);
 
-    if (!m_poll_mode && m_xon)
-    {
-        QString result;
-        ProcessCommand(QString("XOFF"), result);
-        m_xon = false;
-    }
-
     LOG(VB_RECORD, LOG_INFO, LOC +
         QString("StopStreaming %1 listeners")
         .arg(StreamingCount()));
@@ -1194,6 +1192,13 @@ bool ExternalStreamHandler::StopStreaming(void)
     }
 
     LOG(VB_RECORD, LOG_INFO, LOC + "StopStreaming");
+
+    if (!m_poll_mode && m_xon)
+    {
+        QString result;
+        ProcessCommand(QString("XOFF"), result);
+        m_xon = false;
+    }
 
     if (!IsAppOpen())
     {

@@ -1412,7 +1412,7 @@ static HostComboBoxSetting *PlayBoxOrdering()
     for (int i = 0; i < 4; ++i)
         gc->addSelection(str[i], QString::number(i));
 
-    gc->setValue(1);
+    gc->setValue(3);
     gc->setHelpText(help);
 
     return gc;
@@ -2544,6 +2544,22 @@ static HostSpinBoxSetting *StartupScreenDelay()
     gs->setHelpText(AppearanceSettings::tr(
         "The Startup Screen will show the progress of starting the frontend "
         "if frontend startup takes longer than this number of seconds."));
+    return gs;
+}
+
+
+static HostSpinBoxSetting *GUIFontZoom()
+{
+    HostSpinBoxSetting *gs = new HostSpinBoxSetting("GUITEXTZOOM",
+                                                    50, 150, 1, 1);
+
+    gs->setLabel(AppearanceSettings::tr("GUI text zoom percentage"));
+
+    gs->setValue(100);
+
+    gs->setHelpText(AppearanceSettings::tr
+                    ("Adjust the themed defined font size by this percentage. "
+                     "mythfrontend needs restart for this to take effect."));
     return gs;
 }
 
@@ -4549,6 +4565,7 @@ AppearanceSettings::AppearanceSettings()
     screen->addChild(UseFixedWindowSize());
     screen->addChild(AlwaysOnTop());
     screen->addChild(StartupScreenDelay());
+    screen->addChild(GUIFontZoom());
 #ifdef USING_AIRPLAY
     screen->addChild(AirPlayFullScreen());
 #endif

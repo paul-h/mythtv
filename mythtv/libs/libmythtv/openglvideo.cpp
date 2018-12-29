@@ -37,7 +37,7 @@ class OpenGLFilter
  *  (faster CPU->GPU memory transfers).
  *
  *  In the most basic case, for example, a YV12 frame pre-converted in software
- *  to BGRA format is simply blitted to the frame buffer.
+ *  to RGBA format is simply blitted to the frame buffer.
  *  Currently, the most complicated example is the rendering of a standard
  *  definition, interlaced frame to a high(er) definition display using
  *  OpenGL (i.e. hardware based) deinterlacing, colourspace conversion and
@@ -74,7 +74,7 @@ OpenGLVideo::OpenGLVideo() :
     inputUpdated(false),      refsNeeded(0),
     textureRects(false),      textureType(GL_TEXTURE_2D),
     helperTexture(0),         defaultUpsize(kGLFilterResize),
-    gl_features(0),           videoTextureType(GL_BGRA),
+    gl_features(0),           videoTextureType(GL_RGBA),
     preferYCBCR(false)
 {
 }
@@ -181,28 +181,36 @@ bool OpenGLVideo::Init(MythRenderOpenGL *glcontext, VideoColourSpace *colourspac
             "extensions are available.");
     }
 
-    // decide on best video input texture format
-    videoTextureType = GL_BGRA;
-    if (hw_accel)
-        videoTextureType = GL_RGBA;
-    else if ((!shaders || preferYCBCR) && (gl_features & kGLMesaYCbCr))
-        videoTextureType = GL_YCBCR_MESA;
-    else if ((!shaders || preferYCBCR) && (gl_features & kGLAppleYCbCr))
-        videoTextureType = GL_YCBCR_422_APPLE;
-    else if (glsl && fbos && yv12)
-        videoTextureType = MYTHTV_YV12;
-
+    // decide on best video input texture format and supported picture attributes
     // colourspace adjustments require shaders to operate on YUV textures
-    if ((GL_BGRA != videoTextureType) &&
-        (MYTHTV_YV12 != videoTextureType))
+    videoTextureType = GL_RGBA;
+    PictureAttributeSupported pictureattribs = colourSpace->SupportedAttributes();
+
+    if (hw_accel)
     {
-        colourSpace->SetSupportedAttributes(kPictureAttributeSupported_None);
+        // a hardware decoded frame - hopefully this is handled elsewhere
+        pictureattribs = kPictureAttributeSupported_None;
     }
+    else if ((!shaders || preferYCBCR) && (gl_features & kGLMesaYCbCr))
+    {
+        videoTextureType = GL_YCBCR_MESA;
+        pictureattribs = kPictureAttributeSupported_None;
+    }
+    else if ((!shaders || preferYCBCR) && (gl_features & kGLAppleYCbCr))
+    {
+        videoTextureType = GL_YCBCR_422_APPLE;
+        pictureattribs = kPictureAttributeSupported_None;
+    }
+    else if (glsl && fbos && yv12)
+    {
+        videoTextureType = MYTHTV_YV12;
+    }
+    colourSpace->SetSupportedAttributes(pictureattribs);
 
     // turn on bicubic filtering
     if (options.contains("openglbicubic"))
     {
-        if (shaders && fbos)
+        if (shaders && fbos && (gl_features & kGLExtRGBA16))
             defaultUpsize = kGLFilterBicubic;
         else
             LOG(VB_PLAYBACK, LOG_ERR, LOC +
@@ -210,7 +218,7 @@ bool OpenGLVideo::Init(MythRenderOpenGL *glcontext, VideoColourSpace *colourspac
     }
 
     // decide on best input texture type
-    if ((GL_RGBA != videoTextureType) &&
+    if (!hw_accel &&
         (MYTHTV_YV12 != videoTextureType) &&
         (defaultUpsize != kGLFilterBicubic) &&
         (gl_features & kGLExtRect))
@@ -222,21 +230,21 @@ bool OpenGLVideo::Init(MythRenderOpenGL *glcontext, VideoColourSpace *colourspac
     GLuint tex = CreateVideoTexture(video_dim, inputTextureSize);
     bool    ok = false;
 
-    if ((GL_BGRA == videoTextureType))
-        ok = tex && AddFilter(kGLFilterYUV2RGB);
-    else if (MYTHTV_YV12 == videoTextureType)
+    if (MYTHTV_YV12 == videoTextureType)
         ok = tex && AddFilter(kGLFilterYV12RGB);
+    else if (!hw_accel)
+        ok = tex && AddFilter(kGLFilterYUV2RGB);
     else
         ok = tex && AddFilter(kGLFilterResize);
 
     if (ok)
     {
-        if (GL_RGBA == videoTextureType)
-            LOG(VB_GENERAL, LOG_INFO, LOC + "Using raw RGBA input textures.");
+        if (hw_accel)
+            LOG(VB_GENERAL, LOG_INFO, LOC + "Using hardware decoded input textures.");
         else if ((GL_YCBCR_MESA == videoTextureType) ||
                  (GL_YCBCR_422_APPLE == videoTextureType))
             LOG(VB_GENERAL, LOG_INFO, LOC +
-                "Using YCbCr->BGRA input textures.");
+                "Using YCbCr->RGBA input textures.");
         else if (MYTHTV_YV12 == videoTextureType)
             LOG(VB_GENERAL, LOG_INFO, LOC +
                 "Using YV12 input textures.");
@@ -255,12 +263,12 @@ bool OpenGLVideo::Init(MythRenderOpenGL *glcontext, VideoColourSpace *colourspac
                 "Falling back to software conversion.\n\t\t\t"
                 "Any opengl filters will also be disabled.");
 
-        videoTextureType = GL_BGRA;
-        GLuint bgra32tex = CreateVideoTexture(video_dim, inputTextureSize);
+        videoTextureType = GL_RGBA;
+        GLuint rgba32tex = CreateVideoTexture(video_dim, inputTextureSize);
 
-        if (bgra32tex && AddFilter(kGLFilterResize))
+        if (rgba32tex && AddFilter(kGLFilterResize))
         {
-            inputTextures.push_back(bgra32tex);
+            inputTextures.push_back(rgba32tex);
             colourSpace->SetSupportedAttributes(kPictureAttributeSupported_None);
         }
         else
@@ -292,7 +300,7 @@ bool OpenGLVideo::Init(MythRenderOpenGL *glcontext, VideoColourSpace *colourspac
 
 void OpenGLVideo::CheckResize(bool deinterlacing, bool allow)
 {
-    // to improve performance on slower cards
+    // to improve performance on slower cards when deinterlacing
     bool resize_up = ((video_disp_dim.height() < display_video_rect.height()) ||
                      (video_disp_dim.width() < display_video_rect.width())) && allow;
 
@@ -321,9 +329,24 @@ void OpenGLVideo::CheckResize(bool deinterlacing, bool allow)
         return;
     }
 
+    if (!resize_down)
+    {
+        RemoveFilter(kGLFilterResize);
+        filters.erase(kGLFilterResize);
+    }
+
     RemoveFilter(kGLFilterBicubic);
     filters.erase(kGLFilterBicubic);
     OptimiseFilters();
+}
+
+void OpenGLVideo::SetVideoRect(const QRect &dispvidrect, const QRect &vidrect)
+{
+    display_video_rect = dispvidrect;
+    video_rect = vidrect;
+    gl_context->makeCurrent();
+    CheckResize(hardwareDeinterlacing, softwareDeinterlacer.isEmpty() ? true : softwareDeinterlacer != "bobdeint");
+    gl_context->doneCurrent();
 }
 
 /**
@@ -450,7 +473,7 @@ bool OpenGLVideo::AddFilter(OpenGLFilterType filter)
         break;
 
       case kGLFilterBicubic:
-        if (!(gl_features & kGLExtFragProg) || !(gl_features & kGLExtFBufObj))
+        if ((!(gl_features & kGLExtFragProg) && !(gl_features & kGLSL)) || !(gl_features & kGLExtFBufObj))
         {
             LOG(VB_PLAYBACK, LOG_ERR, LOC +
                 "Features not available for bicubic filter.");
@@ -865,7 +888,7 @@ void OpenGLVideo::UpdateInputFrame(const VideoFrame *frame, bool soft_bob)
     {
         // software conversion
         AVFrame img_out;
-        AVPixelFormat out_fmt = AV_PIX_FMT_BGRA;
+        AVPixelFormat out_fmt = AV_PIX_FMT_RGBA;
         if ((GL_YCBCR_MESA == videoTextureType) ||
             (GL_YCBCR_422_APPLE == videoTextureType))
         {
@@ -898,7 +921,11 @@ void OpenGLVideo::SetDeinterlacing(bool deinterlacing)
 void OpenGLVideo::SetSoftwareDeinterlacer(const QString &filter)
 {
     if (softwareDeinterlacer != filter)
+    {
+        gl_context->makeCurrent();
         CheckResize(false, filter != "bobdeint");
+        gl_context->doneCurrent();
+    }
     softwareDeinterlacer = filter;
 }
 
@@ -1200,9 +1227,9 @@ static const QString var_fast =
 "TEMP tmp, res;\n";
 
 static const QString end_fast =
-"DPH tmp.r, res.arbg, yuv[0];\n"
-"DPH tmp.g, res.arbg, yuv[1];\n"
-"DPH tmp.b, res.arbg, yuv[2];\n"
+"DPH tmp.r, res.abrg, yuv[0];\n"
+"DPH tmp.g, res.abrg, yuv[1];\n"
+"DPH tmp.b, res.abrg, yuv[2];\n"
 "MOV tmp.a, 1.0;\n"
 "MOV result.color, tmp;\n";
 
@@ -1299,9 +1326,10 @@ static const QString kerneldeint[2] = {
 
 static const QString bicubic =
 "TEMP coord, coord2, cdelta, parmx, parmy, a, b, c, d;\n"
-"MAD coord.xy, fragment.texcoord[0], {%6, %7}, {0.5, 0.5};\n"
-"TEX parmx, coord.x, texture[1], 1D;\n"
-"TEX parmy, coord.y, texture[1], 1D;\n"
+"MAD coord.xy, fragment.texcoord[0], {%6, 0.0}, {0.5, 0.5};\n"
+"MAD coord2.xy, fragment.texcoord[0], {0.0, %7}, {0.5, 0.5};\n"
+"TEX parmx, coord.xy, texture[1], 2D;\n"
+"TEX parmy, coord2.yx, texture[1], 2D;\n"
 "MUL cdelta.xz, parmx.rrgg, {-%5, 0, %5, 0};\n"
 "MUL cdelta.yw, parmy.rrgg, {0, -%3, 0, %3};\n"
 "ADD coord, fragment.texcoord[0].xyxy, cdelta.xyxw;\n"
@@ -1453,7 +1481,7 @@ static const QString YUV2RGBFragmentShader =
 "void main(void)\n"
 "{\n"
 "    vec4 yuva    = GLSL_TEXTURE(s_texture0, v_texcoord0);\n"
-"    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
+"    gl_FragColor = vec4(yuva.abr, 1.0) * COLOUR_UNIFORM;\n"
 "}\n";
 
 static const QString OneFieldShader[2] = {
@@ -1466,7 +1494,7 @@ static const QString OneFieldShader[2] = {
 "    float field = v_texcoord0.y + (step(0.5, fract(v_texcoord0.y * %2)) * %3);\n"
 "    field       = clamp(field, 0.0, %9);\n"
 "    vec4 yuva   = GLSL_TEXTURE(s_texture0, vec2(v_texcoord0.x, field));\n"
-"    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
+"    gl_FragColor = vec4(yuva.abr, 1.0) * COLOUR_UNIFORM;\n"
 "}\n",
 
 "GLSL_DEFINES"
@@ -1477,7 +1505,7 @@ static const QString OneFieldShader[2] = {
 "{\n"
 "    vec2 field   = vec2(0.0, step(0.5, 1.0 - fract(v_texcoord0.y * %2)) * %3);\n"
 "    vec4 yuva    = GLSL_TEXTURE(s_texture0, v_texcoord0 + field);\n"
-"    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
+"    gl_FragColor = vec4(yuva.abr, 1.0) * COLOUR_UNIFORM;\n"
 "}\n"
 };
 
@@ -1495,7 +1523,7 @@ static const QString LinearBlendShader[2] = {
 "    vec4 below = GLSL_TEXTURE(s_texture0, v_texcoord0 - line);\n"
 "    if (fract(v_texcoord0.y * %2) >= 0.5)\n"
 "        yuva = mix(above, below, 0.5);\n"
-"    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
+"    gl_FragColor = vec4(yuva.abr, 1.0) * COLOUR_UNIFORM;\n"
 "}\n",
 
 "GLSL_DEFINES"
@@ -1510,7 +1538,7 @@ static const QString LinearBlendShader[2] = {
 "    vec4 below = GLSL_TEXTURE(s_texture0, v_texcoord0 - line);\n"
 "    if (fract(v_texcoord0.y * %2) < 0.5)\n"
 "        yuva = mix(above, below, 0.5);\n"
-"    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
+"    gl_FragColor = vec4(yuva.abr, 1.0) * COLOUR_UNIFORM;\n"
 "}\n"
 };
 
@@ -1544,7 +1572,7 @@ static const QString KernelShader[2] = {
 "        yuva = (line00 * -0.0625) + yuva;\n"
 "        yuva = (line40 * -0.0625) + yuva;\n"
 "    }\n"
-"    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
+"    gl_FragColor = vec4(yuva.abr, 1.0) * COLOUR_UNIFORM;\n"
 "}\n",
 
 "GLSL_DEFINES"
@@ -1575,20 +1603,20 @@ static const QString KernelShader[2] = {
 "        yuva = (line00 * -0.0625) + yuva;\n"
 "        yuva = (line40 * -0.0625) + yuva;\n"
 "    }\n"
-"    gl_FragColor = vec4(yuva.arb, 1.0) * COLOUR_UNIFORM;\n"
+"    gl_FragColor = vec4(yuva.abr, 1.0) * COLOUR_UNIFORM;\n"
 "}\n"
 };
 
 static const QString BicubicShader =
 "GLSL_DEFINES"
 "uniform sampler2D s_texture0;\n"
-"uniform sampler1D s_texture1;\n"
+"uniform sampler2D s_texture1;\n"
 "varying vec2 v_texcoord0;\n"
 "void main(void)\n"
 "{\n"
 "    vec2 coord = (v_texcoord0 * vec2(%6, %7)) - vec2(0.5, 0.5);\n"
-"    vec4 parmx = texture1D(s_texture1, coord.x);\n"
-"    vec4 parmy = texture1D(s_texture1, coord.y);\n"
+"    vec4 parmx = texture2D(s_texture1, vec2(coord.x, 0.0));\n"
+"    vec4 parmy = texture2D(s_texture1, vec2(coord.y, 0.0));\n"
 "    vec2 e_x = vec2(%5, 0.0);\n"
 "    vec2 e_y = vec2(0.0, %3);\n"
 "    vec2 coord10 = v_texcoord0 + parmx.x * e_x;\n"

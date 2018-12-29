@@ -603,6 +603,45 @@ uint MythRenderOpenGL::CreateTexture(QSize act_size, bool use_pbo,
     return tex;
 }
 
+uint MythRenderOpenGL::CreateHelperTexture(void)
+{
+    makeCurrent();
+
+    uint width = m_max_tex_size;
+    uint tmp_tex = CreateTexture(QSize(width, 1), false,
+                                 GL_TEXTURE_2D, GL_FLOAT, GL_RGBA,
+                                 GL_RGBA16, GL_NEAREST, GL_REPEAT);
+
+    if (!tmp_tex)
+    {
+        DeleteTexture(tmp_tex);
+        return 0;
+    }
+
+    float *buf = nullptr;
+    buf = new float[m_textures[tmp_tex].m_data_size];
+    float *ref = buf;
+
+    for (uint i = 0; i < width; i++)
+    {
+        float x = (((float)i) + 0.5f) / (float)width;
+        StoreBicubicWeights(x, ref);
+        ref += 4;
+    }
+    StoreBicubicWeights(0, buf);
+    StoreBicubicWeights(1, &buf[(width - 1) << 2]);
+
+    EnableTextures(tmp_tex);
+    glBindTexture(m_textures[tmp_tex].m_type, tmp_tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16, width, 1, 0, GL_RGBA, GL_FLOAT, buf);
+
+    LOG(VB_PLAYBACK, LOG_INFO, LOC +
+        QString("Created bicubic helper texture (%1 samples)") .arg(width));
+    delete [] buf;
+    doneCurrent();
+    return tmp_tex;
+}
+
 QSize MythRenderOpenGL::GetTextureSize(uint type, const QSize &size)
 {
     if (IsRectTexture(type))
@@ -668,8 +707,7 @@ void MythRenderOpenGL::SetTextureFilters(uint tex, uint filt, uint wrap)
     glTexParameteri(type, GL_TEXTURE_MIN_FILTER, filt);
     glTexParameteri(type, GL_TEXTURE_MAG_FILTER, mag_filt);
     glTexParameteri(type, GL_TEXTURE_WRAP_S, wrap);
-    if (type != GL_TEXTURE_1D)
-        glTexParameteri(type, GL_TEXTURE_WRAP_T, wrap);
+    glTexParameteri(type, GL_TEXTURE_WRAP_T, wrap);
     doneCurrent();
 }
 
@@ -949,8 +987,6 @@ void MythRenderOpenGL::InitProcs(void)
 {
     m_extensions = (reinterpret_cast<const char *>(glGetString(GL_EXTENSIONS)));
 
-    m_glTexImage1D = (MYTH_GLTEXIMAGE1DPROC)
-        GetProcAddress("glTexImage1D");
     m_glActiveTexture = (MYTH_GLACTIVETEXTUREPROC)
         GetProcAddress("glActiveTexture");
     m_glMapBuffer = (MYTH_GLMAPBUFFERPROC)
@@ -1028,6 +1064,7 @@ bool MythRenderOpenGL::InitFeatures(void)
     static bool fences        = true;
     static bool ycbcrtextures = true;
     static bool mipmapping    = true;
+    static bool rgba16        = true;
     static bool check         = true;
 
     if (check)
@@ -1041,6 +1078,7 @@ bool MythRenderOpenGL::InitFeatures(void)
         fences        = !getenv("OPENGL_NOFENCE");
         ycbcrtextures = !getenv("OPENGL_NOYCBCR");
         mipmapping    = !getenv("OPENGL_NOMIPMAP");
+        rgba16        = !getenv("OPENGL_NORGBA16");
         if (!multitexture)
             LOG(VB_GENERAL, LOG_INFO, LOC + "Disabling multi-texturing.");
         if (!vertexarrays)
@@ -1057,6 +1095,8 @@ bool MythRenderOpenGL::InitFeatures(void)
             LOG(VB_GENERAL, LOG_INFO, LOC + "Disabling YCbCr textures.");
         if (!mipmapping)
             LOG(VB_GENERAL, LOG_INFO, LOC + "Disabling mipmapping.");
+        if (!rgba16)
+            LOG(VB_GENERAL, LOG_INFO, LOC + "Disabling RGBA16 textures");
     }
 
     GLint maxtexsz = 0;
@@ -1071,6 +1111,10 @@ bool MythRenderOpenGL::InitFeatures(void)
     m_default_texture_type = GetTextureType(rects);
     if (rects)
         m_exts_supported += kGLExtRect;
+
+    // GL 1.1
+    if (rgba16)
+        m_exts_supported += kGLExtRGBA16;
 
     if (m_extensions.contains("GL_ARB_multitexture") &&
         m_glActiveTexture && multitexture)
@@ -1191,7 +1235,6 @@ void MythRenderOpenGL::ResetProcs(void)
 {
     m_extensions = QString();
 
-    m_glTexImage1D = nullptr;
     m_glActiveTexture = nullptr;
     m_glMapBuffer = nullptr;
     m_glBindBuffer = nullptr;
@@ -1510,19 +1553,9 @@ bool MythRenderOpenGL::ClearTexture(uint tex)
 
     memset(scratch, 0, tmp_size);
 
-    if ((m_textures[tex].m_type == GL_TEXTURE_1D) && m_glTexImage1D)
-    {
-        m_glTexImage1D(m_textures[tex].m_type, 0,
-                       m_textures[tex].m_internal_fmt,
-                       size.width(), 0, m_textures[tex].m_data_fmt,
-                       m_textures[tex].m_data_type, scratch);
-    }
-    else
-    {
-        glTexImage2D(m_textures[tex].m_type, 0, m_textures[tex].m_internal_fmt,
-                     size.width(), size.height(), 0, m_textures[tex].m_data_fmt,
-                     m_textures[tex].m_data_type, scratch);
-    }
+    glTexImage2D(m_textures[tex].m_type, 0, m_textures[tex].m_internal_fmt,
+                 size.width(), size.height(), 0, m_textures[tex].m_data_fmt,
+                 m_textures[tex].m_data_type, scratch);
     delete [] scratch;
 
     if (glCheck())
@@ -1540,11 +1573,7 @@ uint MythRenderOpenGL::GetBufferSize(QSize size, uint fmt, uint type)
     uint bytes;
     uint bpp;
 
-    if (fmt == GL_BGRA
-#if GL_BGRA != GL_RGBA
-        || fmt ==GL_RGBA
-#endif
-        )
+    if (fmt ==GL_RGBA)
     {
         bpp = 4;
     }
