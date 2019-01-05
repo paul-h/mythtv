@@ -1397,7 +1397,8 @@ bool NativeArchive::importMagewellFile(const ImportItem &importItem)
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Duration: %1").arg(time));
 
     // record the raw hdmi output to huffyuv
-    QString recCommand = QString("mythffmpeg -f alsa -ac 2 -i hw:1,0 -f v4l2 -i /dev/video0 -r %1 -s 1920x1080 -t %2 "
+    QString recCommand = QString("mythffmpeg -f alsa -thread_queue_size 512 -ac 2 -i hw:1,0 "
+                                 "-f v4l2 -thread_queue_size 512 -i /dev/video0 -r %1 -s 1920x1080 -t %2 "
                                  "-vcodec huffyuv -aspect 16:9 -acodec copy -f nut -y %3")
                               .arg(FPS).arg(time).arg(videoFile);
 
@@ -1413,7 +1414,7 @@ bool NativeArchive::importMagewellFile(const ImportItem &importItem)
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting reencoding at %1").arg(QDateTime::currentDateTime().toString()));
 
     QString ffmpegFile = getTempDirectory() + "work/video.mp4";
-    QString ffmpgCommand = QString("mythffmpeg -y -i %1 %2").arg(videoFile).arg(ffmpegFile);
+    QString ffmpgCommand = QString("mythffmpeg -y -c:v libx264 -preset slow -crf 22 -i %1 %2").arg(videoFile).arg(ffmpegFile);
 
     QScopedPointer<MythSystem> cmd3(MythSystem::Create(ffmpgCommand, kMSRunShell));
     cmd3->Wait(0);
@@ -1502,7 +1503,7 @@ bool NativeArchive::importMagewellFile(const ImportItem &importItem)
 
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Copying video file to %1").arg(saveFilename));
 
-    bool result = copyFile(videoFile, saveFilename);
+    bool result = copyFile(ffmpegFile, saveFilename);
     if (!result)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("Failed to copy video file to %1").arg(saveFilename));
