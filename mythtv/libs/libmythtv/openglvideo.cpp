@@ -75,8 +75,9 @@ OpenGLVideo::OpenGLVideo() :
     textureRects(false),      textureType(GL_TEXTURE_2D),
     helperTexture(0),         defaultUpsize(kGLFilterResize),
     gl_features(0),           videoTextureType(GL_RGBA),
-    preferYCBCR(false)
+    preferYCBCR(false),       forceResize(false)
 {
+    forceResize = gCoreContext->GetBoolSetting("OpenGLExtraStage", false);
 }
 
 OpenGLVideo::~OpenGLVideo()
@@ -95,10 +96,7 @@ void OpenGLVideo::Teardown(void)
     DeleteTextures(&referenceTextures);
 
     while (!filters.empty())
-    {
         RemoveFilter(filters.begin()->first);
-        filters.erase(filters.begin());
-    }
 }
 
 /**
@@ -157,7 +155,7 @@ bool OpenGLVideo::Init(MythRenderOpenGL *glcontext, VideoColourSpace *colourspac
     if (viewportControl)
         gl_context->SetFence();
 
-    SetViewPort(display_visible_rect.size());
+    SetViewPort(masterViewportSize);
 
     bool glsl    = gl_features & kGLSL;
     bool shaders = glsl || (gl_features & kGLExtFragProg);
@@ -217,11 +215,10 @@ bool OpenGLVideo::Init(MythRenderOpenGL *glcontext, VideoColourSpace *colourspac
                 "No OpenGL feature support for Bicubic filter.");
     }
 
-    // decide on best input texture type
-    if (!hw_accel &&
-        (MYTHTV_YV12 != videoTextureType) &&
-        (defaultUpsize != kGLFilterBicubic) &&
-        (gl_features & kGLExtRect))
+    // decide on best input texture type - GLX surfaces (for VAAPI) and the
+    // bicubic filter do not work with rectangular textures
+    if (!hw_accel && (MYTHTV_YV12 != videoTextureType) &&
+        (defaultUpsize != kGLFilterBicubic) && (gl_features & kGLExtRect))
     {
         textureType = gl_context->GetTextureType(textureRects);
     }
@@ -280,16 +277,19 @@ bool OpenGLVideo::Init(MythRenderOpenGL *glcontext, VideoColourSpace *colourspac
     }
 
     bool mmx = false;
+    bool neon = false;
 #ifdef MMX
     // cppcheck-suppress redundantAssignment
     mmx = true;
 #endif
+#ifdef HAVE_NEON
+    neon = true;
+#endif
 
     CheckResize(false);
-
-    LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("MMX: %1 PBO: %2")
-            .arg(mmx).arg((gl_features & kGLExtPBufObj) > 0));
-
+    LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("MMX: %1 NEON: %2 PBO: %3 ForceResize: %4 Rects: %5")
+            .arg(mmx).arg(neon).arg((gl_features & kGLExtPBufObj) > 0)
+            .arg(forceResize).arg(textureType != GL_TEXTURE_2D));
     return true;
 }
 
@@ -309,39 +309,34 @@ void OpenGLVideo::CheckResize(bool deinterlacing, bool allow)
                         deinterlacing && allow;
 
     // Extra stage needed on Fire Stick 4k, maybe others, because of blank screen when playing.
-    resize_down |= gCoreContext->GetBoolSetting("OpenGLExtraStage", false);
+    resize_down |= forceResize;
 
     if (resize_up && (defaultUpsize == kGLFilterBicubic))
     {
         RemoveFilter(kGLFilterResize);
-        filters.erase(kGLFilterResize);
         AddFilter(kGLFilterBicubic);
-        OptimiseFilters();
         return;
     }
 
     if ((resize_up && (defaultUpsize == kGLFilterResize)) || resize_down)
     {
         RemoveFilter(kGLFilterBicubic);
-        filters.erase(kGLFilterBicubic);
         AddFilter(kGLFilterResize);
-        OptimiseFilters();
         return;
     }
 
     if (!resize_down)
-    {
         RemoveFilter(kGLFilterResize);
-        filters.erase(kGLFilterResize);
-    }
 
     RemoveFilter(kGLFilterBicubic);
-    filters.erase(kGLFilterBicubic);
     OptimiseFilters();
 }
 
 void OpenGLVideo::SetVideoRect(const QRect &dispvidrect, const QRect &vidrect)
 {
+    if (vidrect == video_rect && dispvidrect == display_video_rect)
+        return;
+
     display_video_rect = dispvidrect;
     video_rect = vidrect;
     gl_context->makeCurrent();
@@ -544,8 +539,7 @@ bool OpenGLVideo::AddFilter(OpenGLFilterType filter)
     if (!success)
     {
         RemoveFilter(filter);
-        filters.erase(filter);
-        delete temp; // If temp wasn't added to the filter list, we need to delete
+        delete temp;
         return false;
     }
 
@@ -576,8 +570,7 @@ bool OpenGLVideo::RemoveFilter(OpenGLFilterType filter)
     DeleteTextures(&(filters[filter]->frameBufferTextures));
 
     delete filters[filter];
-    filters[filter] = nullptr;
-
+    filters.erase(filter);
     return true;
 }
 
@@ -1430,6 +1423,9 @@ void OpenGLVideo::CustomiseProgramString(QString &string)
     float lineHeight = 1.0f;
     float colWidth   = 1.0f;
     float yselect    = 1.0f;
+    float maxwidth   = inputTextureSize.width();
+    float maxheight  = inputTextureSize.height();
+    float yv12height = video_dim.height();
     QSize fb_size = GetTextureSize(video_disp_dim);
 
     if (!textureRects &&
@@ -1438,10 +1434,11 @@ void OpenGLVideo::CustomiseProgramString(QString &string)
         lineHeight /= inputTextureSize.height();
         colWidth   /= inputTextureSize.width();
         yselect    /= ((float)inputTextureSize.width() / 2.0f);
+        maxwidth    = video_dim.width()  / (float)inputTextureSize.width();
+        maxheight   = video_dim.height() / (float)inputTextureSize.height();
+        yv12height  = maxheight;
     }
 
-    float maxheight  = (float)(min(inputTextureSize.height(), 2160) - 1) *
-                       lineHeight;
     float fieldSize = 1.0f / (lineHeight * 2.0f);
 
     string.replace("%2", QString::number(fieldSize, 'f', 8));
@@ -1451,14 +1448,9 @@ void OpenGLVideo::CustomiseProgramString(QString &string)
     string.replace("%6", QString::number((float)fb_size.width(), 'f', 1));
     string.replace("%7", QString::number((float)fb_size.height(), 'f', 1));
     string.replace("%8", QString::number(1.0f / yselect, 'f', 8));
-    string.replace("%9", QString::number(maxheight, 'f', 8));
-
-    float width = float(video_dim.width()) / inputTextureSize.width();
-    string.replace("%WIDTH%", QString::number(width, 'f', 8));
-
-    float height = float(video_dim.height()) / inputTextureSize.height();
-    string.replace("%HEIGHT%", QString::number(height, 'f', 8));
-
+    string.replace("%9", QString::number(maxheight - lineHeight, 'f', 8));
+    string.replace("%WIDTH%", QString::number(maxwidth, 'f', 8));
+    string.replace("%HEIGHT%", QString::number(yv12height, 'f', 8));
     string.replace("COLOUR_UNIFORM", COLOUR_UNIFORM);
 }
 
@@ -1516,11 +1508,9 @@ static const QString LinearBlendShader[2] = {
 "varying vec2 v_texcoord0;\n"
 "void main(void)\n"
 "{\n"
-"    vec2 line  = vec2(0.0, %3);\n"
-"    vec2 line2 = vec2(v_texcoord0.x, clamp(v_texcoord0.y + %3, 0.0, %9));\n"
 "    vec4 yuva  = GLSL_TEXTURE(s_texture0, v_texcoord0);\n"
-"    vec4 above = GLSL_TEXTURE(s_texture0, line2);\n"
-"    vec4 below = GLSL_TEXTURE(s_texture0, v_texcoord0 - line);\n"
+"    vec4 above = GLSL_TEXTURE(s_texture0, vec2(v_texcoord0.x, min(v_texcoord0.y + %3, %9)));\n"
+"    vec4 below = GLSL_TEXTURE(s_texture0, vec2(v_texcoord0.x, max(v_texcoord0.y - %3, %3)));\n"
 "    if (fract(v_texcoord0.y * %2) >= 0.5)\n"
 "        yuva = mix(above, below, 0.5);\n"
 "    gl_FragColor = vec4(yuva.abr, 1.0) * COLOUR_UNIFORM;\n"
@@ -1532,10 +1522,9 @@ static const QString LinearBlendShader[2] = {
 "varying vec2 v_texcoord0;\n"
 "void main(void)\n"
 "{\n"
-"    vec2 line  = vec2(0.0, %3);\n"
 "    vec4 yuva  = GLSL_TEXTURE(s_texture0, v_texcoord0);\n"
-"    vec4 above = GLSL_TEXTURE(s_texture0, v_texcoord0 + line);\n"
-"    vec4 below = GLSL_TEXTURE(s_texture0, v_texcoord0 - line);\n"
+"    vec4 above = GLSL_TEXTURE(s_texture0, vec2(v_texcoord0.x, min(v_texcoord0.y + %3, %9)));\n"
+"    vec4 below = GLSL_TEXTURE(s_texture0, vec2(v_texcoord0.x, max(v_texcoord0.y - %3, %3)));\n"
 "    if (fract(v_texcoord0.y * %2) < 0.5)\n"
 "        yuva = mix(above, below, 0.5);\n"
 "    gl_FragColor = vec4(yuva.abr, 1.0) * COLOUR_UNIFORM;\n"
@@ -1550,14 +1539,15 @@ static const QString KernelShader[2] = {
 "varying vec2 v_texcoord0;\n"
 "void main(void)\n"
 "{\n"
-"    vec4 yuva    = GLSL_TEXTURE(s_texture1, v_texcoord0);\n"
+"    vec4 yuva = GLSL_TEXTURE(s_texture1, v_texcoord0);\n"
 "    if (fract(v_texcoord0.y * %2) >= 0.5)\n"
 "    {\n"
-"        vec2 twoup   = v_texcoord0 - vec2(0.0, %4);\n"
-"        vec2 twodown = v_texcoord0 + vec2(0.0, %4);\n"
-"        vec2 onedown = vec2(v_texcoord0.x, clamp(v_texcoord0.y + %3, 0.0, %9));\n"
+"        vec2 oneup   = vec2(v_texcoord0.x, max(v_texcoord0.y - %3, %3));\n"
+"        vec2 twoup   = vec2(v_texcoord0.x, max(v_texcoord0.y - %4, %3));\n"
+"        vec2 onedown = vec2(v_texcoord0.x, min(v_texcoord0.y + %3, %9));\n"
+"        vec2 twodown = vec2(v_texcoord0.x, min(v_texcoord0.y + %4, %9));\n"
 "        vec4 line0   = GLSL_TEXTURE(s_texture1, twoup);\n"
-"        vec4 line1   = GLSL_TEXTURE(s_texture1, v_texcoord0 - vec2(0.0, %3));\n"
+"        vec4 line1   = GLSL_TEXTURE(s_texture1, oneup);\n"
 "        vec4 line3   = GLSL_TEXTURE(s_texture1, onedown);\n"
 "        vec4 line4   = GLSL_TEXTURE(s_texture1, twodown);\n"
 "        vec4 line00  = GLSL_TEXTURE(s_texture2, twoup);\n"
@@ -1582,14 +1572,16 @@ static const QString KernelShader[2] = {
 "varying vec2 v_texcoord0;\n"
 "void main(void)\n"
 "{\n"
-"    vec4 yuva    = GLSL_TEXTURE(s_texture1, v_texcoord0);\n"
+"    vec4 yuva = GLSL_TEXTURE(s_texture1, v_texcoord0);\n"
 "    if (fract(v_texcoord0.y * %2) < 0.5)\n"
 "    {\n"
-"        vec2 twoup   = v_texcoord0 - vec2(0.0, %4);\n"
-"        vec2 twodown = v_texcoord0 + vec2(0.0, %4);\n"
+"        vec2 oneup   = vec2(v_texcoord0.x, max(v_texcoord0.y - %3, %3));\n"
+"        vec2 twoup   = vec2(v_texcoord0.x, max(v_texcoord0.y - %4, %3));\n"
+"        vec2 onedown = vec2(v_texcoord0.x, min(v_texcoord0.y + %3, %9));\n"
+"        vec2 twodown = vec2(v_texcoord0.x, min(v_texcoord0.y + %4, %9));\n"
 "        vec4 line0   = GLSL_TEXTURE(s_texture1, twoup);\n"
-"        vec4 line1   = GLSL_TEXTURE(s_texture1, v_texcoord0 - vec2(0.0, %3));\n"
-"        vec4 line3   = GLSL_TEXTURE(s_texture1, v_texcoord0 + vec2(0.0, %3));\n"
+"        vec4 line1   = GLSL_TEXTURE(s_texture1, oneup);\n"
+"        vec4 line3   = GLSL_TEXTURE(s_texture1, onedown);\n"
 "        vec4 line4   = GLSL_TEXTURE(s_texture1, twodown);\n"
 "        vec4 line00  = GLSL_TEXTURE(s_texture0, twoup);\n"
 "        vec4 line20  = GLSL_TEXTURE(s_texture0, v_texcoord0);\n"
@@ -1687,34 +1679,31 @@ SAMPLEYVU
 "    gl_FragColor = vec4(yvu, 1.0) * COLOUR_UNIFORM;\n"
 "}\n";
 
-static const QString YV12RGBOneFieldVertexShader[2] = {
-"//YV12RGBOneFieldVertexShader 1\n"
+static const QString YV12RGBOneFieldFragmentShader[2] = {
+"//YV12RGBOneFieldFragmentShader 1\n"
 "GLSL_DEFINES"
-"attribute vec2 a_position;\n"
-"attribute vec2 a_texcoord0;\n"
-"varying   vec2 v_texcoord0;\n"
-"uniform   mat4 u_projection;\n"
-"void main() {\n"
-"    gl_Position = u_projection * vec4(a_position, 0.0, 1.0);\n"
-"    v_texcoord0 = a_texcoord0;\n"
-"    if (fract(v_texcoord0.t * %2) >= 0.5)\n"
-"        v_texcoord0.t -= %3;\n"
+"uniform GLSL_SAMPLER s_texture0;\n"
+"uniform mat4 COLOUR_UNIFORM;\n"
+"varying vec2 v_texcoord0;\n"
+SAMPLEYVU
+"void main(void)\n"
+"{\n"
+"    float field  = min(v_texcoord0.y + (step(0.5, fract(v_texcoord0.y * %2))) * %3, %HEIGHT% - %3);\n"
+"    vec3 yvu     = sampleYVU(s_texture0, vec2(v_texcoord0.x, field));\n"
+"    gl_FragColor = vec4(yvu, 1.0) * COLOUR_UNIFORM;\n"
 "}\n",
 
-"//YV12RGBOneFieldVertexShader 2\n"
+"//YV12RGBOneFieldFragmentShader 2\n"
 "GLSL_DEFINES"
-"attribute vec2 a_position;\n"
-"attribute vec2 a_texcoord0;\n"
-"varying   vec2 v_texcoord0;\n"
-"uniform   mat4 u_projection;\n"
-"void main() {\n"
-"    gl_Position = u_projection * vec4(a_position, 0.0, 1.0);\n"
-"    v_texcoord0 = a_texcoord0;\n"
-"    if (fract(v_texcoord0.t * %2) < 0.5)\n"
-"    {\n"
-"        v_texcoord0.t += %3;\n"
-"        v_texcoord0.t = min(v_texcoord0.t, %HEIGHT% - %3);\n"
-"    }\n"
+"uniform GLSL_SAMPLER s_texture0;\n"
+"uniform mat4 COLOUR_UNIFORM;\n"
+"varying vec2 v_texcoord0;\n"
+SAMPLEYVU
+"void main(void)\n"
+"{\n"
+"    float field  = max(v_texcoord0.y + (step(0.5, 1.0 - fract(v_texcoord0.y * %2))) * %3, 0.0);\n"
+"    vec3 yvu     = sampleYVU(s_texture0, vec2(v_texcoord0.x, field));\n"
+"    gl_FragColor = vec4(yvu, 1.0) * COLOUR_UNIFORM;\n"
 "}\n"
 };
 
@@ -1836,28 +1825,15 @@ void OpenGLVideo::GetProgramStrings(QString &vertex, QString &fragment,
             break;
         }
         case kGLFilterYV12RGB:
+            vertex = YV12RGBVertexShader;
             if (deint == "openglonefield" || deint == "openglbobdeint")
-            {
-                vertex = YV12RGBOneFieldVertexShader[bottom];
-                fragment = YV12RGBFragmentShader;
-            }
-            else if (deint == "opengllinearblend" ||
-                     deint == "opengldoubleratelinearblend")
-            {
-                vertex = YV12RGBVertexShader;
+                fragment = YV12RGBOneFieldFragmentShader[bottom];
+            else if (deint == "opengllinearblend" || deint == "opengldoubleratelinearblend")
                 fragment = YV12RGBLinearBlendFragmentShader[bottom];
-            }
-            else if (deint == "openglkerneldeint" ||
-                     deint == "opengldoubleratekerneldeint")
-            {
-                vertex = YV12RGBVertexShader;
+            else if (deint == "openglkerneldeint" || deint == "opengldoubleratekerneldeint")
                 fragment = YV12RGBKernelShader[bottom];
-            }
             else
-            {
-                vertex = YV12RGBVertexShader;
                 fragment = YV12RGBFragmentShader;
-            }
             break;
         case kGLFilterNone:
             break;

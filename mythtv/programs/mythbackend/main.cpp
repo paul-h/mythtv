@@ -1,3 +1,8 @@
+#include "mythconfig.h"
+#if CONFIG_SYSTEMD_NOTIFY
+    #include <systemd/sd-daemon.h>
+#endif
+
 #include <csignal> // for signal
 #include <cstdlib>
 
@@ -28,6 +33,7 @@
 #include "mythmiscutil.h"
 #include "storagegroup.h"
 #include "mediaserver.h"
+#include "loggingserver.h"
 #include "mythlogging.h"
 #include "mythversion.h"
 #include "programinfo.h"
@@ -120,8 +126,12 @@ int main(int argc, char **argv)
     signallist << SIGRTMIN;
 #endif
     SignalHandler::Init(signallist);
+    SignalHandler::SetHandler(SIGHUP, logSigHup);
 #endif
 
+#if CONFIG_SYSTEMD_NOTIFY
+    (void)sd_notify(0, "STATUS=Connecting to databse.");
+#endif
     gContext = new MythContext(MYTH_BINARY_VERSION);
     if (!gContext->Init(false))
     {

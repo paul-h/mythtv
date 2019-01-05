@@ -39,7 +39,7 @@ class MPUBLIC StandardSetting : public QObject, public StorageUser
     QString getName(void) const { return m_name; }
     StandardSetting * byName(const QString &name);
 
-    bool isVisible(void) const { return m_visible; };
+    bool isVisible(void) const { return m_visible; }
     bool isEnabled() const { return m_enabled; }
     bool haveChanged();
     void setChanged(bool changed);
@@ -96,6 +96,7 @@ class MPUBLIC StandardSetting : public QObject, public StorageUser
     void valueChanged(StandardSetting *);
     void ShouldRedraw(StandardSetting *);
     void settingsChanged(StandardSetting *selectedSetting = nullptr);
+    void ChangeSaved();
 
   protected:
     explicit StandardSetting(Storage *_storage = nullptr);
@@ -264,6 +265,30 @@ class MPUBLIC HostTimeBoxSetting : public HostComboBoxSetting
                        const QString &defaultTime = "00:00",
                        const int interval = 1) :
         HostComboBoxSetting(name, false)
+    {
+        int hour;
+        int minute;
+        QString timeStr;
+
+        for (hour = 0; hour < 24; hour++)
+        {
+            for (minute = 0; minute < 60; minute += interval)
+            {
+                timeStr = timeStr.sprintf("%02d:%02d", hour, minute);
+                addSelection(timeStr, timeStr,
+                             timeStr == defaultTime);
+            }
+        }
+    }
+};
+
+class MPUBLIC GlobalTimeBoxSetting : public GlobalComboBoxSetting
+{
+  public:
+    GlobalTimeBoxSetting(const QString &name,
+                       const QString &defaultTime = "00:00",
+                       const int interval = 1) :
+        GlobalComboBoxSetting(name, false)
     {
         int hour;
         int minute;
