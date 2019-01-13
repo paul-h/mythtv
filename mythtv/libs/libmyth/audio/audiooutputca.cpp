@@ -990,7 +990,7 @@ int *CoreAudioData::RatesList(AudioDeviceID d)
     return finallist;
 }
 
-bool *CoreAudioData::ChannelsList(AudioDeviceID d, bool passthru)
+bool *CoreAudioData::ChannelsList(AudioDeviceID /*d*/, bool passthru)
 {
     AudioStreamID               *streams;
     AudioStreamBasicDescription *formats;
@@ -1562,7 +1562,7 @@ int CoreAudioData::AudioStreamChangeFormat(AudioStreamID               s,
           .arg(s)
           .arg(StreamDescriptionToString(format)));
 
-    OSStatus err = AudioStreamSetProperty(s, 0, 0,
+    OSStatus err = AudioStreamSetProperty(s, nullptr, 0,
                                           kAudioStreamPropertyPhysicalFormat,
                                           sizeof(format), &format);
     if (err != noErr)
@@ -1690,7 +1690,7 @@ void CoreAudioData::ResetStream(AudioStreamID s)
     }
 }
 
-QMap<QString, QString> *AudioOutputCA::GetDevices(const char *type)
+QMap<QString, QString> *AudioOutputCA::GetDevices(const char */*type*/)
 {
     QMap<QString, QString> *devs = new QMap<QString, QString>();
 
