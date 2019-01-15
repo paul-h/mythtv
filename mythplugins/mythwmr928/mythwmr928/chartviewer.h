@@ -36,8 +36,8 @@ public:
                 const QString &name);
     ~ChartViewer();
 
-    bool Create(void);
-    bool keyPressEvent(QKeyEvent *);
+    bool Create(void) override; // MythScreenType
+    bool keyPressEvent(QKeyEvent *) override; // MythScreenType
 
   private slots:
     void updateTime();
@@ -87,7 +87,7 @@ class CustomChartDialog: public MythScreenType
     CustomChartDialog(MythScreenStack *parent);
     ~CustomChartDialog();
 
-    bool Create(void);
+    bool Create(void) override; // MythScreenType
 
     QDate getStartDate(void);
     void setStartDate(const QDate &date);

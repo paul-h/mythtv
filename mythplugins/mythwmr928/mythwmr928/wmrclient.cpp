@@ -14,7 +14,8 @@
 
 // myth
 #include <mythcontext.h>
-#include <mythdialogs.h>
+#include <mythmainwindow.h>
+#include <mythdialogbox.h>
 #include <mythtimer.h>
 #include <mythimage.h>
 
@@ -27,8 +28,8 @@
 //#define BUFFER_SIZE  (2048*1536*3)
 
 WMRClient::WMRClient()
-    : QObject(NULL),
-      m_socket(NULL),
+    : QObject(nullptr),
+      m_socket(nullptr),
       m_socketLock(QMutex::Recursive),
       m_hostname("localhost"),
       m_port(6548),
@@ -41,11 +42,11 @@ WMRClient::WMRClient()
 }
 
 bool  WMRClient::m_server_unavailable = false;
-class WMRClient *WMRClient::m_wmrclient = NULL;
+class WMRClient *WMRClient::m_wmrclient = nullptr;
 
 class WMRClient *WMRClient::get(void)
 {
-    if (m_wmrclient == NULL && m_server_unavailable == false)
+    if (m_wmrclient == nullptr && m_server_unavailable == false)
         m_wmrclient = new WMRClient;
     return m_wmrclient;
 }
@@ -58,7 +59,7 @@ bool WMRClient::setupWMRClient(void)
     if (m_wmrclient) 
     {
         delete m_wmrclient;
-        m_wmrclient = NULL;
+        m_wmrclient = nullptr;
         m_server_unavailable = false;
     }
 
@@ -69,7 +70,7 @@ bool WMRClient::setupWMRClient(void)
     if (wmrclient->connectToHost(wmrserver_host, wmrserver_port) == false) 
     {
         delete m_wmrclient;
-        m_wmrclient = NULL;
+        m_wmrclient = nullptr;
         m_server_unavailable = false;
         return false;
     }
@@ -97,7 +98,7 @@ bool WMRClient::connectToHost(const QString &lhostname, unsigned int lport)
         if (m_socket)
         {
             m_socket->DecrRef();
-            m_socket = NULL;
+            m_socket = nullptr;
         }
 
         m_socket = new MythSocket();
@@ -105,7 +106,7 @@ bool WMRClient::connectToHost(const QString &lhostname, unsigned int lport)
         if (!m_socket->ConnectToHost(m_hostname, m_port))
         {
             m_socket->DecrRef();
-            m_socket = NULL;
+            m_socket = nullptr;
         }
         else
         {
@@ -119,9 +120,12 @@ bool WMRClient::connectToHost(const QString &lhostname, unsigned int lport)
 
     if (!m_bConnected)
     {
-        MythPopupBox::showOkPopup(GetMythMainWindow(), "Connection failure",
-                              tr("Cannot connect to the mythwmrserver - Is it running? " 
-                                 "Have you set the correct IP and port in the settings?"));
+        if (GetNotificationCenter())
+        {
+            ShowNotificationError(tr("Can't connect to the mythwmrserver") , "MythWMR928",
+                               tr("Is it running? "
+                                  "Have you set the correct IP and port in the settings?"));
+        }
     }
 
     // check the server uses the same protocol as us
@@ -197,8 +201,7 @@ bool WMRClient::checkProtoVersion(void)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("Server didn't respond to 'HELLO'!!"));
 
-        MythPopupBox::showOkPopup(GetMythMainWindow(), "Connection failure",
-            tr("The mythwmrserver didn't respond to our request to get the protocol version!!"));
+        ShowOkPopup(tr("The mythwmrserver didn't respond to our request to get the protocol version!!"));
         return false;
     }
 
@@ -208,8 +211,7 @@ bool WMRClient::checkProtoVersion(void)
              QString("Protocol version mismatch (plugin=%1, mythwmrserver=%2)")
                      .arg(WMR_PROTOCOL_VERSION).arg(strList[1]));
 
-        MythPopupBox::showOkPopup(GetMythMainWindow(), "Connection failure",
-                         tr("The mythwmrserver uses protocol version %1, "
+        ShowOkPopup(QString("The mythwmrserver uses protocol version %1, "
                             "but this client only understands version %2. "
                             "Make sure you are running compatible versions of "
                             "both the server and plugin.")

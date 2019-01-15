@@ -33,8 +33,8 @@ public:
     CurrentCond(MythScreenStack *parent, QString name);
     ~CurrentCond();
 
-    bool Create(void);
-    bool keyPressEvent(QKeyEvent *);
+    bool Create(void) override; // MythScreenType
+    bool keyPressEvent(QKeyEvent *) override; //QObject
 
   private slots:
     void updateTime();

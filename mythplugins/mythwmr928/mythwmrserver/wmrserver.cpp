@@ -80,7 +80,7 @@ string  g_binPath = "";
 
 time_t  g_lastDBKick = 0;
 
-void loadWMRConfig(const string &configfile)
+void loadWMRConfig(const string & /*configfile*/)
 {
 #if 0
     cout << "loading zm config from " << configfile << endl;
@@ -179,7 +179,7 @@ void connectToDatabase(void)
 #endif
 }
 
-void kickDatabase(bool debug)
+void kickDatabase(bool /*debug*/)
 {
 #if 0
     if (time(NULL) < g_lastDBKick + DB_CHECK_TIME)
@@ -510,7 +510,9 @@ void WMRServer::handleGetCurrentConditions(void)
         if (s[x] == '\n')
         {
             if (line.length() > 0)
-                ADD_STR(outStr, line);
+            {
+                ADD_STR(outStr, line)
+            }
 
             line = "";
         }

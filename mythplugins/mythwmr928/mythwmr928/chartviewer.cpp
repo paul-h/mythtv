@@ -41,10 +41,10 @@ ChartViewer::ChartViewer(MythScreenStack *parent, const QString &chartType,
 {
     m_chartType = chartType;
 
-    m_24hrsImage = NULL;
-    m_7daysImage = NULL;
-    m_4weeksImage = NULL;
-    m_customImage = NULL;
+    m_24hrsImage = nullptr;
+    m_7daysImage = nullptr;
+    m_4weeksImage = nullptr;
+    m_customImage = nullptr;
 
     m_timeFormat = gCoreContext->GetSetting("TimeFormat", "h:mm AP");
 
@@ -650,8 +650,8 @@ void ChartViewer::doCustomChart(QDate date, int period)
 
 CustomChartDialog::CustomChartDialog(MythScreenStack *parent)
                  :MythScreenType(parent, "CustomChartDialog"),
-                  m_daySpin(NULL), m_monthSpin(NULL), m_yearSpin(NULL),
-                  m_periodSelector(NULL), m_okButton(NULL)
+                  m_daySpin(nullptr), m_monthSpin(nullptr), m_yearSpin(nullptr),
+                  m_periodSelector(nullptr), m_okButton(nullptr)
 {
 }
 

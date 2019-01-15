@@ -32,9 +32,13 @@
 
 using namespace std;
 
-void runCurrentCond(void);
-void runTempViewer(void);
-void runWindViewer(void);
+static void setupKeys(void);
+static bool checkConnection(void);
+static void runChartViewer(const QString &charttype);
+static void runCurrentCond(void);
+static void runMenu(QString which_menu);
+
+void MenuCallback(void *data, QString &selection);
 
 void setupKeys(void)
 {
