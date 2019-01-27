@@ -2335,9 +2335,6 @@ void SubtitleScreen::AddScaledImage(QImage &img, QRect &pos)
 #ifdef USING_LIBASS
 static void myth_libass_log(int level, const char *fmt, va_list vl, void */*ctx*/)
 {
-    static QString full_line("libass:");
-    static const int msg_len = 255;
-    static QMutex string_lock;
     uint64_t verbose_mask = VB_GENERAL;
     LogLevel_t verbose_level = LOG_INFO;
 
@@ -2366,25 +2363,21 @@ static void myth_libass_log(int level, const char *fmt, va_list vl, void */*ctx*
     if (!VERBOSE_LEVEL_CHECK(verbose_mask, verbose_level))
         return;
 
+    static QMutex string_lock;
     string_lock.lock();
 
-    char str[msg_len+1];
-    int bytes = vsnprintf(str, msg_len+1, fmt, vl);
+    char str[1024];
+    int bytes = vsnprintf(str, sizeof str, fmt, vl);
     // check for truncated messages and fix them
-    if (bytes > msg_len)
+    int truncated = bytes - ((sizeof str)-1);
+    if (truncated > 0)
     {
         LOG(VB_GENERAL, LOG_ERR,
             QString("libASS log output truncated %1 of %2 bytes written")
-                .arg(msg_len).arg(bytes));
-        str[msg_len-1] = '\n';
+            .arg(truncated).arg(bytes));
     }
 
-    full_line += QString(str);
-    if (full_line.endsWith("\n"))
-    {
-        LOG(verbose_mask, verbose_level, full_line.trimmed());
-        full_line.truncate(0);
-    }
+    LOG(verbose_mask, verbose_level, QString("libass: %s").arg(str));
     string_lock.unlock();
 }
 
@@ -2412,7 +2405,17 @@ bool SubtitleScreen::InitialiseAssLibrary(void)
         if (!m_assRenderer)
             return false;
 
-        ass_set_fonts(m_assRenderer, nullptr, "sans-serif", 1, nullptr, 1);
+#ifdef Q_OS_ANDROID
+        // fontconfig doesn't yet work for us on Android.  For the
+        // time being, more explicitly set a font we know should
+        // exist.  This was adapted from VLC master as of 2019-01-21.
+        const char *psz_font = "/system/fonts/DroidSans.ttf";
+        const char *psz_font_family = "Droid Sans";
+#else
+        const char *psz_font = nullptr;
+        const char *psz_font_family = "sans-serif";
+#endif
+        ass_set_fonts(m_assRenderer, psz_font, psz_font_family, 1, nullptr, 1);
         ass_set_hinting(m_assRenderer, ASS_HINTING_LIGHT);
         LOG(VB_PLAYBACK, LOG_INFO, LOC + "Initialised libass renderer.");
     }

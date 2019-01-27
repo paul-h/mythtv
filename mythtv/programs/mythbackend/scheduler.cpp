@@ -48,6 +48,7 @@ using namespace std;
 #include "mythsystemevent.h"
 #include "mythlogging.h"
 #include "tv_rec.h"
+#include "jobqueue.h"
 
 #define LOC QString("Scheduler: ")
 #define LOC_WARN QString("Scheduler, Warning: ")
@@ -95,8 +96,6 @@ Scheduler::Scheduler(bool runthread, QMap<int, EncoderLink *> *tvList,
     VerifyCards();
 
     InitInputInfoMap();
-
-    fsInfoCacheFillTime = MythDate::current().addSecs(-1000);
 
     if (doRun)
     {
@@ -2474,8 +2473,6 @@ bool Scheduler::HandleReschedule(void)
                 static_cast<double>(placeTime));
     LOG(VB_GENERAL, LOG_INFO, msg);
 
-    fsInfoCacheFillTime = MythDate::current().addSecs(-1000);
-
     // Write changed entries to oldrecorded.
     RecIter it = reclist.begin();
     for ( ; it != reclist.end(); ++it)
@@ -3135,7 +3132,11 @@ void Scheduler::HandleIdleShutdown(
 
         // If there are BLOCKING clients, then we're not idle
         bool blocking = m_mainServer->isClientConnected(true);
-        if (!blocking && !recording)
+
+        // If there are active jobs, then we're not idle
+        bool activeJobs = JobQueue::HasRunningOrPendingJobs(0);
+
+        if (!blocking && !recording && !activeJobs)
         {
             // have we received a RESET_IDLETIME message?
             resetIdleTime_lock.lock();
@@ -3276,6 +3277,10 @@ void Scheduler::HandleIdleShutdown(
             if (blocking)
                 LOG(logmask, LOG_NOTICE, "Blocking shutdown because "
                                          "of a connected client");
+
+            if (activeJobs)
+                LOG(logmask, LOG_NOTICE, "Blocking shutdown because "
+                                         "of active jobs");
 
             // not idle, make the time invalid
             if (idleSince.isValid())
@@ -5587,18 +5592,14 @@ int Scheduler::FillRecordingDir(
     return fsID;
 }
 
-void Scheduler::FillDirectoryInfoCache(bool force)
+void Scheduler::FillDirectoryInfoCache(void)
 {
-    if ((!force) &&
-        (fsInfoCacheFillTime > MythDate::current().addSecs(-180)))
-        return;
-
     QList<FileSystemInfo> fsInfos;
 
     fsInfoCache.clear();
 
     if (m_mainServer)
-        m_mainServer->GetFilesystemInfos(fsInfos);
+        m_mainServer->GetFilesystemInfos(fsInfos, true);
 
     QMap <int, bool> fsMap;
     QList<FileSystemInfo>::iterator it1;
@@ -5611,8 +5612,6 @@ void Scheduler::FillDirectoryInfoCache(bool force)
     LOG(VB_FILE, LOG_INFO, LOC +
         QString("FillDirectoryInfoCache: found %1 unique filesystems")
             .arg(fsMap.size()));
-
-    fsInfoCacheFillTime = MythDate::current();
 }
 
 void Scheduler::SchedLiveTV(void)

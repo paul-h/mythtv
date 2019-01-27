@@ -323,7 +323,13 @@ MainServer::MainServer(bool master, int port,
     deferredDeleteTimer->start(30 * 1000);
 
     if (sched)
+    {
+        // Make sure we have a good, fsinfo cache before setting
+        // mainServer in the scheduler.
+        QList<FileSystemInfo> fsInfos;
+        GetFilesystemInfos(fsInfos, false);
         sched->SetMainServer(this);
+    }
     if (expirer)
         expirer->SetMainServer(this);
 
@@ -5348,8 +5354,17 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
     }
 }
 
-void MainServer::GetFilesystemInfos(QList<FileSystemInfo> &fsInfos)
+void MainServer::GetFilesystemInfos(QList<FileSystemInfo> &fsInfos,
+                                    bool useCache)
 {
+    // Return cached information if requested.
+    if (useCache)
+    {
+        QMutexLocker locker(&fsInfosCacheLock);
+        fsInfos = fsInfosCache;
+        return;
+    }
+
     QStringList strlist;
     FileSystemInfo fsInfo;
 
@@ -5418,6 +5433,10 @@ void MainServer::GetFilesystemInfos(QList<FileSystemInfo> &fsInfos)
         LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, LOC +
             "--- GetFilesystemInfos directory list end ---");
     }
+
+    // Save these results to the cache.
+    QMutexLocker locker(&fsInfosCacheLock);
+    fsInfosCache = fsInfos;
 }
 
 void MainServer::HandleMoveFile(PlaybackSock *pbs, const QString &storagegroup,
