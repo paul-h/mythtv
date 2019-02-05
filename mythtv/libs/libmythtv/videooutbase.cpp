@@ -1,7 +1,6 @@
 #include <cmath>
 #include <cstdlib>
 
-#include <QDesktopWidget>
 #include <QRunnable>
 
 #include "osd.h"
@@ -1560,24 +1559,43 @@ bool VideoOutput::DisplayOSD(VideoFrame *frame, OSD *osd)
     // Split visible region for greater concurrency
     QRect r = osd_image->rect();
     QPoint c = r.center();
-    QVector<QRect> vis = visible.intersected(QRect(r.topLeft(),c)).rects();
+    QVector<QRect> vis;
+#if QT_VERSION < QT_VERSION_CHECK(5, 8, 0)
+    vis += visible.intersected(QRect(r.topLeft(),c)).rects();
     vis += visible.intersected(QRect(c,r.bottomRight())).rects();
     vis += visible.intersected(QRect(r.bottomLeft(),c).normalized()).rects();
     vis += visible.intersected(QRect(c,r.topRight()).normalized()).rects();
 #else
-    QVector<QRect> vis = visible.rects();
+    for (const QRect &tmp : visible.intersected(QRect(r.topLeft(),c)))
+        vis += tmp;
+    for (const QRect &tmp : visible.intersected(QRect(c,r.bottomRight())))
+        vis += tmp;
+    for (const QRect &tmp : visible.intersected(QRect(r.bottomLeft(),c).normalized()))
+        vis += tmp;
+    for (const QRect &tmp : visible.intersected(QRect(c,r.topRight()).normalized()))
+        vis += tmp;
 #endif
     for (int i = 0; i < vis.size(); i++)
     {
-#if THREADED_OSD_RENDER
         OsdRender *job = new OsdRender(frame, osd_image, video_dim, vis[i]);
         job->setAutoDelete(true);
         s_pool.start(job, "OsdRender");
+    }
+    s_pool.waitForDone();
 #else
-        int left   = min(vis[i].left(), osd_image->width());
-        int top    = min(vis[i].top(), osd_image->height());
-        int right  = min(left + vis[i].width(), osd_image->width());
-        int bottom = min(top + vis[i].height(), osd_image->height());
+#if QT_VERSION < QT_VERSION_CHECK(5, 8, 0)
+    QVector<QRect> vis = visible.rects();
+    for (int i = 0; i < vis.size(); i++)
+    {
+        const QRect& r2 = vis[i];
+#else
+    for (const QRect& r2 : dirty)
+    {
+#endif
+        int left   = min(r2.left(), osd_image->width());
+        int top    = min(r2.top(), osd_image->height());
+        int right  = min(left + r2.width(), osd_image->width());
+        int bottom = min(top + r2.height(), osd_image->height());
 
         if (FMT_YV12 == frame->codec)
         {
@@ -1595,10 +1613,7 @@ bool VideoOutput::DisplayOSD(VideoFrame *frame, OSD *osd)
             yuv888_to_i44(frame->buf, osd_image, video_dim,
                           left, top, right, bottom, false);
         }
-#endif
     }
-#if THREADED_OSD_RENDER
-    s_pool.waitForDone();
 #endif
     return show;
 }
