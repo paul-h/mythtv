@@ -29,7 +29,6 @@ using namespace std;
 #include "mythconfig.h"
 #include "mythcorecontext.h"
 #include "videosource.h"
-#include "datadirect.h"
 #include "scanwizard.h"
 #include "cardutil.h"
 #include "sourceutil.h"
@@ -228,15 +227,8 @@ class XMLTVGrabber : public MythUIComboBoxSetting
 
     void Load(void) override // StandardSetting
     {
-        addTargetedChild("schedulesdirect1",
-                         new DataDirect_config(m_parent, DD_SCHEDULES_DIRECT,
-                                               this));
         addTargetedChild("eitonly",   new EITOnly_config(m_parent, this));
         addTargetedChild("/bin/true", new NoGrabber_config(m_parent));
-
-        addSelection(
-            QObject::tr("North America (SchedulesDirect.org) (Internal)"),
-            "schedulesdirect1");
 
         addSelection(
             QObject::tr("Transmitted guide only (EIT)"), "eitonly");
@@ -301,8 +293,7 @@ class XMLTVGrabber : public MythUIComboBoxSetting
         query.prepare(
             "UPDATE videosource "
             "SET userid=NULL, password=NULL "
-            "WHERE xmltvgrabber NOT IN ( 'datadirect', 'technovera', "
-            "                            'schedulesdirect1' )");
+            "WHERE xmltvgrabber NOT IN ( 'technovera' )");
         if (!query.exec())
             MythDB::DBError("XMLTVGrabber::Save", query);
     }
@@ -478,116 +469,6 @@ class UseEIT : public MythUICheckBoxSetting
                         "channels themselves 'Over-the-Air'."));
     }
 };
-
-class DataDirectUserID : public MythUITextEditSetting
-{
-  public:
-    explicit DataDirectUserID(const VideoSource &parent) :
-        MythUITextEditSetting(new VideoSourceDBStorage(this, parent, "userid"))
-    {
-        setLabel(QObject::tr("User ID"));
-    }
-};
-
-class DataDirectPassword : public MythUITextEditSetting
-{
-  public:
-    explicit DataDirectPassword(const VideoSource &parent) :
-        MythUITextEditSetting(new VideoSourceDBStorage(this, parent, "password"))
-    {
-        SetPasswordEcho(true);
-        setLabel(QObject::tr("Password"));
-    }
-};
-
-void DataDirectLineupSelector::fillSelections(const QString &uid,
-                                              const QString &pwd,
-                                              int _source)
-{
-    (void) uid;
-    (void) pwd;
-#ifdef USING_BACKEND
-    if (uid.isEmpty() || pwd.isEmpty())
-        return;
-
-    qApp->processEvents();
-
-    DataDirectProcessor ddp(_source, uid, pwd);
-    QString waitMsg = tr("Fetching lineups from %1...")
-        .arg(ddp.GetListingsProviderName());
-
-    LOG(VB_GENERAL, LOG_INFO, waitMsg);
-
-    GetNotificationCenter()->Queue(MythBusyNotification(waitMsg,
-                                                        tr("DataDirect")));
-    clearSelections();
-
-    if (!ddp.GrabLineupsOnly())
-    {
-        MythErrorNotification en(tr("Fetching of lineups failed"),
-                                 tr("DataDirect"));
-        GetNotificationCenter()->Queue(en);
-
-        LOG(VB_GENERAL, LOG_ERR,
-            "DDLS: fillSelections did not successfully load selections");
-        return;
-    }
-    const DDLineupList lineups = ddp.GetLineups();
-
-    DDLineupList::const_iterator it;
-    for (it = lineups.begin(); it != lineups.end(); ++it)
-        addSelection((*it).displayname, (*it).lineupid);
-
-    MythCheckNotification n(tr("Fetching of lineups complete"),
-                            tr("DataDirect"));
-    GetNotificationCenter()->Queue(n);
-#else // USING_BACKEND
-    LOG(VB_GENERAL, LOG_ERR,
-        "You must compile the backend to set up a DataDirect line-up");
-#endif // USING_BACKEND
-}
-
-void DataDirect_config::Load()
-{
-    GroupSetting::Load();
-    bool is_sd_userid = userid->getValue().contains('@') > 0;
-    bool match = ((is_sd_userid  && (source == DD_SCHEDULES_DIRECT)) ||
-                  (!is_sd_userid && (source == DD_ZAP2IT)));
-    if (((userid->getValue() != lastloadeduserid) ||
-         (password->getValue() != lastloadedpassword)) && match)
-    {
-        lineupselector->fillSelections(userid->getValue(),
-                                       password->getValue(),
-                                       source);
-        lastloadeduserid = userid->getValue();
-        lastloadedpassword = password->getValue();
-    }
-}
-
-DataDirect_config::DataDirect_config(const VideoSource& _parent, int _source, StandardSetting *_setting) :
-    parent(_parent)
-{
-    setVisible(false);
-
-    source = _source;
-
-    _setting->addTargetedChild("schedulesdirect1", userid   = new DataDirectUserID(parent));
-
-    _setting->addTargetedChild("schedulesdirect1", password = new DataDirectPassword(parent));
-    _setting->addTargetedChild("schedulesdirect1", button   = new DataDirectButton());
-
-    _setting->addTargetedChild("schedulesdirect1", lineupselector = new DataDirectLineupSelector(parent));
-    _setting->addTargetedChild("schedulesdirect1", new UseEIT(parent));
-
-    connect(button, SIGNAL(clicked()),
-            this,   SLOT(fillDataDirectLineupSelector()));
-}
-
-void DataDirect_config::fillDataDirectLineupSelector(void)
-{
-    lineupselector->fillSelections(
-        userid->getValue(), password->getValue(), source);
-}
 
 XMLTV_generic_config::XMLTV_generic_config(const VideoSource& _parent,
                                            QString _grabber,
@@ -1294,7 +1175,7 @@ void FirewireModel::SetGUID(const QString &_guid)
 
 #ifdef USING_FIREWIRE
     AVCInfo info = guid->GetAVCInfo(_guid);
-    QString model = FirewireDevice::GetModelName(info.vendorid, info.modelid);
+    QString model = FirewireDevice::GetModelName(info.m_vendorid, info.m_modelid);
     setValue(max(getValueIndex(model), 0));
 #endif // USING_FIREWIRE
 }
@@ -1306,7 +1187,7 @@ void FirewireDesc::SetGUID(const QString &_guid)
     setLabel(tr("Description"));
 
 #ifdef USING_FIREWIRE
-    QString name = guid->GetAVCInfo(_guid).product_name;
+    QString name = guid->GetAVCInfo(_guid).m_product_name;
     name.replace("Scientific-Atlanta", "SA");
     name.replace(", Inc.", "");
     name.replace("Explorer(R)", "");
@@ -3015,13 +2896,13 @@ void StartingChannel::SetSourceID(const QString &sourceid)
     ChannelUtil::SortChannels(channels, order);
     bool has_visible = false;
     for (uint i = 0; i < channels.size() && !has_visible; i++)
-        has_visible |= channels[i].visible;
+        has_visible |= channels[i].m_visible;
 
     for (uint i = 0; i < channels.size(); i++)
     {
-        const QString channum = channels[i].channum;
+        const QString channum = channels[i].m_channum;
         bool sel = channum == startChan;
-        if (!has_visible || channels[i].visible || sel)
+        if (!has_visible || channels[i].m_visible || sel)
         {
             addSelection(channum, channum, sel);
         }

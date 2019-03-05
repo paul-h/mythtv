@@ -63,7 +63,6 @@ using namespace std;
 #include "jobqueue.h"
 #include "livetvchain.h"
 #include "playgroup.h"
-#include "datadirect.h"
 #include "sourceutil.h"
 #include "cardutil.h"
 #include "channelutil.h"
@@ -172,44 +171,6 @@ EMBEDRETURNVOIDEPG TV::RunProgramGuidePtr = nullptr;
  * \brief function pointer for RunProgramFinder in progfind.cpp
  */
 EMBEDRETURNVOIDFINDER TV::RunProgramFinderPtr = nullptr;
-
-/// Helper class to load channel info for channel editor
-class DDLoader : public QRunnable
-{
-  public:
-    explicit DDLoader(TV *parent) : m_parent(parent), m_sourceid(0)
-    {
-        setAutoDelete(false);
-    }
-
-    void SetParent(TV *parent) { m_parent = parent; }
-    void SetSourceID(uint sourceid) { m_sourceid = sourceid; }
-
-    void run(void) override // QRunnable
-    {
-        if (m_parent)
-            m_parent->RunLoadDDMap(m_sourceid);
-        else
-            SourceUtil::UpdateChannelsFromListings(m_sourceid);
-
-        QMutexLocker locker(&m_lock);
-        m_sourceid = 0;
-        m_wait.wakeAll();
-    }
-
-    void wait(void)
-    {
-        QMutexLocker locker(&m_lock);
-        while (m_sourceid)
-            m_wait.wait(locker.mutex());
-    }
-
-  private:
-    TV *m_parent;
-    uint m_sourceid;
-    QMutex m_lock;
-    QWaitCondition m_wait;
-};
 
 static const MenuBase dummy_menubase;
 
@@ -1061,7 +1022,6 @@ TV::TV(void)
       askAllowLock(QMutex::Recursive),
       // Channel Editing
       chanEditMapLock(QMutex::Recursive),
-      ddMapSourceId(0), ddMapLoader(new DDLoader(this)),
       // Sleep Timer
       sleep_index(0), sleepTimerId(0), sleepDialogTimerId(0),
       // Idle Timer
@@ -1421,26 +1381,6 @@ TV::~TV(void)
         lcd->setFunctionLEDs(FUNC_TV, false);
         lcd->setFunctionLEDs(FUNC_MOVIE, false);
         lcd->switchToTime();
-    }
-
-    if (ddMapLoader)
-    {
-        ddMapLoader->wait();
-
-        if (ddMapSourceId)
-        {
-            ddMapLoader->SetParent(nullptr);
-            ddMapLoader->SetSourceID(ddMapSourceId);
-            ddMapLoader->setAutoDelete(true);
-            MThreadPool::globalInstance()->start(ddMapLoader, "DDLoadMapPost");
-        }
-        else
-        {
-            delete ddMapLoader;
-        }
-
-        ddMapSourceId = 0;
-        ddMapLoader = nullptr;
     }
 
     if (browsehelper)
@@ -1804,8 +1744,8 @@ bool TV::RequestNextRecorder(PlayerContext *ctx, bool showDialogs,
     {
         for (uint i = 0; i < selection.size(); i++)
         {
-            uint    chanid  = selection[i].chanid;
-            QString channum = selection[i].channum;
+            uint    chanid  = selection[i].m_chanid;
+            QString channum = selection[i].m_channum;
             if (!chanid || channum.isEmpty())
                 continue;
             QSet<uint> cards = IsTunableOn(ctx, chanid);
@@ -1964,7 +1904,7 @@ void TV::ShowOSDAskAllow(PlayerContext *ctx)
             // is busy_input in same input group as recording
             if (!busy_input_grps_loaded)
             {
-                busy_input_grps = CardUtil::GetInputGroups(busy_input.inputid);
+                busy_input_grps = CardUtil::GetInputGroups(busy_input.m_inputid);
                 busy_input_grps_loaded = true;
             }
 
@@ -1993,10 +1933,10 @@ void TV::ShowOSDAskAllow(PlayerContext *ctx)
                 (*it).is_conflicting = true;
             else if (!CardUtil::IsTunerShared(cardid, (*it).info->GetInputID()))
                 (*it).is_conflicting = true;
-            else if ((busy_input.mplexid &&
-                      (busy_input.mplexid  == (*it).info->QueryMplexID())) ||
-                     (!busy_input.mplexid &&
-                      (busy_input.chanid == (*it).info->GetChanID())))
+            else if ((busy_input.m_mplexid &&
+                      (busy_input.m_mplexid  == (*it).info->QueryMplexID())) ||
+                     (!busy_input.m_mplexid &&
+                      (busy_input.m_chanid == (*it).info->GetChanID())))
                 (*it).is_conflicting = false;
             else
                 (*it).is_conflicting = true;
@@ -7273,11 +7213,11 @@ void TV::SwitchSource(PlayerContext *ctx, uint source_direction)
     for (uint i = 0; i < inputs.size(); i++)
     {
         // prefer the current card's input in sources list
-        if ((sources.find(inputs[i].sourceid) == sources.end()) ||
-            ((cardid == inputs[i].inputid) &&
-             (cardid != sources[inputs[i].sourceid].inputid)))
+        if ((sources.find(inputs[i].m_sourceid) == sources.end()) ||
+            ((cardid == inputs[i].m_inputid) &&
+             (cardid != sources[inputs[i].m_sourceid].m_inputid)))
         {
-            sources[inputs[i].sourceid] = inputs[i];
+            sources[inputs[i].m_sourceid] = inputs[i];
         }
     }
 
@@ -7317,7 +7257,7 @@ void TV::SwitchSource(PlayerContext *ctx, uint source_direction)
         return;
     }
 
-    switchToInputId = (*sit).inputid;
+    switchToInputId = (*sit).m_inputid;
 
     QMutexLocker locker(&timerIdLock);
     if (!switchToInputTimerId)
@@ -7974,8 +7914,8 @@ void TV::ChangeChannel(const PlayerContext *ctx, const ChannelInfoList &options)
 {
     for (uint i = 0; i < options.size(); i++)
     {
-        uint    chanid  = options[i].chanid;
-        QString channum = options[i].channum;
+        uint    chanid  = options[i].m_chanid;
+        QString channum = options[i].m_channum;
 
         if (chanid && !channum.isEmpty() && IsTunable(ctx, chanid))
         {
@@ -8626,18 +8566,18 @@ QSet<uint> TV::IsTunableOn(
 
     for (uint j = 0; j < inputs.size(); j++)
     {
-        if (inputs[j].sourceid != sourceid)
+        if (inputs[j].m_sourceid != sourceid)
             continue;
 
-        if (inputs[j].mplexid &&
-            inputs[j].mplexid != mplexid)
+        if (inputs[j].m_mplexid &&
+            inputs[j].m_mplexid != mplexid)
             continue;
 
-        if (!inputs[j].mplexid && inputs[j].chanid &&
-            inputs[j].chanid != chanid)
+        if (!inputs[j].m_mplexid && inputs[j].m_chanid &&
+            inputs[j].m_chanid != chanid)
             continue;
 
-        tunable_cards.insert(inputs[j].inputid);
+        tunable_cards.insert(inputs[j].m_inputid);
     }
 
     if (tunable_cards.empty())
@@ -10479,16 +10419,12 @@ void TV::StartChannelEditMode(PlayerContext *ctx)
     ReturnOSDLock(ctx, osd);
 
     QMutexLocker locker(&chanEditMapLock);
-    ddMapLoader->wait();
 
     // Get the info available from the backend
     chanEditMap.clear();
     ctx->recorder->GetChannelInfo(chanEditMap);
 
-    // Assuming the data is valid, try to load DataDirect listings.
-    uint sourceid = chanEditMap["sourceid"].toUInt();
-
-    // Update with XDS and DataDirect Info
+    // Update with XDS Info
     ChannelEditAutoFill(ctx, chanEditMap);
 
     // Set proper initial values for channel editor, and make it visible..
@@ -10500,12 +10436,6 @@ void TV::StartChannelEditMode(PlayerContext *ctx)
         osd->SetText(OSD_DLG_EDITOR, chanEditMap, kOSDTimeout_None);
     }
     ReturnOSDLock(ctx, osd);
-
-    if (sourceid && (sourceid != ddMapSourceId))
-    {
-        ddMapLoader->SetSourceID(sourceid);
-        MThreadPool::globalInstance()->start(ddMapLoader, "DDMapLoader");
-    }
 }
 
 void TV::StartOsdNavigation(PlayerContext *ctx)
@@ -10563,49 +10493,10 @@ bool TV::HandleOSDChannelEdit(PlayerContext *ctx, QString action)
  */
 void TV::ChannelEditAutoFill(const PlayerContext *ctx, InfoMap &infoMap) const
 {
-    QMap<QString,bool> dummy;
-    ChannelEditAutoFill(ctx, infoMap, dummy);
-}
-
-/** \fn TV::ChannelEditAutoFill(const PlayerContext*,InfoMap&,const QMap<QString,bool>&) const
- *  \brief Automatically fills in as much information as possible.
- */
-void TV::ChannelEditAutoFill(const PlayerContext *ctx, InfoMap &infoMap,
-                             const QMap<QString,bool> &changed) const
-{
     const QString keys[4] = { "XMLTV", "callsign", "channame", "channum", };
 
     // fill in uninitialized and unchanged fields from XDS
     ChannelEditXDSFill(ctx, infoMap);
-
-    // if no data direct info we're done..
-    if (!ddMapSourceId)
-        return;
-
-    if (changed.size())
-    {
-        ChannelEditDDFill(infoMap, changed, false);
-    }
-    else
-    {
-        QMutexLocker locker(&chanEditMapLock);
-        QMap<QString,bool> chg;
-        // check if anything changed
-        for (uint i = 0; i < 4; i++)
-            chg[keys[i]] = infoMap[keys[i]] != chanEditMap[keys[i]];
-
-        // clean up case and extra spaces
-        infoMap["callsign"] = infoMap["callsign"].toUpper().trimmed();
-        infoMap["channum"]  = infoMap["channum"].trimmed();
-        infoMap["channame"] = infoMap["channame"].trimmed();
-        infoMap["XMLTV"]    = infoMap["XMLTV"].trimmed();
-
-        // make sure changes weren't just chaff
-        for (uint i = 0; i < 4; i++)
-            chg[keys[i]] &= infoMap[keys[i]] != chanEditMap[keys[i]];
-
-        ChannelEditDDFill(infoMap, chg, true);
-    }
 }
 
 void TV::ChannelEditXDSFill(const PlayerContext *ctx, InfoMap &infoMap) const
@@ -10642,204 +10533,6 @@ void TV::ChannelEditXDSFill(const PlayerContext *ctx, InfoMap &infoMap) const
 
         infoMap[xds_keys[i]] = tmp;
     }
-}
-
-void TV::ChannelEditDDFill(InfoMap &infoMap,
-                           const QMap<QString,bool> &changed,
-                           bool check_unchanged) const
-{
-    if (!ddMapSourceId)
-        return;
-
-    QMutexLocker locker(&chanEditMapLock);
-    const QString keys[4] = { "XMLTV", "callsign", "channame", "channum", };
-
-    // First check changed keys for availability in our listings source.
-    // Then, if check_unchanged is set, check unchanged fields.
-    QString key = "", dd_xmltv = "";
-    uint endj = (check_unchanged) ? 2 : 1;
-    for (uint j = 0; (j < endj) && dd_xmltv.isEmpty(); j++)
-    {
-        for (uint i = 0; (i < 4) && dd_xmltv.isEmpty(); i++)
-        {
-            key = keys[i];
-            if (((j == 1) ^ changed[key]) && !infoMap[key].isEmpty())
-                dd_xmltv = GetDataDirect(key, infoMap[key], "XMLTV");
-        }
-    }
-
-    // If we found the channel in the listings, fill in all the data we have
-    if (!dd_xmltv.isEmpty())
-    {
-        infoMap[keys[0]] = dd_xmltv;
-        for (uint i = 1; i < 4; i++)
-        {
-            QString tmp = GetDataDirect(key, infoMap[key], keys[i]);
-            if (!tmp.isEmpty())
-                infoMap[keys[i]] = tmp;
-        }
-        return;
-    }
-
-    // If we failed to find an exact match, try partial matches.
-    // But only fill the current field since this data is dodgy.
-    key = "callsign";
-    if (!infoMap[key].isEmpty())
-    {
-        dd_xmltv = GetDataDirect(key, infoMap[key], "XMLTV", true);
-        LOG(VB_GENERAL, LOG_INFO, QString("xmltv: %1 for key %2")
-                .arg(dd_xmltv).arg(key));
-        if (!dd_xmltv.isEmpty())
-            infoMap[key] = GetDataDirect("XMLTV", dd_xmltv, key);
-    }
-
-    key = "channame";
-    if (!infoMap[key].isEmpty())
-    {
-        dd_xmltv = GetDataDirect(key, infoMap[key], "XMLTV", true);
-        LOG(VB_GENERAL, LOG_INFO, QString("xmltv: %1 for key %2")
-                .arg(dd_xmltv).arg(key));
-        if (!dd_xmltv.isEmpty())
-            infoMap[key] = GetDataDirect("XMLTV", dd_xmltv, key);
-    }
-}
-
-QString TV::GetDataDirect(QString key, QString value, QString field,
-                          bool allow_partial_match) const
-{
-    QMutexLocker locker(&chanEditMapLock);
-
-    uint sourceid = chanEditMap["sourceid"].toUInt();
-    if (!sourceid)
-        return QString();
-
-    if (sourceid != ddMapSourceId)
-        return QString();
-
-    DDKeyMap::const_iterator it_key = ddMap.find(key);
-    if (it_key == ddMap.end())
-        return QString();
-
-    DDValueMap::const_iterator it_val = (*it_key).find(value);
-    if (it_val != (*it_key).end())
-    {
-        InfoMap::const_iterator it_field = (*it_val).find(field);
-        if (it_field != (*it_val).end())
-        {
-            return *it_field;
-        }
-    }
-
-    if (!allow_partial_match || value.isEmpty())
-        return QString();
-
-    // Check for partial matches.. prefer early match, then short string
-    DDValueMap::const_iterator best_match = (*it_key).end();
-    int best_match_idx = INT_MAX, best_match_len = INT_MAX;
-    for (it_val = (*it_key).begin(); it_val != (*it_key).end(); ++it_val)
-    {
-        int match_idx = it_val.key().indexOf(value);
-        if (match_idx < 0)
-            continue;
-
-        int match_len = it_val.key().length();
-        if ((match_idx < best_match_idx) && (match_len < best_match_len))
-        {
-            best_match     = it_val;
-            best_match_idx = match_idx;
-            best_match_len = match_len;
-        }
-    }
-
-    if (best_match != (*it_key).end())
-    {
-        InfoMap::const_iterator it_field = (*best_match).find(field);
-        if (it_field != (*best_match).end())
-        {
-            return *it_field;
-        }
-    }
-
-    return QString();
-}
-
-void TV::RunLoadDDMap(uint sourceid)
-{
-    QMutexLocker locker(&chanEditMapLock);
-
-    const PlayerContext *actx = GetPlayerReadLock(-1, __FILE__, __LINE__);
-
-    // Load DataDirect info
-    LoadDDMap(sourceid);
-
-    // Update with XDS and DataDirect Info
-    ChannelEditAutoFill(actx, chanEditMap);
-
-    OSD *osd = GetOSDLock(actx);
-    if (osd)
-    {
-        if (osd->DialogVisible(OSD_DLG_EDITOR))
-            osd->SetText(OSD_DLG_EDITOR, chanEditMap, kOSDTimeout_None);
-        else
-            LOG(VB_GENERAL, LOG_ERR, LOC + "No channel editor visible. Failed "
-                                         "to update data direct channel info.");
-    }
-    ReturnOSDLock(actx, osd);
-    ReturnPlayerLock(actx);
-}
-
-bool TV::LoadDDMap(uint sourceid)
-{
-    QMutexLocker locker(&chanEditMapLock);
-    const QString keys[4] = { "XMLTV", "callsign", "channame", "channum", };
-
-    ddMap.clear();
-    ddMapSourceId = 0;
-
-    QString grabber, userid, passwd, lineupid;
-    bool ok = SourceUtil::GetListingsLoginData(sourceid, grabber, userid,
-                                               passwd, lineupid);
-    if (!ok || (grabber != "datadirect"))
-    {
-        LOG(VB_PLAYBACK, LOG_ERR, LOC +  QString("g(%1)").arg(grabber));
-        return false;
-    }
-
-    DataDirectProcessor ddp(DD_ZAP2IT, userid, passwd);
-    ddp.GrabFullLineup(lineupid, true, false, 36*60*60);
-    const DDLineupChannels channels = ddp.GetDDLineup(lineupid);
-
-    InfoMap tmp;
-    DDLineupChannels::const_iterator it;
-    for (it = channels.begin(); it != channels.end(); ++it)
-    {
-        DDStation station = ddp.GetDDStation((*it).stationid);
-        tmp["XMLTV"]    = (*it).stationid;
-        tmp["callsign"] = station.callsign;
-        tmp["channame"] = station.stationname;
-        tmp["channum"]  = (*it).channel;
-        if (!(*it).channelMinor.isEmpty())
-        {
-            tmp["channum"] += SourceUtil::GetChannelSeparator(sourceid);
-            tmp["channum"] += (*it).channelMinor;
-        }
-
-#if 0
-        LOG(VB_CHANNEL, LOG_INFO,
-            QString("Adding channel: %1 -- %2 -- %3 -- %4")
-                .arg(tmp["channum"],4).arg(tmp["callsign"],7)
-                .arg(tmp["XMLTV"]).arg(tmp["channame"]));
-#endif
-
-        for (uint j = 0; j < 4; j++)
-            for (uint i = 0; i < 4; i++)
-                ddMap[keys[j]][tmp[keys[j]]][keys[i]] = tmp[keys[i]];
-    }
-
-    if (!ddMap.empty())
-        ddMapSourceId = sourceid;
-
-    return !ddMap.empty();
 }
 
 void TV::OSDDialogEvent(int result, QString text, QString action)
@@ -11058,7 +10751,7 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
                 ChannelInfoList::const_iterator it = list.begin();
                 for (; it != list.end(); ++it)
                 {
-                    if ((*it).channum == cur_channum)
+                    if ((*it).m_channum == cur_channum)
                     {
                         break;
                     }
@@ -11070,7 +10763,7 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
                     // first channel in the group
                     it = list.begin();
                     if (it != list.end())
-                        new_channum = (*it).channum;
+                        new_channum = (*it).m_channum;
                 }
 
                 LOG(VB_CHANNEL, LOG_INFO, LOC +
@@ -11877,9 +11570,9 @@ bool TV::MenuItemDisplayPlayback(const MenuItemContext &c)
             for (it = db_channel_groups.begin();
                  it != db_channel_groups.end(); ++it)
             {
-                QString action = prefix + QString::number(it->grpid);
-                active = ((int)(it->grpid) == channelGroupId);
-                BUTTON(action, it->name);
+                QString action = prefix + QString::number(it->m_grpid);
+                active = ((int)(it->m_grpid) == channelGroupId);
+                BUTTON(action, it->m_name);
             }
         }
     }
@@ -11959,14 +11652,14 @@ bool TV::MenuItemDisplayPlayback(const MenuItemContext &c)
             addednames += CardUtil::GetDisplayName(inputid);
             for (; it != inputs.end(); ++it)
             {
-                if ((*it).inputid == inputid ||
-                    addednames.contains((*it).displayName))
+                if ((*it).m_inputid == inputid ||
+                    addednames.contains((*it).m_displayName))
                     continue;
                 active = false;
-                addednames += (*it).displayName;
+                addednames += (*it).m_displayName;
                 QString action = QString("SWITCHTOINPUT_") +
-                    QString::number((*it).inputid);
-                BUTTON(action, (*it).displayName);
+                    QString::number((*it).m_inputid);
+                BUTTON(action, (*it).m_displayName);
             }
         }
     }
@@ -11983,14 +11676,14 @@ bool TV::MenuItemDisplayPlayback(const MenuItemContext &c)
             vector<InputInfo>::iterator it = inputs.begin();
             for (; it != inputs.end(); ++it)
             {
-                if ((*it).sourceid == sourceid ||
-                    sourceids[(*it).sourceid])
+                if ((*it).m_sourceid == sourceid ||
+                    sourceids[(*it).m_sourceid])
                     continue;
                 active = false;
-                sourceids[(*it).sourceid] = true;
+                sourceids[(*it).m_sourceid] = true;
                 QString action = QString("SWITCHTOINPUT_") +
-                    QString::number((*it).inputid);
-                BUTTON(action, SourceUtil::GetSourceName((*it).sourceid));
+                    QString::number((*it).m_inputid);
+                BUTTON(action, SourceUtil::GetSourceName((*it).m_sourceid));
             }
         }
     }

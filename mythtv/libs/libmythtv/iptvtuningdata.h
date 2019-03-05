@@ -203,12 +203,13 @@ class MTV_PUBLIC IPTVTuningData
     }
 
   protected:
+
+    QUrl         m_data_url;
+    FECType      m_fec_type;
+    QUrl         m_fec_url0;
+    QUrl         m_fec_url1;
+    uint         m_bitrate[3];
     IPTVProtocol m_protocol;
-    QUrl m_data_url;
-    FECType m_fec_type;
-    QUrl m_fec_url0;
-    QUrl m_fec_url1;
-    uint m_bitrate[3];
 };
 
 #endif // _IPTV_TUNING_DATA_H_

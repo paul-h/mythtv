@@ -225,6 +225,7 @@ MythPlayer::MythPlayer(PlayerFlags flags)
       numdroppedframes(0),
       prior_audiotimecode(0),
       prior_videotimecode(0),
+      m_timeOffsetBase(0),
       // LiveTVChain stuff
       m_tv(nullptr),                isDummy(false),
       // Counter for buffering messages
@@ -270,6 +271,7 @@ MythPlayer::MythPlayer(PlayerFlags flags)
         avsync2adjustms = 1;
     if (avsync2adjustms > 40)
         avsync2adjustms = 40;
+    m_avTimer.start();
 }
 
 MythPlayer::~MythPlayer(void)
@@ -1606,7 +1608,7 @@ int MythPlayer::SetTrack(uint type, int trackNo)
         EnableCaptions(subtype, true);
         if ((kDisplayCC708 == subtype || kDisplayCC608 == subtype) && decoder)
         {
-            int sid = decoder->GetTrackInfo(type, trackNo).stream_id;
+            int sid = decoder->GetTrackInfo(type, trackNo).m_stream_id;
             if (sid >= 0)
             {
                 (kDisplayCC708 == subtype) ? cc708.SetCurrentService(sid) :
@@ -2167,12 +2169,9 @@ void MythPlayer::AVSync(VideoFrame *buffer, bool limit_delay)
     }
 }
 
-static void wait_for_time(int64_t framedue);
-
-void wait_for_time(int64_t framedue)
+void MythPlayer::WaitForTime(int64_t framedue)
 {
-    QDateTime now = QDateTime::currentDateTimeUtc();
-    int64_t unow = now.toMSecsSinceEpoch() * 1000;
+    int64_t unow = m_avTimer.nsecsElapsed() / 1000;
     int64_t delay = framedue - unow;
     if (delay > 0)
         QThread::usleep(delay);
@@ -2194,7 +2193,6 @@ void MythPlayer::AVSync2(VideoFrame *buffer)
     bool pause_audio = false;
     int64_t framedue = 0;
     int64_t audio_adjustment = 0;
-    QDateTime now;
     int64_t unow = 0;
     int64_t lateness = 0;
     int64_t playspeed1000 = (float)1000 / play_speed;
@@ -2210,8 +2208,13 @@ void MythPlayer::AVSync2(VideoFrame *buffer)
                 videotimecode = maxtcval;
         }
 
-        now = QDateTime::currentDateTimeUtc();
-        unow = now.toMSecsSinceEpoch() * 1000;
+        unow = m_avTimer.nsecsElapsed() / 1000;
+
+        if (!normal_speed || FlagIsSet(kMusicChoice))
+        {
+            framedue = unow + frame_interval;
+            break;
+        }
         // first time or after a seek - setup of rtcbase
         if (rtcbase == 0)
         {
@@ -2225,6 +2228,7 @@ void MythPlayer::AVSync2(VideoFrame *buffer)
             maxtcval = 0;
             maxtcframes = 0;
             numdroppedframes = 0;
+            m_timeOffsetBase = TranslatePositionFrameToMs(framesPlayed, false) - videotimecode;
         }
 
         if (videotimecode == 0)
@@ -2246,13 +2250,17 @@ void MythPlayer::AVSync2(VideoFrame *buffer)
         else
             framedue = unow + frame_interval / 2;
 
+        // recalculate framesPlayed to conform to actual time code.
+        framesPlayed = TranslatePositionMsToFrame(videotimecode + m_timeOffsetBase, false);
+        decoder->SetFramesPlayed(framesPlayed);
+
         lateness = unow - framedue;
         dropframe = false;
         if (lateness > 30000)
-            dropframe = !FlagIsSet(kMusicChoice) && numdroppedframes < 10;
+            dropframe = numdroppedframes < 10;
 
         if (lateness <= 30000 && prior_audiotimecode > 0
-            && prior_videotimecode > 0 && normal_speed && !FlagIsSet(kMusicChoice))
+            && prior_videotimecode > 0)
         {
             // Get video in sync with audio
             audio_adjustment = prior_audiotimecode - prior_videotimecode;
@@ -2279,8 +2287,7 @@ void MythPlayer::AVSync2(VideoFrame *buffer)
                 pause_audio = true;
         }
         // sanity check - reset rtcbase if time codes have gone crazy.
-        if ((lateness > AVSYNC_MAX_LATE || lateness < - AVSYNC_MAX_LATE)
-            && !FlagIsSet(kMusicChoice))
+        if ((lateness > AVSYNC_MAX_LATE || lateness < - AVSYNC_MAX_LATE))
         {
             framedue = 0;
             rtcbase = 0;
@@ -2345,7 +2352,7 @@ void MythPlayer::AVSync2(VideoFrame *buffer)
         // Don't wait for sync if this is a secondary PBP otherwise
         // the primary PBP will become out of sync
         if (!player_ctx->IsPBP() || player_ctx->IsPrimaryPBP())
-            wait_for_time(framedue);
+            WaitForTime(framedue);
         // get time codes for calculating difference next time
         prior_audiotimecode = audio.GetAudioTime();
         videoOutput->Show(ps);
@@ -2376,13 +2383,13 @@ void MythPlayer::AVSync2(VideoFrame *buffer)
             if (!player_ctx->IsPBP() || player_ctx->IsPrimaryPBP())
             {
                 int64_t due = framedue + frame_interval / 2;
-                wait_for_time(due);
+                WaitForTime(due);
             }
             videoOutput->Show(ps);
         }
     }
     else
-        wait_for_time(framedue);
+        WaitForTime(framedue);
 
     LOG(VB_PLAYBACK | VB_TIMESTAMP, LOG_INFO, LOC +
         QString("A/V timecodes audio=%1 video=%2 frameinterval=%3 "
@@ -2522,7 +2529,7 @@ bool MythPlayer::PrebufferEnoughFrames(int min_buffers)
                     QString("Waited %1ms for video buffers %2")
                         .arg(waited_for).arg(videoOutput->GetFrameStatus()));
             buffering_last_msg = QTime::currentTime();
-            if (audio.GetAudioBufferedTime() > 2000 && framesPlayed < 5
+            if (audio.IsBufferAlmostFull() && framesPlayed < 5
                 && gCoreContext->GetBoolSetting("MusicChoiceEnabled", false))
             {
                 playerFlags = (PlayerFlags)(playerFlags | kMusicChoice);
@@ -2747,7 +2754,7 @@ void MythPlayer::VideoStart(void)
             uint numTextTracks = decoder->GetTrackCount(kTrackTypeRawText);
             for (uint i = 0; !hasForcedTextTrack && i < numTextTracks; ++i)
             {
-                if (decoder->GetTrackInfo(kTrackTypeRawText, i).forced)
+                if (decoder->GetTrackInfo(kTrackTypeRawText, i).m_forced)
                 {
                     hasForcedTextTrack = true;
                     forcedTrackNumber = i;
