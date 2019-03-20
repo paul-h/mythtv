@@ -400,7 +400,7 @@ bool MONITOR::isValid(void)
 
 string MONITOR::getIdStr(void)
 {
-    if (m_id == "")
+    if (m_id.empty())
     {
         std::stringstream out;
         out << m_mon_id;
@@ -437,8 +437,7 @@ int MONITOR::getSubpixelOrder(void)
     {
         if (m_bytes_per_pixel == 1)
             return ZM_SUBPIX_ORDER_NONE;
-        else
-            return ZM_SUBPIX_ORDER_RGB;
+        return ZM_SUBPIX_ORDER_RGB;
     }
 
     if (m_shared_data26)
@@ -473,7 +472,7 @@ ZMServer::ZMServer(int sock, bool debug)
     m_shmKey = 0x7a6d2000;
     string setting = getZMSetting("ZM_SHM_KEY");
 
-    if (setting != "")
+    if (!setting.empty())
     {
         unsigned long long tmp = m_shmKey;
         sscanf(setting.c_str(), "%20llx", &tmp);
@@ -655,8 +654,7 @@ bool ZMServer::send(const string &s) const
     status = ::send(m_sock, s.c_str(), s.size(), MSG_NOSIGNAL);
     if ( status == -1 )
         return false;
-    else
-        return true;
+    return true;
 }
 
 bool ZMServer::send(const string &s, const unsigned char *buffer, int dataLen) const
@@ -1609,7 +1607,7 @@ void ZMServer::handleDeleteEventList(vector<string> tokens)
         ++it;
     while (it != tokens.end())
     {
-        if (eventList == "")
+        if (eventList.empty())
             eventList = (*it);
         else
             eventList += "," + (*it);

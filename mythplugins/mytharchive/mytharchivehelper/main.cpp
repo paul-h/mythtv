@@ -928,7 +928,7 @@ int NativeArchive::doImportArchive(const QString &xmlFile, int chanID)
     {
         return importRecording(itemNode, xmlFile, chanID);
     }
-    else if (type == "video")
+    if (type == "video")
     {
         return importVideo(itemNode, xmlFile);
     }
@@ -2244,7 +2244,7 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
     unsigned char *outputbuf = new unsigned char[bufflen];
 
     int frameNo = -1, thumbCount = 0;
-    int frameFinished = 0;
+    bool frameFinished = false;
     int keyFrame;
 
     while (av_read_frame(inputFC, &pkt) >= 0)
@@ -2258,10 +2258,10 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
 
                 avcodec_flush_buffers(codecCtx);
                 av_frame_unref(frame);
-                frameFinished = 0;
+                frameFinished = false;
                 ret = avcodec_receive_frame(codecCtx, frame);
                 if (ret == 0)
-                    frameFinished = 1;
+                    frameFinished = true;
                 if (ret == 0 || ret == AVERROR(EAGAIN))
                     ret = avcodec_send_packet(codecCtx, &pkt);
                 keyFrame = frame->key_frame;
@@ -2278,7 +2278,7 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
                         av_frame_unref(frame);
                         ret = avcodec_receive_frame(codecCtx, frame);
                         if (ret == 0)
-                            frameFinished = 1;
+                            frameFinished = true;
                         if (ret == 0 || ret == AVERROR(EAGAIN))
                             ret = avcodec_send_packet(codecCtx, &pkt);
                         keyFrame = frame->key_frame;
@@ -2337,7 +2337,7 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
                                     frameNo++;
                                     ret = avcodec_receive_frame(codecCtx, frame);
                                     if (ret == 0)
-                                        frameFinished = 1;
+                                        frameFinished = true;
                                     if (ret == 0 || ret == AVERROR(EAGAIN))
                                         ret = avcodec_send_packet(codecCtx, &pkt);
                                 }
@@ -2354,8 +2354,7 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
         av_packet_unref(&pkt);
     }
 
-    if (outputbuf)
-        delete[] outputbuf;
+    delete[] outputbuf;
 
     // close the codec
     gCodecMap->freeCodecContext
@@ -2409,7 +2408,7 @@ static int64_t getCutFrames(const QString &filename, int64_t lastFrame)
 
     progInfo->QueryCutList(cutlist);
 
-    if (cutlist.size() == 0)
+    if (cutlist.empty())
     {
         delete progInfo;
         return 0;

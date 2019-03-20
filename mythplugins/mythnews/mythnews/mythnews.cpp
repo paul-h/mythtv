@@ -198,7 +198,7 @@ void MythNews::loadSites(void)
 
     if (m_nositesText)
     {
-        if (m_NewsSites.size() == 0)
+        if (m_NewsSites.empty())
             m_nositesText->Show();
         else
             m_nositesText->Hide();
@@ -401,12 +401,12 @@ QString MythNews::formatSize(long long bytes, int prec)
         double sizeGB = sizeKB/(1024*1024*1024.0);
         return QString("%1 TB").arg(sizeGB, 0, 'f', (sizeGB>10)?0:prec);
     }
-    else if (sizeKB>1024*1024) // Gigabytes
+    if (sizeKB>1024*1024) // Gigabytes
     {
         double sizeGB = sizeKB/(1024*1024.0);
         return QString("%1 GB").arg(sizeGB, 0, 'f', (sizeGB>10)?0:prec);
     }
-    else if (sizeKB>1024) // Megabytes
+    if (sizeKB>1024) // Megabytes
     {
         double sizeMB = sizeKB/1024.0;
         return QString("%1 MB").arg(sizeMB, 0, 'f', (sizeMB>10)?0:prec);
@@ -594,20 +594,18 @@ void MythNews::slotViewArticle(MythUIButtonListItem *articlesListItem)
             GetMythMainWindow()->HandleMedia("WebBrowser", cmdUrl);
             return;
         }
-        else
-        {
-            QString cmd = m_browser;
-            cmd.replace("%ZOOM%", m_zoom);
-            cmd.replace("%URL%", cmdUrl);
-            cmd.replace('\'', "%27");
-            cmd.replace("&","\\&");
-            cmd.replace(";","\\;");
 
-            GetMythMainWindow()->AllowInput(false);
-            myth_system(cmd, kMSDontDisableDrawing);
-            GetMythMainWindow()->AllowInput(true);
-            return;
-        }
+        QString cmd = m_browser;
+        cmd.replace("%ZOOM%", m_zoom);
+        cmd.replace("%URL%", cmdUrl);
+        cmd.replace('\'', "%27");
+        cmd.replace("&","\\&");
+        cmd.replace(";","\\;");
+
+        GetMythMainWindow()->AllowInput(false);
+        myth_system(cmd, kMSDontDisableDrawing);
+        GetMythMainWindow()->AllowInput(true);
+        return;
     }
 
     playVideo(article);
@@ -678,7 +676,7 @@ void MythNews::ShowMenu(void)
 
         m_menuPopup->AddButton(tr("Manage Feeds"));
         m_menuPopup->AddButton(tr("Add Feed"));
-        if (m_NewsSites.size() > 0)
+        if (!m_NewsSites.empty())
         {
             m_menuPopup->AddButton(tr("Edit Feed"));
             m_menuPopup->AddButton(tr("Delete Feed"));

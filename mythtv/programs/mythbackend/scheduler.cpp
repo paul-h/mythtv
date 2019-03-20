@@ -263,8 +263,10 @@ static bool comp_overlap(RecordingInfo *a, RecordingInfo *b)
     if (aprec != bprec)
         return aprec < bprec;
 
-    if (a->GetFindID() != b->GetFindID())
-        return a->GetFindID() > b->GetFindID();
+    // If all else is equal, use the rule with higher priority.
+    if (a->GetRecordingPriority() != b->GetRecordingPriority())
+        return a->GetRecordingPriority() > b->GetRecordingPriority();
+
     return a->GetRecordingRuleID() < b->GetRecordingRuleID();
 }
 
@@ -765,8 +767,7 @@ bool Scheduler::ChangeRecordingEnd(RecordingInfo *oldp, RecordingInfo *newp)
             newp->SetRecordingStatus(RecStatus::Recorded);
             return false;
         }
-        else
-            return true;
+        return true;
     }
 
     EncoderLink *tv = (*m_tvList)[oldp->GetInputID()];
@@ -1080,14 +1081,14 @@ bool Scheduler::IsSameProgram(
 bool Scheduler::FindNextConflict(
     const RecList     &cardlist,
     const RecordingInfo *p,
-    RecConstIter      &j,
+    RecConstIter      &iter,
     OpenEndType        openEnd,
     uint              *paffinity) const
 {
     uint affinity = 0;
-    for ( ; j != cardlist.end(); ++j)
+    for ( ; iter != cardlist.end(); ++iter)
     {
-        const RecordingInfo *q = *j;
+        const RecordingInfo *q = *iter;
         QString msg;
 
         if (p == q)
@@ -1443,9 +1444,10 @@ void Scheduler::SchedNewRecords(void)
 // Perform the first pass for scheduling new recordings for programs
 // in the same priority sublevel.  For each program/starttime, choose
 // the first one with the highest affinity that doesn't conflict.
-void Scheduler::SchedNewFirstPass(RecIter &i, RecIter end,
+void Scheduler::SchedNewFirstPass(RecIter &start, RecIter end,
                                   int recpriority, int recpriority2)
 {
+    RecIter &i = start;
     while (i != end)
     {
         // Find the next unscheduled program in this sublevel.
@@ -1520,10 +1522,11 @@ void Scheduler::SchedNewFirstPass(RecIter &i, RecIter end,
 // Perform the retry passes for scheduling new recordings.  For each
 // unscheduled program, try to move the conflicting programs to
 // another time or tuner using the given constraints.
-void Scheduler::SchedNewRetryPass(RecIter i, RecIter end,
+void Scheduler::SchedNewRetryPass(RecIter start, RecIter end,
                                   bool samePriority, bool livetv)
 {
     RecList retry_list;
+    RecIter i = start;
     for ( ; i != end; ++i)
     {
         if ((*i)->GetRecordingStatus() == RecStatus::Unknown)
@@ -1962,7 +1965,7 @@ bool Scheduler::IsBusyRecording(const RecordingInfo *rcinfo)
                 // main input nor any of its children can be free.
                 return true;
             }
-            else if (!is_busy)
+            if (!is_busy)
             {
                 // This conflicting input is busy on the desired
                 // multiplex and the main input is not busy.  Nothing
@@ -2322,10 +2325,10 @@ bool Scheduler::HandleReschedule(void)
     {
         QStringList request = m_reschedQueue.dequeue();
         QStringList tokens;
-        if (request.size() >= 1)
+        if (!request.empty())
             tokens = request[0].split(' ', QString::SkipEmptyParts);
 
-        if (request.size() < 1 || tokens.size() < 1)
+        if (request.empty() || tokens.empty())
         {
             LOG(VB_GENERAL, LOG_ERR, "Empty Reschedule request received");
             continue;
@@ -4024,7 +4027,7 @@ void Scheduler::UpdateMatches(uint recordid, uint sourceid, uint mplexid,
         MythDB::DBError("UpdateMatches3", query);
         return;
     }
-    else if (query.size())
+    if (query.size())
     {
         QDate epoch(1970, 1, 1);
         int findtoday =
@@ -4457,8 +4460,9 @@ void Scheduler::AddNewRecords(void)
         "    capturecard.hostname, recordmatch.oldrecstatus, NULL, "//43-45
         "    oldrecstatus.future, capturecard.schedorder, " //46-47
         "    p.syndicatedepisodenumber, p.partnumber, p.parttotal, " //48-50
-        "    c.mplexid, capturecard.displayname, ") +      //51-52
-        pwrpri + QString(                                  //53
+        "    c.mplexid, capturecard.displayname,         "//51-52
+        "    p.season, p.episode, p.totalepisodes, ") +   //53-55
+        pwrpri + QString(                                  //56
         "FROM recordmatch "
         "INNER JOIN RECTABLE ON (recordmatch.recordid = RECTABLE.recordid) "
         "INNER JOIN program AS p "
@@ -4532,9 +4536,9 @@ void Scheduler::AddNewRecords(void)
             result.value(5).toString(),//subtitle
             QString(),//sortsubtitle
             result.value(6).toString(),//description
-            0, // season
-            0, // episode
-            0, // total episodes
+            result.value(53).toInt(), // season
+            result.value(54).toInt(), // episode
+            result.value(55).toInt(), // total episodes
             result.value(48).toString(),//synidcatedepisode
             result.value(11).toString(),//category
 
@@ -4603,7 +4607,7 @@ void Scheduler::AddNewRecords(void)
             p->SetRecordingStatus(p->m_oldrecstatus);
         }
 
-        p->SetRecordingPriority2(result.value(53).toInt());
+        p->SetRecordingPriority2(result.value(56).toInt());
 
         // Check to see if the program is currently recording and if
         // the end time was changed.  Ideally, checking for a new end
@@ -4977,11 +4981,11 @@ static bool comp_storage_combination(FileSystemInfo *a, FileSystemInfo *b)
         {
             return true;
         }
-        else if (a->getWeight() > b->getWeight())
+        if (a->getWeight() > b->getWeight())
         {
             return false;
         }
-        else if (a->getFreeSpace() > b->getFreeSpace())
+        if (a->getFreeSpace() > b->getFreeSpace())
         {
             return true;
         }
@@ -5030,7 +5034,7 @@ static bool comp_storage_disk_io(FileSystemInfo *a, FileSystemInfo *b)
     {
         return true;
     }
-    else if (a->getWeight() == b->getWeight())
+    if (a->getWeight() == b->getWeight())
     {
         if (a->getFreeSpace() > b->getFreeSpace())
             return true;
