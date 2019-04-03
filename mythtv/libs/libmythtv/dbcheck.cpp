@@ -2106,7 +2106,7 @@ nullptr
             "       CONCAT(startdate, ' ', starttime), "
             "       CONCAT(enddate, ' ', endtime) FROM record",
         };
-        for (uint i = 0; i < sizeof(pre_sql)/sizeof(char*); i++)
+        for (size_t i = 0; i < sizeof(pre_sql)/sizeof(char*); i++)
             updates_ba.push_back(QByteArray(pre_sql[i]));
 
         // Convert various DATETIME fields from local time to UTC
@@ -2121,7 +2121,7 @@ nullptr
             };
             QString order = (utc_offset > 0) ? "-starttime" : "starttime";
 
-            for (uint i = 0; i < sizeof(with_endtime)/sizeof(char*); i++)
+            for (size_t i = 0; i < sizeof(with_endtime)/sizeof(char*); i++)
             {
                 updates_ba.push_back(
                          QString("UPDATE %1 "
@@ -2134,7 +2134,7 @@ nullptr
                          .arg(order).toLocal8Bit());
             }
 
-            for (uint i = 0; i < sizeof(without_endtime)/sizeof(char*); i++)
+            for (size_t i = 0; i < sizeof(without_endtime)/sizeof(char*); i++)
             {
                 updates_ba.push_back(
                           QString("UPDATE %1 "
@@ -2177,7 +2177,7 @@ nullptr
             "DROP TABLE recordupdate",
         };
 
-        for (uint i = 0; i < sizeof(post_sql)/sizeof(char*); i++)
+        for (size_t i = 0; i < sizeof(post_sql)/sizeof(char*); i++)
             updates_ba.push_back(QByteArray(post_sql[i]));
 
         // Convert update ByteArrays to NULL terminated char**
@@ -2213,7 +2213,7 @@ nullptr
             };
             QString order = (utc_offset > 0) ? "-starttime" : "starttime";
 
-            for (uint i = 0; i < sizeof(with_endtime)/sizeof(char*); i++)
+            for (size_t i = 0; i < sizeof(with_endtime)/sizeof(char*); i++)
             {
                 updates_ba.push_back(
                      QString("UPDATE %1 "
@@ -2223,7 +2223,7 @@ nullptr
                      .arg(with_endtime[i]).arg(order).toLocal8Bit());
             }
 
-            for (uint i = 0; i < sizeof(without_endtime)/sizeof(char*); i++)
+            for (size_t i = 0; i < sizeof(without_endtime)/sizeof(char*); i++)
             {
                 updates_ba.push_back(
                       QString("UPDATE %1 "
