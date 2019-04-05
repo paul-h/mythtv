@@ -116,7 +116,7 @@ class PlaybackBox : public ScheduleCommon
         kDone
     } killStateType;
 
-    PlaybackBox(MythScreenStack *parent, QString name,
+    PlaybackBox(MythScreenStack *parent, const QString& name,
                 TV *player = nullptr, bool showTV = false);
    ~PlaybackBox(void);
 
@@ -126,7 +126,7 @@ class PlaybackBox : public ScheduleCommon
     bool keyPressEvent(QKeyEvent *) override; // MythScreenType
     void customEvent(QEvent *event) override; // ScheduleCommon
 
-    void setInitialRecGroup(QString initialGroup) { m_recGroup = initialGroup; }
+    void setInitialRecGroup(const QString& initialGroup) { m_recGroup = initialGroup; }
     static void * RunPlaybackBox(void *player, bool);
 
   public slots:
@@ -170,7 +170,7 @@ class PlaybackBox : public ScheduleCommon
     void ShowRecGroupChanger(bool use_playlist = false);
     void ShowPlayGroupChanger(bool use_playlist = false);
 
-    void popupClosed(QString which, int result);
+    void popupClosed(const QString& which, int result);
 
     void doPlayListRandom();
 
@@ -297,7 +297,7 @@ class PlaybackBox : public ScheduleCommon
 
     ProgramInfo *FindProgramInUILists(const ProgramInfo&);
     ProgramInfo *FindProgramInUILists(uint recordingID,
-                                      QString recgroup = "NotLiveTV");
+                                      const QString& recgroup = "NotLiveTV");
 
     void RemoveProgram(uint recordingID,
                        bool forgetHistory, bool forceMetadataDelete);
@@ -530,7 +530,7 @@ class PasswordChange : public MythScreenType
     Q_OBJECT
 
   public:
-    PasswordChange(MythScreenStack *lparent, QString oldpassword)
+    PasswordChange(MythScreenStack *lparent, const QString& oldpassword)
         : MythScreenType(lparent, "passwordchanger"),
           m_oldPassword(oldpassword){}
 
@@ -567,7 +567,7 @@ class RecMetadataEdit : public MythScreenType
   protected slots:
     void SaveChanges(void);
     void PerformQuery(void);
-    void OnSearchListSelection(RefCountHandler<MetadataLookup> lookup);
+    void OnSearchListSelection(const RefCountHandler<MetadataLookup>& lookup);
 
   private:
     void customEvent(QEvent *event) override; // MythUIType

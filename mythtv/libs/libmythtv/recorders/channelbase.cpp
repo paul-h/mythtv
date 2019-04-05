@@ -505,7 +505,7 @@ int ChannelBase::GetChanID(void) const
 
     while (query.next())
     {
-        if (query.value(1).toInt())
+        if (query.value(1).toBool())
         {
             ++found;
             visible = query.value(0).toInt();
@@ -797,7 +797,6 @@ ChannelBase *ChannelBase::CreateChannel(
         return nullptr;
     }
 
-    QString input = CardUtil::GetInputName(tvrec->GetInputId());
     QString channum = startchannel;
     channel->Init(channum, setchan);
 

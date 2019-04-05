@@ -33,8 +33,8 @@ class pid_cache_item_t
     uint GetTableID(void) const
         { return (m_sid_tid&0x100) ? 0 : GetID(); }
     uint GetID(void) const { return m_sid_tid & 0xff; }
-    bool IsPCRPID(void) const { return m_sid_tid&0x200; }
-    bool IsPermanent(void) const { return m_sid_tid&0x10000; }
+    bool IsPCRPID(void) const { return ( m_sid_tid&0x200 ) != 0; }
+    bool IsPermanent(void) const { return ( m_sid_tid&0x10000 ) != 0; }
     uint GetComposite(void) const { return m_sid_tid; }
   private:
     uint m_pid     {0};
@@ -131,11 +131,11 @@ class MTV_PUBLIC ChannelUtil
                                  bool use_on_air_guide,
                                  bool hidden,
                                  bool hidden_in_guide,
-                                 QString freqid  = QString(),
-                                 QString icon    = QString(),
+                                 const QString& freqid  = QString(),
+                                 const QString& icon    = QString(),
                                  QString format  = QString(),
-                                 QString xmltvid = QString(),
-                                 QString default_authority = QString());
+                                 const QString& xmltvid = QString(),
+                                 const QString& default_authority = QString());
 
     static bool    CreateIPTVTuningData(
         uint channel_id, const IPTVTuningData &tuning)
@@ -226,8 +226,8 @@ class MTV_PUBLIC ChannelUtil
                                         uint sourceID = 0,
                                         uint channelGroupID = 0,
                                         bool liveTVOnly = false,
-                                        QString callsign = "",
-                                        QString channum = "");
+                                        const QString& callsign = "",
+                                        const QString& channum = "");
 
     /**
      * \deprecated Use LoadChannels instead
@@ -310,12 +310,12 @@ class MTV_PUBLIC ChannelUtil
 
     // Misc sets
     static bool    SetChannelValue(const QString &field_name,
-                                   QString        value,
+                                   const QString& value,
                                    uint           sourceid,
                                    const QString &channum);
 
     static bool    SetChannelValue(const QString &field_name,
-                                   QString        value,
+                                   const QString& value,
                                    int            chanid);
 
     static bool    SaveCachedPids(uint chanid,

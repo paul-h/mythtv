@@ -281,7 +281,7 @@ void EITFixUp::Fix(DBEventEIT &event) const
         FixPBS(event);
 
     if (kFixComHem & event.m_fixup)
-        FixComHem(event, kFixSubtitle & event.m_fixup);
+        FixComHem(event, (kFixSubtitle & event.m_fixup) != 0U);
 
     if (kFixAUStar & event.m_fixup)
         FixAUStar(event);
@@ -430,8 +430,6 @@ QString EITFixUp::AddDVBEITAuthority(uint chanid, const QString &id)
  */
 void EITFixUp::FixBellExpressVu(DBEventEIT &event) const
 {
-    QString tmp;
-
     // A 0x0D character is present between the content
     // and the subtitle if its present
     int position = event.m_description.indexOf(0x0D);
@@ -508,7 +506,6 @@ void EITFixUp::FixBellExpressVu(DBEventEIT &event) const
     position = event.m_description.indexOf(m_bellYear);
     if (position != -1 && !event.m_category.isEmpty())
     {
-        tmp = "";
         // Parse out the year
         bool ok;
         uint y = event.m_description.mid(position + 1, 4).toUInt(&ok);
@@ -522,7 +519,7 @@ void EITFixUp::FixBellExpressVu(DBEventEIT &event) const
         // Get the actors if they exist
         if (position > 3)
         {
-            tmp = event.m_description.left(position-3);
+            QString tmp = event.m_description.left(position-3);
             QStringList actors =
                 tmp.split(m_bellActors, QString::SkipEmptyParts);
             QStringList::const_iterator it = actors.begin();
@@ -2556,8 +2553,6 @@ void EITFixUp::FixGreekSubtitle(DBEventEIT &event) const
 
 void EITFixUp::FixGreekEIT(DBEventEIT &event) const
 {
-    int position1;
-    int position2;
     //Live show
     int position;
     QRegExp tmpRegEx;
@@ -2718,8 +2713,9 @@ void EITFixUp::FixGreekEIT(DBEventEIT &event) const
     QRegExp tmpSeries = m_grSeason;
     // cap(2) is the season for ΑΒΓΔ
     // cap(3) is the season for 1234
-    if ((position1 = tmpSeries.indexIn(event.m_title)) != -1
-          || (position2 = tmpSeries.indexIn(event.m_description)) != -1)
+    int position1 = tmpSeries.indexIn(event.m_title);
+    int position2 = tmpSeries.indexIn(event.m_description);
+    if ((position1 != -1) || (position2 != -1))
     {
         if (!tmpSeries.cap(2).isEmpty()) // we found a letter representing a number
         {

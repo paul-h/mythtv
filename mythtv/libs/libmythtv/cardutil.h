@@ -252,9 +252,9 @@ class MTV_PUBLIC CardUtil
         return list[0];
     }
 
-    static vector<uint> GetInputIDs(QString videodevice = QString(),
-                                    QString rawtype     = QString(),
-                                    QString inputname   = QString(),
+    static vector<uint> GetInputIDs(const QString& videodevice = QString(),
+                                    const QString& rawtype     = QString(),
+                                    const QString& inputname   = QString(),
                                     QString hostname    = QString());
 
     static uint         GetChildInputCount(uint inputid);
@@ -341,10 +341,10 @@ class MTV_PUBLIC CardUtil
 
     static QString      ProbeSubTypeName(uint inputid);
 
-    static QStringList  ProbeVideoInputs(QString device,
-                                         QString inputtype = QString());
-    static QStringList  ProbeAudioInputs(QString device,
-                                         QString inputtype = QString());
+    static QStringList  ProbeVideoInputs(const QString& device,
+                                         const QString& inputtype = QString());
+    static QStringList  ProbeAudioInputs(const QString& device,
+                                         const QString& inputtype = QString());
     static void         GetDeviceInputNames(const QString      &device,
                                             const QString      &inputtype,
                                             QStringList        &inputs);
@@ -375,9 +375,10 @@ class MTV_PUBLIC CardUtil
         { return "DVB" == GetRawInputType(inputid); }
     static bool         IsDVBInputType(const QString &inputType);
     static QString      ProbeDVBFrontendName(const QString &device);
+    static QStringList  ProbeDeliverySystems(int fd_frontend);
     static QStringList  ProbeDeliverySystems(const QString &device);
-    static DTVModulationSystem ProbeDeliverySystem(int fd_frontend);
-    static DTVModulationSystem ProbeDeliverySystem(const QString &device);
+    static DTVModulationSystem ProbeCurrentDeliverySystem(int fd_frontend);
+    static DTVModulationSystem ProbeCurrentDeliverySystem(const QString &device);
     static DTVTunerType ProbeTunerType(int fd_frontend);
     static DTVTunerType ProbeTunerType(const QString &device);
     static DTVTunerType ConvertToTunerType(DTVModulationSystem delsys);
@@ -388,6 +389,7 @@ class MTV_PUBLIC CardUtil
     static uint         GetMinSignalMonitoringDelay(const QString &device);
     static QString      GetDeviceName(dvb_dev_type_t, const QString &device);
     static InputNames   GetConfiguredDVBInputs(const QString &device);
+    static int          SetDefaultDeliverySystem(uint inputid, int fd);
     static int          SetDeliverySystem(uint inputid);
     static int          SetDeliverySystem(uint inputid, DTVModulationSystem delsys);
     static int          SetDeliverySystem(uint inputid, int fd);
@@ -424,9 +426,9 @@ class MTV_PUBLIC CardUtil
                                    QString *error = nullptr);
 
   private:
-    static QStringList  ProbeV4LVideoInputs(QString device);
-    static QStringList  ProbeV4LAudioInputs(QString device);
-    static QStringList  ProbeDVBInputs(QString device);
+    static QStringList  ProbeV4LVideoInputs(const QString& device);
+    static QStringList  ProbeV4LAudioInputs(const QString& device);
+    static QStringList  ProbeDVBInputs(const QString& device);
     static QMap <QString,QStringList> s_videoDeviceCache;
 };
 

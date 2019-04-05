@@ -249,9 +249,9 @@ static QString construct_sort_title(
 
         QString sortprefix;
         if (recpriority > 0)
-            sortprefix.sprintf("+%03d", 1000 - recpriority);
+            sortprefix = QString("+%1").arg(1000 - recpriority, 3, QChar('0'));
         else
-            sortprefix.sprintf("-%03d", -recpriority);
+            sortprefix = QString("-%1").arg(-recpriority, 3, QChar('0'));
 
         sTitle = sortprefix + '-' + sTitle;
     }
@@ -307,8 +307,6 @@ QString PlaybackBox::extract_job_state(const ProgramInfo &pginfo)
 
 QString PlaybackBox::extract_commflag_state(const ProgramInfo &pginfo)
 {
-    QString job = "default";
-
     // commflagged can be yes, no or processing
     if (m_jobQueue.IsJobRunning(JOB_COMMFLAG, pginfo.GetChanID(),
                                 pginfo.GetRecordingStartTime()))
@@ -382,7 +380,7 @@ void * PlaybackBox::RunPlaybackBox(void * player, bool showTV)
     return nullptr;
 }
 
-PlaybackBox::PlaybackBox(MythScreenStack *parent, QString name,
+PlaybackBox::PlaybackBox(MythScreenStack *parent, const QString& name,
                          TV *player, bool /*showTV*/)
     : ScheduleCommon(parent, name),
       m_titleChaff(" \\(.*\\)$"),
@@ -424,13 +422,13 @@ PlaybackBox::PlaybackBox(MythScreenStack *parent, QString name,
 
     // Translate these external settings into mask values
     if (gCoreContext->GetBoolSetting("PlaybackWatchList", true) &&
-        !(m_viewMask & VIEW_WATCHLIST))
+        ((m_viewMask & VIEW_WATCHLIST) == 0))
     {
         m_viewMask = (ViewMask)(m_viewMask | VIEW_WATCHLIST);
         gCoreContext->SaveSetting("DisplayGroupDefaultViewMask", (int)m_viewMask);
     }
     else if (! gCoreContext->GetBoolSetting("PlaybackWatchList", true) &&
-             m_viewMask & VIEW_WATCHLIST)
+             ((m_viewMask & VIEW_WATCHLIST) != 0))
     {
         m_viewMask = (ViewMask)(m_viewMask & ~VIEW_WATCHLIST);
         gCoreContext->SaveSetting("DisplayGroupDefaultViewMask", (int)m_viewMask);
@@ -439,7 +437,7 @@ PlaybackBox::PlaybackBox(MythScreenStack *parent, QString name,
     // This setting is deprecated in favour of viewmask, this just ensures the
     // that it is converted over when upgrading from earlier versions
     if (gCoreContext->GetBoolSetting("LiveTVInAllPrograms",false) &&
-        !(m_viewMask & VIEW_LIVETVGRP))
+        ((m_viewMask & VIEW_LIVETVGRP) == 0))
     {
         m_viewMask = (ViewMask)(m_viewMask | VIEW_LIVETVGRP);
         gCoreContext->SaveSetting("DisplayGroupDefaultViewMask", (int)m_viewMask);
@@ -775,10 +773,10 @@ void PlaybackBox::SetItemIcons(MythUIButtonListItem *item, ProgramInfo* pginfo)
     disp_flag_stat[2] = pginfo->IsPreserved();
     disp_flag_stat[3] = pginfo->HasCutlist();
     disp_flag_stat[4] = pginfo->IsAutoExpirable();
-    disp_flag_stat[5] = pginfo->GetProgramFlags() & FL_EDITING;
+    disp_flag_stat[5] = ((pginfo->GetProgramFlags() & FL_EDITING) != 0U);
     disp_flag_stat[6] = pginfo->IsBookmarkSet();
     disp_flag_stat[7] = pginfo->IsInUsePlaying();
-    disp_flag_stat[8] = pginfo->GetProgramFlags() & FL_TRANSCODED;
+    disp_flag_stat[8] = ((pginfo->GetProgramFlags() & FL_TRANSCODED) != 0U);
 
     for (size_t i = 0; i < sizeof(disp_flags) / sizeof(char*); ++i)
         item->DisplayState(disp_flag_stat[i]?"yes":"no", disp_flags[i]);
@@ -1113,7 +1111,7 @@ void PlaybackBox::updateIcons(const ProgramInfo *pginfo)
     {
         iconImage = dynamic_cast<MythUIImage *>(GetChild(it.key()));
         if (iconImage)
-            iconImage->SetVisible(flags & (*it));
+            iconImage->SetVisible((flags & (*it)) != 0U);
 
         iconState = dynamic_cast<MythUIStateType *>(GetChild(it.key()));
         if (iconState)
@@ -1746,7 +1744,7 @@ bool PlaybackBox::UpdateUILists(void)
             }
 
             // Show categories
-            if ((m_viewMask & VIEW_CATEGORIES) && !p->GetCategory().isEmpty())
+            if (((m_viewMask & VIEW_CATEGORIES) != 0) && !p->GetCategory().isEmpty())
             {
                 QString catl = p->GetCategory().toLower();
                 sortedList[catl] = p->GetCategory();
@@ -1754,7 +1752,7 @@ bool PlaybackBox::UpdateUILists(void)
                 m_progLists[catl].setAutoDelete(false);
             }
 
-            if ((m_viewMask & VIEW_SEARCHES) &&
+            if (((m_viewMask & VIEW_SEARCHES) != 0) &&
                     !searchRule[p->GetRecordingRuleID()].isEmpty() &&
                     p->GetTitle() != searchRule[p->GetRecordingRuleID()])
             {   // Show search rules
@@ -1786,7 +1784,7 @@ bool PlaybackBox::UpdateUILists(void)
                     if (p->GetRecordingRuleID())
                         recidEpisodes[p->GetRecordingRuleID()] += 1;
                     if (recidEpisodes[p->GetRecordingRuleID()] == 1 ||
-                            !p->GetRecordingRuleID())
+                            (p->GetRecordingRuleID() == 0U))
                     {
                         m_progLists[m_watchGroupLabel].push_front(p);
                         m_progLists[m_watchGroupLabel].setAutoDelete(false);
@@ -2383,7 +2381,7 @@ void PlaybackBox::selected(MythUIButtonListItem *item)
     PlayFromBookmarkOrProgStart(item);
 }
 
-void PlaybackBox::popupClosed(QString which, int result)
+void PlaybackBox::popupClosed(const QString& which, int result)
 {
     m_menuDialog = nullptr;
 
@@ -3642,7 +3640,7 @@ void PlaybackBox::Delete(DeleteFlags flags)
         if (flags & kIgnore)
             continue;
 
-        RemoveProgram(recordingID, flags & kForgetHistory, flags & kForce);
+        RemoveProgram(recordingID, (flags & kForgetHistory) != 0, (flags & kForce) != 0);
 
         if (!(flags & kAllRemaining))
             break;
@@ -3692,7 +3690,7 @@ ProgramInfo *PlaybackBox::FindProgramInUILists(const ProgramInfo &pginfo)
 }
 
 ProgramInfo *PlaybackBox::FindProgramInUILists(uint recordingID,
-                                               QString recgroup)
+                                               const QString& recgroup)
 {
     // LiveTV ProgramInfo's are not in the aggregated list
     ProgramList::iterator _it[2] = {
@@ -4102,7 +4100,7 @@ void PlaybackBox::customEvent(QEvent *event)
     else if (event->type() == MythEvent::MythEventMessage)
     {
         MythEvent *me = static_cast<MythEvent *>(event);
-        QString message = me->Message();
+        const QString& message = me->Message();
 
         if (message.startsWith("RECORDING_LIST_CHANGE"))
         {
@@ -4255,7 +4253,7 @@ void PlaybackBox::customEvent(QEvent *event)
                 }
             }
 
-            bool forceDelete = me->ExtraDataList()[1].toUInt();
+            bool forceDelete = me->ExtraDataList()[1].toUInt() != 0U;
             if (!forceDelete)
             {
                 m_delList = me->ExtraDataList();
@@ -4281,7 +4279,7 @@ void PlaybackBox::customEvent(QEvent *event)
         {
             for (uint i = 4; i < (uint) me->ExtraDataCount(); i++)
             {
-                QString token = me->ExtraData(i);
+                const QString& token = me->ExtraData(i);
                 QSet<QString>::iterator it = m_preview_tokens.find(token);
                 if (it != m_preview_tokens.end())
                     m_preview_tokens.erase(it);
@@ -4387,8 +4385,8 @@ void PlaybackBox::customEvent(QEvent *event)
         {
             VideoArtworkType type       = (VideoArtworkType) me->ExtraData(2).toInt();
             uint             recordingID = me->ExtraData(3).toUInt();
-            QString          group      = me->ExtraData(4);
-            QString          fn         = me->ExtraData(5);
+            const QString&   group       = me->ExtraData(4);
+            const QString&   fn          = me->ExtraData(5);
 
             if (recordingID)
             {
@@ -4632,14 +4630,12 @@ void PlaybackBox::saveViewChanges()
     if (m_viewMask == VIEW_NONE)
         m_viewMask = VIEW_TITLES;
     gCoreContext->SaveSetting("DisplayGroupDefaultViewMask", (int)m_viewMask);
-    gCoreContext->SaveSetting("PlaybackWatchList",
-                                            (bool)(m_viewMask & VIEW_WATCHLIST));
+    gCoreContext->SaveBoolSetting("PlaybackWatchList",
+                                            (m_viewMask & VIEW_WATCHLIST) != 0);
 }
 
 void PlaybackBox::showGroupFilter(void)
 {
-    QString dispGroup = ProgramInfo::i18n(m_recGroup);
-
     QStringList groupNames;
     QStringList displayNames;
     QStringList groups;
@@ -4649,7 +4645,6 @@ void PlaybackBox::showGroupFilter(void)
 
     m_recGroupType.clear();
 
-    uint items = 0;
     uint totalItems = 0;
 
     // Add the group entries
@@ -4665,8 +4660,8 @@ void PlaybackBox::showGroupFilter(void)
     {
         while (query.next())
         {
-            dispGroup = query.value(0).toString();
-            items     = query.value(1).toInt();
+            QString dispGroup = query.value(0).toString();
+            uint    items     = query.value(1).toInt();
 
             if ((dispGroup != "LiveTV" || (m_viewMask & VIEW_LIVETVGRP)) &&
                 (dispGroup != "Deleted"))
@@ -4700,8 +4695,8 @@ void PlaybackBox::showGroupFilter(void)
         int unknownCount = 0;
         while (query.next())
         {
-            items     = query.value(1).toInt();
-            dispGroup = query.value(0).toString();
+            uint    items     = query.value(1).toInt();
+            QString dispGroup = query.value(0).toString();
             if (dispGroup.isEmpty())
             {
                 unknownCount += items;
@@ -4722,8 +4717,8 @@ void PlaybackBox::showGroupFilter(void)
 
         if (unknownCount > 0)
         {
-            dispGroup = tr("Unknown");
-            items     = unknownCount;
+            QString dispGroup = tr("Unknown");
+            uint    items     = unknownCount;
             displayGroups += tr("%1 [%n item(s)]", nullptr, items).arg(dispGroup);
             groups += dispGroup;
 
@@ -5100,7 +5095,8 @@ void PlaybackBox::setRecGroup(QString newRecGroup)
 
     RecordingRule record;
     record.LoadTemplate("Default");
-    uint defaultAutoExpire = record.m_autoExpire;
+    AutoExpireType defaultAutoExpire =
+        record.m_autoExpire ? kNormalAutoExpire : kDisableAutoExpire;
 
     if (m_op_on_playlist)
     {
@@ -5114,7 +5110,7 @@ void PlaybackBox::setRecGroup(QString newRecGroup)
             if ((p->GetRecordingGroup() == "LiveTV") &&
                 (newRecGroup != "LiveTV"))
             {
-                p->SaveAutoExpire((AutoExpireType)defaultAutoExpire);
+                p->SaveAutoExpire(defaultAutoExpire);
             }
             else if ((p->GetRecordingGroup() != "LiveTV") &&
                      (newRecGroup == "LiveTV"))
@@ -5136,7 +5132,7 @@ void PlaybackBox::setRecGroup(QString newRecGroup)
         return;
 
     if ((p->GetRecordingGroup() == "LiveTV") && (newRecGroup != "LiveTV"))
-        p->SaveAutoExpire((AutoExpireType)defaultAutoExpire);
+        p->SaveAutoExpire(defaultAutoExpire);
     else if ((p->GetRecordingGroup() != "LiveTV") && (newRecGroup == "LiveTV"))
         p->SaveAutoExpire(kLiveTVAutoExpire);
 
@@ -5187,7 +5183,6 @@ void PlaybackBox::showRecGroupPasswordChanger(void)
     if (!item)
         return;
 
-    QString recgroup = item->GetData().toString();
     QString currentPassword = getRecGroupPassword(m_recGroup);
 
     PasswordChange *pwChanger = new PasswordChange(m_popupStack,
@@ -5562,7 +5557,7 @@ void RecMetadataEdit::QueryComplete(MetadataLookup *lookup)
     }
 }
 
-void RecMetadataEdit::OnSearchListSelection(RefCountHandler<MetadataLookup> lookup)
+void RecMetadataEdit::OnSearchListSelection(const RefCountHandler<MetadataLookup>& lookup)
 {
     QueryComplete(lookup);
 }

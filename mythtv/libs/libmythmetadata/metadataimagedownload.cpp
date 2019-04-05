@@ -1,9 +1,10 @@
 // qt
 #include <QCoreApplication>
-#include <QImage>
-#include <QFileInfo>
 #include <QDir>
 #include <QEvent>
+#include <QFileInfo>
+#include <QImage>
+#include <utility>
 
 // myth
 #include "mythcorecontext.h"
@@ -38,9 +39,9 @@ void MetadataImageDownload::addThumb(QString title,
     QMutexLocker lock(&m_mutex);
 
     ThumbnailData *id = new ThumbnailData();
-    id->title = title;
-    id->data = data;
-    id->url = url;
+    id->title = std::move(title);
+    id->data = std::move(data);
+    id->url = std::move(url);
     m_thumbnailList.append(id);
     if (!isRunning())
         start();
@@ -331,7 +332,7 @@ ThumbnailData* MetadataImageDownload::moreThumbs()
     return ret;
 }
 
-QString getDownloadFilename(QString title, QString url)
+QString getDownloadFilename(const QString& title, const QString& url)
 {
     QString fileprefix = GetConfDir();
 
@@ -361,7 +362,7 @@ QString getDownloadFilename(QString title, QString url)
 }
 
 QString getDownloadFilename(VideoArtworkType type, MetadataLookup *lookup,
-                            QString url)
+                            const QString& url)
 {
     QString basefilename;
     QString title;
@@ -456,7 +457,7 @@ QString getLocalWritePath(MetadataType metadatatype, VideoArtworkType type)
     return ret;
 }
 
-QString getStorageGroupURL(VideoArtworkType type, QString host)
+QString getStorageGroupURL(VideoArtworkType type, const QString& host)
 {
     QString sgroup = getStorageGroupName(type);
     uint port = gCoreContext->GetBackendServerPort(host);
@@ -464,7 +465,7 @@ QString getStorageGroupURL(VideoArtworkType type, QString host)
     return gCoreContext->GenMythURL(host, port, "", sgroup);
 }
 
-QString getLocalStorageGroupPath(VideoArtworkType type, QString host)
+QString getLocalStorageGroupPath(VideoArtworkType type, const QString& host)
 {
     QString path;
 

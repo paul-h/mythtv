@@ -14,10 +14,11 @@
 #include "config.h"
 #include "mpeg2fix.h"
 
-#include <QList>
-#include <QQueue>
-#include <QMap>
 #include <QFileInfo>
+#include <QList>
+#include <QMap>
+#include <QQueue>
+#include <utility>
 
 #include "mythlogging.h"
 #include "mythdate.h"
@@ -91,12 +92,12 @@ static QString PtsTime(int64_t pts)
         pts = -pts;
         is_neg = true;
     }
-    QString msg;
-    return(msg.sprintf("%s%02u:%02u:%02u.%03u", (is_neg) ? "-" : "",
-                (unsigned int)(pts / 90000.) / 3600,
-                ((unsigned int)(pts / 90000.) % 3600) / 60,
-                ((unsigned int)(pts / 90000.) % 3600) % 60,
-                (((unsigned int)(pts / 90.) % 3600000) % 60000) % 1000));
+    return QString("%1%2:%3:%4.%5")
+        .arg(is_neg ? "-" : "")
+        .arg((uint)(pts / 90000.) / 3600, 2, QChar('0'))
+        .arg(((uint)(pts / 90000.) % 3600) / 60, 2, QChar('0'))
+        .arg(((uint)(pts / 90000.) % 3600) % 60, 2, QChar('0'))
+        .arg(((((uint)(pts / 90.) % 3600000) % 60000) % 1000), 3, QChar('0'));
 }
 
 MPEG2frame::MPEG2frame(int size) :
@@ -135,7 +136,7 @@ PTSOffsetQueue::PTSOffsetQueue(int vidid, QList<int> keys, int64_t initPTS)
 {
     poq_idx_t idx;
     m_vid_id = vidid;
-    m_keyList = keys;
+    m_keyList = std::move(keys);
     m_keyList.append(m_vid_id);
 
     idx.newPTS = initPTS;
@@ -784,7 +785,7 @@ int MPEG2fixup::AddFrame(MPEG2frame *f)
     return 0;
 }
 
-bool MPEG2fixup::InitAV(QString inputfile, const char *type, int64_t offset)
+bool MPEG2fixup::InitAV(const QString& inputfile, const char *type, int64_t offset)
 {
     int ret;
     QByteArray ifarray = inputfile.toLocal8Bit();
@@ -812,7 +813,7 @@ bool MPEG2fixup::InitAV(QString inputfile, const char *type, int64_t offset)
         return false;
     }
 
-    if (m_inputFC->iformat && !strcmp(m_inputFC->iformat->name, "mpegts") &&
+    if (m_inputFC->iformat && strcmp(m_inputFC->iformat->name, "mpegts") == 0 &&
         gCoreContext->GetBoolSetting("FFMPEGTS", false))
     {
         fmt = av_find_input_format("mpegts-ffmpeg");
@@ -1012,10 +1013,9 @@ int MPEG2fixup::ProcessVideo(MPEG2frame *vf, mpeg2dec_t *dec)
 
         if (info->gop)
         {
-            QString gop;
-            gop.sprintf("%02d:%02d:%02d:%03d ",
-                        info->gop->hours, info->gop->minutes,
-                        info->gop->seconds, info->gop->pictures);
+            QString gop = QString("%1:%2:%3:%4 ")
+                .arg(info->gop->hours, 2, QChar('0')).arg(info->gop->minutes, 2, QChar('0'))
+                .arg(info->gop->seconds, 2, QChar('0')).arg(info->gop->pictures, 3, QChar('0'));
             msg += gop;
         }
         if (info->current_picture)
@@ -1060,11 +1060,11 @@ void MPEG2fixup::WriteFrame(QString filename, MPEG2frame *f)
             }
         }
     }
-    WriteFrame(filename, &tmpFrame->m_pkt);
+    WriteFrame(std::move(filename), &tmpFrame->m_pkt);
     m_framePool.enqueue(tmpFrame);
 }
    
-void MPEG2fixup::WriteFrame(QString filename, AVPacket *pkt)
+void MPEG2fixup::WriteFrame(const QString& filename, AVPacket *pkt)
 {
     MPEG2frame *tmpFrame = GetPoolFrame(pkt);
     if (tmpFrame == nullptr)
@@ -1090,7 +1090,7 @@ void MPEG2fixup::WriteFrame(QString filename, AVPacket *pkt)
     mpeg2_close(tmp_decoder);
 }
 
-void MPEG2fixup::WriteYUV(QString filename, const mpeg2_info_t *info)
+void MPEG2fixup::WriteYUV(const QString& filename, const mpeg2_info_t *info)
 {
     int fh = open(filename.toLocal8Bit().constData(),
                   O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
@@ -1129,7 +1129,7 @@ closefd:
     close(fh);
 }
 
-void MPEG2fixup::WriteData(QString filename, uint8_t *data, int size)
+void MPEG2fixup::WriteData(const QString& filename, uint8_t *data, int size)
 {
     int fh = open(filename.toLocal8Bit().constData(),
                   O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
@@ -1147,7 +1147,7 @@ void MPEG2fixup::WriteData(QString filename, uint8_t *data, int size)
     close(fh);
 }
 
-bool MPEG2fixup::BuildFrame(AVPacket *pkt, QString fname)
+bool MPEG2fixup::BuildFrame(AVPacket *pkt, const QString& fname)
 {
     const mpeg2_info_t *info;
     int outbuf_size;
@@ -1317,7 +1317,7 @@ bool MPEG2fixup::BuildFrame(AVPacket *pkt, QString fname)
     // End HACK
 
     SetRepeat(pkt->data, pkt->size, info->display_picture->nb_fields,
-              !!(info->display_picture->flags & PIC_FLAG_TOP_FIELD_FIRST));
+              ((info->display_picture->flags & PIC_FLAG_TOP_FIELD_FIRST) != 0U));
 
     avcodec_free_context(&c);
 

@@ -72,7 +72,7 @@
 #define FORMAT_SUBRIP09   12
 #define FORMAT_MPL2       13 /*Mplayer sub 2 ?*/
 
-static int eol(char p) {
+static bool eol(char p) {
   return (p=='\r' || p=='\n' || p=='\0');
 }
 
@@ -96,7 +96,6 @@ static inline void trail_space(char *s) {
 static char *read_line_from_input(demux_sputext_t *demuxstr, char *line, off_t len) {
   off_t nread = 0;
   char *s;
-  int linelen;
 
   // Since our RemoteFile code sleeps 200ms whenever we get back less data
   // than requested, but this code just keeps trying to read until it gets
@@ -126,7 +125,7 @@ static char *read_line_from_input(demux_sputext_t *demuxstr, char *line, off_t l
 
   if (line && (s || demuxstr->buflen)) {
 
-    linelen = s ? (s - demuxstr->buf) + 1 : demuxstr->buflen;
+    int linelen = s ? (s - demuxstr->buf) + 1 : demuxstr->buflen;
 
     memcpy(line, demuxstr->buf, linelen);
     line[linelen] = '\0';
@@ -179,9 +178,9 @@ static subtitle_t *sub_read_line_sami(demux_sputext_t *demuxstr, subtitle_t *cur
     case 3: /* get all text until '<' appears */
       if (*s == '\0') { break; }
       else if (*s == '<') { state = 4; }
-      else if (!strncasecmp (s, "&nbsp;", 6)) { *p++ = ' '; s += 6; }
+      else if (strncasecmp (s, "&nbsp;", 6) == 0) { *p++ = ' '; s += 6; }
       else if (*s == '\r') { s++; }
-      else if (!strncasecmp (s, "<br>", 4) || *s == '\n') {
+      else if (strncasecmp (s, "<br>", 4) == 0 || *s == '\n') {
         *p = '\0'; p = text; trail_space (text);
         if (text[0] != '\0')
           current->text[current->lines++] = strdup (text);
@@ -353,7 +352,7 @@ static subtitle_t *sub_read_line_subrip(demux_sputext_t *demuxstr,subtitle_t *cu
             temp_line[temp_index++]='i';
             temp_line[temp_index++]='>';
 #else
-          if(!strncmp(p,"{\\i1}",5)) {
+          if(strncmp(p,"{\\i1}",5) == 0) {
 #endif
             p+=4;
           }
@@ -364,7 +363,7 @@ static subtitle_t *sub_read_line_subrip(demux_sputext_t *demuxstr,subtitle_t *cu
             temp_line[temp_index++]='i';
             temp_line[temp_index++]='>';
 #else
-          else if(!strncmp(p,"{\\i0}",5)) {
+          else if(strncmp(p,"{\\i0}",5) == 0) {
 #endif
             p+=4;
           }
@@ -467,11 +466,12 @@ static subtitle_t *sub_read_line_rt(demux_sputext_t *demuxstr,subtitle_t *curren
   char line[LINE_LEN + 1];
   int a1,a2,a3,a4,b1,b2,b3,b4;
   char *p=nullptr,*next=nullptr;
-  int i,len,plen;
+  int i,plen;
 
   memset (current, 0, sizeof(subtitle_t));
 
   while (!current->text[0]) {
+    int len;
     if (!read_line_from_input(demuxstr, line, LINE_LEN)) return nullptr;
     /*
      * TODO: it seems that format of time is not easily determined, it may be 1:12, 1:12.0 or 0:1:12.0
@@ -716,9 +716,9 @@ static subtitle_t *sub_read_line_jacobsub(demux_sputext_t *demuxstr, subtitle_t 
              &b1, &b2, &b3, &b4, line2) < 9) {
             if (sscanf(line1, "@%u @%u %" LINE_LEN_QUOT "[^\n\r]", &a4, &b4, line2) < 3) {
                 if (line1[0] == '#') {
-                    int hours = 0, minutes = 0, seconds, delta, inverter =
-                        1;
+                    int hours = 0, minutes = 0, seconds, delta;
                     unsigned units = jacoShift;
+                    int inverter = 1;
                     switch (toupper(line1[1])) {
                     case 'S':
                         if (isalpha(line1[2])) {
@@ -1046,11 +1046,11 @@ static int sub_autodetect (demux_sputext_t *demuxstr) {
      * A RealText format is a markup language, starts with <window> tag,
      * options (behaviour modifiers) are possible.
      */
-    if ( !strcasecmp(line, "<window") ) {
+    if ( strcasecmp(line, "<window") == 0 ) {
       demuxstr->uses_time=1;
       return FORMAT_RT;
     }
-    if ((!memcmp(line, "Dialogue: Marked", 16)) || (!memcmp(line, "Dialogue: ", 10))) {
+    if ((memcmp(line, "Dialogue: Marked", 16) == 0) || (memcmp(line, "Dialogue: ", 10) == 0)) {
       demuxstr->uses_time=1;
       return FORMAT_SSA;
     }

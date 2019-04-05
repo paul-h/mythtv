@@ -100,7 +100,7 @@ static void pretty_move (float lcycle, float *dist,float *dist2, float *rotangle
 	static float rot = 0.0F; // entre 0 et 2 * M_PI
 	static int happens = 0;
 	float tmp;
-	static int rotation = 0;
+        static int rotation = 0;
 	static int lock = 0;
 
 	if (happens)
@@ -133,13 +133,13 @@ static void pretty_move (float lcycle, float *dist,float *dist2, float *rotangle
 		tmp = lcycle - (M_PI_F*2.0F) * floorf(lcycle/(M_PI_F*2.0F));
 	}
 	
-	if (fabs(tmp-rot) > fabs(tmp-(rot+2.0F*M_PI_F))) {
+	if (fabsf(tmp-rot) > fabsf(tmp-(rot+2.0F*M_PI_F))) {
 		rot = (tmp + 15.0F*(rot+2*M_PI_F)) / 16.0F;
 		if (rot>2.0F*M_PI_F)
 			rot -= 2.0F*M_PI_F;
 		*rotangle = rot;
 	}
-	else if (fabs(tmp-rot) > fabs(tmp-(rot-2.0F*M_PI_F))) {
+	else if (fabsf(tmp-rot) > fabsf(tmp-(rot-2.0F*M_PI_F))) {
 		rot = (tmp + 15.0F*(rot-2.0F*M_PI_F)) / 16.0F;
 		if (rot<0.0F)
 			rot += 2.0F*M_PI_F;
@@ -150,9 +150,6 @@ static void pretty_move (float lcycle, float *dist,float *dist2, float *rotangle
 }
 
 void tentacle_update(int *buf, int *back, int W, int H, short data[2][512], float rapport, int drawit) {
-	int tmp;
-	int tmp2;
-	
 	static int colors[] = {
 		(0x18<<(ROUGE*8))|(0x4c<<(VERT*8))|(0x2f<<(BLEU*8)),
 		(0x48<<(ROUGE*8))|(0x2c<<(VERT*8))|(0x6f<<(BLEU*8)),
@@ -197,8 +194,8 @@ void tentacle_update(int *buf, int *back, int W, int H, short data[2][512], floa
 		
 		pretty_move (cycle,&dist,&dist2,&rotangle);
 
-		for (tmp=0;tmp<nbgrid;tmp++) {
-			for (tmp2=0;tmp2<definitionx;tmp2++) {
+		for (int tmp=0;tmp<nbgrid;tmp++) {
+			for (int tmp2=0;tmp2<definitionx;tmp2++) {
 				float val = (float)(ShiftRight(data[0][iRAND(511)],10)) * rapport;
 				vals[tmp2] = val;
 			}
@@ -206,7 +203,7 @@ void tentacle_update(int *buf, int *back, int W, int H, short data[2][512], floa
 			grid3d_update (grille[tmp],rotangle, vals, dist2);
 		}
 		cycle+=0.01F;
-		for (tmp=0;tmp<nbgrid;tmp++)
+		for (int tmp=0;tmp<nbgrid;tmp++)
 			grid3d_draw (grille[tmp],color,colorlow,dist,buf,back,W,H);
 	}
 	else {

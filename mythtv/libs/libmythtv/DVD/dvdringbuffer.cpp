@@ -680,7 +680,7 @@ int DVDRingBuffer::safe_read(void *data, uint sz)
     int             needed       = sz;
     char           *dest         = (char*) data;
     int             offset       = 0;
-    bool            bReprocessing = false;
+    bool            bReprocessing;
     bool            waiting      = false;
 
     if (m_gotStop)
@@ -1817,7 +1817,9 @@ bool DVDRingBuffer::DVDButtonUpdate(bool b_mode)
     dvdnav_highlight_area_t hl;
     dvdnav_get_current_highlight(m_dvdnav, &button);
     pci = dvdnav_get_current_nav_pci(m_dvdnav);
-    dvdRet = dvdnav_get_highlight_area_from_group(pci, DVD_BTN_GRP_Wide, button, b_mode, &hl);
+    dvdRet =
+        dvdnav_get_highlight_area_from_group(pci, DVD_BTN_GRP_Wide, button,
+                                             static_cast<int32_t>(b_mode), &hl);
 
     if (dvdRet == DVDNAV_STATUS_ERR)
         return false;

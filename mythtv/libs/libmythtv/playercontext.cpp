@@ -403,8 +403,8 @@ bool PlayerContext::CreatePlayer(TV *tv, QWidget *widget,
     else
     {
         QString subfn = m_buffer->GetSubtitleFilename();
-        bool isInProgress =
-            desiredState == kState_WatchingRecording || kState_WatchingLiveTV;
+        bool isInProgress = (desiredState == kState_WatchingRecording ||
+                             desiredState == kState_WatchingLiveTV);
         if (!subfn.isEmpty() && player->GetSubReader())
             player->GetSubReader()->LoadExternalSubtitles(subfn, isInProgress);
     }
@@ -418,6 +418,7 @@ bool PlayerContext::CreatePlayer(TV *tv, QWidget *widget,
     {
         if (IsAudioNeeded())
         {
+            // cppcheck-suppress unreadVariable
             QString errMsg = audio->ReinitAudio();
         }
     }
@@ -515,7 +516,7 @@ void PlayerContext::PushPreviousChannel(void)
     if (m_prevChan.empty() ||
         curChan != m_prevChan[m_prevChan.size() - 1])
     {
-        QString chan = curChan;
+        const QString& chan = curChan;
         m_prevChan.push_back(chan);
     }
 }
@@ -820,13 +821,14 @@ void PlayerContext::SetTVChain(LiveTVChain *chain)
 
     if (m_tvchain)
     {
+#if 0
         QString seed = QString("");
 
         if (IsPIP())
             seed = "PIP";
 
         seed += gCoreContext->GetHostName();
-
+#endif
         m_tvchain->InitializeNewChain(gCoreContext->GetHostName());
     }
 }

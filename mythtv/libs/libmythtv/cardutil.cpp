@@ -160,7 +160,7 @@ bool CardUtil::IsCableCardPresent(uint inputid,
             return false;
         }
 
-        QString ip_address = parts.at(0);
+        const QString& ip_address = parts.at(0);
 
         QStringList tuner_parts = parts.at(1).split(".");
         if (tuner_parts.size() != 2)
@@ -595,7 +595,6 @@ QStringList CardUtil::ProbeDeliverySystems(const QString &device)
     }
 
 #if DVB_API_VERSION >=5
-    unsigned int i;
     struct dtv_property prop;
     struct dtv_properties cmd;
 
@@ -605,7 +604,7 @@ QStringList CardUtil::ProbeDeliverySystems(const QString &device)
     cmd.props = &prop;
     if (ioctl(fd_frontend, FE_GET_PROPERTY, &cmd) == 0)
     {
-        LOG(VB_GENERAL, LOG_DEBUG, LOC +
+        LOG(VB_GENERAL, LOG_INFO, LOC +
             QString("(%1) ").arg(dvbdev) +
             QString("dvb api version %1.%2").arg((prop.u.data>>8)&0xff).arg((prop.u.data)&0xff));
     }
@@ -617,6 +616,35 @@ QStringList CardUtil::ProbeDeliverySystems(const QString &device)
         return delsys;
     }
 
+    delsys = ProbeDeliverySystems(fd_frontend);
+
+    QStringList::iterator it = delsys.begin();
+    QString msg = "Delivery systems:";
+    for (; it != delsys.end(); it++)
+    {
+        msg += " ";
+        msg += *it;
+    }
+    LOG(VB_GENERAL, LOG_INFO, LOC + QString("(%1) ").arg(dvbdev) + msg);
+
+#endif  // DVB_API_VERSION >= 5
+    close(fd_frontend);
+#endif  // USING_DVB
+
+    return delsys;
+}
+
+// Get the list of delivery systems from the card
+QStringList CardUtil::ProbeDeliverySystems(int fd_frontend)
+{
+    QStringList delsys;
+
+#ifdef USING_DVB
+#if DVB_API_VERSION >=5
+    unsigned int i;
+    struct dtv_property prop;
+    struct dtv_properties cmd;
+
     memset(&prop, 0, sizeof(prop));
     prop.cmd = DTV_ENUM_DELSYS;
     cmd.num = 1;
@@ -627,23 +655,12 @@ QStringList CardUtil::ProbeDeliverySystems(const QString &device)
         {
             delsys.push_back(DTVModulationSystem::toString(prop.u.buffer.data[i]));
         }
-        QStringList::iterator it = delsys.begin();
-        QString msg = "Delivery systems:";
-        for (; it != delsys.end(); it++)
-        {
-            msg += " ";
-            msg += *it;
-        }
-        LOG(VB_GENERAL, LOG_INFO, QString("CardUtil: (%1) ")
-            .arg(dvbdev) + msg);
     }
     else
     {
-        LOG(VB_GENERAL, LOG_ERR, LOC + QString("FE_GET_PROPERTY ioctl failed (%1)")
-            .arg(dvbdev) + ENO);
+        LOG(VB_GENERAL, LOG_ERR, LOC + "FE_GET_PROPERTY ioctl failed " + ENO);
     }
 #endif  // DVB_API_VERSION >= 5
-    close(fd_frontend);
 #endif  // USING_DVB
 
     return delsys;
@@ -758,6 +775,9 @@ DTVTunerType CardUtil::ConvertToTunerType(DTVModulationSystem delsys)
         case DTVModulationSystem::kModulationSystem_ATSC:
             tunertype = DTVTunerType::kTunerTypeATSC;
             break;
+        case DTVModulationSystem::kModulationSystem_UNDEFINED:
+            tunertype = DTVTunerType::kTunerTypeUnknown;
+            break;
         default:
             LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("TODO Add to switch case delivery system:%2 %3")
@@ -786,7 +806,7 @@ DTVTunerType CardUtil::GetTunerType(uint inputid)
 }
 
 // Get the currently configured delivery system from the device
-DTVModulationSystem CardUtil::ProbeDeliverySystem(const QString &device)
+DTVModulationSystem CardUtil::ProbeCurrentDeliverySystem(const QString &device)
 {
     DTVModulationSystem delsys;
 
@@ -800,13 +820,18 @@ DTVModulationSystem CardUtil::ProbeDeliverySystem(const QString &device)
         return delsys;
     }
 
-    delsys = ProbeDeliverySystem(fd_frontend);
+    delsys = ProbeCurrentDeliverySystem(fd_frontend);
+
+    LOG(VB_GENERAL, LOG_DEBUG, LOC + QString("(%1) delsys:%1 %2")
+        .arg(device).arg(delsys).arg(delsys.toString()));
+
+
     close(fd_frontend);
     return delsys;
 }
 
 // Get the currently configured delivery system from the device
-DTVModulationSystem CardUtil::ProbeDeliverySystem(int fd_frontend)
+DTVModulationSystem CardUtil::ProbeCurrentDeliverySystem(int fd_frontend)
 {
     DTVModulationSystem delsys;
 
@@ -831,9 +856,8 @@ DTVModulationSystem CardUtil::ProbeDeliverySystem(int fd_frontend)
 
     delsys.Parse(DTVModulationSystem::toString(prop.u.data));
 
-    LOG(VB_GENERAL, LOG_DEBUG, LOC + QString("delsys:%1 %2")
-        .arg(delsys).arg(delsys.toString()));
-
+#else
+    Q_UNUSED(fd_frontend);
 #endif // USING_DVB
 
     return delsys;
@@ -842,7 +866,7 @@ DTVModulationSystem CardUtil::ProbeDeliverySystem(int fd_frontend)
 // Get the currently configured tuner type from the device
 DTVTunerType CardUtil::ProbeTunerType(int fd_frontend)
 {
-    DTVModulationSystem delsys = ProbeDeliverySystem(fd_frontend);
+    DTVModulationSystem delsys = ProbeCurrentDeliverySystem(fd_frontend);
     DTVTunerType tunertype = ConvertToTunerType(delsys);
     return tunertype;
 }
@@ -850,7 +874,7 @@ DTVTunerType CardUtil::ProbeTunerType(int fd_frontend)
 // Get the currently configured tuner type from the device
 DTVTunerType CardUtil::ProbeTunerType(const QString &device)
 {
-    DTVModulationSystem delsys = ProbeDeliverySystem(device);
+    DTVModulationSystem delsys = ProbeCurrentDeliverySystem(device);
     DTVTunerType tunertype = ConvertToTunerType(delsys);
     return tunertype;
 }
@@ -870,6 +894,14 @@ QString CardUtil::ProbeSubTypeName(uint inputid)
         return "ERROR_OPEN";
 
     DTVModulationSystem delsys = GetDeliverySystem(inputid);
+    if (DTVModulationSystem::kModulationSystem_UNDEFINED == delsys)
+    {
+        LOG(VB_GENERAL, LOG_ERR,
+            QString("CardUtil[%1]: No delivery system selected for capturecard %1")
+                .arg(inputid));
+        return "ERROR_UNKNOWN";
+    }
+
     DTVTunerType tunertype = ConvertToTunerType(delsys);
     if (DTVTunerType::kTunerTypeUnknown != tunertype)
     {
@@ -882,9 +914,10 @@ QString CardUtil::ProbeSubTypeName(uint inputid)
         subtype = tunertype.toString();
     }
 
-    LOG(VB_GENERAL, LOG_INFO, LOC + QString("[%1] delsys:%2 %3 tunertype:%4 %5 subtype:%6")
-        .arg(inputid).arg(delsys).arg(delsys.toString())
-        .arg(tunertype).arg(tunertype.toString()).arg(subtype));
+    LOG(VB_GENERAL, LOG_INFO,
+        QString("CardUtil[%1]: delsys:%2 tunertype:%3 subtype:%4")
+            .arg(inputid).arg(delsys.toString())
+            .arg(tunertype.toString()).arg(subtype));
 
     return subtype;
 }
@@ -897,13 +930,84 @@ bool CardUtil::IsDVBInputType(const QString &inputType)
         (t == "ATSC") || (t == "DVB_S2") || (t == "DVB_T2");
 }
 
+// Get delivery system from the database and write it to the card
+// If there is no valid delivery system in the database then
+// give a message and select the best delivery system possible:
+// - get the current delivery system from the card
+// - get all supported delivery systems from the card
+// - if the current delivery system is DVB-T and DVB-T2 is supported then select DVB-T2
+// - if the current delivery system is DVB-S and DVB-S2 is supported then select DVB-S2
+//
+int CardUtil::SetDefaultDeliverySystem(uint inputid, int fd)
+{
+    // Select delivery system that is in the database
+    int ret = SetDeliverySystem(inputid, fd);
+    if (ret == 0)
+        return ret;
+
+    // Nothing in the database
+    LOG(VB_GENERAL, LOG_INFO,
+        QString("CardUtil[%1]: ").arg(inputid) +
+        "No delivery system selected, please run mythtv-setup");
+
+    DTVModulationSystem delsys = ProbeCurrentDeliverySystem(fd);
+    QStringList delsyslist = ProbeDeliverySystems(fd);
+
+    QString msg = "Delivery systems:";
+    QStringList::iterator it = delsyslist.begin();
+    for (; it != delsyslist.end(); it++)
+    {
+        msg += " ";
+        msg += *it;
+    }
+    LOG(VB_GENERAL, LOG_INFO, QString("CardUtil[%1]: ").arg(inputid) + msg);
+
+    LOG(VB_GENERAL, LOG_INFO,
+        QString("CardUtil[%1]: ").arg(inputid) +
+        QString("Delivery system default: %1").arg(delsys.toString()));
+
+    if (DTVModulationSystem::kModulationSystem_DVBT == delsys)
+    {
+        DTVModulationSystem newdelsys(DTVModulationSystem::kModulationSystem_DVBT2);
+        if (delsyslist.contains(newdelsys.toString()))
+        {
+            LOG(VB_GENERAL, LOG_INFO,
+                QString("CardUtil[%1]: ").arg(inputid) +
+                QString("Changing delivery system from %1 to %2")
+                    .arg(delsys.toString()).arg(newdelsys.toString()));
+            ret = SetDeliverySystem(inputid, newdelsys, fd);
+            return ret;
+        }
+    }
+
+    if (DTVModulationSystem::kModulationSystem_DVBS == delsys)
+    {
+        DTVModulationSystem newdelsys(DTVModulationSystem::kModulationSystem_DVBS2);
+        if (delsyslist.contains(newdelsys.toString()))
+        {
+            LOG(VB_GENERAL, LOG_INFO,
+                QString("CardUtil[%1]: ").arg(inputid) +
+                QString("Changing delivery system from %1 to %2")
+                    .arg(delsys.toString()).arg(newdelsys.toString()));
+            ret = SetDeliverySystem(inputid, newdelsys, fd);
+            return ret;
+        }
+    }
+    return 0;
+}
+
 int CardUtil::SetDeliverySystem(uint inputid)
 {
     int ret = -1;
 
 #ifdef USING_DVB
     DTVModulationSystem delsys = GetDeliverySystem(inputid);
-    ret = SetDeliverySystem(inputid, delsys);
+    if (DTVModulationSystem::kModulationSystem_UNDEFINED != delsys)
+    {
+        ret = SetDeliverySystem(inputid, delsys);
+    }
+#else
+    Q_UNUSED(inputid);
 #endif // USING_DVB
 
     return ret;
@@ -932,6 +1036,9 @@ int CardUtil::SetDeliverySystem(uint inputid, DTVModulationSystem delsys)
     ret = SetDeliverySystem(inputid, delsys, fd_frontend);
 
     close(fd_frontend);
+#else
+    Q_UNUSED(inputid);
+    Q_UNUSED(delsys);
 #endif // USING_DVB
 
     return ret;
@@ -948,6 +1055,9 @@ int CardUtil::SetDeliverySystem(uint inputid, int fd)
     {
         ret = SetDeliverySystem(inputid, delsys, fd);
     }
+#else
+    Q_UNUSED(inputid);
+    Q_UNUSED(fd);
 #endif // USING_DVB
 
     return ret;
@@ -959,8 +1069,9 @@ int CardUtil::SetDeliverySystem(uint inputid, DTVModulationSystem delsys, int fd
     int ret = -1;
 
 #ifdef USING_DVB
-    LOG(VB_GENERAL, LOG_INFO, LOC + QString("[%1] fd:%2 delsys:%3 %4")
-        .arg(inputid).arg(fd).arg(delsys).arg(delsys.toString()));
+    LOG(VB_GENERAL, LOG_INFO,
+        QString("CardUtil[%1]: Delivery system: %2")
+            .arg(inputid).arg(delsys.toString()));
 
     struct dtv_property prop;
     struct dtv_properties cmd;
@@ -979,6 +1090,10 @@ int CardUtil::SetDeliverySystem(uint inputid, DTVModulationSystem delsys, int fd
                 .arg(inputid) + ENO);
         return ret;
 	}
+#else
+    Q_UNUSED(inputid);
+    Q_UNUSED(delsys);
+    Q_UNUSED(fd);
 #endif // USING_DVB
 
     return ret;
@@ -1031,9 +1146,9 @@ bool set_on_input(const QString &to_set, uint inputid, const QString &value)
  *  \param hostname    Host on which device resides, only
  *                     required if said host is not the localhost
  */
-vector<uint> CardUtil::GetInputIDs(QString videodevice,
-                                   QString rawtype,
-                                   QString inputname,
+vector<uint> CardUtil::GetInputIDs(const QString& videodevice,
+                                   const QString& rawtype,
+                                   const QString& inputname,
                                    QString hostname)
 {
     vector<uint> list;
@@ -1797,7 +1912,7 @@ vector<uint> CardUtil::GetGroupInputIDs(uint inputgroupid)
 vector<uint> CardUtil::GetConflictingInputs(uint inputid)
 {
     LOG(VB_RECORD, LOG_INFO,
-        LOC + QString("GetConflictingInputs() input %1").arg(inputid));
+        QString("CardUtil[%1]: GetConflictingInputs() input %1").arg(inputid));
 
     vector<uint> inputids;
 
@@ -1897,7 +2012,7 @@ bool CardUtil::hasV4L2(int videofd)
     memset(&vcap, 0, sizeof(vcap));
 
     return ((ioctl(videofd, VIDIOC_QUERYCAP, &vcap) >= 0) &&
-            (vcap.capabilities & V4L2_CAP_VIDEO_CAPTURE));
+            ((vcap.capabilities & V4L2_CAP_VIDEO_CAPTURE) != 0U));
 #else // if !USING_V4L2
     return false;
 #endif // !USING_V4L2
@@ -1929,9 +2044,9 @@ bool CardUtil::GetV4LInfo(
 #ifdef USING_V4L1
     else // Fallback to V4L1 query
     {
-        struct video_capability capability;
-        if (ioctl(videofd, VIDIOCGCAP, &capability) >= 0)
-            input = QString::fromLatin1((const char*)capability.name);
+        struct video_capability capability2;
+        if (ioctl(videofd, VIDIOCGCAP, &capability2) >= 0)
+            input = QString::fromLatin1((const char*)capability2.name);
     }
 #endif // USING_V4L1
 #endif // USING_V4L2
@@ -2066,7 +2181,7 @@ InputNames CardUtil::GetConfiguredDVBInputs(const QString &device)
     return list;
 }
 
-QStringList CardUtil::ProbeVideoInputs(QString device, QString inputtype)
+QStringList CardUtil::ProbeVideoInputs(const QString& device, const QString& inputtype)
 {
     QStringList ret;
 
@@ -2080,7 +2195,7 @@ QStringList CardUtil::ProbeVideoInputs(QString device, QString inputtype)
     return ret;
 }
 
-QStringList CardUtil::ProbeAudioInputs(QString device, QString inputtype)
+QStringList CardUtil::ProbeAudioInputs(const QString& device, const QString& inputtype)
 {
     LOG(VB_GENERAL, LOG_DEBUG, QString("ProbeAudioInputs(%1,%2)")
                                    .arg(device).arg(inputtype));
@@ -2093,7 +2208,7 @@ QStringList CardUtil::ProbeAudioInputs(QString device, QString inputtype)
     return ret;
 }
 
-QStringList CardUtil::ProbeV4LVideoInputs(QString device)
+QStringList CardUtil::ProbeV4LVideoInputs(const QString& device)
 {
     bool ok;
     QStringList ret;
@@ -2124,7 +2239,7 @@ QStringList CardUtil::ProbeV4LVideoInputs(QString device)
     return ret;
 }
 
-QStringList CardUtil::ProbeV4LAudioInputs(QString device)
+QStringList CardUtil::ProbeV4LAudioInputs(const QString& device)
 {
     LOG(VB_GENERAL, LOG_DEBUG, QString("ProbeV4LAudioInputs(%1)").arg(device));
 
@@ -2157,7 +2272,7 @@ QStringList CardUtil::ProbeV4LAudioInputs(QString device)
     return ret;
 }
 
-QStringList CardUtil::ProbeDVBInputs(QString device)
+QStringList CardUtil::ProbeDVBInputs(const QString& device)
 {
     QStringList ret;
 
@@ -2470,13 +2585,12 @@ QString CardUtil::GetDeviceName(dvb_dev_type_t type, const QString &device)
                 QString("Adapter Frontend dvr number matches (%1)").arg(tmp));
             return tmp;
         }
-        else // use dvr0, allows multi-standard frontends which only have one dvr
-        {
-            devname = devname.replace(devname.indexOf("frontend"), 9, "dvr0");
-            LOG(VB_RECORD, LOG_DEBUG, LOC +
-                QString("Adapter Frontend dvr number not matching, using dvr0 instead (%1)").arg(devname));
-            return devname;
-        }
+
+        // use dvr0, allows multi-standard frontends which only have one dvr
+        devname = devname.replace(devname.indexOf("frontend"), 9, "dvr0");
+        LOG(VB_RECORD, LOG_DEBUG, LOC +
+            QString("Adapter Frontend dvr number not matching, using dvr0 instead (%1)").arg(devname));
+        return devname;
     }
     if (DVB_DEV_DEMUX == type)
     {
@@ -2487,13 +2601,12 @@ QString CardUtil::GetDeviceName(dvb_dev_type_t type, const QString &device)
                 QString("Adapter Frontend demux number matches (%1)").arg(tmp));
             return tmp;
         }
-        else // use demux0, allows multi-standard frontends, which only have one demux
-        {
-            devname = devname.replace(devname.indexOf("frontend"), 9, "demux0");
-            LOG(VB_RECORD, LOG_DEBUG, LOC +
-                QString("Adapter Frontend demux number not matching, using demux0 instead (%1)").arg(devname));
-            return devname;
-        }
+
+        // use demux0, allows multi-standard frontends, which only have one demux
+        devname = devname.replace(devname.indexOf("frontend"), 9, "demux0");
+        LOG(VB_RECORD, LOG_DEBUG, LOC +
+            QString("Adapter Frontend demux number not matching, using demux0 instead (%1)").arg(devname));
+        return devname;
     }
     if (DVB_DEV_CA == type)
         return devname.replace(devname.indexOf("frontend"), 8, "ca");
@@ -2640,12 +2753,12 @@ QString CardUtil::GetVBoxdesc(const QString &id, const QString &ip,
 }
 
 #ifdef USING_ASI
-static QString sys_dev(uint device_num, QString dev)
+static QString sys_dev(uint device_num, const QString& dev)
 {
     return QString("/sys/class/asi/asirx%1/%2").arg(device_num).arg(dev);
 }
 
-static QString read_sys(QString sys_dev)
+static QString read_sys(const QString& sys_dev)
 {
     QFile f(sys_dev);
     f.open(QIODevice::ReadOnly);
@@ -2654,7 +2767,7 @@ static QString read_sys(QString sys_dev)
     return sdba;
 }
 
-static bool write_sys(QString sys_dev, QString str)
+static bool write_sys(const QString& sys_dev, const QString& str)
 {
     QFile f(sys_dev);
     f.open(QIODevice::WriteOnly);

@@ -330,6 +330,13 @@ MythMediaError MythCDROMLinux::ejectCDROM(bool open_close)
     return MEDIAERR_OK;
 }
 
+struct StHandle {
+    const int m_fd;
+    explicit StHandle(const char *dev) : m_fd(open(dev, O_RDWR | O_NONBLOCK)) { }
+    ~StHandle() { close(m_fd); }
+    operator int() const { return m_fd; }
+};
+
 // This is copied from eject.c by Jeff Tranter (tranter@pobox.com)
 MythMediaError MythCDROMLinux::ejectSCSI()
 {
@@ -343,12 +350,7 @@ MythMediaError MythCDROMLinux::ejectSCSI()
     const unsigned DRIVER_OK = 0;
 
     // ALLOW_MEDIUM_REMOVAL requires r/w access so re-open the device
-    struct StHandle {
-        const int m_fd;
-        explicit StHandle(const char *dev) : m_fd(open(dev, O_RDWR | O_NONBLOCK)) { }
-        ~StHandle() { close(m_fd); }
-        operator int() const { return m_fd; }
-    } fd(qPrintable(m_DevicePath));
+    struct StHandle fd(qPrintable(m_DevicePath));
 
     LOG(VB_MEDIA, LOG_DEBUG, LOC + ":ejectSCSI");
     if ((ioctl(fd, SG_GET_VERSION_NUM, &k) < 0) || (k < 30000))
@@ -631,7 +633,6 @@ MythMediaStatus MythCDROMLinux::checkMedia()
                     return setStatus(MEDIASTAT_USEABLE, OpenedHere);
                 }
                 return setStatus(MEDIASTAT_NOTMOUNTED, OpenedHere);
-                break;
             }
             case CDS_AUDIO:
                 LOG(VB_MEDIA, LOG_DEBUG, "found an audio disk");
@@ -639,7 +640,6 @@ MythMediaStatus MythCDROMLinux::checkMedia()
                 m_Status = MEDIASTAT_NOTMOUNTED;
                 m_MediaType = MEDIATYPE_AUDIO;
                 return setStatus(MEDIASTAT_USEABLE, OpenedHere);
-                break;
             case CDS_MIXED:
                 LOG(VB_MEDIA, LOG_DEBUG, "found a mixed CD");
                 // Note: Mixed mode CDs require an explixit mount call
