@@ -8,7 +8,7 @@ using_frontend {
     SUBDIRS += mythjobqueue mythlcdserver
     SUBDIRS += mythwelcome mythshutdown mythutil
     SUBDIRS += mythpreviewgen mythmediaserver mythccextractor
-    SUBDIRS += mythscreenwizard mythfrontend_qml
+    SUBDIRS += mythscreenwizard
     SUBDIRS += mythfrontend_qml/VLCPlugin
     !mingw:!win32-msvc*: SUBDIRS += mythtranscode/external/replex
 }
