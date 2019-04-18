@@ -187,6 +187,119 @@ static int unlockShutdown()
     return 0;
 }
 
+static int lockFEShutdown()
+{
+    LOG(VB_GENERAL, LOG_INFO, "Mythshutdown: --lockfrontend");
+
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    // lock setting table
+    int tries = 0;
+    while (!query.exec("LOCK TABLE settings WRITE;") && tries < 5)
+    {
+        LOG(VB_GENERAL, LOG_INFO, "Waiting for lock on setting table");
+        sleep(1);
+        tries++;
+    }
+
+    if (tries >= 5)
+    {
+        LOG(VB_STDIO|VB_FLUSH, LOG_ERR,
+            QObject::tr("Error: Waited too long to obtain "
+                        "lock on setting table", "mythshutdown") + "\n");
+        return 1;
+    }
+
+    // does the setting already exist?
+    query.prepare("SELECT * FROM settings "
+                  "WHERE value = 'MythFEShutdownLock' AND hostname = :HOSTNAME;");
+    query.bindValue(":HOSTNAME", gCoreContext->GetHostName());
+    if (!query.exec())
+        MythDB::DBError("lockFEShutdown -- select", query);
+
+    if (query.size() < 1)
+    {
+        // add the lock setting
+        query.prepare("INSERT INTO settings (value, data, hostname) "
+                      "VALUES ('MythFEShutdownLock', '1', :HOSTNAME);");
+        query.bindValue(":HOSTNAME", gCoreContext->GetHostName());
+        if (!query.exec())
+            MythDB::DBError("lockFEShutdown -- insert", query);
+    }
+    else
+    {
+        // update the lock setting
+        query.prepare("UPDATE settings SET data = data + 1 "
+                      "WHERE value = 'MythFEShutdownLock' "
+                      "AND hostname = :HOSTNAME;");
+        query.bindValue(":HOSTNAME", gCoreContext->GetHostName());
+        if (!query.exec())
+            MythDB::DBError("lockFEShutdown -- update", query);
+    }
+
+    // unlock settings table
+    if (!query.exec("UNLOCK TABLES;"))
+        MythDB::DBError("lockFEShutdown -- unlock", query);
+
+    return 0;
+}
+
+static int unlockFEShutdown()
+{
+    LOG(VB_GENERAL, LOG_INFO, "Mythshutdown: --unlockfrontend");
+
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    // lock setting table
+    int tries = 0;
+    while (!query.exec("LOCK TABLE settings WRITE;") && tries < 5)
+    {
+        LOG(VB_GENERAL, LOG_INFO, "Waiting for lock on setting table");
+        sleep(1);
+        tries++;
+    }
+
+    if (tries >= 5)
+    {
+        LOG(VB_STDIO|VB_FLUSH, LOG_ERR,
+            QObject::tr("Error: Waited too long to obtain "
+                        "lock on setting table", "mythshutdown") + "\n");
+        return 1;
+    }
+
+    // does the setting exist?
+    query.prepare("SELECT * FROM settings "
+                  "WHERE value = 'MythFEShutdownLock' AND hostname = :HOSTNAME;");
+    query.bindValue(":HOSTNAME", gCoreContext->GetHostName());
+    if (!query.exec())
+        MythDB::DBError("unlockFEShutdown -- select", query);
+
+    if (query.size() < 1)
+    {
+        // add the lock setting
+        query.prepare("INSERT INTO settings (value, data) "
+                      "VALUES ('MythFEShutdownLock', '0');");
+        if (!query.exec())
+            MythDB::DBError("unlockFEShutdown -- insert", query);
+    }
+    else
+    {
+        // update lock setting
+        query.prepare("UPDATE settings SET data = GREATEST(0,  data - 1) "
+                      "WHERE value = 'MythFEShutdownLock' "
+                      "AND hostname = :HOSTNAME;");
+        query.bindValue(":HOSTNAME", gCoreContext->GetHostName());
+        if (!query.exec())
+            MythDB::DBError("unlockFEShutdown -- update", query);
+    }
+
+    // unlock table
+    if (!query.exec("UNLOCK TABLES;"))
+        MythDB::DBError("unlockFEShutdown -- unlock", query);
+
+    return 0;
+}
+
 /** \brief Returns true if a program containing the specified
  *         string is running on this machine
  *
@@ -395,6 +508,31 @@ static int checkOKShutdown(bool bWantRecStatus)
 
     LOG(VB_GENERAL, LOG_INFO,
         QString("Mythshutdown: --check returned: %1").arg(res));
+
+    return res;
+}
+
+static int checkFEOKShutdown(void)
+{
+    LOG(VB_GENERAL, LOG_INFO, "Mythshutdown: --checkfrontend");
+
+    int res = gCoreContext->GetNumSettingOnHost("MythFEShutdownLock", gCoreContext->GetHostName(), 0);
+
+    if (res > 0)
+    {
+        LOG(VB_STDIO|VB_FLUSH, LOG_ERR,
+            QObject::tr("Not OK to shutdown", "mythshutdown") + "\n");
+        res = 1;
+    }
+    else
+    {
+        LOG(VB_STDIO|VB_FLUSH, LOG_ERR,
+            QObject::tr("OK to shutdown", "mythshutdown") + "\n");
+        res = 0;
+    }
+
+    LOG(VB_GENERAL, LOG_INFO,
+        QString("Mythshutdown: --checkfrontend returned: %1").arg(res));
 
     return res;
 }
@@ -871,8 +1009,14 @@ int main(int argc, char **argv)
         res = lockShutdown();
     else if (cmdline.toBool("unlock"))
         res = unlockShutdown();
+    else if (cmdline.toBool("lockfrontend"))
+        res = lockFEShutdown();
+    else if (cmdline.toBool("unlockfrontend"))
+        res = unlockFEShutdown();
     else if (cmdline.toBool("check"))
         res = checkOKShutdown(cmdline.toInt("check") == 1);
+    else if (cmdline.toBool("checkfrontend"))
+        res = checkFEOKShutdown();
     else if (cmdline.toBool("setschedwakeup"))
         res = setScheduledWakeupTime();
     else if (cmdline.toBool("startup"))
