@@ -9,6 +9,8 @@ class MythUIStateType;
 class MythUIButtonList;
 class QTimer;
 
+#define IDLESCREEN_UPDATE_INTERVAL   15000
+
 class IdleScreen : public MythScreenType
 {
     Q_OBJECT
@@ -23,6 +25,7 @@ class IdleScreen : public MythScreenType
 
 
   public slots:
+    void UpdateShutdownCountdown();
     void UpdateStatus(void);
     void UpdateScreen(void);
     bool UpdateScheduledList();
@@ -35,8 +38,11 @@ class IdleScreen : public MythScreenType
     bool CheckConnectionToServer(void);
     bool PendingSchedUpdate() const             { return m_pendingSchedUpdate; }
     void SetPendingSchedUpdate(bool newState)   { m_pendingSchedUpdate = newState; }
+    void IsShutdownLocked(void);
+    void DoShutdown(void);
 
     QTimer           *m_updateScreenTimer     {nullptr};
+    int               m_timeSinceLastUpdate   {IDLESCREEN_UPDATE_INTERVAL};
 
     MythUIStateType  *m_statusState           {nullptr};
     MythUIButtonList *m_currentRecordings     {nullptr};
@@ -45,6 +51,10 @@ class IdleScreen : public MythScreenType
     MythUIText       *m_conflictWarning       {nullptr};
 
     int             m_secondsToShutdown       {-1};
+    int             m_FEShutdownEnabled       {false};
+    bool            m_shutdownLocked          {false};
+    bool            m_shuttingDown            {false};
+    bool            m_shutdownFailed          {false};
 
     QMutex          m_schedUpdateMutex;
     bool            m_pendingSchedUpdate      {false};

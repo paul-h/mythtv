@@ -129,6 +129,18 @@
     <fontdef name="basemedium_disabled_button" from="basemediumbold">
         <color>#9999cc</color>
     </fontdef>
+    <fontdef name="basemedium_red" from="basemedium">
+        <color>#dd0000</color>
+    </fontdef>
+    <fontdef name="basemedium_yellow" from="basemedium">
+        <color>#ffff00</color>
+    </fontdef>
+    <fontdef name="basemedium_green" from="basemedium">
+        <color>#00dd00</color>
+    </fontdef>
+    <fontdef name="basemedium_orange" from="basemedium">
+        <color>#ffa500</color>
+    </fontdef>
 
     <!-- Fonts for specific screens -->
     <fontdef name="baseguide" from="basesmall">

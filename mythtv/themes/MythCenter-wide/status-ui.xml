@@ -137,13 +137,18 @@
                 <state name="idle">
                     <area>0,0,1240,100</area>
                     <imagetype name="icon">
-                        <area>450,10,80,80</area>
+                        <area>200,10,80,80</area>
+                        <filename>watermark/play.png</filename>
+                    </imagetype>
+                    <imagetype name="icon2">
+                        <area>960,10,80,80</area>
                         <filename>watermark/play.png</filename>
                     </imagetype>
                     <textarea name="status">
-                        <area>550,10,600,80</area>
-                        <font>basemedium</font>
-                        <align>left,vcenter</align>
+                        <area>290,10,660,80</area>
+
+                        <font>basemedium_green</font>
+                        <align>allcenter</align>
                         <value>Backend is idle</value>
                         <multiline>true</multiline>
                     </textarea>
@@ -152,24 +157,60 @@
                     <imagetype name="icon">
                         <filename>watermark/record.png</filename>
                     </imagetype>
+                    <imagetype name="icon2">
+                        <filename>watermark/record.png</filename>
+                    </imagetype>
                     <textarea name="status">
                         <value>Backend is recording</value>
+                        <font>basemedium_red</font>
                     </textarea>
                 </state>
                 <state name="shuttingdown" from="idle">
                     <imagetype name="icon">
                         <filename>watermark/big_arrow_down.png</filename>
                     </imagetype>
+                    <imagetype name="icon2">
+                        <filename>watermark/big_arrow_down.png</filename>
+                    </imagetype>
                     <textarea name="status">
                         <value>Backend is shutting down</value>
+                        <font>basemedium_yellow</font>
                     </textarea>
                 </state>
                 <state name="offline" from="idle">
                     <imagetype name="icon">
                         <filename>watermark/error.png</filename>
                     </imagetype>
+                    <imagetype name="icon2">
+                        <filename>watermark/error.png</filename>
+                    </imagetype>
                     <textarea name="status">
                         <value>Backend is offline</value>
+                        <font>basemedium_orange</font>
+                    </textarea>
+                </state>
+                <state name="locked" from="idle">
+                    <imagetype name="icon">
+                        <filename>watermark/lock.png</filename>
+                    </imagetype>
+                    <imagetype name="icon2">
+                        <filename>watermark/lock.png</filename>
+                    </imagetype>
+                    <textarea name="status">
+                        <value>Shutdown is locked</value>
+                        <font>basemedium_orange</font>
+                    </textarea>
+                </state>
+                <state name="error" from="idle">
+                    <imagetype name="icon">
+                        <filename>warning.png</filename>
+                    </imagetype>
+                    <imagetype name="icon2">
+                        <filename>warning.png</filename>
+                    </imagetype>
+                    <textarea name="status">
+                        <value>Failed to shutdown</value>
+                        <font>basemedium_red</font>
                     </textarea>
                 </state>
             </statetype>
