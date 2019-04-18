@@ -1883,6 +1883,26 @@ static HostSpinBoxSetting *FrontendIdleTimeout()
     return gs;
 }
 
+static HostSpinBoxSetting *FrontendShutdownTimeout()
+{
+    HostSpinBoxSetting *gs = new HostSpinBoxSetting("FrontendShutdownTimeout", 0, 360, 1);
+
+    gs->setLabel(MainGeneralSettings::tr("Time to wait before attempting to shutdown "
+                                         "the frontend system (seconds)"));
+
+    gs->setValue(0);
+
+    gs->setHelpText(MainGeneralSettings::tr("Number of seconds to wait when "
+                                            "the frontend is in standby mode "
+                                            "before attempting to shutdown the "
+                                            "system (only applicable if this is a "
+                                            "frontend only system). "
+                                            "A value of zero prevents the "
+                                            "frontend automatically shutting down "
+                                            "the system."));
+    return gs;
+}
+
 static HostComboBoxSetting *OverrideExitMenu()
 {
     HostComboBoxSetting *gc = new HostComboBoxSetting("OverrideExitMenu");
@@ -3929,6 +3949,7 @@ ShutDownRebootSetting::ShutDownRebootSetting()
 {
     setLabel(MainGeneralSettings::tr("Shutdown/Reboot Settings"));
     addChild(FrontendIdleTimeout());
+    addChild(FrontendShutdownTimeout());
     addChild(m_overrideExitMenu = OverrideExitMenu());
     addChild(m_haltCommand      = HaltCommand());
     addChild(m_rebootCommand    = RebootCommand());
