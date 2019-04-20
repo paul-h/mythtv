@@ -2829,7 +2829,7 @@ class SendChangeSGroupMessage : public QRunnable
     {
     }
 
-    void run(void)
+    void run(void) override
     {
         QStringList strlist;
         strlist << "CHANGE_STORAGE_GROUP";
@@ -4431,7 +4431,7 @@ void PlaybackBox::customEvent(QEvent *event)
                     if (m_progressDialog)
                     {
                         m_progressDialog->Close();
-                        m_progressDialog = 0;
+                        m_progressDialog = nullptr;
                     }
 
                     ShowOkPopup(me->ExtraData(0));
