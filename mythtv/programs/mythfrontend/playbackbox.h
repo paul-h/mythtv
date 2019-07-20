@@ -566,6 +566,7 @@ class RecMetadataEdit : public MythScreenType
 
   protected slots:
     void SaveChanges(void);
+    void ClearInetref();
     void PerformQuery(void);
     void OnSearchListSelection(const RefCountHandler<MetadataLookup>& lookup);
 
