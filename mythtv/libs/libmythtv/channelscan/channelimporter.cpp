@@ -108,6 +108,10 @@ void ChannelImporter::Process(const ScanDTVTransportList &_transports,
         CollectUniquenessStats(transports, info);
 
     // Print out each channel
+    if (VERBOSE_LEVEL_CHECK(VB_CHANSCAN, LOG_ANY))
+    {
+        cout << "After processing:" << endl;
+    }
     cout << FormatChannels(transports, info).toLatin1().constData() << endl;
 
     // Create summary
@@ -316,7 +320,7 @@ void ChannelImporter::InsertChannels(
         if (new_chan)
         {
             //: %n is the number of channels, %1 is the type of channel
-            QString msg = tr("Found %n new non-conflicting %1 channel(s).",
+            QString msg = tr("Found %n new %1 channel(s).",
                               "", new_chan).arg(toString(type));
 
             InsertAction action = QueryUserInsert(msg);
@@ -532,8 +536,9 @@ ScanDTVTransportList ChannelImporter::InsertChannels(
                 {
                     chan.m_channel_id = chanid;
 
-                    cout<<"Insert("<<chan.m_si_standard.toLatin1().constData()
-                        <<"): "<<chan.m_chan_num.toLatin1().constData()<<endl;
+                    cout<<QString("Insert: %1")
+                        .arg(FormatChannel(transports[i], chan))
+                        .toLatin1().constData()<<endl;
 
                     inserted = ChannelUtil::CreateChannel(
                         chan.m_db_mplexid,
@@ -664,9 +669,9 @@ ScanDTVTransportList ChannelImporter::UpdateChannels(
 
                 if (conflicting)
                 {
-                    cout<<"Skipping Update("
-                        <<chan.m_si_standard.toLatin1().constData()<<"): "
-                        <<chan.m_chan_num.toLatin1().constData()<<endl;
+                    cout<<QString("Skipping Update: %1")
+                        .arg(FormatChannel(transports[i], chan))
+                        .toLatin1().constData()<<endl;
                     handle = false;
                 }
             }
@@ -679,8 +684,9 @@ ScanDTVTransportList ChannelImporter::UpdateChannels(
             bool updated = false;
             if (handle)
             {
-                cout<<"Update("<<chan.m_si_standard.toLatin1().constData()<<"): "
-                    <<chan.m_chan_num.toLatin1().constData()<<endl;
+                cout<<QString("Update: %1")
+                    .arg(FormatChannel(transports[i], chan))
+                    .toLatin1().constData()<<endl;
 
                 ChannelUtil::UpdateInsertInfoFromDB(chan);
 
@@ -1648,7 +1654,7 @@ OkCancelType ChannelImporter::ShowManualChannelPopup(
     bool ok = (0 == dc);
 
     return (ok) ? kOCTOk :
-        ((1 == dc) ? kOCTCancel : kOCTCancelAll);
+        ((2 == dc) ? kOCTCancel : kOCTCancelAll);
 }
 
 OkCancelType ChannelImporter::QueryUserResolve(
@@ -1656,8 +1662,11 @@ OkCancelType ChannelImporter::QueryUserResolve(
     const ScanDTVTransport          &transport,
     ChannelInsertInfo               &chan)
 {
-    QString msg = tr("Channel %1 was found to be in conflict with other "
-                     "channels.").arg(SimpleFormatChannel(transport, chan));
+    QString m1 = tr("Channel %1 has channel number ")
+                    .arg(SimpleFormatChannel(transport, chan));
+    QString m2 = tr("%2 but that is already in use.")
+                    .arg(chan.m_chan_num);
+    QString msg = m1 + m2;
 
     OkCancelType ret = kOCTCancel;
 
@@ -1666,12 +1675,12 @@ OkCancelType ChannelImporter::QueryUserResolve(
         while (true)
         {
             QString msg2 = msg;
-            msg2 += " ";
+            msg2 += "\n";
             msg2 += tr("Please enter a unique channel number.");
 
             QString val = ComputeSuggestedChannelNum(info, transport, chan);
-            msg2 += " ";
-            msg2 += tr("Default value is %1").arg(val);
+            msg2 += "\n";
+            msg2 += tr("Default value is %1.").arg(val);
             ret = ShowManualChannelPopup(
                 GetMythMainWindow(), tr("Channel Importer"),
                 msg2, val);
