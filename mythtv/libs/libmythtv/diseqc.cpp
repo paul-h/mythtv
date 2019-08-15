@@ -354,7 +354,7 @@ bool DiSEqCDevTree::Load(uint cardid)
     // lookup configuration for this card
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
-        "SELECT diseqcid, cardtype "
+        "SELECT diseqcid, cardtype, inputname "
         "FROM capturecard "
         "WHERE cardid = :CARDID");
     query.bindValue(":CARDID", cardid);
@@ -373,7 +373,9 @@ bool DiSEqCDevTree::Load(uint cardid)
         m_root = DiSEqCDevDevice::CreateById(
             *this, query.value(0).toUInt());
     }
-    else if (query.value(1).toString().toUpper() == "DVB")
+    else if ((query.value(1).toString().toUpper() == "DVB") &&
+             ((query.value(2).toString().toUpper() == "DVB-S" ) ||
+              (query.value(2).toString().toUpper() == "DVB-S2")  ))
     {
         LOG(VB_GENERAL, LOG_WARNING, LOC +
             QString("No device tree for cardid %1").arg(cardid));
@@ -778,7 +780,7 @@ bool DiSEqCDevTree::ResetDiseqc(bool hard_reset, bool is_SCR)
     }
     else
     {
-        LOG(VB_CHANNEL, LOG_INFO, LOC + "Skiping reset: already done for this SCR bus");
+        LOG(VB_CHANNEL, LOG_INFO, LOC + "Skipping reset: already done for this SCR bus");
     }
 
     usleep(DISEQC_LONG_WAIT);
@@ -1054,7 +1056,7 @@ const DiSEqCDevDevice::TypeTable DiSEqCDevSwitch::SwitchTypeTable[9] =
     { "legacy_sw21",  kTypeLegacySW21        },
     { "legacy_sw42",  kTypeLegacySW42        },
     { "legacy_sw64",  kTypeLegacySW64        },
-    { "tone",         kTypeTone          },
+    { "tone",         kTypeTone              },
     { "diseqc",       kTypeDiSEqCCommitted   },
     { "diseqc_uncom", kTypeDiSEqCUncommitted },
     { "voltage",      kTypeVoltage           },

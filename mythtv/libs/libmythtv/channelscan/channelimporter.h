@@ -27,6 +27,7 @@ typedef enum {
     kOCTCancelAll = -1,
     kOCTCancel    = +0,
     kOCTOk        = +1,
+    kOCTOkAll     = +2,
 } OkCancelType;
 
 class ChannelImporterBasicStats
@@ -151,14 +152,18 @@ class MTV_PUBLIC ChannelImporter
     ScanDTVTransportList InsertChannels(
         const ScanDTVTransportList &transports,
         const ChannelImporterBasicStats &info,
-        InsertAction action, ChannelType type,
-        ScanDTVTransportList &filtered);
+        InsertAction action,
+        ChannelType type,
+        ScanDTVTransportList &inserted,
+        ScanDTVTransportList &skipped);
 
     ScanDTVTransportList UpdateChannels(
         const ScanDTVTransportList &transports,
         const ChannelImporterBasicStats &info,
-        UpdateAction action, ChannelType type,
-        ScanDTVTransportList &filtered);
+        UpdateAction action,
+        ChannelType type,
+        ScanDTVTransportList &updated,
+        ScanDTVTransportList &skipped);
 
     /// For multiple channels
     DeleteAction QueryUserDelete(const QString &msg);
@@ -171,22 +176,22 @@ class MTV_PUBLIC ChannelImporter
 
     /// For a single channel
     OkCancelType QueryUserResolve(
-        const ChannelImporterBasicStats &info,
         const ScanDTVTransport          &transport,
         ChannelInsertInfo               &chan);
 
     /// For a single channel
     OkCancelType QueryUserInsert(
-        const ChannelImporterBasicStats &info,
         const ScanDTVTransport          &transport,
         ChannelInsertInfo               &chan);
 
     static QString ComputeSuggestedChannelNum(
-        const ChannelImporterBasicStats &info,
-        const ScanDTVTransport          &transport,
         const ChannelInsertInfo         &chan);
 
     OkCancelType ShowManualChannelPopup(
+        MythMainWindow *parent, const QString& title,
+        const QString& message, QString &text);
+
+    OkCancelType ShowResolveChannelPopup(
         MythMainWindow *parent, const QString& title,
         const QString& message, QString &text);
 
@@ -201,7 +206,7 @@ class MTV_PUBLIC ChannelImporter
 
     static QString FormatChannels(
         const ScanDTVTransportList      &transports,
-        const ChannelImporterBasicStats &info);
+        const ChannelImporterBasicStats *info = nullptr);
 
     static QString FormatChannel(
         const ScanDTVTransport          &transport,
@@ -226,6 +231,18 @@ class MTV_PUBLIC ChannelImporter
         const ChannelImporterBasicStats &info,
         ChannelType type, uint &new_chan, uint &old_chan);
 
+    static int SimpleCountChannels(
+        const ScanDTVTransportList &transports);
+
+    static bool CheckChannelNumber(
+        const QString           &num,
+        const ChannelInsertInfo &chan);
+
+    static void AddChanToCopy(
+        ScanDTVTransport &transport_copy,
+        const ScanDTVTransport &transport,
+        const ChannelInsertInfo &chan);
+
   private:
     bool                m_use_gui;
     bool                m_is_interactive;
@@ -238,6 +255,8 @@ class MTV_PUBLIC ChannelImporter
     bool                m_lcn_only;
     /// Only services with complete scandata desired post scan?
     bool                m_complete_only;
+    /// Keep existing channel numbers on channel update
+    bool                m_keep_channel_numbers      {true};
     /// To pass information IPTV channel scan succeeded
     bool                m_success {false};
     /// Services desired post scan
