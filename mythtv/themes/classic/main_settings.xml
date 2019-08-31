@@ -126,14 +126,6 @@
 
     <!-- Keep this in synch with mythtv/themes/defaultmenu/info_settings.xml -->
     <button>
-        <type>SETTINGS_WEATHER</type>
-        <text>Weather Station Settings</text>
-        <action>CONFIGPLUGIN mythwstation</action>
-        <depends>mythwstation</depends>
-    </button>
-
-    <!-- Keep this in synch with mythtv/themes/defaultmenu/info_settings.xml -->
-    <button>
         <type>SETTINGS_NEWS</type>
         <text>News Settings</text>
         <description>Choose which news sources interest you</description>

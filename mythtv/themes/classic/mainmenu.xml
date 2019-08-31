@@ -70,14 +70,6 @@
     </button>
 
     <button>
-        <type>WEATHER</type>
-        <text>Weather Station</text>
-        <description>View weather statistics</description>
-        <action>PLUGIN mythwstation</action>
-        <depends>mythwstation</depends>
-    </button>
-
-    <button>
         <type>NEWS</type>
         <text>News Feeds</text>
         <description>Keep up with the news</description>
