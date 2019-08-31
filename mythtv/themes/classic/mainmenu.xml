@@ -117,13 +117,6 @@
     </button>
 
     <button>
-        <type>TV</type>
-        <text>New Frontend</text>
-        <description>Start the new QML frontend (experimental)</description>
-        <action>EXEC mythfrontend_qml</action>
-    </button>
-
-    <button>
         <type>SETUP</type>
         <text>Setup</text>
         <description>Settings for TV, Images, Music, Video, Weather, etc.</description>
