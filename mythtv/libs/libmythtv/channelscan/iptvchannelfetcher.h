@@ -38,8 +38,7 @@ class IPTVChannelInfo
                     uint fec_bitrate1,
                     uint programnumber) :
         m_name(name), m_xmltvid(xmltvid), m_programNumber(programnumber),
-        // FIXME
-        m_tuning(IPTVTuningData::http_hls, data_url, data_bitrate,
+        m_tuning(data_url, data_bitrate,
                  fec_type, fec_url0, fec_bitrate0, fec_url1, fec_bitrate1)
     {
     }

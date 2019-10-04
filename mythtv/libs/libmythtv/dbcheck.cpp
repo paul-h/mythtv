@@ -20,7 +20,6 @@ using namespace std;
 #include "recordingprofile.h"
 #include "recordinginfo.h"
 #include "cardutil.h"
-#include "channelutil.h"
 
 // TODO convert all dates to UTC
 
@@ -3340,55 +3339,6 @@ nullptr
 
         if (!performActualUpdate(&updates[0], "1346", dbver))
             return false;
-    }
-
-    if (dbver == "1346")
-    {
-        const char *updates[] = {
-            "ALTER TABLE iptv_channel ADD COLUMN "
-            "    protocol set('unknown', 'udp', 'rtp', 'rtsp', 'http_ts', 'http_hls') NOT NULL DEFAULT 'unknown'",
-            NULL
-        };
-
-        if (!performActualUpdate(&updates[0], "1347", dbver))
-            return false;
-
-        // Try to initialize the protocol column for all iptv channels
-        MSqlQuery select(MSqlQuery::InitCon());
-
-        select.prepare("SELECT iptv_channel.chanid, url, capturecard.cardtype "
-                       "FROM iptv_channel LEFT JOIN channel ON iptv_channel.chanid = channel.chanid "
-                       "LEFT JOIN capturecard ON channel.sourceid = capturecard.sourceid");
-
-        if (!select.exec())
-        {
-            MythDB::DBError("Unable to retrieve iptv channels.", select);
-            return false;
-        }
-
-        while (select.next())
-        {
-            uint chanid = select.value(0).toUInt();
-            QString url = select.value(1).toString();
-            QString type = select.value(2).toString();
-            IPTVTuningData tuningData = ChannelUtil::GetIPTVTuningData(chanid);
-
-            if (type == "VBOX")
-            {
-                // we know these are ts streams
-                tuningData.SetProtocol(IPTVTuningData::http_ts);
-                ChannelUtil::UpdateIPTVTuningData(chanid, tuningData);
-            }
-            else
-            {
-                IPTVTuningData::IPTVProtocol protocol = ChannelUtil::GuessProtocol(url);
-                if (protocol != IPTVTuningData::inValid)
-                {
-                    tuningData.SetProtocol(protocol);
-                    ChannelUtil::UpdateIPTVTuningData(chanid, tuningData);
-                }
-            }
-        }
     }
 
     /*

@@ -184,8 +184,6 @@ class MTV_PUBLIC ChannelUtil
     static QString GetVideoFilters(uint sourceid, const QString &channum)
         { return GetChannelValueStr("videofilters", sourceid, channum); }
     static IPTVTuningData GetIPTVTuningData(uint chanid);
-    static IPTVTuningData::IPTVProtocol GuessProtocol(const QString &sUrl);
-    static bool IsHLSPlaylist(const QString &url);
 
     // Are there any other possibly useful sort orders?
     // e.g. Sorting by sourceid would probably be better done by two distinct

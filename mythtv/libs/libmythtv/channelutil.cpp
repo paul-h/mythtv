@@ -1703,14 +1703,13 @@ bool ChannelUtil::UpdateIPTVTuningData(
     }
 
     query.prepare(
-        "INSERT INTO iptv_channel (chanid, url, type, bitrate, protocol) "
-        "VALUES (:CHANID, :URL, :TYPE, :BITRATE, :PROTOCOL)");
+        "INSERT INTO iptv_channel (chanid, url, type, bitrate) "
+        "VALUES (:CHANID, :URL, :TYPE, :BITRATE)");
     query.bindValue(":CHANID", channel_id);
 
     query.bindValue(":URL", tuning.GetDataURL().toString());
     query.bindValue(":TYPE", tuning.GetFECTypeString(0));
     query.bindValue(":BITRATE", tuning.GetBitrate(0));
-    query.bindValue(":PROTOCOL", (uint) tuning.GetProtocol());
 
     if (!query.exec())
     {
@@ -1960,7 +1959,7 @@ IPTVTuningData ChannelUtil::GetIPTVTuningData(uint chanid)
 {
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
-        "SELECT type+0, url, bitrate, protocol+0 "
+        "SELECT type+0, url, bitrate "
         "FROM iptv_channel "
         "WHERE chanid = :CHANID "
         "ORDER BY type+0");
@@ -1975,8 +1974,6 @@ IPTVTuningData ChannelUtil::GetIPTVTuningData(uint chanid)
     QString data_url, fec_url0, fec_url1;
     IPTVTuningData::FECType fec_type = IPTVTuningData::kNone;
     uint bitrate[3] = { 0, 0, 0, };
-    IPTVTuningData::IPTVProtocol protocol = IPTVTuningData::inValid;
-
     while (query.next())
     {
         IPTVTuningData::IPTVType type = (IPTVTuningData::IPTVType)
@@ -1986,7 +1983,6 @@ IPTVTuningData ChannelUtil::GetIPTVTuningData(uint chanid)
             case IPTVTuningData::kData:
                 data_url = query.value(1).toString();
                 bitrate[0] = query.value(2).toUInt();
-                protocol = (IPTVTuningData::IPTVProtocol) query.value(3).toUInt();
                 break;
             case IPTVTuningData::kRFC2733_1:
             case IPTVTuningData::kRFC5109_1:
@@ -2021,66 +2017,12 @@ IPTVTuningData ChannelUtil::GetIPTVTuningData(uint chanid)
         }
     }
 
-    // update the protocol in the DB to the real one
-    if (protocol == IPTVTuningData::inValid)
-    {
-        protocol = GuessProtocol(data_url);
-        // store the new value in the DB so we don't have to do this again
-        UpdateIPTVTuningData(chanid, IPTVTuningData(protocol, data_url, bitrate[0], fec_type,
-                                                    fec_url0, bitrate[1], fec_url1, bitrate[2]));
-    }
-
-    IPTVTuningData tuning(protocol, data_url, bitrate[0], fec_type,
+    IPTVTuningData tuning(data_url, bitrate[0], fec_type,
                           fec_url0, bitrate[1], fec_url1, bitrate[2]);
     LOG(VB_GENERAL, LOG_INFO, QString("Loaded %1 for %2")
         .arg(tuning.GetDeviceName()).arg(chanid));
     return tuning;
 }
-
-IPTVTuningData::IPTVProtocol ChannelUtil::GuessProtocol(const QString &sUrl)
-{
-    QUrl url(sUrl);
-    IPTVTuningData::IPTVProtocol protocol = IPTVTuningData::inValid;
-    if (!url.isValid())
-        protocol = IPTVTuningData::inValid;
-    else if (url.scheme() == "udp")
-        protocol = IPTVTuningData::udp;
-    else if (url.scheme() == "rtp")
-        protocol = IPTVTuningData::rtp;
-    else if (url.scheme() == "rtsp")
-        protocol = IPTVTuningData::rtsp;
-    else if (((url.scheme() == "http") || (url.scheme() == "https")) && IsHLSPlaylist(sUrl))
-        protocol = IPTVTuningData::http_hls;
-    else if ((url.scheme() == "http") || (url.scheme() == "https"))
-        protocol = IPTVTuningData::http_ts;
-
-    return protocol;
-}
-
-bool ChannelUtil::IsHLSPlaylist(const QString &url)
-{
-    if (!qApp)
-    {
-        LOG(VB_GENERAL, LOG_ERR, QString("IsHLSPlaylist - No QApplication!!"));
-        return false;
-    }
-
-    QByteArray buffer;
-
-    MythSingleDownload downloader;
-    downloader.DownloadURL(url, &buffer, 5000, 0, 10000);
-    if (!buffer.size())
-    {
-        LOG(VB_GENERAL, LOG_ERR, QString("IsHLSPlaylist - Open Failed: %1\n\t\t\t%2")
-        .arg(downloader.ErrorString()).arg(url));
-        return false;
-    }
-
-    QTextStream text(&buffer);
-    text.setCodec("UTF-8");
-    return (HLSReader::IsValidPlaylist(text));
-}
-
 
 // TODO This should be modified to load a complete channelinfo object including
 //      all fields from the database

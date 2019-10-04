@@ -160,7 +160,7 @@ void IPTVStreamHandler::run(void)
         QUrl urltuned = m_tuning.GetURL(0);
         urltuned.setScheme("rtp");
         urltuned.setPort(0);
-        tuning = IPTVTuningData(IPTVTuningData::rtp, urltuned.toString(), 0, IPTVTuningData::kNone,
+        tuning = IPTVTuningData(urltuned.toString(), 0, IPTVTuningData::kNone,
                                 urltuned.toString(), 0, "", 0);
     }
 
