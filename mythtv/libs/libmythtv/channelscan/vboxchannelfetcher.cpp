@@ -162,9 +162,8 @@ void VBoxChannelFetcher::run(void)
         .arg(m_channels->size()));
 
     // add the channels to the DB
-    vbox_chan_map_t::iterator it = m_channels->begin();
-    for (uint i = 1; it != m_channels->end(); ++it, ++i)
-    {
+    vbox_chan_map_t::const_iterator it = m_channels->begin();
+    for (uint i = 1; it != m_channels->end(); ++it, ++i)    {
         const QString& channum   = it.key();
         QString name      = (*it).m_name;
         QString xmltvid   = (*it).m_xmltvid.isEmpty() ? "" : (*it).m_xmltvid;
@@ -209,11 +208,8 @@ void VBoxChannelFetcher::run(void)
         }
         else
         {
-            // we know the vbox stream is a ts stream
-            (*it).m_tuning.SetProtocol(IPTVTuningData::http_ts);
-
             int chanid = ChannelUtil::GetChanID(m_sourceid, channum);
-
+            
             if (chanid <= 0)
             {
                 if (m_scan_monitor)
