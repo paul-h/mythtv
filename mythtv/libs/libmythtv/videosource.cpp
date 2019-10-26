@@ -71,6 +71,12 @@ VideoSourceSelector::VideoSourceSelector(uint           _initial_sourceid,
     m_mustHaveMplexId(_must_have_mplexid)
 {
     setLabel(tr("Video Source"));
+    setHelpText(
+        QObject::tr(
+            "Select a video source that is connected to one "
+            "or more capture cards. Default is the video source "
+            "selected in the Channel Editor page."
+            ));
 }
 
 void VideoSourceSelector::Load(void)
@@ -120,7 +126,6 @@ void VideoSourceSelector::Load(void)
     {
         if (cnt)
             setValue(sel);
-        setEnabled(false);
     }
 
     TransMythUIComboBoxSetting::Load();
@@ -1052,7 +1057,10 @@ class DVBCardName : public GroupSetting
     DVBCardName()
     {
         setLabel(QObject::tr("Frontend ID"));
-        setEnabled(false);
+        setHelpText(
+            QObject::tr("Identification string reported by the card. "
+                        "If the message \"Could not get card info...\" appears "
+                        "the card can be in use by another program."));
     };
 };
 
