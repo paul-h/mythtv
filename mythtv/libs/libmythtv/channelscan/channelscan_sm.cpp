@@ -74,9 +74,7 @@ const uint ChannelScanSM::kATSCTableTimeout = 10 * 1000;
 /// No logic here, lets just wait at least 15 seconds.
 const uint ChannelScanSM::kMPEGTableTimeout = 15 * 1000;
 
-// Astra 28.2E satellite Logical Channel Number selection default values
-static const uint kBouquetID = 272;                 // Freesat England HD
-static const uint kRegionID  = 1;                   // London
+// Astra 28.2E satellite Freesat/BSkyB
 static const uint kRegionUndefined = 0xFFFF;        // Not regional
 
 QString ChannelScanSM::loc(const ChannelScanSM *siscan)
@@ -170,7 +168,6 @@ ChannelScanSM::ChannelScanSM(ScanMonitor *_scan_monitor,
         LOG(VB_CHANSCAN, LOG_INFO, LOC + "Connecting up DTVSignalMonitor");
         ScanStreamData *data = new ScanStreamData();
 
-#if FSAT_IN_DB
         MSqlQuery query(MSqlQuery::InitCon());
         query.prepare(
                 "SELECT dvb_nit_id, bouquet_id, region_id "
@@ -188,34 +185,10 @@ ChannelScanSM::ChannelScanSM(ScanMonitor *_scan_monitor,
             LOG(VB_CHANSCAN, LOG_INFO, LOC +
                 QString("Setting NIT-ID to %1").arg(nitid));
 
-            m_bouquet_id = query.value(1).toInt();
-            m_region_id = query.value(2).toInt();
+            m_bouquet_id = query.value(1).toUInt();
+            m_region_id = query.value(2).toUInt();
         }
-#else
-        MSqlQuery query(MSqlQuery::InitCon());
-        query.prepare(
-                "SELECT dvb_nit_id "
-                "FROM videosource "
-                "WHERE videosource.sourceid = :SOURCEID");
-        query.bindValue(":SOURCEID", _sourceID);
-        if (!query.exec() || !query.isActive())
-        {
-            MythDB::DBError("ChannelScanSM", query);
-        }
-        else if (query.next())
-        {
-            int nitid = query.value(0).toInt();
-            data->SetRealNetworkID(nitid);
-            LOG(VB_CHANSCAN, LOG_INFO, LOC +
-                QString("Setting NIT-ID to %1").arg(nitid));
 
-            // Bouquet and region default or from the environment until it is in table videosource
-            QString bouquet_id = QString(getenv("FSAT_BOUQUET_ID"));
-            m_bouquet_id = bouquet_id.isEmpty() ? kBouquetID : bouquet_id.toInt();
-            QString region_id = QString(getenv("FSAT_REGION_ID"));
-            m_region_id = region_id.isEmpty() ? kRegionID : region_id.toInt();
-        }
-#endif
         LOG(VB_CHANSCAN, LOG_INFO, LOC +
             QString("Freesat/BSkyB bouquet_id:%1 region_id:%2")
                 .arg(m_bouquet_id).arg(m_region_id));
@@ -1189,6 +1162,18 @@ static void update_info(ChannelInsertInfo &info,
         service_name = desc->ServiceName();
         if (service_name.trimmed().isEmpty())
             service_name.clear();
+
+        info.m_service_type = desc->ServiceType();
+        info.m_is_data_service =
+            (desc && !desc->IsDTV() && !desc->IsDigitalAudio());
+        info.m_is_audio_service = (desc && desc->IsDigitalAudio());
+        delete desc;
+    }
+    else
+    {
+        LOG(VB_CHANSCAN, LOG_INFO, "ChannelScanSM: " +
+            QString("No ServiceDescriptor for onid %1 tid %2 sid %3")
+                .arg(sdt->OriginalNetworkID()).arg(sdt->TSID()).arg(sdt->ServiceID(i)));
     }
 
     if (info.m_callsign.isEmpty())
@@ -1203,16 +1188,10 @@ static void update_info(ChannelInsertInfo &info,
 
     info.m_hidden           = false;
     info.m_hidden_in_guide  = false;
-
-    info.m_is_data_service =
-        (desc && !desc->IsDTV() && !desc->IsDigitalAudio());
-    info.m_is_audio_service = (desc && desc->IsDigitalAudio());
-    delete desc;
-
-    info.m_service_id = sdt->ServiceID(i);
-    info.m_sdt_tsid   = sdt->TSID();
-    info.m_orig_netid = sdt->OriginalNetworkID();
-    info.m_in_sdt     = true;
+    info.m_service_id       = sdt->ServiceID(i);
+    info.m_sdt_tsid         = sdt->TSID();
+    info.m_orig_netid       = sdt->OriginalNetworkID();
+    info.m_in_sdt           = true;
 
     desc_list_t parsed =
         MPEGDescriptor::Parse(sdt->ServiceDescriptors(i),

@@ -76,7 +76,8 @@
  */
 
 
-#define MYTH_DATABASE_VERSION "1350"
+#define MYTH_DATABASE_VERSION "1352"
+
 
  MBASE_PUBLIC  const char *GetMythSourceVersion();
 
