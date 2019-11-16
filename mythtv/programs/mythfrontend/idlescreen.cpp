@@ -274,7 +274,6 @@ void IdleScreen::UpdateScreen(void)
     if (!m_scheduledList.empty())
     {
         ProgramList::iterator pit = m_scheduledList.begin();
-        MythUIButtonListItem *item;
 
         while (pit != m_scheduledList.end())
         {
@@ -308,8 +307,9 @@ void IdleScreen::UpdateScreen(void)
 
                 if (list != nullptr)
                 {
-                    item = new MythUIButtonListItem(list,"",
-                                                    qVariantFromValue(progInfo));
+                    MythUIButtonListItem *item =
+                        new MythUIButtonListItem(list,"",
+                                                 qVariantFromValue(progInfo));
 
                     InfoMap infoMap;
                     progInfo->ToMap(infoMap);

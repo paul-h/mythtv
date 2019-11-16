@@ -110,11 +110,11 @@ bool checkVersion(int major, int minor, int revision)
 void loadZMConfig(const string &configfile)
 {
     cout << "loading zm config from " << configfile << endl;
-    FILE *cfg;
     char line[512];
     char val[250];
 
-    if ( (cfg = fopen(configfile.c_str(), "r")) == nullptr )
+    FILE *cfg = fopen(configfile.c_str(), "r");
+    if ( cfg == nullptr )
     {
         fprintf(stderr, "Can't open %s\n", configfile.c_str());
     }
@@ -265,7 +265,7 @@ void kickDatabase(bool debug)
 
 void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
 {
-    int shared_data_size;
+    int shared_data_size = 0;
     int frame_size = m_width * m_height * m_bytes_per_pixel;
 
     if (!m_enabled)
@@ -342,10 +342,9 @@ void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
     if (m_shm_ptr == nullptr)
     {
         // fail back to shmget() functionality if mapping memory above failed.
-        int shmid;
-
-        if ((shmid = shmget((shmKey & 0xffff0000) | m_mon_id,
-             shared_data_size, SHM_R)) == -1)
+        int shmid = shmget((shmKey & 0xffff0000) | m_mon_id,
+                           shared_data_size, SHM_R);
+        if (shmid == -1)
         {
             cout << "Failed to shmget for monitor: " << m_mon_id << endl;
             m_status = "Error";
@@ -576,9 +575,6 @@ ZMServer::ZMServer(int sock, bool debug)
     }
 
     getMonitorList();
-
-    // zero buffer for conversion of integer to string in ADD_INT
-    memset (m_buf, '\0', sizeof(m_buf));
 }
 
 ZMServer::~ZMServer()
@@ -743,8 +739,7 @@ void ZMServer::handleHello()
 
 long long ZMServer::getDiskSpace(const string &filename, long long &total, long long &used)
 {
-    struct statfs statbuf;
-    memset(&statbuf, 0, sizeof(statbuf));
+    struct statfs statbuf {};
     long long freespace = -1;
 
     total = used = -1;
@@ -795,7 +790,7 @@ void ZMServer::handleGetServerStatus(void)
 
     // get free space on the disk where the events are stored
     char buf[15];
-    long long total, used;
+    long long total = 0, used = 0;
     string eventsDir = g_webPath + "/events/";
     getDiskSpace(eventsDir, total, used);
     sprintf(buf, "%d%%", (int) ((100.0F / ((float) total / used))));
@@ -846,9 +841,6 @@ void ZMServer::handleGetEventList(vector<string> tokens)
 
     ADD_STR(outStr, "OK")
 
-    MYSQL_RES *res;
-    MYSQL_ROW row;
-
     string sql("SELECT E.Id, E.Name, M.Id AS MonitorID, M.Name AS MonitorName, E.StartTime,  "
             "E.Length, M.Width, M.Height, M.DefaultRate, M.DefaultScale "
             "from Events as E inner join Monitors as M on E.MonitorId = M.Id ");
@@ -886,7 +878,7 @@ void ZMServer::handleGetEventList(vector<string> tokens)
         return;
     }
 
-    res = mysql_store_result(&g_dbConn);
+    MYSQL_RES *res = mysql_store_result(&g_dbConn);
     int eventCount = mysql_num_rows(res);
 
     if (m_debug)
@@ -896,7 +888,7 @@ void ZMServer::handleGetEventList(vector<string> tokens)
 
     for (int x = 0; x < eventCount; x++)
     {
-        row = mysql_fetch_row(res);
+        MYSQL_ROW row = mysql_fetch_row(res);
         if (row)
         {
             ADD_STR(outStr, row[0]) // eventID
@@ -938,9 +930,6 @@ void ZMServer::handleGetEventDates(vector<string> tokens)
 
     ADD_STR(outStr, "OK")
 
-    MYSQL_RES *res;
-    MYSQL_ROW row;
-
     string sql("SELECT DISTINCT DATE(E.StartTime) "
             "from Events as E inner join Monitors as M on E.MonitorId = M.Id ");
 
@@ -959,7 +948,7 @@ void ZMServer::handleGetEventDates(vector<string> tokens)
         return;
     }
 
-    res = mysql_store_result(&g_dbConn);
+    MYSQL_RES *res = mysql_store_result(&g_dbConn);
     int dateCount = mysql_num_rows(res);
 
     if (m_debug)
@@ -969,7 +958,7 @@ void ZMServer::handleGetEventDates(vector<string> tokens)
 
     for (int x = 0; x < dateCount; x++)
     {
-        row = mysql_fetch_row(res);
+        MYSQL_ROW row = mysql_fetch_row(res);
         if (row)
         {
             ADD_STR(outStr, row[0]) // event date
@@ -993,9 +982,6 @@ void ZMServer::handleGetMonitorStatus(void)
     ADD_STR(outStr, "OK")
 
     // get monitor list
-    MYSQL_RES *res;
-    MYSQL_ROW row;
-
     string sql("SELECT Id, Name, Type, Device, Host, Channel, Function, Enabled "
                "FROM Monitors;");
     if (mysql_query(&g_dbConn, sql.c_str()))
@@ -1005,7 +991,7 @@ void ZMServer::handleGetMonitorStatus(void)
         return;
     }
 
-    res = mysql_store_result(&g_dbConn);
+    MYSQL_RES *res = mysql_store_result(&g_dbConn);
 
      // add monitor count
     int monitorCount = mysql_num_rows(res);
@@ -1017,7 +1003,7 @@ void ZMServer::handleGetMonitorStatus(void)
 
     for (int x = 0; x < monitorCount; x++)
     {
-        row = mysql_fetch_row(res);
+        MYSQL_ROW row = mysql_fetch_row(res);
         if (row)
         {
             string id = row[0];
@@ -1033,8 +1019,6 @@ void ZMServer::handleGetMonitorStatus(void)
             string zmaStatus;
             getMonitorStatus(id, type, device, host, channel, function,
                              zmcStatus, zmaStatus, enabled);
-            MYSQL_RES *res2;
-            MYSQL_ROW row2;
 
             string sql2("SELECT count(if(Archived=0,1,NULL)) AS EventCount "
                         "FROM Events AS E "
@@ -1047,10 +1031,10 @@ void ZMServer::handleGetMonitorStatus(void)
                 return;
             }
 
-            res2 = mysql_store_result(&g_dbConn);
+            MYSQL_RES *res2 = mysql_store_result(&g_dbConn);
             if (mysql_num_rows(res2) > 0)
             {
-                row2 = mysql_fetch_row(res2);
+                MYSQL_ROW row2 = mysql_fetch_row(res2);
                 if (row2)
                     events = row2[0];
                 else
@@ -1178,9 +1162,9 @@ void ZMServer::handleGetEventFrame(vector<string> tokens)
 
     if (checkVersion(1, 32, 0))
     {
-        int year;
-        int month;
-        int day;
+        int year = 0;
+        int month = 0;
+        int day = 0;
 
         sscanf(eventTime.c_str(), "%2d/%2d/%2d", &year, &month, &day);
         sprintf(str, "20%02d-%02d-%02d", year, month, day);
@@ -1205,9 +1189,9 @@ void ZMServer::handleGetEventFrame(vector<string> tokens)
         }
     }
 
-    FILE *fd;
     int fileSize = 0;
-    if ((fd = fopen(filepath.c_str(), "r" )))
+    FILE *fd = fopen(filepath.c_str(), "r" );
+    if (fd != nullptr)
     {
         fileSize = fread(buffer, 1, sizeof(buffer), fd);
         fclose(fd);
@@ -1244,7 +1228,7 @@ void ZMServer::handleGetAnalysisFrame(vector<string> tokens)
     string eventID(tokens[2]);
     int frameNo = atoi(tokens[3].c_str());
     string eventTime(tokens[4]);
-    int frameID;
+    int frameID = 0;
     int frameCount = 0;
 
     if (m_debug)
@@ -1252,9 +1236,6 @@ void ZMServer::handleGetAnalysisFrame(vector<string> tokens)
              << " on monitor " << monitorID << " event time is " << eventTime << endl;
 
     // get the 'alarm' frames from the Frames table for this event
-    MYSQL_RES *res;
-    MYSQL_ROW row = nullptr;
-
     string sql;
     sql += "SELECT FrameId FROM Frames ";
     sql += "WHERE EventID = " + eventID + " ";
@@ -1268,7 +1249,7 @@ void ZMServer::handleGetAnalysisFrame(vector<string> tokens)
         return;
     }
 
-    res = mysql_store_result(&g_dbConn);
+    MYSQL_RES *res = mysql_store_result(&g_dbConn);
     frameCount = mysql_num_rows(res);
 
     // if we didn't find any alarm frames get the list of normal frames
@@ -1304,6 +1285,7 @@ void ZMServer::handleGetAnalysisFrame(vector<string> tokens)
         frameNo = (frameCount / 2) + 1;
 
     // move to the required frame in the table
+    MYSQL_ROW row = nullptr;
     for (int x = 0; x < frameNo; x++)
     {
         row = mysql_fetch_row(res);
@@ -1328,9 +1310,9 @@ void ZMServer::handleGetAnalysisFrame(vector<string> tokens)
 
     if (checkVersion(1, 32, 0))
     {
-        int year;
-        int month;
-        int day;
+        int year = 0;
+        int month = 0;
+        int day = 0;
 
         sscanf(eventTime.c_str(), "%2d/%2d/%2d", &year, &month, &day);
         sprintf(str, "20%02d-%02d-%02d", year, month, day);
@@ -1346,7 +1328,7 @@ void ZMServer::handleGetAnalysisFrame(vector<string> tokens)
 
     ADD_STR(outStr, "OK")
 
-    FILE *fd;
+    FILE *fd = nullptr;
     int fileSize = 0;
 
     // try to find an analysis frame for the frameID
@@ -1427,14 +1409,12 @@ void ZMServer::handleGetLiveFrame(vector<string> tokens)
     ADD_INT(outStr, monitorID)
 
     // try to find the correct MONITOR
-    MONITOR *monitor;
-    if (m_monitorMap.find(monitorID) != m_monitorMap.end())
-        monitor = m_monitorMap[monitorID];
-    else
+    if (m_monitorMap.find(monitorID) == m_monitorMap.end())
     {
         sendError(ERROR_INVALID_MONITOR);
         return;
     }
+    MONITOR *monitor = m_monitorMap[monitorID];
 
     // are the data pointers valid?
     if (!monitor->isValid())
@@ -1486,12 +1466,8 @@ void ZMServer::handleGetFrameList(vector<string> tokens)
 
     ADD_STR(outStr, "OK")
 
-    MYSQL_RES *res;
-    MYSQL_ROW row;
-    string sql;
-
     // check to see what type of event this is
-    sql += "SELECT Cause, Length, Frames FROM Events ";
+    string sql = "SELECT Cause, Length, Frames FROM Events ";
     sql += "WHERE Id = " + eventID + " ";
 
     if (mysql_query(&g_dbConn, sql.c_str()))
@@ -1501,8 +1477,8 @@ void ZMServer::handleGetFrameList(vector<string> tokens)
         return;
     }
 
-    res = mysql_store_result(&g_dbConn);
-    row = mysql_fetch_row(res);
+    MYSQL_RES *res = mysql_store_result(&g_dbConn);
+    MYSQL_ROW row = mysql_fetch_row(res);
 
     // make sure we have some frames to display
     if (row[1] == nullptr || row[2] == nullptr)
@@ -1730,16 +1706,13 @@ void ZMServer::getMonitorList(void)
     sql += " FROM Monitors";
     sql += " ORDER BY Sequence";
 
-    MYSQL_RES *res;
-    MYSQL_ROW row;
-
     if (mysql_query(&g_dbConn, sql.c_str()))
     {
         fprintf(stderr, "%s\n", mysql_error(&g_dbConn));
         return;
     }
 
-    res = mysql_store_result(&g_dbConn);
+    MYSQL_RES *res = mysql_store_result(&g_dbConn);
     int monitorCount = mysql_num_rows(res);
 
     if (m_debug)
@@ -1747,7 +1720,7 @@ void ZMServer::getMonitorList(void)
 
     for (int x = 0; x < monitorCount; x++)
     {
-        row = mysql_fetch_row(res);
+        MYSQL_ROW row = mysql_fetch_row(res);
         if (row)
         {
             MONITOR *m = new MONITOR;
@@ -1930,17 +1903,14 @@ string ZMServer::getZMSetting(const string &setting)
     string sql("SELECT Name, Value FROM Config ");
     sql += "WHERE Name = '" + setting + "'";
 
-    MYSQL_RES *res;
-    MYSQL_ROW row;
-
     if (mysql_query(&g_dbConn, sql.c_str()))
     {
         fprintf(stderr, "%s\n", mysql_error(&g_dbConn));
         return "";
     }
 
-    res = mysql_store_result(&g_dbConn);
-    row = mysql_fetch_row(res);
+    MYSQL_RES *res = mysql_store_result(&g_dbConn);
+    MYSQL_ROW row = mysql_fetch_row(res);
     if (row)
     {
         result = row[1];
@@ -2085,20 +2055,14 @@ void ZMServer::zmcControl(MONITOR *monitor, const string &mode)
         return;
     }
 
-    MYSQL_RES *res;
-    MYSQL_ROW row;
-    int activeCount;
-
-    res = mysql_store_result(&g_dbConn);
-    row = mysql_fetch_row(res);
-
-    if (row)
-        activeCount = atoi(row[0]);
-    else
+    MYSQL_RES *res = mysql_store_result(&g_dbConn);
+    MYSQL_ROW row = mysql_fetch_row(res);
+    if (row == nullptr)
     {
         sendError(ERROR_MYSQL_QUERY);
         return;
     }
+    int activeCount = atoi(row[0]);
 
     if (!activeCount)
         runCommand(g_binPath + "/zmdc.pl stop zmc " + zmcArgs);

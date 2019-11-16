@@ -641,14 +641,13 @@ void PlaybackBox::updateGroupInfo(const QString &groupname,
                                   const QString &grouplabel)
 {
     InfoMap infoMap;
-    int countInGroup;
     QString desc;
 
     infoMap["group"] = m_groupDisplayName;
     infoMap["title"] = grouplabel;
     infoMap["show"] =
         groupname.isEmpty() ? ProgramInfo::i18n("All Programs") : grouplabel;
-    countInGroup = m_progLists[groupname].size();
+    int countInGroup = m_progLists[groupname].size();
 
     if (m_artImage[kArtworkFanart])
     {
@@ -1598,7 +1597,6 @@ bool PlaybackBox::UpdateUILists(void)
 
     // Cache available status for later restoration
     QMap<uint, AvailableStatusType> asCache;
-    uint asRecordingID;
 
     if (!m_progLists.isEmpty())
     {
@@ -1606,7 +1604,7 @@ bool PlaybackBox::UpdateUILists(void)
         ProgramList::iterator end = m_progLists[""].end();
         for (; it != end; ++it)
         {
-            asRecordingID = (*it)->GetRecordingID();
+            uint asRecordingID = (*it)->GetRecordingID();
             asCache[asRecordingID] = (*it)->GetAvailableStatus();
         }
     }
@@ -1717,7 +1715,7 @@ bool PlaybackBox::UpdateUILists(void)
                 m_progLists[""].push_front(p);
             }
 
-            asRecordingID = p->GetRecordingID();
+            uint asRecordingID = p->GetRecordingID();
             if (asCache.contains(asRecordingID))
                 p->SetAvailableStatus(asCache[asRecordingID], "UpdateUILists");
             else
@@ -3403,7 +3401,7 @@ void PlaybackBox::ShowActionPopup(const ProgramInfo &pginfo)
     DisplayPopupMenu();
 }
 
-QString PlaybackBox::CreateProgramInfoString(const ProgramInfo &pginfo) const
+QString PlaybackBox::CreateProgramInfoString(const ProgramInfo &pginfo)
 {
     QDateTime recstartts = pginfo.GetRecordingStartTime();
     QDateTime recendts   = pginfo.GetRecordingEndTime();
@@ -3489,8 +3487,8 @@ void PlaybackBox::doPlaylistAllowRerecord()
 
     for (it = m_playList.begin(); it != m_playList.end(); ++it)
     {
-        ProgramInfo *pginfo;
-        if ((pginfo = FindProgramInUILists(*it)))
+        ProgramInfo *pginfo = FindProgramInUILists(*it);
+        if (pginfo != nullptr)
         {
             RecordingInfo ri(*pginfo);
             ri.ForgetHistory();
@@ -3547,17 +3545,14 @@ void PlaybackBox::doBeginLookup()
 
 void PlaybackBox::doPlaylistJobQueueJob(int jobType, int jobFlags)
 {
-    ProgramInfo *tmpItem;
-    QList<uint>::Iterator it;
-
-    for (it = m_playList.begin(); it != m_playList.end(); ++it)
+    for (auto it = m_playList.begin(); it != m_playList.end(); ++it)
     {
-        tmpItem = FindProgramInUILists(*it);
+        ProgramInfo *tmpItem = FindProgramInUILists(*it);
         if (tmpItem &&
             (!JobQueue::IsJobQueuedOrRunning(
                 jobType,
                 tmpItem->GetChanID(), tmpItem->GetRecordingStartTime())))
-    {
+        {
             QString jobHost;
             if (gCoreContext->GetBoolSetting("JobsRunOnRecordHost", false))
                 jobHost = tmpItem->GetHostname();
@@ -3639,14 +3634,14 @@ void PlaybackBox::PlaylistDelete(bool forgetHistory)
 // undeletes the first one on the list
 void PlaybackBox::Undelete(void)
 {
-    uint recordingID;
+    uint recordingID = 0;
     if (extract_one_del(m_delList, recordingID))
         m_helper.UndeleteRecording(recordingID);
 }
 
 void PlaybackBox::Delete(DeleteFlags flags)
 {
-    uint recordingID;
+    uint recordingID = 0;
     while (extract_one_del(m_delList, recordingID))
     {
         if (flags & kIgnore)
@@ -4155,14 +4150,13 @@ void PlaybackBox::customEvent(QEvent *event)
                 m_ncLock.unlock();
 
                 // This should be an impossible keypress we're simulating
-                QKeyEvent *keyevent;
                 Qt::KeyboardModifiers modifiers =
                     Qt::ShiftModifier |
                     Qt::ControlModifier |
                     Qt::AltModifier |
                     Qt::MetaModifier |
                     Qt::KeypadModifier;
-                keyevent = new QKeyEvent(QEvent::KeyPress,
+                QKeyEvent *keyevent = new QKeyEvent(QEvent::KeyPress,
                                          Qt::Key_LaunchMedia, modifiers);
                 QCoreApplication::postEvent((QObject*)(GetMythMainWindow()),
                                             keyevent);
@@ -4965,8 +4959,8 @@ void PlaybackBox::doPlaylistExpireSetting(bool turnOn)
 
     for (it = m_playList.begin(); it != m_playList.end(); ++it)
     {
-        ProgramInfo *tmpItem;
-        if ((tmpItem = FindProgramInUILists(*it)))
+        ProgramInfo *tmpItem = FindProgramInUILists(*it);
+        if (tmpItem != nullptr)
         {
             if (!tmpItem->IsAutoExpirable() && turnOn)
                 tmpItem->SaveAutoExpire(kNormalAutoExpire, true);
@@ -4982,8 +4976,8 @@ void PlaybackBox::doPlaylistWatchedSetting(bool turnOn)
 
     for (it = m_playList.begin(); it != m_playList.end(); ++it)
     {
-        ProgramInfo *tmpItem;
-        if ((tmpItem = FindProgramInUILists(*it)))
+        ProgramInfo *tmpItem = FindProgramInUILists(*it);
+        if (tmpItem != nullptr)
         {
             tmpItem->SaveWatched(turnOn);
         }
@@ -5288,9 +5282,7 @@ bool ChangeView::Create()
     if (!LoadWindowFromXML("recordings-ui.xml", "changeview", this))
         return false;
 
-    MythUICheckBox *checkBox;
-
-    checkBox = dynamic_cast<MythUICheckBox*>(GetChild("titles"));
+    MythUICheckBox *checkBox = dynamic_cast<MythUICheckBox*>(GetChild("titles"));
     if (checkBox)
     {
         if (m_viewMask & PlaybackBox::VIEW_TITLES)
