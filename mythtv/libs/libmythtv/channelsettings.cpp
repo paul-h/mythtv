@@ -336,10 +336,11 @@ class ServiceID : public MythUISpinBoxSetting
     }
 };
 
-class TransportID : public GroupSetting
+// Transport ID in Channel Options
+class TransportID_CO : public GroupSetting
 {
   public:
-    TransportID(void)
+    TransportID_CO(void)
     {
         setLabel(QObject::tr("Transport ID"));
         setHelpText(
@@ -348,10 +349,11 @@ class TransportID : public GroupSetting
     }
 };
 
-class Frequency : public GroupSetting
+// Frequency in Channel Options
+class Frequency_CO : public GroupSetting
 {
   public:
-    Frequency(void)
+    Frequency_CO(void)
     {
         setLabel(QObject::tr("Frequency"));
         setHelpText(
@@ -520,8 +522,8 @@ ChannelOptionsCommon::ChannelOptionsCommon(const ChannelID &id,
     addChild(new Visible(id));
     addChild(new ServiceID(id));
 
-    addChild(m_transportid = new TransportID());
-    addChild(m_frequency = new Frequency());
+    addChild(m_transportid = new TransportID_CO());
+    addChild(m_frequency = new Frequency_CO());
 
     addChild(source);
     addChild(new ChannelTVFormat(id));

@@ -8129,20 +8129,14 @@ void TV::UpdateOSDSeekMessage(const PlayerContext *ctx,
     }
 }
 
-void TV::UpdateOSDInput(const PlayerContext *ctx, QString inputname)
+void TV::UpdateOSDInput(const PlayerContext *ctx)
 {
     if (!ctx->m_recorder || !ctx->m_tvchain)
         return;
 
     int cardid = ctx->GetCardID();
 
-    if (inputname.isEmpty())
-        inputname = ctx->m_tvchain->GetInputName(-1);
-
     QString displayName = CardUtil::GetDisplayName(cardid);
-    // If a display name doesn't exist use cardid and inputname
-    if (displayName.isEmpty())
-        displayName = QString("%1: %2").arg(cardid).arg(inputname);
 
     SetOSDMessage(ctx, displayName);
 }
@@ -8864,7 +8858,8 @@ void TV::ChangeTimeStretch(PlayerContext *ctx, int dir, bool allowEdit)
 {
     const float kTimeStretchMin = 0.5;
     const float kTimeStretchMax = 2.0;
-    float new_ts_normal = ctx->m_tsNormal + (0.05F * dir);
+    const float kTimeStretchStep = 0.05;
+    float new_ts_normal = ctx->m_tsNormal + (kTimeStretchStep * dir);
     m_stretchAdjustment = allowEdit;
 
     if (new_ts_normal > kTimeStretchMax &&
@@ -8884,7 +8879,7 @@ void TV::ChangeTimeStretch(PlayerContext *ctx, int dir, bool allowEdit)
         return;
     }
 
-    ctx->m_tsNormal = new_ts_normal;
+    ctx->m_tsNormal = kTimeStretchStep * (int)(new_ts_normal / kTimeStretchStep + 0.5F);
 
     ctx->LockDeletePlayer(__FILE__, __LINE__);
     if (ctx->m_player && !ctx->m_player->IsPaused())
@@ -8900,7 +8895,7 @@ void TV::ChangeTimeStretch(PlayerContext *ctx, int dir, bool allowEdit)
         else
         {
             UpdateOSDStatus(ctx, tr("Adjust Time Stretch"), tr("Time Stretch"),
-                            QString::number(ctx->m_tsNormal),
+                            QString::number(ctx->m_tsNormal,'f',2),
                             kOSDFunctionalType_TimeStretchAdjust, "X",
                             (int)(ctx->m_tsNormal*(1000/kTimeStretchMax)),
                             kOSDTimeout_None);
