@@ -99,7 +99,7 @@ bool PSIPTable::HasCRC(void) const
     switch (TableID())
     {
         // MPEG
-        case TableID::PAT:
+        case TableID::PAT: // NOLINT(bugprone-branch-clone)
         case TableID::CAT:
         case TableID::PMT:
             has_crc = true;
@@ -138,7 +138,7 @@ bool PSIPTable::HasCRC(void) const
         case TableID::DIT:
             has_crc = false;
             break;
-        case TableID::SIT:
+        case TableID::SIT: // NOLINT(bugprone-branch-clone)
             has_crc = true;
             break;
 
@@ -337,7 +337,7 @@ ProgramAssociationTable* ProgramAssociationTable::CreateBlank(bool smallPacket)
     psip.SetLength(TSPacket::kPayloadSize
                    - 1 /* for start of field pointer */
                    - 3 /* for data before data last byte of pes length */);
-    ProgramAssociationTable *pat = new ProgramAssociationTable(psip);
+    auto *pat = new ProgramAssociationTable(psip);
     pat->SetTotalLength(sizeof(DEFAULT_PAT_HEADER));
     delete tspacket;
     return pat;
@@ -470,7 +470,7 @@ void ProgramMapTable::Parse() const
 {
     _ptrs.clear();
     const unsigned char *cpos = psipdata() + pmt_header + ProgramInfoLength();
-    unsigned char *pos = const_cast<unsigned char*>(cpos);
+    auto *pos = const_cast<unsigned char*>(cpos);
     for (uint i = 0; pos < psipdata() + Length() - 9; i++)
     {
         _ptrs.push_back(pos);
@@ -617,14 +617,14 @@ bool ProgramMapTable::IsStreamEncrypted(uint pid) const
 
 bool ProgramMapTable::IsStillPicture(const QString& sistandard) const
 {
-    static const unsigned char STILL_PICTURE_FLAG = 0x01;
+    static constexpr unsigned char kStillPictureFlag = 0x01;
 
     for (uint i = 0; i < StreamCount(); i++)
     {
         if (IsVideo(i, sistandard))
         {
             return StreamInfoLength(i) > 2 &&
-                   ((StreamInfo(i)[2] & STILL_PICTURE_FLAG) != 0);
+                   ((StreamInfo(i)[2] & kStillPictureFlag) != 0);
         }
     }
     return false;
@@ -1266,7 +1266,7 @@ QString SpliceTimeView::toStringXML(
 
 /// \brief Returns decrypted version of this packet.
 SpliceInformationTable *SpliceInformationTable::GetDecrypted(
-    const QString &/*codeWord*/) const
+    const QString &/*codeWord*/)
 {
     // TODO
     return nullptr;

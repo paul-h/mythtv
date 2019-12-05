@@ -66,9 +66,7 @@ V4L2encStreamHandler *V4L2encStreamHandler::Get(const QString &devname,
 
     if (it == s_handlers.end())
     {
-        V4L2encStreamHandler *newhandler = new V4L2encStreamHandler(devname,
-                                                                    audioinput,
-                                                                    inputid);
+        auto *newhandler = new V4L2encStreamHandler(devname, audioinput, inputid);
 
         s_handlers[devkey] = newhandler;
         s_handlers_refcnt[devkey] = 1;
@@ -862,7 +860,7 @@ bool V4L2encStreamHandler::SetOption(const QString &opt, const QString &value)
         else if (value == "4:3")
             m_aspect_ratio = V4L2_MPEG_VIDEO_ASPECT_4x3;
         else if (value == "16:9")
-            m_aspect_ratio = V4L2_MPEG_VIDEO_ASPECT_16x9;
+            m_aspect_ratio = V4L2_MPEG_VIDEO_ASPECT_16x9;    // NOLINT(bugprone-branch-clone)
         else if (value == "2.21:1")
             m_aspect_ratio = V4L2_MPEG_VIDEO_ASPECT_221x100;
         else

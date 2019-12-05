@@ -40,9 +40,6 @@ using namespace std;
 #include "audiooutputopensles.h"
 #include "audiooutputaudiotrack.h"
 #endif
-#ifdef USING_OPENMAX
-#include "audiooutput_omx.h"
-#endif
 
 extern "C" {
 #include "libavcodec/avcodec.h"  // to get codec id
@@ -219,17 +216,6 @@ AudioOutput *AudioOutput::OpenAudio(AudioSettings &settings,
                                  "in!");
 #endif
     }
-    else if (main_device.startsWith("OpenMAX:"))
-    {
-#ifdef USING_OPENMAX
-        if (!getenv("NO_OPENMAX_AUDIO"))
-            ret = new AudioOutputOMX(settings);
-#else
-        LOG(VB_GENERAL, LOG_ERR, "Audio output device is set to a OpenMAX "
-                                 "device but OpenMAX support is not compiled "
-                                 "in!");
-#endif
-    }
 #if defined(USING_OSS)
     else
         ret = new AudioOutputOSS(settings);
@@ -383,7 +369,7 @@ AudioOutput::AudioDeviceConfig* AudioOutput::GetAudioDeviceConfig(
                 (aosettings.canAC3()  << 1) |
                 (aosettings.canDTS()  << 2);
             // cppcheck-suppress variableScope
-            static const char *type_names[] = { "LPCM", "AC3", "DTS" };
+            static const char *s_typeNames[] = { "LPCM", "AC3", "DTS" };
 
             if (mask != 0)
             {
@@ -395,7 +381,7 @@ AudioOutput::AudioDeviceConfig* AudioOutput::GetAudioDeviceConfig(
                     {
                         if (found_one)
                             capabilities += ", ";
-                        capabilities += type_names[i];
+                        capabilities += s_typeNames[i];
                         found_one = true;
                     }
                 }
@@ -433,7 +419,7 @@ static void fillSelectionsFromDir(const QDir &dir,
 
 AudioOutput::ADCVect* AudioOutput::GetOutputList(void)
 {
-    ADCVect *list = new ADCVect;
+    auto *list = new ADCVect;
 
 #ifdef USING_PULSE
     bool pasuspended = PulseHandler::Suspend(PulseHandler::kPulseSuspend);
@@ -593,29 +579,6 @@ AudioOutput::ADCVect* AudioOutput::GetOutputList(void)
     }
 #endif
 
-#ifdef USING_OPENMAX
-    if (!getenv("NO_OPENMAX_AUDIO"))
-    {
-        QString name = "OpenMAX:analog";
-        QString desc =  tr("OpenMAX analog output.");
-        auto adc = GetAudioDeviceConfig(name, desc);
-        if (adc)
-        {
-            list->append(*adc);
-            delete adc;
-        }
-
-        name = "OpenMAX:hdmi";
-        desc =  tr("OpenMAX HDMI output.");
-        adc = GetAudioDeviceConfig(name, desc);
-        if (adc)
-        {
-            list->append(*adc);
-            delete adc;
-        }
-    }
-#endif
-
     QString name = "NULL";
     QString desc = "NULL device";
     auto adc = GetAudioDeviceConfig(name, desc);
@@ -687,7 +650,7 @@ int AudioOutput::DecodeAudio(AVCodecContext *ctx,
         return ret;
     }
 
-    AVSampleFormat format = (AVSampleFormat)m_frame->format;
+    auto format = (AVSampleFormat)m_frame->format;
     AudioFormat fmt =
         AudioOutputSettings::AVSampleFormatToFormat(format, ctx->bits_per_raw_sample);
 

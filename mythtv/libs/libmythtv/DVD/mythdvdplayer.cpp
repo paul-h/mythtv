@@ -10,6 +10,13 @@
 
 void MythDVDPlayer::AutoDeint(VideoFrame *frame, bool allow_lock)
 {
+    bool dummy = false;
+    if (decoder && decoder->GetMythCodecContext()->IsDeinterlacing(dummy))
+    {
+        MythPlayer::AutoDeint(frame, allow_lock);
+        return;
+    }
+
     (void)frame;
     (void)allow_lock;
     SetScanType(kScan_Interlaced);
@@ -367,7 +374,7 @@ void MythDVDPlayer::SetBookmark(bool clear)
             else
                 LOG(VB_PLAYBACK, LOG_INFO, LOC + "Clear bookmark");
 
-            player_ctx->m_playingInfo->SaveDVDBookmark(fields);
+            ProgramInfo::SaveDVDBookmark(fields);
 
         }
         player_ctx->UnlockPlayingInfo(__FILE__, __LINE__);
@@ -463,7 +470,7 @@ long long MythDVDPlayer::CalcMaxFFTime(long long ff, bool setjump) const
     return MythPlayer::CalcMaxFFTime(ff, setjump);
 }
 
-int64_t MythDVDPlayer::GetSecondsPlayed(bool /*honorCutList*/, int divisor) const
+int64_t MythDVDPlayer::GetSecondsPlayed(bool /*honorCutList*/, int divisor)
 {
     if (!player_ctx->m_buffer->IsDVD())
         return 0;

@@ -10,7 +10,6 @@
 #include "mythavutil.h"
 #include "mythcorecontext.h"
 #include "mythconfig.h"
-#include "vaapi2context.h"
 extern "C" {
 #include "libswscale/swscale.h"
 #include "libavfilter/avfilter.h"
@@ -26,40 +25,172 @@ AVPixelFormat FrameTypeToPixelFormat(VideoFrameType type)
 {
     switch (type)
     {
-        case FMT_NV12:
-            return AV_PIX_FMT_NV12;
-        case FMT_YUV422P:
-            return AV_PIX_FMT_YUV422P;
-        case FMT_BGRA:
-            return AV_PIX_FMT_BGRA;
-        case FMT_YUY2:
-            return AV_PIX_FMT_UYVY422;
-        case FMT_RGB24:
-            return AV_PIX_FMT_RGB24;
-        case FMT_RGB32:
-            return AV_PIX_FMT_RGB32;
-        default:
-            return AV_PIX_FMT_YUV420P;
+        case FMT_YV12:       return AV_PIX_FMT_YUV420P;
+        case FMT_YUV420P9:   return AV_PIX_FMT_YUV420P9;
+        case FMT_YUV420P10:  return AV_PIX_FMT_YUV420P10;
+        case FMT_YUV420P12:  return AV_PIX_FMT_YUV420P12;
+        case FMT_YUV420P14:  return AV_PIX_FMT_YUV420P14;
+        case FMT_YUV420P16:  return AV_PIX_FMT_YUV420P16;
+        case FMT_NV12:       return AV_PIX_FMT_NV12;
+        case FMT_P010:       return AV_PIX_FMT_P010;
+        case FMT_P016:       return AV_PIX_FMT_P016;
+        case FMT_YUV422P:    return AV_PIX_FMT_YUV422P;
+        case FMT_YUV422P9:   return AV_PIX_FMT_YUV422P9;
+        case FMT_YUV422P10:  return AV_PIX_FMT_YUV422P10;
+        case FMT_YUV422P12:  return AV_PIX_FMT_YUV422P12;
+        case FMT_YUV422P14:  return AV_PIX_FMT_YUV422P14;
+        case FMT_YUV422P16:  return AV_PIX_FMT_YUV422P16;
+        case FMT_YUV444P:    return AV_PIX_FMT_YUV444P;
+        case FMT_YUV444P9:   return AV_PIX_FMT_YUV444P9;
+        case FMT_YUV444P10:  return AV_PIX_FMT_YUV444P10;
+        case FMT_YUV444P12:  return AV_PIX_FMT_YUV444P12;
+        case FMT_YUV444P14:  return AV_PIX_FMT_YUV444P14;
+        case FMT_YUV444P16:  return AV_PIX_FMT_YUV444P16;
+        case FMT_RGB24:      return AV_PIX_FMT_RGB24;
+        case FMT_BGRA:       return AV_PIX_FMT_BGRA; // NOLINT(bugprone-branch-clone)
+        case FMT_RGB32:      return AV_PIX_FMT_RGB32;
+        case FMT_ARGB32:     return AV_PIX_FMT_ARGB;
+        case FMT_RGBA32:     return AV_PIX_FMT_RGBA;
+        case FMT_YUY2:       return AV_PIX_FMT_UYVY422;
+        case FMT_VDPAU:      return AV_PIX_FMT_VDPAU;
+        case FMT_VTB:        return AV_PIX_FMT_VIDEOTOOLBOX;
+        case FMT_VAAPI:      return AV_PIX_FMT_VAAPI;
+        case FMT_MEDIACODEC: return AV_PIX_FMT_MEDIACODEC;
+        case FMT_NVDEC:      return AV_PIX_FMT_CUDA;
+        case FMT_DXVA2:      return AV_PIX_FMT_DXVA2_VLD;
+        case FMT_MMAL:       return AV_PIX_FMT_MMAL;
+        case FMT_DRMPRIME:   return AV_PIX_FMT_DRM_PRIME;
+        case FMT_NONE: break;
     }
+    return AV_PIX_FMT_NONE;
 }
 
 VideoFrameType PixelFormatToFrameType(AVPixelFormat fmt)
 {
     switch (fmt)
     {
-        case AV_PIX_FMT_NV12:
-            return FMT_NV12;
-        case AV_PIX_FMT_YUV422P:
-            return FMT_YUV422P;
-        case AV_PIX_FMT_RGB32:
-            return FMT_RGB32;
-        case AV_PIX_FMT_UYVY422:
-            return FMT_YUY2;
-        case AV_PIX_FMT_RGB24:
-            return FMT_RGB24;
-        default:
-            return FMT_YV12;
+        case AV_PIX_FMT_YUVJ420P:
+        case AV_PIX_FMT_YUV420P:   return FMT_YV12;
+        case AV_PIX_FMT_YUV420P9:  return FMT_YUV420P9;
+        case AV_PIX_FMT_YUV420P10: return FMT_YUV420P10;
+        case AV_PIX_FMT_YUV420P12: return FMT_YUV420P12;
+        case AV_PIX_FMT_YUV420P14: return FMT_YUV420P14;
+        case AV_PIX_FMT_YUV420P16: return FMT_YUV420P16;
+        case AV_PIX_FMT_NV12:      return FMT_NV12;
+        case AV_PIX_FMT_P010:      return FMT_P010;
+        case AV_PIX_FMT_P016:      return FMT_P016;
+        case AV_PIX_FMT_YUVJ422P:
+        case AV_PIX_FMT_YUV422P:   return FMT_YUV422P;
+        case AV_PIX_FMT_YUV422P9:  return FMT_YUV422P9;
+        case AV_PIX_FMT_YUV422P10: return FMT_YUV422P10;
+        case AV_PIX_FMT_YUV422P12: return FMT_YUV422P12;
+        case AV_PIX_FMT_YUV422P14: return FMT_YUV422P14;
+        case AV_PIX_FMT_YUV422P16: return FMT_YUV422P16;
+        case AV_PIX_FMT_YUVJ444P:
+        case AV_PIX_FMT_YUV444P:   return FMT_YUV444P;
+        case AV_PIX_FMT_YUV444P9:  return FMT_YUV444P9;
+        case AV_PIX_FMT_YUV444P10: return FMT_YUV444P10;
+        case AV_PIX_FMT_YUV444P12: return FMT_YUV444P12;
+        case AV_PIX_FMT_YUV444P14: return FMT_YUV444P14;
+        case AV_PIX_FMT_YUV444P16: return FMT_YUV444P16;
+        case AV_PIX_FMT_UYVY422:   return FMT_YUY2;
+        case AV_PIX_FMT_RGB24:     return FMT_RGB24;
+        case AV_PIX_FMT_ARGB:      return FMT_ARGB32;
+        case AV_PIX_FMT_RGBA:      return FMT_RGBA32;
+        case AV_PIX_FMT_BGRA:      return FMT_BGRA;
+        case AV_PIX_FMT_CUDA:      return FMT_NVDEC;
+        case AV_PIX_FMT_MMAL:      return FMT_MMAL;
+        case AV_PIX_FMT_VDPAU:     return FMT_VDPAU;
+        case AV_PIX_FMT_VIDEOTOOLBOX: return FMT_VTB;
+        case AV_PIX_FMT_VAAPI:     return FMT_VAAPI;
+        case AV_PIX_FMT_DXVA2_VLD: return FMT_DXVA2;
+        case AV_PIX_FMT_MEDIACODEC: return FMT_MEDIACODEC;
+        case AV_PIX_FMT_DRM_PRIME: return FMT_DRMPRIME;
+        default: break;
     }
+    return FMT_NONE;
+}
+
+QString DeinterlacerName(MythDeintType Deint, bool DoubleRate, VideoFrameType Format)
+{
+    MythDeintType deint = GetDeinterlacer(Deint);
+    QString result = DoubleRate ? "2x " : "";
+    if (Deint & DEINT_CPU)
+    {
+        result += "CPU ";
+        switch (deint)
+        {
+            case DEINT_HIGH:   return result + "bwdif";
+            case DEINT_MEDIUM: return result + "yadif";
+            case DEINT_BASIC:  return result + "onefield";
+            default: break;
+        }
+    }
+    else if (Deint & DEINT_SHADER)
+    {
+        result += "GLSL ";
+        switch (deint)
+        {
+            case DEINT_HIGH:   return result + "Kernel";
+            case DEINT_MEDIUM: return result + "Linearblend";
+            case DEINT_BASIC:  return result + "Onefield";
+            default: break;
+        }
+    }
+    else if (Deint & DEINT_DRIVER)
+    {
+        switch (Format)
+        {
+            case FMT_MEDIACODEC: return "MediaCodec";
+            case FMT_DRMPRIME: return result + "EGL Onefield";
+            case FMT_VDPAU:
+                result += "VDPAU ";
+                switch (deint)
+                {
+                    case DEINT_HIGH:   return result + "Advanced";
+                    case DEINT_MEDIUM: return result + "Temporal";
+                    case DEINT_BASIC:  return result + "Basic";
+                    default: break;
+                }
+                break;
+            case FMT_NVDEC:
+                result += "NVDec ";
+                switch (deint)
+                {
+                    case DEINT_HIGH:
+                    case DEINT_MEDIUM: return result + "Adaptive";
+                    case DEINT_BASIC:  return result + "Basic";
+                    default: break;
+                }
+                break;
+            case FMT_VAAPI:
+                result += "VAAPI ";
+                switch (deint)
+                {
+                    case DEINT_HIGH:   return result + "Compensated";
+                    case DEINT_MEDIUM: return result + "Adaptive";
+                    case DEINT_BASIC:  return result + "Basic";
+                    default: break;
+                }
+                break;
+            default: break;
+        }
+    }
+    return "None";
+}
+
+QString DeinterlacerPref(MythDeintType Deint)
+{
+    if (DEINT_NONE == Deint)
+        return QString("None");
+    QString result;
+    if (Deint & DEINT_BASIC)       result = "Basic";
+    else if (Deint & DEINT_MEDIUM) result = "Medium";
+    else if (Deint & DEINT_HIGH)   result = "High";
+    if (Deint & DEINT_CPU)         result += "|CPU";
+    if (Deint & DEINT_SHADER)      result += "|GLSL";
+    if (Deint & DEINT_DRIVER)      result += "|DRIVER";
+    return result;
 }
 
 int AVPictureFill(AVFrame *pic, const VideoFrame *frame, AVPixelFormat fmt)
@@ -76,25 +207,25 @@ int AVPictureFill(AVFrame *pic, const VideoFrame *frame, AVPixelFormat fmt)
     pic->linesize[0] = frame->pitches[0];
     pic->linesize[1] = frame->pitches[1];
     pic->linesize[2] = frame->pitches[2];
-    return (int)buffersize(frame->codec, frame->width, frame->height);
+    return static_cast<int>(GetBufferSize(frame->codec, frame->width, frame->height));
 }
 
 class MythAVCopyPrivate
 {
 public:
     explicit MythAVCopyPrivate(bool uswc)
-    : swsctx(nullptr), copyctx(new MythUSWCCopy(4096, !uswc)),
-      width(0), height(0), size(0), format(AV_PIX_FMT_NONE)
+    : m_swsctx(nullptr), m_copyctx(new MythUSWCCopy(4096, !uswc)),
+      m_width(0), m_height(0), m_size(0), m_format(AV_PIX_FMT_NONE)
     {
     }
 
     ~MythAVCopyPrivate()
     {
-        if (swsctx)
+        if (m_swsctx)
         {
-            sws_freeContext(swsctx);
+            sws_freeContext(m_swsctx);
         }
-        delete copyctx;
+        delete m_copyctx;
     }
 
     MythAVCopyPrivate(const MythAVCopyPrivate &) = delete;            // not copyable
@@ -102,21 +233,23 @@ public:
 
     int SizeData(int _width, int _height, AVPixelFormat _fmt)
     {
-        if (_width == width && _height == height && _fmt == format)
+        if (_width == m_width && _height == m_height && _fmt == m_format)
         {
-            return size;
+            return m_size;
         }
-        size    = av_image_get_buffer_size(_fmt, _width, _height, IMAGE_ALIGN);
-        width   = _width;
-        height  = _height;
-        format  = _fmt;
-        return size;
+        m_size    = av_image_get_buffer_size(_fmt, _width, _height, IMAGE_ALIGN);
+        m_width   = _width;
+        m_height  = _height;
+        m_format  = _fmt;
+        return m_size;
     }
 
-    SwsContext *swsctx;
-    MythUSWCCopy *copyctx;
-    int width, height, size;
-    AVPixelFormat format;
+    SwsContext   *m_swsctx;
+    MythUSWCCopy *m_copyctx;
+    int           m_width;
+    int           m_height;
+    int           m_size;
+    AVPixelFormat m_format;
 };
 
 MythAVCopy::MythAVCopy(bool uswc) : d(new MythAVCopyPrivate(uswc))
@@ -159,14 +292,14 @@ int MythAVCopy::Copy(AVFrame *dst, AVPixelFormat dst_pix_fmt,
                  int width, int height)
 {
     if ((pix_fmt == AV_PIX_FMT_YUV420P || pix_fmt == AV_PIX_FMT_NV12) &&
-        (dst_pix_fmt == AV_PIX_FMT_YUV420P || dst_pix_fmt == AV_PIX_FMT_NV12))
+        (dst_pix_fmt == AV_PIX_FMT_YUV420P))
     {
         VideoFrame framein, frameout;
 
         FillFrame(&framein, src, width, width, height, pix_fmt);
         FillFrame(&frameout, dst, width, width, height, dst_pix_fmt);
 
-        d->copyctx->copy(&frameout, &framein);
+        d->m_copyctx->copy(&frameout, &framein);
         return frameout.size;
     }
 
@@ -182,15 +315,15 @@ int MythAVCopy::Copy(AVFrame *dst, AVPixelFormat dst_pix_fmt,
       && dst_pix_fmt == AV_PIX_FMT_BGRA)
         new_width = width - 1;
 #endif
-    d->swsctx = sws_getCachedContext(d->swsctx, width, height, pix_fmt,
+    d->m_swsctx = sws_getCachedContext(d->m_swsctx, width, height, pix_fmt,
                                      new_width, height, dst_pix_fmt,
                                      SWS_FAST_BILINEAR, nullptr, nullptr, nullptr);
-    if (d->swsctx == nullptr)
+    if (d->m_swsctx == nullptr)
     {
         return -1;
     }
 
-    sws_scale(d->swsctx, src->data, src->linesize,
+    sws_scale(d->m_swsctx, src->data, src->linesize,
               0, height, dst->data, dst->linesize);
 
     return d->SizeData(width, height, dst_pix_fmt);
@@ -199,9 +332,9 @@ int MythAVCopy::Copy(AVFrame *dst, AVPixelFormat dst_pix_fmt,
 int MythAVCopy::Copy(VideoFrame *dst, const VideoFrame *src)
 {
     if ((src->codec == FMT_YV12 || src->codec == FMT_NV12) &&
-        (dst->codec == FMT_YV12 || dst->codec == FMT_NV12))
+        (dst->codec == FMT_YV12))
     {
-        d->copyctx->copy(dst, src);
+        d->m_copyctx->copy(dst, src);
         return dst->size;
     }
 
@@ -219,8 +352,7 @@ int MythAVCopy::Copy(AVFrame *pic, const VideoFrame *frame,
                  unsigned char *buffer, AVPixelFormat fmt)
 {
     VideoFrameType type = PixelFormatToFrameType(fmt);
-    int size = buffersize(type, frame->width, frame->height, 0) + 16;
-    unsigned char *sbuf = buffer ? buffer : (unsigned char*)av_malloc(size);
+    unsigned char *sbuf = buffer ? buffer : CreateBuffer(type, frame->width, frame->height);
 
     if (!sbuf)
     {
@@ -427,12 +559,19 @@ AVCodecContext *MythCodecMap::hasCodecContext(const AVStream *stream)
     return streamMap.value(stream, nullptr);
 }
 
+/// \note This will not free a hardware or frames context that is in anyway referenced outside
+/// of the decoder. Probably need to force the VideoOutput class to discard buffers
+/// as well. Leaking hardware contexts is a very bad idea.
 void MythCodecMap::freeCodecContext(const AVStream *stream)
 {
     QMutexLocker lock(&mapLock);
     AVCodecContext *avctx = streamMap.take(stream);
     if (avctx)
+    {
+        if (avctx->internal)
+            avcodec_flush_buffers(avctx);
         avcodec_free_context(&avctx);
+    }
 }
 
 void MythCodecMap::freeAllCodecContexts()

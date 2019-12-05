@@ -36,7 +36,7 @@ AudioOutputOSS::~AudioOutputOSS()
 
 AudioOutputSettings* AudioOutputOSS::GetOutputSettings(bool /*digital*/)
 {
-    AudioOutputSettings *settings = new AudioOutputSettings();
+    auto *settings = new AudioOutputSettings();
 
     QByteArray device = m_main_device.toLatin1();
     m_audiofd = open(device.constData(), O_WRONLY | O_NONBLOCK);
@@ -50,6 +50,7 @@ AudioOutputSettings* AudioOutputOSS::GetOutputSettings(bool /*digital*/)
         return nullptr;
     }
 
+    // NOLINTNEXTLINE(bugprone-infinite-loop)
     while (int rate = settings->GetNextRate())
     {
         int rate2 = rate;

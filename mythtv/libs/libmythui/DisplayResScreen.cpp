@@ -139,9 +139,7 @@ int DisplayResScreen::FindBestMatch(const DisplayResVector& dsr,
             {
                 while (!end)
                 {
-                    for (double precision = 0.001;
-                         precision < 1.0;
-                         precision *= 10.0)
+                    for (double precision : {0.001, 0.01, 0.1})
                     {
                         for (size_t j=0; j < rates.size(); ++j)
                         {
@@ -158,9 +156,7 @@ int DisplayResScreen::FindBestMatch(const DisplayResVector& dsr,
                     }
                     // Can't find exact frame rate, so try rounding to the
                     // nearest integer, so 23.97Hz will work with 24Hz etc
-                    for (double precision = 0.01;
-                         precision < 2.0;
-                         precision *= 10.0)
+                    for (double precision : {0.01, 0.1, 1.0})
                     {
                         double rounded = round(videorate);
                         for (size_t j=0; j < rates.size(); ++j)

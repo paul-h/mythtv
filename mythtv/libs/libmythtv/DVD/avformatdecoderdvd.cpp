@@ -56,15 +56,15 @@ void AvFormatDecoderDVD::UpdateFramesPlayed(void)
     if (!ringBuffer->IsDVD())
         return;
 
-    long long currentpos = (long long)(ringBuffer->DVD()->GetCurrentTime() * m_fps);
+    auto currentpos = (long long)(ringBuffer->DVD()->GetCurrentTime() * m_fps);
     m_framesPlayed = m_framesRead = currentpos ;
     m_parent->SetFramesPlayed(currentpos + 1);
 }
 
-bool AvFormatDecoderDVD::GetFrame(DecodeType /*decodetype*/)
+bool AvFormatDecoderDVD::GetFrame(DecodeType /*Type*/, bool &Retry)
 {
     // Always try to decode audio and video for DVDs
-    return AvFormatDecoder::GetFrame( kDecodeAV );
+    return AvFormatDecoder::GetFrame(kDecodeAV, Retry);
 }
 
 int AvFormatDecoderDVD::ReadPacket(AVFormatContext *ctx, AVPacket* pkt, bool& storePacket)
@@ -117,7 +117,7 @@ int AvFormatDecoderDVD::ReadPacket(AVFormatContext *ctx, AVPacket* pkt, bool& st
 
                             Reset(true, false, false);
                             m_audio->Reset();
-                            m_parent->DiscardVideoFrames(false);
+                            m_parent->DiscardVideoFrames(false, false);
                             break;
 
                         case DVDNAV_WAIT:
@@ -276,7 +276,7 @@ void AvFormatDecoderDVD::CheckContext(int64_t pts)
 }
 
 
-bool AvFormatDecoderDVD::ProcessVideoPacket(AVStream *stream, AVPacket *pkt)
+bool AvFormatDecoderDVD::ProcessVideoPacket(AVStream *stream, AVPacket *pkt, bool &Retry)
 {
     int64_t pts = pkt->pts;
 
@@ -285,7 +285,9 @@ bool AvFormatDecoderDVD::ProcessVideoPacket(AVStream *stream, AVPacket *pkt)
 
     CheckContext(pts);
 
-    bool ret = AvFormatDecoder::ProcessVideoPacket(stream, pkt);
+    bool ret = AvFormatDecoder::ProcessVideoPacket(stream, pkt, Retry);
+    if (Retry)
+        return ret;
 
     if( ret &&
         m_curContext &&
@@ -550,6 +552,7 @@ bool AvFormatDecoderDVD::DoRewindSeek(long long desiredFrame)
 
     ringBuffer->Seek(DVDFindPosition(desiredFrame), SEEK_SET);
     m_framesPlayed = m_framesRead = m_lastKey = desiredFrame + 1;
+    m_frameCounter += 100;
     return true;
 }
 
@@ -561,6 +564,7 @@ void AvFormatDecoderDVD::DoFastForwardSeek(long long desiredFrame, bool &needflu
     ringBuffer->Seek(DVDFindPosition(desiredFrame),SEEK_SET);
     needflush    = true;
     m_framesPlayed = m_framesRead = m_lastKey = desiredFrame + 1;
+    m_frameCounter += 100;
 }
 
 void AvFormatDecoderDVD::StreamChangeCheck(void)

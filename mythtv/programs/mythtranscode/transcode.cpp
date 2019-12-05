@@ -204,7 +204,7 @@ static bool get_bool_option(RecordingProfile *profile, const QString &name)
 static void TranscodeWriteText(void *ptr, unsigned char *buf, int len,
                                int timecode, int pagenr)
 {
-    NuppelVideoRecorder *nvr = (NuppelVideoRecorder *)ptr;
+    auto *nvr = (NuppelVideoRecorder *)ptr;
     nvr->WriteText(buf, len, timecode, pagenr);
 }
 #endif // CONFIG_LIBMP3LAME
@@ -264,7 +264,7 @@ int Transcode::TranscodeFile(const QString &inputname,
     }
 
     // Input setup
-    PlayerContext *player_ctx = new PlayerContext(kTranscoderInUseID);
+    auto *player_ctx = new PlayerContext(kTranscoderInUseID);
     player_ctx->SetPlayingInfo(m_proginfo);
     RingBuffer *rb = (hls && (hlsStreamID != -1)) ?
         RingBuffer::Create(hls->GetSourceFile(), false, false) :
@@ -614,9 +614,6 @@ int Transcode::TranscodeFile(const QString &inputname,
         }
 
         arb->m_audioFrameSize = avfw->GetAudioFrameSize() * arb->m_channels * 2;
-
-        GetPlayer()->SetVideoFilters(
-            gCoreContext->GetSetting("HTTPLiveStreamFilters", "yadif=1:-1:1"));
     }
 #if CONFIG_LIBMP3LAME 
     else if (fifodir.isEmpty())
@@ -671,7 +668,7 @@ int Transcode::TranscodeFile(const QString &inputname,
         {
             int actualHeight = (video_height == 1088 ? 1080 : video_height);
 
-            GetPlayer()->SetVideoFilters(vidfilters);
+            //GetPlayer()->SetVideoFilters(vidfilters);
             newWidth = get_int_option(m_recProfile, "width");
             newHeight = get_int_option(m_recProfile, "height");
 
@@ -703,7 +700,9 @@ int Transcode::TranscodeFile(const QString &inputname,
                     .arg(newWidth).arg(newHeight));
         }
         else  // lossy and no resize
-            GetPlayer()->SetVideoFilters(vidfilters);
+        {
+            //GetPlayer()->SetVideoFilters(vidfilters);
+        }
 
         // this is ripped from tv_rec SetupRecording. It'd be nice to merge
         nvr->SetOption("inpixfmt", FMT_YV12);
@@ -875,6 +874,10 @@ int Transcode::TranscodeFile(const QString &inputname,
         return REENCODE_ERROR;
     }
 
+    // must come after InitForTranscode - which creates the VideoOutput instance
+    if (hlsMode)
+        GetPlayer()->ForceDeinterlacer(false, DEINT_CPU | DEINT_MEDIUM);
+
     VideoFrame frame;
     memset(&frame, 0, sizeof(frame));
     // Do not use padding when compressing to RTjpeg or when in fifomode.
@@ -895,13 +898,13 @@ int Transcode::TranscodeFile(const QString &inputname,
             // 1080i/p video is actually 1088 because of the 16x16 blocks so
             // we have to fudge the output size here.  nuvexport knows how to handle
             // this and as of right now it is the only app that uses the fifo ability.
-            newSize = buffersize(FMT_YV12, video_width, video_height == 1080 ? 1088 : video_height, 0 /* aligned */);
+            newSize = GetBufferSize(FMT_YV12, video_width, video_height == 1080 ? 1088 : video_height, 0 /* aligned */);
         }
         else
         {
-            newSize = buffersize(FMT_YV12, newWidth, newHeight);
+            newSize = GetBufferSize(FMT_YV12, newWidth, newHeight);
         }
-        unsigned char *newFrame = (unsigned char *)av_malloc(newSize);
+        unsigned char *newFrame = GetAlignedBuffer(newSize);
         if (!newFrame)
         {
             // OOM
@@ -911,12 +914,13 @@ int Transcode::TranscodeFile(const QString &inputname,
         if (nonAligned)
         {
             // Set a stride identical to actual width, to ease fifo post-conversion process.
-            init(&frame, FMT_YV12, newFrame, video_width, video_height, newSize, nullptr, nullptr, -1, -1, 0 /* aligned */);
+            init(&frame, FMT_YV12, newFrame, video_width, video_height,
+                 static_cast<int>(newSize), nullptr, nullptr, -1, -1, 0 /* aligned */);
         }
         else
         {
             // use default stride size.
-            init(&frame, FMT_YV12, newFrame, newWidth, newHeight, newSize);
+            init(&frame, FMT_YV12, newFrame, newWidth, newHeight, static_cast<int>(newSize));
         }
     }
 
@@ -1057,7 +1061,7 @@ int Transcode::TranscodeFile(const QString &inputname,
     float rateTimeConv = arb->m_eff_audiorate / 1000.0F;
     float vidFrameTime = 1000.0F / video_frame_rate;
     int wait_recover = 0;
-    VideoOutput *videoOutput = GetPlayer()->GetVideoOutput();
+    MythVideoOutput *videoOutput = GetPlayer()->GetVideoOutput();
     bool is_key = false;
     bool first_loop = true;
     AVFrame imageIn, imageOut;
@@ -1074,7 +1078,7 @@ int Transcode::TranscodeFile(const QString &inputname,
     else
         LOG(VB_GENERAL, LOG_INFO, "Transcoding Video and Audio");
 
-    VideoDecodeBuffer *videoBuffer =
+    auto *videoBuffer =
         new VideoDecodeBuffer(GetPlayer(), videoOutput, honorCutList);
     MThreadPool::globalInstance()->start(videoBuffer, "VideoDecodeBuffer");
 
@@ -1401,7 +1405,7 @@ int Transcode::TranscodeFile(const QString &inputname,
             AudioBuffer *ab = nullptr;
             while ((ab = arb->GetData(lastWrittenTime)) != nullptr)
             {
-                unsigned char *buf = (unsigned char *)ab->data();
+                auto *buf = (unsigned char *)ab->data();
                 if (avfMode)
                 {
                     if (did_ff != 1)

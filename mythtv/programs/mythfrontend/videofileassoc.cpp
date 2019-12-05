@@ -123,15 +123,14 @@ namespace
 
         ~BlockSignalsGuard()
         {
-            for (list_type::iterator p = m_objects.begin();
-                    p != m_objects.end(); ++p)
+            for (auto p = m_objects.begin(); p != m_objects.end(); ++p)
             {
                 (*p)->blockSignals(false);
             }
         }
 
       private:
-        typedef std::vector<QObject *> list_type;
+        using list_type = std::vector<QObject *>;
 
       private:
         list_type m_objects;
@@ -139,25 +138,25 @@ namespace
 
     struct UIDToFAPair
     {
-        typedef unsigned int UID_type;
+        using UID_type = unsigned int;
 
         UIDToFAPair() = default;
 
         UIDToFAPair(UID_type uid, FileAssociationWrap *assoc) :
-            m_uid(uid), m_file_assoc(assoc) {}
+            m_uid(uid), m_fileAssoc(assoc) {}
 
         UID_type m_uid {0};
-        FileAssociationWrap *m_file_assoc {nullptr};
+        FileAssociationWrap *m_fileAssoc {nullptr};
     };
 
 
     bool operator<(const UIDToFAPair &lhs, const UIDToFAPair &rhs)
     {
-        if (lhs.m_file_assoc && rhs.m_file_assoc)
-            return QString::localeAwareCompare(lhs.m_file_assoc->GetExtension(),
-                    rhs.m_file_assoc->GetExtension()) < 0;
+        if (lhs.m_fileAssoc && rhs.m_fileAssoc)
+            return QString::localeAwareCompare(lhs.m_fileAssoc->GetExtension(),
+                    rhs.m_fileAssoc->GetExtension()) < 0;
 
-        return rhs.m_file_assoc;
+        return rhs.m_fileAssoc;
     }
 }
 
@@ -166,7 +165,7 @@ namespace
 class FileAssocDialogPrivate
 {
   public:
-    typedef std::vector<UIDToFAPair> UIReadyList_type;
+    using UIReadyList_type = std::vector<UIDToFAPair>;
 
   public:
     FileAssocDialogPrivate()
@@ -176,7 +175,7 @@ class FileAssocDialogPrivate
 
     ~FileAssocDialogPrivate()
     {
-        for (FA_collection::iterator p = m_fileAssociations.begin();
+        for (auto p = m_fileAssociations.begin();
                 p != m_fileAssociations.end(); ++p)
         {
             delete p->second;
@@ -185,7 +184,7 @@ class FileAssocDialogPrivate
 
    void SaveFileAssociations()
    {
-        for (FA_collection::iterator p = m_fileAssociations.begin();
+        for (auto p = m_fileAssociations.begin();
                 p != m_fileAssociations.end(); ++p)
         {
             p->second->CommitChanges();
@@ -207,7 +206,7 @@ class FileAssocDialogPrivate
 
     bool DeleteExtension(UIDToFAPair::UID_type uid)
     {
-        FA_collection::iterator p = m_fileAssociations.find(uid);
+        auto p = m_fileAssociations.find(uid);
         if (p != m_fileAssociations.end())
         {
             p->second->MarkForDeletion();
@@ -224,7 +223,7 @@ class FileAssocDialogPrivate
         UIReadyList_type ret;
         std::transform(m_fileAssociations.begin(), m_fileAssociations.end(),
                 std::back_inserter(ret), fa_col_ent_2_UIDFAPair());
-        UIReadyList_type::iterator deleted = std::remove_if(ret.begin(),
+        auto deleted = std::remove_if(ret.begin(),
                 ret.end(), test_fa_state<FileAssociationWrap::efsDELETE>());
 
         if (deleted != ret.end())
@@ -241,9 +240,9 @@ class FileAssocDialogPrivate
         if (item)
         {
             UIDToFAPair key = item->GetData().value<UIDToFAPair>();
-            if (key.m_file_assoc)
+            if (key.m_fileAssoc)
             {
-                return key.m_file_assoc;
+                return key.m_fileAssoc;
             }
         }
 
@@ -261,8 +260,7 @@ class FileAssocDialogPrivate
     }
 
   private:
-    typedef std::map<UIDToFAPair::UID_type, FileAssociationWrap *>
-            FA_collection;
+    using FA_collection = std::map<UIDToFAPair::UID_type, FileAssociationWrap *>;
 
   private:
     struct fa_col_ent_2_UIDFAPair
@@ -279,21 +277,20 @@ class FileAssocDialogPrivate
     {
         bool operator()(const UIDToFAPair &item)
         {
-            return item.m_file_assoc && item.m_file_assoc->GetState() == against;
+            return item.m_fileAssoc && item.m_fileAssoc->GetState() == against;
         }
     };
 
     void LoadFileAssociations()
     {
-        typedef std::vector<UIDToFAPair> tmp_fa_list;
+        using tmp_fa_list = std::vector<UIDToFAPair>;
 
         const FileAssociations::association_list &fa_list =
                 FileAssociations::getFileAssociation().getList();
         tmp_fa_list tmp_fa;
         tmp_fa.reserve(fa_list.size());
 
-        for (FileAssociations::association_list::const_iterator p =
-                fa_list.begin(); p != fa_list.end(); ++p)
+        for (auto p = fa_list.cbegin(); p != fa_list.cend(); ++p)
         {
             tmp_fa.push_back(UIDToFAPair(++m_nextFAID,
                             new FileAssociationWrap(*p)));
@@ -306,7 +303,7 @@ class FileAssocDialogPrivate
                 ++p)
         {
             m_fileAssociations.insert(FA_collection::value_type(p->m_uid,
-                            p->m_file_assoc));
+                            p->m_fileAssoc));
         }
 
         if (m_fileAssociations.empty())
@@ -430,7 +427,7 @@ void FileAssocDialog::OnDeletePressed()
     if (item)
     {
         UIDToFAPair key = item->GetData().value<UIDToFAPair>();
-        if (key.m_file_assoc && m_private->DeleteExtension(key.m_uid))
+        if (key.m_fileAssoc && m_private->DeleteExtension(key.m_uid))
             delete item;
     }
 
@@ -443,8 +440,7 @@ void FileAssocDialog::OnNewExtensionPressed()
 
     QString message = tr("Enter the new extension:");
 
-    MythTextInputDialog *newextdialog =
-                                new MythTextInputDialog(popupStack, message);
+    auto *newextdialog = new MythTextInputDialog(popupStack, message);
 
     if (newextdialog->Create())
         popupStack->AddScreen(newextdialog);
@@ -489,7 +485,7 @@ void FileAssocDialog::UpdateScreen(bool useSelectionOverride /* = false*/)
         if (current_item)
         {
             UIDToFAPair key = current_item->GetData().value<UIDToFAPair>();
-            if (key.m_file_assoc)
+            if (key.m_fileAssoc)
             {
                 selected_id = key.m_uid;
             }
@@ -501,16 +497,14 @@ void FileAssocDialog::UpdateScreen(bool useSelectionOverride /* = false*/)
         m_extensionList->SetVisible(true);
         m_extensionList->Reset();
 
-        for (FileAssocDialogPrivate::UIReadyList_type::iterator p =
-                tmp_list.begin(); p != tmp_list.end(); ++p)
+        for (auto p = tmp_list.begin(); p != tmp_list.end(); ++p)
         {
-            if (p->m_file_assoc)
+            if (p->m_fileAssoc)
             {
                 // No memory leak. MythUIButtonListItem adds the new
                 // item into m_extensionList.
-                MythUIButtonListItem *new_item =
-                        new MythUIButtonListItem(m_extensionList,
-                                p->m_file_assoc->GetExtension(),
+                auto *new_item = new MythUIButtonListItem(m_extensionList,
+                                p->m_fileAssoc->GetExtension(),
                                 QVariant::fromValue(*p));
                 if (selected_id && p->m_uid == selected_id)
                     m_extensionList->SetItemCurrent(new_item);
@@ -521,17 +515,17 @@ void FileAssocDialog::UpdateScreen(bool useSelectionOverride /* = false*/)
         if (current_item)
         {
             UIDToFAPair key = current_item->GetData().value<UIDToFAPair>();
-            if (key.m_file_assoc)
+            if (key.m_fileAssoc)
             {
                 m_commandEdit->SetVisible(true);
-                m_commandEdit->SetText(key.m_file_assoc->GetCommand());
+                m_commandEdit->SetText(key.m_fileAssoc->GetCommand());
 
                 m_defaultCheck->SetVisible(true);
-                m_defaultCheck->SetCheckState(key.m_file_assoc->GetDefault() ?
+                m_defaultCheck->SetCheckState(key.m_fileAssoc->GetDefault() ?
                         MythUIStateType::Full : MythUIStateType::Off);
 
                 m_ignoreCheck->SetVisible(true);
-                m_ignoreCheck->SetCheckState(key.m_file_assoc->GetIgnore() ?
+                m_ignoreCheck->SetCheckState(key.m_fileAssoc->GetIgnore() ?
                         MythUIStateType::Full : MythUIStateType::Off);
 
                 m_deleteButton->SetVisible(true);

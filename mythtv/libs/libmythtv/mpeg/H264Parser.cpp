@@ -265,7 +265,7 @@ bool H264Parser::new_AU(void)
         // Need previous slice information for comparison
 
         if (nal_unit_type != SLICE_IDR && frame_num != prev_frame_num)
-            result = true;
+            result = true; // NOLINT(bugprone-branch-clone)
         else if (prev_pic_parameter_set_id != -1 &&
                  pic_parameter_set_id != prev_pic_parameter_set_id)
             result = true;
@@ -333,7 +333,7 @@ bool H264Parser::fillRBSP(const uint8_t *byteP, uint32_t byte_count,
         required_size = ((required_size / 188) + 1) * 188;
 
         /* Need a bigger buffer */
-        uint8_t *new_buffer = new uint8_t[required_size];
+        auto *new_buffer = new uint8_t[required_size];
 
         if (new_buffer == nullptr)
         {
@@ -1165,7 +1165,7 @@ void H264Parser::vui_parameters(GetBitContext * gb)
 
         switch (aspect_ratio_idc)
         {
-          case 0:
+          case 0: // NOLINT(bugprone-branch-clone)
             // Unspecified
             break;
           case 1:
@@ -1313,6 +1313,11 @@ void H264Parser::getFrameRate(FrameRate &result) const
         result = FrameRate(timeScale / 2, unitsInTick);
 }
 
+uint H264Parser::getRefFrames(void) const
+{
+    return num_ref_frames;
+}
+
 uint H264Parser::aspectRatio(void) const
 {
 
@@ -1323,11 +1328,8 @@ uint H264Parser::aspectRatio(void) const
 
     switch (aspect_ratio_idc)
     {
-        case 0:
-            // Unspecified
-            break;
-        case 1:
-            // 1:1
+        case 0: // Unspecified
+        case 1: // 1:1
             break;
         case 2:
             // 12:11

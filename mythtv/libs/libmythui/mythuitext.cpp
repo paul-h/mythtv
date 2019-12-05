@@ -751,11 +751,10 @@ bool MythUIText::GetNarrowWidth(const QStringList & paragraphs,
                 too_narrow = width;
 
             // Too narrow?  How many lines didn't fit?
-            qreal lines = static_cast<int>
-                    ((height - m_drawRect.height()) / line_height);
+            qreal lines = roundf((height - m_drawRect.height()) / line_height);
             lines -= (1.0 - last_line_width / width);
             width += (lines * width) /
-                     (m_drawRect.height() / line_height);
+                ((double)m_drawRect.height() / line_height);
 
             if (width > best_width || static_cast<int>(width) == last_width)
             {
@@ -769,8 +768,7 @@ bool MythUIText::GetNarrowWidth(const QStringList & paragraphs,
             if (best_width > width)
                 best_width = width;
 
-            qreal lines = static_cast<int>
-                    (m_Area.height() - height) / line_height;
+            qreal lines = floor((m_Area.height() - height) / line_height);
             if (lines >= 1)
             {
                 // Too wide?
@@ -1445,13 +1443,10 @@ bool MythUIText::ParseElement(
             m_Message = qApp->translate("ThemeUI",
                                         parseText(element).toUtf8());
         }
-        else if (element.attribute("lang", "").toLower() ==
-                 gCoreContext->GetLanguageAndVariant())
-        {
-            m_Message = parseText(element);
-        }
-        else if (element.attribute("lang", "").toLower() ==
-                 gCoreContext->GetLanguage())
+        else if ((element.attribute("lang", "").toLower() ==
+                  gCoreContext->GetLanguageAndVariant()) ||
+                 (element.attribute("lang", "").toLower() ==
+                  gCoreContext->GetLanguage()))
         {
             m_Message = parseText(element);
         }
@@ -1620,7 +1615,7 @@ bool MythUIText::ParseElement(
 
 void MythUIText::CopyFrom(MythUIType *base)
 {
-    MythUIText *text = dynamic_cast<MythUIText *>(base);
+    auto *text = dynamic_cast<MythUIText *>(base);
 
     if (!text)
     {
@@ -1687,7 +1682,7 @@ void MythUIText::CopyFrom(MythUIType *base)
 
 void MythUIText::CreateCopy(MythUIType *parent)
 {
-    MythUIText *text = new MythUIText(parent, objectName());
+    auto *text = new MythUIText(parent, objectName());
     text->CopyFrom(this);
 }
 

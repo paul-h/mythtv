@@ -740,7 +740,7 @@ void UPnpCDS::HandleGetSystemUpdateID( HTTPRequest *pRequest )
         QString("UPnpCDS::ProcessRequest : %1 : %2")
             .arg(pRequest->m_sBaseUrl) .arg(pRequest->m_sMethod));
 
-    uint16_t nId = GetValue<uint16_t>("SystemUpdateID");
+    auto nId = GetValue<uint16_t>("SystemUpdateID");
 
     list.push_back(NameValue("Id", nId));
 
@@ -838,7 +838,7 @@ UPnpCDSExtensionResults *UPnpCDSExtension::Browse( UPnpCDSRequest *pRequest )
     // Process based on location in hierarchy
     // ----------------------------------------------------------------------
 
-    UPnpCDSExtensionResults *pResults = new UPnpCDSExtensionResults();
+    auto *pResults = new UPnpCDSExtensionResults();
 
     if (pResults != nullptr)
     {
@@ -917,7 +917,7 @@ UPnpCDSExtensionResults *UPnpCDSExtension::Search( UPnpCDSRequest *pRequest )
         return nullptr;
     }
 
-    UPnpCDSExtensionResults *pResults = new UPnpCDSExtensionResults();
+    auto *pResults = new UPnpCDSExtensionResults();
 
 //    CreateItems( pRequest, pResults, 0, "", false );
 
@@ -1225,9 +1225,6 @@ QString UPnPShortcutFeature::TypeToName(ShortCutType type)
           str = "VIDEOS_ALL";
           break;
        case VIDEOS_FOLDER_STRUCTURE :
-          str = "VIDEOS_FOLDER_STRUCTURE";
-          break;
-
        case FOLDER_STRUCTURE :
           str = "VIDEOS_FOLDER_STRUCTURE";
           break;

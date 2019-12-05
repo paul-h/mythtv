@@ -624,7 +624,7 @@ uint MpegRecorder::GetFilteredAudioSampleRate(void) const
     {
         case 32000: return V4L2_MPEG_AUDIO_SAMPLING_FREQ_32000;
         case 44100: return V4L2_MPEG_AUDIO_SAMPLING_FREQ_44100;
-        case 48000: return V4L2_MPEG_AUDIO_SAMPLING_FREQ_48000;
+        case 48000:
         default:    return V4L2_MPEG_AUDIO_SAMPLING_FREQ_48000;
     }
 }
@@ -661,14 +661,16 @@ static int streamtype_ivtv_to_v4l2(int st)
         case 0:  return V4L2_MPEG_STREAM_TYPE_MPEG2_PS;
         case 1:  return V4L2_MPEG_STREAM_TYPE_MPEG2_TS;
         case 2:  return V4L2_MPEG_STREAM_TYPE_MPEG1_VCD;
-        case 3:  return V4L2_MPEG_STREAM_TYPE_MPEG2_PS;  /* PES A/V    */
-        case 5:  return V4L2_MPEG_STREAM_TYPE_MPEG2_PS;  /* PES V      */
-        case 7:  return V4L2_MPEG_STREAM_TYPE_MPEG2_PS;  /* PES A      */
+        case 3:                                          /* PES A/V    */
+        case 5:                                          /* PES V      */
+        case 7:                                          /* PES A      */
+          return V4L2_MPEG_STREAM_TYPE_MPEG2_PS;
         case 10: return V4L2_MPEG_STREAM_TYPE_MPEG2_DVD;
         case 11: return V4L2_MPEG_STREAM_TYPE_MPEG1_VCD; /* VCD */
         case 12: return V4L2_MPEG_STREAM_TYPE_MPEG2_SVCD;
-        case 13: return V4L2_MPEG_STREAM_TYPE_MPEG2_DVD; /* DVD-Special 1 */
-        case 14: return V4L2_MPEG_STREAM_TYPE_MPEG2_DVD; /* DVD-Special 2 */
+        case 13:                                         /* DVD-Special 1 */
+        case 14:                                         /* DVD-Special 2 */
+            return V4L2_MPEG_STREAM_TYPE_MPEG2_DVD;
         default: return V4L2_MPEG_STREAM_TYPE_MPEG2_TS;
     }
 }
@@ -684,30 +686,30 @@ static void add_ext_ctrl(vector<struct v4l2_ext_control> &ctrl_list,
 
 static void set_ctrls(int fd, vector<struct v4l2_ext_control> &ext_ctrls)
 {
-    static QMutex control_description_lock;
-    static QMap<uint32_t,QString> control_description;
+    static QMutex s_controlDescriptionLock;
+    static QMap<uint32_t,QString> s_controlDescription;
 
-    control_description_lock.lock();
-    if (control_description.isEmpty())
+    s_controlDescriptionLock.lock();
+    if (s_controlDescription.isEmpty())
     {
-        control_description[V4L2_CID_MPEG_AUDIO_SAMPLING_FREQ] =
+        s_controlDescription[V4L2_CID_MPEG_AUDIO_SAMPLING_FREQ] =
             "Audio Sampling Frequency";
-        control_description[V4L2_CID_MPEG_VIDEO_ASPECT] =
+        s_controlDescription[V4L2_CID_MPEG_VIDEO_ASPECT] =
             "Video Aspect ratio";
-        control_description[V4L2_CID_MPEG_AUDIO_ENCODING] =
+        s_controlDescription[V4L2_CID_MPEG_AUDIO_ENCODING] =
             "Audio Encoding";
-        control_description[V4L2_CID_MPEG_AUDIO_L2_BITRATE] =
+        s_controlDescription[V4L2_CID_MPEG_AUDIO_L2_BITRATE] =
             "Audio L2 Bitrate";
-        control_description[V4L2_CID_MPEG_VIDEO_BITRATE_PEAK] =
+        s_controlDescription[V4L2_CID_MPEG_VIDEO_BITRATE_PEAK] =
             "Video Peak Bitrate";
-        control_description[V4L2_CID_MPEG_VIDEO_BITRATE] =
+        s_controlDescription[V4L2_CID_MPEG_VIDEO_BITRATE] =
             "Video Average Bitrate";
-        control_description[V4L2_CID_MPEG_STREAM_TYPE] =
+        s_controlDescription[V4L2_CID_MPEG_STREAM_TYPE] =
             "MPEG Stream type";
-        control_description[V4L2_CID_MPEG_VIDEO_BITRATE_MODE] =
+        s_controlDescription[V4L2_CID_MPEG_VIDEO_BITRATE_MODE] =
             "MPEG Bitrate mode";
     }
-    control_description_lock.unlock();
+    s_controlDescriptionLock.unlock();
 
     for (size_t i = 0; i < ext_ctrls.size(); i++)
     {
@@ -721,10 +723,10 @@ static void set_ctrls(int fd, vector<struct v4l2_ext_control> &ext_ctrls)
 
         if (ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrls) < 0)
         {
-            QMutexLocker locker(&control_description_lock);
+            QMutexLocker locker(&s_controlDescriptionLock);
             LOG(VB_GENERAL, LOG_ERR, QString("mpegrecorder.cpp:set_ctrls(): ") +
                 QString("Could not set %1 to %2")
-                    .arg(control_description[ext_ctrls[i].id]).arg(value) +
+                    .arg(s_controlDescription[ext_ctrls[i].id]).arg(value) +
                     ENO);
         }
     }
@@ -923,9 +925,9 @@ void MpegRecorder::run(void)
     if (m_driver == "hdpvr")
     {
         int progNum = 1;
-        MPEGStreamData *sd = new MPEGStreamData
-                             (progNum, m_tvrec ? m_tvrec->GetInputId() : -1,
-                              true);
+        auto *sd = new MPEGStreamData(progNum,
+                                      m_tvrec ? m_tvrec->GetInputId() : -1,
+                                      true);
         sd->SetRecordingType(m_recording_type);
         SetStreamData(sd);
 
@@ -946,7 +948,7 @@ void MpegRecorder::run(void)
         m_recordingWait.wakeAll();
     }
 
-    unsigned char *buffer = new unsigned char[m_bufferSize + 1];
+    auto *buffer = new unsigned char[m_bufferSize + 1];
     int len;
     int remainder = 0;
 

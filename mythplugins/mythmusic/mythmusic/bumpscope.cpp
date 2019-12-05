@@ -143,7 +143,7 @@ void BumpScope::generate_phongdat(void)
 
                 if (i > 255)
                     i = 255;
-                unsigned char uci = (unsigned char)i;
+                auto uci = (unsigned char)i;
 
                 m_phongdat[y][x] = uci;
                 m_phongdat[(PHONGRES-1)-y][x] = uci;
@@ -523,9 +523,9 @@ static class BumpScopeFactory : public VisFactory
   public:
     const QString &name(void) const override // VisFactory
     {
-        static QString name = QCoreApplication::translate("Visualizers",
-                                                          "BumpScope");
-        return name;
+        static QString s_name = QCoreApplication::translate("Visualizers",
+                                                            "BumpScope");
+        return s_name;
     }
 
     uint plugins(QStringList *list) const override // VisFactory

@@ -125,25 +125,25 @@ static QString determineURLType(const QString& url)
 
 QString myth_category_type_to_string(ProgramInfo::CategoryType category_type)
 {
-    static int NUM_CAT_TYPES = 5;
-    static const char *cattype[] =
+    static constexpr int kNumCatTypes = 5;
+    static const char *s_cattype[] =
         { "", "movie", "series", "sports", "tvshow", };
 
     if ((category_type > ProgramInfo::kCategoryNone) &&
-        ((int)category_type < NUM_CAT_TYPES))
-        return QString(cattype[category_type]);
+        ((int)category_type < kNumCatTypes))
+        return QString(s_cattype[category_type]);
 
     return "";
 }
 
 ProgramInfo::CategoryType string_to_myth_category_type(const QString &category_type)
 {
-    static int NUM_CAT_TYPES = 5;
-    static const char *cattype[] =
+    static constexpr int kNumCatTypes = 5;
+    static const char *s_cattype[] =
         { "", "movie", "series", "sports", "tvshow", };
 
-    for (int i = 1; i < NUM_CAT_TYPES; i++)
-        if (category_type == cattype[i])
+    for (int i = 1; i < kNumCatTypes; i++)
+        if (category_type == s_cattype[i])
             return (ProgramInfo::CategoryType) i;
     return ProgramInfo::kCategoryNone;
 }
@@ -589,8 +589,8 @@ ProgramInfo::ProgramInfo(
     if (m_originalAirDate.isValid() && m_originalAirDate < QDate(1940, 1, 1))
         m_originalAirDate = QDate();
 
-    ProgramList::const_iterator it = schedList.begin();
-    for (; it != schedList.end(); ++it)
+    auto it = schedList.cbegin();
+    for (; it != schedList.cend(); ++it)
     {
         // If this showing is scheduled to be recorded, then we need to copy
         // some of the information from the scheduler
@@ -2348,12 +2348,12 @@ static ProgramInfoType discover_program_info_type(
     return pit;
 }
 
-void ProgramInfo::SetPathname(const QString &pn) const
+void ProgramInfo::SetPathname(const QString &pn)
 {
     m_pathname = pn;
 
     ProgramInfoType pit = discover_program_info_type(m_chanid, m_pathname, false);
-    const_cast<ProgramInfo*>(this)->SetProgramInfoType(pit);
+    SetProgramInfoType(pit);
 }
 
 ProgramInfoType ProgramInfo::DiscoverProgramInfoType(void) const
@@ -2457,7 +2457,7 @@ QString ProgramInfo::QueryBasename(void) const
  *        call and so should not be called from the UI thread.
  */
 QString ProgramInfo::GetPlaybackURL(
-    bool checkMaster, bool forceCheckLocal) const
+    bool checkMaster, bool forceCheckLocal)
 {
         // return the original path if BD or DVD URI
     if (IsVideoBD() || IsVideoDVD())
@@ -4743,7 +4743,7 @@ void ProgramInfo::SaveInetRef(const QString &inet)
  *        call and so should not be called from the UI thread.
  *  \return true iff file is readable
  */
-bool ProgramInfo::IsFileReadable(void) const
+bool ProgramInfo::IsFileReadable(void)
 {
     if (IsLocal() && QFileInfo(m_pathname).isReadable())
         return true;
@@ -4813,7 +4813,7 @@ uint ProgramInfo::QueryTranscoderID(void) const
  *  \note This method sometimes initiates a QUERY_CHECKFILE MythProto
  *        call and so should not be called from the UI thread.
  */
-QString ProgramInfo::DiscoverRecordingDirectory(void) const
+QString ProgramInfo::DiscoverRecordingDirectory(void)
 {
     if (!IsLocal())
     {
@@ -5090,10 +5090,10 @@ bool ProgramInfo::QueryTuningInfo(QString &channum, QString &input) const
 
 static int init_tr(void)
 {
-    static bool done = false;
-    static QMutex init_tr_lock;
-    QMutexLocker locker(&init_tr_lock);
-    if (done)
+    static bool s_done = false;
+    static QMutex s_initTrLock;
+    QMutexLocker locker(&s_initTrLock);
+    if (s_done)
         return 1;
 
     QString rec_profile_names =
@@ -5154,7 +5154,7 @@ static int init_tr(void)
     QString play_groups =
         QObject::tr("Default",        "Playback Group Name");
 
-    done = true;
+    s_done = true;
     return (rec_profile_names.length() +
             rec_profile_groups.length() +
             display_rec_groups.length() +
@@ -5218,19 +5218,19 @@ void ProgramInfo::SubstituteMatches(QString &str)
     str.replace(QString("%PARTTOTAL%"), QString::number(m_parttotal));
     str.replace(QString("%ORIGINALAIRDATE%"),
                 m_originalAirDate.toString(Qt::ISODate));
-    static const char *time_str[] =
+    static const char *s_timeStr[] =
         { "STARTTIME", "ENDTIME", "PROGSTART", "PROGEND", };
     const QDateTime *time_dtr[] =
         { &m_recstartts, &m_recendts, &m_startts, &m_endts, };
-    for (size_t i = 0; i < sizeof(time_str)/sizeof(char*); i++)
+    for (size_t i = 0; i < sizeof(s_timeStr)/sizeof(char*); i++)
     {
-        str.replace(QString("%%1%").arg(time_str[i]),
+        str.replace(QString("%%1%").arg(s_timeStr[i]),
                     (time_dtr[i]->toLocalTime()).toString("yyyyMMddhhmmss"));
-        str.replace(QString("%%1ISO%").arg(time_str[i]),
+        str.replace(QString("%%1ISO%").arg(s_timeStr[i]),
                     (time_dtr[i]->toLocalTime()).toString(Qt::ISODate));
-        str.replace(QString("%%1UTC%").arg(time_str[i]),
+        str.replace(QString("%%1UTC%").arg(s_timeStr[i]),
                     time_dtr[i]->toString("yyyyMMddhhmmss"));
-        str.replace(QString("%%1ISOUTC%").arg(time_str[i]),
+        str.replace(QString("%%1ISOUTC%").arg(s_timeStr[i]),
                     time_dtr[i]->toString(Qt::ISODate));
     }
     str.replace(QString("%RECORDEDID%"), QString::number(m_recordedid));

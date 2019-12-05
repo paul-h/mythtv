@@ -212,7 +212,7 @@ MythUIGroup *MythUIButtonList::PrepareButton(int buttonIdx, int itemIdx,
     if (buttonIdx < 0 || buttonIdx + 1 > m_maxVisible)
     {
         QString name = QString("buttonlist button %1").arg(m_maxVisible);
-        MythUIStateType *button = new MythUIStateType(this, name);
+        auto *button = new MythUIStateType(this, name);
         button->CopyFrom(m_buttontemplate);
         button->ConnectDependants(true);
 
@@ -238,7 +238,7 @@ MythUIGroup *MythUIButtonList::PrepareButton(int buttonIdx, int itemIdx,
     MythUIStateType *realButton = m_ButtonList[buttonIdx];
     m_ButtonToItem[buttonIdx] = buttonItem;
     buttonItem->SetToRealButton(realButton, itemIdx == m_selPosition);
-    MythUIGroup *buttonstate =
+    auto *buttonstate =
         dynamic_cast<MythUIGroup *>(realButton->GetCurrentState());
 
     if (itemIdx == m_selPosition)
@@ -1153,7 +1153,7 @@ bool MythUIButtonList::DistributeButtons(void)
             if (buttonIdx >= first_button)
             {
                 MythUIStateType *realButton = m_ButtonList[buttonIdx];
-                MythUIGroup *buttonstate = dynamic_cast<MythUIGroup *>
+                auto *buttonstate = dynamic_cast<MythUIGroup *>
                     (realButton->GetCurrentState());
                 if (!buttonstate)
                     break; // Not continue
@@ -1694,7 +1694,7 @@ void MythUIButtonList::InitButton(int itemIdx, MythUIStateType* & realButton,
     if (m_maxVisible == 0)
     {
         QString name("buttonlist button 0");
-        MythUIStateType *button = new MythUIStateType(this, name);
+        auto *button = new MythUIStateType(this, name);
         button->CopyFrom(m_buttontemplate);
         button->ConnectDependants(true);
         m_ButtonList.append(button);
@@ -1742,7 +1742,7 @@ int MythUIButtonList::PageUp(void)
             MythUIButtonListItem *buttonItem = nullptr;
             InitButton(pos, realButton, buttonItem);
             buttonItem->SetToRealButton(realButton, true);
-            MythUIGroup *buttonstate = dynamic_cast<MythUIGroup *>
+            auto *buttonstate = dynamic_cast<MythUIGroup *>
                           (realButton->GetCurrentState());
 
             if (buttonstate == nullptr)
@@ -1795,7 +1795,7 @@ int MythUIButtonList::PageUp(void)
         MythUIButtonListItem *buttonItem = nullptr;
         InitButton(pos, realButton, buttonItem);
         buttonItem->SetToRealButton(realButton, true);
-        MythUIGroup *buttonstate = dynamic_cast<MythUIGroup *>
+        auto *buttonstate = dynamic_cast<MythUIGroup *>
                       (realButton->GetCurrentState());
 
         if (buttonstate == nullptr)
@@ -1848,7 +1848,7 @@ int MythUIButtonList::PageDown(void)
             MythUIButtonListItem *buttonItem = nullptr;
             InitButton(pos, realButton, buttonItem);
             buttonItem->SetToRealButton(realButton, true);
-            MythUIGroup *buttonstate = dynamic_cast<MythUIGroup *>
+            auto *buttonstate = dynamic_cast<MythUIGroup *>
                           (realButton->GetCurrentState());
 
             if (buttonstate == nullptr)
@@ -1901,7 +1901,7 @@ int MythUIButtonList::PageDown(void)
         MythUIButtonListItem *buttonItem = nullptr;
         InitButton(pos, realButton, buttonItem);
         buttonItem->SetToRealButton(realButton, true);
-        MythUIGroup *buttonstate = dynamic_cast<MythUIGroup *>
+        auto *buttonstate = dynamic_cast<MythUIGroup *>
                       (realButton->GetCurrentState());
 
         if (!buttonstate)
@@ -2389,7 +2389,7 @@ void MythUIButtonList::Init()
         for (int i = 0; i < (int)m_itemsVisible; ++i)
         {
             QString name = QString("buttonlist button %1").arg(i);
-            MythUIStateType *button = new MythUIStateType(this, name);
+            auto *button = new MythUIStateType(this, name);
             button->CopyFrom(m_buttontemplate);
             button->ConnectDependants(true);
 
@@ -2607,8 +2607,7 @@ bool MythUIButtonList::gestureEvent(MythGestureEvent *event)
                 if (!type)
                     return false;
 
-                MythUIStateType *object = dynamic_cast<MythUIStateType *>(type);
-
+                auto *object = dynamic_cast<MythUIStateType *>(type);
                 if (object)
                 {
                     handled = true;
@@ -2711,8 +2710,7 @@ void MythUIButtonList::customEvent(QEvent *event)
 {
     if (event->type() == NextButtonListPageEvent::kEventType)
     {
-        NextButtonListPageEvent *npe =
-            static_cast<NextButtonListPageEvent*>(event);
+        auto *npe = static_cast<NextButtonListPageEvent*>(event);
         int cur = npe->m_start;
         for (; cur < npe->m_start + npe->m_pageSize && cur < GetCount(); ++cur)
         {
@@ -2934,7 +2932,7 @@ void MythUIButtonList::DrawSelf(MythPainter * /*p*/, int /*xoffset*/, int /*yoff
  */
 void MythUIButtonList::CreateCopy(MythUIType *parent)
 {
-    MythUIButtonList *lb = new MythUIButtonList(parent, objectName());
+    auto *lb = new MythUIButtonList(parent, objectName());
     lb->CopyFrom(this);
 }
 
@@ -2943,8 +2941,7 @@ void MythUIButtonList::CreateCopy(MythUIType *parent)
  */
 void MythUIButtonList::CopyFrom(MythUIType *base)
 {
-    MythUIButtonList *lb = dynamic_cast<MythUIButtonList *>(base);
-
+    auto *lb = dynamic_cast<MythUIButtonList *>(base);
     if (!lb)
         return;
 
@@ -3073,7 +3070,7 @@ void MythUIButtonList::ShowSearchDialog(void)
 {
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
-    SearchButtonListDialog *dlg = new SearchButtonListDialog(popupStack, "MythSearchListDialog", this, "");
+    auto *dlg = new SearchButtonListDialog(popupStack, "MythSearchListDialog", this, "");
 
     if (dlg->Create())
     {
@@ -3600,8 +3597,7 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
     }
     // End compatibility code
 
-    MythUIGroup *buttonstate = dynamic_cast<MythUIGroup *>
-                               (button->GetState(state));
+    auto *buttonstate = dynamic_cast<MythUIGroup *>(button->GetState(state));
     if (!buttonstate)
     {
         LOG(VB_GENERAL, LOG_CRIT, QString("Theme Error: Missing buttonlist state: %1")
@@ -3662,7 +3658,7 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
 
     while (string_it != m_strings.end())
     {
-        MythUIText *text = dynamic_cast<MythUIText *>
+        auto *text = dynamic_cast<MythUIText *>
                (buttonstate->GetChild(string_it.key()));
 
         if (text)
@@ -3718,9 +3714,8 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
 
     while (imagefile_it != m_imageFilenames.end())
     {
-        MythUIImage *image = dynamic_cast<MythUIImage *>
+        auto *image = dynamic_cast<MythUIImage *>
                 (buttonstate->GetChild(imagefile_it.key()));
-
         if (image)
         {
             if (!imagefile_it.value().isEmpty())
@@ -3739,9 +3734,8 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
 
     while (image_it != m_images.end())
     {
-        MythUIImage *image = dynamic_cast<MythUIImage *>
+        auto *image = dynamic_cast<MythUIImage *>
                 (buttonstate->GetChild(image_it.key()));
-
         if (image)
         {
             if (image_it.value())
@@ -3757,9 +3751,8 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
 
     while (state_it != m_states.end())
     {
-        MythUIStateType *statetype = dynamic_cast<MythUIStateType *>
+        auto *statetype = dynamic_cast<MythUIStateType *>
                     (buttonstate->GetChild(state_it.key()));
-
         if (statetype)
         {
             if (!statetype->DisplayState(state_it.value()))

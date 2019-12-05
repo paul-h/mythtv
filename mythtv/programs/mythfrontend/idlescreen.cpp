@@ -273,7 +273,7 @@ void IdleScreen::UpdateScreen(void)
     // update scheduled
     if (!m_scheduledList.empty())
     {
-        ProgramList::iterator pit = m_scheduledList.begin();
+        auto pit = m_scheduledList.begin();
 
         while (pit != m_scheduledList.end())
         {
@@ -307,8 +307,7 @@ void IdleScreen::UpdateScreen(void)
 
                 if (list != nullptr)
                 {
-                    MythUIButtonListItem *item =
-                        new MythUIButtonListItem(list,"",
+                    auto *item = new MythUIButtonListItem(list,"",
                                                  qVariantFromValue(progInfo));
 
                     InfoMap infoMap;
@@ -381,7 +380,7 @@ void IdleScreen::customEvent(QEvent* event)
 {
     if (event->type() == MythEvent::MythEventMessage)
     {
-        MythEvent *me = static_cast<MythEvent *>(event);
+        auto *me = static_cast<MythEvent *>(event);
 
         if (me->Message().startsWith("RECONNECT_"))
         {

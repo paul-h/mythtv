@@ -39,7 +39,6 @@
 #include "themeinfo.h"
 #include "x11colors.h"
 #include "mythdisplay.h"
-#include "DisplayRes.h"
 
 #define LOC      QString("MythUIHelper: ")
 
@@ -95,7 +94,7 @@ public:
     explicit MythUIHelperPrivate(MythUIHelper *p)
     : m_cacheLock(new QMutex(QMutex::Recursive)),
       m_imageThreadPool(new MThreadPool("MythUIHelper")),
-      parent(p) {}
+      m_parent(p) {}
     ~MythUIHelperPrivate();
 
     void Init();
@@ -168,14 +167,14 @@ public:
     ScreenSaverControl *m_screensaver        {nullptr};
     bool                m_screensaverEnabled {false};
 
-    DisplayRes  *m_display_res               {nullptr};
+    MythDisplay *m_display                   {nullptr};
     bool         m_screenSetup               {false};
 
     MThreadPool *m_imageThreadPool           {nullptr};
 
-    MythUIMenuCallbacks callbacks            {nullptr,nullptr,nullptr,nullptr,nullptr};
+    MythUIMenuCallbacks m_callbacks          {nullptr,nullptr,nullptr,nullptr,nullptr};
 
-    MythUIHelper *parent                     {nullptr};
+    MythUIHelper *m_parent                   {nullptr};
 
     int m_fontStretch                        {100};
 
@@ -205,12 +204,18 @@ MythUIHelperPrivate::~MythUIHelperPrivate()
     delete m_imageThreadPool;
     delete m_screensaver;
 
-    if (m_display_res)
-        DisplayRes::SwitchToDesktop();
+    if (m_display)
+    {
+        if (m_display->UsingVideoModes())
+            m_display->SwitchToDesktop();
+        MythDisplay::AcquireRelease(false);
+    }
 }
 
 void MythUIHelperPrivate::Init(void)
 {
+    if (!m_display)
+        m_display = MythDisplay::AcquireRelease();
     m_screensaver = new ScreenSaverControl();
     GetScreenBounds();
     StoreGUIsettings();
@@ -244,7 +249,7 @@ void MythUIHelperPrivate::GetScreenBounds()
     LOG(VB_GUI, LOG_INFO, LOC +
         QString("Primary screen: %1.").arg(primary->name()));
 
-    int numScreens = MythDisplay::GetNumberOfScreens();
+    int numScreens = m_display->GetScreenCount();
     QSize dim = primary->virtualSize();
     LOG(VB_GUI, LOG_INFO, LOC +
         QString("Total desktop dim: %1x%2, over %3 screen[s].")
@@ -261,7 +266,7 @@ void MythUIHelperPrivate::GetScreenBounds()
     }
 
     QRect bounds;
-    QScreen *screen = MythDisplay::GetScreen();
+    QScreen *screen = m_display->GetCurrentScreen();
     if (GetMythDB()->GetBoolSetting("RunFrontendInWindow", false))
     {
         LOG(VB_GUI, LOG_INFO, LOC + "Running in a window");
@@ -362,20 +367,11 @@ double MythUIHelperPrivate::GetPixelAspectRatio(void)
 {
     if (m_pixelAspectRatio < 0)
     {
-        if (!m_display_res)
-        {
-            DisplayRes *dispRes = DisplayRes::GetDisplayRes(); // create singleton
-
-            if (dispRes)
-                m_pixelAspectRatio = dispRes->GetPixelAspectRatio();
-            else
-                m_pixelAspectRatio = 1.0;
-        }
-        else
-            m_pixelAspectRatio = m_display_res->GetPixelAspectRatio();
+        if (!m_display)
+            m_display = MythDisplay::AcquireRelease();
+        m_pixelAspectRatio = static_cast<float>(m_display->GetPixelAspectRatio());
     }
-
-    return m_pixelAspectRatio;
+    return static_cast<double>(m_pixelAspectRatio);
 }
 
 void MythUIHelperPrivate::WaitForScreenChange(void)
@@ -383,7 +379,8 @@ void MythUIHelperPrivate::WaitForScreenChange(void)
     // Wait for screen signal change, so we later get updated screen resolution
     QEventLoop loop;
     QTimer timer;
-    QScreen *screen = MythDisplay::GetScreen();
+    QScreen *screen = MythDisplay::AcquireRelease()->GetCurrentScreen();
+    MythDisplay::AcquireRelease(false);
 
     timer.setSingleShot(true);
     QObject::connect(&timer, SIGNAL(timeout()),
@@ -409,7 +406,7 @@ MythUIHelper::~MythUIHelper()
 void MythUIHelper::Init(MythUIMenuCallbacks &cbs)
 {
     d->Init();
-    d->callbacks = cbs;
+    d->m_callbacks = cbs;
 
     d->m_maxCacheSize.fetchAndStoreRelease(
         GetMythDB()->GetNumSetting("UIImageCacheSize", 30) * 1024 * 1024);
@@ -430,7 +427,7 @@ void MythUIHelper::Init(void)
 
 MythUIMenuCallbacks *MythUIHelper::GetMenuCBs(void)
 {
-    return &(d->callbacks);
+    return &(d->m_callbacks);
 }
 
 bool MythUIHelper::IsScreenSetup(void)
@@ -448,21 +445,14 @@ void MythUIHelper::LoadQtConfig(void)
     gCoreContext->ResetLanguage();
     d->m_themecachedir.clear();
 
-    if (GetMythDB()->GetBoolSetting("UseVideoModes", false))
-    {
-        DisplayRes *dispRes = DisplayRes::GetDisplayRes(); // create singleton
+    if (!d->m_display)
+        d->m_display = MythDisplay::AcquireRelease();
 
-        if (dispRes)
-        {
-            d->m_display_res = dispRes;
-            // Make sure DisplayRes has current context info
-            d->m_display_res->Initialize();
-            // Switch to desired GUI resolution
-            if (d->m_display_res->SwitchToGUI())
-            {
-                d->WaitForScreenChange();
-            }
-        }
+    // Switch to desired GUI resolution
+    if (d->m_display->UsingVideoModes())
+    {
+        if (d->m_display->SwitchToGUI())
+            d->WaitForScreenChange();
     }
 
     // Note the possibly changed screen settings
@@ -473,8 +463,7 @@ void MythUIHelper::LoadQtConfig(void)
     QString themename = GetMythDB()->GetSetting("Theme", DEFAULT_UI_THEME);
     QString themedir = FindThemeDir(themename);
 
-    ThemeInfo *themeinfo = new ThemeInfo(themedir);
-
+    auto *themeinfo = new ThemeInfo(themedir);
     if (themeinfo)
     {
         d->m_isWide = themeinfo->IsWide();
@@ -762,19 +751,19 @@ bool MythUIHelper::IsImageInCache(const QString &url)
 
 QString MythUIHelper::GetThemeCacheDir(void)
 {
-    static QString oldcachedir;
+    static QString s_oldcachedir;
     QString tmpcachedir = GetThemeBaseCacheDir() + "/" +
                           GetMythDB()->GetSetting("Theme", DEFAULT_UI_THEME) +
                           "." + QString::number(d->m_screenwidth) +
                           "." + QString::number(d->m_screenheight);
 
-    if (tmpcachedir != oldcachedir)
+    if (tmpcachedir != s_oldcachedir)
     {
         LOG(VB_GUI | VB_FILE, LOG_INFO, LOC +
             QString("Creating cache dir: %1").arg(tmpcachedir));
         QDir dir;
         dir.mkdir(tmpcachedir);
-        oldcachedir = tmpcachedir;
+        s_oldcachedir = tmpcachedir;
     }
     return tmpcachedir;
 }

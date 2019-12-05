@@ -2078,27 +2078,15 @@ QString NativeArchive::findNodeText(const QDomElement &elem, const QString &node
 
     // some fixups
     // FIXME could be a lot smarter
-    if (nodeName == "recgroup")
+    if ((nodeName == "recgroup") ||
+        (nodeName == "playgroup"))
     {
         res = "Default";
     }
-    else if (nodeName == "recordid")
-    {
-        res = "";
-    }
-    else if (nodeName == "seriesid")
-    {
-        res = "";
-    }
-    else if (nodeName == "programid")
-    {
-        res = "";
-    }
-    else if (nodeName == "playgroup")
-    {
-        res = "Default";
-    }
-    else if (nodeName == "profile")
+    else if ((nodeName == "recordid")  ||
+             (nodeName == "seriesid")  ||
+             (nodeName == "programid") ||
+             (nodeName == "profile"))
     {
         res = "";
     }
@@ -2235,7 +2223,7 @@ static int grabThumbnail(const QString& inFile, const QString& thumbList, const 
     MythPictureDeinterlacer deinterlacer(codecCtx->pix_fmt, width, height);
 
     int bufflen = width * height * 4;
-    unsigned char *outputbuf = new unsigned char[bufflen];
+    auto *outputbuf = new unsigned char[bufflen];
 
     int frameNo = -1, thumbCount = 0;
     bool frameFinished = false;

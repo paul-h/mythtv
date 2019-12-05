@@ -183,11 +183,10 @@ void MythNews::loadSites(void)
     }
     std::sort(m_NewsSites.begin(), m_NewsSites.end(), NewsSite::sortByName);
 
-    NewsSite::List::iterator it = m_NewsSites.begin();
+    auto it = m_NewsSites.begin();
     for (; it != m_NewsSites.end(); ++it)
     {
-        MythUIButtonListItem *item =
-            new MythUIButtonListItem(m_sitesList, (*it)->name());
+        auto *item = new MythUIButtonListItem(m_sitesList, (*it)->name());
         item->SetData(qVariantFromValue(*it));
 
         connect(*it, SIGNAL(finished(NewsSite*)),
@@ -457,7 +456,7 @@ void MythNews::slotRetrieveNews(void)
 
     m_RetrieveTimer->stop();
 
-    NewsSite::List::iterator it = m_NewsSites.begin();
+    auto it = m_NewsSites.begin();
     for (; it != m_NewsSites.end(); ++it)
     {
         if ((*it)->timeSinceLastUpdate() > m_UpdateFreq)
@@ -494,7 +493,7 @@ void MythNews::cancelRetrieve(void)
 {
     QMutexLocker locker(&m_lock);
 
-    NewsSite::List::iterator it = m_NewsSites.begin();
+    auto it = m_NewsSites.begin();
     for (; it != m_NewsSites.end(); ++it)
     {
         (*it)->stop();
@@ -525,10 +524,10 @@ void MythNews::processAndShowNews(NewsSite *site)
     m_articles.clear();
 
     NewsArticle::List articles = site->GetArticleList();
-    NewsArticle::List::iterator it = articles.begin();
+    auto it = articles.begin();
     for (; it != articles.end(); ++it)
     {
-        MythUIButtonListItem *item =
+        auto *item =
             new MythUIButtonListItem(m_articlesList, (*it).title());
         m_articles[item] = *it;
     }
@@ -544,7 +543,7 @@ void MythNews::slotSiteSelected(MythUIButtonListItem *item)
     if (!item || item->GetData().isNull())
         return;
 
-    NewsSite *site = item->GetData().value<NewsSite*>();
+    auto *site = item->GetData().value<NewsSite*>();
     if (!site)
         return;
 
@@ -552,11 +551,10 @@ void MythNews::slotSiteSelected(MythUIButtonListItem *item)
     m_articles.clear();
 
     NewsArticle::List articles = site->GetArticleList();
-    NewsArticle::List::iterator it = articles.begin();
+    auto it = articles.begin();
     for (; it != articles.end(); ++it)
     {
-        MythUIButtonListItem *blitem =
-            new MythUIButtonListItem(m_articlesList, (*it).title());
+        auto *blitem = new MythUIButtonListItem(m_articlesList, (*it).title());
         m_articles[blitem] = *it;
     }
 
@@ -629,8 +627,8 @@ void MythNews::ShowEditDialog(bool edit)
 
     MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
 
-    MythNewsEditor *mythnewseditor = new MythNewsEditor(site, edit, mainStack,
-                                                        "mythnewseditor");
+    auto *mythnewseditor = new MythNewsEditor(site, edit, mainStack,
+                                              "mythnewseditor");
 
     if (mythnewseditor->Create())
     {
@@ -645,8 +643,7 @@ void MythNews::ShowFeedManager()
 {
     MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
 
-    MythNewsConfig *mythnewsconfig = new MythNewsConfig(mainStack,
-                                                        "mythnewsconfig");
+    auto *mythnewsconfig = new MythNewsConfig(mainStack, "mythnewsconfig");
 
     if (mythnewsconfig->Create())
     {
@@ -697,7 +694,7 @@ void MythNews::deleteNewsSite(void)
 
     if (siteUIItem && !siteUIItem->GetData().isNull())
     {
-        NewsSite *site = siteUIItem->GetData().value<NewsSite*>();
+        auto *site = siteUIItem->GetData().value<NewsSite*>();
         if (site)
         {
             removeFromDB(site->name());

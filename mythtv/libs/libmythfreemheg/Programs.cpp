@@ -968,15 +968,8 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
             else SetSuccessFlag(success, false, engine);
 
         }
-        else if (m_Name.Equal("GAP")) { // GetAudioDescPref
-            if (args.Size() == 1)
-            {
-                engine->FindObject(*(args.GetAt(1)->GetReference()))->SetVariableValue(false);
-                SetSuccessFlag(success, true, engine);
-            }
-            else SetSuccessFlag(success, false, engine);
-        }
-        else if (m_Name.Equal("GSP")) { // GetSubtitlePref
+        else if (m_Name.Equal("GAP") || // GetAudioDescPref
+                 m_Name.Equal("GSP")) { // GetSubtitlePref
             if (args.Size() == 1)
             {
                 engine->FindObject(*(args.GetAt(1)->GetReference()))->SetVariableValue(false);
@@ -1078,7 +1071,7 @@ void MHCall::Initialise(MHParseNode *p, MHEngine *engine)
 
     for (int i = 0; i < args->GetSeqCount(); i++)
     {
-        MHParameter *pParm = new MHParameter;
+        auto *pParm = new MHParameter;
         m_Parameters.Append(pParm);
         pParm->Initialise(args->GetSeqN(i), engine);
     }

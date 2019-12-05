@@ -50,12 +50,12 @@ DVDInfo::DVDInfo(const QString &filename)
 {
     LOG(VB_PLAYBACK, LOG_INFO, QString("DVDInfo: Trying %1").arg(filename));
     QString name = filename;
-    if (name.startsWith("dvd://"))
-        name.remove(0,5);
-    else if (name.startsWith("dvd:/"))
+    if (name.startsWith("dvd:"))
+    {
         name.remove(0,4);
-    else if (name.startsWith("dvd:"))
-        name.remove(0,4);
+        while (name.startsWith("//"))
+            name.remove(0,1);
+    }
 
     QByteArray fname = name.toLocal8Bit();
     dvdnav_status_t res = dvdnav_open(&m_nav, fname.constData());
@@ -738,8 +738,7 @@ int DVDRingBuffer::safe_read(void *data, uint sz)
             case DVDNAV_CELL_CHANGE:
             {
                 // get event details
-                dvdnav_cell_change_event_t *cell_event =
-                    (dvdnav_cell_change_event_t*) (blockBuf);
+                auto *cell_event = (dvdnav_cell_change_event_t*) (blockBuf);
 
                 // update information for the current cell
                 m_cellChanged = true;
@@ -847,8 +846,7 @@ int DVDRingBuffer::safe_read(void *data, uint sz)
             case DVDNAV_SPU_STREAM_CHANGE:
             {
                 // get event details
-                dvdnav_spu_stream_change_event_t* spu =
-                    (dvdnav_spu_stream_change_event_t*)(blockBuf);
+                auto* spu = (dvdnav_spu_stream_change_event_t*)(blockBuf);
 
                 // clear any existing subs/buttons
                 IncrementButtonVersion;
@@ -875,8 +873,7 @@ int DVDRingBuffer::safe_read(void *data, uint sz)
             case DVDNAV_AUDIO_STREAM_CHANGE:
             {
                 // get event details
-                dvdnav_audio_stream_change_event_t* audio =
-                    (dvdnav_audio_stream_change_event_t*)(blockBuf);
+                auto* audio = (dvdnav_audio_stream_change_event_t*)(blockBuf);
 
                 // retrieve the new track
                 int new_track = GetAudioTrackNum(audio->physical);
@@ -1082,8 +1079,7 @@ int DVDRingBuffer::safe_read(void *data, uint sz)
             case DVDNAV_VTS_CHANGE:
             {
                 // retrieve event details
-                dvdnav_vts_change_event_t* vts =
-                    (dvdnav_vts_change_event_t*)(blockBuf);
+                auto* vts = (dvdnav_vts_change_event_t*)(blockBuf);
 
                 // update player
                 int aspect = dvdnav_get_video_aspect(m_dvdnav);
@@ -1125,8 +1121,7 @@ int DVDRingBuffer::safe_read(void *data, uint sz)
             case DVDNAV_HIGHLIGHT:
             {
                 // retrieve details
-                dvdnav_highlight_event_t* hl =
-                    (dvdnav_highlight_event_t*)(blockBuf);
+                auto* hl = (dvdnav_highlight_event_t*)(blockBuf);
 
                 // update the current button
                 m_menuBtnLock.lock();
@@ -1153,8 +1148,7 @@ int DVDRingBuffer::safe_read(void *data, uint sz)
             case DVDNAV_STILL_FRAME:
             {
                 // retrieve still frame details (length)
-                dvdnav_still_event_t* still =
-                    (dvdnav_still_event_t*)(blockBuf);
+                auto* still = (dvdnav_still_event_t*)(blockBuf);
 
                 if (!bReprocessing && !m_skipstillorwait)
                 {

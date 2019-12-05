@@ -126,7 +126,7 @@ class RemoteFileDownloadThread : public QRunnable
     {
         bool ok = false;
 
-        RemoteFile *rf = new RemoteFile(m_dlInfo->m_url, false, false, 0);
+        auto *rf = new RemoteFile(m_dlInfo->m_url, false, false, 0);
         ok = rf->SaveAs(m_dlInfo->m_privData);
         delete rf;
 
@@ -170,7 +170,7 @@ MythDownloadManager *GetMythDownloadManager(void)
     if (downloadManager)
         return downloadManager;
 
-    MythDownloadManager *tmpDLM = new MythDownloadManager();
+    auto *tmpDLM = new MythDownloadManager();
     tmpDLM->start();
     while (!tmpDLM->getQueueThread())
         usleep(10000);
@@ -339,7 +339,7 @@ void MythDownloadManager::queueItem(const QString &url, QNetworkRequest *req,
                                     QObject *caller, const MRequestType reqType,
                                     const bool reload)
 {
-    MythDownloadInfo *dlInfo = new MythDownloadInfo;
+    auto *dlInfo = new MythDownloadInfo;
 
     dlInfo->m_url     = url;
     dlInfo->m_request = req;
@@ -374,7 +374,7 @@ bool MythDownloadManager::processItem(const QString &url, QNetworkRequest *req,
                                       const QHash<QByteArray, QByteArray> *headers,
                                       QString *finalUrl)
 {
-    MythDownloadInfo *dlInfo = new MythDownloadInfo;
+    auto *dlInfo = new MythDownloadInfo;
 
     dlInfo->m_url      = url;
     dlInfo->m_request  = req;
@@ -476,7 +476,7 @@ bool MythDownloadManager::download(const QString &url, QByteArray *data,
 QNetworkReply *MythDownloadManager::download(const QString &url,
                                              const bool reload)
 {
-    MythDownloadInfo *dlInfo = new MythDownloadInfo;
+    auto *dlInfo = new MythDownloadInfo;
     QNetworkReply *reply = nullptr;
 
     dlInfo->m_url          = url;
@@ -657,8 +657,7 @@ bool MythDownloadManager::postAuth(const QString &url, QByteArray *data,
  */
 void MythDownloadManager::downloadRemoteFile(MythDownloadInfo *dlInfo)
 {
-    RemoteFileDownloadThread *dlThread =
-        new RemoteFileDownloadThread(this, dlInfo);
+    auto *dlThread = new RemoteFileDownloadThread(this, dlInfo);
     MThreadPool::globalInstance()->start(dlThread, "RemoteFileDownload");
 }
 
@@ -670,7 +669,7 @@ void MythDownloadManager::downloadQNetworkRequest(MythDownloadInfo *dlInfo)
     if (!dlInfo)
         return;
 
-    static const char dateFormat[] = "ddd, dd MMM yyyy hh:mm:ss 'GMT'";
+    static constexpr char kDateFormat[] = "ddd, dd MMM yyyy hh:mm:ss 'GMT'";
     QUrl qurl(dlInfo->m_url);
     QNetworkRequest request;
 
@@ -725,7 +724,7 @@ void MythDownloadManager::downloadQNetworkRequest(MythDownloadInfo *dlInfo)
             if (!dateString.isNull())
             {
                 QDateTime loadDate =
-                    MythDate::fromString(dateString, dateFormat);
+                    MythDate::fromString(dateString, kDateFormat);
                 loadDate.setTimeSpec(Qt::UTC);
                 if (loadDate.secsTo(now) <= 720)
                 {
@@ -1219,7 +1218,7 @@ void MythDownloadManager::downloadFinished(MythDownloadInfo *dlInfo)
         return;
 
     int statusCode = -1;
-    static const char dateFormat[] = "ddd, dd MMM yyyy hh:mm:ss 'GMT'";
+    static constexpr char kDateFormat[] = "ddd, dd MMM yyyy hh:mm:ss 'GMT'";
     QNetworkReply *reply = dlInfo->m_reply;
 
     if (reply)
@@ -1332,7 +1331,7 @@ void MythDownloadManager::downloadFinished(MythDownloadInfo *dlInfo)
             QNetworkCacheMetaData::RawHeader newheader;
             QDateTime now = MythDate::current();
             newheader = QNetworkCacheMetaData::RawHeader("Date",
-                                        now.toString(dateFormat).toLatin1());
+                                        now.toString(kDateFormat).toLatin1());
             headers.append(newheader);
             urlData.setRawHeaders(headers);
             m_infoLock->lock();
@@ -1555,7 +1554,7 @@ QDateTime MythDownloadManager::GetLastModified(const QString &url)
     // the cache object is less than 20 minutes old,
     // then use the cached header otherwise redownload the header
 
-    static const char dateFormat[] = "ddd, dd MMM yyyy hh:mm:ss 'GMT'";
+    static constexpr char kDateFormat[] = "ddd, dd MMM yyyy hh:mm:ss 'GMT'";
     LOG(VB_FILE, LOG_DEBUG, LOC + QString("GetLastModified('%1')").arg(url));
     QDateTime result;
 
@@ -1597,7 +1596,7 @@ QDateTime MythDownloadManager::GetLastModified(const QString &url)
             if (!date.isNull())
             {
                 QDateTime loadDate =
-                    MythDate::fromString(date, dateFormat);
+                    MythDate::fromString(date, kDateFormat);
                 loadDate.setTimeSpec(Qt::UTC);
                 if (loadDate.secsTo(now) <= 1200) // 20 Minutes
                 {
@@ -1609,7 +1608,7 @@ QDateTime MythDownloadManager::GetLastModified(const QString &url)
 
     if (!result.isValid())
     {
-        MythDownloadInfo *dlInfo = new MythDownloadInfo;
+        auto *dlInfo = new MythDownloadInfo;
         dlInfo->m_url      = url;
         dlInfo->m_syncMode = true;
         // Head request, we only want to inspect the headers
@@ -1646,7 +1645,7 @@ void MythDownloadManager::loadCookieJar(const QString &filename)
 {
     QMutexLocker locker(&m_cookieLock);
 
-    MythCookieJar *jar = new MythCookieJar;
+    auto *jar = new MythCookieJar;
     jar->load(filename);
     m_manager->setCookieJar(jar);
 }
@@ -1686,7 +1685,7 @@ QNetworkCookieJar *MythDownloadManager::copyCookieJar(void)
     auto inJar = dynamic_cast<MythCookieJar *>(m_manager->cookieJar());
     if (inJar == nullptr)
         return nullptr;
-    MythCookieJar *outJar = new MythCookieJar;
+    auto *outJar = new MythCookieJar;
     outJar->copyAllCookies(*inJar);
 
     return static_cast<QNetworkCookieJar *>(outJar);
@@ -1704,7 +1703,7 @@ void MythDownloadManager::refreshCookieJar(QNetworkCookieJar *jar)
     if (inJar == nullptr)
         return;
 
-    MythCookieJar *outJar = new MythCookieJar;
+    auto *outJar = new MythCookieJar;
     outJar->copyAllCookies(*inJar);
     m_inCookieJar = static_cast<QNetworkCookieJar *>(outJar);
 
@@ -1721,7 +1720,7 @@ void MythDownloadManager::updateCookieJar(void)
     auto inJar = dynamic_cast<MythCookieJar *>(m_inCookieJar);
     if (inJar != nullptr)
     {
-        MythCookieJar *outJar = new MythCookieJar;
+        auto *outJar = new MythCookieJar;
         outJar->copyAllCookies(*inJar);
         m_manager->setCookieJar(static_cast<QNetworkCookieJar *>(outJar));
     }

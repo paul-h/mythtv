@@ -167,7 +167,7 @@ ZMLivePlayer::~ZMLivePlayer()
     if (m_players)
     {
         QString s = "";
-        vector<Player*>::iterator i = m_players->begin();
+        auto i = m_players->begin();
         for (; i != m_players->end(); ++i)
         {
             Player *p = *i;
@@ -240,7 +240,7 @@ void ZMLivePlayer::ShowMenu()
 {
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
-    MythDialogBox *menuPopup = new MythDialogBox("Menu", popupStack, "mainmenu");
+    auto *menuPopup = new MythDialogBox("Menu", popupStack, "mainmenu");
 
     if (menuPopup->Create())
         popupStack->AddScreen(menuPopup);
@@ -297,6 +297,7 @@ void ZMLivePlayer::customEvent(QEvent *event)
             }
         }
     }
+    MythUIType::customEvent(event);
 }
 
 void ZMLivePlayer::changeView(void)
@@ -345,7 +346,7 @@ void ZMLivePlayer::changePlayerMonitor(int playerNo)
 
 void ZMLivePlayer::updateFrame()
 {
-    static unsigned char buffer[MAX_IMAGE_SIZE];
+    static unsigned char s_buffer[MAX_IMAGE_SIZE];
     m_frameTimer->stop();
 
     // get a list of monitor id's that need updating
@@ -360,7 +361,7 @@ void ZMLivePlayer::updateFrame()
     for (int x = 0; x < monList.count(); x++)
     {
         QString status;
-        int frameSize = ZMClient::get()->getLiveFrame(monList[x], status, buffer, sizeof(buffer));
+        int frameSize = ZMClient::get()->getLiveFrame(monList[x], status, s_buffer, sizeof(s_buffer));
 
         if (frameSize > 0 && !status.startsWith("ERROR"))
         {
@@ -375,7 +376,7 @@ void ZMLivePlayer::updateFrame()
                         p->getMonitor()->status = status;
                         p->updateStatus();
                     }
-                    p->updateFrame(buffer);
+                    p->updateFrame(s_buffer);
                 }
             }
         }
@@ -447,7 +448,7 @@ void ZMLivePlayer::setMonitorLayout(int layout, bool restore)
         MythUIText  *cameraText = dynamic_cast<MythUIText *> (GetChild(QString("name%1-%2").arg(layout).arg(x)));
         MythUIText  *statusText = dynamic_cast<MythUIText *> (GetChild(QString("status%1-%2").arg(layout).arg(x)));
 
-        Player *p = new Player();
+        auto *p = new Player();
         p->setMonitor(monitor);
         p->setWidgets(frameImage, statusText, cameraText);
         p->updateCamera();

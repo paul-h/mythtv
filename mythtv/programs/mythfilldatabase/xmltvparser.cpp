@@ -42,7 +42,7 @@ void XMLTVParser::lateInit()
 
 static uint ELFHash(const QByteArray &ba)
 {
-    const uchar *k = (const uchar *)ba.data();
+    const auto *k = (const uchar *)ba.data();
     uint h = 0;
 
     if (k)
@@ -74,7 +74,7 @@ static QString getFirstText(const QDomElement& element)
 
 ChannelInfo *XMLTVParser::parseChannel(QDomElement &element, QUrl &baseUrl)
 {
-    ChannelInfo *chaninfo = new ChannelInfo;
+    auto *chaninfo = new ChannelInfo;
 
     QString xmltvid = element.attribute("id", "");
 
@@ -169,14 +169,14 @@ static void fromXMLTVDate(QString &timestr, QDateTime &dt)
         else
         {
             tzoffset = "+0000";
-            static bool warned_once_on_implicit_utc = false;
-            if (!warned_once_on_implicit_utc)
+            static bool s_warnedOnceOnImplicitUtc = false;
+            if (!s_warnedOnceOnImplicitUtc)
             {
                 LOG(VB_XMLTV, LOG_WARNING, "No explicit time zone found, "
                     "guessing implicit UTC! Please consider enhancing "
                     "the guide source to provide explicit UTC or local "
                     "time instead.");
-                warned_once_on_implicit_utc = true;
+                s_warnedOnceOnImplicitUtc = true;
             }
         }
     }
@@ -316,7 +316,7 @@ static void parseAudio(QDomElement &element, ProgInfo *pginfo)
 ProgInfo *XMLTVParser::parseProgram(QDomElement &element)
 {
     QString programid, season, episode, totalepisodes;
-    ProgInfo *pginfo = new ProgInfo();
+    auto *pginfo = new ProgInfo();
 
     QString text = element.attribute("start", "");
     fromXMLTVDate(text, pginfo->m_starttime);
@@ -348,7 +348,7 @@ ProgInfo *XMLTVParser::parseProgram(QDomElement &element)
             if (info.tagName() == "title")
             {
                 if (info.attribute("lang") == "ja_JP")
-                {
+                {   // NOLINT(bugprone-branch-clone)
                     pginfo->m_title = getFirstText(info);
                 }
                 else if (info.attribute("lang") == "ja_JP@kana")

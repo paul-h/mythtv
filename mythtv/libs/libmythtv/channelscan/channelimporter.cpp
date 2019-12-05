@@ -206,21 +206,17 @@ uint ChannelImporter::DeleteChannels(
                 AddChanToCopy(transport_copy, transports[i], chan);
             }
         }
-        if (transport_copy.m_channels.size() > 0)
+        if (!transport_copy.m_channels.empty())
             off_air_transports.push_back(transport_copy);
     }
 
     if (off_air_list.empty())
-    {
         return 0;
-    }
-    else
-    {
-        // List of off-air channels (in database but not in the scan)
-        cout << endl << "Off-air channels (" << SimpleCountChannels(off_air_transports) << "):" << endl;
-        ChannelImporterBasicStats infoA = CollectStats(off_air_transports);
-        cout << FormatChannels(off_air_transports, &infoA).toLatin1().constData() << endl;
-    }
+
+    // List of off-air channels (in database but not in the scan)
+    cout << endl << "Off-air channels (" << SimpleCountChannels(off_air_transports) << "):" << endl;
+    ChannelImporterBasicStats infoA = CollectStats(off_air_transports);
+    cout << FormatChannels(off_air_transports, &infoA).toLatin1().constData() << endl;
 
     // Ask user whether to delete all or some of these stale channels
     // if some is selected ask about each individually
@@ -351,7 +347,7 @@ void ChannelImporter::InsertChannels(
     uint chantype = (uint) kChannelTypeNonConflictingFirst;
     for (; chantype <= (uint) kChannelTypeNonConflictingLast; ++chantype)
     {
-        ChannelType type = (ChannelType) chantype;
+        auto type = (ChannelType) chantype;
         uint new_chan = 0;
         uint old_chan = 0;
         CountChannels(list, info, type, new_chan, old_chan);
@@ -391,7 +387,7 @@ void ChannelImporter::InsertChannels(
     chantype = (uint) kChannelTypeConflictingFirst;
     for (; chantype <= (uint) kChannelTypeConflictingLast; ++chantype)
     {
-        ChannelType type = (ChannelType) chantype;
+        auto type = (ChannelType) chantype;
         uint new_chan = 0;
         uint old_chan = 0;
         CountChannels(list, info, type, new_chan, old_chan);
@@ -417,29 +413,29 @@ void ChannelImporter::InsertChannels(
     }
 
     // List what has been done with each channel
-    if (updated.size() > 0)
+    if (!updated.empty())
     {
         cout << endl << "Updated old channels (" << SimpleCountChannels(updated) << "):" << endl;
         cout << FormatChannels(updated).toLatin1().constData() << endl;
     }
-    if (skipped_updates.size() > 0)
+    if (!skipped_updates.empty())
     {
         cout << endl << "Skipped old channels (" << SimpleCountChannels(skipped_updates) << "):" << endl;
         cout << FormatChannels(skipped_updates).toLatin1().constData() << endl;
     }
-    if (inserted.size() > 0)
+    if (!inserted.empty())
     {
         cout << endl << "Inserted new channels (" << SimpleCountChannels(inserted) << "):" << endl;
         cout << FormatChannels(inserted).toLatin1().constData() << endl;
     }
-    if (skipped_inserts.size() > 0)
+    if (!skipped_inserts.empty())
     {
         cout << endl << "Skipped new channels (" << SimpleCountChannels(skipped_inserts) << "):" << endl;
         cout << FormatChannels(skipped_inserts).toLatin1().constData() << endl;
     }
 
     // Remaining channels and sum uniques again
-    if (list.size() > 0)
+    if (!list.empty())
     {
         ChannelImporterBasicStats      ninfo  = CollectStats(list);
         ChannelImporterUniquenessStats nstats = CollectUniquenessStats(list, ninfo);
@@ -660,9 +656,9 @@ ScanDTVTransportList ChannelImporter::InsertChannels(
                         chan.m_default_authority,
                         chan.m_service_type);
 
-                    if (!transports[i].m_iptv_tuning.GetDataURL().isEmpty())
+                    if (!transports[i].m_iptvTuning.GetDataURL().isEmpty())
                         ChannelUtil::CreateIPTVTuningData(chan.m_channel_id,
-                                          transports[i].m_iptv_tuning);
+                                          transports[i].m_iptvTuning);
                 }
             }
 
@@ -684,13 +680,13 @@ ScanDTVTransportList ChannelImporter::InsertChannels(
             }
         }
 
-        if (new_transport.m_channels.size() > 0)
+        if (!new_transport.m_channels.empty())
             next_list.push_back(new_transport);
 
-        if (skipped_transport.m_channels.size() > 0)
+        if (!skipped_transport.m_channels.empty())
             skipped_list.push_back(skipped_transport);
 
-        if (inserted_transport.m_channels.size() > 0)
+        if (!inserted_transport.m_channels.empty())
             inserted_list.push_back(inserted_transport);
     }
 
@@ -849,13 +845,13 @@ ScanDTVTransportList ChannelImporter::UpdateChannels(
             }
         }
 
-        if (new_transport.m_channels.size() > 0)
+        if (!new_transport.m_channels.empty())
             next_list.push_back(new_transport);
 
-        if (skipped_transport.m_channels.size() > 0)
+        if (!skipped_transport.m_channels.empty())
             skipped_list.push_back(skipped_transport);
 
-        if (updated_transport.m_channels.size() > 0)
+        if (!updated_transport.m_channels.empty())
             updated_list.push_back(updated_transport);
     }
 
@@ -877,7 +873,7 @@ void ChannelImporter::AddChanToCopy(
     const ChannelInsertInfo &chan
 )
 {
-    if (transport_copy.m_channels.size() == 0)
+    if (transport_copy.m_channels.empty())
     {
         transport_copy = transport;
         transport_copy.m_channels.clear();
@@ -885,7 +881,7 @@ void ChannelImporter::AddChanToCopy(
     transport_copy.m_channels.push_back(chan);
 }
 
-void ChannelImporter::CleanupDuplicates(ScanDTVTransportList &transports) const
+void ChannelImporter::CleanupDuplicates(ScanDTVTransportList &transports)
 {
     ScanDTVTransportList no_dups;
 
@@ -961,12 +957,24 @@ void ChannelImporter::FilterServices(ScanDTVTransportList &transports) const
             if (m_lcn_only && transports[i].m_channels[k].m_chan_num.isEmpty())
             {
                 QString msg = FormatChannel(transports[i], transports[i].m_channels[k]);
-                LOG(VB_CHANSCAN, LOG_DEBUG, LOC + QString("No LCN: %1").arg(msg));
+                LOG(VB_CHANSCAN, LOG_INFO, LOC + QString("No LCN: %1").arg(msg));
                 continue;
             }
 
-            // Filter channels out that are not present in PAT, PMT and SDT.
+            // Filter channels out that are not present in PAT and PMT.
             if (m_complete_only &&
+                !(transports[i].m_channels[k].m_in_pat &&
+                  transports[i].m_channels[k].m_in_pmt ))
+            {
+                QString msg = FormatChannel(transports[i], transports[i].m_channels[k]);
+                LOG(VB_CHANSCAN, LOG_INFO, LOC + QString("Not in PAT/PMT: %1").arg(msg));
+                continue;
+            }
+
+            // Filter channels out that are not present in SDT and that are not ATSC
+            if (m_complete_only &&
+                transports[i].m_channels[k].m_atsc_major_channel == 0 &&
+                transports[i].m_channels[k].m_atsc_minor_channel == 0 &&
                 !(transports[i].m_channels[k].m_in_pat &&
                   transports[i].m_channels[k].m_in_pmt &&
                   transports[i].m_channels[k].m_in_sdt &&
@@ -974,7 +982,7 @@ void ChannelImporter::FilterServices(ScanDTVTransportList &transports) const
                   transports[i].m_channels[k].m_sdt_tsid)))
             {
                 QString msg = FormatChannel(transports[i], transports[i].m_channels[k]);
-                LOG(VB_CHANSCAN, LOG_DEBUG, LOC + QString("Not in PAT/PMT/SDT: %1").arg(msg));
+                LOG(VB_CHANSCAN, LOG_INFO, LOC + QString("Not in PAT/PMT/SDT: %1").arg(msg));
                 continue;
             }
 
@@ -982,7 +990,7 @@ void ChannelImporter::FilterServices(ScanDTVTransportList &transports) const
             if (m_complete_only && transports[i].m_channels[k].m_service_name.isEmpty())
             {
                 QString msg = FormatChannel(transports[i], transports[i].m_channels[k]);
-                LOG(VB_CHANSCAN, LOG_DEBUG, LOC + QString("No name: %1").arg(msg));
+                LOG(VB_CHANSCAN, LOG_INFO, LOC + QString("No name: %1").arg(msg));
                 continue;
             }
 
@@ -1557,8 +1565,8 @@ int ChannelImporter::SimpleCountChannels(
 QString ChannelImporter::ComputeSuggestedChannelNum(
     const ChannelInsertInfo         &chan)
 {
-    static QMutex          last_free_lock;
-    static QMap<uint,uint> last_free_chan_num_map;
+    static QMutex          s_lastFreeLock;
+    static QMap<uint,uint> s_lastFreeChanNumMap;
 
     // Suggest existing channel number if non-conflicting
     if (!ChannelUtil::IsConflicting(chan.m_chan_num, chan.m_source_id))
@@ -1609,8 +1617,8 @@ QString ChannelImporter::ComputeSuggestedChannelNum(
     }
 
     // Find unused channel number
-    QMutexLocker locker(&last_free_lock);
-    uint last_free_chan_num = last_free_chan_num_map[chan.m_source_id];
+    QMutexLocker locker(&s_lastFreeLock);
+    uint last_free_chan_num = s_lastFreeChanNumMap[chan.m_source_id];
     for (last_free_chan_num++; ; ++last_free_chan_num)
     {
         chan_num = QString::number(last_free_chan_num);
@@ -1618,7 +1626,7 @@ QString ChannelImporter::ComputeSuggestedChannelNum(
             break;
     }
     // cppcheck-suppress unreadVariable
-    last_free_chan_num_map[chan.m_source_id] = last_free_chan_num;
+    s_lastFreeChanNumMap[chan.m_source_id] = last_free_chan_num;
 
     return chan_num;
 }
@@ -1634,7 +1642,7 @@ ChannelImporter::QueryUserDelete(const QString &msg)
         {
             MythScreenStack *popupStack =
                 GetMythMainWindow()->GetStack("popup stack");
-            MythDialogBox *deleteDialog =
+            auto *deleteDialog =
                 new MythDialogBox(msg, popupStack, "deletechannels");
 
             if (deleteDialog->Create())
@@ -1709,7 +1717,7 @@ ChannelImporter::QueryUserInsert(const QString &msg)
         {
             MythScreenStack *popupStack =
                 GetMythMainWindow()->GetStack("popup stack");
-            MythDialogBox *insertDialog =
+            auto *insertDialog =
                 new MythDialogBox(msg, popupStack, "insertchannels");
 
             if (insertDialog->Create())
@@ -1779,7 +1787,7 @@ ChannelImporter::QueryUserUpdate(const QString &msg)
         {
             MythScreenStack *popupStack =
                 GetMythMainWindow()->GetStack("popup stack");
-            MythDialogBox *updateDialog =
+            auto *updateDialog =
                 new MythDialogBox(msg, popupStack, "updatechannels");
 
             if (updateDialog->Create())
@@ -1841,8 +1849,8 @@ OkCancelType ChannelImporter::ShowManualChannelPopup(
 {
     int dc = -1;
     MythScreenStack *popupStack = parent->GetStack("popup stack");
-    MythDialogBox *popup = new MythDialogBox(title, message, popupStack,
-                                             "manualchannelpopup");
+    auto *popup = new MythDialogBox(title, message, popupStack,
+                                    "manualchannelpopup");
 
     if (popup->Create())
     {
@@ -1868,7 +1876,7 @@ OkCancelType ChannelImporter::ShowManualChannelPopup(
     // Choice "Edit"
     if (1 == dc)
     {
-        MythTextInputDialog *textEdit =
+        auto *textEdit =
             new MythTextInputDialog(popupStack,
                                     tr("Please enter a unique channel number."),
                                     FilterNone, false, text);
@@ -1896,6 +1904,7 @@ OkCancelType ChannelImporter::ShowManualChannelPopup(
     OkCancelType rval = kOCTCancel;
     switch (dc) {
         case 0: rval = kOCTOk;        break;
+        // NOLINTNEXTLINE(bugprone-branch-clone)
         case 1: rval = kOCTCancel;    break;    // "Edit" is done already
         case 2: rval = kOCTCancel;    break;
         case 3: rval = kOCTCancelAll; break;
@@ -1909,8 +1918,8 @@ OkCancelType ChannelImporter::ShowResolveChannelPopup(
 {
     int dc = -1;
     MythScreenStack *popupStack = parent->GetStack("popup stack");
-    MythDialogBox *popup = new MythDialogBox(title, message, popupStack,
-                                             "resolvechannelpopup");
+    auto *popup = new MythDialogBox(title, message, popupStack,
+                                    "resolvechannelpopup");
 
     if (popup->Create())
     {
@@ -1937,7 +1946,7 @@ OkCancelType ChannelImporter::ShowResolveChannelPopup(
     // Choice "Edit"
     if (2 == dc)
     {
-        MythTextInputDialog *textEdit =
+        auto *textEdit =
             new MythTextInputDialog(popupStack,
                                     tr("Please enter a unique channel number."),
                                     FilterNone, false, text);
@@ -1966,6 +1975,7 @@ OkCancelType ChannelImporter::ShowResolveChannelPopup(
     switch (dc) {
         case 0: rval = kOCTOk;        break;
         case 1: rval = kOCTOkAll;     break;
+        // NOLINTNEXTLINE(bugprone-branch-clone)
         case 2: rval = kOCTCancel;    break;    // "Edit" is done already
         case 3: rval = kOCTCancel;    break;
         case 4: rval = kOCTCancelAll; break;

@@ -1,9 +1,15 @@
 #ifndef JITTEROMETER_H
 #define JITTEROMETER_H
 
+// Qt
 #include <QVector>
 #include <QFile>
+
+// MythTV
 #include "mythtvexp.h"
+
+// Std
+#include <sys/time.h>
 
 /* Jitterometer usage. There are 2 ways to use this:
 ------------------------------------------------------------------
@@ -37,7 +43,7 @@
 class MTV_PUBLIC Jitterometer
 {
   public:
-    Jitterometer(const QString &nname, int ncycles = 0);
+    Jitterometer(QString nname, int ncycles = 0);
    ~Jitterometer();
 
     float GetLastFPS(void) const { return m_last_fps; }

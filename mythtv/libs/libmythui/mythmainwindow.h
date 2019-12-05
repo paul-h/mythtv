@@ -19,7 +19,7 @@ class MythMediaDevice;
 #define REG_JUMPEX(a, b, c, d, e) GetMythMainWindow()->RegisterJump(a, b, c, d, e)
 #define REG_MEDIAPLAYER(a,b,c) GetMythMainWindow()->RegisterMediaPlugin(a, b, c)
 
-typedef int (*MediaPlayCallback)(const QString &, const QString &, const QString &, const QString &, const QString &, int, int, const QString &, int, const QString &, const QString &, bool);
+using MediaPlayCallback = int (*)(const QString &, const QString &, const QString &, const QString &, const QString &, int, int, const QString &, int, const QString &, const QString &, bool);
 
 class MythMainWindowPrivate;
 
@@ -43,6 +43,7 @@ class MUI_PUBLIC MythMainWindow : public QWidget
     void Init(const QString& forcedpainter = QString(), bool mayReInit=true);
     void ReinitDone(void);
     void Show(void);
+    void MoveResize(QRect &Geometry);
 
     void AddScreenStack(MythScreenStack *stack, bool main = false);
     void PopScreenStack();
@@ -83,6 +84,8 @@ class MUI_PUBLIC MythMainWindow : public QWidget
                      int lenMins=120, const QString& year="1895",
                      const QString &id="", bool useBookmarks = false);
     void HandleTVPower(bool poweron);
+    static void HandleCallback(const QString &Debug, MythCallbackEvent::Callback Function,
+                               void *Opaque1, void*Opaque2);
 
     void JumpTo(const QString &destination, bool pop = true);
     bool DestinationExists(const QString &destination) const;
@@ -99,7 +102,6 @@ class MUI_PUBLIC MythMainWindow : public QWidget
     MythNotificationCenter *GetCurrentNotificationCenter();
     void         ShowPainterWindow();
     void         HidePainterWindow();
-    void         ResizePainterWindow(const QSize &size);
 
     static void GrabWindow(QImage &image);
     static bool SaveScreenShot(const QImage &image, QString filename = "");
@@ -119,15 +121,7 @@ class MUI_PUBLIC MythMainWindow : public QWidget
     int NormX(const int x);
     int NormY(const int y);
     void SetScalingFactors(float wmult, float hmult);
-
     void StartLIRC(void);
-
-    /* compatibility functions, to go away once everything's mythui */
-    void attach(QWidget *child);
-    void detach(QWidget *child);
-
-    QWidget *currentWidget(void);
-
     uint PushDrawDisabled(void);
     uint PopDrawDisabled(void);
     void SetEffectsEnabled(bool enable);

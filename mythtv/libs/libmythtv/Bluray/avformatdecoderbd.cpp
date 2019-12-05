@@ -30,7 +30,7 @@ void AvFormatDecoderBD::UpdateFramesPlayed(void)
     if (!ringBuffer->IsBD())
         return;
 
-    long long currentpos = (long long)(ringBuffer->BD()->GetCurrentTime() * m_fps);
+    auto currentpos = (long long)(ringBuffer->BD()->GetCurrentTime() * m_fps);
     m_framesPlayed = m_framesRead = currentpos ;
     m_parent->SetFramesPlayed(currentpos + 1);
 }
@@ -42,6 +42,7 @@ bool AvFormatDecoderBD::DoRewindSeek(long long desiredFrame)
 
     ringBuffer->Seek(BDFindPosition(desiredFrame), SEEK_SET);
     m_framesPlayed = m_framesRead = m_lastKey = desiredFrame + 1;
+    m_frameCounter += 100;
     return true;
 }
 
@@ -53,6 +54,7 @@ void AvFormatDecoderBD::DoFastForwardSeek(long long desiredFrame, bool &needflus
     ringBuffer->Seek(BDFindPosition(desiredFrame), SEEK_SET);
     needflush    = true;
     m_framesPlayed = m_framesRead = m_lastKey = desiredFrame + 1;
+    m_frameCounter += 100;
 }
 
 void AvFormatDecoderBD::StreamChangeCheck(void)

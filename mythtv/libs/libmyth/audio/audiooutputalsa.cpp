@@ -323,7 +323,7 @@ AudioOutputSettings* AudioOutputALSA::GetOutputSettings(bool passthrough)
     AudioFormat fmt = FORMAT_NONE;
     int err = 0;
 
-    AudioOutputSettings *settings = new AudioOutputSettings();
+    auto *settings = new AudioOutputSettings();
 
     if (m_pcm_handle)
     {
@@ -361,6 +361,7 @@ AudioOutputSettings* AudioOutputALSA::GetOutputSettings(bool passthrough)
              "(using plugin?)");
     }
 
+    // NOLINTNEXTLINE(bugprone-infinite-loop)
     while (int rate = settings->GetNextRate())
         if(snd_pcm_hw_params_test_rate(m_pcm_handle, params, rate, 0) >= 0)
             settings->AddSupportedRate(rate);
@@ -371,8 +372,9 @@ AudioOutputSettings* AudioOutputALSA::GetOutputSettings(bool passthrough)
         {
             case FORMAT_U8:     afmt = SND_PCM_FORMAT_U8;    break;
             case FORMAT_S16:    afmt = SND_PCM_FORMAT_S16;   break;
+            // NOLINTNEXTLINE(bugprone-branch-clone)
             case FORMAT_S24LSB: afmt = SND_PCM_FORMAT_S24;   break;
-            case FORMAT_S24:    afmt = SND_PCM_FORMAT_S32;   break;
+            case FORMAT_S24:    afmt = SND_PCM_FORMAT_S24;   break;
             case FORMAT_S32:    afmt = SND_PCM_FORMAT_S32;   break;
             case FORMAT_FLT:    afmt = SND_PCM_FORMAT_FLOAT; break;
             default:         continue;
@@ -465,8 +467,9 @@ bool AudioOutputALSA::OpenDevice()
     {
         case FORMAT_U8:     format = SND_PCM_FORMAT_U8;    break;
         case FORMAT_S16:    format = SND_PCM_FORMAT_S16;   break;
+        // NOLINTNEXTLINE(bugprone-branch-clone)
         case FORMAT_S24LSB: format = SND_PCM_FORMAT_S24;   break;
-        case FORMAT_S24:    format = SND_PCM_FORMAT_S32;   break;
+        case FORMAT_S24:    format = SND_PCM_FORMAT_S24;   break;
         case FORMAT_S32:    format = SND_PCM_FORMAT_S32;   break;
         case FORMAT_FLT:    format = SND_PCM_FORMAT_FLOAT; break;
         default:
@@ -824,7 +827,7 @@ int AudioOutputALSA::GetVolumeChannel(int channel) const
     if (!m_mixer.elem)
         return retvol;
 
-    snd_mixer_selem_channel_id_t chan = (snd_mixer_selem_channel_id_t) channel;
+    auto chan = (snd_mixer_selem_channel_id_t) channel;
     if (!snd_mixer_selem_has_playback_channel(m_mixer.elem, chan))
         return retvol;
 
@@ -860,7 +863,7 @@ void AudioOutputALSA::SetVolumeChannel(int channel, int volume)
     mixervol = max(mixervol, m_mixer.volmin);
     mixervol = min(mixervol, m_mixer.volmax);
 
-    snd_mixer_selem_channel_id_t chan = (snd_mixer_selem_channel_id_t) channel;
+    auto chan = (snd_mixer_selem_channel_id_t) channel;
 
     if (snd_mixer_selem_has_playback_switch(m_mixer.elem))
         snd_mixer_selem_set_playback_switch(m_mixer.elem, chan, (volume > 0));
@@ -981,7 +984,7 @@ bool AudioOutputALSA::OpenMixer(void)
 
 QMap<QString, QString> *AudioOutputALSA::GetDevices(const char *type)
 {
-    QMap<QString, QString> *alsadevs = new QMap<QString, QString>();
+    auto *alsadevs = new QMap<QString, QString>();
     void **hints = nullptr, **n = nullptr;
 
     if (snd_device_name_hint(-1, type, &hints) < 0)

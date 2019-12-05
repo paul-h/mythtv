@@ -501,7 +501,7 @@ MetadataLookup* LookupFromProgramInfo(ProgramInfo *pginfo)
                            .secsTo(pginfo->GetRecordingEndTime());
     uint runtime = (runtimesecs/60);
 
-    MetadataLookup *ret = new MetadataLookup(kMetadataRecording, kUnknownVideo,
+    auto *ret = new MetadataLookup(kMetadataRecording, kUnknownVideo,
         qVariantFromValue(pginfo), kLookupData, false, false, false, false, false,
         pginfo->GetHostname(),pginfo->GetBasename(),pginfo->GetTitle(),
         QStringList() << pginfo->GetCategory(), pginfo->GetStars() * 10,
@@ -1299,7 +1299,7 @@ PeopleMap ParsePeople(const QDomElement& people)
                 QString jobstring = person.attribute("job");
                 PeopleType type = kPersonActor;
                 if (jobstring.toLower() == "actor")
-                    type = kPersonActor;
+                    type = kPersonActor; // NOLINT(bugprone-branch-clone)
                 else if (jobstring.toLower() == "author")
                     type = kPersonAuthor;
                 else if (jobstring.toLower() == "producer")
@@ -1357,7 +1357,7 @@ ArtworkMap ParseArtwork(const QDomElement& artwork)
                 QString typestring = image.attribute("type");
                 VideoArtworkType type = kArtworkCoverart;
                 if (typestring.toLower() == "coverart")
-                    type = kArtworkCoverart;
+                    type = kArtworkCoverart; // NOLINT(bugprone-branch-clone)
                 else if (typestring.toLower() == "fanart")
                     type = kArtworkFanart;
                 else if (typestring.toLower() == "banner")

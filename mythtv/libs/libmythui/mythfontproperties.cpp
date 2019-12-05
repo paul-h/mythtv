@@ -175,9 +175,9 @@ MythFontProperties *MythFontProperties::ParseFromXml(
 {
     // Crappy, but cached.  Move to GlobalFontMap?
 
-    static bool show_available = true;
+    static bool s_showAvailable = true;
     bool fromBase = false;
-    MythFontProperties *newFont = new MythFontProperties();
+    auto *newFont = new MythFontProperties();
     newFont->Freeze();
 
     if (element.tagName() == "font")
@@ -349,7 +349,7 @@ MythFontProperties *MythFontProperties::ParseFromXml(
                     newFont->m_face.setWeight(QFont::Light);
                 else if (weight == "normal" ||
                          weight == "3")
-                    newFont->m_face.setWeight(QFont::Normal);
+                    newFont->m_face.setWeight(QFont::Normal);    // NOLINT(bugprone-branch-clone)
                 else if (weight == "demibold" ||
                          weight == "4")
                     newFont->m_face.setWeight(QFont::DemiBold);
@@ -383,7 +383,7 @@ MythFontProperties *MythFontProperties::ParseFromXml(
                     newFont->m_stretch = QFont::SemiCondensed;
                 else if (stretch == "unstretched" ||
                          stretch == "5")
-                    newFont->m_stretch = QFont::Unstretched;
+                    newFont->m_stretch = QFont::Unstretched;    // NOLINT(bugprone-branch-clone)
                 else if (stretch == "semiexpanded" ||
                          stretch == "6")
                     newFont->m_stretch = QFont::SemiExpanded;
@@ -438,7 +438,7 @@ MythFontProperties *MythFontProperties::ParseFromXml(
                     QString("Failed to load '%1', got '%2' instead")
             .arg(newFont->m_face.family()).arg(fi.family()));
 
-        if (show_available)
+        if (s_showAvailable)
         {
             LOG(VB_GUI, LOG_DEBUG, "Available fonts:");
 
@@ -468,7 +468,7 @@ MythFontProperties *MythFontProperties::ParseFromXml(
                 }
                 LOG(VB_GUI, LOG_DEBUG, family_styles.join(" "));
             }
-            show_available = false;
+            s_showAvailable = false;
         }
     }
     else

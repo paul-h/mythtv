@@ -1,22 +1,32 @@
-#include <sys/time.h>
-#include <cstdlib>
-#include <cmath>
-
+// MythTV
 #include "mythlogging.h"
 #include "jitterometer.h"
+
+// Std
+#include <cmath>
+#include <cstdlib>
+#include <utility>
 
 #define UNIX_PROC_STAT "/proc/stat"
 #define MAX_CORES 8
 
-Jitterometer::Jitterometer(const QString &nname, int ncycles)
-  : m_num_cycles(ncycles), m_name(nname)
+#ifdef Q_OS_MACOS
+#include <mach/mach_init.h>
+#include <mach/mach_error.h>
+#include <mach/mach_host.h>
+#include <mach/vm_map.h>
+#endif
+
+Jitterometer::Jitterometer(QString nname, int ncycles)
+  : m_num_cycles(ncycles), m_name(std::move(nname))
 {
     m_times.resize(m_num_cycles);
 
     if (m_name.isEmpty())
         m_name = "Jitterometer";
 
-#ifdef __linux__
+#if defined(__linux__) || defined(Q_OS_ANDROID)
+    // N.B. Access to /proc/stat was revoked on Android for API >=26 (Oreo)
     if (QFile::exists(UNIX_PROC_STAT))
     {
         m_cpustat = new QFile(UNIX_PROC_STAT);
@@ -34,6 +44,11 @@ Jitterometer::Jitterometer(const QString &nname, int ncycles)
             }
         }
     }
+#endif
+
+#ifdef Q_OS_MACOS
+    m_laststats = new unsigned long long[MAX_CORES * 2];
+    memset(m_laststats, 0, sizeof(unsigned long long) * MAX_CORES * 2);
 #endif
 }
 
@@ -133,50 +148,76 @@ void Jitterometer::RecordStartTime()
 
 QString Jitterometer::GetCPUStat(void)
 {
-    if (!m_cpustat)
-        return "N/A";
+    QString result = "N/A";
 
-#ifdef __linux__
-    QString res;
-    m_cpustat->seek(0);
-    m_cpustat->flush();
-
-    QByteArray line = m_cpustat->readLine(256);
-    if (line.isEmpty())
-        return res;
-
-    int cores = 0;
-    int ptr   = 0;
-    line = m_cpustat->readLine(256);
-    while (!line.isEmpty() && cores < MAX_CORES)
+#if defined(__linux__) || defined(Q_OS_ANDROID)
+    if (m_cpustat)
     {
-        static const int size = sizeof(unsigned long long) * 9;
-        unsigned long long stats[9];
-        memset(stats, 0, size);
-        int num = 0;
-        if (sscanf(line.constData(),
-                   "cpu%30d %30llu %30llu %30llu %30llu %30llu "
-                   "%30llu %30llu %30llu %30llu %*5000s\n",
-                   &num, &stats[0], &stats[1], &stats[2], &stats[3],
-                   &stats[4], &stats[5], &stats[6], &stats[7], &stats[8]) >= 4)
-        {
-            float load  = stats[0] + stats[1] + stats[2] + stats[4] +
-                          stats[5] + stats[6] + stats[7] + stats[8] -
-                          m_laststats[ptr + 0] - m_laststats[ptr + 1] -
-                          m_laststats[ptr + 2] - m_laststats[ptr + 4] -
-                          m_laststats[ptr + 5] - m_laststats[ptr + 6] -
-                          m_laststats[ptr + 7] - m_laststats[ptr + 8];
-            float total = load + stats[3] - m_laststats[ptr + 3];
-            if (total > 0)
-                res += QString("%1% ").arg(load / total * 100, 0, 'f', 0);
-            memcpy(&m_laststats[ptr], stats, size);
-        }
+        m_cpustat->seek(0);
+        m_cpustat->flush();
+
+        QByteArray line = m_cpustat->readLine(256);
+        if (line.isEmpty())
+            return result;
+
+        result = "";
+        int cores = 0;
+        int ptr   = 0;
         line = m_cpustat->readLine(256);
-        cores++;
-        ptr += 9;
+        while (!line.isEmpty() && cores < MAX_CORES)
+        {
+            static constexpr int kSize = sizeof(unsigned long long) * 9;
+            unsigned long long stats[9];
+            memset(stats, 0, kSize);
+            int num = 0;
+            if (sscanf(line.constData(),
+                       "cpu%30d %30llu %30llu %30llu %30llu %30llu "
+                       "%30llu %30llu %30llu %30llu %*5000s\n",
+                       &num, &stats[0], &stats[1], &stats[2], &stats[3],
+                       &stats[4], &stats[5], &stats[6], &stats[7], &stats[8]) >= 4)
+            {
+                float load  = stats[0] + stats[1] + stats[2] + stats[4] +
+                              stats[5] + stats[6] + stats[7] + stats[8] -
+                              m_laststats[ptr + 0] - m_laststats[ptr + 1] -
+                              m_laststats[ptr + 2] - m_laststats[ptr + 4] -
+                              m_laststats[ptr + 5] - m_laststats[ptr + 6] -
+                              m_laststats[ptr + 7] - m_laststats[ptr + 8];
+                float total = load + stats[3] - m_laststats[ptr + 3];
+                if (total > 0)
+                    result += QString("%1% ").arg(load / total * 100, 0, 'f', 0);
+                memcpy(&m_laststats[ptr], stats, kSize);
+            }
+            line = m_cpustat->readLine(256);
+            cores++;
+            ptr += 9;
+        }
     }
-    return res;
-#else
-    return "N/A";
 #endif
+
+#ifdef Q_OS_MACOS
+    processor_cpu_load_info_t load;
+    mach_msg_type_number_t    msgcount;
+    natural_t                 processorcount;
+
+    if (host_processor_info(mach_host_self(), PROCESSOR_CPU_LOAD_INFO, &processorcount, (processor_info_array_t *)&load, &msgcount) == KERN_SUCCESS)
+    {
+        result = "";
+        int ptr = 0;
+        for (natural_t i = 0; i < processorcount && i < MAX_CORES; i++)
+        {
+            unsigned long long stats[9];
+            memset(stats, 0, sizeof(unsigned long long) * 2);
+            stats[0] = load[i].cpu_ticks[CPU_STATE_IDLE];
+            stats[1] = load[i].cpu_ticks[CPU_STATE_IDLE] + load[i].cpu_ticks[CPU_STATE_USER] +
+                       load[i].cpu_ticks[CPU_STATE_SYSTEM] + load[i].cpu_ticks[CPU_STATE_NICE];
+            double idledelta  = stats[0] - m_laststats[ptr];
+            double totaldelta = stats[1] - m_laststats[ptr + 1];
+            if (totaldelta > 0)
+                result += QString("%1% ").arg(((totaldelta - idledelta) / totaldelta) * 100.0, 0, 'f', 0);
+            memcpy(&m_laststats[ptr], stats, sizeof(unsigned long long) * 2);
+            ptr += 2;
+        }
+    }
+#endif
+    return result;
 }

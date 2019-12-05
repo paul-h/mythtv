@@ -63,8 +63,7 @@ AudioOutputBase::AudioOutputBase(const AudioSettings &settings) :
 {
     m_src_in = (float *)AOALIGN(m_src_in_buf);
 
-    if (m_main_device.startsWith("OpenMAX:")
-        || m_main_device.startsWith("AudioTrack:"))
+    if (m_main_device.startsWith("AudioTrack:"))
         m_usesSpdif = false;
     // Handle override of SRC quality settings
     if (gCoreContext->GetBoolSetting("SRCQualityOverride", false))
@@ -190,7 +189,7 @@ AudioOutputSettings* AudioOutputBase::GetOutputSettingsUsers(bool digital)
     else if (m_output_settingsdigital)
         return m_output_settingsdigital;
 
-    AudioOutputSettings* aosettings = new AudioOutputSettings;
+    auto* aosettings = new AudioOutputSettings;
 
     *aosettings = *GetOutputSettingsCleaned(digital);
     aosettings->GetUsers();
@@ -1629,9 +1628,9 @@ void AudioOutputBase::GetBufferStatus(uint &fill, uint &total)
  */
 void AudioOutputBase::OutputAudioLoop(void)
 {
-    uchar *zeros        = new uchar[m_fragment_size];
-    uchar *fragment_buf = new uchar[m_fragment_size + 16];
-    uchar *fragment     = (uchar *)AOALIGN(fragment_buf[0]);
+    auto *zeros        = new uchar[m_fragment_size];
+    auto *fragment_buf = new uchar[m_fragment_size + 16];
+    auto *fragment     = (uchar *)AOALIGN(fragment_buf[0]);
     memset(zeros, 0, m_fragment_size);
 
     // to reduce startup latency, write silence in 8ms chunks

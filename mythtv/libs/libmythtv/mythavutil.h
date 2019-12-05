@@ -141,8 +141,8 @@ public:
              int width, int height);
 
 private:
-    void FillFrame(VideoFrame *frame, const AVFrame *pic, int pitch,
-                   int width, int height, AVPixelFormat pix_fmt);
+    static void FillFrame(VideoFrame *frame, const AVFrame *pic, int pitch,
+                          int width, int height, AVPixelFormat pix_fmt);
     MythAVCopy(const MythAVCopy &) = delete;            // not copyable
     MythAVCopy &operator=(const MythAVCopy &) = delete; // not copyable
     MythAVCopyPrivate *d;
@@ -161,6 +161,12 @@ int MTV_PUBLIC AVPictureFill(AVFrame *pic, const VideoFrame *frame,
  */
 MTV_PUBLIC AVPixelFormat FrameTypeToPixelFormat(VideoFrameType type);
 MTV_PUBLIC VideoFrameType PixelFormatToFrameType(AVPixelFormat fmt);
+
+/*! \brief Return a user friendly description of the given deinterlacer
+*/
+MTV_PUBLIC QString DeinterlacerName(MythDeintType Deint, bool DoubleRate, VideoFrameType Format = FMT_NONE);
+
+MTV_PUBLIC QString DeinterlacerPref(MythDeintType Deint);
 
 /**
  * MythPictureDeinterlacer
