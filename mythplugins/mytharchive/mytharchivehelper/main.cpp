@@ -404,7 +404,8 @@ int NativeArchive::getFieldList(QStringList &fieldList, const QString &tableName
 int NativeArchive::exportRecording(QDomElement   &itemNode,
                                    const QString &saveDirectory)
 {
-    QString chanID, startTime;
+    QString chanID;
+    QString startTime;
     QString dbVersion = gCoreContext->GetSetting("DBSchemaVer", "");
 
     QString title = fixFilename(itemNode.attribute("title"));
@@ -627,7 +628,8 @@ int NativeArchive::exportVideo(QDomElement   &itemNode,
                                const QString &saveDirectory)
 {
     QString dbVersion = gCoreContext->GetSetting("DBSchemaVer", "");
-    int intID = 0, categoryID = 0;
+    int intID = 0;
+    int categoryID = 0;
     QString coverFile = "";
 
     QString title = fixFilename(itemNode.attribute("title"));
@@ -893,7 +895,8 @@ int NativeArchive::doImportArchive(const QString &xmlFile, int chanID)
     file.close();
 
     QString docType = doc.doctype().name();
-    QString type, dbVersion;
+    QString type;
+    QString dbVersion;
     QDomNodeList itemNodeList;
     QDomNode node;
     QDomElement itemNode;
@@ -2162,7 +2165,9 @@ static int grabThumbnail(const QString& inFile, const QString& thumbList, const 
     }
 
     // find the first video stream
-    int videostream = -1, width = 0, height = 0;
+    int videostream = -1;
+    int width = 0;
+    int height = 0;
     float fps = NAN;
 
     for (uint i = 0; i < inputFC->nb_streams; i++)
@@ -2225,7 +2230,8 @@ static int grabThumbnail(const QString& inFile, const QString& thumbList, const 
     int bufflen = width * height * 4;
     auto *outputbuf = new unsigned char[bufflen];
 
-    int frameNo = -1, thumbCount = 0;
+    int frameNo = -1;
+    int thumbCount = 0;
     bool frameFinished = false;
 
     while (av_read_frame(inputFC, &pkt) >= 0)
@@ -2397,7 +2403,8 @@ static int64_t getCutFrames(const QString &filename, int64_t lastFrame)
 
     for (it = cutlist.begin(); it != cutlist.end();)
     {
-        uint64_t start = 0, end = 0;
+        uint64_t start = 0;
+        uint64_t end = 0;
 
         if (it.value() == MARK_CUT_START)
         {
@@ -2782,10 +2789,10 @@ static int getDBParamters(const QString& outFile)
     }
 
     QTextStream t(&f);
-    t << params.dbHostName << endl;
-    t << params.dbUserName << endl;
-    t << params.dbPassword << endl;
-    t << params.dbName << endl;
+    t << params.m_dbHostName << endl;
+    t << params.m_dbUserName << endl;
+    t << params.m_dbPassword << endl;
+    t << params.m_dbName << endl;
     t << gCoreContext->GetHostName() << endl;
     t << GetInstallPrefix() << endl;
     f.close();

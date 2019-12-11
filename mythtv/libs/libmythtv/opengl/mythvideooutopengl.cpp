@@ -125,11 +125,12 @@ MythVideoOutputOpenGL::MythVideoOutputOpenGL(QString Profile)
         }
     }
 
-    // Disallow unsupported video texturing on GLES2
-    if (m_render->isOpenGLES() && m_render->format().majorVersion() < 3)
+    // Disallow unsupported video texturing on GLES2/GL1.X
+    if (m_render->GetExtraFeatures() & kGLLegacyTextures)
     {
-        LOG(VB_GENERAL, LOG_INFO, LOC + "Disabling unsupported texture formats for GLES2");
-        m_isGLES2 = true;
+        LOG(VB_GENERAL, LOG_INFO, LOC +
+            "Disabling unsupported texture formats for this OpenGL version");
+        m_legacyTextureFormats = true;
     }
 
     // Retrieve OpenGL painter
@@ -159,7 +160,7 @@ MythVideoOutputOpenGL::MythVideoOutputOpenGL(QString Profile)
 
 MythVideoOutputOpenGL::~MythVideoOutputOpenGL()
 {
-    DestroyBuffers();
+    MythVideoOutputOpenGL::DestroyBuffers();
     while (!m_openGLVideoPiPs.empty())
     {
         delete *m_openGLVideoPiPs.begin();
@@ -181,7 +182,7 @@ MythVideoOutputOpenGL::~MythVideoOutputOpenGL()
 
 void MythVideoOutputOpenGL::DestroyBuffers(void)
 {
-    DiscardFrames(true, true);
+    MythVideoOutputOpenGL::DiscardFrames(true, true);
     m_videoBuffers.DeleteBuffers();
     m_videoBuffers.Reset();
     m_buffersCreated = false;
@@ -720,10 +721,10 @@ VideoFrameType* MythVideoOutputOpenGL::DirectRenderFormats(void)
           FMT_YUV444P9, FMT_YUV444P10, FMT_YUV444P12, FMT_YUV444P14, FMT_YUV444P16,
           FMT_P010, FMT_P016,
           FMT_NONE };
-    // OpenGLES2 only allows luminance textures - no RG etc
-    static VideoFrameType s_opengles2Formats[] =
+    // OpenGLES2/OpenGL <2 only allow luminance textures - no RG etc
+    static VideoFrameType s_legacyFormats[] =
         { FMT_YV12, FMT_YUY2, FMT_YUV422P, FMT_YUV444P, FMT_NONE };
-    return m_isGLES2 ? &s_opengles2Formats[0] : &s_openglFormats[0];
+    return m_legacyTextureFormats ? &s_legacyFormats[0] : &s_openglFormats[0];
 }
 
 void MythVideoOutputOpenGL::WindowResized(const QSize &Size)
@@ -834,7 +835,8 @@ void MythVideoOutputOpenGL::ShowPIP(VideoFrame* /*Frame*/, MythPlayer *PiPPlayer
     if (!PiPPlayer)
         return;
 
-    int pipw, piph;
+    int pipw;
+    int piph;
     VideoFrame *pipimage     = PiPPlayer->GetCurrentFrame(pipw, piph);
     const QSize pipvideodim  = PiPPlayer->GetVideoBufferSize();
     QRect       pipvideorect = QRect(QPoint(0, 0), pipvideodim);

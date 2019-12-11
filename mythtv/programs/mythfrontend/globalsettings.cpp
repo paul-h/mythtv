@@ -35,7 +35,6 @@
 #include "themeinfo.h"
 #include "mythdirs.h"
 #include "mythuihelper.h"
-#include "mythuidefines.h"
 #include "langsettings.h"
 #include "decoders/mythcodeccontext.h"
 #include "mythsorthelper.h"
@@ -110,36 +109,6 @@ static HostTextEditSetting *VAAPIDevice()
     return ge;
 }
 #endif
-
-static HostCheckBoxSetting *PlaybackAVSync2()
-{
-    auto *gc = new HostCheckBoxSetting("PlaybackAVSync2");
-
-    gc->setLabel(PlaybackSettings::tr("Enable new timestamp based playback speed (AVSync2)"));
-
-    gc->setHelpText(PlaybackSettings::tr("Simplified timing and synchronization method. "
-        "This may offer smoother video playback. Note there is a setting that can be used "
-        "for fine tuning playback (press right arrow)."));
-    gc->setValue(false);
-
-    return gc;
-}
-
-static HostSpinBoxSetting *AVSync2AdjustMS()
-// was previously *DecodeExtraAudio()
-{
-    auto *gc = new HostSpinBoxSetting("AVSync2AdjustMS",1,40,1,1);
-
-    gc->setLabel(PlaybackSettings::tr("AVSync2 audio correction (ms)"));
-
-    gc->setValue(10);
-
-    gc->setHelpText(PlaybackSettings::tr(
-        "When using AVSync2, if video playback is speeding up and slowing down every few seconds, reduce "
-        "this value. For quicker recovery of audio sync after jumps, increase this value. "
-        "Values can be from 1 to 40. Default is 10."));
-    return gc;
-}
 
 #if CONFIG_DEBUGTYPE
 static HostCheckBoxSetting *FFmpegDemuxer()
@@ -2291,7 +2260,7 @@ static HostComboBoxSetting *GuiVidModeResolution()
                                           "watching a video."));
 
     MythDisplay* display = MythDisplay::AcquireRelease();
-    vector<DisplayResScreen> scr = display->GetVideoModes();
+    vector<MythDisplayMode> scr = display->GetVideoModes();
     MythDisplay::AcquireRelease(false);
     for (size_t i = 0; i< scr.size(); ++i)
     {
@@ -2304,7 +2273,8 @@ static HostComboBoxSetting *GuiVidModeResolution()
     // if no resolution setting, set it with a reasonable initial value
     if (!scr.empty() && (gCoreContext->GetSetting("GuiVidModeResolution").isEmpty()))
     {
-        int w = 0, h = 0;
+        int w = 0;
+        int h = 0;
         gCoreContext->GetResolutionSetting("GuiVidMode", w, h);
         if ((w <= 0) || (h <= 0))
         {
@@ -2312,9 +2282,9 @@ static HostComboBoxSetting *GuiVidModeResolution()
             h = 480;
         }
 
-        DisplayResScreen dscr(w, h, -1, -1, -1.0, 0);
+        MythDisplayMode dscr(w, h, -1, -1, -1.0, 0);
         double rate = -1.0;
-        int i = DisplayResScreen::FindBestMatch(scr, dscr, rate);
+        int i = MythDisplayMode::FindBestMatch(scr, dscr, rate);
         gc->setValue((i >= 0) ? i : scr.size() - 1);
     }
 
@@ -2340,7 +2310,7 @@ static HostComboBoxSetting *TVVidModeResolution(int idx=-1)
     gc->setHelpText(hstr);
 
     MythDisplay* display = MythDisplay::AcquireRelease();
-    vector<DisplayResScreen> scr = display->GetVideoModes();
+    vector<MythDisplayMode> scr = display->GetVideoModes();
     MythDisplay::AcquireRelease(false);
     for (size_t i = 0; i < scr.size(); ++i)
     {
@@ -2358,7 +2328,8 @@ void HostRefreshRateComboBoxSetting::ChangeResolution(StandardSetting * setting)
 
     clearSelections();
     QString resolution = setting->getValue();
-    int hz50 = -1, hz60 = -1;
+    int hz50 = -1;
+    int hz60 = -1;
     const vector<double> list = GetRefreshRates(resolution);
     addSelection(QObject::tr("Auto"), "0");
     for (size_t i = 0; i < list.size(); ++i)
@@ -2389,8 +2360,10 @@ vector<double> HostRefreshRateComboBoxSetting::GetRefreshRates(
     const QString &res)
 {
     QStringList slist = res.split("x");
-    int w = 0, h = 0;
-    bool ok0 = false, ok1 = false;
+    int w = 0;
+    int h = 0;
+    bool ok0 = false;
+    bool ok1 = false;
     if (2 == slist.size())
     {
         w = slist[0].toInt(&ok0);
@@ -2728,38 +2701,6 @@ static HostComboBoxSetting *MythTimeFormat()
                                            "\"military\" time."));
     return gc;
 }
-
-#if ! CONFIG_DARWIN
-static HostComboBoxSetting *ThemePainter()
-{
-    auto *gc = new HostComboBoxSetting("ThemePainter");
-
-    gc->setLabel(AppearanceSettings::tr("Paint engine"));
-
-    gc->addSelection(QCoreApplication::translate("(Common)", "Auto", "Automatic"),
-                     AUTO_PAINTER);
-#ifdef _WIN32
-    gc->addSelection(QCoreApplication::translate("(Common)", "Direct3D"),
-                     D3D9_PAINTER);
-#endif
-#if defined USING_OPENGL && ! defined USING_OPENGLES
-    gc->addSelection(QCoreApplication::translate("(Common)", "OpenGL 2"),
-                     OPENGL2_PAINTER);
-    gc->addSelection(QCoreApplication::translate("(Common)", "OpenGL 1"),
-                     OPENGL_PAINTER);
-#endif
-    gc->addSelection(QCoreApplication::translate("(Common)", "Qt"), QT_PAINTER);
-    gc->setHelpText(
-        AppearanceSettings::tr("This selects what MythTV uses to draw. "
-                               "Choosing '%1' is recommended, unless running "
-                               "on systems with broken OpenGL implementations "
-                               "(broken hardware or drivers or windowing "
-                               "systems) where only Qt works.")
-        .arg(QCoreApplication::translate("(Common)", "Auto", "Automatic")));
-
-    return gc;
-}
-#endif
 
 static HostCheckBoxSetting *GUIRGBLevels()
 {
@@ -4298,9 +4239,6 @@ void PlaybackSettings::Load(void)
 #ifdef USING_VAAPI
     advanced->addChild(VAAPIDevice());
 #endif
-    HostCheckBoxSetting *avsync2 = PlaybackAVSync2();
-    advanced->addChild(avsync2);
-    avsync2->addTargetedChild("1",AVSync2AdjustMS());
 
     addChild(advanced);
 
@@ -4584,9 +4522,6 @@ AppearanceSettings::AppearanceSettings()
     screen->setLabel(tr("Theme / Screen Settings"));
     addChild(screen);
 
-#if ! CONFIG_DARWIN
-    screen->addChild(ThemePainter());
-#endif
     screen->addChild(MenuTheme());
     screen->addChild(GUIRGBLevels());
 
@@ -4605,8 +4540,11 @@ AppearanceSettings::AppearanceSettings()
 
     screen->addChild(GuiSizeForTV());
     screen->addChild(HideMouseCursor());
-    screen->addChild(RunInWindow());
-    screen->addChild(AlwaysOnTop());
+    if (!GetMythMainWindow()->WindowIsAlwaysFullscreen())
+    {
+        screen->addChild(RunInWindow());
+        screen->addChild(AlwaysOnTop());
+    }
     screen->addChild(StartupScreenDelay());
     screen->addChild(GUIFontZoom());
 #ifdef USING_AIRPLAY
@@ -4615,7 +4553,7 @@ AppearanceSettings::AppearanceSettings()
 
 #if defined(USING_XRANDR) || CONFIG_DARWIN
     MythDisplay* display = MythDisplay::AcquireRelease();
-    vector<DisplayResScreen> scr = display->GetVideoModes();
+    vector<MythDisplayMode> scr = display->GetVideoModes();
     MythDisplay::AcquireRelease(false);
     if (!scr.empty())
         addChild(UseVideoModes());

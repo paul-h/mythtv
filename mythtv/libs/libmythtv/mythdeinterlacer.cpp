@@ -146,7 +146,7 @@ void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan)
         if (!m_bobFrame->buf || (m_bobFrame->size != Frame->size))
         {
             av_free(m_bobFrame->buf);
-            m_bobFrame->buf = static_cast<unsigned char*>(av_malloc(static_cast<size_t>(Frame->size + 64)));
+            m_bobFrame->buf = static_cast<unsigned char*>(av_malloc(Frame->size + 64));
             m_bobFrame->size = Frame->size;
         }
 
@@ -211,6 +211,7 @@ void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan)
     m_frame->width  = Frame->width;
     m_frame->height = Frame->height;
     m_frame->format = Frame->pix_fmt;
+    m_frame->pts    = Frame->timecode;
 
     // Add frame on first pass only
     if (kScan_Interlaced == Scan)
@@ -245,6 +246,8 @@ void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan)
     for (uint plane = 0; plane < count; ++plane)
         copyplane(Frame->buf + Frame->offsets[plane], Frame->pitches[plane], m_frame->data[plane], m_frame->linesize[plane],
                   pitch_for_plane(m_inputType, m_frame->width, plane), height_for_plane(m_inputType, m_frame->height, plane));
+
+    Frame->timecode = m_frame->pts;
 
     // Free frame data
     av_frame_unref(m_frame);

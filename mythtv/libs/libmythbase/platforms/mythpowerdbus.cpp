@@ -7,16 +7,16 @@
 
 #define LOC QString("PowerDBus: ")
 
-#define FREE_SERVICE     QStringLiteral("org.freedesktop.")
-#define FREE_PATH        QStringLiteral("/org/freedesktop/")
-#define UPOWER           QStringLiteral("UPower")
-#define LOGIN1           QStringLiteral("login1")
-#define UPOWER_SERVICE   FREE_SERVICE + UPOWER
-#define UPOWER_PATH      FREE_PATH + UPOWER
-#define UPOWER_INTERFACE UPOWER_SERVICE
-#define LOGIN1_SERVICE   FREE_SERVICE + LOGIN1
-#define LOGIN1_PATH      FREE_PATH + LOGIN1
-#define LOGIN1_INTERFACE LOGIN1_SERVICE + QStringLiteral(".Manager")
+#define FREE_SERVICE     (QStringLiteral("org.freedesktop."))
+#define FREE_PATH        (QStringLiteral("/org/freedesktop/"))
+#define UPOWER           (QStringLiteral("UPower"))
+#define LOGIN1           (QStringLiteral("login1"))
+#define UPOWER_SERVICE   (FREE_SERVICE + UPOWER)
+#define UPOWER_PATH      (FREE_PATH + UPOWER)
+#define UPOWER_INTERFACE (UPOWER_SERVICE)
+#define LOGIN1_SERVICE   (FREE_SERVICE + LOGIN1)
+#define LOGIN1_PATH      (FREE_PATH + LOGIN1)
+#define LOGIN1_INTERFACE (LOGIN1_SERVICE + QStringLiteral(".Manager"))
 
 /*! \brief Static check for DBus interfaces that support some form of power management.
  *
@@ -41,24 +41,23 @@
 bool MythPowerDBus::IsAvailable(void)
 {
     QMutexLocker locker(&s_lock);
-    static bool available = false;
-    static bool checked   = false;
-    if (!checked)
+    static bool s_available = false;
+    static bool s_checked   = false;
+    if (!s_checked)
     {
-        checked = true;
+        s_checked = true;
         auto* upower = new QDBusInterface(
             UPOWER_SERVICE, UPOWER_PATH, UPOWER_INTERFACE, QDBusConnection::systemBus());
         auto* login1 = new QDBusInterface(
             LOGIN1_SERVICE, LOGIN1_PATH, LOGIN1_INTERFACE, QDBusConnection::systemBus());
-        available = upower->isValid() || login1->isValid();
+        s_available = upower->isValid() || login1->isValid();
         delete upower;
         delete login1;
     }
-    return available;
+    return s_available;
 }
 
 MythPowerDBus::MythPowerDBus()
-  : MythPower()
 {
     m_delayTimer.setSingleShot(true);
     connect(&m_delayTimer, &QTimer::timeout, this, &MythPowerDBus::ReleaseLock);
@@ -187,10 +186,7 @@ void MythPowerDBus::DBusSuspending(bool Stopping)
         if (UpdateStatus())
             return;
 
-        // This code is probably never hit
-        m_isSpontaneous = true;
-        m_scheduledFeature = FeatureSuspend;
-        return FeatureHappening();
+        return FeatureHappening(FeatureSuspend);
     }
     DidWakeUp();
 }
@@ -205,9 +201,7 @@ void MythPowerDBus::DBusShuttingDown(bool Stopping)
         if (UpdateStatus())
             return;
 
-        m_isSpontaneous = true;
-        m_scheduledFeature = FeatureShutdown;
-        return FeatureHappening();
+        return FeatureHappening(FeatureShutdown);
     }
     DidWakeUp(); // after hibernate?
 }
@@ -219,13 +213,13 @@ bool MythPowerDBus::UpdateStatus(void)
 
     Feature feature = FeatureNone;
     QVariant property = m_logindInterface->property("PreparingForShutdown");
-    if (property.isValid() && property.toBool() == true)
+    if (property.isValid() && property.toBool())
         feature = FeatureShutdown;
 
     if (!feature)
     {
         property = m_logindInterface->property("PreparingForSleep");
-        if (property.isValid() && property.toBool() == true)
+        if (property.isValid() && property.toBool())
             feature = FeatureSuspend;
     }
 
@@ -355,7 +349,7 @@ void MythPowerDBus::Changed(void)
     UpdateBattery();
 }
 
-void MythPowerDBus::DeviceAdded(QDBusObjectPath Device)
+void MythPowerDBus::DeviceAdded(const QDBusObjectPath& Device)
 {
     {
         QMutexLocker locker(&s_lock);
@@ -367,7 +361,7 @@ void MythPowerDBus::DeviceAdded(QDBusObjectPath Device)
     UpdateBattery();
 }
 
-void MythPowerDBus::DeviceRemoved(QDBusObjectPath Device)
+void MythPowerDBus::DeviceRemoved(const QDBusObjectPath& Device)
 {
     {
         QMutexLocker locker(&s_lock);
@@ -384,7 +378,7 @@ void MythPowerDBus::DeviceRemoved(QDBusObjectPath Device)
  * This is typically called by the UPower service when the battery state has
  * changed.
 */
-void MythPowerDBus::DeviceChanged(QDBusObjectPath Device)
+void MythPowerDBus::DeviceChanged(const QDBusObjectPath& Device)
 {
     {
         QMutexLocker locker(&s_lock);
@@ -450,13 +444,13 @@ void MythPowerDBus::UpdateBattery(void)
         }
 
         if (count > 0)
-            newlevel = static_cast<int>(((total / count) + 0.5));
+            newlevel = lround(total / count);
     }
 
     if (!m_onBattery && m_logindInterface)
     {
         QVariant acpower = m_logindInterface->property("OnExternalPower");
-        if (acpower.isValid() && acpower.toBool() == true)
+        if (acpower.isValid() && acpower.toBool())
             newlevel = ACPower;
     }
 
@@ -470,7 +464,7 @@ int MythPowerDBus::RetrieveBatteryLevel(const QString &Path)
     if (interface.isValid())
     {
         QVariant battery = interface.property("IsRechargeable");
-        if (battery.isValid() && battery.toBool() == true)
+        if (battery.isValid() && battery.toBool())
         {
             QVariant percent = interface.property("Percentage");
             if (percent.isValid())

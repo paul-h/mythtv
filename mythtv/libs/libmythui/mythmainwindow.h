@@ -40,10 +40,11 @@ class MUI_PUBLIC MythMainWindow : public QWidget
   public:
     enum {drawRefresh = 70};
 
-    void Init(const QString& forcedpainter = QString(), bool mayReInit=true);
+    void Init(bool mayReInit = true);
     void ReinitDone(void);
     void Show(void);
     void MoveResize(QRect &Geometry);
+    bool WindowIsAlwaysFullscreen(void);
 
     void AddScreenStack(MythScreenStack *stack, bool main = false);
     void PopScreenStack();
@@ -172,7 +173,7 @@ class MUI_PUBLIC MythMainWindow : public QWidget
 
     void ShowMouseCursor(bool show);
 
-    MythMainWindowPrivate *d {nullptr};
+    MythMainWindowPrivate *d {nullptr}; // NOLINT(readability-identifier-naming)
 
   private slots:
     void DelayedAction(void);

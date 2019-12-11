@@ -11,19 +11,17 @@ class MythDisplayX11 : public MythDisplay
 {
   public:
     MythDisplayX11();
-   ~MythDisplayX11() override;
+   ~MythDisplayX11() override = default;
     static bool IsAvailable(void);
     DisplayInfo GetDisplayInfo(int VideoRate = 0) override;
 
 #ifdef USING_XRANDR
     bool UsingVideoModes(void) override;
-    const std::vector<DisplayResScreen>& GetVideoModes(void) override;
+    const std::vector<MythDisplayMode>& GetVideoModes(void) override;
     bool SwitchToVideoMode(int Width, int Height, double DesiredRate) override;
 #endif
 
   private:
-    void DebugModes(const QString& Message) const;
-
     QMap<uint64_t, unsigned long> m_modeMap { };
     unsigned long m_crtc { 0 };
 };

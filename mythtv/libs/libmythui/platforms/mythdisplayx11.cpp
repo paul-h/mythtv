@@ -5,10 +5,6 @@
 #include "mythdisplayx11.h"
 #include "mythxdisplay.h"
 
-#ifdef CONFIG_XNVCTRL
-#include "mythnvcontrol.h"
-#endif
-
 #ifdef USING_XRANDR
 #include <X11/extensions/Xrandr.h> // always last
 #endif
@@ -16,13 +12,8 @@
 #define LOC QString("DisplayX11: ")
 
 MythDisplayX11::MythDisplayX11()
-  : MythDisplay()
 {
     InitialiseModes();
-}
-
-MythDisplayX11::~MythDisplayX11()
-{
 }
 
 bool MythDisplayX11::IsAvailable(void)
@@ -64,7 +55,7 @@ bool MythDisplayX11::UsingVideoModes(void)
     return false;
 }
 
-const std::vector<DisplayResScreen>& MythDisplayX11::GetVideoModes(void)
+const std::vector<MythDisplayMode>& MythDisplayX11::GetVideoModes(void)
 {
     if (!m_videoModes.empty())
         return m_videoModes;
@@ -121,7 +112,7 @@ const std::vector<DisplayResScreen>& MythDisplayX11::GetVideoModes(void)
     int mmheight = static_cast<int>(output->mm_height);
     m_crtc = output->crtc;
 
-    DisplayResMap screenmap;
+    DisplayModeMap screenmap;
     for (int i = 0; i < output->nmode; ++i)
     {
         RRMode rrmode = output->modes[i];
@@ -133,19 +124,32 @@ const std::vector<DisplayResScreen>& MythDisplayX11::GetVideoModes(void)
         int width = static_cast<int>(mode.width);
         int height = static_cast<int>(mode.height);
         double rate = static_cast<double>(mode.dotClock) / (mode.vTotal * mode.hTotal);
+        bool interlaced = mode.modeFlags & RR_Interlace;
+        if (interlaced)
+            rate *= 2.0;
 
-        uint64_t key = DisplayResScreen::CalcKey(width, height, 0.0);
+        // TODO don't filter out interlaced modes but ignore them in MythDisplayMode
+        // when not required. This may then be used in future to allow 'exact' match
+        // display modes to display interlaced material on interlaced displays
+        if (interlaced)
+        {
+            LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Ignoring interlaced mode %1x%2 %3i")
+                .arg(width).arg(height).arg(rate, 2, 'f', 2, '0'));
+            continue;
+        }
+
+        uint64_t key = MythDisplayMode::CalcKey(width, height, 0.0);
         if (screenmap.find(key) == screenmap.end())
-            screenmap[key] = DisplayResScreen(width, height, mmwidth, mmheight, -1.0, rate);
+            screenmap[key] = MythDisplayMode(width, height, mmwidth, mmheight, -1.0, rate);
         else
             screenmap[key].AddRefreshRate(rate);
-        m_modeMap.insert(DisplayResScreen::CalcKey(width, height, rate), rrmode);
+        m_modeMap.insert(MythDisplayMode::CalcKey(width, height, rate), rrmode);
     }
 
     for (auto it = screenmap.begin(); screenmap.end() != it; ++it)
         m_videoModes.push_back(it->second);
 
-    DebugModes("XRandr modes");
+    DebugModes();
     XRRFreeOutputInfo(output);
     XRRFreeScreenResources(res);
     delete display;
@@ -160,8 +164,8 @@ bool MythDisplayX11::SwitchToVideoMode(int Width, int Height, double DesiredRate
         return false;
 
     auto rate = static_cast<double>(NAN);
-    DisplayResScreen desired(Width, Height, 0, 0, -1.0, DesiredRate);
-    int idx = DisplayResScreen::FindBestMatch(m_videoModes, desired, rate);
+    MythDisplayMode desired(Width, Height, 0, 0, -1.0, DesiredRate);
+    int idx = MythDisplayMode::FindBestMatch(m_videoModes, desired, rate);
 
     if (idx < 0)
     {
@@ -169,7 +173,7 @@ bool MythDisplayX11::SwitchToVideoMode(int Width, int Height, double DesiredRate
         return false;
     }
 
-    auto mode = DisplayResScreen::CalcKey(Width, Height, rate);
+    auto mode = MythDisplayMode::CalcKey(Width, Height, rate);
     if (!m_modeMap.contains(mode))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to find mode");
@@ -192,6 +196,9 @@ bool MythDisplayX11::SwitchToVideoMode(int Width, int Height, double DesiredRate
                                       currentcrtc->rotation, currentcrtc->outputs,
                                       currentcrtc->noutput);
             XRRFreeCrtcInfo(currentcrtc);
+            XRRScreenConfiguration *config = XRRGetScreenInfo(display->GetDisplay(), display->GetRoot());
+            if (config)
+                XRRFreeScreenConfigInfo(config);
         }
         XRRFreeScreenResources(res);
     }
@@ -202,23 +209,3 @@ bool MythDisplayX11::SwitchToVideoMode(int Width, int Height, double DesiredRate
     return RRSetConfigSuccess == status;
 }
 #endif
-
-void MythDisplayX11::DebugModes(const QString& Message) const
-{
-    // This is intentionally formatted to match the output of xrandr for comparison
-    if (VERBOSE_LEVEL_CHECK(VB_PLAYBACK, LOG_INFO))
-    {
-        LOG(VB_PLAYBACK, LOG_INFO, LOC + Message + ":");
-        auto it = m_videoModes.crbegin();
-        for ( ; it != m_videoModes.crend(); ++it)
-        {
-            auto rates = (*it).RefreshRates();
-            QStringList rateslist;
-            auto it2 = rates.crbegin();
-            for ( ; it2 != rates.crend(); ++it2)
-                rateslist.append(QString("%1").arg(*it2, 2, 'f', 2, '0'));
-            LOG(VB_PLAYBACK, LOG_INFO, QString("%1x%2\t%3")
-                .arg((*it).Width()).arg((*it).Height()).arg(rateslist.join("\t")));
-        }
-    }
-}

@@ -74,17 +74,17 @@ class MBASE_PUBLIC MythPower : public QObject, public ReferenceCounter
     static QMutex s_lock;
 
     MythPower();
-    virtual ~MythPower();
+    virtual ~MythPower() = default;
 
     virtual void   Init              (void);
     virtual bool   DoFeature         (bool = false) { return false; }
     virtual void   DidWakeUp         (void);
-    virtual void   FeatureHappening  (void);
+    virtual void   FeatureHappening  (Feature Spontaneous = FeatureNone);
     virtual bool   ScheduleFeature   (enum Feature Type, uint Delay);
     void           SetRequestedDelay (uint Delay);
     void           PowerLevelChanged (int Level);
     static QString FeatureToString   (enum Feature Type);
-    bool           FeatureIsEquivalent(Feature First, Feature Second);
+    static bool    FeatureIsEquivalent(Feature First, Feature Second);
 
     Features  m_features             { FeatureNone };
     Feature   m_scheduledFeature     { FeatureNone };

@@ -48,7 +48,6 @@ using namespace std;
 #include "mythuistatetracker.h"
 #include "mythuiactions.h"
 #include "mythrect.h"
-#include "mythuidefines.h"
 #include "mythdisplay.h"
 
 #ifdef USING_APPLEREMOTE
@@ -980,7 +979,7 @@ bool MythMainWindow::event(QEvent *e)
     return QWidget::event(e);
 }
 
-void MythMainWindow::Init(const QString& forcedpainter, bool mayReInit)
+void MythMainWindow::Init(bool mayReInit)
 {
     d->m_useDB = ! gCoreContext->GetDB()->SuppressDBMessages();
 
@@ -999,7 +998,8 @@ void MythMainWindow::Init(const QString& forcedpainter, bool mayReInit)
     // Set window border based on fullscreen attribute
     Qt::WindowFlags flags = Qt::Window;
 
-    bool inwindow = GetMythDB()->GetBoolSetting("RunFrontendInWindow", false);
+    bool inwindow = GetMythDB()->GetBoolSetting("RunFrontendInWindow", false) &&
+                    !WindowIsAlwaysFullscreen();
     bool fullscreen = d->m_doesFillScreen && !MythUIHelper::IsGeometryOverridden();
 
     // On Compiz/Unit, when the window is fullscreen and frameless changing
@@ -1038,7 +1038,8 @@ void MythMainWindow::Init(const QString& forcedpainter, bool mayReInit)
         setWindowState(Qt::WindowNoState);
     }
 
-    if (gCoreContext->GetBoolSetting("AlwaysOnTop", false))
+    if (gCoreContext->GetBoolSetting("AlwaysOnTop", false) &&
+        !WindowIsAlwaysFullscreen())
     {
         flags |= Qt::WindowStaysOnTopHint;
     }
@@ -1087,21 +1088,12 @@ void MythMainWindow::Init(const QString& forcedpainter, bool mayReInit)
         d->m_render = nullptr;
     }
 
-    QString painter = forcedpainter.isEmpty() ?
-        GetMythDB()->GetSetting("ThemePainter", AUTO_PAINTER) : forcedpainter;
-#ifdef _WIN32
-    if (painter == AUTO_PAINTER || painter == D3D9_PAINTER)
-    {
-        LOG(VB_GENERAL, LOG_INFO, QString("Using the %1 painter").arg(D3D9_PAINTER));
-        d->painter = new MythD3D9Painter();
-        d->m_paintwin = new MythPainterWindowD3D9(this, d);
-    }
-#endif
 #ifdef USING_OPENGL
-    if ((!d->m_painter && !d->m_paintwin) &&
-        (painter == AUTO_PAINTER || painter.contains(OPENGL_PAINTER)))
+    // always use OpenGL by default. Only fallback to Qt painter as a last resort.
+    if (!d->m_painter && !d->m_paintwin)
     {
-        MythRenderOpenGL *gl = MythRenderOpenGL::Create(painter);
+        QString dummy;
+        MythRenderOpenGL *gl = MythRenderOpenGL::Create(dummy);
         d->m_render = gl;
         if (!gl)
         {
@@ -1115,7 +1107,7 @@ void MythMainWindow::Init(const QString& forcedpainter, bool mayReInit)
 
             // we need to initialise MythRenderOpenGL before checking
             // IsRecommendedRenderer
-            if (!gl->Init() || (painter == AUTO_PAINTER && !gl->IsRecommendedRenderer()))
+            if (!gl->Init() || !gl->IsRecommendedRenderer())
             {
                 LOG(VB_GENERAL, LOG_WARNING,
                     "OpenGL painter not recommended with this system's "
@@ -1134,7 +1126,7 @@ void MythMainWindow::Init(const QString& forcedpainter, bool mayReInit)
     // NOLINTNEXTLINE(readability-misleading-indentation)
     if (!d->m_painter && !d->m_paintwin)
     {
-        LOG(VB_GENERAL, LOG_INFO, "Using the Qt painter");
+        LOG(VB_GENERAL, LOG_INFO, "Using the Qt painter. Video playback will not work!");
         d->m_painter = new MythQtPainter();
         d->m_paintwin = new MythPainterWindowQt(this, d);
     }
@@ -1399,6 +1391,19 @@ void MythMainWindow::MoveResize(QRect &Geometry)
         d->m_paintwin->setFixedSize(Geometry.size());
         d->m_paintwin->setGeometry(0, 0, Geometry.width(), Geometry.height());
     }
+}
+
+/// \brief Return true if the current platform only supports fullscreen windows
+bool MythMainWindow::WindowIsAlwaysFullscreen(void)
+{
+#ifdef Q_OS_ANDROID
+    return true;
+#else
+    // this may need to cover other platform plugins
+    if (qApp->platformName().toLower().contains("eglfs"))
+        return true;
+    return false;
+#endif
 }
 
 uint MythMainWindow::PushDrawDisabled(void)
@@ -2123,6 +2128,7 @@ bool MythMainWindow::eventFilter(QObject * /*watched*/, QEvent *e)
 
             // Work around weird GCC run-time bug. Only manifest on Mac OS X
             if (!ke)
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
                 ke = static_cast<QKeyEvent *>(e);
 
 #ifdef Q_OS_LINUX
@@ -2339,7 +2345,9 @@ bool MythMainWindow::eventFilter(QObject * /*watched*/, QEvent *e)
         {
             ResetIdleTimer();
             ShowMouseCursor(true);
-            auto* qmw = static_cast<QWheelEvent*>(e);
+            auto* qmw = dynamic_cast<QWheelEvent*>(e);
+            if (qmw == nullptr)
+                return false;
             int delta = qmw->delta();
             if (delta>0)
             {
@@ -2376,7 +2384,9 @@ void MythMainWindow::customEvent(QEvent *ce)
 {
     if (ce->type() == MythGestureEvent::kEventType)
     {
-        auto *ge = static_cast<MythGestureEvent*>(ce);
+        auto *ge = dynamic_cast<MythGestureEvent*>(ce);
+        if (ge == nullptr)
+            return;
         MythScreenStack *toplevel = GetMainStack();
         if (toplevel)
         {
@@ -2393,7 +2403,9 @@ void MythMainWindow::customEvent(QEvent *ce)
     }
     else if (ce->type() == ExternalKeycodeEvent::kEventType)
     {
-        auto *eke = static_cast<ExternalKeycodeEvent *>(ce);
+        auto *eke = dynamic_cast<ExternalKeycodeEvent *>(ce);
+        if (eke == nullptr)
+            return;
         int keycode = eke->getKeycode();
 
         QKeyEvent key(QEvent::KeyPress, keycode, Qt::NoModifier);
@@ -2408,7 +2420,9 @@ void MythMainWindow::customEvent(QEvent *ce)
     else if (ce->type() == LircKeycodeEvent::kEventType &&
              !d->m_ignoreLircKeys)
     {
-        auto *lke = static_cast<LircKeycodeEvent *>(ce);
+        auto *lke = dynamic_cast<LircKeycodeEvent *>(ce);
+        if (lke == nullptr)
+            return;
 
         if (LircKeycodeEvent::kLIRCInvalidKeyCombo == lke->modifiers())
         {
@@ -2438,9 +2452,11 @@ void MythMainWindow::customEvent(QEvent *ce)
     else if (ce->type() == JoystickKeycodeEvent::kEventType &&
              !d->m_ignoreJoystickKeys)
     {
-        auto *jke = static_cast<JoystickKeycodeEvent *>(ce);
-        int keycode = jke->getKeycode();
+        auto *jke = dynamic_cast<JoystickKeycodeEvent *>(ce);
+        if (jke == nullptr)
+            return;
 
+        int keycode = jke->getKeycode();
         if (keycode)
         {
             MythUIHelper::ResetScreensaver();
@@ -2471,7 +2487,9 @@ void MythMainWindow::customEvent(QEvent *ce)
 #endif
     else if (ce->type() == MythMediaEvent::kEventType)
     {
-        auto *me = static_cast<MythMediaEvent*>(ce);
+        auto *me = dynamic_cast<MythMediaEvent*>(ce);
+        if (me == nullptr)
+            return;
 
         // A listener based system might be more efficient, but we should never
         // have that many screens open at once so impact should be minimal.
@@ -2508,7 +2526,9 @@ void MythMainWindow::customEvent(QEvent *ce)
     }
     else if (ce->type() == ScreenSaverEvent::kEventType)
     {
-        auto *sse = static_cast<ScreenSaverEvent *>(ce);
+        auto *sse = dynamic_cast<ScreenSaverEvent *>(ce);
+        if (sse == nullptr)
+            return;
         switch (sse->getSSEventType())
         {
             case ScreenSaverEvent::ssetDisable:
@@ -2562,9 +2582,11 @@ void MythMainWindow::customEvent(QEvent *ce)
     }
     else if (ce->type() == MythEvent::MythEventMessage)
     {
-        auto *me = static_cast<MythEvent *>(ce);
-        QString message = me->Message();
+        auto *me = dynamic_cast<MythEvent *>(ce);
+        if (me == nullptr)
+            return;
 
+        QString message = me->Message();
         if (message.startsWith(ACTION_HANDLEMEDIA))
         {
             if (me->ExtraDataCount() == 1)
@@ -2652,9 +2674,11 @@ void MythMainWindow::customEvent(QEvent *ce)
     }
     else if (ce->type() == MythEvent::MythUserMessage)
     {
-        auto *me = static_cast<MythEvent *>(ce);
-        const QString& message = me->Message();
+        auto *me = dynamic_cast<MythEvent *>(ce);
+        if (me == nullptr)
+            return;
 
+        const QString& message = me->Message();
         if (!message.isEmpty())
             ShowOkPopup(message);
     }
@@ -2664,7 +2688,7 @@ void MythMainWindow::customEvent(QEvent *ce)
     }
     else if (ce->type() == MythCallbackEvent::kCallbackType)
     {
-        auto *me = static_cast<MythCallbackEvent*>(ce);
+        auto *me = dynamic_cast<MythCallbackEvent*>(ce);
         if (me && me->m_function)
             me->m_function(me->m_opaque1, me->m_opaque2, me->m_opaque3);
     }

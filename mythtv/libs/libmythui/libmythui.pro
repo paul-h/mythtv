@@ -33,7 +33,7 @@ HEADERS += mythuiclock.h mythuitextedit.h mythprogressdialog.h mythuispinbox.h
 HEADERS += mythuicheckbox.h mythuibuttonlist.h mythuigroup.h
 HEADERS += mythuiprogressbar.h mythuifilebrowser.h
 HEADERS += screensaver.h screensaver-null.h x11colors.h
-HEADERS += themeinfo.h platforms/mythxdisplay.h DisplayResScreen.h
+HEADERS += themeinfo.h platforms/mythxdisplay.h mythdisplaymode.h
 HEADERS += mythgenerictree.h mythuibuttontree.h mythuiutils.h
 HEADERS += mythvirtualkeyboard.h mythuishape.h mythuiguidegrid.h
 HEADERS += mythrender_base.h mythfontmanager.h mythuieditbar.h
@@ -41,7 +41,8 @@ HEADERS += mythdisplay.h mythuivideo.h mythudplistener.h
 HEADERS += mythuiexp.h mythuisimpletext.h mythuistatetracker.h
 HEADERS += mythuianimation.h mythuiscrollbar.h
 HEADERS += mythnotificationcenter.h mythnotificationcenter_private.h
-HEADERS += mythuicomposite.h mythnotification.h mythuidefines.h
+HEADERS += mythuicomposite.h mythnotification.h
+HEADERS += mythedid.h
 
 SOURCES  = mythmainwindow.cpp mythpainter.cpp mythimage.cpp mythrect.cpp
 SOURCES += myththemebase.cpp  mythpainter_qimage.cpp
@@ -54,7 +55,7 @@ SOURCES += mythuiclock.cpp mythuitextedit.cpp mythprogressdialog.cpp
 SOURCES += mythuispinbox.cpp mythuicheckbox.cpp mythuibuttonlist.cpp
 SOURCES += mythuigroup.cpp mythuiprogressbar.cpp
 SOURCES += screensaver.cpp screensaver-null.cpp x11colors.cpp
-SOURCES += themeinfo.cpp platforms/mythxdisplay.cpp DisplayResScreen.cpp
+SOURCES += themeinfo.cpp platforms/mythxdisplay.cpp mythdisplaymode.cpp
 SOURCES += mythgenerictree.cpp mythuibuttontree.cpp mythuiutils.cpp
 SOURCES += mythvirtualkeyboard.cpp mythuishape.cpp mythuiguidegrid.cpp
 SOURCES += mythfontmanager.cpp mythuieditbar.cpp
@@ -63,6 +64,7 @@ SOURCES += mythuisimpletext.cpp mythuistatetracker.cpp
 SOURCES += mythuianimation.cpp mythuiscrollbar.cpp
 SOURCES += mythnotificationcenter.cpp mythnotification.cpp
 SOURCES += mythuicomposite.cpp
+SOURCES += mythedid.cpp
 
 using_qtwebkit {
 HEADERS += mythuiwebbrowser.h
@@ -100,16 +102,15 @@ using_x11 {
     SOURCES += screensaver-x11.cpp
     HEADERS += platforms/mythdisplayx11.h
     SOURCES += platforms/mythdisplayx11.cpp
-    using_xnvctrl {
-        # Add nvidia XV-EXTENSION support
-        HEADERS += platforms/mythnvcontrol.h
-        SOURCES += platforms/mythnvcontrol.cpp
-        ! using_xnvctrl_external {
-            INCLUDEPATH += ../../external/libXNVCtrl
-            LIBS += -L../../external/libXNVCtrl -lmythXNVCtrl-$${LIBVERSION}
-            POST_TARGETDEPS += ../../external/libXNVCtrl/libmythXNVCtrl-$${LIBVERSION}.$${QMAKE_EXTENSION_STATICLIB}
-        }
-    }
+}
+
+using_drm {
+    DEFINES += USING_DRM
+    HEADERS += platforms/mythdisplaydrm.h
+    HEADERS += platforms/mythdrmdevice.h
+    SOURCES += platforms/mythdisplaydrm.cpp
+    SOURCES += platforms/mythdrmdevice.cpp
+    QMAKE_CXXFLAGS += $${LIBDRM_CFLAGS}
 }
 
 using_qtdbus {
@@ -120,14 +121,14 @@ using_qtdbus {
 }
 
 macx {
-    HEADERS += screensaver-osx.h   util-osx.h
-    SOURCES += screensaver-osx.cpp util-osx.cpp
+    HEADERS += screensaver-osx.h   platforms/mythosxutils.h
+    SOURCES += screensaver-osx.cpp platforms/mythosxutils.cpp
     HEADERS += platforms/mythdisplayosx.h
     SOURCES += platforms/mythdisplayosx.cpp
     QMAKE_OBJECTIVE_CFLAGS += $$QMAKE_CXXFLAGS
     QMAKE_OBJECTIVE_CXXFLAGS += $$QMAKE_CXXFLAGS
-    OBJECTIVE_HEADERS += util-osx-cocoa.h
-    OBJECTIVE_SOURCES += util-osx-cocoa.mm
+    OBJECTIVE_HEADERS += platforms/mythutilscocoa.h
+    OBJECTIVE_SOURCES += platforms/mythutilscocoa.mm
     LIBS              += -framework Cocoa -framework IOKit
 
     using_appleremote {
