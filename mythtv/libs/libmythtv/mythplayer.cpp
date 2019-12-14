@@ -250,7 +250,7 @@ void MythPlayer::UnpauseBuffer(void)
 
 bool MythPlayer::Pause(void)
 {
-    if (!m_pauseLock.tryLock(100))
+    while (!m_pauseLock.tryLock(100))
     {
         LOG(VB_PLAYBACK, LOG_INFO, LOC + "Waited 100ms to get pause lock.");
         DecoderPauseCheck();
@@ -712,44 +712,48 @@ void MythPlayer::OpenDummy(void)
     SetDecoder(dec);
 }
 
-void MythPlayer::CreateDecoder(char *testbuf, int testreadsize)
+void MythPlayer::CreateDecoder(char *TestBuffer, int TestSize)
 {
-    if (NuppelDecoder::CanHandle(testbuf, testreadsize))
-        SetDecoder(new NuppelDecoder(this, *m_playerCtx->m_playingInfo));
-    else if (AvFormatDecoder::CanHandle(testbuf,
-                                        m_playerCtx->m_buffer->GetFilename(),
-                                        testreadsize))
+    if (NuppelDecoder::CanHandle(TestBuffer, TestSize))
     {
-        SetDecoder(new AvFormatDecoder(this, *m_playerCtx->m_playingInfo,
-                                       m_playerFlags));
+        SetDecoder(new NuppelDecoder(this, *m_playerCtx->m_playingInfo));
+        return;
     }
+
+    if (AvFormatDecoder::CanHandle(TestBuffer, m_playerCtx->m_buffer->GetFilename(), TestSize))
+        SetDecoder(new AvFormatDecoder(this, *m_playerCtx->m_playingInfo, m_playerFlags));
 }
 
-int MythPlayer::OpenFile(uint retries)
+int MythPlayer::OpenFile(int Retries)
 {
+    // Sanity check
+    if (!m_playerCtx || (m_playerCtx && !m_playerCtx->m_buffer))
+        return -1;
+
     // Disable hardware acceleration for second PBP
     if (m_playerCtx && (m_playerCtx->IsPBP() && !m_playerCtx->IsPrimaryPBP()) &&
         FlagIsSet(kDecodeAllowGPU))
     {
-        m_playerFlags = (PlayerFlags)(m_playerFlags - kDecodeAllowGPU);
+        m_playerFlags = static_cast<PlayerFlags>(m_playerFlags - kDecodeAllowGPU);
     }
 
     m_isDummy = false;
-
-    if (!m_playerCtx || !m_playerCtx->m_buffer)
-        return -1;
-
     m_liveTV = m_playerCtx->m_tvchain && m_playerCtx->m_buffer->LiveMode();
 
-    if (m_playerCtx->m_tvchain &&
-        m_playerCtx->m_tvchain->GetInputType(m_playerCtx->m_tvchain->GetCurPos()) ==
-        "DUMMY")
+    // Dummy setup for livetv transtions. Can we get rid of this?
+    if (m_playerCtx->m_tvchain)
     {
-        OpenDummy();
-        return 0;
+        int currentposition = m_playerCtx->m_tvchain->GetCurPos();
+        if (m_playerCtx->m_tvchain->GetInputType(currentposition) == "DUMMY")
+        {
+            OpenDummy();
+            return 0;
+        }
     }
 
+    // Start the RingBuffer read ahead thread
     m_playerCtx->m_buffer->Start();
+
     /// OSX has a small stack, so we put this buffer on the heap instead.
     char *testbuf = new char[kDecoderProbeBufferSize];
     UnpauseBuffer();
@@ -758,11 +762,14 @@ int MythPlayer::OpenFile(uint retries)
     SetDecoder(nullptr);
     int testreadsize = 2048;
 
-    MythTimer bigTimer; bigTimer.start();
-    int timeout = max((retries + 1) * 500, 30000U);
+    // Test the incoming buffer and create a suitable decoder
+    MythTimer bigTimer;
+    bigTimer.start();
+    int timeout = max((Retries + 1) * 500, 30000);
     while (testreadsize <= kDecoderProbeBufferSize)
     {
-        MythTimer peekTimer; peekTimer.start();
+        MythTimer peekTimer;
+        peekTimer.start();
         while (m_playerCtx->m_buffer->Peek(testbuf, testreadsize) != testreadsize)
         {
             // NB need to allow for streams encountering network congestion
@@ -789,6 +796,7 @@ int MythPlayer::OpenFile(uint retries)
         testreadsize <<= 1;
     }
 
+    // Fail
     if (!m_decoder)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC +
@@ -799,6 +807,7 @@ int MythPlayer::OpenFile(uint retries)
         delete[] testbuf;
         return -1;
     }
+
     if (m_decoder->IsErrored())
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Could not initialize A/V decoder.");
@@ -809,21 +818,17 @@ int MythPlayer::OpenFile(uint retries)
         return -1;
     }
 
+    // Pre-init the decoder
     m_decoder->SetSeekSnap(0);
     m_decoder->SetLiveTVMode(m_liveTV);
     m_decoder->SetWatchingRecording(m_watchingRecording);
     m_decoder->SetTranscoding(m_transcoding);
 
-    // Set 'no_video_decode' to true for audio only decodeing
-    bool no_video_decode = false;
-
-    // We want to locate decoder for video even if using_null_videoout
-    // is true, only disable if no_video_decode is true.
-    int ret = m_decoder->OpenFile(
-        m_playerCtx->m_buffer, no_video_decode, testbuf, testreadsize);
+    // Open the decoder
+    int result = m_decoder->OpenFile(m_playerCtx->m_buffer, false, testbuf, testreadsize);
     delete[] testbuf;
 
-    if (ret < 0)
+    if (result < 0)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("Couldn't open decoder for: %1")
                 .arg(m_playerCtx->m_buffer->GetFilename()));
@@ -831,9 +836,11 @@ int MythPlayer::OpenFile(uint retries)
         return -1;
     }
 
+    // Disable audio if necessary
     m_audio.CheckFormat();
 
-    if (ret > 0)
+    // Livetv, recording or in-progress
+    if (result > 0)
     {
         m_hasFullPositionMap = true;
         m_deleteMap.LoadMap();
@@ -848,15 +855,14 @@ int MythPlayer::OpenFile(uint retries)
     if (!gCoreContext->IsDatabaseIgnored() &&
         m_playerCtx->m_playingInfo->QueryAutoExpire() == kLiveTVAutoExpire)
     {
-        gCoreContext->SaveSetting(
-            "DefaultChanid", m_playerCtx->m_playingInfo->GetChanID());
+        gCoreContext->SaveSetting("DefaultChanid",
+                                  static_cast<int>(m_playerCtx->m_playingInfo->GetChanID()));
         QString callsign = m_playerCtx->m_playingInfo->GetChannelSchedulingID();
         QString channum = m_playerCtx->m_playingInfo->GetChanNum();
-        gCoreContext->SaveSetting(
-            "DefaultChanKeys", callsign + "[]:[]" + channum);
+        gCoreContext->SaveSetting("DefaultChanKeys", callsign + "[]:[]" + channum);
         if (m_playerCtx->m_recorder && m_playerCtx->m_recorder->IsValidRecorder())
         {
-            int cardid = m_playerCtx->m_recorder->GetRecorderNumber();
+            uint cardid = static_cast<uint>(m_playerCtx->m_recorder->GetRecorderNumber());
             CardUtil::SetStartChannel(cardid, channum);
         }
     }
@@ -2195,6 +2201,8 @@ void MythPlayer::VideoStart(void)
 
 bool MythPlayer::VideoLoop(void)
 {
+    ProcessCallbacks();
+
     if (m_videoPaused || m_isDummy)
     {
         switch (m_playerCtx->GetPIPState())
@@ -2653,6 +2661,7 @@ bool MythPlayer::StartPlaying(void)
 #ifdef Q_OS_ANDROID
     setpriority(PRIO_PROCESS, m_playerThreadId, -20);
 #endif
+    ProcessCallbacks();
     UnpauseDecoder();
     return !IsErrored();
 }
@@ -2677,6 +2686,7 @@ void MythPlayer::StopPlaying()
     setpriority(PRIO_PROCESS, m_playerThreadId, 0);
 #endif
 
+    ProcessCallbacks();
     DecoderEnd();
     VideoEnd();
     AudioEnd();
@@ -2704,6 +2714,9 @@ void MythPlayer::EventStart(void)
 
 void MythPlayer::EventLoop(void)
 {
+    // Handle decoder callbacks
+    ProcessCallbacks();
+
     // Live TV program change
     if (m_fileChanged)
         FileChanged();
@@ -2966,6 +2979,58 @@ void MythPlayer::AudioEnd(void)
     m_audio.DeleteOutput();
 }
 
+/*! \brief Convenience function to request and wait for a callback into the main thread.
+ *
+ * This is used by hardware decoders to ensure certain resources are created
+ * and destroyed in the UI (render) thread.
+*/
+void MythPlayer::HandleDecoderCallback(MythPlayer *Player, const QString &Debug,
+                                       DecoderCallback::Callback Function,
+                                       void *Opaque1, void *Opaque2)
+{
+    if (!Player)
+    {
+        LOG(VB_GENERAL, LOG_ERR, "No player to call back");
+        return;
+    }
+
+    if (!Function)
+        return;
+
+    QWaitCondition wait;
+    QMutex lock;
+    lock.lock();
+    Player->QueueCallback(Debug, Function, &wait, Opaque1, Opaque2);
+    int count = 0;
+    while (!wait.wait(&lock, 100) && (count += 100))
+        LOG(VB_GENERAL, LOG_WARNING, QString("Waited %1ms for %2").arg(count).arg(Debug));
+    lock.unlock();
+}
+
+void MythPlayer::ProcessCallbacks(void)
+{
+    m_decoderCallbackLock.lock();
+    for (auto it = m_decoderCallbacks.cbegin(); it != m_decoderCallbacks.cend(); ++it)
+    {
+        if (it->m_function)
+        {
+            LOG(VB_GENERAL, LOG_INFO, LOC + QString("Executing %1").arg(it->m_debug));
+            it->m_function(it->m_opaque1, it->m_opaque2, it->m_opaque3);
+        }
+    }
+    m_decoderCallbacks.clear();
+    m_decoderCallbackLock.unlock();
+}
+
+void MythPlayer::QueueCallback(QString Debug, DecoderCallback::Callback Function,
+                               void *Opaque1, void *Opaque2, void *Opaque3)
+{
+    m_decoderCallbackLock.lock();
+    LOG(VB_GENERAL, LOG_INFO, LOC + QString("Queuing callback for %1").arg(Debug));
+    m_decoderCallbacks.append(DecoderCallback(Debug, Function, Opaque1, Opaque2, Opaque3));
+    m_decoderCallbackLock.unlock();
+}
+
 bool MythPlayer::PauseDecoder(void)
 {
     m_decoderPauseLock.lock();
@@ -2982,7 +3047,7 @@ bool MythPlayer::PauseDecoder(void)
     while (m_decoderThread && !m_killDecoder && (tries++ < 100) &&
            !m_decoderThreadPause.wait(&m_decoderPauseLock, 100))
     {
-        qApp->processEvents();
+        ProcessCallbacks();
         LOG(VB_GENERAL, LOG_WARNING, LOC + "Waited 100ms for decoder to pause");
     }
     m_pauseDecoder = false;
@@ -3009,7 +3074,7 @@ void MythPlayer::UnpauseDecoder(void)
         while (m_decoderThread && !m_killDecoder && (tries++ < 100) &&
                !m_decoderThreadUnpause.wait(&m_decoderPauseLock, 100))
         {
-            qApp->processEvents();
+            ProcessCallbacks();
             LOG(VB_GENERAL, LOG_WARNING, LOC + "Waited 100ms for decoder to unpause");
         }
         m_unpauseDecoder = false;
@@ -3827,7 +3892,7 @@ void MythPlayer::WaitForSeek(uint64_t frame, uint64_t seeksnap_wanted)
         // certain resources. Ensure the callback is processed.
         // Ideally MythPlayer should be fully event driven and these
         // calls wouldn't be necessary.
-        qApp->processEvents();
+        ProcessCallbacks();
 
         usleep(50 * 1000);
 
