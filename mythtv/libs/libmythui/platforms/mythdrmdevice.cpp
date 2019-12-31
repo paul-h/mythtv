@@ -14,7 +14,7 @@
 
 #define LOC (QString("%1: ").arg(m_deviceName))
 
-MythDRMDevice::MythDRMDevice(QScreen *qScreen, QString Device)
+MythDRMDevice::MythDRMDevice(QScreen *qScreen, const QString& Device)
   : ReferenceCounter("DRMDev"),
     m_screen(qScreen),
     m_deviceName(Device),
@@ -96,7 +96,7 @@ QSize MythDRMDevice::GetPhysicalSize(void) const
     return m_physicalSize;
 }
 
-float MythDRMDevice::GetRefreshRate(void) const
+double MythDRMDevice::GetRefreshRate(void) const
 {
     return m_refreshRate;
 }
@@ -104,6 +104,11 @@ float MythDRMDevice::GetRefreshRate(void) const
 bool MythDRMDevice::Authenticated(void) const
 {
     return m_authenticated;
+}
+
+MythEDID MythDRMDevice::GetEDID(void)
+{
+    return m_edid;
 }
 
 static QString GetConnectorName(drmModeConnector *Connector)
@@ -170,6 +175,7 @@ bool MythDRMDevice::Initialise(void)
             {
                 MythEDID edid(reinterpret_cast<const char *>(edidblob->data),
                               static_cast<int>(edidblob->length));
+                drmModeFreePropertyBlob(edidblob);
                 if (edid.Valid() && edid.SerialNumbers().contains(serial))
                 {
                     LOG(VB_GENERAL, LOG_DEBUG, LOC + QString("Matched connector with serial '%1'")
@@ -178,13 +184,12 @@ bool MythDRMDevice::Initialise(void)
                     m_physicalSize = QSize(static_cast<int>(connector->mmWidth),
                                            static_cast<int>(connector->mmHeight));
                     m_serialNumber = serial;
+                    m_edid = edid;
                     break;
                 }
-                else if (!edid.Valid())
-                {
-                        LOG(VB_GENERAL, m_verbose, LOC + "Connected device has invalid EDID");
-                }
-                drmModeFreePropertyBlob(edidblob);
+                if (!edid.Valid())
+                    LOG(VB_GENERAL, m_verbose, LOC + "Connected device has invalid EDID");
+
                 if (m_connector && !m_serialNumber.isEmpty())
                     break;
             }
@@ -260,9 +265,9 @@ bool MythDRMDevice::Initialise(void)
     if (m_crtc->mode_valid)
     {
         drmModeModeInfo mode = m_crtc->mode;
-        m_refreshRate = (mode.clock * 1000.0F) / (mode.htotal * mode.vtotal);
+        m_refreshRate = (mode.clock * 1000.0) / (mode.htotal * mode.vtotal);
         if (mode.flags & DRM_MODE_FLAG_INTERLACE)
-            m_refreshRate *= 2.0F;
+            m_refreshRate *= 2.0;
     }
 
     LOG(VB_GENERAL, LOG_DEBUG, LOC + "Initialised");
@@ -319,7 +324,7 @@ QString MythDRMDevice::FindBestDevice(void)
     return QString();
 }
 
-bool MythDRMDevice::ConfirmDevice(QString Device)
+bool MythDRMDevice::ConfirmDevice(const QString& Device)
 {
     bool result = false;
     int fd = open(Device.toLocal8Bit().constData(), O_RDWR);
@@ -335,7 +340,7 @@ bool MythDRMDevice::ConfirmDevice(QString Device)
     return result;
 }
 
-drmModePropertyBlobPtr MythDRMDevice::GetBlobProperty(drmModeConnectorPtr Connector, QString Property)
+drmModePropertyBlobPtr MythDRMDevice::GetBlobProperty(drmModeConnectorPtr Connector, const QString& Property)
 {
     drmModePropertyBlobPtr result = nullptr;
     if (!Connector || Property.isEmpty())
@@ -346,7 +351,7 @@ drmModePropertyBlobPtr MythDRMDevice::GetBlobProperty(drmModeConnectorPtr Connec
         drmModePropertyPtr propid = drmModeGetProperty(m_fd, Connector->props[i]);
         if ((propid->flags & DRM_MODE_PROP_BLOB) && propid->name == Property)
         {
-            uint32_t blobid = static_cast<uint32_t>(Connector->prop_values[i]);
+            auto blobid = static_cast<uint32_t>(Connector->prop_values[i]);
             result = drmModeGetPropertyBlob(m_fd, blobid);
         }
         drmModeFreeProperty(propid);

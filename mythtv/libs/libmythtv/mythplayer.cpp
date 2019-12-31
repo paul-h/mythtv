@@ -472,7 +472,7 @@ void MythPlayer::ReinitVideo(bool ForceUpdate)
         // the display refresh rate may have been changed by VideoOutput
         if (m_videoSync)
         {
-            int ri = m_display->GetDisplayInfo(m_frameInterval).Rate();
+            int ri = m_display->GetRefreshInterval(m_frameInterval);
             if (ri != m_videoSync->getRefreshInterval())
             {
                 LOG(VB_PLAYBACK, LOG_INFO, LOC +
@@ -1535,7 +1535,7 @@ void MythPlayer::InitAVSync(void)
 {
     m_videoSync->Start();
 
-    m_refreshRate = m_display->GetDisplayInfo(m_frameInterval).Rate();
+    m_refreshRate = m_display->GetRefreshInterval(m_frameInterval);
 
     m_rtcBase = 0;
     m_priorAudioTimecode = 0;
@@ -1745,9 +1745,11 @@ void MythPlayer::AVSync(VideoFrame *buffer)
         m_numDroppedFrames = 0;
 
     if (dropframe)
+    {
         LOG(VB_PLAYBACK, LOG_INFO, LOC +
             QString("dropping frame to catch up, lateness=%1 usec")
                 .arg(lateness));
+    }
     else if (!FlagIsSet(kVideoIsNull) && buffer)
     {
         // if we get here, we're actually going to do video output
@@ -1789,7 +1791,9 @@ void MythPlayer::AVSync(VideoFrame *buffer)
         }
     }
     else
+    {
         WaitForTime(framedue);
+    }
 
     LOG(VB_PLAYBACK | VB_TIMESTAMP, LOG_INFO, LOC +
         QString("A/V timecodes audio=%1 video=%2 frameinterval=%3 "
@@ -1900,9 +1904,11 @@ bool MythPlayer::PrebufferEnoughFrames(int min_buffers)
             if (framesLeft < margin)
             {
                 if (m_rtcBase)
+                {
                     LOG(VB_PLAYBACK, LOG_NOTICE, LOC +
                         QString("Pause to allow live tv catch up. Position in sec. Current: %2, Total: %3")
                         .arg(m_framesPlayed).arg(frameCount));
+                }
                 m_audio.Pause(true);
                 m_avsyncAudioPaused = true;
                 m_rtcBase = 0;
@@ -1917,13 +1923,17 @@ bool MythPlayer::PrebufferEnoughFrames(int min_buffers)
                 LOG(VB_GENERAL, LOG_NOTICE, LOC +
                     "To see more buffering messages use -v playback");
             if (m_bufferingCounter >= 10)
+            {
                 LOG(VB_PLAYBACK, LOG_NOTICE, LOC +
                     QString("Waited %1ms for video buffers %2")
                     .arg(waited_for).arg(m_videoOutput->GetFrameStatus()));
+            }
             else
+            {
                 LOG(VB_GENERAL, LOG_NOTICE, LOC +
                     QString("Waited %1ms for video buffers %2")
                         .arg(waited_for).arg(m_videoOutput->GetFrameStatus()));
+            }
             m_bufferingLastMsg = QTime::currentTime();
             if (m_audio.IsBufferAlmostFull() && m_framesPlayed < 5
                 && gCoreContext->GetBoolSetting("MusicChoiceEnabled", false))
@@ -2079,7 +2089,7 @@ bool MythPlayer::CanSupportDoubleRate(void)
     else if (m_display)
     {
         // used by the decoder before m_videoSync is created
-        refreshinterval = m_display->GetDisplayInfo(m_frameInterval).Rate();
+        refreshinterval = m_display->GetRefreshInterval(m_frameInterval);
     }
 
     // At this point we may not have the correct frame rate.
@@ -2169,8 +2179,8 @@ void MythPlayer::VideoStart(void)
     m_refreshRate = m_frameInterval;
 
     float temp_speed = (m_playSpeed == 0.0F) ? m_audio.GetStretchFactor() : m_playSpeed;
-    int fr_int = (1000000.0 / m_videoFrameRate / static_cast<double>(temp_speed));
-    int rf_int = m_display->GetDisplayInfo(fr_int).Rate();
+    int fr_int = static_cast<int>(1000000.0 / m_videoFrameRate / static_cast<double>(temp_speed));
+    int displayinterval = m_display->GetRefreshInterval(fr_int);
 
     // Default to interlaced playback but set the tracker to progressive
     // Enable autodetection of interlaced/progressive from video stream
@@ -2195,13 +2205,13 @@ void MythPlayer::VideoStart(void)
     }
     else if (m_videoOutput)
     {
-        m_videoSync = VideoSync::BestMethod(m_videoOutput, static_cast<uint>(rf_int));
+        m_videoSync = VideoSync::BestMethod(m_videoOutput, static_cast<uint>(displayinterval));
         m_doubleFramerate = CanSupportDoubleRate(); // needs m_videoSync
         m_videoOutput->SetDeinterlacing(true, m_doubleFramerate);
     }
 
     if (!m_videoSync)
-        m_videoSync = new BusyWaitVideoSync(m_videoOutput, rf_int);
+        m_videoSync = new BusyWaitVideoSync(m_videoOutput, displayinterval);
 
     InitAVSync();
     m_videoSync->Start();
@@ -2879,9 +2889,11 @@ void MythPlayer::EventLoop(void)
         if (eof != kEofStateDelayed || (videoDrained && audioDrained))
         {
             if (eof == kEofStateDelayed)
+            {
                 LOG(VB_PLAYBACK, LOG_INFO,
                     QString("waiting for no video frames %1")
                     .arg(m_videoOutput->ValidVideoFrames()));
+            }
             LOG(VB_PLAYBACK, LOG_INFO,
                 QString("HasReachedEof() at framesPlayed=%1 totalFrames=%2")
                 .arg(m_framesPlayed).arg(GetCurrentFrameCount()));
@@ -3973,6 +3985,7 @@ void MythPlayer::ClearAfterSeek(bool clearvideobuffers)
  * using a position map.
  * \note m_watchingRecording does not appear to be accurate - so is currently ignored.
 */
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 void MythPlayer::ClearBeforeSeek(uint64_t Frames)
 {
 #ifdef USING_MEDIACODEC
@@ -4106,22 +4119,30 @@ bool MythPlayer::HandleProgramEditorActions(QStringList &actions)
             if (seekamount == 0) // 1 frame
                 DoRewind(1, kInaccuracyNone);
             else if (seekamount > 0)
+            {
                 // Use fully-accurate seeks for less than 1 second.
                 DoRewindSecs(seekamount, seekamount < 1.0F ? kInaccuracyNone :
                              kInaccuracyEditor, false);
+            }
             else
+            {
                 HandleArbSeek(false);
+            }
         }
         else if (action == ACTION_RIGHT)
         {
             if (seekamount == 0) // 1 frame
                 DoFastForward(1, kInaccuracyNone);
             else if (seekamount > 0)
+            {
                 // Use fully-accurate seeks for less than 1 second.
                 DoFastForwardSecs(seekamount, seekamount < 1.0F ? kInaccuracyNone :
                              kInaccuracyEditor, false);
+            }
             else
+            {
                 HandleArbSeek(true);
+            }
         }
         else if (action == ACTION_LOADCOMMSKIP)
         {
@@ -4152,22 +4173,30 @@ bool MythPlayer::HandleProgramEditorActions(QStringList &actions)
             if (seekamount == 0)
                 DoRewind(FFREW_MULTICOUNT, kInaccuracyNone);
             else if (seekamount > 0)
+            {
                 DoRewindSecs(seekamount * FFREW_MULTICOUNT,
                              kInaccuracyEditor, false);
+            }
             else
+            {
                 DoRewindSecs(FFREW_MULTICOUNT / 2,
                              kInaccuracyNone, false);
+            }
         }
         else if (action == ACTION_BIGJUMPFWD)
         {
             if (seekamount == 0)
                 DoFastForward(FFREW_MULTICOUNT, kInaccuracyNone);
             else if (seekamount > 0)
+            {
                 DoFastForwardSecs(seekamount * FFREW_MULTICOUNT,
                                   kInaccuracyEditor, false);
+            }
             else
+            {
                 DoFastForwardSecs(FFREW_MULTICOUNT / 2,
                                   kInaccuracyNone, false);
+            }
         }
         else if (action == ACTION_SELECT)
         {

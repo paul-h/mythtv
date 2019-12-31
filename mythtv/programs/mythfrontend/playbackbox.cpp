@@ -484,7 +484,7 @@ PlaybackBox::~PlaybackBox(void)
     {
         QString message = QString("PLAYBACKBOX_EXITING");
         qApp->postEvent(m_player, new MythEvent(
-                            message, m_player_selected_new_show));
+                            message, m_playerSelectedNewShow));
     }
 }
 
@@ -514,10 +514,14 @@ bool PlaybackBox::Create()
     if (m_recgroupList)
     {
         if (gCoreContext->GetBoolSetting("RecGroupsFocusable", false))
+        {
         connect(m_recgroupList, SIGNAL(itemSelected(MythUIButtonListItem*)),
             SLOT(updateRecGroup(MythUIButtonListItem*)));
+        }
         else
+        {
             m_recgroupList->SetCanTakeFocus(false);
+        }
     }
 
     connect(m_groupList, SIGNAL(itemSelected(MythUIButtonListItem*)),
@@ -834,7 +838,7 @@ void PlaybackBox::UpdateUIListItem(MythUIButtonListItem *item,
 
     QString oldimgfile = item->GetImageFilename("preview");
     if (oldimgfile.isEmpty() || force_preview_reload)
-        m_preview_tokens.insert(m_helper.GetPreviewImage(*pginfo));
+        m_previewTokens.insert(m_helper.GetPreviewImage(*pginfo));
 
     if ((GetFocusWidget() == m_recordingList) && is_sel)
     {
@@ -996,14 +1000,13 @@ void PlaybackBox::ItemVisible(MythUIButtonListItem *item)
         if (token.isEmpty())
             return;
 
-        m_preview_tokens.insert(token);
+        m_previewTokens.insert(token);
         // now make sure selected item is still at the top of the queue
         auto *sel_pginfo = sel_item->GetData().value<ProgramInfo*>();
         if (sel_pginfo && sel_item->GetImageFilename("preview").isEmpty() &&
             (asAvailable == sel_pginfo->GetAvailableStatus()))
         {
-            m_preview_tokens.insert(
-                m_helper.GetPreviewImage(*sel_pginfo, false));
+            m_previewTokens.insert(m_helper.GetPreviewImage(*sel_pginfo, false));
         }
     }
 }
@@ -1036,11 +1039,11 @@ void PlaybackBox::HandlePreviewEvent(const QStringList &list)
     for (uint i = 4; i < (uint) list.size(); i++)
     {
         QString token = list[i];
-        QSet<QString>::iterator it = m_preview_tokens.find(token);
-        if (it != m_preview_tokens.end())
+        QSet<QString>::iterator it = m_previewTokens.find(token);
+        if (it != m_previewTokens.end())
         {
             found = true;
-            m_preview_tokens.erase(it);
+            m_previewTokens.erase(it);
         }
     }
 
@@ -2309,11 +2312,9 @@ void PlaybackBox::PlayX(const ProgramInfo &pginfo,
 
     if (!m_player->IsSameProgram(0, &pginfo))
     {
-        pginfo.ToStringList(m_player_selected_new_show);
-        m_player_selected_new_show.push_back(
-            ignoreBookmark ? "1" : "0");
-        m_player_selected_new_show.push_back(
-            underNetworkControl ? "1" : "0");
+        pginfo.ToStringList(m_playerSelectedNewShow);
+        m_playerSelectedNewShow.push_back(ignoreBookmark ? "1" : "0");
+        m_playerSelectedNewShow.push_back(underNetworkControl ? "1" : "0");
         // XXX add anything for ignoreProgStart and ignoreLastPlayPos?
     }
     Close();
@@ -2776,11 +2777,15 @@ MythMenu* PlaybackBox::createPlaylistMenu(void)
     if (GetFocusWidget() == m_groupList)
     {
         if ((m_viewMask & VIEW_TITLES))
+        {
             menu->AddItem(tr("Toggle playlist for this Category/Title"),
                           SLOT(togglePlayListTitle()));
+        }
         else
+        {
             menu->AddItem(tr("Toggle playlist for this Group"),
                           SLOT(togglePlayListTitle()));
+        }
     }
     else
         menu->AddItem(tr("Toggle playlist for this recording"),
@@ -3001,11 +3006,15 @@ MythMenu* PlaybackBox::createPlaylistJobMenu(void)
         jobTitle = gCoreContext->GetSetting("UserJobDesc1");
 
         if (!isRunningUserJob1)
+        {
             menu->AddItem(tr("Begin") + ' ' + jobTitle,
                           SLOT(doPlaylistBeginUserJob1()));
+        }
         else
+        {
             menu->AddItem(tr("Stop") + ' ' + jobTitle,
                           SLOT(stopPlaylistUserJob1()));
+        }
     }
 
     command = gCoreContext->GetSetting("UserJob2", "");
@@ -3014,11 +3023,15 @@ MythMenu* PlaybackBox::createPlaylistJobMenu(void)
         jobTitle = gCoreContext->GetSetting("UserJobDesc2");
 
         if (!isRunningUserJob2)
+        {
             menu->AddItem(tr("Begin") + ' ' + jobTitle,
                           SLOT(doPlaylistBeginUserJob2()));
+        }
         else
+        {
             menu->AddItem(tr("Stop") + ' ' + jobTitle,
                           SLOT(stopPlaylistUserJob2()));
+        }
     }
 
     command = gCoreContext->GetSetting("UserJob3", "");
@@ -3027,11 +3040,15 @@ MythMenu* PlaybackBox::createPlaylistJobMenu(void)
         jobTitle = gCoreContext->GetSetting("UserJobDesc3");
 
         if (!isRunningUserJob3)
+        {
             menu->AddItem(tr("Begin") + ' ' + jobTitle,
                           SLOT(doPlaylistBeginUserJob3()));
+        }
         else
+        {
             menu->AddItem(tr("Stop") + ' ' + jobTitle,
                           SLOT(stopPlaylistUserJob3()));
+        }
     }
 
     command = gCoreContext->GetSetting("UserJob4", "");
@@ -3040,11 +3057,15 @@ MythMenu* PlaybackBox::createPlaylistJobMenu(void)
         jobTitle = gCoreContext->GetSetting("UserJobDesc4");
 
         if (!isRunningUserJob4)
+        {
             menu->AddItem(QString("%1 %2").arg(tr("Begin")).arg(jobTitle),
                           SLOT(doPlaylistBeginUserJob4()));
+        }
         else
+        {
             menu->AddItem(QString("%1 %2").arg(tr("Stop")).arg(jobTitle),
                           SLOT(stopPlaylistUserJob4()));
+        }
     }
 
     return menu;
@@ -3331,11 +3352,15 @@ void PlaybackBox::ShowActionPopup(const ProgramInfo &pginfo)
         m_popupMenu->AddItem(tr("Recording Options"), nullptr, createRecordingMenu());
 
         if (m_groupList->GetItemPos(m_groupList->GetItemCurrent()) == 0)
+        {
             m_popupMenu->AddItem(tr("List Recorded Episodes"),
                                  SLOT(ShowRecordedEpisodes()));
+        }
         else
+        {
             m_popupMenu->AddItem(tr("List All Recordings"),
                                  SLOT(ShowAllRecordings()));
+        }
 
         m_popupMenu->AddItem(tr("Delete"), SLOT(askDelete()));
 
@@ -3363,11 +3388,15 @@ void PlaybackBox::ShowActionPopup(const ProgramInfo &pginfo)
     if (!m_player)
     {
         if (m_playList.contains(pginfo.GetRecordingID()))
+        {
             m_popupMenu->AddItem(tr("Remove from Playlist"),
                                  SLOT(togglePlayListItem()));
+        }
         else
+        {
             m_popupMenu->AddItem(tr("Add to Playlist"),
                                  SLOT(togglePlayListItem()));
+        }
         if (!m_playList.isEmpty())
         {
             m_popupMenu->AddItem(tr("Playlist Options"), nullptr, createPlaylistMenu());
@@ -3394,11 +3423,15 @@ void PlaybackBox::ShowActionPopup(const ProgramInfo &pginfo)
     m_popupMenu->AddItem(tr("Job Options"), nullptr, createJobMenu());
 
     if (m_groupList->GetItemPos(m_groupList->GetItemCurrent()) == 0)
+    {
         m_popupMenu->AddItem(tr("List Recorded Episodes"),
                              SLOT(ShowRecordedEpisodes()));
+    }
     else
+    {
         m_popupMenu->AddItem(tr("List All Recordings"),
                              SLOT(ShowAllRecordings()));
+    }
 
     if (!sameProgram)
     {
@@ -4294,9 +4327,9 @@ void PlaybackBox::customEvent(QEvent *event)
             for (uint i = 4; i < (uint) me->ExtraDataCount(); i++)
             {
                 const QString& token = me->ExtraData(i);
-                QSet<QString>::iterator it = m_preview_tokens.find(token);
-                if (it != m_preview_tokens.end())
-                    m_preview_tokens.erase(it);
+                QSet<QString>::iterator it = m_previewTokens.find(token);
+                if (it != m_previewTokens.end())
+                    m_previewTokens.erase(it);
             }
         }
         else if (message == "AVAILABILITY" && me->ExtraDataCount() == 8)
@@ -4854,7 +4887,7 @@ void PlaybackBox::fillRecGroupPasswordCache(void)
 /// \brief Used to change the recording group of a program or playlist.
 void PlaybackBox::ShowRecGroupChanger(bool use_playlist)
 {
-    m_op_on_playlist = use_playlist;
+    m_opOnPlaylist = use_playlist;
 
     ProgramInfo *pginfo = nullptr;
     if (use_playlist)
@@ -4915,7 +4948,7 @@ void PlaybackBox::ShowRecGroupChanger(bool use_playlist)
 /// \brief Used to change the play group of a program or playlist.
 void PlaybackBox::ShowPlayGroupChanger(bool use_playlist)
 {
-    m_op_on_playlist = use_playlist;
+    m_opOnPlaylist = use_playlist;
 
     ProgramInfo *pginfo = nullptr;
     if (use_playlist)
@@ -5107,7 +5140,7 @@ void PlaybackBox::setRecGroup(QString newRecGroup)
     AutoExpireType defaultAutoExpire =
         record.m_autoExpire ? kNormalAutoExpire : kDisableAutoExpire;
 
-    if (m_op_on_playlist)
+    if (m_opOnPlaylist)
     {
         QList<uint>::const_iterator it;
         for (it = m_playList.begin(); it != m_playList.end(); ++it )
@@ -5161,7 +5194,7 @@ void PlaybackBox::setPlayGroup(QString newPlayGroup)
     if (newPlayGroup == tr("Default"))
         newPlayGroup = "Default";
 
-    if (m_op_on_playlist)
+    if (m_opOnPlaylist)
     {
         QList<uint>::Iterator it;
 
@@ -5246,10 +5279,10 @@ bool GroupSelector::Create()
     if (labelText)
         labelText->SetText(m_label);
 
-    for (int i = 0; i < m_List.size(); ++i)
+    for (int i = 0; i < m_list.size(); ++i)
     {
-        new MythUIButtonListItem(groupList, m_List.at(i),
-                                 qVariantFromValue(m_Data.at(i)));
+        new MythUIButtonListItem(groupList, m_list.at(i),
+                                 qVariantFromValue(m_data.at(i)));
     }
 
     // Set the current position in the list

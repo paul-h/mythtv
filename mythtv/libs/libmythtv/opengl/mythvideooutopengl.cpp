@@ -229,7 +229,7 @@ bool MythVideoOutputOpenGL::Init(const QSize &VideoDim, const QSize &VideoDispDi
 
     // Set the display mode if required
     if (m_display->UsingVideoModes() && !m_window.IsEmbedding())
-        ResizeForVideo(size.width(), size.height());
+        ResizeForVideo(size);
     InitDisplayMeasurements();
 
     // Create buffers
@@ -589,10 +589,14 @@ void MythVideoOutputOpenGL::PrepareFrame(VideoFrame *Frame, FrameScanType Scan, 
 
     // video
     if (m_openGLVideo && !dummy)
+    {
         m_openGLVideo->PrepareFrame(Frame, topfieldfirst, Scan, m_stereo);
     // dummy streams need the viewport updated in case we have resized the window
+    }
     else if (dummy)
+    {
         m_render->SetViewPort(m_window.GetWindowRect());
+    }
 
     // PiPs/PBPs
     if (!m_openGLVideoPiPs.empty())

@@ -18,15 +18,16 @@ extern "C" {
 class MythDRMDevice : public ReferenceCounter
 {
   public:
-    MythDRMDevice(QScreen *qScreen, QString Device = QString());
-   ~MythDRMDevice();
+    MythDRMDevice(QScreen *qScreen, const QString& Device = QString());
+   ~MythDRMDevice() override;
 
     QString  GetSerialNumber(void) const;
     QScreen* GetScreen      (void) const;
     QSize    GetResolution  (void) const;
     QSize    GetPhysicalSize(void) const;
-    float    GetRefreshRate (void) const;
+    double   GetRefreshRate (void) const;
     bool     Authenticated  (void) const;
+    MythEDID GetEDID        (void);
 
   private:
     Q_DISABLE_COPY(MythDRMDevice)
@@ -36,9 +37,9 @@ class MythDRMDevice : public ReferenceCounter
     bool     Initialise     (void);
 
     QString  FindBestDevice (void);
-    static bool ConfirmDevice(QString Device);
+    static bool ConfirmDevice(const QString& Device);
 
-    drmModePropertyBlobPtr GetBlobProperty(drmModeConnectorPtr Connector, QString Property);
+    drmModePropertyBlobPtr GetBlobProperty(drmModeConnectorPtr Connector, const QString& Property);
 
   private:
     QScreen*           m_screen        { nullptr };
@@ -49,11 +50,12 @@ class MythDRMDevice : public ReferenceCounter
     drmModeConnector*  m_connector     { nullptr };
     QSize              m_resolution    { };
     QSize              m_physicalSize  { };
-    float              m_refreshRate   { 0.0F };
+    double             m_refreshRate   { 0.0 };
     QString            m_serialNumber  { };
     drmModeCrtc*       m_crtc          { nullptr };
     int                m_crtcIdx       { -1 };
     LogLevel_t         m_verbose       { LOG_INFO };
+    MythEDID           m_edid          { };
 };
 
 #endif // MYTHDRMDEVICE_H

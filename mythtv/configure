@@ -6479,6 +6479,9 @@ case "$cc_type" in
         if test $target_os = "darwin"; then
             disable enforce_nullptr
         fi
+        if enabled compdb; then
+            warn "Enabling clang's compdb support will disable ccache."
+        fi
         ;;
 esac
 
@@ -6577,8 +6580,7 @@ using namespace std;
 using namespace CEC;
 #include <libcec/cecloader.h>
 int main(void) {
-    #if (CEC_LIB_VERSION_MAJOR < 1 || (CEC_LIB_VERSION_MAJOR == 1 && \
-                                       CEC_LIB_VERSION_MINOR < 7))
+    #if (CEC_LIB_VERSION_MAJOR < 2)
         #error libcec version to old
     #endif
     return 1;

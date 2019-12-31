@@ -60,7 +60,7 @@ class MUI_PUBLIC MythGLTexture
     bool            m_crop                    { false };
     QRect           m_source                  { QRect() };
     QRect           m_destination             { QRect() };
-    GLfloat         m_vertexData[16]          { 0.0f };
+    GLfloat         m_vertexData[16]          { 0.0F };
     GLenum          m_target                  { QOpenGLTexture::Target2D };
     int             m_rotation                { 0 };
 
@@ -88,8 +88,8 @@ class MUI_PUBLIC MythRenderOpenGL : public QOpenGLContext, public QOpenGLFunctio
 
   public:
     static MythRenderOpenGL* GetOpenGLRender(void);
-    static MythRenderOpenGL* Create(const QString &Painter, QPaintDevice* Device = nullptr);
-    MythRenderOpenGL(const QSurfaceFormat &Format, QPaintDevice* Device, RenderType Type = kRenderOpenGL);
+    static MythRenderOpenGL* Create(void);
+    MythRenderOpenGL(const QSurfaceFormat &Format);
 
     // MythRender
     void  ReleaseResources(void) override;
@@ -98,7 +98,7 @@ class MUI_PUBLIC MythRenderOpenGL : public QOpenGLContext, public QOpenGLFunctio
     void  doneCurrent();
     void  swapBuffers();
 
-    void  setWidget(QWidget *Widget);
+    void  SetWidget(QWidget *Widget);
     bool  Init(void);
     int   GetColorDepth(void) const;
     int   GetMaxTextureSize(void) const;
