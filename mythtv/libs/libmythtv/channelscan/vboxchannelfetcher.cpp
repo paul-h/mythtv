@@ -228,7 +228,7 @@ void VBoxChannelFetcher::run(void)
 
                 ChannelUtil::CreateChannel(mplexID, m_sourceId, chanid, name, name,
                                             channum, serviceID, 0, 0,
-                                            false, false, false, QString(),
+                                            false, kChannelVisible, QString(),
                                             QString(), "Default", xmltvid);
 
                 ChannelUtil::CreateIPTVTuningData(chanid, (*it).m_tuning);
@@ -248,7 +248,7 @@ void VBoxChannelFetcher::run(void)
                 // xmltvid parameter is set to null, user may have changed it, so do not overwrite as we are only updating
                 ChannelUtil::UpdateChannel(mplexID, m_sourceId, chanid, name, name,
                                            channum, serviceID, 0, 0,
-                                           false, false, false, QString(),
+                                           false, kChannelVisible, QString(),
                                            QString(), "Default", QString());
 
                 ChannelUtil::UpdateIPTVTuningData(chanid, (*it).m_tuning);
