@@ -81,6 +81,7 @@ struct video_data {
 
     int buffers;
     atomic_int buffers_queued;
+    int buffers_ignore;
     void **buf_start;
     unsigned int *buf_len;
     char *standard;
@@ -528,7 +529,9 @@ static int mmap_read_frame(AVFormatContext *ctx, AVPacket *pkt)
         av_log(ctx, AV_LOG_WARNING,
                "Dequeued v4l2 buffer contains corrupted data (%d bytes).\n",
                buf.bytesused);
-        buf.bytesused = 0;
+        s->buffers_ignore = 8;
+        enqueue_buffer(s, &buf);
+        return FFERROR_REDO;
     } else
 #endif
     {
@@ -538,12 +541,26 @@ static int mmap_read_frame(AVFormatContext *ctx, AVPacket *pkt)
             s->frame_size = buf.bytesused;
 
         if (s->frame_size > 0 && buf.bytesused != s->frame_size) {
-            av_log(ctx, AV_LOG_ERROR,
+            av_log(ctx, AV_LOG_WARNING,
                    "Dequeued v4l2 buffer contains %d bytes, but %d were expected. Flags: 0x%08X.\n",
                    buf.bytesused, s->frame_size, buf.flags);
+            s->buffers_ignore = 8;
             enqueue_buffer(s, &buf);
-            return AVERROR_INVALIDDATA;
+            return FFERROR_REDO;
         }
+    }
+
+    
+    /* if we just encounted some corrupted buffers then we ignore the next few
+     * legitimate buffers because they can arrive at irregular intervals, causing
+     * the timestamps of the input and output streams to be out-of-sync and FFmpeg
+     * to continually emit warnings. */
+    if (s->buffers_ignore) {
+        av_log(ctx, AV_LOG_WARNING,
+               "Ignoring dequeued v4l2 buffer due to earlier corruption.\n");
+        s->buffers_ignore --;
+        enqueue_buffer(s, &buf);
+        return FFERROR_REDO;
     }
 
     /* Image is at s->buff_start[buf.index] */
@@ -617,6 +634,7 @@ static int mmap_start(AVFormatContext *ctx)
         }
     }
     atomic_store(&s->buffers_queued, s->buffers);
+    atomic_store(&s->buffers_ignore, 0);
 
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (v4l2_ioctl(s->fd, VIDIOC_STREAMON, &type) < 0) {
