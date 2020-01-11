@@ -171,8 +171,8 @@ bool DTVChannel::SetChannelByString(const QString &channum)
     if (!m_inputId)
         return false;
 
-    uint mplexid_restriction;
-    uint chanid_restriction;
+    uint mplexid_restriction = 0;
+    uint chanid_restriction = 0;
     if (!IsInputAvailable(mplexid_restriction, chanid_restriction))
     {
         LOG(VB_GENERAL, LOG_INFO, loc +
@@ -189,15 +189,15 @@ bool DTVChannel::SetChannelByString(const QString &channum)
     QString freqtable;
     QString freqid;
     QString si_std;
-    int finetune;
-    uint64_t frequency;
-    int mpeg_prog_num;
-    uint atsc_major;
-    uint atsc_minor;
-    uint mplexid;
-    uint chanid;
-    uint tsid;
-    uint netid;
+    int finetune = 0;
+    uint64_t frequency = 0;
+    int mpeg_prog_num = 0;
+    uint atsc_major = 0;
+    uint atsc_minor = 0;
+    uint mplexid = 0;
+    uint chanid = 0;
+    uint tsid = 0;
+    uint netid = 0;
 
     if (!ChannelUtil::GetChannelData(
         m_sourceId, chanid, channum,
@@ -347,17 +347,16 @@ bool DTVChannel::SetChannelByString(const QString &channum)
         int pcrpid = -1;
         vector<uint> pids;
         vector<uint> types;
-        auto pit = pid_cache.begin();
-        for (; pit != pid_cache.end(); ++pit)
+        for (auto & pit : pid_cache)
         {
-            if (!pit->GetStreamID())
+            if (!pit.GetStreamID())
                 continue;
-            pids.push_back(pit->GetPID());
-            types.push_back(pit->GetStreamID());
-            if (pit->IsPCRPID())
-                pcrpid = pit->GetPID();
-            if ((pcrpid < 0) && StreamID::IsVideo(pit->GetStreamID()))
-                pcrpid = pit->GetPID();
+            pids.push_back(pit.GetPID());
+            types.push_back(pit.GetStreamID());
+            if (pit.IsPCRPID())
+                pcrpid = pit.GetPID();
+            if ((pcrpid < 0) && StreamID::IsVideo(pit.GetStreamID()))
+                pcrpid = pit.GetPID();
         }
         if (pcrpid < 0)
             pcrpid = pid_cache[0].GetPID();

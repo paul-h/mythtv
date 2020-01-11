@@ -121,6 +121,7 @@ class ChannelScanSM : public MPEGStreamListener,
     void SetChannelTimeout(uint val)   { m_channelTimeout = val; }
     void SetScanDTVTunerType(DTVTunerType t) { m_scanDTVTunerType = t; }
     void SetScanDTVTunerType(int t) { m_scanDTVTunerType = DTVTunerType(t); }
+    void SetOpenTV(void);
 
     uint GetSignalTimeout(void)  const { return m_signalTimeout; }
     uint GetChannelTimeout(void) const { return m_channelTimeout; }
@@ -225,6 +226,11 @@ class ChannelScanSM : public MPEGStreamListener,
     // Optional info
     DTVTunerType      m_scanDTVTunerType  {DTVTunerType::kTunerTypeUnknown};
 
+    // OpenTV
+    uint              m_scanOpenTVBouquet     {0};
+    uint              m_scanOpenTVRegion      {0};
+    uint              m_scanOpenTVRegionMask  {0};
+
     /// The big lock
     mutable QMutex    m_lock;
 
@@ -232,7 +238,7 @@ class ChannelScanSM : public MPEGStreamListener,
     bool              m_scanning          {false};
     volatile bool     m_threadExit        {false};
     bool              m_waitingForTables  {false};
-    QTime             m_timer;
+    QElapsedTimer     m_timer;
 
     // Transports List
     int                         m_transportsScanned {0};

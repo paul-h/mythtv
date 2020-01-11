@@ -222,8 +222,8 @@ static QString fontToString(MythFontProperties *f)
         .arg(f->GetFace()->underline());
     QPoint offset;
     QColor color;
-    int alpha;
-    int size;
+    int alpha = 0;
+    int size = 0;
     f->GetShadow(offset, color, alpha);
     result += QString(" shadow=%1 shadowoffset=%2 "
                       "shadowcolor=%3 shadowalpha=%4")
@@ -277,7 +277,7 @@ SubtitleFormat::GetFont(const QString &family,
 
     MythPoint offset;
     QColor color;
-    int alpha;
+    int alpha = 0;
     bool shadow = result->hasShadow();
     result->GetShadow(offset, color, alpha);
     if (IsUnlocked(prefix, kSubAttrShadowcolor))
@@ -307,7 +307,7 @@ SubtitleFormat::GetFont(const QString &family,
     }
     result->SetShadow(shadow, offset, color, alpha);
 
-    int off;
+    int off = 0;
     bool outline = result->hasOutline();
     result->GetOutline(color, off, alpha);
     if (IsUnlocked(prefix, kSubAttrOutlinecolor))
@@ -345,6 +345,7 @@ SubtitleFormat::GetFont(const QString &family,
 
 SubtitleFormat::~SubtitleFormat(void)
 {
+    // NOLINTNEXTLINE(modernize-loop-convert)
     for (int i = 0; i < m_cleanup.size(); ++i)
     {
         m_cleanup[i]->DeleteAllChildren();
@@ -428,8 +429,8 @@ void SubtitleFormat::Complement(MythFontProperties *font, MythUIShape *bg)
 {
     QPoint offset;
     QColor color;
-    int alpha;
-    int size;
+    int alpha = 0;
+    int size = 0;
     QFont *face = font->GetFace();
     face->setItalic(!face->italic());
     face->setPixelSize(face->pixelSize() + 1);
@@ -456,16 +457,16 @@ void SubtitleFormat::Load(const QString &family,
     // Widgets for the actual values
     auto *baseParent = new MythUIType(nullptr, "base");
     m_cleanup += baseParent;
-    MythFontProperties *providerBaseFont;
-    MythUIShape *providerBaseShape;
+    MythFontProperties *providerBaseFont = nullptr;
+    MythUIShape *providerBaseShape = nullptr;
     CreateProviderDefault(family, attr, baseParent, false,
                           &providerBaseFont, &providerBaseShape);
 
     // Widgets for the "negative" values
     auto *negParent = new MythUIType(nullptr, "base");
     m_cleanup += negParent;
-    MythFontProperties *negFont;
-    MythUIShape *negBG;
+    MythFontProperties *negFont = nullptr;
+    MythUIShape *negBG = nullptr;
     CreateProviderDefault(family, attr, negParent, true, &negFont, &negBG);
 
     bool posResult =
@@ -510,8 +511,8 @@ void SubtitleFormat::Load(const QString &family,
                                resultBG, testBG);
     QPoint offset;
     QColor color;
-    int alpha;
-    int size;
+    int alpha = 0;
+    int size = 0;
     resultFont->GetShadow(offset, color, alpha);
     resultFont->GetOutline(color, size, alpha);
     m_outlineSizeMap[prefix] = size;
@@ -549,8 +550,8 @@ QSet<QString> SubtitleFormat::Diff(const QString &family,
         QPoint offset2;
         QColor color1;
         QColor color2;
-        int alpha1;
-        int alpha2;
+        int alpha1 = 0;
+        int alpha2 = 0;
         font1->GetShadow(offset1, color1, alpha1);
         font2->GetShadow(offset2, color2, alpha2);
         if (offset1 != offset2)
@@ -565,10 +566,10 @@ QSet<QString> SubtitleFormat::Diff(const QString &family,
         result << kSubAttrOutline;
         QColor color1;
         QColor color2;
-        int size1;
-        int size2;
-        int alpha1;
-        int alpha2;
+        int size1 = 0;
+        int size2 = 0;
+        int alpha1 = 0;
+        int alpha2 = 0;
         font1->GetOutline(color1, size1, alpha1);
         font2->GetOutline(color2, size2, alpha2);
         if (color1 != color2)
@@ -582,8 +583,7 @@ QSet<QString> SubtitleFormat::Diff(const QString &family,
         result << kSubAttrBGfill;
 
     QString values = "";
-    QSet<QString>::const_iterator i = result.constBegin();
-    for (; i != result.constEnd(); ++i)
+    for (auto i = result.constBegin(); i != result.constEnd(); ++i)
         values += " " + (*i);
     LOG(VB_VBI, LOG_INFO,
         QString("Subtitle family %1 allows provider to change:%2")
@@ -719,8 +719,8 @@ bool FormattedTextChunk::PreRender(bool isFirst, bool isLast,
 #else
     int x_adjust = count * font.horizontalAdvance(" ");
 #endif
-    int leftPadding;
-    int rightPadding;
+    int leftPadding = 0;
+    int rightPadding = 0;
     CalcPadding(isFirst, isLast, leftPadding, rightPadding);
     // Account for extra padding before the first chunk.
     if (isFirst)
@@ -785,9 +785,9 @@ void FormattedTextSubtitle::Layout(void)
     // Calculate dimensions of bounding rectangle
     int anchor_width = 0;
     int anchor_height = 0;
-    for (int i = 0; i < m_lines.size(); i++)
+    foreach (auto & line, m_lines)
     {
-        QSize sz = m_lines[i].CalcSize(LINE_SPACING);
+        QSize sz = line.CalcSize(LINE_SPACING);
         anchor_width = max(anchor_width, sz.width());
         anchor_height += sz.height();
     }
@@ -812,6 +812,7 @@ void FormattedTextSubtitle::Layout(void)
 
     // Fill in missing coordinates
     int y = anchor_y;
+    // NOLINTNEXTLINE(modernize-loop-convert)
     for (int i = 0; i < m_lines.size(); i++)
     {
         if (m_lines[i].m_xIndent < 0)
@@ -849,6 +850,7 @@ void FormattedTextSubtitle::Layout(void)
 
 void FormattedTextSubtitle::PreRender(void)
 {
+    // NOLINTNEXTLINE(modernize-loop-convert)
     for (int i = 0; i < m_lines.size(); i++)
     {
         int x = m_lines[i].m_xIndent;
@@ -874,11 +876,11 @@ void FormattedTextSubtitle::Draw(void)
 {
     QList<MythUIType *> textList;
     QList<MythUIType *> shapeList;
-    for (int i = 0; i < m_lines.size(); i++)
+    for (auto & line : m_lines)
     {
         QList<FormattedTextChunk>::const_iterator chunk;
-        for (chunk = m_lines[i].chunks.constBegin();
-             chunk != m_lines[i].chunks.constEnd();
+        for (chunk = line.chunks.constBegin();
+             chunk != line.chunks.constEnd();
              ++chunk)
         {
             MythFontProperties *mythfont =
@@ -923,14 +925,14 @@ void FormattedTextSubtitle::Draw(void)
 QStringList FormattedTextSubtitle::ToSRT(void) const
 {
     QStringList result;
-    for (int i = 0; i < m_lines.size(); i++)
+    foreach (const auto & ftl, m_lines)
     {
         QString line;
-        if (m_lines[i].m_origX > 0)
-            line.fill(' ', m_lines[i].m_origX);
+        if (ftl.m_origX > 0)
+            line.fill(' ', ftl.m_origX);
         QList<FormattedTextChunk>::const_iterator chunk;
-        for (chunk = m_lines[i].chunks.constBegin();
-             chunk != m_lines[i].chunks.constEnd();
+        for (chunk = ftl.chunks.constBegin();
+             chunk != ftl.chunks.constEnd();
              ++chunk)
         {
             const QString &text = (*chunk).m_text;
@@ -1173,7 +1175,6 @@ static QString extract_cc608(QString &text, int &color,
 // space proportionally to make it fit.
 void FormattedTextSubtitle608::Layout(void)
 {
-    int i;
     int totalHeight = 0;
     int totalSpace = 0;
     int firstY = 0;
@@ -1181,7 +1182,7 @@ void FormattedTextSubtitle608::Layout(void)
     QVector<int> heights(m_lines.size());
     QVector<int> spaceBefore(m_lines.size());
     // Calculate totalHeight and totalSpace
-    for (i = 0; i < m_lines.size(); i++)
+    for (int i = 0; i < m_lines.size(); i++)
     {
         m_lines[i].m_yIndent = max(m_lines[i].m_yIndent, prevY); // avoid overlap
         int y = m_lines[i].m_yIndent;
@@ -1203,7 +1204,7 @@ void FormattedTextSubtitle608::Layout(void)
     {
         float shrink = (totalSpace - overage) / (float)totalSpace;
         prevY = firstY;
-        for (i = 0; i < m_lines.size(); i++)
+        for (int i = 0; i < m_lines.size(); i++)
         {
             m_lines[i].m_yIndent = prevY + spaceBefore[i] * shrink;
             prevY = m_lines[i].m_yIndent + heights[i];
@@ -1212,7 +1213,7 @@ void FormattedTextSubtitle608::Layout(void)
 
     // Shift Y coordinates back up into the safe area.
     int shift = min(firstY, max(0, prevY - safeHeight));
-    for (i = 0; i < m_lines.size(); i++)
+    for (int i = 0; i < m_lines.size(); i++)
         m_lines[i].m_yIndent -= shift;
 
     FormattedTextSubtitle::Layout();
@@ -1262,7 +1263,7 @@ void FormattedTextSubtitle608::Init(const vector<CC608Text*> &buffers)
         // position as if we use a fixed size font
         // - font size already has zoom factor applied
 
-        int x;
+        int x = 0;
         if (xmid)
         {
             // center horizontally
@@ -1275,7 +1276,7 @@ void FormattedTextSubtitle608::Init(const vector<CC608Text*> &buffers)
         }
 
         int orig_y = cc->m_y;
-        int y;
+        int y = 0;
         if (orig_y < yscale / 2)
         {
             // top half -- anchor up
@@ -1348,14 +1349,14 @@ void FormattedTextSubtitle708::Init(const CC708Window &win,
     m_xAnchor = anchor_x;
     m_yAnchor = anchor_y;
 
-    for (size_t i = 0; i < list.size(); i++)
+    for (auto str708 : list)
     {
-        if (list[i]->m_y >= (uint)m_lines.size())
-            m_lines.resize(list[i]->m_y + 1);
-        FormattedTextChunk chunk(list[i]->m_str, list[i]->m_attr, m_subScreen);
-        m_lines[list[i]->m_y].chunks += chunk;
+        if (str708->m_y >= (uint)m_lines.size())
+            m_lines.resize(str708->m_y + 1);
+        FormattedTextChunk chunk(str708->m_str, str708->m_attr, m_subScreen);
+        m_lines[str708->m_y].chunks += chunk;
         LOG(VB_VBI, LOG_INFO, QString("Adding cc708 chunk: win %1 row %2: %3")
-            .arg(m_num).arg(list[i]->m_y).arg(chunk.ToLogString()));
+            .arg(m_num).arg(str708->m_y).arg(chunk.ToLogString()));
     }
 }
 
@@ -1599,7 +1600,7 @@ void SubtitleScreen::SetElementDeleted(void)
 static QSize CalcShadowOffsetPadding(MythFontProperties *mythfont)
 {
     QColor color;
-    int alpha;
+    int alpha = 0;
     int outlineSize = 0;
     int shadowWidth = 0;
     int shadowHeight = 0;
@@ -1892,7 +1893,6 @@ void SubtitleScreen::DisplayAVSubtitles(void)
                 // split into upper/lower to allow zooming
                 QRect bbox;
                 int uh = display.height() / 2 - rect->y;
-                int lh;
                 long long displayuntil = currentFrame->timecode + displayfor;
                 if (uh > 0)
                 {
@@ -1904,7 +1904,7 @@ void SubtitleScreen::DisplayAVSubtitles(void)
                 }
                 else
                     uh = 0;
-                lh = rect->h - uh;
+                int lh = rect->h - uh;
                 if (lh > 0)
                 {
                     bbox = QRect(0, uh, rect->w, lh);
@@ -2178,7 +2178,7 @@ void SubtitleScreen::DisplayRawTextSubtitles(void)
     if (!m_player || !m_subreader)
         return;
 
-    uint64_t duration;
+    uint64_t duration = 0;
     QStringList subs = m_subreader->GetRawTextSubtitles(duration);
     if (subs.empty())
         return;
@@ -2250,8 +2250,8 @@ void SubtitleScreen::DisplayCC708Subtitles(void)
     bool changed = (oldsafe != m_safeArea || m_textFontZoom != m_textFontZoomPrev);
     if (changed)
     {
-        for (int i = 0; i < k708MaxWindows; i++)
-            cc708service->m_windows[i].SetChanged();
+        for (auto & window : cc708service->m_windows)
+            window.SetChanged();
     }
 
     uint64_t clearMask = 0;

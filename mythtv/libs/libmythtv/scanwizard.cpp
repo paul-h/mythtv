@@ -185,7 +185,10 @@ void ScanWizard::Scan()
             DoTestDecryption(),       DoFreeToAirOnly(),
             DoChannelNumbersOnly(),   DoCompleteChannelsOnly(),
             DoFullChannelSearch(),
-            DoAddFullTS(),            GetServiceRequirements(),
+            DoAddFullTS(),
+            DoScanOpenTV(),
+            GetServiceRequirements(),
+
             // stuff needed for particular scans
             GetMultiplex(),         start_chan,
             GetFrequencyStandard(), GetModulation(),
@@ -196,7 +199,7 @@ void ScanWizard::Scan()
 
 void ScanWizard::SetInput(const QString &cardid_inputname)
 {
-    uint    cardid;
+    uint    cardid = 0;
     QString inputname;
     if (!InputSelector::Parse(cardid_inputname, cardid, inputname))
         return;

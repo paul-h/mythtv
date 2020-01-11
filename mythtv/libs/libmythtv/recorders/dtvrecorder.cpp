@@ -169,10 +169,10 @@ void DTVRecorder::ClearStatistics(void)
     RecorderBase::ClearStatistics();
 
     memset(m_tsCount, 0, sizeof(m_tsCount));
-    for (int i = 0; i < 256; ++i)
-        m_tsLast[i] = -1LL;
-    for (int i = 0; i < 256; ++i)
-        m_tsFirst[i] = -1LL;
+    for (int64_t & ts : m_tsLast)
+        ts = -1LL;
+    for (int64_t & ts : m_tsFirst)
+        ts = -1LL;
     //m_tsFirst_dt -- doesn't need to be cleared only used if m_tsFirst>=0
     m_packetCount.fetchAndStoreRelaxed(0);
     m_continuityErrorCount.fetchAndStoreRelaxed(0);
@@ -705,7 +705,9 @@ bool DTVRecorder::FindAudioKeyframes(const TSPacket* /*tspacket*/)
 
     static constexpr uint64_t kMsecPerDay = 24 * 60 * 60 * 1000ULL;
     const double frame_interval = (1000.0 / m_videoFrameRate);
-    uint64_t elapsed = (uint64_t) max(m_audioTimer.elapsed(), 0);
+    uint64_t elapsed = 0;
+    if (m_audioTimer.isValid())
+        elapsed = m_audioTimer.elapsed();
     auto expected_frame = (uint64_t) ((double)elapsed / frame_interval);
 
     while (m_framesSeenCount > expected_frame + 10000)
@@ -1002,7 +1004,7 @@ void DTVRecorder::HandleH264Keyframe(void)
     // Perform ringbuffer switch if needed.
     CheckForRingBufferSwitch();
 
-    uint64_t startpos;
+    uint64_t startpos = 0;
     uint64_t frameNum = m_framesWrittenCount;
 
     if (m_firstKeyframe < 0)
@@ -1295,8 +1297,8 @@ void DTVRecorder::HandleSingleProgramPAT(ProgramAssociationTable *pat,
     pat->tsheader()->SetContinuityCounter(next_cc);
     pat->GetAsTSPackets(m_scratch, next_cc);
 
-    for (size_t i = 0; i < m_scratch.size(); ++i)
-        DTVRecorder::BufferedWrite(m_scratch[i], insert);
+    for (const auto & tspacket : m_scratch)
+        DTVRecorder::BufferedWrite(tspacket, insert);
 }
 
 void DTVRecorder::HandleSingleProgramPMT(ProgramMapTable *pmt, bool insert)
@@ -1407,8 +1409,8 @@ void DTVRecorder::HandleSingleProgramPMT(ProgramMapTable *pmt, bool insert)
     pmt->tsheader()->SetContinuityCounter(next_cc);
     pmt->GetAsTSPackets(m_scratch, next_cc);
 
-    for (size_t i = 0; i < m_scratch.size(); ++i)
-        DTVRecorder::BufferedWrite(m_scratch[i], insert);
+    for (const auto & tspacket : m_scratch)
+        DTVRecorder::BufferedWrite(tspacket, insert);
 }
 
 bool DTVRecorder::ProcessTSPacket(const TSPacket &tspacket)

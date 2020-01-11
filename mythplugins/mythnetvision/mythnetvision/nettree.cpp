@@ -187,7 +187,7 @@ void NetTree::LoadData(void)
                         new MythUIButtonListItem(m_siteButtonList, QString(), nullptr,
                                 true, MythUIButtonListItem::NotChecked);
 
-                item->SetData(qVariantFromValue(*p));
+                item->SetData(QVariant::fromValue(*p));
 
                 UpdateItem(item);
 
@@ -269,7 +269,7 @@ void NetTree::UpdateItem(MythUIButtonListItem *item)
             item->SetImage(dlfile);
         else if (video->GetThumbnail().startsWith("http"))
             m_imageDownload->addThumb(video->GetTitle(), video->GetThumbnail(),
-                                      qVariantFromValue<uint>(pos));
+                                      QVariant::fromValue<uint>(pos));
     }
     else
     {
@@ -289,7 +289,7 @@ void NetTree::UpdateItem(MythUIButtonListItem *item)
                     item->SetImage(dlfile);
                 else
                     m_imageDownload->addThumb(node->GetText(), tpath,
-                                              qVariantFromValue<uint>(pos));
+                                              QVariant::fromValue<uint>(pos));
             }
             else if (tpath != "0")
             {
@@ -532,23 +532,21 @@ void NetTree::FillTree()
         rssGeneric->SetData(QString("%1/mythnetvision/icons/rss.png")
                             .arg(GetShareDir()));
 
-        RSSSite::rssList::iterator i = m_rssList.begin();
-        for (; i != m_rssList.end(); ++i)
+        foreach (auto & feed, m_rssList)
         {
-            ResultItem::resultList items = getRSSArticles((*i)->GetTitle(),
+            ResultItem::resultList items = getRSSArticles(feed->GetTitle(),
                                                           VIDEO_PODCAST);
             auto *ret =
-                new MythGenericTree((*i)->GetTitle(), kSubFolder, false);
-            ret->SetData(qVariantFromValue(*i));
+                new MythGenericTree(feed->GetTitle(), kSubFolder, false);
+            ret->SetData(QVariant::fromValue(feed));
             rssGeneric->addNode(ret);
 
             // Add an upfolder
             if (m_type != DLG_TREE)
                 ret->addNode(tr("Back"), kUpFolder, true, false);
 
-            ResultItem::resultList::iterator it = items.begin();
-            for (; it != items.end(); ++it)
-                AddFileNode(ret, *it);
+            foreach (auto & item, items)
+                AddFileNode(ret, item);
             SetSubfolderData(ret);
         }
 
@@ -557,29 +555,28 @@ void NetTree::FillTree()
     }
 
     // Now let's add all the grabber trees
-    for (GrabberScript::scriptList::iterator g = m_grabberList.begin();
-            g != m_grabberList.end(); ++g)
+    foreach (auto & g, m_grabberList)
     {
 
         QMultiMap<QPair<QString,QString>, ResultItem*> treePathsNodes =
-                           getTreeArticles((*g)->GetTitle(), VIDEO_FILE);
+                           getTreeArticles(g->GetTitle(), VIDEO_FILE);
 
         QList< QPair<QString,QString> > paths = treePathsNodes.uniqueKeys();
 
-        auto *ret = new MythGenericTree((*g)->GetTitle(), kSubFolder, false);
+        auto *ret = new MythGenericTree(g->GetTitle(), kSubFolder, false);
         QString thumb = QString("%1mythnetvision/icons/%2").arg(GetShareDir())
-                            .arg((*g)->GetImage());
-        ret->SetData(qVariantFromValue(thumb));
+                            .arg(g->GetImage());
+        ret->SetData(QVariant::fromValue(thumb));
 
         // Add an upfolder
         if (m_type != DLG_TREE)
             ret->addNode(tr("Back"), kUpFolder, true, false);
 
-        for (auto it2 = paths.begin(); it2 != paths.end(); ++it2)
+        foreach (auto & path, paths)
         {
-            QStringList curPaths = (*it2).first.split("/");
-            QString dirthumb = (*it2).second;
-            QList<ResultItem*> videos = treePathsNodes.values(*it2);
+            QStringList curPaths = path.first.split("/");
+            QString dirthumb = path.second;
+            QList<ResultItem*> videos = treePathsNodes.values(path);
             BuildGenericTree(ret, curPaths, dirthumb, videos);
         }
         m_siteGeneric->addNode(ret);
@@ -589,7 +586,7 @@ void NetTree::FillTree()
 }
 
 void NetTree::BuildGenericTree(MythGenericTree *dst, QStringList paths,
-                               const QString& dirthumb, QList<ResultItem*> videos)
+                               const QString& dirthumb, const QList<ResultItem*>& videos)
 {
     MythGenericTree *folder = nullptr;
 
@@ -622,9 +619,8 @@ void NetTree::BuildGenericTree(MythGenericTree *dst, QStringList paths,
     else
     {
         // File Handling
-        for (QList<ResultItem*>::iterator it = videos.begin();
-                it != videos.end(); ++it)
-            AddFileNode(folder, *it);
+        foreach (auto & video, videos)
+            AddFileNode(folder, video);
     }
     SetSubfolderData(folder);
 }
@@ -634,7 +630,7 @@ void NetTree::AddFileNode(MythGenericTree *where_to_add, ResultItem *video)
     QString title = video->GetTitle();
     title.replace("&amp;", "&");
     MythGenericTree *sub_node = where_to_add->addNode(title, 0, true);
-    sub_node->SetData(qVariantFromValue(video));
+    sub_node->SetData(QVariant::fromValue(video));
 
     InfoMap textMap;
     video->toMap(textMap);
@@ -691,7 +687,7 @@ void NetTree::UpdateResultItem(ResultItem *item)
             {
                 m_imageDownload->addThumb(item->GetTitle(),
                                           item->GetThumbnail(),
-                                          qVariantFromValue<uint>(0));
+                                          QVariant::fromValue<uint>(0));
             }
         }
     }

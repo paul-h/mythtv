@@ -819,54 +819,25 @@ void ImportMusicDialog::setRating(void)
 
 void ImportMusicDialog::setTitleInitialCap(void)
 {
+    QLocale locale = gCoreContext->GetQLocale();
     MusicMetadata *data = m_tracks->at(m_currentTrack)->metadata;
-    QString title = data->Title();
-    bool bFoundCap = false;
-
-    for (int x = 0; x < title.length(); x++)
-    {
-        if (title[x].isLetter())
-        {
-            if (!bFoundCap)
-            {
-                title[x] = title[x].toUpper();
-                bFoundCap = true;
-            }
-            else
-                title[x] = title[x].toLower();
-        }
-    }
-
+    QString title = locale.toLower(data->Title().simplified());
+    title[0] = title[0].toUpper();
     data->setTitle(title);
     fillWidgets();
 }
 
 void ImportMusicDialog::setTitleWordCaps(void)
 {
+    QLocale locale = gCoreContext->GetQLocale();
     MusicMetadata *data = m_tracks->at(m_currentTrack)->metadata;
-    QString title = data->Title();
-    bool bInWord = false;
+    QString title = locale.toLower(data->Title().simplified());
+    QStringList title_words = title.split(' ');
 
-    for (int x = 0; x < title.length(); x++)
-    {
-        if (title[x].isSpace())
-            bInWord = false;
-        else
-        {
-            if (title[x].isLetter())
-            {
-                if (!bInWord)
-                {
-                    title[x] = title[x].toUpper();
-                    bInWord = true;
-                }
-                else
-                    title[x] = title[x].toLower();
-            }
-        }
-    }
+    for (int x = 0; x < title_words.size(); ++x)
+        title_words[x][0] = title_words[x][0].toUpper();
 
-    data->setTitle(title);
+    data->setTitle(title_words.join(' '));
     fillWidgets();
 }
 
@@ -961,15 +932,15 @@ bool ImportCoverArtDialog::Create()
     if (m_typeList)
     {
         new MythUIButtonListItem(m_typeList, tr("Front Cover"),
-                                 qVariantFromValue((int)IT_FRONTCOVER));
+                                 QVariant::fromValue((int)IT_FRONTCOVER));
         new MythUIButtonListItem(m_typeList, tr("Back Cover"),
-                                 qVariantFromValue((int)IT_BACKCOVER));
+                                 QVariant::fromValue((int)IT_BACKCOVER));
         new MythUIButtonListItem(m_typeList, tr("CD"),
-                                 qVariantFromValue((int)IT_CD));
+                                 QVariant::fromValue((int)IT_CD));
         new MythUIButtonListItem(m_typeList, tr("Inlay"),
-                                 qVariantFromValue((int)IT_INLAY));
+                                 QVariant::fromValue((int)IT_INLAY));
         new MythUIButtonListItem(m_typeList, tr("<Unknown>"),
-                                 qVariantFromValue((int)IT_UNKNOWN));
+                                 QVariant::fromValue((int)IT_UNKNOWN));
 
         connect(m_typeList, SIGNAL(itemSelected(MythUIButtonListItem *)),
                 SLOT(selectorChanged()));

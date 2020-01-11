@@ -181,12 +181,10 @@ void ZMEvents::updateUIList()
 
     m_eventGrid->Reset();
 
-    for (size_t i = 0; i < m_eventList->size(); i++)
+    for (auto event : *m_eventList)
     {
-        Event *event = m_eventList->at(i);
-
         auto *item = new MythUIButtonListItem(m_eventGrid, "",
-                                              qVariantFromValue(event));
+                                              QVariant::fromValue(event));
 
         item->SetText(event->eventName());
         item->SetText(event->monitorName(), "camera" );
@@ -387,9 +385,8 @@ void ZMEvents::setGridLayout(int layout)
     QString layoutName = QString("layout%1").arg(layout);
     QList<MythUIType *> *children = GetAllChildren();
 
-    for (int x = 0; x < children->size(); x++)
+    foreach (auto type, *children)
     {
-        MythUIType *type = children->at(x);
         name = type->objectName();
         if (name.startsWith("layout"))
         {

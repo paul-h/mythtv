@@ -500,9 +500,8 @@ QStringList ImportIconsWizard::extract_csv(const QString &line)
     bool in_comment = false;
     bool in_escape = false;
     int comma_count = 0;
-    for (int i = 0; i < line.length(); i++)
+    foreach (auto cur, line)
     {
-        QChar cur = line[i];
         if (in_escape)
         {
             str += cur;
@@ -711,13 +710,13 @@ bool ImportIconsWizard::search(const QString& strParam)
                     QString newname = QString("%1 (%2)").arg(entry.strName)
                                                         .arg(namei);
                     item = new MythUIButtonListItem(m_iconsList, newname,
-                                             qVariantFromValue(entry));
+                                             QVariant::fromValue(entry));
                     namei++;
                 }
                 else
                 {
                     item = new MythUIButtonListItem(m_iconsList, entry.strName,
-                                             qVariantFromValue(entry));
+                                             QVariant::fromValue(entry));
                     namei=1;
                 }
 

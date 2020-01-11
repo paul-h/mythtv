@@ -123,8 +123,8 @@ void ResultItem::toMap(InfoMap &metadataMap)
     else
         metadataMap["filesize"] = QString::number(m_filesize);
 
-    QString tmpSize;
-    tmpSize.sprintf("%0.2f ", m_filesize / 1024.0 / 1024.0);
+    QString tmpSize = QString("%1 ")
+        .arg(m_filesize / 1024.0 / 1024.0, 0,'f',2);
     tmpSize += QObject::tr("MB", "Megabytes");
     if (m_filesize == -1)
         metadataMap["filesize_str"] = QString();
@@ -440,9 +440,9 @@ private:
         QList<MRSSThumbnail> result;
         QList<QDomNode> thumbs = GetDirectChildrenNS(element, Parse::kMediaRSS,
             "thumbnail");
-        for (int i = 0; i < thumbs.size(); ++i)
+        foreach (const auto & dom, thumbs)
         {
-            QDomElement thumbNode = thumbs.at(i).toElement();
+            QDomElement thumbNode = dom.toElement();
             int widthOpt = GetInt(thumbNode, "width");
             int width = widthOpt ? widthOpt : 0;
             int heightOpt = GetInt(thumbNode, "height");
@@ -465,9 +465,9 @@ private:
         QList<QDomNode> credits = GetDirectChildrenNS(element, Parse::kMediaRSS,
            "credit");
 
-        for (int i = 0; i < credits.size(); ++i)
+        foreach (const auto & dom, credits)
         {
-            QDomElement creditNode = credits.at(i).toElement();
+            QDomElement creditNode = dom.toElement();
             if (!creditNode.hasAttribute("role"))
                  continue;
             MRSSCredit credit =
@@ -548,9 +548,9 @@ private:
         QList<QDomNode> links = GetDirectChildrenNS(element, Parse::kMediaRSS,
             "peerLink");
 
-        for (int i = 0; i < links.size(); ++i)
+        foreach (const auto & dom, links)
         {
-            QDomElement linkNode = links.at(i).toElement();
+            QDomElement linkNode = dom.toElement();
             MRSSPeerLink pl =
             {
                 linkNode.attribute("type"),

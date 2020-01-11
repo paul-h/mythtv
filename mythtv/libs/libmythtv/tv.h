@@ -13,10 +13,10 @@ class VBIMode
         NTSC_CC = 2,
     };
 
-    static uint Parse(QString vbiformat)
+    static uint Parse(const QString& vbiformat)
     {
         QString fmt = vbiformat.toLower().left(3);
-        vbimode_t mode;
+        vbimode_t mode = None;
         mode = (fmt == "pal") ? PAL_TT : ((fmt == "nts") ? NTSC_CC : None);
         return (uint) mode;
     }

@@ -192,10 +192,10 @@ void IPTVStreamHandler::run(void)
             }
             else
             {
-                for (int j=0; j < list.size(); j++)
+                foreach (auto & addr, list)
                 {
-                    dest_addr = list[j];
-                    if (list[j].protocol() == QAbstractSocket::IPv6Protocol)
+                    dest_addr = addr;
+                    if (addr.protocol() == QAbstractSocket::IPv6Protocol)
                     {
                         // We prefer first IPv4
                         break;
@@ -345,7 +345,7 @@ IPTVStreamHandlerReadHelper::IPTVStreamHandlerReadHelper(
 void IPTVStreamHandlerReadHelper::ReadPending(void)
 {
     QHostAddress sender;
-    quint16 senderPort;
+    quint16 senderPort = 0;
     bool sender_null = m_sender.isNull();
 
     if (0 == m_stream)
@@ -433,9 +433,8 @@ void IPTVStreamHandlerWriteHelper::timerEvent(QTimerEvent* event)
         {
             QMutexLocker locker(&m_parent->m_listenerLock);
             QByteArray &data = packet.GetDataReference();
-            IPTVStreamHandler::StreamDataList::const_iterator sit;
-            sit = m_parent->m_streamDataList.begin();
-            for (; sit != m_parent->m_streamDataList.end(); ++sit)
+            for (auto sit = m_parent->m_streamDataList.cbegin();
+                 sit != m_parent->m_streamDataList.cend(); ++sit)
             {
                 remainder = sit.key()->ProcessData(
                     reinterpret_cast<const unsigned char*>(data.data()),
@@ -493,9 +492,8 @@ void IPTVStreamHandlerWriteHelper::timerEvent(QTimerEvent* event)
             m_parent->m_listenerLock.lock();
 
             int remainder = 0;
-            IPTVStreamHandler::StreamDataList::const_iterator sit;
-            sit = m_parent->m_streamDataList.begin();
-            for (; sit != m_parent->m_streamDataList.end(); ++sit)
+            for (auto sit = m_parent->m_streamDataList.cbegin();
+                 sit != m_parent->m_streamDataList.cend(); ++sit)
             {
                 remainder = sit.key()->ProcessData(
                     ts_packet.GetTSData(), ts_packet.GetTSDataSize());

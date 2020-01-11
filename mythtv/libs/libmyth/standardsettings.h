@@ -1,14 +1,16 @@
 #ifndef STANDARDSETTINGS_H_
 #define STANDARDSETTINGS_H_
 
+#include <initializer_list>
+#include <utility>
+
+#include <QMap>
+#include <QObject>
+
 #include "mythexp.h"
 #include "mythuibuttonlist.h"
 #include "mythdialogbox.h"
 #include "mythstorage.h"
-
-#include <QMap>
-#include <QObject>
-#include <initializer_list>
 
 class StandardSetting;
 
@@ -29,7 +31,7 @@ class MPUBLIC StandardSetting : public QObject, public StorageUser
     Q_OBJECT
 
   public:
-    virtual void setLabel(QString str) { m_label = str; }
+    virtual void setLabel(QString str) { m_label = std::move(str); }
     QString getLabel(void) const { return m_label; }
 
     virtual void setHelpText(const QString &str) { m_helptext = str; emit helpTextChanged(m_helptext); }
@@ -186,7 +188,7 @@ class MPUBLIC MythUIFileBrowserSetting : public StandardSetting
     void edit(MythScreenType *screen) override; // StandardSetting
     void updateButton(MythUIButtonListItem *item) override; // StandardSetting
     void SetTypeFilter(QDir::Filters filter) { m_typeFilter = filter; };
-    void SetNameFilter(QStringList filter) { m_nameFilter = filter; };
+    void SetNameFilter(QStringList filter) { m_nameFilter = std::move(filter); };
 
   protected:
     explicit MythUIFileBrowserSetting(Storage *_storage)
@@ -279,15 +281,13 @@ class MPUBLIC HostTimeBoxSetting : public HostComboBoxSetting
                        const int interval = 1) :
         HostComboBoxSetting(name, false)
     {
-        int hour;
-        int minute;
-        QString timeStr;
-
-        for (hour = 0; hour < 24; hour++)
+        for (int hour = 0; hour < 24; hour++)
         {
-            for (minute = 0; minute < 60; minute += interval)
+            for (int minute = 0; minute < 60; minute += interval)
             {
-                timeStr = timeStr.sprintf("%02d:%02d", hour, minute);
+                QString timeStr = QString("%1:%2")
+                    .arg(hour,  2,10,QChar('0'))
+                    .arg(minute,2,10,QChar('0'));
                 addSelection(timeStr, timeStr,
                              timeStr == defaultTime);
             }
@@ -303,15 +303,13 @@ class MPUBLIC GlobalTimeBoxSetting : public GlobalComboBoxSetting
                        const int interval = 1) :
         GlobalComboBoxSetting(name, false)
     {
-        int hour;
-        int minute;
-        QString timeStr;
-
-        for (hour = 0; hour < 24; hour++)
+        for (int hour = 0; hour < 24; hour++)
         {
-            for (minute = 0; minute < 60; minute += interval)
+            for (int minute = 0; minute < 60; minute += interval)
             {
-                timeStr = timeStr.sprintf("%02d:%02d", hour, minute);
+                QString timeStr = QString("%1:%2")
+                    .arg(hour,  2,10,QChar('0'))
+                    .arg(minute,2,10,QChar('0'));
                 addSelection(timeStr, timeStr,
                              timeStr == defaultTime);
             }

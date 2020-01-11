@@ -56,7 +56,7 @@ ChannelBase::~ChannelBase(void)
 
 bool ChannelBase::Init(QString &startchannel, bool setchan)
 {
-    bool ok;
+    bool ok = false;
 
     if (!setchan)
         ok = IsTunable(startchannel);
@@ -73,9 +73,9 @@ bool ChannelBase::Init(QString &startchannel, bool setchan)
     bool msg_error = true;
 
     // Attempt to find the requested startchannel
-    for (auto cit = m_channels.begin(); cit != m_channels.end(); ++cit)
+    for (auto & channel : m_channels)
     {
-        if ((*cit).m_chanNum == startchannel &&
+        if (channel.m_chanNum == startchannel &&
             IsTunable(startchannel))
         {
             LOG(VB_CHANNEL, LOG_INFO, LOC +
@@ -154,16 +154,16 @@ bool ChannelBase::IsTunable(const QString &channum) const
     QString freqtable;
     QString freqid;
     QString dtv_si_std;
-    int finetune;
-    uint64_t frequency;
-    int mpeg_prog_num;
-    uint atsc_major;
-    uint atsc_minor;
-    uint mplexid;
-    uint chanid;
-    uint tsid;
-    uint netid;
-    bool commfree;
+    int finetune = 0;
+    uint64_t frequency = 0;
+    int mpeg_prog_num = 0;
+    uint atsc_major = 0;
+    uint atsc_minor = 0;
+    uint mplexid = 0;
+    uint chanid = 0;
+    uint tsid = 0;
+    uint netid = 0;
+    bool commfree = false;
 
     if (!ChannelUtil::GetChannelData(m_sourceId, chanid, channum,
                                      tvformat, modulation, freqtable, freqid,
@@ -237,9 +237,9 @@ bool ChannelBase::IsInputAvailable(
     chanid_restriction = 0;
 
     vector<uint> inputids = CardUtil::GetConflictingInputs(m_inputId);
-    for (size_t i = 0; i < inputids.size(); ++i)
+    for (uint inputid : inputids)
     {
-        if (RemoteIsBusy(inputids[i], info))
+        if (RemoteIsBusy(inputid, info))
         {
             LOG(VB_CHANNEL, LOG_DEBUG, LOC +
                 QString("Input %1 is busy on %2/%3")
@@ -446,7 +446,7 @@ uint ChannelBase::GetScriptStatus(bool holding_lock)
     LOG(VB_CHANNEL, LOG_DEBUG, LOC + QString("GetScriptStatus() %1")
         .arg(m_systemStatus));
 
-    uint ret;
+    uint ret = 0;
     switch(m_systemStatus)
     {
         case GENERIC_EXIT_OK:
@@ -515,10 +515,10 @@ int ChannelBase::GetChanID(void) const
 
     while (query.next())
     {
-        if (query.value(1).toBool())
+        if (query.value(1).toInt() > 0)
         {
             ++found;
-            visible = query.value(0).toInt() > 0;
+            visible = query.value(0).toInt();
         }
         else
             id = query.value(0).toInt();

@@ -32,7 +32,6 @@ MythNVDECInterop::~MythNVDECInterop()
 
 void MythNVDECInterop::DeleteTextures(void)
 {
-    CUcontext dummy;
     if (!(m_cudaContext && m_cudaFuncs))
         return;
 
@@ -42,22 +41,21 @@ void MythNVDECInterop::DeleteTextures(void)
     if (!m_openglTextures.isEmpty())
     {
         LOG(VB_PLAYBACK, LOG_INFO, LOC + "Deleting CUDA resources");
-        QHash<unsigned long long, vector<MythVideoTexture*> >::const_iterator it = m_openglTextures.constBegin();
-        for ( ; it != m_openglTextures.constEnd(); ++it)
+        for (auto it = m_openglTextures.constBegin(); it != m_openglTextures.constEnd(); ++it)
         {
             vector<MythVideoTexture*> textures = it.value();
-            auto it2 = textures.begin();
-            for ( ; it2 != textures.end(); ++it2)
+            for (auto & texture : textures)
             {
-                auto *data = reinterpret_cast<QPair<CUarray,CUgraphicsResource>*>((*it2)->m_data);
+                auto *data = reinterpret_cast<QPair<CUarray,CUgraphicsResource>*>(texture->m_data);
                 if (data && data->second)
                     CUDA_CHECK(m_cudaFuncs, cuGraphicsUnregisterResource(data->second));
                 delete data;
-                (*it2)->m_data = nullptr;
+                texture->m_data = nullptr;
             }
         }
     }
 
+    CUcontext dummy = nullptr;
     CUDA_CHECK(m_cudaFuncs, cuCtxPopCurrent(&dummy));
 
     MythOpenGLInterop::DeleteTextures();
@@ -146,7 +144,7 @@ vector<MythVideoTexture*> MythNVDECInterop::Acquire(MythRenderOpenGL *Context,
         return result;
 
     // make the CUDA context current
-    CUcontext dummy;
+    CUcontext dummy = nullptr;
     CUDA_CHECK(m_cudaFuncs, cuCtxPushCurrent(m_cudaContext));
 
     // create and map textures for a new buffer
@@ -186,7 +184,7 @@ vector<MythVideoTexture*> MythNVDECInterop::Acquire(MythRenderOpenGL *Context,
             m_context->glTexImage2D(tex->m_target, 0, internal, width, tex->m_size.height(),
                                     0, QOpenGLTexture::Red, pixtype, nullptr);
 
-            CUarray array;
+            CUarray array = nullptr;
             CUgraphicsResource graphicsResource = nullptr;
             CUDA_CHECK(m_cudaFuncs, cuGraphicsGLRegisterImage(&graphicsResource, tex->m_textureId,
                                           QOpenGLTexture::Target2D, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
@@ -210,17 +208,16 @@ vector<MythVideoTexture*> MythNVDECInterop::Acquire(MythRenderOpenGL *Context,
         }
         else
         {
-            auto it = textures.begin();
-            for ( ; it != textures.end(); ++it)
+            for (auto & texture : textures)
             {
-                auto *data = reinterpret_cast<QPair<CUarray,CUgraphicsResource>*>((*it)->m_data);
+                auto *data = reinterpret_cast<QPair<CUarray,CUgraphicsResource>*>(texture->m_data);
                 if (data && data->second)
                     CUDA_CHECK(m_cudaFuncs, cuGraphicsUnregisterResource(data->second));
                 delete data;
-                (*it)->m_data = nullptr;
-                if ((*it)->m_textureId)
-                    m_context->glDeleteTextures(1, &(*it)->m_textureId);
-                MythVideoTexture::DeleteTexture(m_context, *it);
+                texture->m_data = nullptr;
+                if (texture->m_textureId)
+                    m_context->glDeleteTextures(1, &texture->m_textureId);
+                MythVideoTexture::DeleteTexture(m_context, texture);
             }
         }
     }
@@ -324,8 +321,8 @@ bool MythNVDECInterop::CreateCUDAContext(MythRenderOpenGL *GLContext, CudaFuncti
     }
 
     // create a CUDA context for the current device
-    CUdevice cudevice;
-    CUcontext dummy;
+    CUdevice cudevice = 0;
+    CUcontext dummy = nullptr;
     CUresult res = CudaFuncs->cuInit(0);
     if (res != CUDA_SUCCESS)
     {
@@ -333,7 +330,7 @@ bool MythNVDECInterop::CreateCUDAContext(MythRenderOpenGL *GLContext, CudaFuncti
         return false;
     }
 
-    unsigned int devicecount;
+    unsigned int devicecount = 0;
     res = CudaFuncs->cuGLGetDevices(&devicecount, &cudevice, 1, CU_GL_DEVICE_LIST_ALL);
     if (res != CUDA_SUCCESS)
     {

@@ -21,7 +21,7 @@ bool ok = true;
 ok &= (status == VDP_STATUS_OK); \
 if (!ok) \
 { \
-  LOG(VB_GENERAL, LOG_ERR, LOC + QString("Error at %1:%2 (#%3, %4)") \
+  LOG(VB_PLAYBACK, LOG_ERR, LOC + QString("Error at %1:%2 (#%3, %4)") \
           .arg(__FILE__).arg( __LINE__).arg(status) \
           .arg(m_vdpGetErrorString(status))); \
 }
@@ -46,7 +46,7 @@ bool MythVDPAUHelper::HaveVDPAU(void)
     }
     else
     {
-        LOG(VB_GENERAL, LOG_INFO, LOC + "VDPAU functionality checked failed");
+        LOG(VB_GENERAL, LOG_INFO, LOC + "VDPAU is NOT available");
     }
     return gVDPAUAvailable;
 }
@@ -77,7 +77,7 @@ MythVDPAUHelper::MythVDPAUHelper(AVVDPAUDeviceContext* Context)
         status = m_vdpPreemptionCallbackRegister(m_device, vdpau_preemption_callback, this);
         CHECK_ST
         if (!ok)
-            LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to register preemption callback");
+            LOG(VB_PLAYBACK, LOG_ERR, LOC + "Failed to register preemption callback");
     }
 }
 
@@ -102,7 +102,7 @@ MythVDPAUHelper::MythVDPAUHelper(void)
     CHECK_ST
     if (!ok)
     {
-        LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create VDPAU device.");
+        LOG(VB_PLAYBACK, LOG_ERR, LOC + "Failed to create VDPAU device.");
         return;
     }
     m_valid = InitProcs();
@@ -163,10 +163,10 @@ bool MythVDPAUHelper::CheckMPEG4(void)
 #ifdef VDP_DECODER_PROFILE_MPEG4_PART2_ASP
     INIT_ST
     VdpBool supported = false;
-    uint32_t tmp1;
-    uint32_t tmp2;
-    uint32_t tmp3;
-    uint32_t tmp4;
+    uint32_t tmp1 = 0;
+    uint32_t tmp2 = 0;
+    uint32_t tmp3 = 0;
+    uint32_t tmp4 = 0;
     status = m_vdpDecoderQueryCapabilities(m_device,
                 VDP_DECODER_PROFILE_MPEG4_PART2_ASP, &supported,
                 &tmp1, &tmp2, &tmp3, &tmp4);
@@ -206,7 +206,7 @@ bool MythVDPAUHelper::HEVCProfileCheck(AVCodecContext *Context)
     if (driver < 410)
         return false;
 
-    VdpDecoderProfile profile;
+    VdpDecoderProfile profile = 0;
     switch (Context->profile)
     {
 #ifdef VDP_DECODER_PROFILE_HEVC_MAIN
@@ -222,10 +222,10 @@ bool MythVDPAUHelper::HEVCProfileCheck(AVCodecContext *Context)
     }
 
     VdpBool supported = false;
-    uint32_t level;
-    uint32_t macros;
-    uint32_t width;
-    uint32_t height;
+    uint32_t level = 0;
+    uint32_t macros = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
     status = m_vdpDecoderQueryCapabilities(m_device, profile, &supported, &level, &macros, &width, &height);
     CHECK_ST
     if (!supported)
@@ -241,7 +241,7 @@ bool MythVDPAUHelper::CheckH264Decode(AVCodecContext *Context)
     if (!Context)
         return false;
 
-    VdpDecoderProfile profile;
+    VdpDecoderProfile profile = 0;
     switch (Context->profile & ~FF_PROFILE_H264_INTRA)
     {
         case FF_PROFILE_H264_BASELINE: profile = VDP_DECODER_PROFILE_H264_BASELINE; break;
@@ -301,10 +301,10 @@ bool MythVDPAUHelper::H264ProfileCheck(VdpDecoderProfile Profile, AVCodecContext
         return false;
 
     VdpBool supported = false;
-    uint32_t level;
-    uint32_t macros;
-    uint32_t width;
-    uint32_t height;
+    uint32_t level = 0;
+    uint32_t macros = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
     INIT_ST
     status = m_vdpDecoderQueryCapabilities(m_device, Profile, &supported, &level, &macros, &width, &height);
     CHECK_ST

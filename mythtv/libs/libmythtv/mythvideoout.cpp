@@ -666,8 +666,7 @@ QRect MythVideoOutput::GetPIPRect(PIPLocation Location, MythPlayer *PiPPlayer, b
 
 void MythVideoOutput::ShowPIPs(VideoFrame *Frame, const PIPMap &PiPPlayers)
 {
-    PIPMap::const_iterator it = PiPPlayers.begin();
-    for (; it != PiPPlayers.end(); ++it)
+    for (auto it = PiPPlayers.cbegin(); it != PiPPlayers.cend(); ++it)
         ShowPIP(Frame, it.key(), *it);
 }
 
@@ -839,7 +838,7 @@ QRect MythVideoOutput::GetImageRect(const QRect &Rect, QRect *DisplayRect)
 QRect MythVideoOutput::GetSafeRect(void)
 {
     static constexpr float kSafeMargin = 0.05F;
-    float dummy;
+    float dummy = NAN;
     QRect result = GetVisibleOSDBounds(dummy, dummy, 1.0F);
     int safex = static_cast<int>(static_cast<float>(result.width())  * kSafeMargin);
     int safey = static_cast<int>(static_cast<float>(result.height()) * kSafeMargin);

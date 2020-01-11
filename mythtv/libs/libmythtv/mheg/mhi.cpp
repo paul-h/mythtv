@@ -67,9 +67,9 @@ class MHIImageData
 {
   public:
     QImage m_image;
-    int    m_x;
-    int    m_y;
-    bool   m_bUnder;
+    int    m_x      {0};
+    int    m_y      {0};
+    bool   m_bUnder {false};
 };
 
 MHIContext::MHIContext(InteractiveTV *parent)
@@ -136,9 +136,8 @@ MHIContext::~MHIContext()
 // NB caller must hold m_display_lock
 void MHIContext::ClearDisplay(void)
 {
-    auto it = m_display.begin();
-    for (; it != m_display.end(); ++it)
-        delete *it;
+    for (auto & it : m_display)
+        delete it;
     m_display.clear();
     m_videoDisplayRect = QRect();
 }
@@ -146,9 +145,8 @@ void MHIContext::ClearDisplay(void)
 // NB caller must hold m_dsmccLock
 void MHIContext::ClearQueue(void)
 {
-    auto it = m_dsmccQueue.begin();
-    for (; it != m_dsmccQueue.end(); ++it)
-        delete *it;
+    for (auto & it : m_dsmccQueue)
+        delete it;
     m_dsmccQueue.clear();
 }
 
@@ -241,10 +239,9 @@ void MHIContext::run(void)
 {
     QMutexLocker locker(&m_runLock);
 
-    QTime t; t.start();
     while (!m_stop)
     {
-        int toWait;
+        int toWait = 0;
         // Dequeue and process any key presses.
         int key = 0;
         do
@@ -452,7 +449,7 @@ bool MHIContext::GetCarouselData(QString objectPath, QByteArray &result)
     // the result.
 
     bool bReported = false;
-    QTime t; t.start();
+    QElapsedTimer t; t.start();
     while (!m_stop)
     {
         if (isIC)
@@ -485,7 +482,7 @@ bool MHIContext::GetCarouselData(QString objectPath, QByteArray &result)
             // arrive later.  Exiting can cause the inital app to not be found
         }
 
-        if (t.elapsed() > 60000) // TODO get this from carousel info
+        if (t.hasExpired(60000)) // TODO get this from carousel info
         {
             if (bReported)
                 LOG(VB_MHEG, LOG_INFO, QString("[mhi] timed out %1").arg(objectPath));
@@ -856,11 +853,8 @@ void MHIContext::DrawVideo(const QRect &videoRect, const QRect &dispRect)
 
     // Mark all existing items in the display stack as under the video
     QMutexLocker locker(&m_displayLock);
-    auto it = m_display.begin();
-    for (; it != m_display.end(); ++it)
-    {
-        (*it)->m_bUnder = true;
-    }
+    for (auto & it : m_display)
+        it->m_bUnder = true;
 }
 
 // Caller must hold m_channelMutex
@@ -912,7 +906,7 @@ int MHIContext::GetChannelIndex(const QString &str)
                 break; // Malformed.
             // The various fields are expressed in hexadecimal.
             // Convert them to decimal for the DB.
-            bool ok;
+            bool ok = false;
             int netID = list[0].toInt(&ok, 16);
             if (!ok)
                 break;
@@ -949,7 +943,7 @@ int MHIContext::GetChannelIndex(const QString &str)
         else if (str.startsWith("rec://svc/lcn/"))
         {
             // I haven't seen this yet so this is untested.
-            bool ok;
+            bool ok = false;
             int channelNo = str.mid(14).toInt(&ok); // Decimal integer
             if (!ok)
                 break;
@@ -1060,10 +1054,10 @@ bool MHIContext::BeginStream(const QString &stream, MHStream *notify)
         return false;
     if (VERBOSE_LEVEL_CHECK(VB_MHEG, LOG_ANY))
     {
-        int netId;
-        int origNetId;
-        int transportId;
-        int serviceId;
+        int netId = 0;
+        int origNetId = 0;
+        int transportId = 0;
+        int serviceId = 0;
         GetServiceInfo(chan, netId, origNetId, transportId, serviceId);
     }
 
@@ -1375,7 +1369,6 @@ void MHIText::AddText(int x, int y, const QString &str, MHRgba colour)
 {
     if (!m_parent->IsFaceLoaded()) return;
     FT_Face face = m_parent->GetFontFace();
-    FT_Error error;
 
     FT_Set_Char_Size(face, 0, Point2FT(m_fontSize),
                                       FONT_WIDTHRES, FONT_HEIGHTRES);
@@ -1406,7 +1399,7 @@ void MHIText::AddText(int x, int y, const QString &str, MHRgba colour)
                            FT_KERNING_DEFAULT, &delta);
             posX += delta.x;
         }
-        error = FT_Load_Glyph(face, glyphIndex, FT_LOAD_RENDER);
+        FT_Error error = FT_Load_Glyph(face, glyphIndex, FT_LOAD_RENDER);
 
         if (error)
             continue; // ignore errors
@@ -1879,7 +1872,6 @@ void MHIBitmap::CreateFromMPEG(const unsigned char *data, int length)
     AVPacket pkt;
     uint8_t *buff = nullptr;
     bool gotPicture = false;
-    int len;
     m_image = QImage();
 
     // Find the mpeg2 video decoder.
@@ -1905,7 +1897,7 @@ void MHIBitmap::CreateFromMPEG(const unsigned char *data, int length)
     // packet to be decoded. It should take only 2-3 loops
     for (int limit=0; limit<10 && !gotPicture; limit++)
     {
-        len = avcodec_receive_frame(c, picture);
+        int len = avcodec_receive_frame(c, picture);
         if (len == 0)
             gotPicture = true;
         if (len == AVERROR(EAGAIN))

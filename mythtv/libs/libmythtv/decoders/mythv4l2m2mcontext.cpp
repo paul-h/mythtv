@@ -267,7 +267,7 @@ bool MythV4L2M2MContext::HaveV4L2Codecs(AVCodecID Codec /* = AV_CODEC_ID_NONE */
             {
                 bool found = false;
                 uint32_t v4l2pixfmt = V4L2CodecType(codec);
-                struct v4l2_fmtdesc fdesc;
+                struct v4l2_fmtdesc fdesc {};
                 memset(&fdesc, 0, sizeof(fdesc));
 
                 // check output first
@@ -347,9 +347,11 @@ AVPixelFormat MythV4L2M2MContext::GetV4L2RequestFormat(AVCodecContext *Context, 
     while (*PixFmt != AV_PIX_FMT_NONE)
     {
         if (*PixFmt == AV_PIX_FMT_DRM_PRIME)
+        {
             if (MythCodecContext::InitialiseDecoder(Context, MythV4L2M2MContext::InitialiseV4L2RequestContext,
                                                     "V4L2 request context creation") >= 0)
                 return AV_PIX_FMT_DRM_PRIME;
+        }
         PixFmt++;
     }
     return AV_PIX_FMT_NONE;

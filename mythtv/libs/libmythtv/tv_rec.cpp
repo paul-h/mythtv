@@ -312,8 +312,8 @@ void TVRec::RecordPending(const ProgramInfo *rcinfo, int secsleft,
 
     pendlock.unlock();
     statelock.unlock();
-    for (size_t i = 0; i < inputids.size(); i++)
-        RemoteRecordPending(inputids[i], rcinfo, secsleft, hasLater);
+    for (uint inputid : inputids)
+        RemoteRecordPending(inputid, rcinfo, secsleft, hasLater);
     statelock.relock();
     pendlock.relock();
 }
@@ -361,14 +361,14 @@ void TVRec::CancelNextRecording(bool cancel)
     if (cancel)
     {
         vector<uint> &inputids = (*it).m_possibleConflicts;
-        for (size_t i = 0; i < inputids.size(); i++)
+        for (uint inputid : inputids)
         {
             LOG(VB_RECORD, LOG_INFO, LOC +
                 QString("CancelNextRecording -- inputid 0x%1")
-                    .arg((uint64_t)inputids[i],0,16));
+                    .arg((uint64_t)inputid,0,16));
 
             pendlock.unlock();
-            RemoteRecordPending(inputids[i], (*it).m_info, -1, false);
+            RemoteRecordPending(inputid, (*it).m_info, -1, false);
             pendlock.relock();
         }
 
@@ -445,7 +445,6 @@ RecStatus::Type TVRec::StartRecording(ProgramInfo *pginfo)
     bool cancelNext = false;
     PendingInfo pendinfo;
     PendingMap::iterator it;
-    bool has_pending;
 
     m_pendingRecLock.lock();
     if ((it = m_pendingRecordings.find(m_inputId)) != m_pendingRecordings.end())
@@ -463,7 +462,7 @@ RecStatus::Type TVRec::StartRecording(ProgramInfo *pginfo)
     // since the HandlePendingRecordings loop will have deleted it.
     m_pendingRecLock.lock();
     it = m_pendingRecordings.find(m_inputId);
-    has_pending = (it != m_pendingRecordings.end());
+    bool has_pending = (it != m_pendingRecordings.end());
     if (has_pending)
         pendinfo = *it;
     m_pendingRecLock.unlock();
@@ -483,10 +482,10 @@ RecStatus::Type TVRec::StartRecording(ProgramInfo *pginfo)
         vector<TVState> states;
 
         // Stop remote recordings if needed
-        for (size_t i = 0; i < inputids.size(); i++)
+        for (uint inputid : inputids)
         {
             InputInfo busy_input;
-            bool is_busy = RemoteIsBusy(inputids[i], busy_input);
+            bool is_busy = RemoteIsBusy(inputid, busy_input);
 
             if (is_busy && !sourceid)
             {
@@ -501,8 +500,8 @@ RecStatus::Type TVRec::StartRecording(ProgramInfo *pginfo)
                  ((mplexid == 0 || mplexid == 32767) &&
                   chanid != busy_input.m_chanId)))
             {
-                states.push_back((TVState) RemoteGetState(inputids[i]));
-                inputids2.push_back(inputids[i]);
+                states.push_back((TVState) RemoteGetState(inputid));
+                inputids2.push_back(inputid);
             }
         }
 
@@ -644,8 +643,8 @@ RecStatus::Type TVRec::StartRecording(ProgramInfo *pginfo)
         LOG(VB_GENERAL, LOG_INFO, LOC + msg);
     }
 
-    for (int i = 0; i < m_pendingRecordings.size(); i++)
-        delete m_pendingRecordings[i].m_info;
+    foreach (auto & pend, m_pendingRecordings)
+        delete pend.m_info;
     m_pendingRecordings.clear();
 
     if (!did_switch)
@@ -676,7 +675,7 @@ RecStatus::Type TVRec::GetRecordingStatus(void) const
 void TVRec::SetRecordingStatus(
     RecStatus::Type new_status, int line, bool have_lock)
 {
-    RecStatus::Type old_status;
+    RecStatus::Type old_status = RecStatus::Unknown;
     if (have_lock)
     {
         old_status = m_recStatus;
@@ -1821,15 +1820,14 @@ static bool ApplyCachedPids(DTVSignalMonitor *dtvMon, const DTVChannel* channel)
 {
     pid_cache_t pid_cache;
     channel->GetCachedPids(pid_cache);
-    pid_cache_t::const_iterator it = pid_cache.begin();
     bool vctpid_cached = false;
-    for (; it != pid_cache.end(); ++it)
+    for (auto pid : pid_cache)
     {
-        if ((it->GetTableID() == TableID::TVCT) ||
-            (it->GetTableID() == TableID::CVCT))
+        if ((pid.GetTableID() == TableID::TVCT) ||
+            (pid.GetTableID() == TableID::CVCT))
         {
             vctpid_cached = true;
-            dtvMon->GetATSCStreamData()->AddListeningPID(it->GetPID());
+            dtvMon->GetATSCStreamData()->AddListeningPID(pid.GetPID());
         }
     }
     return vctpid_cached;
@@ -1998,9 +1996,8 @@ bool TVRec::SetupDTVSignalMonitor(bool EITscan)
     {
         pid_cache_t pid_cache;
         GetDTVChannel()->GetCachedPids(pid_cache);
-        pid_cache_t::const_iterator it = pid_cache.begin();
-        for (; !ok && it != pid_cache.end(); ++it)
-            ok |= it->IsPermanent();
+        for (auto item = pid_cache.cbegin(); !ok && item != pid_cache.cend(); ++item)
+            ok |= item->IsPermanent();
     }
 
     if (!ok)
@@ -2344,13 +2341,13 @@ bool TVRec::CheckChannelPrefix(const QString &prefix,
     vector<uint>    finputid;
     vector<QString> fspacer;
 
-    for (uint i = 0; i < 2; i++)
+    for (const auto & str : inputquery)
     {
-        for (uint j = 0; j < kSpacerListSize; j++)
+        for (auto & spacer : s_spacers)
         {
             QString qprefix = add_spacer(
-                prefix, (QString(s_spacers[j]) == "_") ? "\\_" : s_spacers[j]);
-            query.prepare(basequery.arg(qprefix) + inputquery[i]);
+                prefix, (QString(spacer) == "_") ? "\\_" : spacer);
+            query.prepare(basequery.arg(qprefix) + str);
 
             if (!query.exec() || !query.isActive())
             {
@@ -2363,7 +2360,7 @@ bool TVRec::CheckChannelPrefix(const QString &prefix,
                     fchanid.push_back(query.value(0).toUInt());
                     fchannum.push_back(query.value(1).toString());
                     finputid.push_back(query.value(2).toUInt());
-                    fspacer.emplace_back(s_spacers[j]);
+                    fspacer.emplace_back(spacer);
 #if DEBUG_CHANNEL_PREFIX
                     LOG(VB_GENERAL, LOG_DEBUG,
                         QString("(%1,%2) Adding %3 rec %4")
@@ -2503,7 +2500,7 @@ bool TVRec::IsBusy(InputInfo *busy_input, int time_buffer) const
     }
 
     PendingInfo pendinfo;
-    bool        has_pending;
+    bool has_pending = false;
     {
         m_pendingRecLock.lock();
         PendingMap::const_iterator it = m_pendingRecordings.find(m_inputId);
@@ -2641,10 +2638,9 @@ bool TVRec::GetKeyframeDurations(
  */
 long long TVRec::GetMaxBitrate(void) const
 {
-    long long bitrate;
+    long long bitrate = 0;
     if (m_genOpt.m_inputType == "MPEG")
-    {
-        // NOLINTNEXTLINE(bugprone-branch-clone)
+    {   // NOLINT(bugprone-branch-clone)
         bitrate = 10080000LL; // use DVD max bit rate
     }
     else if (m_genOpt.m_inputType == "HDPVR")
@@ -2974,10 +2970,7 @@ void TVRec::ToggleChannelFavorite(const QString& changroupname)
         return;
     }
 
-    int  changrpid;
-
-    changrpid = ChannelGroup::GetChannelGroupId(changroupname);
-
+    int changrpid = ChannelGroup::GetChannelGroupId(changroupname);
     if (changrpid <1)
     {
           LOG(VB_RECORD, LOG_ERR, LOC +
@@ -3722,7 +3715,7 @@ void TVRec::TuningFrequency(const TuningRequest &request)
 
     QString channum = request.m_channel;
 
-    bool ok1;
+    bool ok1 = true;
     if (m_channel)
     {
         m_channel->Open();
@@ -3731,8 +3724,6 @@ void TVRec::TuningFrequency(const TuningRequest &request)
         else
             ok1 = false;
     }
-    else
-        ok1 = true;
 
     if (!ok1)
     {
@@ -3778,7 +3769,7 @@ void TVRec::TuningFrequency(const TuningRequest &request)
     if (use_dr)
     {
         // We need there to be a ringbuffer for these modes
-        bool ok2;
+        bool ok2 = false;
         RecordingInfo *tmp = m_pseudoLiveTVRecording;
         m_pseudoLiveTVRecording = nullptr;
 
@@ -3912,7 +3903,7 @@ void TVRec::TuningFrequency(const TuningRequest &request)
  */
 MPEGStreamData *TVRec::TuningSignalCheck(void)
 {
-    RecStatus::Type newRecStatus;
+    RecStatus::Type newRecStatus = RecStatus::Unknown;
     bool keep_trying  = false;
     QDateTime current_time = MythDate::current();
 
@@ -4195,7 +4186,7 @@ void TVRec::TuningNewRecorder(MPEGStreamData *streamData)
 
     if (m_tvChain)
     {
-        bool ok;
+        bool ok = false;
         if (!m_ringBuffer)
         {
             ok = CreateLiveTVRingBuffer(m_channel->GetChannelName());

@@ -502,7 +502,7 @@ MetadataLookup* LookupFromProgramInfo(ProgramInfo *pginfo)
     uint runtime = (runtimesecs/60);
 
     auto *ret = new MetadataLookup(kMetadataRecording, kUnknownVideo,
-        qVariantFromValue(pginfo), kLookupData, false, false, false, false, false,
+        QVariant::fromValue(pginfo), kLookupData, false, false, false, false, false,
         pginfo->GetHostname(),pginfo->GetBasename(),pginfo->GetTitle(),
         QStringList() << pginfo->GetCategory(), pginfo->GetStars() * 10,
         pginfo->GetSubtitle(), pginfo->GetDescription(), pginfo->GetChanID(),

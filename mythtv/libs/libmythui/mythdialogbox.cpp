@@ -84,10 +84,8 @@ void MythMenu::AddItem(MythMenuItem *item, bool selected, MythMenu *subMenu)
 
 void MythMenu::SetSelectedByTitle(const QString& title)
 {
-    QList<MythMenuItem*>::iterator it = m_menuItems.begin();
-    for ( ; it < m_menuItems.end(); ++it)
+    foreach (auto & item, m_menuItems)
     {
-        MythMenuItem *item = (*it);
         if (!item)
             continue;
 
@@ -101,10 +99,8 @@ void MythMenu::SetSelectedByTitle(const QString& title)
 
 void MythMenu::SetSelectedByData(const QVariant& data)
 {
-    QList<MythMenuItem*>::iterator it = m_menuItems.begin();
-    for ( ; it < m_menuItems.end(); ++it)
+    foreach (auto & item, m_menuItems)
     {
-        MythMenuItem *item = (*it);
         if (!item)
             continue;
 
@@ -195,7 +191,7 @@ void MythDialogBox::updateMenu(void)
     {
         MythMenuItem *menuItem = m_currentMenu->m_menuItems.at(x);
         auto *button = new MythUIButtonListItem(m_buttonList, menuItem->m_text);
-        button->SetData(qVariantFromValue(menuItem));
+        button->SetData(QVariant::fromValue(menuItem));
         button->setDrawArrow((menuItem->m_subMenu != nullptr));
 
         if (m_currentMenu->m_selectedItem == x)
@@ -318,7 +314,7 @@ void MythDialogBox::AddButton(const QString &title, const char *slot,
     m_useSlots = true;
 
     if (slot)
-        button->SetData(qVariantFromValue(slot));
+        button->SetData(QVariant::fromValue(slot));
     button->setDrawArrow(newMenu);
 
     if (setCurrent)

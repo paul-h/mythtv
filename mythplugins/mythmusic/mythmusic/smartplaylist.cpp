@@ -572,7 +572,7 @@ void SmartPlaylistEditor::addCriteria(void)
     SmartPLCriteriaRow *row = new SmartPLCriteriaRow();
     m_criteriaRows.append(row);
 
-    MythUIButtonListItem *item = new MythUIButtonListItem(m_criteriaList, row->toString(), qVariantFromValue(row));
+    MythUIButtonListItem *item = new MythUIButtonListItem(m_criteriaList, row->toString(), QVariant::fromValue(row));
 
     m_criteriaList->SetItemCurrent(item);
 
@@ -607,7 +607,7 @@ void SmartPlaylistEditor::criteriaChanged()
         m_criteriaRows.append(m_tempCriteriaRow);
 
         item = new MythUIButtonListItem(m_criteriaList, m_tempCriteriaRow->toString(),
-                                        qVariantFromValue(m_tempCriteriaRow));
+                                        QVariant::fromValue(m_tempCriteriaRow));
 
         m_criteriaList->SetItemCurrent(item);
 
@@ -779,8 +779,8 @@ void SmartPlaylistEditor::saveClicked(void)
     }
 
     // save smartplaylist items
-    for (int x = 0; x < m_criteriaRows.size(); x++)
-        m_criteriaRows[x]->saveToDatabase(ID);
+    foreach (auto & row, m_criteriaRows)
+        row->saveToDatabase(ID);
 
     emit smartPLChanged(category, name);
 
@@ -877,7 +877,7 @@ void SmartPlaylistEditor::loadFromDatabase(const QString& category, const QStrin
             auto *row = new SmartPLCriteriaRow(Field, Operator, Value1, Value2);
             m_criteriaRows.append(row);
 
-            new MythUIButtonListItem(m_criteriaList, row->toString(), qVariantFromValue(row));
+            new MythUIButtonListItem(m_criteriaList, row->toString(), QVariant::fromValue(row));
         }
     }
     else
@@ -984,9 +984,9 @@ QString SmartPlaylistEditor::getWhereClause(void)
     bool bFirst = true;
     QString sql = "WHERE ";
 
-    for (int x = 0; x <  m_criteriaRows.size(); x++)
+    foreach (auto & row, m_criteriaRows)
     {
-        QString criteria = m_criteriaRows[x]->getSQL();
+        QString criteria = row->getSQL();
         if (criteria.isEmpty())
             continue;
 
@@ -1741,7 +1741,7 @@ void SmartPLResultViewer::setSQL(const QString& sql)
                 InfoMap metadataMap;
                 mdata->toMap(metadataMap);
 
-                auto *item = new MythUIButtonListItem(m_trackList, "", qVariantFromValue(mdata));
+                auto *item = new MythUIButtonListItem(m_trackList, "", QVariant::fromValue(mdata));
                 item->SetTextFromMap(metadataMap);
             }
         }

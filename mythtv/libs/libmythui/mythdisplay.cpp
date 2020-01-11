@@ -117,35 +117,48 @@ MythDisplay* MythDisplay::AcquireRelease(bool Acquire)
 QStringList MythDisplay::GetDescription(void)
 {
     QStringList result;
+    bool spanall = false;
     int screencount = MythDisplay::GetScreenCount();
     MythDisplay* display = MythDisplay::AcquireRelease();
 
     if (MythDisplay::SpanAllScreens() && screencount > 1)
     {
+        spanall = true;
         result.append(tr("Spanning %1 screens").arg(screencount));
         result.append(tr("Total bounds") + QString("\t: %1x%2")
                       .arg(display->GetScreenBounds().width())
                       .arg(display->GetScreenBounds().height()));
-        MythDisplay::AcquireRelease(false);
-        return result;
+        result.append("");
     }
 
-    QScreen *screen = display->GetCurrentScreen();
-    if (screen)
+    QScreen *current = display->GetCurrentScreen();
+    QList<QScreen*> screens = qGuiApp->screens();
+    bool first = true;
+    for (auto it = screens.cbegin(); it != screens.cend(); ++it)
     {
-        result.append(tr("Screen %1 %2:").arg(screen->name())
+        if (!first)
+            result.append("");
+        first = false;
 #if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
-                .arg(QString("(%1)").arg(screen->manufacturer())));
+        QString id = QString("(%1)").arg((*it)->manufacturer());
 #else
-                .arg(""));
+        QString id;
 #endif
+        if ((*it) == current && !spanall)
+            result.append(tr("Current screen %1 %2:").arg((*it)->name()).arg(id));
+        else
+            result.append(tr("Screen %1 %2:").arg((*it)->name()).arg(id));
+        result.append(tr("Size") + QString("\t\t: %1mmx%2mm")
+                .arg((*it)->physicalSize().width()).arg((*it)->physicalSize().height()));
+        if ((*it) == current && !spanall)
+        {
+            result.append(tr("Aspect ratio") + QString("\t: %1")
+                    .arg(display->GetAspectRatio(), 0, 'f', 3));
+            result.append(tr("Current mode") + QString("\t: %1x%2@%3Hz")
+                          .arg(display->GetResolution().width()).arg(display->GetResolution().height())
+                          .arg(display->GetRefreshRate(), 0, 'f', 2));
+        }
     }
-    result.append(tr("Size and aspect") + QString("\t: %1mmx%2mm %3")
-            .arg(display->GetPhysicalSize().width()).arg(display->GetPhysicalSize().height())
-            .arg(display->GetAspectRatio(), 0, 'f', 1));
-    result.append(tr("Current mode") + QString("\t: %1x%2@%3Hz")
-                  .arg(display->GetResolution().width()).arg(display->GetResolution().height())
-                  .arg(display->GetRefreshRate(), 0, 'f', 2));
     MythDisplay::AcquireRelease(false);
     return result;
 }
@@ -170,30 +183,49 @@ MythDisplay::~MythDisplay()
     LOG(VB_GENERAL, LOG_INFO, LOC + "Deleting");
 }
 
+/*! \brief Set the QWidget and QWindow in use.
+ *
+ * Certain platform implementations need to know the QWidget and/or QWindow
+ * to access display information. We also connect to the QWindow::screenChanged
+ * signal so that we are informed when the window has been moved into a new screen.
+ *
+ * \note We typically call this twice; once before MythMainWindow is shown and
+ * once after. This is because we need to try and ensure we are using the correct
+ * screen before showing the window, and hence have the correct geometry etc, and
+ * once after because the QWindow is sometimes not created until after the widget
+ * is shown - and we cannot connect the screenChanged signal until we know the window
+ * handle.
+*/
 void MythDisplay::SetWidget(QWidget *MainWindow)
 {
-    QWidget* old = m_widget;
+    QWidget* oldwidget = m_widget;
     m_widget = MainWindow;
-
     if (!m_modeComplete)
         UpdateCurrentMode();
     if (!m_widget)
         return;
-    if (m_widget != old)
-        LOG(VB_GENERAL, LOG_INFO, LOC + "New main widget");
 
-    QWindow* window = m_widget->windowHandle();
-    if (window)
+    QWindow* oldwindow = m_window;
+    if (m_widget)
+        m_window = m_widget->windowHandle();
+
+    if (m_widget != oldwidget)
+        LOG(VB_GENERAL, LOG_INFO, LOC + "Have main widget");
+
+    if (m_window && (m_window != oldwindow))
     {
-        connect(window, &QWindow::screenChanged, this, &MythDisplay::ScreenChanged, Qt::UniqueConnection);
+        LOG(VB_GENERAL, LOG_INFO, LOC + "Have main window");
+
+        connect(m_window, &QWindow::screenChanged, this, &MythDisplay::ScreenChanged, Qt::UniqueConnection);
         QScreen *desired = GetDesiredScreen();
         // If we have changed the video mode for the old screen then reset
         // it to the default/desktop mode
         SwitchToDesktop();
         // Ensure we completely re-initialise when the new screen is set
         m_initialised = false;
-        DebugScreen(desired, "Moving to");
-        window->setScreen(desired);
+        if (desired != m_screen)
+            DebugScreen(desired, "Moving to");
+        m_window->setScreen(desired);
         // WaitForNewScreen doesn't work as intended. It successfully filters
         // out unwanted screenChanged signals after moving screens - but always
         //times out. This just delays startup by 500ms - so ignore on startup as it isn't needed.
@@ -203,8 +235,6 @@ void MythDisplay::SetWidget(QWidget *MainWindow)
         InitScreenBounds();
         return;
     }
-
-    LOG(VB_GENERAL, LOG_WARNING, LOC + "Widget does not have a window!");
 }
 
 int MythDisplay::GetScreenCount(void)
@@ -680,7 +710,7 @@ std::vector<double> MythDisplay::GetRefreshRates(QSize Size)
     return modes[static_cast<size_t>(match)].RefreshRates();
 }
 
-bool MythDisplay::SwitchToVideoMode(QSize, double)
+bool MythDisplay::SwitchToVideoMode(QSize /*Size*/, double /*Framerate*/)
 {
     return false;
 }
@@ -878,13 +908,11 @@ void MythDisplay::DebugModes(void) const
     if (VERBOSE_LEVEL_CHECK(VB_PLAYBACK, LOG_INFO))
     {
         LOG(VB_PLAYBACK, LOG_INFO, LOC + "Available modes:");
-        auto it = m_videoModes.crbegin();
-        for ( ; it != m_videoModes.crend(); ++it)
+        for (auto it = m_videoModes.crbegin(); it != m_videoModes.crend(); ++it)
         {
             auto rates = (*it).RefreshRates();
             QStringList rateslist;
-            auto it2 = rates.crbegin();
-            for ( ; it2 != rates.crend(); ++it2)
+            for (auto it2 = rates.crbegin(); it2 != rates.crend(); ++it2)
                 rateslist.append(QString("%1").arg(*it2, 2, 'f', 2, '0'));
             LOG(VB_PLAYBACK, LOG_INFO, QString("%1x%2\t%3")
                 .arg((*it).Width()).arg((*it).Height()).arg(rateslist.join("\t")));

@@ -14,7 +14,6 @@ using namespace std;
 #include <QWaitCondition>
 #include <QStringList>
 #include <QDateTime>
-#include <QTime>
 #include <QObject>
 #include <QRegExp>
 #include <QString>
@@ -386,7 +385,7 @@ class MTV_PUBLIC TV : public QObject, public MenuItemDisplayer
     bool HandleJumpToProgramAction(PlayerContext *ctx,
                                    const QStringList   &actions);
     bool SeekHandleAction(PlayerContext *actx, const QStringList &actions,
-                          const bool isDVD);
+                          bool isDVD);
     bool TimeStretchHandleAction(PlayerContext *ctx,
                                  const QStringList &actions);
     static bool DiscMenuHandleAction(PlayerContext *ctx, const QStringList &actions);
@@ -421,7 +420,7 @@ class MTV_PUBLIC TV : public QObject, public MenuItemDisplayer
     void DoEditSchedule(int editType = kScheduleProgramGuide);
     QString GetRecordingGroup(int player_idx) const;
     void ChangeVolume(PlayerContext *ctx, bool up, int newvolume = -1);
-    void ToggleMute(PlayerContext *ctx, const bool muteIndividualChannels = false);
+    void ToggleMute(PlayerContext *ctx, bool muteIndividualChannels = false);
     void UpdateChannelList(int groupID);
 
     // Lock handling
@@ -799,7 +798,7 @@ class MTV_PUBLIC TV : public QObject, public MenuItemDisplayer
 
     uint              m_vbimode {VBIMode::None};
 
-    QTime             m_ctorTime;
+    QElapsedTimer     m_ctorTime;
     uint              m_switchToInputId {0};
 
     QMutex            m_initFromDBLock;
@@ -879,7 +878,7 @@ class MTV_PUBLIC TV : public QObject, public MenuItemDisplayer
     QList<QKeyEvent> m_screenPressKeyMapLiveTV;
 
     // Channel changing timeout notification variables
-    QTime     m_lockTimer;
+    QElapsedTimer m_lockTimer;
     bool      m_lockTimerOn {false};
     QDateTime m_lastLockSeenTime;
 
@@ -931,8 +930,6 @@ class MTV_PUBLIC TV : public QObject, public MenuItemDisplayer
     bool         m_isEmbedded {false};       ///< are we currently embedded
     bool         m_ignoreKeyPresses {false}; ///< should we ignore keypresses
     vector<bool> m_savedPause;      ///< saved pause state before embedding
-    bool         m_suspended {false};///< are we currently suspended
-    vector<bool> m_suspendedPause;  ///< saved pause state before suspending
 
     // Channel group stuff
     /// \brief Lock necessary when modifying channel group variables.
@@ -982,7 +979,7 @@ class MTV_PUBLIC TV : public QObject, public MenuItemDisplayer
     // kTrackTypeCount, and it unnecessarily includes
     // kTrackTypeUnknown.
     QStringList m_tvmTracks[kTrackTypeCount];
-    int         m_tvmCurtrack[kTrackTypeCount];
+    int         m_tvmCurtrack[kTrackTypeCount] {};
 
     // Audio
     bool    m_tvmAvsync {true};

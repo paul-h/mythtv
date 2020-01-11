@@ -78,11 +78,10 @@ desc_list_t MPEGDescriptor::ParseOnlyInclude(
 const unsigned char *MPEGDescriptor::Find(const desc_list_t &parsed,
                                           uint desc_tag)
 {
-    auto it = parsed.cbegin();
-    for (; it != parsed.cend(); ++it)
+    for (auto item : parsed)
     {
-        if ((*it)[0] == desc_tag)
-            return *it;
+        if (item[0] == desc_tag)
+            return item;
     }
     return nullptr;
 }
@@ -90,11 +89,10 @@ const unsigned char *MPEGDescriptor::Find(const desc_list_t &parsed,
 desc_list_t MPEGDescriptor::FindAll(const desc_list_t &parsed, uint desc_tag)
 {
     desc_list_t tmp;
-    auto it = parsed.cbegin();
-    for (; it != parsed.cend(); ++it)
+    for (auto item : parsed)
     {
-        if ((*it)[0] == desc_tag)
-            tmp.push_back(*it);
+        if (item[0] == desc_tag)
+            tmp.push_back(item);
     }
     return tmp;
 }
@@ -102,9 +100,8 @@ desc_list_t MPEGDescriptor::FindAll(const desc_list_t &parsed, uint desc_tag)
 static uint maxPriority(const QMap<uint,uint> &langPrefs)
 {
     uint max_pri = 0;
-    QMap<uint,uint>::const_iterator it = langPrefs.begin();
-    for (; it != langPrefs.end(); ++it)
-        max_pri = max(max_pri, *it);
+    for (uint pref : langPrefs)
+        max_pri = max(max_pri, pref);
     return max_pri;
 }
 
@@ -197,14 +194,14 @@ desc_list_t MPEGDescriptor::FindBestMatches(
     if (match_pri == UINT_MAX)
         return tmp;
 
-    for (size_t j = 0; j < parsed.size(); j++)
+    for (auto j : parsed)
     {
         if ((DescriptorID::extended_event == desc_tag) &&
-            (DescriptorID::extended_event == parsed[j][0]))
+            (DescriptorID::extended_event == j[0]))
         {
-            ExtendedEventDescriptor eed(parsed[j]);
+            ExtendedEventDescriptor eed(j);
             if (eed.IsValid() && (eed.LanguageKey() == match_key))
-                tmp.push_back(parsed[j]);
+                tmp.push_back(j);
         }
     }
 
@@ -374,6 +371,9 @@ QString MPEGDescriptor::DescriptorTagString(void) const
             break;
         case PrivateDescriptorID::premiere_content_transmission: /* 0xF2 */
             comma_list_append(str, "Possibly Premiere DE Content Transmission");
+            break;
+        case PrivateDescriptorID::opentv_channel_list: /* 0xB1 */
+            comma_list_append(str, "Possibly DVB OpenTV Channel List");
             break;
     }
 
@@ -560,6 +560,11 @@ QString MPEGDescriptor::toStringPD(uint priv_dsid) const
     {
         SET_STRING(ComponentNameDescriptor);
     }
+    // OpenTV descriptors
+    else if (PrivateDescriptorID::opentv_channel_list == DescriptorTag())
+    {
+        SET_STRING(OpenTVChannelListDescriptor);
+    }
     // POSSIBLY UNSAFE ! -- end
     else
     {
@@ -606,7 +611,7 @@ QString MPEGDescriptor::toStringXML(uint level) const
 // Dump the descriptor in the same format as hexdump -C
 QString MPEGDescriptor::hexdump(void) const
 {
-    uint i;
+    uint i = 0;
     QString str;
     QString hex;
     QString prt;

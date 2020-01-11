@@ -166,8 +166,8 @@ public:
     // flush the internal buffers
     void flush() {
         for (unsigned k=0;k<m_n;k++) {
-            for (unsigned c=0;c<6;c++)
-                m_outbuf[c][k] = 0;
+            for (auto & c : m_outbuf)
+                c[k] = 0;
             m_inbuf[0][k] = 0;
             m_inbuf[1][k] = 0;
         }
@@ -547,17 +547,19 @@ private:
     std::vector<float> m_inbuf[2];       // the sliding input buffers
     std::vector<float> m_outbuf[6];      // the sliding output buffers
     // coefficients
-    float m_surroundHigh,m_surroundLow;  // high and low surround mixing coefficient (e.g. 0.8165/0.5774)
-    float m_surroundBalance;             // the xfs balance that follows from the coeffs
-    float m_surroundLevel;               // gain for the surround channels (follows from the coeffs
-    float m_phaseOffsetL, m_phaseOffsetR;// phase shifts to be applied to the rear channels
-    float m_frontSeparation;             // front stereo separation
-    float m_rearSeparation;              // rear stereo separation
-    bool m_linearSteering;               // whether the steering should be linear or not
+    float m_surroundHigh    {0.0F};      // high surround mixing coefficient (e.g. 0.8165/0.5774)
+    float m_surroundLow     {0.0F};      // low surround mixing coefficient (e.g. 0.8165/0.5774)
+    float m_surroundBalance {0.0F};      // the xfs balance that follows from the coeffs
+    float m_surroundLevel   {0.0F};      // gain for the surround channels (follows from the coeffs
+    float m_phaseOffsetL    {0.0F};      // phase shifts to be applied to the rear channels
+    float m_phaseOffsetR    {0.0F};      // phase shifts to be applied to the rear channels
+    float m_frontSeparation {0.0F};      // front stereo separation
+    float m_rearSeparation  {0.0F};      // rear stereo separation
+    bool  m_linearSteering  {false};     // whether the steering should be linear or not
     cfloat m_a,m_b,m_c,m_d,m_e,m_f,m_g,m_h; // coefficients for the linear steering
     int m_currentBuf;                    // specifies which buffer is 2nd half of input sliding buffer
-    float * m_inbufs[2];                 // for passing back to driver
-    float * m_outbufs[6];                // for passing back to driver
+    float * m_inbufs[2]  {};             // for passing back to driver
+    float * m_outbufs[6] {};             // for passing back to driver
 
     friend class fsurround_decoder;
 };

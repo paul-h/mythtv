@@ -62,12 +62,8 @@ bool TeletextScreen::Create(void)
 void TeletextScreen::ClearScreen(void)
 {
     DeleteAllChildren();
-    QHash<int, QImage*>::iterator it = m_rowImages.begin();
-    for (; it != m_rowImages.end(); ++it)
-    {
-        if (*it)
-            delete (*it);
-    }
+    foreach (auto & img, m_rowImages)
+        delete img;
     m_rowImages.clear();
     SetRedraw();
 }
@@ -323,19 +319,7 @@ void TeletextScreen::SetBackgroundColor(int ttcolor)
 
 void TeletextScreen::DrawLine(const uint8_t *page, uint row, int lang)
 {
-    bool mosaic;
-    bool conceal;
-    bool seperation;
-    bool flash;
-    bool doubleheight;
-    bool blink;
-    bool hold;
-    bool endbox;
-    bool startbox;
-    bool withinbox;
-
     unsigned char last_ch = ' ';
-    unsigned char ch;
 
     uint fgcolor    = kTTColorWhite;
     uint bgcolor    = kTTColorBlack;
@@ -347,7 +331,7 @@ void TeletextScreen::DrawLine(const uint8_t *page, uint row, int lang)
         bool isBlank = true;
         for (uint i = (row == 1 ? 8 : 0); i < (uint) kTeletextColumns; i++)
         {
-            ch = page[i] & 0x7F;
+            unsigned char ch = page[i] & 0x7F;
             if (ch != ' ')
             {
                 isBlank = false;
@@ -362,16 +346,16 @@ void TeletextScreen::DrawLine(const uint8_t *page, uint row, int lang)
     SetForegroundColor(fgcolor);
     SetBackgroundColor(bgcolor);
 
-    mosaic = false;
-    seperation = false;
-    conceal = false;
-    flash = false;
-    doubleheight = false;
-    blink = false;
-    hold = false;
-    endbox = false;
-    startbox = false;
-    withinbox = false;
+    bool mosaic = false;
+    bool seperation = false;
+    bool conceal = false;
+    bool flash = false;
+    bool doubleheight = false;
+    bool blink = false;
+    bool hold = false;
+    bool endbox = false;
+    bool startbox = false;
+    bool withinbox = false;
     uint flof_link_count = 0;
     uint old_bgcolor = bgcolor;
 
@@ -402,7 +386,7 @@ void TeletextScreen::DrawLine(const uint8_t *page, uint row, int lang)
         SetForegroundColor(fgcolor);
         SetBackgroundColor(bgcolor);
 
-        ch = page[x] & 0x7F;
+        unsigned char ch = page[x] & 0x7F;
         switch (ch)
         {
             case 0x00: case 0x01: case 0x02: case 0x03:

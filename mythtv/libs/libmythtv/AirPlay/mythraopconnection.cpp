@@ -235,9 +235,9 @@ void MythRAOPConnection::udpDataReady(QByteArray buf, const QHostAddress& /*peer
     if (!m_audio || !m_codec || !m_codecContext)
         return;
 
-    uint8_t  type;
-    uint16_t seq;
-    uint64_t timestamp;
+    uint8_t  type = 0;
+    uint16_t seq = 0;
+    uint64_t timestamp = 0;
 
     if (!GetPacketType(buf, type, seq, timestamp))
     {
@@ -632,7 +632,7 @@ uint32_t MythRAOPConnection::decodeAudioPacket(uint8_t type,
     auto *samples = (uint8_t *)av_mallocz(AudioOutput::kMaxSizeBuffer);
     while (tmp_pkt.size > 0)
     {
-        int data_size;
+        int data_size = 0;
         int ret = AudioOutputUtil::DecodeAudio(ctx, samples,
                                                data_size, &tmp_pkt);
         if (ret < 0)
@@ -715,10 +715,8 @@ void MythRAOPConnection::ProcessAudio()
             }
             m_lastSequence++;
 
-            QList<AudioData>::iterator it = frames.data->begin();
-            for (; it != frames.data->end(); ++it)
+            foreach (auto & data, *frames.data)
             {
-                AudioData *data = &(*it);
                 int offset = 0;
                 int framecnt = 0;
 
@@ -727,8 +725,8 @@ void MythRAOPConnection::ProcessAudio()
                         // calculate how many frames we have to drop to catch up
                     offset = (m_adjustedLatency * m_frameRate / 1000) *
                         m_audio->GetBytesPerFrame();
-                    if (offset > data->length)
-                        offset = data->length;
+                    if (offset > data.length)
+                        offset = data.length;
                     framecnt = offset / m_audio->GetBytesPerFrame();
                     m_adjustedLatency -= framesToMs(framecnt+1);
                     LOG(VB_PLAYBACK, LOG_DEBUG, LOC +
@@ -737,8 +735,8 @@ void MythRAOPConnection::ProcessAudio()
                         .arg(framecnt).arg(m_adjustedLatency));
                     timestamp += framesToMs(framecnt);
                 }
-                m_audio->AddData((char *)data->data + offset,
-                                 data->length - offset,
+                m_audio->AddData((char *)data.data + offset,
+                                 data.length - offset,
                                  timestamp, framecnt);
                 timestamp += m_audio->LengthLastData();
             }
@@ -769,11 +767,8 @@ int MythRAOPConnection::ExpireAudio(uint64_t timestamp)
             AudioPacket frames = packet_it.value();
             if (frames.data)
             {
-                QList<AudioData>::iterator it = frames.data->begin();
-                for (; it != frames.data->end(); ++it)
-                {
-                    av_free(it->data);
-                }
+                foreach (auto & data, *frames.data)
+                    av_free(data.data);
                 delete frames.data;
             }
             m_audioQueue.remove(packet_it.key());
@@ -1201,8 +1196,7 @@ void MythRAOPConnection::ProcessRequest(const QStringList &header,
             if (m_eventServer)
             {
                 // Should never get here, but just in case
-                QTcpSocket *client;
-                foreach (client, m_eventClients)
+                foreach (auto client, m_eventClients)
                 {
                     client->disconnect();
                     client->abort();
@@ -1782,7 +1776,7 @@ void MythRAOPConnection::SendNotification(bool update)
     int position =
         (m_progressCurrent-m_progressStart) / m_frameRate;
 
-    MythNotification *n;
+    MythNotification *n = nullptr;
 
     if (!update || !m_firstSend)
     {

@@ -132,7 +132,7 @@ void HDHRStreamHandler::run(void)
     LOG(VB_RECORD, LOG_INFO, LOC + "RunTS(): begin");
 
     int remainder = 0;
-    QTime last_update;
+    QElapsedTimer last_update;
     while (m_runningDesired && !m_bError)
     {
         int elapsed = !last_update.isValid() ? -1 : last_update.elapsed();
@@ -149,7 +149,7 @@ void HDHRStreamHandler::run(void)
         read_size /= VIDEO_DATA_PACKET_SIZE;
         read_size *= VIDEO_DATA_PACKET_SIZE;
 
-        size_t data_length;
+        size_t data_length = 0;
         unsigned char *data_buffer = hdhomerun_device_stream_recv(
             m_hdhomerunDevice, read_size, &data_length);
 
@@ -169,8 +169,7 @@ void HDHRStreamHandler::run(void)
             continue;
         }
 
-        StreamDataList::const_iterator sit = m_streamDataList.begin();
-        for (; sit != m_streamDataList.end(); ++sit)
+        for (auto sit = m_streamDataList.cbegin(); sit != m_streamDataList.cend(); ++sit)
             remainder = sit.key()->ProcessData(data_buffer, data_length);
 
         WriteMPTS(data_buffer, data_length - remainder);
@@ -194,7 +193,7 @@ void HDHRStreamHandler::run(void)
 
     if (VERBOSE_LEVEL_CHECK(VB_RECORD, LOG_INFO))
     {
-        struct hdhomerun_video_sock_t* vs;
+        struct hdhomerun_video_sock_t* vs = nullptr;
         struct hdhomerun_video_stats_t stats {};
         vs = hdhomerun_device_get_video_sock(m_hdhomerunDevice);
         if (vs)
@@ -254,8 +253,7 @@ bool HDHRStreamHandler::UpdateFilters(void)
     vector<uint> range_min;
     vector<uint> range_max;
 
-    PIDInfoMap::const_iterator it = m_pidInfo.begin();
-    for (; it != m_pidInfo.end(); ++it)
+    for (auto it = m_pidInfo.cbegin(); it != m_pidInfo.cend(); ++it)
     {
         range_min.push_back(it.key());
         PIDInfoMap::const_iterator eit = it;
@@ -426,7 +424,8 @@ QString HDHRStreamHandler::TunerGet(
             m_hdhomerunDevice, valname.toLocal8Bit().constData(),
             &value, &error) < 0)
     {
-        LOG(VB_GENERAL, LOG_ERR, LOC + "Get request failed" + ENO);
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Get %1 request failed").arg(valname) + ENO);
         return QString();
     }
 
@@ -465,7 +464,9 @@ QString HDHRStreamHandler::TunerSet(
             m_hdhomerunDevice, valname.toLocal8Bit().constData(),
             val.toLocal8Bit().constData(), &value, &error) < 0)
     {
-        LOG(VB_GENERAL, LOG_ERR, LOC + "Set request failed" + ENO);
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Set %1 to '%2' request failed").arg(valname).arg(val) +
+            ENO);
 
         return QString();
     }

@@ -104,31 +104,31 @@ bool StatusBox::Create()
 void StatusBox::Init()
 {
     auto *item = new MythUIButtonListItem(m_categoryList, tr("Listings Status"),
-                            qVariantFromValue((void*)SLOT(doListingsStatus())));
+                            QVariant::fromValue((void*)SLOT(doListingsStatus())));
     item->DisplayState("listings", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Schedule Status"),
-                            qVariantFromValue((void*)SLOT(doScheduleStatus())));
+                            QVariant::fromValue((void*)SLOT(doScheduleStatus())));
     item->DisplayState("schedule", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Input Status"),
-                            qVariantFromValue((void*)SLOT(doTunerStatus())));
+                            QVariant::fromValue((void*)SLOT(doTunerStatus())));
     item->DisplayState("tuner", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Job Queue"),
-                            qVariantFromValue((void*)SLOT(doJobQueueStatus())));
+                            QVariant::fromValue((void*)SLOT(doJobQueueStatus())));
     item->DisplayState("jobqueue", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Display"),
-                            qVariantFromValue((void*)SLOT(doDisplayStatus())));
+                            QVariant::fromValue((void*)SLOT(doDisplayStatus())));
     item->DisplayState("display", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Machine Status"),
-                            qVariantFromValue((void*)SLOT(doMachineStatus())));
+                            QVariant::fromValue((void*)SLOT(doMachineStatus())));
     item->DisplayState("machine", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("AutoExpire List"),
-                            qVariantFromValue((void*)SLOT(doAutoExpireList())));
+                            QVariant::fromValue((void*)SLOT(doAutoExpireList())));
     item->DisplayState("autoexpire", "icon");
 
     int itemCurrent = gCoreContext->GetNumSetting("StatusBoxItemCurrent", 0);
@@ -164,7 +164,7 @@ void StatusBox::AddLogLine(const QString & line,
     logline.m_data = data;
 
     auto *item = new MythUIButtonListItem(m_logList, line,
-                                          qVariantFromValue(logline));
+                                          QVariant::fromValue(logline));
     if (logline.m_state.isEmpty())
         logline.m_state = "normal";
 
@@ -315,7 +315,7 @@ void StatusBox::clicked(MythUIButtonListItem *item)
 
             menuPopup->SetReturnEvent(this, "JobModify");
 
-            QVariant data = qVariantFromValue(logline.m_data);
+            QVariant data = QVariant::fromValue(logline.m_data);
 
             if (jobStatus == JOB_PAUSED)
                 menuPopup->AddButton(tr("Resume"), data);
@@ -354,18 +354,18 @@ void StatusBox::clicked(MythUIButtonListItem *item)
 
             menuPopup->SetReturnEvent(this, "AutoExpireManage");
 
-            menuPopup->AddButton(tr("Delete Now"), qVariantFromValue(rec));
+            menuPopup->AddButton(tr("Delete Now"), QVariant::fromValue(rec));
             if ((rec)->GetRecordingGroup() == "LiveTV")
             {
                 menuPopup->AddButton(tr("Move to Default group"),
-                                                       qVariantFromValue(rec));
+                                                       QVariant::fromValue(rec));
             }
             else if ((rec)->GetRecordingGroup() == "Deleted")
-                menuPopup->AddButton(tr("Undelete"), qVariantFromValue(rec));
+                menuPopup->AddButton(tr("Undelete"), QVariant::fromValue(rec));
             else
                 menuPopup->AddButton(tr("Disable AutoExpire"),
-                                                        qVariantFromValue(rec));
-            menuPopup->AddButton(tr("No Change"), qVariantFromValue(rec));
+                                                        QVariant::fromValue(rec));
+            menuPopup->AddButton(tr("No Change"), QVariant::fromValue(rec));
 
         }
     }
@@ -705,10 +705,8 @@ void StatusBox::doScheduleStatus()
     tmpstr = tr("%n matching showing(s)", "", schedList.size());
     AddLogLine(tmpstr, helpmsg);
 
-    ProgramList::const_iterator it = schedList.begin();
-    for (; it != schedList.end(); ++it)
+    for (auto s : schedList)
     {
-        const ProgramInfo *s = *it;
         const RecStatus::Type recstatus = s->GetRecordingStatus();
 
         if (statusMatch[recstatus] < 1)
@@ -799,15 +797,15 @@ void StatusBox::doTunerStatus()
 {
     struct info
     {
-        int         m_inputid;
-        bool        m_schedgroup;
+        int         m_inputid     {0};
+        bool        m_schedgroup  {false};
         QString     m_displayname;
-        int         m_errored;
-        int         m_unavailable;
-        int         m_sleeping;
-        int         m_recording;
-        int         m_livetv;
-        int         m_available;
+        int         m_errored     {0};
+        int         m_unavailable {0};
+        int         m_sleeping    {0};
+        int         m_recording   {0};
+        int         m_livetv      {0};
+        int         m_available   {0};
         QStringList m_recordings;
     };
     QMap<int, struct info> info;
@@ -904,11 +902,8 @@ void StatusBox::doTunerStatus()
         }
     }
 
-    QList<int>::iterator it = inputids.begin();
-    for ( ; it != inputids.end(); ++it)
+    foreach (int inputid, inputids)
     {
-        int inputid = *it;
-
         QStringList statuslist;
         if (info[inputid].m_errored)
             statuslist << tr("%1 errored").arg(info[inputid].m_errored);
@@ -1135,8 +1130,8 @@ static void disk_usage_with_rec_time_kb(QStringList& out, long long total,
     if (free<0)
         return;
 
-    recprof2bps_t::const_iterator it = prof2bps.begin();
-    for (; it != prof2bps.end(); ++it)
+    // NOLINTNEXTLINE(modernize-loop-convert)
+    for (auto it = prof2bps.begin(); it != prof2bps.end(); ++it)
     {
         const QString pro =
                 tail.arg(it.key()).arg((int)((float)(*it) / 1024.0F));
@@ -1456,10 +1451,9 @@ void StatusBox::doMachineStatus()
             }
         }
 
-        QStringList::iterator it = list.begin();
-        for (;it != list.end(); ++it)
+        for (auto & diskinfo : list)
         {
-            line = QString("   ") + (*it);
+            line = QString("   ") + diskinfo;
             AddLogLine(line, machineStr);
         }
     }

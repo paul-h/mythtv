@@ -351,7 +351,7 @@ class DecoderBase
 
     // Audio/Subtitle/EIA-608/EIA-708 stream selection
     bool                 m_decodeAllSubtitles      {false};
-    int                  m_currentTrack[kTrackTypeCount];
+    int                  m_currentTrack[kTrackTypeCount] {};
     sinfo_vec_t          m_tracks[kTrackTypeCount];
     StreamInfo           m_wantedTrack[kTrackTypeCount];
     StreamInfo           m_selectedTrack[(uint)kTrackTypeCount];
@@ -394,8 +394,8 @@ inline void DecoderBase::AutoSelectTracks(void)
 
 inline void DecoderBase::ResetTracks(void)
 {
-    for (uint i = 0; i < kTrackTypeCount; i++)
-        m_currentTrack[i] = -1;
+    for (int & i : m_currentTrack)
+        i = -1;
 }
 
 inline int DecoderBase::NextTrack(uint type)

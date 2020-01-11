@@ -167,10 +167,8 @@ ZMLivePlayer::~ZMLivePlayer()
     if (m_players)
     {
         QString s = "";
-        auto i = m_players->begin();
-        for (; i != m_players->end(); ++i)
+        for (auto p : *m_players)
         {
-            Player *p = *i;
             if (s != "")
                 s += ",";
             s += QString("%1").arg(p->getMonitor()->id);
@@ -247,28 +245,28 @@ void ZMLivePlayer::ShowMenu()
 
     menuPopup->SetReturnEvent(this, "mainmenu");
 
-    menuPopup->AddButton(tr("Change View"),     qVariantFromValue(QString("VIEW")));
-    menuPopup->AddButton(tr("Change Camera 1"), qVariantFromValue(QString("CAMERA1")));
+    menuPopup->AddButton(tr("Change View"),     QVariant::fromValue(QString("VIEW")));
+    menuPopup->AddButton(tr("Change Camera 1"), QVariant::fromValue(QString("CAMERA1")));
 
     if (m_monitorLayout > 1)
-        menuPopup->AddButton(tr("Change Camera 2"), qVariantFromValue(QString("CAMERA2")));
+        menuPopup->AddButton(tr("Change Camera 2"), QVariant::fromValue(QString("CAMERA2")));
 
     if (m_monitorLayout > 2)
     {
-        menuPopup->AddButton(tr("Change Camera 3"), qVariantFromValue(QString("CAMERA3")));
-        menuPopup->AddButton(tr("Change Camera 4"), qVariantFromValue(QString("CAMERA4")));
+        menuPopup->AddButton(tr("Change Camera 3"), QVariant::fromValue(QString("CAMERA3")));
+        menuPopup->AddButton(tr("Change Camera 4"), QVariant::fromValue(QString("CAMERA4")));
     }
 
     if (m_monitorLayout > 3)
     {
-        menuPopup->AddButton(tr("Change Camera 5"), qVariantFromValue(QString("CAMERA5")));
-        menuPopup->AddButton(tr("Change Camera 6"), qVariantFromValue(QString("CAMERA6")));
+        menuPopup->AddButton(tr("Change Camera 5"), QVariant::fromValue(QString("CAMERA5")));
+        menuPopup->AddButton(tr("Change Camera 6"), QVariant::fromValue(QString("CAMERA6")));
     }
 
     if (m_monitorLayout > 4)
     {
-        menuPopup->AddButton(tr("Change Camera 7"), qVariantFromValue(QString("CAMERA7")));
-        menuPopup->AddButton(tr("Change Camera 8"), qVariantFromValue(QString("CAMERA8")));
+        menuPopup->AddButton(tr("Change Camera 7"), QVariant::fromValue(QString("CAMERA7")));
+        menuPopup->AddButton(tr("Change Camera 8"), QVariant::fromValue(QString("CAMERA8")));
     }
 }
 
@@ -351,9 +349,8 @@ void ZMLivePlayer::updateFrame()
 
     // get a list of monitor id's that need updating
     QList<int> monList;
-    for (auto i = m_players->begin(); i != m_players->end(); ++i)
+    for (auto p : *m_players)
     {
-        Player *p = *i;
         if (!monList.contains(p->getMonitor()->id))
             monList.append(p->getMonitor()->id);
     }
@@ -366,9 +363,8 @@ void ZMLivePlayer::updateFrame()
         if (frameSize > 0 && !status.startsWith("ERROR"))
         {
             // update each player that is displaying this monitor
-            for (auto it = m_players->begin(); it != m_players->end(); ++it)
+            for (auto p : *m_players)
             {
-                Player *p = *it;
                 if (p->getMonitor()->id == monList[x])
                 {
                     if (p->getMonitor()->status != status)

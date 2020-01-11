@@ -22,7 +22,6 @@ using namespace std;
 
 class MPEGStreamData;
 class TSPacket;
-class QTime;
 class StreamID;
 
 class DTVRecorder :
@@ -133,7 +132,7 @@ class DTVRecorder :
     QString                  m_recordingType              {"all"};
 
     // used for scanning pes headers for keyframes
-    QTime                    m_audioTimer;
+    QElapsedTimer            m_audioTimer;
     uint32_t                 m_startCode                  {0xffffffff};
     int                      m_firstKeyframe              {-1};
     unsigned long long       m_lastGopSeen                {0};
@@ -187,8 +186,8 @@ class DTVRecorder :
     int                      m_minimumRecordingQuality    {95};
     bool                     m_use_pts                    {false}; // vs use dts
     uint64_t                 m_tsCount[256]               {0};
-    int64_t                  m_tsLast[256];
-    int64_t                  m_tsFirst[256];
+    int64_t                  m_tsLast[256]                {};
+    int64_t                  m_tsFirst[256]               {};
     QDateTime                m_tsFirstDt[256];
     mutable QAtomicInt       m_packetCount                {0};
     mutable QAtomicInt       m_continuityErrorCount       {0};

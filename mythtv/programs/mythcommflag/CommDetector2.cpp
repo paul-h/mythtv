@@ -166,18 +166,16 @@ long long processFrame(FrameAnalyzerItem &pass,
 
 int passFinished(FrameAnalyzerItem &pass, long long nframes, bool final)
 {
-    auto it = pass.begin();
-    for (; it != pass.end(); ++it)
-        (void)(*it)->finished(nframes, final);
+    for (auto & pas : pass)
+        (void)pas->finished(nframes, final);
 
     return 0;
 }
 
 int passReportTime(const FrameAnalyzerItem &pass)
 {
-    auto it = pass.cbegin();
-    for (; it != pass.cend(); ++it)
-        (void)(*it)->reportTime();
+    for (auto pas : pass)
+        (void)pas->reportTime();
 
     return 0;
 }
@@ -526,7 +524,7 @@ bool CommDetector2::go(void)
 
     m_player->EnableSubtitles(false);
 
-    QTime totalFlagTime;
+    QElapsedTimer totalFlagTime;
     totalFlagTime.start();
 
     /* If still recording, estimate the eventual total number of frames. */
@@ -570,8 +568,8 @@ bool CommDetector2::go(void)
         long long nextFrame = -1;
         m_currentFrameNumber = 0;
         long long lastLoggedFrame = m_currentFrameNumber;
-        QTime passTime;
-        QTime clock;
+        QElapsedTimer passTime;
+        QElapsedTimer clock;
         struct timeval getframetime {};
 
         m_player->ResetTotalDuration();
@@ -738,16 +736,15 @@ void CommDetector2::GetCommercialBreakList(frm_dir_map_t &marks)
 {
     if (!m_finished)
     {
-        for (auto pass = m_frameAnalyzers.begin();
-             pass != m_frameAnalyzers.end(); ++pass)
+        for (auto & analyzer : m_frameAnalyzers)
         {
-            if (*pass == *m_currentPass &&
+            if (analyzer == *m_currentPass &&
                 passFinished(m_finishedAnalyzers, m_currentFrameNumber + 1, false))
             {
                 return;
             }
 
-            if (passFinished(*pass, m_currentFrameNumber + 1, false))
+            if (passFinished(analyzer, m_currentFrameNumber + 1, false))
                 return;
         }
     }

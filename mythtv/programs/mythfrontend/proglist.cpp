@@ -613,7 +613,7 @@ void ProgLister::ShowDeleteRuleMenu(void)
         popupStack, message, true);
 
     okPopup->SetReturnEvent(this, "deleterule");
-    okPopup->SetData(qVariantFromValue(record));
+    okPopup->SetData(QVariant::fromValue(record));
 
     if (okPopup->Create())
         popupStack->AddScreen(okPopup);
@@ -733,11 +733,11 @@ void ProgLister::FillViewList(const QString &view)
             0, true, "channum, chanid");
         ChannelUtil::SortChannels(channels, m_channelOrdering, true);
 
-        for (size_t i = 0; i < channels.size(); ++i)
+        for (auto & channel : channels)
         {
-            QString chantext = channels[i].GetFormatted(ChannelInfo::kChannelShort);
+            QString chantext = channel.GetFormatted(ChannelInfo::kChannelShort);
 
-            m_viewList.push_back(QString::number(channels[i].m_chanId));
+            m_viewList.push_back(QString::number(channel.m_chanId));
             m_viewTextList.push_back(chantext);
         }
 
@@ -1541,9 +1541,8 @@ void ProgLister::HandleVisible(MythUIButtonListItem *item)
 
 void ProgLister::UpdateButtonList(void)
 {
-    ProgramList::const_iterator it = m_itemList.begin();
-    for (; it != m_itemList.end(); ++it)
-        new MythUIButtonListItem(m_progList, "", qVariantFromValue(*it));
+    for (auto it : m_itemList)
+        new MythUIButtonListItem(m_progList, "", QVariant::fromValue(it));
     m_progList->LoadInBackground();
 
     if (m_positionText)

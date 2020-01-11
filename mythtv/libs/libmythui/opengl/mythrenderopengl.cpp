@@ -1,5 +1,6 @@
 // Std
 #include <algorithm>
+#include <cmath>
 using std::min;
 
 // Qt
@@ -363,9 +364,9 @@ bool MythRenderOpenGL::Init(void)
     // Other Tile Based Immediate Mode Rendering GPUS - ARM Mali, Qualcomm Adreno
     static const QByteArray kTiled[3] = { "videocore", "vc4", "v3d" };
     auto renderer = QByteArray(reinterpret_cast<const char*>(glGetString(GL_RENDERER))).toLower();
-    for (int i = 0 ; i < 3; ++i)
+    for (const auto & name : kTiled)
     {
-        if (renderer.contains(kTiled[i]))
+        if (renderer.contains(name))
         {
             m_extraFeatures |= kGLTiled;
             break;
@@ -514,10 +515,12 @@ void MythRenderOpenGL::SetWidget(QWidget *Widget)
         return;
     }
 
+#ifdef ANDROID
     // Ensure surface type is always OpenGL
     m_window->setSurfaceType(QWindow::OpenGLSurface);
     if (native && native->windowHandle())
         native->windowHandle()->setSurfaceType(QWindow::OpenGLSurface);
+#endif
 
     if (!create())
         LOG(VB_GENERAL, LOG_CRIT, LOC + "Failed to create OpenGLContext!");
@@ -696,7 +699,7 @@ QOpenGLFramebufferObject* MythRenderOpenGL::CreateFramebuffer(QSize &Size, GLenu
         return nullptr;
 
     OpenGLLocker locker(this);
-    QOpenGLFramebufferObject *framebuffer;
+    QOpenGLFramebufferObject *framebuffer = nullptr;
     if (InternalFormat)
     {
         framebuffer = new QOpenGLFramebufferObject(Size, QOpenGLFramebufferObject::NoAttachment,
@@ -1156,9 +1159,9 @@ QFunctionPointer MythRenderOpenGL::GetProcAddress(const QString &Proc) const
 {
     static const QString kExts[4] = { "", "ARB", "EXT", "OES" };
     QFunctionPointer result = nullptr;
-    for (int i = 0; i < 4; i++)
+    for (const auto & ext : kExts)
     {
-        result = getProcAddress((Proc + kExts[i]).toLocal8Bit().constData());
+        result = getProcAddress((Proc + ext).toLocal8Bit().constData());
         if (result)
             break;
     }
@@ -1272,7 +1275,7 @@ bool MythRenderOpenGL::UpdateTextureVertices(MythGLTexture *Texture, const QRect
 
     if (Texture->m_rotation != 0)
     {
-        GLfloat temp;
+        GLfloat temp = NAN;
         if (Texture->m_rotation == 90)
         {
             temp = data[(Texture->m_flip ? 7 : 1) + TEX_OFFSET];
@@ -1591,10 +1594,10 @@ bool MythRenderOpenGL::CreateDefaultShaders(void)
 
 void MythRenderOpenGL::DeleteDefaultShaders(void)
 {
-    for (int i = 0; i < kShaderCount; i++)
+    for (auto & program : m_defaultPrograms)
     {
-        DeleteShaderProgram(m_defaultPrograms[i]);
-        m_defaultPrograms[i] = nullptr;
+        DeleteShaderProgram(program);
+        program = nullptr;
     }
 }
 

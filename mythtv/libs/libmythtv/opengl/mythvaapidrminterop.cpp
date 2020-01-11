@@ -67,12 +67,12 @@ void MythVAAPIInteropDRM::DeleteTextures(void)
         for (auto it = m_openglTextures.constBegin() ; it != m_openglTextures.constEnd(); ++it)
         {
             vector<MythVideoTexture*> textures = it.value();
-            for (auto it2 = textures.begin() ; it2 != textures.end(); ++it2)
+            for (auto & texture : textures)
             {
-                if ((*it2)->m_data)
+                if (texture->m_data)
                 {
-                    m_context->eglDestroyImageKHR(m_context->GetEGLDisplay(), (*it2)->m_data);
-                    (*it2)->m_data = nullptr;
+                    m_context->eglDestroyImageKHR(m_context->GetEGLDisplay(), texture->m_data);
+                    texture->m_data = nullptr;
                     count++;
                 }
             }
@@ -448,8 +448,7 @@ bool MythVAAPIInteropDRM::TestPrimeInterop(void)
 
     OpenGLLocker locker(m_context);
 
-    VASurfaceID surface;
-    VAStatus status;
+    VASurfaceID surface = 0;
 
     VASurfaceAttrib attribs = {};
     attribs.flags = VA_SURFACE_ATTRIB_SETTABLE;
@@ -461,12 +460,12 @@ bool MythVAAPIInteropDRM::TestPrimeInterop(void)
                          &surface, 1, &attribs, 1) == VA_STATUS_SUCCESS)
     {
         VADRMPRIMESurfaceDescriptor vadesc;
-        status = vaExportSurfaceHandle(m_vaDisplay, surface, VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
+        VAStatus status = vaExportSurfaceHandle(m_vaDisplay, surface, VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
                                        VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_SEPARATE_LAYERS,
                                        &vadesc);
         if (status == VA_STATUS_SUCCESS)
         {
-            VideoFrame frame;
+            VideoFrame frame {};
             init(&frame, FMT_DRMPRIME, nullptr, 1920, 1080, 0);
             frame.sw_pix_fmt = AV_PIX_FMT_NV12;
             AVDRMFrameDescriptor drmdesc;
@@ -477,16 +476,15 @@ bool MythVAAPIInteropDRM::TestPrimeInterop(void)
             if (!textures.empty())
             {
                 s_supported = true;
-                auto it = textures.begin();
-                for ( ; it != textures.end(); ++it)
+                for (auto & texture : textures)
                 {
-                    s_supported &= (*it)->m_data && (*it)->m_textureId;
-                    if ((*it)->m_data)
-                        m_context->eglDestroyImageKHR(m_context->GetEGLDisplay(), (*it)->m_data);
-                    (*it)->m_data = nullptr;
-                    if ((*it)->m_textureId)
-                        m_context->glDeleteTextures(1, &(*it)->m_textureId);
-                    MythVideoTexture::DeleteTexture(m_context, *it);
+                    s_supported &= texture->m_data && texture->m_textureId;
+                    if (texture->m_data)
+                        m_context->eglDestroyImageKHR(m_context->GetEGLDisplay(), texture->m_data);
+                    texture->m_data = nullptr;
+                    if (texture->m_textureId)
+                        m_context->glDeleteTextures(1, &texture->m_textureId);
+                    MythVideoTexture::DeleteTexture(m_context, texture);
                 }
                 textures.clear();
             }

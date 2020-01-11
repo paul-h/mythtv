@@ -10,13 +10,13 @@ struct fsattab {
 #define STOP    '\0'
 #define ESCAPE  '\1'
 
-#include "freesat_tables.h"
+#include "freesat_tables.cpp"
 
 QString freesat_huffman_to_string(const unsigned char *compressed, uint size)
 {
     const unsigned char *src = compressed;
-    struct fsattab *fsat_table;
-    unsigned int *fsat_index;
+    struct fsattab *fsat_table = nullptr;
+    unsigned int *fsat_index = nullptr;
 
     if (src[1] == 1 || src[1] == 2)
     {

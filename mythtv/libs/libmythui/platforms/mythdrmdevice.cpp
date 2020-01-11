@@ -131,7 +131,7 @@ void MythDRMDevice::Authenticate(void)
 
     if (!m_authenticated)
     {
-        drm_magic_t magic;
+        drm_magic_t magic = 0;
         m_authenticated = drmGetMagic(m_fd, &magic) == 0 && drmAuthMagic(m_fd, magic) == 0;
     }
 }
@@ -309,9 +309,9 @@ QString MythDRMDevice::FindBestDevice(void)
         return QString();
     }
 
-    for (auto it = devices.cbegin(); it != devices.cend(); ++it)
+    foreach (const auto & dev, devices)
     {
-        QString device = root + *it;
+        QString device = root + dev;
         if (!ConfirmDevice(device))
         {
             LOG(VB_GENERAL, m_verbose, LOC + "Failed to confirm device");

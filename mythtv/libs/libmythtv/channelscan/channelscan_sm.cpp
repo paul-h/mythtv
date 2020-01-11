@@ -118,6 +118,7 @@ class ScannedChannelInfo
     nit_vec_t               m_nits;
     sdt_map_t               m_sdts;
     bat_vec_t               m_bats;
+    QMap<uint64_t,uint64_t> m_opentv_channels;
 };
 
 /** \class ChannelScanSM
@@ -158,6 +159,9 @@ ChannelScanSM::ChannelScanSM(ScanMonitor *_scan_monitor,
       m_channelTimeout(channel_timeout),
       m_inputName(std::move(_inputname)),
       m_testDecryption(test_decryption),
+      m_scanOpenTVBouquet(0),
+      m_scanOpenTVRegion(0),
+      m_scanOpenTVRegionMask(0),
       // Misc
       m_analogSignalHandler(new AnalogSignalHandler(this))
 {
@@ -192,7 +196,7 @@ ChannelScanSM::ChannelScanSM(ScanMonitor *_scan_monitor,
         }
 
         LOG(VB_CHANSCAN, LOG_INFO, LOC +
-            QString("Freesat/BSkyB bouquet_id:%1 region_id:%2")
+            QString("Freesat/BSkyB/OpenTV bouquet_id:%1 region_id:%2")
                 .arg(m_bouquetId).arg(m_regionId));
 
         dtvSigMon->SetStreamData(data);
@@ -249,6 +253,27 @@ void ChannelScanSM::SetAnalog(bool is_analog)
 
     if (is_analog)
         m_signalMonitor->AddListener(m_analogSignalHandler);
+}
+
+void ChannelScanSM::SetOpenTV(void)
+{
+    if (m_bouquetId > 0)
+    {
+        m_scanOpenTVBouquet = m_bouquetId;
+        m_scanOpenTVRegion = m_regionId;
+        if (m_regionId)
+            m_scanOpenTVRegionMask = 1 << m_regionId;
+        else
+            m_scanOpenTVRegionMask = (uint)-1;
+        LOG(VB_GENERAL, LOG_INFO, LOC +
+            QString("Scan for OpenTV channels on bouquet ID %1 and region ID %2")
+                .arg(m_scanOpenTVBouquet).arg(m_scanOpenTVRegion));
+    }
+    else
+    {
+        LOG(VB_GENERAL, LOG_WARNING, LOC +
+            QString("Cannot scan for OpenTV channels, bouquet ID is 0"));
+    }
 }
 
 void ChannelScanSM::HandleAllGood(void)
@@ -332,8 +357,8 @@ bool ChannelScanSM::ScanExistingTransports(uint sourceid, bool follow_nit)
         return false;
     }
 
-    for (size_t i = 0; i < multiplexes.size(); ++i)
-        AddToList(multiplexes[i]);
+    for (uint multiplex : multiplexes)
+        AddToList(multiplex);
 
     m_extendScanList = follow_nit;
     m_waitingForTables  = false;
@@ -461,7 +486,7 @@ void ChannelScanSM::HandleSDT(uint /*tsid*/, const ServiceDescriptionTable *sdt)
                     "additional Freesat SI").arg(sdt->OriginalNetworkID()));
     }
 
-    if ((uint)m_timer.elapsed() < m_otherTableTime)
+    if (!m_timer.hasExpired(m_otherTableTime))
     {
         // Set the version for the SDT so we see it again.
         GetDTVSignalMonitor()->GetDVBStreamData()->
@@ -544,6 +569,44 @@ void ChannelScanSM::HandleBAT(const BouquetAssociationTable *bat)
                                  services.ServiceID(j);
                if (! m_defAuthorities.contains(index))
                    m_defAuthorities[index] = authority.DefaultAuthority();
+            }
+        }
+
+        if (m_scanOpenTVBouquet > 0)
+        {
+            const unsigned char *otv_chan_list =
+                MPEGDescriptor::Find(parsed, PrivateDescriptorID::opentv_channel_list);
+            if (otv_chan_list)
+            {
+                OpenTVChannelListDescriptor opentvChannelList(otv_chan_list);
+
+                uint64_t regionMask = (uint64_t)-1;
+                if (opentvChannelList.RegionID() > 0 && opentvChannelList.RegionID() < 32)
+                    regionMask = ((uint64_t)1) << opentvChannelList.RegionID();
+
+                for (uint j = 0; j < opentvChannelList.ChannelCount(); j++)
+                {
+                    uint64_t index = ((uint64_t)netid << 32) |
+                        bat->BouquetID() << 16 |
+                        opentvChannelList.ServiceID(j);
+                    if (!m_currentInfo)
+                        m_currentInfo = new ScannedChannelInfo();
+                    if (m_currentInfo->m_opentv_channels.contains(index))
+                    {
+                        m_currentInfo->m_opentv_channels[index] |= regionMask << 32;
+                    }
+                    else
+                    {
+                        m_currentInfo->m_opentv_channels[index] =
+                            regionMask << 32 |
+                            (opentvChannelList.ChannelID(j) << 16);
+                    }
+                    if (regionMask & m_scanOpenTVRegionMask)
+                    {
+                        m_currentInfo->m_opentv_channels[index] |=
+                            opentvChannelList.ChannelNumber(j);
+                    }
+                }
             }
         }
     }
@@ -695,9 +758,9 @@ DTVTunerType ChannelScanSM::GuessDTVTunerType(DTVTunerType type) const
 
     vector<DTVTunerType> tts = chan->GetTunerTypes();
 
-    for (size_t i = 0; i < tts.size(); ++i)
+    for (auto & tt : tts)
     {
-        if (tts[i] == type)
+        if (tt == type)
             return type;
     }
 
@@ -827,9 +890,9 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
     // Grab PAT tables
     pat_vec_t pattmp = sd->GetCachedPATs();
     QMap<uint,bool> tsid_checked;
-    for (size_t i = 0; i < pattmp.size(); ++i)
+    for (auto & pat : pattmp)
     {
-        uint tsid = pattmp[i]->TransportStreamID();
+        uint tsid = pat->TransportStreamID();
         if (tsid_checked[tsid])
             continue;
         tsid_checked[tsid] = true;
@@ -875,16 +938,16 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
     // DVB
     if ((!wait_until_complete || sd->HasCachedAllNIT()) &&
         (m_currentInfo->m_nits.empty() ||
-        m_timer.elapsed() > (int)m_otherTableTime))
+         m_timer.hasExpired(m_otherTableTime)))
     {
         m_currentInfo->m_nits = sd->GetCachedNIT();
     }
 
     sdt_vec_t sdttmp = sd->GetCachedSDTs();
     tsid_checked.clear();
-    for (size_t i = 0; i < sdttmp.size(); ++i)
+    for (auto & sdt : sdttmp)
     {
-        uint tsid = sdttmp[i]->TSID();
+        uint tsid = sdt->TSID();
         if (tsid_checked[tsid])
             continue;
         tsid_checked[tsid] = true;
@@ -898,7 +961,7 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
 
     if ((!wait_until_complete || sd->HasCachedAllBATs()) &&
         (m_currentInfo->m_bats.empty() ||
-        m_timer.elapsed() > (int)m_otherTableTime))
+         m_timer.hasExpired(m_otherTableTime)))
     {
         m_currentInfo->m_bats = sd->GetCachedBATs();
     }
@@ -1054,7 +1117,7 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
             msg = QString("%1, %2").arg(chan_tr).arg(msg);
         }
         else if ((m_current != m_scanTransports.end()) &&
-                 (m_timer.elapsed() > (int)(*m_current).m_timeoutTune) &&
+                 m_timer.hasExpired((*m_current).m_timeoutTune) &&
                  sm && !sm->HasSignalLock())
         {
             msg_tr = QObject::tr("%1, no signal").arg(chan_tr);
@@ -1250,11 +1313,11 @@ uint ChannelScanSM::GetCurrentTransportInfo(
 
     QMap<uint,ChannelInsertInfo> list = GetChannelList(m_current, m_currentInfo);
     {
-        for (int i = 0; i < list.size(); ++i)
+        foreach (auto & info, list)
         {
             max_chan_cnt +=
-                (list[i].m_inPat || list[i].m_inPmt ||
-                 list[i].m_inSdt || list[i].m_inVct) ? 1 : 0;
+                (info.m_inPat || info.m_inPmt ||
+                 info.m_inSdt || info.m_inVct) ? 1 : 0;
         }
     }
 
@@ -1284,38 +1347,36 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
 
     // channels.conf
     const DTVChannelInfoList &echan = (*trans_info).m_expectedChannels;
-    for (size_t i = 0; i < echan.size(); ++i)
+    for (const auto & chan : echan)
     {
-        uint pnum = echan[i].m_serviceid;
+        uint pnum = chan.m_serviceid;
         PCM_INFO_INIT("mpeg");
-        info.m_serviceName = echan[i].m_name;
+        info.m_serviceName = chan.m_name;
         info.m_inChannelsConf = true;
     }
 
     // PATs
-    pat_map_t::const_iterator pat_list_it = scan_info->m_pats.begin();
-    for (; pat_list_it != scan_info->m_pats.end(); ++pat_list_it)
+    foreach (auto pat_list, scan_info->m_pats)
     {
-        auto pat_it = (*pat_list_it).cbegin();
-        for (; pat_it != (*pat_list_it).cend(); ++pat_it)
+        for (auto pat : pat_list)
         {
             bool could_be_opencable = false;
-            for (uint i = 0; i < (*pat_it)->ProgramCount(); ++i)
+            for (uint i = 0; i < pat->ProgramCount(); ++i)
             {
-                if (((*pat_it)->ProgramNumber(i) == 0) &&
-                    ((*pat_it)->ProgramPID(i) == 0x1ffc))
+                if ((pat->ProgramNumber(i) == 0) &&
+                    (pat->ProgramPID(i) == 0x1ffc))
                 {
                     could_be_opencable = true;
                 }
             }
 
-            for (uint i = 0; i < (*pat_it)->ProgramCount(); ++i)
+            for (uint i = 0; i < pat->ProgramCount(); ++i)
             {
-                uint pnum = (*pat_it)->ProgramNumber(i);
+                uint pnum = pat->ProgramNumber(i);
                 if (pnum)
                 {
                     PCM_INFO_INIT("mpeg");
-                    info.m_patTsId = (*pat_it)->TransportStreamID();
+                    info.m_patTsId = pat->TransportStreamID();
                     info.m_couldBeOpencable = could_be_opencable;
                     info.m_inPat = true;
                 }
@@ -1324,10 +1385,8 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
     }
 
     // PMTs
-    pmt_vec_t::const_iterator pmt_it = scan_info->m_pmts.begin();
-    for (; pmt_it != scan_info->m_pmts.end(); ++pmt_it)
+    foreach (auto pmt, scan_info->m_pmts)
     {
-        const ProgramMapTable *pmt = *pmt_it;
         uint pnum = pmt->ProgramNumber();
         PCM_INFO_INIT("mpeg");
         for (uint i = 0; i < pmt->StreamCount(); ++i)
@@ -1340,9 +1399,9 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
             pmt->ProgramInfo(), pmt->ProgramInfoLength(),
             DescriptorID::registration);
 
-        for (size_t i = 0; i < descs.size(); ++i)
+        for (auto & desc : descs)
         {
-            RegistrationDescriptor reg(descs[i]);
+            RegistrationDescriptor reg(desc);
             if (!reg.IsValid())
                 continue;
             if (reg.FormatIdentifierString() == "CUEI" ||
@@ -1355,41 +1414,37 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
     }
 
     // Cable VCTs
-    cvct_vec_t::const_iterator cvct_it = scan_info->m_cvcts.begin();
-    for (; cvct_it != scan_info->m_cvcts.end(); ++cvct_it)
+    for (auto cvct : scan_info->m_cvcts)
     {
-        for (uint i = 0; i < (*cvct_it)->ChannelCount(); ++i)
+        for (uint i = 0; i < cvct->ChannelCount(); ++i)
         {
-            uint pnum = (*cvct_it)->ProgramNumber(i);
+            uint pnum = cvct->ProgramNumber(i);
             PCM_INFO_INIT("atsc");
-            update_info(info, *cvct_it, i);
+            update_info(info, cvct, i);
         }
     }
 
     // Terrestrial VCTs
-    tvct_vec_t::const_iterator tvct_it = scan_info->m_tvcts.begin();
-    for (; tvct_it != scan_info->m_tvcts.end(); ++tvct_it)
+    for (auto tvct : scan_info->m_tvcts)
     {
-        for (uint i = 0; i < (*tvct_it)->ChannelCount(); ++i)
+        for (uint i = 0; i < tvct->ChannelCount(); ++i)
         {
-            uint pnum = (*tvct_it)->ProgramNumber(i);
+            uint pnum = tvct->ProgramNumber(i);
             PCM_INFO_INIT("atsc");
-            update_info(info, *tvct_it, i);
+            update_info(info, tvct, i);
         }
     }
 
     // SDTs
-    sdt_map_t::const_iterator sdt_list_it = scan_info->m_sdts.begin();
-    for (; sdt_list_it != scan_info->m_sdts.end(); ++sdt_list_it)
+    foreach (auto sdt_list, scan_info->m_sdts)
     {
-        auto sdt_it = (*sdt_list_it).cbegin();
-        for (; sdt_it != (*sdt_list_it).cend(); ++sdt_it)
+        for (auto sdt_it : sdt_list)
         {
-            for (uint i = 0; i < (*sdt_it)->ServiceCount(); ++i)
+            for (uint i = 0; i < sdt_it->ServiceCount(); ++i)
             {
-                uint pnum = (*sdt_it)->ServiceID(i);
+                uint pnum = sdt_it->ServiceID(i);
                 PCM_INFO_INIT("dvb");
-                update_info(info, *sdt_it, i, m_defAuthorities);
+                update_info(info, sdt_it, i, m_defAuthorities);
             }
         }
     }
@@ -1404,12 +1459,11 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
         ChannelInsertInfo &info = *dbchan_it;
 
         // NIT
-        nit_vec_t::const_iterator nits_it = scan_info->m_nits.begin();
-        for (; nits_it != scan_info->m_nits.end(); ++nits_it)
+        for (auto item : scan_info->m_nits)
         {
-            for (uint i = 0; i < (*nits_it)->TransportStreamCount(); ++i)
+            for (uint i = 0; i < item->TransportStreamCount(); ++i)
             {
-                const NetworkInformationTable *nit = (*nits_it);
+                const NetworkInformationTable *nit = item;
                 if ((nit->TSID(i)              == info.m_sdtTsId) &&
                     (nit->OriginalNetworkID(i) == info.m_origNetId))
                 {
@@ -1492,11 +1546,8 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
     // Lookup table from LCN to service ID
     QMap<uint,qlonglong> lcn_sid;
 
-    bat_vec_t::const_iterator bats_it = scan_info->m_bats.begin();
-    for (; bats_it != scan_info->m_bats.end(); ++bats_it)
+    for (auto bat : scan_info->m_bats)
     {
-        const BouquetAssociationTable *bat = *bats_it;
-
         // Only the bouquet selected by user
         if (bat->BouquetID() != m_bouquetId)
             continue;
@@ -1505,7 +1556,9 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
         {
             uint netid = bat->OriginalNetworkID(t);
 
-            if (!(netid == OriginalNetworkID::SES2 || netid == OriginalNetworkID::BBC))
+            if (!(netid == OriginalNetworkID::SES2  ||
+                  netid == OriginalNetworkID::BBC   ||
+                  netid == OriginalNetworkID::SKYNZ ))
                 continue;
 
             desc_list_t parsed =
@@ -1513,21 +1566,20 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
                                       bat->TransportDescriptorsLength(t));
 
             uint priv_dsid = 0;
-            desc_list_t::const_iterator it = parsed.begin();
-            for (; it != parsed.end(); ++it)
+            for (auto item : parsed)
             {
-                if ((*it)[0] == DescriptorID::private_data_specifier)
+                if (item[0] == DescriptorID::private_data_specifier)
                 {
-                    PrivateDataSpecifierDescriptor pd(*it);
+                    PrivateDataSpecifierDescriptor pd(item);
                     if (pd.IsValid())
                         priv_dsid = pd.PrivateDataSpecifier();
                 }
 
                 // Freesat logical channels
                 if (priv_dsid == PrivateDataSpecifierID::FSAT &&
-                    (*it)[0] == PrivateDescriptorID::freesat_lcn_table)
+                    item[0] == PrivateDescriptorID::freesat_lcn_table)
                 {
-                    FreesatLCNDescriptor ld(*it);
+                    FreesatLCNDescriptor ld(item);
                     if (ld.IsValid())
                     {
                         for (uint i = 0; i<ld.ServiceCount(); i++)
@@ -1553,9 +1605,9 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
 
                 // BSkyB logical channels
                 if (priv_dsid == PrivateDataSpecifierID::BSB1 &&
-                    (*it)[0] == PrivateDescriptorID::bskyb_lcn_table)
+                    item[0] == PrivateDescriptorID::bskyb_lcn_table)
                 {
-                    BSkyBLCNDescriptor ld(*it);
+                    BSkyBLCNDescriptor ld(item);
                     if (ld.IsValid())
                     {
                         uint region_id = ld.RegionID();
@@ -1667,6 +1719,25 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
             }
         }
 
+        // OpenTV Logical Channel Numbers
+        if (info.m_chanNum.isEmpty())
+        {
+            if (m_scanOpenTVBouquet > 0)
+            {
+                qlonglong key =
+                    ((qlonglong)info.m_origNetId<<32) | m_scanOpenTVBouquet << 16 | info.m_serviceId;
+                QMap<uint64_t, uint64_t>::const_iterator it = scan_info->m_opentv_channels.find(key);
+                if (it != scan_info->m_opentv_channels.end())
+                {
+                    uint chanNum = (*it) & 0xffff;
+                    if (chanNum > 0)
+                    {
+                        info.m_chanNum = chanNum;
+                    }
+                }
+            }
+        }
+
         LOG(VB_CHANSCAN, LOG_INFO, LOC +
             QString("GetChannelList: service %1 (0x%2) chan_num '%3' callsign '%4'")
                 .arg(info.m_serviceId).arg(info.m_serviceId,4,16,QChar('0'))
@@ -1722,14 +1793,13 @@ ScanDTVTransportList ChannelScanSM::GetChannelList(bool addFullTS) const
     DTVTunerType tuner_type(DTVTunerType::kTunerTypeATSC);
     tuner_type = GuessDTVTunerType(tuner_type);
 
-    ChannelList::const_iterator it = m_channelList.begin();
-    for (; it != m_channelList.end(); ++it)
+    foreach (const auto & it, m_channelList)
     {
         QMap<uint,ChannelInsertInfo> pnum_to_dbchan =
-            GetChannelList(it->first, it->second);
+            GetChannelList(it.first, it.second);
 
-        ScanDTVTransport item((*it->first).m_tuning, tuner_type, cardid);
-        item.m_iptvTuning = (*(it->first)).m_iptvTuning;
+        ScanDTVTransport item((*it.first).m_tuning, tuner_type, cardid);
+        item.m_iptvTuning = (*(it.first)).m_iptvTuning;
 
         QMap<uint,ChannelInsertInfo>::iterator dbchan_it;
         for (dbchan_it = pnum_to_dbchan.begin();
@@ -1898,7 +1968,7 @@ void ChannelScanSM::run(void)
 bool ChannelScanSM::HasTimedOut(void)
 {
     if (m_currentTestingDecryption &&
-        (m_timer.elapsed() > kDecryptionTimeout))
+        m_timer.hasExpired(kDecryptionTimeout))
     {
         m_currentTestingDecryption = false;
         return true;
@@ -1915,8 +1985,8 @@ bool ChannelScanSM::HasTimedOut(void)
         const DiSEqCDevRotor *rotor = GetDVBChannel()->GetRotor();
         if (rotor)
         {
-            bool was_moving;
-            bool is_moving;
+            bool was_moving = false;
+            bool is_moving = false;
             sigmon->GetRotorStatus(was_moving, is_moving);
             if (was_moving && !is_moving)
             {
@@ -1929,7 +1999,7 @@ bool ChannelScanSM::HasTimedOut(void)
 
 
     // have the tables have timed out?
-    if (m_timer.elapsed() > (int)m_channelTimeout)
+    if (m_timer.hasExpired(m_channelTimeout))
     {
         // the channelTimeout alone is only valid if we have seen no tables..
         const ScanStreamData *sd = nullptr;
@@ -1940,18 +2010,18 @@ bool ChannelScanSM::HasTimedOut(void)
             return true;
 
         if (sd->HasCachedAnyNIT() || sd->HasCachedAnySDTs())
-            return m_timer.elapsed() > (int) kDVBTableTimeout;
+            return m_timer.hasExpired(kDVBTableTimeout);
         if (sd->HasCachedMGT() || sd->HasCachedAnyVCTs())
-            return m_timer.elapsed() > (int) kATSCTableTimeout;
+            return m_timer.hasExpired(kATSCTableTimeout);
         if (sd->HasCachedAnyPAT() || sd->HasCachedAnyPMTs())
-            return m_timer.elapsed() > (int) kMPEGTableTimeout;
+            return m_timer.hasExpired(kMPEGTableTimeout);
 
         return true;
     }
 
     // ok the tables haven't timed out, but have we hit the signal timeout?
     SignalMonitor *sm = GetSignalMonitor();
-    if ((m_timer.elapsed() > (int)(*m_current).m_timeoutTune) &&
+    if (m_timer.hasExpired((*m_current).m_timeoutTune) &&
         sm && !sm->HasSignalLock())
     {
         const ScanStreamData *sd = nullptr;
@@ -2212,8 +2282,8 @@ bool ChannelScanSM::ScanTransports(
 
     QString start = table_start;
     const QString& end   = table_end;
-    auto it = tables.begin();
-    for (; it != tables.end(); ++it)
+    // NOLINTNEXTLINE(modernize-loop-convert)
+    for (auto it = tables.begin(); it != tables.end(); ++it)
     {
         const FrequencyTable &ft = **it;
         int     name_num         = ft.m_nameOffset;
@@ -2526,20 +2596,20 @@ bool ChannelScanSM::CheckImportedList(
         return true;
 
     bool found = false;
-    for (size_t i = 0; i < channels.size(); ++i)
+    for (const auto & channel : channels)
     {
         LOG(VB_GENERAL, LOG_DEBUG, LOC +
             QString("comparing %1 %2 against %3 %4")
-                .arg(channels[i].m_serviceid).arg(channels[i].m_name)
+                .arg(channel.m_serviceid).arg(channel.m_name)
                 .arg(mpeg_program_num).arg(common_status_info));
 
-        if (channels[i].m_serviceid == mpeg_program_num)
+        if (channel.m_serviceid == mpeg_program_num)
         {
             found = true;
-            if (!channels[i].m_name.isEmpty())
+            if (!channel.m_name.isEmpty())
             {
-                service_name = channels[i].m_name;
-                callsign     = channels[i].m_name;
+                service_name = channel.m_name;
+                callsign     = channel.m_name;
             }
         }
     }

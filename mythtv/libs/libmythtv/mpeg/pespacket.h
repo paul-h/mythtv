@@ -38,11 +38,10 @@ class MTV_PUBLIC PESPacket
         m_pesDataSize = max(((int)Length())-1 + (PESPacket::HasCRC() ? 4 : 0), 0);
     }
 
-  private:
+    // Deleted functions should be public.
     //const PESPacket& operator=(const PESPacket& pkt);
-    PESPacket& operator=(const PESPacket& pkt);
+    PESPacket& operator=(const PESPacket& pkt) = delete;
 
-  public:
     // may be modified
     PESPacket(const PESPacket& pkt)
         : m_pesData(nullptr),
@@ -238,7 +237,7 @@ class SequenceHeader
     SequenceHeader() {;} // only used via reinterpret cast
     ~SequenceHeader() {;}
 
-    unsigned char m_data[11];
+    unsigned char m_data[11] {};
     static const float kMpeg1Aspect[16];
     static const float kMpeg2Aspect[16];
     static const float kMpeg2Fps[16];

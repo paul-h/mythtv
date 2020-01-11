@@ -37,7 +37,7 @@ StandardSetting::~StandardSetting()
 MythUIButtonListItem * StandardSetting::createButton(MythUIButtonList * list)
 {
     auto *item = new MythUIButtonListItemSetting(list, m_label);
-    item->SetData(qVariantFromValue(this));
+    item->SetData(QVariant::fromValue(this));
     connect(this, SIGNAL(ShouldRedraw(StandardSetting *)),
             item, SLOT(ShouldUpdate(StandardSetting *)));
     updateButton(item);
@@ -585,14 +585,8 @@ void MythUIComboBoxSetting::resultEdit(DialogCompletionEvent *dce)
 
 void MythUIComboBoxSetting::fillSelectionsFromDir(const QDir &dir, bool absPath)
 {
-    QFileInfoList il = dir.entryInfoList();
-
-    for (QFileInfoList::Iterator it = il.begin();
-                                 it != il.end();
-                               ++it )
+    foreach (auto & fi, dir.entryInfoList())
     {
-        QFileInfo &fi = *it;
-
         if (absPath)
             addSelection( fi.absoluteFilePath() );
         else

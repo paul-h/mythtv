@@ -29,7 +29,6 @@ class LogScale
 
         delete [] m_indices;
 
-        double alpha;
         auto domain = (long double) maxscale;
         auto range  = (long double) maxrange;
         long double x  = 1.0;
@@ -50,7 +49,7 @@ class LogScale
             x -= dx;
         }
 
-        alpha = x;
+        double alpha = x;
         for (int i = 1; i < (int) domain; i++)
         {
             int scaled = (int) floor(0.5 + (alpha * log((double(i) + alpha) / alpha)));
@@ -75,7 +74,7 @@ class LogScale
 
 static inline void stereo16_from_stereopcm8(short *l,
                         short *r,
-                        uchar *c,
+                        const uchar *c,
                         long cnt)
 {
     while (cnt >= 4L)
@@ -113,7 +112,7 @@ static inline void stereo16_from_stereopcm8(short *l,
 
 static inline void stereo16_from_stereopcm16(short *l,
                          short *r,
-                         short *s,
+                         const short *s,
                          long cnt)
 {
     while (cnt >= 4L)
@@ -150,7 +149,7 @@ static inline void stereo16_from_stereopcm16(short *l,
 }
 
 static inline void mono16_from_monopcm8(short *l,
-                    uchar *c,
+                    const uchar *c,
                     long cnt)
 {
     while (cnt >= 4L)
@@ -179,7 +178,7 @@ static inline void mono16_from_monopcm8(short *l,
 }
 
 static inline void mono16_from_monopcm16(short *l,
-                     short *s,
+                     const short *s,
                      long cnt)
 {
     while (cnt >= 4L)

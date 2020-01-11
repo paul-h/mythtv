@@ -683,9 +683,8 @@ void PlaybackBox::updateGroupInfo(const QString &groupname,
         ProgramList  group     = m_progLists[groupname];
         float        groupSize = 0.0;
 
-        for (auto it = group.begin(); it != group.end(); ++it)
+        for (auto info : group)
         {
-            ProgramInfo *info = *it;
             if (info)
             {
                 uint64_t filesize = info->GetFilesize();
@@ -744,7 +743,7 @@ void PlaybackBox::UpdateUIListItem(ProgramInfo *pginfo,
         return;
 
     MythUIButtonListItem *item =
-        m_recordingList->GetItemByData(qVariantFromValue(pginfo));
+        m_recordingList->GetItemByData(QVariant::fromValue(pginfo));
 
     if (item)
     {
@@ -1068,7 +1067,7 @@ void PlaybackBox::HandlePreviewEvent(const QStringList &list)
     MythUIButtonListItem *item = nullptr;
 
     if (info)
-        item = m_recordingList->GetItemByData(qVariantFromValue(info));
+        item = m_recordingList->GetItemByData(QVariant::fromValue(info));
 
     if (!item)
     {
@@ -1327,7 +1326,7 @@ void PlaybackBox::UpdateUIRecGroupList(void)
             continue;  // All and Default will be the same, so only show All
 
         auto *item = new MythUIButtonListItem(m_recgroupList, name,
-                                              qVariantFromValue(key));
+                                              QVariant::fromValue(key));
 
         if (idx == m_recGroupIdx)
             m_recgroupList->SetItemCurrent(item);
@@ -1349,7 +1348,7 @@ void PlaybackBox::UpdateUIGroupList(const QStringList &groupPreferences)
             QString groupname = (*it);
 
             auto *item = new MythUIButtonListItem(m_groupList, "",
-                                         qVariantFromValue(groupname.toLower()));
+                                         QVariant::fromValue(groupname.toLower()));
 
             int pref = groupPreferences.indexOf(groupname.toLower());
             if ((pref >= 0) && (pref < best_pref))
@@ -1436,14 +1435,13 @@ void PlaybackBox::updateRecList(MythUIButtonListItem *sel_item)
 
     ProgramList &progList = *pmit;
 
-    auto it = progList.begin();
-    for (; it != progList.end(); ++it)
+    for (auto & prog : progList)
     {
-        if ((*it)->GetAvailableStatus() == asPendingDelete ||
-            (*it)->GetAvailableStatus() == asDeleted)
+        if (prog->GetAvailableStatus() == asPendingDelete ||
+            prog->GetAvailableStatus() == asDeleted)
             continue;
 
-        new PlaybackBoxListItem(this, m_recordingList, *it);
+        new PlaybackBoxListItem(this, m_recordingList, prog);
     }
     m_recordingList->LoadInBackground();
 
@@ -1618,12 +1616,10 @@ bool PlaybackBox::UpdateUILists(void)
 
     if (!m_progLists.isEmpty())
     {
-        auto it = m_progLists[""].begin();
-        auto end = m_progLists[""].end();
-        for (; it != end; ++it)
+        for (auto & prog : m_progLists[""])
         {
-            uint asRecordingID = (*it)->GetRecordingID();
-            asCache[asRecordingID] = (*it)->GetAvailableStatus();
+            uint asRecordingID = prog->GetRecordingID();
+            asCache[asRecordingID] = prog->GetAvailableStatus();
         }
     }
 
@@ -1679,10 +1675,8 @@ bool PlaybackBox::UpdateUILists(void)
         vector<ProgramInfo*> list;
         bool newest_first = (0==m_allOrder);
         m_programInfoCache.GetOrdered(list, newest_first);
-        vector<ProgramInfo*>::const_iterator it = list.begin();
-        for ( ; it != list.end(); ++it)
+        for (auto p : list)
         {
-            ProgramInfo *p = *it;
             if (p->IsDeletePending())
                 continue;
 
@@ -2179,14 +2173,13 @@ bool PlaybackBox::UpdateUILists(void)
     UpdateUIGroupList(groupSelPref);
     UpdateUsageUI();
 
-    QList<uint>::const_iterator it = m_playList.begin();
-    for (; it != m_playList.end(); ++it)
+    foreach (uint id, m_playList)
     {
-        ProgramInfo *pginfo = FindProgramInUILists(*it);
+        ProgramInfo *pginfo = FindProgramInUILists(id);
         if (!pginfo)
             continue;
         MythUIButtonListItem *item =
-            m_recordingList->GetItemByData(qVariantFromValue(pginfo));
+            m_recordingList->GetItemByData(QVariant::fromValue(pginfo));
         if (item)
             item->DisplayState("yes", "playlist");
     }
@@ -2585,7 +2578,7 @@ void PlaybackBox::RemoveProgram( uint recordingID, bool forgetHistory,
 
     // if the item is in the current recording list UI then delete it.
     MythUIButtonListItem *uiItem =
-        m_recordingList->GetItemByData(qVariantFromValue(delItem));
+        m_recordingList->GetItemByData(QVariant::fromValue(delItem));
     if (uiItem)
         m_recordingList->RemoveItem(uiItem);
 }
@@ -3276,8 +3269,8 @@ MythMenu* PlaybackBox::createTranscodingProfilesMenu()
 
     auto *menu = new MythMenu(label, this, "transcode");
 
-    menu->AddItem(tr("Default"), qVariantFromValue(-1));
-    menu->AddItem(tr("Autodetect"), qVariantFromValue(0));
+    menu->AddItem(tr("Default"), QVariant::fromValue(-1));
+    menu->AddItem(tr("Autodetect"), QVariant::fromValue(0));
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare("SELECT r.name, r.id "
@@ -3306,7 +3299,7 @@ MythMenu* PlaybackBox::createTranscodingProfilesMenu()
         else if (transcoder_name == "Low Quality")
             transcoder_name = tr("Low Quality");
 
-        menu->AddItem(transcoder_name, qVariantFromValue(transcoder_id));
+        menu->AddItem(transcoder_name, QVariant::fromValue(transcoder_id));
     }
 
     return menu;
@@ -3483,7 +3476,7 @@ void PlaybackBox::doClearPlaylist(void)
             continue;
 
         MythUIButtonListItem *item =
-            m_recordingList->GetItemByData(qVariantFromValue(tmpItem));
+            m_recordingList->GetItemByData(QVariant::fromValue(tmpItem));
 
         if (item)
             item->DisplayState("no", "playlist");
@@ -3594,9 +3587,9 @@ void PlaybackBox::doBeginLookup()
 
 void PlaybackBox::doPlaylistJobQueueJob(int jobType, int jobFlags)
 {
-    for (auto it = m_playList.begin(); it != m_playList.end(); ++it)
+    foreach (const uint & pbs, m_playList)
     {
-        ProgramInfo *tmpItem = FindProgramInUILists(*it);
+        ProgramInfo *tmpItem = FindProgramInUILists(pbs);
         if (tmpItem &&
             (!JobQueue::IsJobQueuedOrRunning(
                 jobType,
@@ -3666,7 +3659,7 @@ void PlaybackBox::PlaylistDelete(bool forgetHistory)
 
             // if the item is in the current recording list UI then delete it.
             MythUIButtonListItem *uiItem =
-                m_recordingList->GetItemByData(qVariantFromValue(tmpItem));
+                m_recordingList->GetItemByData(QVariant::fromValue(tmpItem));
             if (uiItem)
                 m_recordingList->RemoveItem(uiItem);
         }
@@ -3715,12 +3708,12 @@ void PlaybackBox::ShowRecordedEpisodes()
     ProgramInfo *pginfo = GetCurrentProgram();
     if (pginfo) {
         QString title = pginfo->GetTitle().toLower();
-        MythUIButtonListItem* group = m_groupList->GetItemByData(qVariantFromValue(title));
+        MythUIButtonListItem* group = m_groupList->GetItemByData(QVariant::fromValue(title));
         if (group)
         {
             m_groupList->SetItemCurrent(group);
             // set focus back to previous item
-            MythUIButtonListItem *previousItem = m_recordingList->GetItemByData(qVariantFromValue(pginfo));
+            MythUIButtonListItem *previousItem = m_recordingList->GetItemByData(QVariant::fromValue(pginfo));
             m_recordingList->SetItemCurrent(previousItem);
         }
     }
@@ -3734,7 +3727,7 @@ void PlaybackBox::ShowAllRecordings(void)
     {
         // set focus back to previous item
         MythUIButtonListItem *previousitem =
-            m_recordingList->GetItemByData(qVariantFromValue(pginfo));
+            m_recordingList->GetItemByData(QVariant::fromValue(pginfo));
         m_recordingList->SetItemCurrent(previousitem);
     }
 }
@@ -3859,12 +3852,10 @@ void PlaybackBox::togglePlayListTitle(void)
 {
     QString groupname = m_groupList->GetItemCurrent()->GetData().toString();
 
-    auto it = m_progLists[groupname].begin();
-    auto end = m_progLists[groupname].end();
-    for (; it != end; ++it)
+    foreach (auto & pl, m_progLists[groupname])
     {
-        if (*it && ((*it)->GetAvailableStatus() == asAvailable))
-            togglePlayListItem(*it);
+        if (pl && (pl->GetAvailableStatus() == asAvailable))
+            togglePlayListItem(pl);
     }
 }
 
@@ -3894,7 +3885,7 @@ void PlaybackBox::togglePlayListItem(ProgramInfo *pginfo)
     uint recordingID = pginfo->GetRecordingID();
 
     MythUIButtonListItem *item =
-                    m_recordingList->GetItemByData(qVariantFromValue(pginfo));
+                    m_recordingList->GetItemByData(QVariant::fromValue(pginfo));
 
     if (m_playList.contains(recordingID))
     {
@@ -4273,7 +4264,7 @@ void PlaybackBox::customEvent(QEvent *event)
                 // if the item is in the current recording list UI
                 // then delete it.
                 MythUIButtonListItem *uiItem =
-                    m_recordingList->GetItemByData(qVariantFromValue(pginfo));
+                    m_recordingList->GetItemByData(QVariant::fromValue(pginfo));
                 if (uiItem)
                     m_recordingList->RemoveItem(uiItem);
             }
@@ -4437,7 +4428,7 @@ void PlaybackBox::customEvent(QEvent *event)
             {
                 ProgramInfo *pginfo = m_programInfoCache.GetRecordingInfo(recordingID);
                 if (pginfo &&
-                    m_recordingList->GetItemByData(qVariantFromValue(pginfo)) ==
+                    m_recordingList->GetItemByData(QVariant::fromValue(pginfo)) ==
                     m_recordingList->GetItemCurrent() &&
                     m_artImage[(uint)type]->GetFilename() != fn)
                 {
@@ -4555,7 +4546,7 @@ void PlaybackBox::HandleRecordingRemoveEvent(uint recordingID)
                 {
                     MythUIButtonListItem *item_by_data =
                         m_recordingList->GetItemByData(
-                            qVariantFromValue(*pit));
+                            QVariant::fromValue(*pit));
                     MythUIButtonListItem *item_cur =
                         m_recordingList->GetItemCurrent();
 
@@ -4966,11 +4957,10 @@ void PlaybackBox::ShowPlayGroupChanger(bool use_playlist)
     QStringList displayNames("Default");
 
     QStringList list = PlayGroup::GetNames();
-    QStringList::const_iterator it = list.begin();
-    for (; it != list.end(); ++it)
+    foreach (const auto &name, list)
     {
-        displayNames.push_back(*it);
-        groupNames.push_back(*it);
+        displayNames.push_back(name);
+        groupNames.push_back(name);
     }
 
     QString label = tr("Select Playback Group") +
@@ -5282,11 +5272,11 @@ bool GroupSelector::Create()
     for (int i = 0; i < m_list.size(); ++i)
     {
         new MythUIButtonListItem(groupList, m_list.at(i),
-                                 qVariantFromValue(m_data.at(i)));
+                                 QVariant::fromValue(m_data.at(i)));
     }
 
     // Set the current position in the list
-    groupList->SetValueByData(qVariantFromValue(m_selected));
+    groupList->SetValueByData(QVariant::fromValue(m_selected));
 
     BuildFocusList();
 
@@ -5739,10 +5729,9 @@ void PlaybackBox::PbbJobQueue::Update()
         QMap<int, JobQueueEntry> jobs;
         JobQueue::GetJobsInQueue(jobs, JOB_LIST_ALL);
         m_jobs.clear();
-        for (int i = 0; i < jobs.size(); ++i)
+        foreach (auto & job, jobs)
         {
-            JobQueueEntry &entry = jobs[i];
-            m_jobs.insert(qMakePair(entry.chanid, entry.recstartts), entry);
+            m_jobs.insert(qMakePair(job.chanid, job.recstartts), job);
         }
         m_lastUpdated = now;
     }

@@ -50,7 +50,7 @@ class MPEG2frame
     void ensure_size(int size);
     void set_pkt(AVPacket *newpkt);
 
-    AVPacket          m_pkt;
+    AVPacket          m_pkt        {};
     bool              m_isSequence {false};
     bool              m_isGop      {false};
     uint8_t          *m_framePos   {nullptr};
@@ -123,7 +123,7 @@ class MPEG2fixup
                void (*update_func)(float) = nullptr, int (*check_func)() = nullptr);
     ~MPEG2fixup();
     int Start();
-    void AddRangeList(QStringList rangelist, int type);
+    void AddRangeList(const QStringList& rangelist, int type);
     static void ShowRangeMap(frm_dir_map_t *mapPtr, QString msg);
     int BuildKeyframeIndex(QString &file, frm_pos_map_t &posMap, frm_pos_map_t &durMap);
 

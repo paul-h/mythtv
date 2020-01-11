@@ -155,7 +155,7 @@ void BackendSelection::AddItem(DeviceLocation *dev)
         infomap["version"] = infomap["modelnumber"].section('.', 0, 1);
 
         auto item = new MythUIButtonListItem(m_backendList, infomap["modelname"],
-                                             qVariantFromValue(dev));
+                                             QVariant::fromValue(dev));
         item->SetTextFromMap(infomap);
 
         bool protoMatch = (infomap["protocolversion"] == MYTH_PROTO_VERSION);
@@ -243,12 +243,12 @@ void BackendSelection::Cancel(void)
 void BackendSelection::Load(void)
 {
     SSDP::AddListener(this);
-    SSDP::Instance()->PerformSearch(gBackendURI);
+    SSDP::Instance()->PerformSearch(kBackendURI);
 }
 
 void BackendSelection::Init(void)
 {
-    SSDPCacheEntries *pEntries = SSDPCache::Instance()->Find(gBackendURI);
+    SSDPCacheEntries *pEntries = SSDPCache::Instance()->Find(kBackendURI);
     if (pEntries)
     {
         EntryMap ourMap;

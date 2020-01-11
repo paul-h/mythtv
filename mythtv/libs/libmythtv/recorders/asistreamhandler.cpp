@@ -225,8 +225,8 @@ void ASIStreamHandler::run(void)
             continue;
         }
 
-        StreamDataList::const_iterator sit = m_streamDataList.begin();
-        for (; sit != m_streamDataList.end(); ++sit)
+        for (auto sit = m_streamDataList.cbegin();
+             sit != m_streamDataList.cend(); ++sit)
             remainder = sit.key()->ProcessData(buffer, len);
 
         WriteMPTS(buffer, len - remainder);
@@ -301,7 +301,7 @@ bool ASIStreamHandler::Open(void)
     }
 
     // get the rx capabilities
-    unsigned int cap;
+    unsigned int cap = 0;
     if (ioctl(m_fd, ASI_IOC_RXGETCAP, &cap) < 0)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC +
@@ -344,7 +344,7 @@ void ASIStreamHandler::Close(void)
 
 void ASIStreamHandler::PriorityEvent(int fd)
 {
-    int val;
+    int val = 0;
     if(ioctl(fd, ASI_IOC_RXGETEVENTS, &val) < 0)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + QString("Failed to open device %1: ")

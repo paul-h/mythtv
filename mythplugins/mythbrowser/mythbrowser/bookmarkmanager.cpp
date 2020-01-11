@@ -224,7 +224,7 @@ void BookmarkManager::UpdateURLList(void)
             item2->SetText(site->m_url, "url");
             if (site->m_isHomepage)
                 item2->DisplayState("yes", "homepage");
-            item2->SetData(qVariantFromValue(site));
+            item2->SetData(QVariant::fromValue(site));
             item2->setChecked(site->m_selected ?
                     MythUIButtonListItem::FullChecked : MythUIButtonListItem::NotChecked);
         }
@@ -235,9 +235,8 @@ uint BookmarkManager::GetMarkedCount(void)
 {
     uint count = 0;
 
-    for (int x = 0; x < m_siteList.size(); x++)
+    foreach (auto site, m_siteList)
     {
-        Bookmark *site = m_siteList.at(x);
         if (site && site->m_selected)
             count++;
     }
@@ -560,9 +559,8 @@ void BookmarkManager::slotDoDeleteMarked(bool doDelete)
 
     QString category = m_groupList->GetValue();
 
-    for (int x = 0; x < m_siteList.size(); x++)
+    foreach (auto site, m_siteList)
     {
-        Bookmark *site = m_siteList.at(x);
         if (site && site->m_selected)
             RemoveFromDB(site);
     }
@@ -599,9 +597,8 @@ void BookmarkManager::slotShowMarked(void)
     QString zoom = gCoreContext->GetSetting("WebBrowserZoomLevel", "1.0");
     QStringList urls;
 
-    for (int x = 0; x < m_siteList.size(); x++)
+    foreach (auto site, m_siteList)
     {
-        Bookmark *site = m_siteList.at(x);
         if (site && site->m_selected)
             urls.append(site->m_url);
     }

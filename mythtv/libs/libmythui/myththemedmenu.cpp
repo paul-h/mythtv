@@ -692,7 +692,7 @@ void MythThemedMenu::addButton(const QString &type, const QString &text,
         m_watermarkState->EnsureStateLoaded(type);
 
     auto *listbuttonitem = new MythUIButtonListItem(m_buttonList, text,
-                                                qVariantFromValue(newbutton));
+                                                QVariant::fromValue(newbutton));
 
     listbuttonitem->DisplayState(type, "icon");
     listbuttonitem->SetText(description, "description");
@@ -706,10 +706,9 @@ void MythThemedMenu::buttonAction(MythUIButtonListItem *item, bool skipPass)
     if (!skipPass)
         password = button.password;
 
-    QStringList::Iterator it = button.action.begin();
-    for (; it != button.action.end(); it++)
+    foreach (auto & act, button.action)
     {
-        if (handleAction(*it, password))
+        if (handleAction(act, password))
             break;
     }
 }
@@ -857,14 +856,14 @@ bool MythThemedMenu::findDepends(const QString &fileList)
     QStringList files = fileList.split(" ");
     MythPluginManager *pluginManager = gCoreContext->GetPluginManager();
 
-    for (QStringList::Iterator it = files.begin(); it != files.end(); ++it )
+    foreach (auto & file, files)
     {
-        QString filename = findMenuFile(*it);
+        QString filename = findMenuFile(file);
         if (!filename.isEmpty() && filename.endsWith(".xml"))
             return true;
 
         // Has plugin by this name been successfully loaded
-        MythPlugin *plugin = pluginManager->GetPlugin(*it);
+        MythPlugin *plugin = pluginManager->GetPlugin(file);
         if (plugin)
             return true;
     }

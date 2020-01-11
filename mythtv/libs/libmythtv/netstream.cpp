@@ -14,6 +14,7 @@ using std::getenv;
 #include <QAtomicInt>
 #include <QCoreApplication>
 #include <QDesktopServices>
+#include <QElapsedTimer>
 #include <QEvent>
 #include <QFile>
 #include <QMetaType> // qRegisterMetaType
@@ -311,7 +312,7 @@ void NetStream::slotRequestStarted(int id, QNetworkReply *reply)
 
 static qlonglong inline ContentLength(const QNetworkReply *reply)
 {
-    bool ok;
+    bool ok = false;
     qlonglong len = reply->header(QNetworkRequest::ContentLengthHeader)
         .toLongLong(&ok);
     return ok ? len : -1;
@@ -327,7 +328,7 @@ static qlonglong inline ContentRange(const QNetworkReply *reply,
         return -1;
 
     // See RFC 2616 14.16: 'bytes begin-end/size'
-    qlonglong len;
+    qlonglong len = 0;
     if (3 != std::sscanf(range.constData(), " bytes %20lld - %20lld / %20lld", &first, &last, &len))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + QString("Invalid Content-Range:'%1'")
@@ -374,8 +375,8 @@ void NetStream::slotReadyRead()
 
         if (m_size < 0 || m_state < kReady)
         {
-            qlonglong first;
-            qlonglong last;
+            qlonglong first = 0;
+            qlonglong last = 0;
             qlonglong len = ContentRange(m_reply, first, last);
             if (len >= 0)
             {
@@ -554,7 +555,7 @@ void NetStream::Abort()
 
 int NetStream::safe_read(void *data, unsigned sz, unsigned millisecs /* = 0 */)
 {
-    QTime t; t.start();
+    QElapsedTimer t; t.start();
     QMutexLocker locker(&m_mutex);
 
     if (m_size >= 0 && m_pos >= m_size)
@@ -627,7 +628,7 @@ bool NetStream::WaitTillReady(unsigned long milliseconds)
 {
     QMutexLocker locker(&m_mutex);
 
-    QTime t; t.start();
+    QElapsedTimer t; t.start();
     while (m_state < kReady)
     {
         unsigned elapsed = t.elapsed();
@@ -644,7 +645,7 @@ bool NetStream::WaitTillFinished(unsigned long milliseconds)
 {
     QMutexLocker locker(&m_mutex);
 
-    QTime t; t.start();
+    QElapsedTimer t; t.start();
     while (m_state < kFinished)
     {
         unsigned elapsed = t.elapsed();

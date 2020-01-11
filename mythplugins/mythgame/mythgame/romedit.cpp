@@ -87,10 +87,8 @@ namespace
         QStringList ret;
 
         QList<QByteArray> exts = QImageReader::supportedImageFormats();
-        for (QList<QByteArray>::iterator p = exts.begin(); p != exts.end(); ++p)
-        {
-            ret.append(QString("*.").append(*p));
-        }
+        foreach (auto & ext, exts)
+            ret.append(QString("*.").append(ext));
 
         return ret;
     }
@@ -164,7 +162,7 @@ void EditRomInfoDialog::SaveAndExit()
     {
         auto *romInfo = new RomInfo(*m_workingRomInfo);
         auto *dce = new DialogCompletionEvent(m_id, 0, "",
-                                              qVariantFromValue(romInfo));
+                                              QVariant::fromValue(romInfo));
 
         QApplication::postEvent(m_retObject, dce);
     }

@@ -128,8 +128,6 @@ MythVideoOutputOpenGL::MythVideoOutputOpenGL(QString Profile)
     // Disallow unsupported video texturing on GLES2/GL1.X
     if (m_render->GetExtraFeatures() & kGLLegacyTextures)
         m_textureFormats = LegacyFormats;
-    else if (m_render->isOpenGLES() && m_render->format().majorVersion() > 2)
-        m_textureFormats = OpenGLES3Formats;
 
     // Retrieve OpenGL painter
     MythMainWindow *win = MythMainWindow::getMainWindow();
@@ -530,8 +528,8 @@ void MythVideoOutputOpenGL::PrepareFrame(VideoFrame *Frame, FrameScanType Scan, 
             // in the vast majority of cases it is significantly quicker to just
             // clear the unused portions of the screen
             QRegion toclear = m_window.GetBoundingRegion();
-            for (auto it = toclear.begin() ; it != toclear.end(); ++it)
-                m_render->ClearRect(nullptr, *it, gray);
+            foreach (auto rect, toclear)
+                m_render->ClearRect(nullptr, rect, gray);
         }
     }
 #endif
@@ -594,8 +592,7 @@ void MythVideoOutputOpenGL::PrepareFrame(VideoFrame *Frame, FrameScanType Scan, 
     // PiPs/PBPs
     if (!m_openGLVideoPiPs.empty())
     {
-        QMap<MythPlayer*,MythOpenGLVideo*>::iterator it = m_openGLVideoPiPs.begin();
-        for (; it != m_openGLVideoPiPs.end(); ++it)
+        for (auto it = m_openGLVideoPiPs.begin(); it != m_openGLVideoPiPs.end(); ++it)
         {
             if (m_openGLVideoPiPsReady[it.key()])
             {
@@ -716,7 +713,7 @@ void MythVideoOutputOpenGL::DiscardFrames(bool KeyFrame, bool Flushed)
 
 VideoFrameType* MythVideoOutputOpenGL::DirectRenderFormats(void)
 {
-    // Complete list of formats supported for OpenGL 2.0 and higher
+    // Complete list of formats supported for OpenGL 2.0 and higher and OpenGL ES3.X
     static VideoFrameType s_AllFormats[] =
         { FMT_YV12,     FMT_NV12,      FMT_YUY2,      FMT_YUV422P,   FMT_YUV444P,
           FMT_YUV420P9, FMT_YUV420P10, FMT_YUV420P12, FMT_YUV420P14, FMT_YUV420P16,
@@ -725,15 +722,11 @@ VideoFrameType* MythVideoOutputOpenGL::DirectRenderFormats(void)
           FMT_P010, FMT_P016,
           FMT_NONE };
 
-    // OpenGL ES 3.0 requires some specific handling for certain types
-    static VideoFrameType s_GLES3Formats[] =
-        { FMT_YV12, FMT_NV12, FMT_YUY2, FMT_YUV422P, FMT_YUV444P, FMT_NONE };
-
     // OpenGL ES 2.0 and OpenGL1.X only allow luminance textures
     static VideoFrameType s_LegacyFormats[] =
         { FMT_YV12, FMT_YUY2, FMT_YUV422P, FMT_YUV444P, FMT_NONE };
 
-    static VideoFrameType* s_formats[3] = { s_AllFormats, s_GLES3Formats, s_LegacyFormats };
+    static VideoFrameType* s_formats[2] = { s_AllFormats, s_LegacyFormats };
     return s_formats[m_textureFormats];
 }
 
@@ -845,8 +838,8 @@ void MythVideoOutputOpenGL::ShowPIP(VideoFrame* /*Frame*/, MythPlayer *PiPPlayer
     if (!PiPPlayer)
         return;
 
-    int pipw;
-    int piph;
+    int pipw = 0;
+    int piph = 0;
     VideoFrame *pipimage     = PiPPlayer->GetCurrentFrame(pipw, piph);
     const QSize pipvideodim  = PiPPlayer->GetVideoBufferSize();
     QRect       pipvideorect = QRect(QPoint(0, 0), pipvideodim);

@@ -36,6 +36,10 @@ class NuppelDecoder : public DecoderBase
     NuppelDecoder(MythPlayer *parent, const ProgramInfo &pginfo);
    ~NuppelDecoder() override;
 
+    // Deleted functions should be public.
+    NuppelDecoder(const NuppelDecoder &) = delete;            // not copyable
+    NuppelDecoder &operator=(const NuppelDecoder &) = delete; // not copyable
+
     static bool CanHandle(char testbuf[kDecoderProbeBufferSize], 
                           int testbufsize = kDecoderProbeBufferSize);
 
@@ -60,9 +64,6 @@ class NuppelDecoder : public DecoderBase
     MythCodecID GetVideoCodecID(void) const override; // DecoderBase
 
   private:
-    NuppelDecoder(const NuppelDecoder &) = delete;            // not copyable
-    NuppelDecoder &operator=(const NuppelDecoder &) = delete; // not copyable
-
     inline bool ReadFileheader(struct rtfileheader *fh);
     inline bool ReadFrameheader(struct rtframeheader *fh);
 
@@ -82,10 +83,10 @@ class NuppelDecoder : public DecoderBase
     friend int get_nuppel_buffer(struct AVCodecContext *c, AVFrame *pic, int flags);
     friend void release_nuppel_buffer(void *opaque, uint8_t *data);
 
-    struct rtfileheader   m_fileHeader;
-    struct rtframeheader  m_frameHeader;
+    struct rtfileheader   m_fileHeader           {};
+    struct rtframeheader  m_frameHeader          {};
 
-    RTjpeg               *m_rtjd                  {nullptr};
+    RTjpeg               *m_rtjd                 {nullptr};
 
     int                   m_videoWidth           {0};
     int                   m_videoHeight          {0};
@@ -99,7 +100,7 @@ class NuppelDecoder : public DecoderBase
     int                   m_ffmpegExtraDataSize   {0};
     uint8_t              *m_ffmpegExtraData       {nullptr};
 
-    struct extendeddata   m_extraData;
+    struct extendeddata   m_extraData             {};
     bool                  m_usingExtraData        {false};
 
     bool                  m_disableVideo          {false};
@@ -125,7 +126,7 @@ class NuppelDecoder : public DecoderBase
     unsigned char        *m_strm                  {nullptr};
     unsigned char        *m_buf                   {nullptr};
     unsigned char        *m_buf2                  {nullptr};
-    unsigned char        *m_planes[3];
+    unsigned char        *m_planes[3]             {};
 
     list<RawDataList*>    m_storedData;
 

@@ -73,7 +73,7 @@
 
 #include "encoder.h"
 
-#define MAX_SAMPLES 588 * 4
+#define MAX_SAMPLES (588 * 4)
 #define NUM_CHANNELS 2
 
 class MusicMetadata;
@@ -89,8 +89,8 @@ class FlacEncoder : public Encoder
   private:
     FLAC_ENCODER *m_encoder    {nullptr};
     unsigned int  m_sampleIndex {0};
-    FLAC__int32   m_inputIn[NUM_CHANNELS][MAX_SAMPLES];
-    FLAC__int32  *m_input[NUM_CHANNELS];
+    FLAC__int32   m_inputIn[NUM_CHANNELS][MAX_SAMPLES] {};
+    FLAC__int32  *m_input[NUM_CHANNELS] {};
 };
 
 #endif

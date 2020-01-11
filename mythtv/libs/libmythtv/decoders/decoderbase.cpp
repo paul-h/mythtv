@@ -100,22 +100,22 @@ bool DecoderBase::PosMapFromDb(void)
 
     if (m_ringBuffer && m_ringBuffer->IsDVD())
     {
-        long long totframes;
         m_keyframeDist = 15;
         m_fps = m_ringBuffer->DVD()->GetFrameRate();
         if (m_fps < 26 && m_fps > 24)
            m_keyframeDist = 12;
-        totframes = (long long)(m_ringBuffer->DVD()->GetTotalTimeOfTitle() * m_fps);
+        auto totframes =
+            (long long)(m_ringBuffer->DVD()->GetTotalTimeOfTitle() * m_fps);
         posMap[totframes] = m_ringBuffer->DVD()->GetTotalReadPosition();
     }
     else if (m_ringBuffer && m_ringBuffer->IsBD())
     {
-        long long totframes;
         m_keyframeDist = 15;
         m_fps = m_ringBuffer->BD()->GetFrameRate();
         if (m_fps < 26 && m_fps > 24)
            m_keyframeDist = 12;
-        totframes = (long long)(m_ringBuffer->BD()->GetTotalTimeOfTitle() * m_fps);
+        auto totframes =
+            (long long)(m_ringBuffer->BD()->GetTotalTimeOfTitle() * m_fps);
         posMap[totframes] = m_ringBuffer->BD()->GetTotalReadPosition();
 #if 0
         LOG(VB_PLAYBACK, LOG_DEBUG, LOC +
@@ -432,7 +432,7 @@ bool DecoderBase::FindPosition(long long desired_value, bool search_adjusted,
     while (upper - 1 > lower)
     {
         long long i = (upper + lower) / 2;
-        long long value;
+        long long value = 0;
         if (search_adjusted)
             value = m_positionMap[i].adjFrame;
         else
@@ -513,14 +513,14 @@ uint64_t DecoderBase::SavePositionMapDelta(long long first, long long last)
 
     ctm.start();
     frm_pos_map_t posMap;
-    for (size_t i = 0; i < m_positionMap.size(); i++)
+    for (auto & entry : m_positionMap)
     {
-        if (m_positionMap[i].index < first)
+        if (entry.index < first)
             continue;
-        if (m_positionMap[i].index > last)
+        if (entry.index > last)
             break;
 
-        posMap[m_positionMap[i].index] = m_positionMap[i].pos;
+        posMap[entry.index] = entry.pos;
         saved++;
     }
 
@@ -604,11 +604,11 @@ bool DecoderBase::DoRewindSeek(long long desiredFrame)
     }
 
     // Find keyframe <= desiredFrame, store in lastKey (frames)
-    int pre_idx;
-    int post_idx;
+    int pre_idx = 0;
+    int post_idx = 0;
     FindPosition(desiredFrame, m_hasKeyFrameAdjustTable, pre_idx, post_idx);
 
-    PosMapEntry e;
+    PosMapEntry e {};
     {
         QMutexLocker locker(&m_positionMapLock);
         PosMapEntry e_pre  = m_positionMap[pre_idx];
@@ -837,15 +837,15 @@ void DecoderBase::DoFastForwardSeek(long long desiredFrame, bool &needflush)
         return;
     }
 
-    int pre_idx;
-    int post_idx;
+    int pre_idx = 0;
+    int post_idx = 0;
     FindPosition(desiredFrame, m_hasKeyFrameAdjustTable, pre_idx, post_idx);
 
     // if exactseeks, use keyframe <= desiredFrame
 
-    PosMapEntry e;
-    PosMapEntry e_pre;
-    PosMapEntry e_post;
+    PosMapEntry e {};
+    PosMapEntry e_pre {};
+    PosMapEntry e_post {};
     {
         QMutexLocker locker(&m_positionMapLock);
         e_pre  = m_positionMap[pre_idx];
@@ -985,8 +985,8 @@ bool DecoderBase::InsertTrack(uint type, const StreamInfo &info)
 {
     QMutexLocker locker(avcodeclock);
 
-    for (size_t i = 0; i < m_tracks[type].size(); i++)
-        if (info.m_stream_id == m_tracks[type][i].m_stream_id)
+    for (auto & i : m_tracks[type])
+        if (info.m_stream_id == i.m_stream_id)
             return false;
 
     m_tracks[type].push_back(info);
@@ -1218,10 +1218,10 @@ uint64_t DecoderBase::TranslatePosition(const frm_pos_map_t &map,
                                         long long key,
                                         float fallback_ratio)
 {
-    uint64_t key1;
-    uint64_t key2;
-    uint64_t val1;
-    uint64_t val2;
+    uint64_t key1 = 0;
+    uint64_t key2 = 0;
+    uint64_t val1 = 0;
+    uint64_t val2 = 0;
 
     frm_pos_map_t::const_iterator lower = map.lowerBound(key);
     // QMap::lowerBound() finds a key >= the given key.  We want one

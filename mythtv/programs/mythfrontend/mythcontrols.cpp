@@ -288,10 +288,9 @@ void MythControls::SetListContents(
     uilist->Reset();
 
     // add each new string
-    QStringList::const_iterator it = contents.begin();
-    for (; it != contents.end(); ++it)
+    foreach (const auto & content, contents)
     {
-        auto *item = new MythUIButtonListItem(uilist, *it);
+        auto *item = new MythUIButtonListItem(uilist, content);
         item->setDrawArrow(arrows);
     }
 }
@@ -508,10 +507,8 @@ void MythControls::LoadData(const QString &hostname)
     m_sortedContexts.insert(m_sortedContexts.begin(),
                             ActionSet::kJumpContext);
 
-    QStringList::const_iterator it = m_sortedContexts.begin();
-    for (; it != m_sortedContexts.end(); ++it)
+    foreach (const auto & ctx_name, m_sortedContexts)
     {
-        QString ctx_name = *it;
         QStringList actions = m_bindings->GetActions(ctx_name);
         actions.sort();
         m_contexts.insert(ctx_name, actions);
@@ -594,7 +591,7 @@ void MythControls::ResolveConflict(ActionID *conflict, int error_level,
 
     if (!error)
     {
-        confirmPopup->SetData(qVariantFromValue(key));
+        confirmPopup->SetData(QVariant::fromValue(key));
         confirmPopup->SetReturnEvent(this, "conflict");
     }
 

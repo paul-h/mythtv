@@ -141,9 +141,9 @@ void MythMultiLocker::Unlock(void)
 
 void MythMultiLocker::Relock(void)
 {
-    for (QVector<QMutex*>::const_iterator it = m_locks.cbegin(); it != m_locks.cend(); ++it)
-        if (*it)
-            (*it)->lock();
+    foreach (auto lock, m_locks)
+        if (lock)
+            lock->lock();
 }
 
 MythPlayer::MythPlayer(PlayerFlags flags)
@@ -412,8 +412,8 @@ void MythPlayer::ReinitOSD(void)
         }
         QRect visible;
         QRect total;
-        float aspect;
-        float scaling;
+        float aspect = NAN;
+        float scaling = NAN;
         m_videoOutput->GetOSDBounds(total, visible, aspect,
                                   scaling, 1.0F);
         if (m_osd)
@@ -731,6 +731,9 @@ int MythPlayer::OpenFile(int Retries)
     // Sanity check
     if (!m_playerCtx || (m_playerCtx && !m_playerCtx->m_buffer))
         return -1;
+
+    LOG(VB_GENERAL, LOG_INFO, LOC + QString("Opening '%1'")
+        .arg(m_playerCtx->m_buffer->GetSafeFilename()));
 
     // Disable hardware acceleration for second PBP
     if (m_playerCtx && (m_playerCtx->IsPBP() && !m_playerCtx->IsPrimaryPBP()) &&
@@ -2123,8 +2126,8 @@ void MythPlayer::VideoStart(void)
     {
         QRect visible;
         QRect total;
-        float aspect;
-        float scaling;
+        float aspect = NAN;
+        float scaling = NAN;
 
         m_osdLock.lock();
         m_osd = new OSD(this, m_tv, m_videoOutput->GetOSDPainter());
@@ -2764,7 +2767,7 @@ void MythPlayer::EventLoop(void)
     // refresh the position map for an in-progress recording while editing
     if (m_hasFullPositionMap && IsWatchingInprogress() && m_deleteMap.IsEditing())
     {
-        if (m_editUpdateTimer.elapsed() > 2000)
+        if (m_editUpdateTimer.hasExpired(2000))
         {
             // N.B. the positionmap update and osd refresh are asynchronous
             m_forcePositionMapSync = true;
@@ -3430,13 +3433,13 @@ PIPLocation MythPlayer::GetNextPIPLocation(void) const
     PIPLocation ols[] =
         { kPIPTopLeft, kPIPTopRight, kPIPBottomLeft, kPIPBottomRight };
 
-    for (size_t i = 0; i < sizeof(ols)/sizeof(PIPLocation); i++)
+    for (auto & ol : ols)
     {
         PIPMap::const_iterator it = m_pipPlayers.begin();
-        for (; it != m_pipPlayers.end() && (*it != ols[i]); ++it);
+        for (; it != m_pipPlayers.end() && (*it != ol); ++it);
 
         if (it == m_pipPlayers.end())
-            return ols[i];
+            return ol;
     }
 
     return kPIP_END;
@@ -3577,7 +3580,7 @@ uint64_t MythPlayer::GetBookmark(void)
 
 bool MythPlayer::UpdateFFRewSkip(void)
 {
-    bool skip_changed;
+    bool skip_changed = false;
 
     float temp_speed = (m_playSpeed == 0.0F) ?
         m_audio.GetStretchFactor() : m_playSpeed;
@@ -4839,7 +4842,7 @@ uint64_t MythPlayer::FindFrame(float offset, bool use_cutlist) const
     bool islivetvcur    = (m_liveTV && m_playerCtx->m_tvchain &&
                         !m_playerCtx->m_tvchain->HasNext());
     uint64_t length_ms  = TranslatePositionFrameToMs(m_totalFrames, use_cutlist);
-    uint64_t position_ms;
+    uint64_t position_ms = 0;
 
     if (signbit(offset))
     {
@@ -4985,30 +4988,48 @@ void MythPlayer::calcSliderPos(osdInfo &info, bool paddedFields)
         QString text3;
         if (paddedFields)
         {
-            text1.sprintf("%02d:%02d:%02d", phours, pmins, psecs);
-            text2.sprintf("%02d:%02d:%02d", shours, smins, ssecs);
-            text3.sprintf("%02d:%02d:%02d", sbhours, sbmins, sbsecs);
+            text1 = QString("%1:%2:%3")
+                    .arg(phours, 2, 10, QLatin1Char('0'))
+                    .arg(pmins,  2, 10, QLatin1Char('0'))
+                    .arg(psecs,  2, 10, QLatin1Char('0'));
+            text2 = QString("%1:%2:%3")
+                    .arg(shours, 2, 10, QLatin1Char('0'))
+                    .arg(smins,  2, 10, QLatin1Char('0'))
+                    .arg(ssecs,  2, 10, QLatin1Char('0'));
+            text3 = QString("%1:%2:%3")
+                    .arg(sbhours, 2, 10, QLatin1Char('0'))
+                    .arg(sbmins,  2, 10, QLatin1Char('0'))
+                    .arg(sbsecs,  2, 10, QLatin1Char('0'));
         }
         else
         {
             if (shours > 0)
             {
-                text1.sprintf("%d:%02d:%02d", phours, pmins, psecs);
-                text2.sprintf("%d:%02d:%02d", shours, smins, ssecs);
+                text1 = QString("%1:%2:%3")
+                        .arg(phours)
+                        .arg(pmins,  2, 10, QLatin1Char('0'))
+                        .arg(psecs,  2, 10, QLatin1Char('0'));
+                text2 = QString("%1:%2:%3")
+                        .arg(shours)
+                        .arg(smins,  2, 10, QLatin1Char('0'))
+                        .arg(ssecs,  2, 10, QLatin1Char('0'));
             }
             else
             {
-                text1.sprintf("%d:%02d", pmins, psecs);
-                text2.sprintf("%d:%02d", smins, ssecs);
+                text1 = QString("%1:%2").arg(pmins).arg(psecs,  2, 10, QLatin1Char('0'));
+                text2 = QString("%1:%2").arg(smins).arg(ssecs,  2, 10, QLatin1Char('0'));
             }
 
             if (sbhours > 0)
             {
-                text3.sprintf("%d:%02d:%02d", sbhours, sbmins, sbsecs);
+                text3 = QString("%1:%2:%3")
+                        .arg(sbhours)
+                        .arg(sbmins,  2, 10, QLatin1Char('0'))
+                        .arg(sbsecs,  2, 10, QLatin1Char('0'));
             }
             else if (sbmins > 0)
             {
-                text3.sprintf("%d:%02d", sbmins, sbsecs);
+                text3 = QString("%1:%2").arg(sbmins).arg(sbsecs,  2, 10, QLatin1Char('0'));
             }
             else
             {

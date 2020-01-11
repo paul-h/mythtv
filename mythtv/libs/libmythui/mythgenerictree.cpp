@@ -296,9 +296,8 @@ MythGenericTree* MythGenericTree::getVisibleChildAt(uint reference) const
     QList<MythGenericTree*> *list = m_subnodes;
 
     uint n = 0;
-    for (int i = 0; i < list->size(); ++i)
+    foreach (auto child, *list)
     {
-        MythGenericTree *child = list->at(i);
         if (child->IsVisible())
         {
             if (n == reference)
@@ -503,7 +502,7 @@ void MythGenericTree::SetVisible(bool visible)
 MythUIButtonListItem *MythGenericTree::CreateListButton(MythUIButtonList *list)
 {
     auto *item = new MythUIButtonListItem(list, GetText());
-    item->SetData(qVariantFromValue(this));
+    item->SetData(QVariant::fromValue(this));
     item->SetTextFromMap(m_strings);
     item->SetImageFromMap(m_imageFilenames);
     item->SetStatesFromMap(m_states);

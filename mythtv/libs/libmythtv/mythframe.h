@@ -268,7 +268,7 @@ static inline void init(VideoFrame *vf, VideoFrameType _codec,
     vf->deinterlace_inuse2x = 0;
     memset(vf->priv, 0, 4 * sizeof(unsigned char *));
 
-    int width_aligned;
+    int width_aligned = 0;
     int height_aligned = (_height + MYTH_HEIGHT_ALIGNMENT - 1) & ~(MYTH_HEIGHT_ALIGNMENT -1);
     if (!_aligned)
         width_aligned = _width;
@@ -700,7 +700,7 @@ static inline void copybuffer(VideoFrame *dst, uint8_t *buffer,
 {
     if (type == FMT_YV12)
     {
-        VideoFrame framein;
+        VideoFrame framein {};
         int chroma_pitch  = pitch >> 1;
         int chroma_height = dst->height >> 1;
         int offsets[3] =
@@ -715,7 +715,7 @@ static inline void copybuffer(VideoFrame *dst, uint8_t *buffer,
     }
     else if (type == FMT_NV12)
     {
-        VideoFrame framein;
+        VideoFrame framein {};
         int offsets[3] = { 0, pitch * dst->height, 0 };
         int pitches[3] = { pitch, pitch, 0 };
 
@@ -733,7 +733,7 @@ static inline void copybuffer(uint8_t *dstbuffer, const VideoFrame *src,
 
     if (type == FMT_YV12)
     {
-        VideoFrame frameout;
+        VideoFrame frameout {};
         int chroma_pitch  = pitch >> 1;
         int chroma_height = src->height >> 1;
         int offsets[3] =
@@ -748,7 +748,7 @@ static inline void copybuffer(uint8_t *dstbuffer, const VideoFrame *src,
     }
     else if (type == FMT_NV12)
     {
-        VideoFrame frameout;
+        VideoFrame frameout {};
         int offsets[3] = { 0, pitch * src->height, 0 };
         int pitches[3] = { pitch, pitch, 0 };
 

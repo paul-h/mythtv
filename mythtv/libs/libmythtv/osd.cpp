@@ -295,9 +295,8 @@ void OSD::LoadWindows(void)
         "osd_message", "osd_input", "program_info", "browse_info", "osd_status",
         "osd_program_editor", "osd_debug"};
 
-    for (int i = 0; i < 7; i++)
+    for (auto window : s_defaultWindows)
     {
-        const char* window = s_defaultWindows[i];
         auto *win = new MythOSDWindow(nullptr, window, true);
 
         win->SetPainter(m_currentPainter);
@@ -993,7 +992,7 @@ void OSD::DialogShow(const QString &Window, const QString &Text, int UpdateFor)
     if (!m_dialog)
     {
         OverrideUIScale();
-        MythScreenType *dialog;
+        MythScreenType *dialog = nullptr;
 
         if (Window == OSD_DLG_EDITOR)
             dialog = new ChannelEditor(m_parentObject, Window.toLatin1());
@@ -1247,7 +1246,7 @@ bool OsdNavigation::Create(void)
     if (!XMLParseBase::LoadWindowFromXML("osd.xml", "osd_navigation", this))
         return false;
 
-    MythUIButton *moreButton;
+    MythUIButton *moreButton = nullptr;
     UIUtilW::Assign(this, moreButton, "more");
     if (moreButton)
         connect(moreButton, SIGNAL(Clicked()), SLOT(More()));
@@ -1269,7 +1268,7 @@ bool OsdNavigation::Create(void)
     }
 
     // find number of groups and make sure only corrrect one is visible
-    MythUIGroup *group;
+    MythUIGroup *group = nullptr;
     for (int i = 0; i < 100 ; i++)
     {
         UIUtilW::Assign(this, group, QString("grp%1").arg(i));
@@ -1375,7 +1374,7 @@ void OsdNavigation::More(void)
     if (m_maxGroupNum <= 0)
         return;
 
-    MythUIGroup *group;
+    MythUIGroup *group = nullptr;
     UIUtilW::Assign(this, group, QString("grp%1").arg(m_visibleGroup));
     group->SetVisible (false);
 

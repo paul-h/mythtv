@@ -168,7 +168,7 @@ namespace
             RemoteGetFileList(host, "", &hostFiles, sgroup, true);
             const QString hntm("%2.%3");
 
-            for (auto ext = image_exts.cbegin(); ext != image_exts.cend(); ++ext)
+            for (const auto & ext : image_exts)
             {
                 QStringList sfn;
                 if (episode > 0 || season > 0)
@@ -179,21 +179,21 @@ namespace
                                  .arg(title).arg(QString::number(season))
                                  .arg(QString::number(episode))
                                  .arg(suffix))
-                                 .arg(*ext);
+                                 .arg(ext);
                     }
                     else
                     {
                         sfn += hntm.arg(QString("%1 Season %2_%3")
                                  .arg(title).arg(QString::number(season))
                                  .arg(suffix))
-                                 .arg(*ext);
+                                 .arg(ext);
                     }
 
                 }
                 else
                 {
-                sfn += hntm.arg(base_name + "_%1").arg(suffix).arg(*ext);
-                sfn += hntm.arg(video_uid + "_%1").arg(suffix).arg(*ext);
+                sfn += hntm.arg(base_name + "_%1").arg(suffix).arg(ext);
+                sfn += hntm.arg(video_uid + "_%1").arg(suffix).arg(ext);
                 }
 
                 for (QStringList::const_iterator i = sfn.begin();
@@ -215,7 +215,7 @@ namespace
         {
             if (!(*dir).length()) continue;
 
-            for (auto ext = image_exts.cbegin(); ext != image_exts.cend(); ++ext)
+            for (const auto & ext : image_exts)
             {
                 QStringList sfn;
                 if (season > 0 || episode > 0)
@@ -226,24 +226,24 @@ namespace
                                  .arg(title).arg(QString::number(season))
                                  .arg(QString::number(episode))
                                  .arg(suffix))
-                                 .arg(*ext);
+                                 .arg(ext);
                     }
                     else if (!isScreenshot)
                     {
                         sfn += fntm.arg(*dir).arg(QString("%1 Season %2_%3")
                                  .arg(title).arg(QString::number(season))
                                  .arg(suffix))
-                                 .arg(*ext);
+                                 .arg(ext);
                     }
                 }
                 if (!isScreenshot)
                 {
                 sfn += fntm.arg(*dir)
                     .arg(base_name + QString("_%1").arg(suffix))
-                    .arg(*ext);
+                    .arg(ext);
                 sfn += fntm.arg(*dir)
                     .arg(video_uid + QString("_%1").arg(suffix))
-                    .arg(*ext);
+                    .arg(ext);
                 }
 
                 for (QStringList::const_iterator i = sfn.begin();
@@ -272,7 +272,7 @@ namespace
 
         if (!item) return;
 
-        QTime playing_time;
+        QElapsedTimer playing_time;
 
         do
         {
@@ -288,7 +288,7 @@ namespace
             else
                 break;
         }
-        while (item && playing_time.elapsed() > WATCHED_WATERMARK);
+        while (item && playing_time.hasExpired(WATCHED_WATERMARK));
     }
 
     class FanartLoader: public QObject
@@ -626,11 +626,10 @@ class ItemDetailPopup : public MythScreenType
     bool OnKeyAction(const QStringList &actions)
     {
         bool handled = false;
-        for (QStringList::const_iterator key = actions.begin();
-                key != actions.end(); ++key)
+        foreach (const auto & action, actions)
         {
             handled = true;
-            if (*key == "SELECT" || *key == "PLAYBACK")
+            if (action == "SELECT" || action == "PLAYBACK")
                 OnPlay();
             else
                 handled = false;
@@ -1202,7 +1201,7 @@ void VideoDialog::loadData()
                         new MythUIButtonListItem(m_videoButtonList, QString(), nullptr,
                                 true, MythUIButtonListItem::NotChecked);
 
-                item->SetData(qVariantFromValue(*p));
+                item->SetData(QVariant::fromValue(*p));
 
                 UpdateItem(item);
 
@@ -2227,9 +2226,8 @@ void VideoDialog::searchComplete(const QString& string)
     else
         children = m_d->m_currentNode->getAllChildren();
 
-    for (auto it = children->begin(); it != children->end(); ++it)
+    foreach (auto child, *children)
     {
-        MythGenericTree *child = *it;
         QString title = child->GetText();
         int id = child->getPosition();
         idTitle.insert(id, title);
@@ -2264,9 +2262,8 @@ void VideoDialog::searchStart(void)
     else
         children = m_d->m_currentNode->getAllChildren();
 
-    for (auto it = children->begin(); it != children->end(); ++it)
+    foreach (auto child, *children)
     {
-        MythGenericTree *child = *it;
         childList << child->GetText();
     }
 
@@ -3114,7 +3111,7 @@ void VideoDialog::playFolder()
     const int WATCHED_WATERMARK = 10000; // Play less then this milisec and the chain of
                                          // videos will not be followed when
                                          // playing.
-    QTime playing_time;
+    QElapsedTimer playing_time;
 
     MythUIButtonListItem *item = GetItemCurrent();
     MythGenericTree *node = GetNodePtrFromButton(item);
@@ -3130,7 +3127,7 @@ void VideoDialog::playFolder()
         bool video_started = false;
         int i = 0;
         while (i < list_count &&
-               (!video_started || playing_time.elapsed() > WATCHED_WATERMARK))
+               (!video_started || playing_time.hasExpired(WATCHED_WATERMARK)))
         {
             MythGenericTree *subnode = node->getChildAt(i);
             if (subnode)
@@ -3423,9 +3420,8 @@ MythUIButtonListItem *VideoDialog::GetItemByMetadata(VideoMetadata *metadata)
 
     QList<MythGenericTree*> *children = m_d->m_currentNode->getAllChildren();
 
-    for (auto it = children->begin(); it != children->end(); ++it)
+    foreach (auto child, *children)
     {
-        MythGenericTree *child = *it;
         int nodeInt = child->getInt();
         if (nodeInt != kSubFolder && nodeInt != kUpFolder)
         {

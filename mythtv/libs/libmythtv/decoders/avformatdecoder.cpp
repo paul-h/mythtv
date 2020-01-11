@@ -1264,10 +1264,10 @@ int AvFormatDecoder::OpenFile(RingBuffer *rbuffer, bool novideo,
         auto framenum = (long long)(total_secs * m_fps);
         LOG(VB_PLAYBACK, LOG_INFO, LOC +
             QString("Chapter %1 found @ [%2:%3:%4]->%5")
-                .arg(QString().sprintf("%02d", i + 1))
-                .arg(QString().sprintf("%02d", hours))
-                .arg(QString().sprintf("%02d", minutes))
-                .arg(QString().sprintf("%06.3f", secs))
+                .arg(i + 1,   2,10,QChar('0'))
+                .arg(hours,   2,10,QChar('0'))
+                .arg(minutes, 2,10,QChar('0'))
+                .arg(secs,    6,'f',3,QChar('0'))
                 .arg(framenum));
     }
 
@@ -1326,12 +1326,12 @@ float AvFormatDecoder::normalized_fps(AVStream *stream, AVCodecContext *enc)
     if ((QString(m_ic->iformat->name).contains("matroska") ||
         QString(m_ic->iformat->name).contains("mov")) &&
         avg_fps < 121.0 && avg_fps > 3.0)
-    {
-        fps = avg_fps;  // NOLINT(bugprone-branch-clone)
+    {   // NOLINT(bugprone-branch-clone)
+        fps = avg_fps;
     }
     else if (QString(m_ic->iformat->name).contains("avi") &&
         container_fps < 121.0 && container_fps > 3.0)
-    {
+    {   // NOLINT(bugprone-branch-clone)
         fps = container_fps; // avi uses container fps for timestamps // NOLINT(bugprone-branch-clone)
     }
     else if (codec_fps < 121.0 && codec_fps > 3.0)
@@ -1413,7 +1413,7 @@ int AvFormatDecoder::GetMaxReferenceFrames(AVCodecContext *Context)
                 if (offset)
                 {
                     H264Parser parser;
-                    bool dummy;
+                    bool dummy = false;
                     parser.parse_SPS(Context->extradata + offset,
                                      static_cast<uint>(Context->extradata_size - offset), dummy, result);
                 }
@@ -1539,7 +1539,7 @@ void AvFormatDecoder::InitVideoCodec(AVStream *stream, AVCodecContext *enc,
                                  kScan_Detect, codecName);
         if (LCD *lcd = LCD::Get())
         {
-            LCDVideoFormatSet video_format;
+            LCDVideoFormatSet video_format = VIDEO_MPG;
 
             switch (enc->codec_id)
             {
@@ -1637,7 +1637,7 @@ void AvFormatDecoder::ScanATSCCaptionStreams(int av_index)
 
     const ProgramMapTable pmt(PSIPTable(m_ic->cur_pmt_sect));
 
-    uint i;
+    uint i = 0;
     for (i = 0; i < pmt.StreamCount(); i++)
     {
         // MythTV remaps OpenCable Video to normal video during recording
@@ -1660,9 +1660,9 @@ void AvFormatDecoder::ScanATSCCaptionStreams(int av_index)
 
     desc_list.insert(desc_list.end(), desc_list2.begin(), desc_list2.end());
 
-    for (size_t j = 0; j < desc_list.size(); j++)
+    for (auto & desc : desc_list)
     {
-        const CaptionServiceDescriptor csd(desc_list[j]);
+        const CaptionServiceDescriptor csd(desc);
         if (!csd.IsValid())
             continue;
         for (uint k = 0; k < csd.ServicesCount(); k++)
@@ -1774,9 +1774,9 @@ void AvFormatDecoder::ScanTeletextCaptions(int av_index)
             pmt.StreamInfo(i), pmt.StreamInfoLength(i),
             DescriptorID::teletext);
 
-        for (size_t j = 0; j < desc_list.size(); j++)
+        for (auto desc : desc_list)
         {
-            const TeletextDescriptor td(desc_list[j]);
+            const TeletextDescriptor td(desc);
             if (!td.IsValid())
                 continue;
             for (uint k = 0; k < td.StreamCount(); k++)
@@ -1853,9 +1853,8 @@ void AvFormatDecoder::ScanDSMCCStreams(void)
             pmt.StreamInfo(i), pmt.StreamInfoLength(i),
             DescriptorID::data_broadcast_id);
 
-        for (size_t j = 0; j < desc_list.size(); j++)
+        for (auto desc : desc_list)
         {
-            const unsigned char *desc = desc_list[j];
             desc++; // Skip tag
             uint length = *desc++;
             const unsigned char *endDesc = desc+length;
@@ -2176,7 +2175,7 @@ int AvFormatDecoder::ScanStreams(bool novideo)
             }
             else
             {
-                int logical_stream_id;
+                int logical_stream_id = 0;
                 if (m_ringBuffer && m_ringBuffer->IsDVD())
                 {
                     logical_stream_id = m_ringBuffer->DVD()->GetAudioTrackNum(m_ic->streams[strm]->id);
@@ -2488,11 +2487,11 @@ void AvFormatDecoder::DoFastForwardSeek(long long desiredFrame, bool &needflush)
 ///Returns TeleText language
 int AvFormatDecoder::GetTeletextLanguage(uint lang_idx) const
 {
-    for (uint i = 0; i < (uint) m_tracks[kTrackTypeTeletextCaptions].size(); i++)
+    for (const auto & si : m_tracks[kTrackTypeTeletextCaptions])
     {
-        if (m_tracks[kTrackTypeTeletextCaptions][i].m_language_index == lang_idx)
+        if (si.m_language_index == lang_idx)
         {
-             return m_tracks[kTrackTypeTeletextCaptions][i].m_language;
+             return si.m_language;
         }
     }
 
@@ -2825,7 +2824,7 @@ void AvFormatDecoder::DecodeCCx08(const uint8_t *buf, uint buf_size, bool scte)
 
         if (scte || cc_type <= 0x1) // EIA-608 field-1/2
         {
-            uint field;
+            uint field = 0;
             if (cc_type == 0x2)
             {
                 // SCTE repeated field
@@ -3042,7 +3041,7 @@ void AvFormatDecoder::HandleGopStart(
         {
             m_bitrate = (int)((pkt->pos * 8 * m_fps) / (m_framesRead - 1));
             float bytespersec = (float)m_bitrate / 8;
-            float secs = m_ringBuffer->GetRealFileSize() * 1.0 / bytespersec;
+            float secs = m_ringBuffer->GetRealFileSize() * 1.0F / bytespersec;
             m_parent->SetFileLength((int)(secs), (int)(secs * m_fps));
         }
 #endif
@@ -3627,7 +3626,7 @@ bool AvFormatDecoder::ProcessVideoFrame(AVStream *Stream, AVFrame *AvFrame)
         return false;
     }
 
-    long long pts;
+    long long pts = 0;
     if (m_useFrameTiming)
     {
         pts = AvFrame->pts;
@@ -3863,9 +3862,9 @@ void AvFormatDecoder::ProcessDSMCCPacket(
     // The packet may contain several tables.
     uint8_t *data = pkt->data;
     int length = pkt->size;
-    int componentTag;
-    int dataBroadcastId;
-    unsigned carouselId;
+    int componentTag = 0;
+    int dataBroadcastId = 0;
+    unsigned carouselId = 0;
     {
         QMutexLocker locker(avcodeclock);
         componentTag    = str->component_tag;
@@ -4185,11 +4184,10 @@ static vector<int> filter_lang(const sinfo_vec_t &tracks, int lang_key,
 {
     vector<int> ret;
 
-    auto it = ftype.cbegin();
-    for (; it != ftype.cend(); ++it)
+    for (int index : ftype)
     {
-        if ((lang_key < 0) || tracks[*it].m_language == lang_key)
-            ret.push_back(*it);
+        if ((lang_key < 0) || tracks[index].m_language == lang_key)
+            ret.push_back(index);
     }
 
     return ret;
@@ -4217,10 +4215,9 @@ int AvFormatDecoder::filter_max_ch(const AVFormatContext *ic,
     int selectedTrack = -1;
     int max_seen = -1;
 
-    auto it = fs.cbegin();
-    for (; it != fs.cend(); ++it)
+    for (int f : fs)
     {
-        const int stream_index = tracks[*it].m_av_stream_index;
+        const int stream_index = tracks[f].m_av_stream_index;
         AVCodecParameters *par = ic->streams[stream_index]->codecpar;
         if ((codecId == AV_CODEC_ID_NONE || codecId == par->codec_id) &&
             (max_seen < par->channels))
@@ -4231,7 +4228,7 @@ int AvFormatDecoder::filter_max_ch(const AVFormatContext *ic,
                 if (!DoPassThrough(par, true) || par->profile != profile)
                     continue;
             }
-            selectedTrack = *it;
+            selectedTrack = f;
             max_seen = par->channels;
         }
     }
@@ -4298,9 +4295,9 @@ int AvFormatDecoder::AutoSelectAudioTrack(void)
 
 #if 0
     // enable this to print streams
-    for (uint i = 0; i < atracks.size(); i++)
+    for (const auto & track : atracks)
     {
-        int idx = atracks[i].av_stream_index;
+        int idx = track.m_av_stream_index;
         AVCodecContext *codec_ctx = m_ic->streams[idx]->codec;
         AudioInfo item(codec_ctx->codec_id, codec_ctx->bps,
                        codec_ctx->sample_rate, codec_ctx->channels,
@@ -5206,7 +5203,7 @@ inline bool AvFormatDecoder::DecoderWillDownmix(const AVCodecContext *ctx)
 
 bool AvFormatDecoder::DoPassThrough(const AVCodecParameters *par, bool withProfile)
 {
-    bool passthru;
+    bool passthru = false;
 
     // if withProfile == false, we will accept any DTS stream regardless
     // of its profile. We do so, so we can bitstream DTS-HD as DTS core
@@ -5239,7 +5236,7 @@ bool AvFormatDecoder::SetupAudioStream(void)
     AVStream *curstream = nullptr;
     AVCodecContext *ctx = nullptr;
     AudioInfo old_in    = m_audioIn;
-    int requested_channels;
+    int requested_channels = 0;
 
     if ((m_currentTrack[kTrackTypeAudio] >= 0) && m_ic &&
         (m_selectedTrack[kTrackTypeAudio].m_av_stream_index <=
@@ -5323,7 +5320,7 @@ bool AvFormatDecoder::SetupAudioStream(void)
 
     if (LCD *lcd = LCD::Get())
     {
-        LCDAudioFormatSet audio_format;
+        LCDAudioFormatSet audio_format = AUDIO_MP3;
 
         switch (ctx->codec_id)
         {
@@ -5429,7 +5426,7 @@ void AvFormatDecoder::av_update_stream_timings_video(AVFormatContext *ic)
         }
     }
     if (duration != INT64_MIN) {
-        int64_t filesize;
+        int64_t filesize = 0;
         ic->duration = duration;
         if (ic->pb && (filesize = avio_size(ic->pb)) > 0) {
             /* compute the bitrate */

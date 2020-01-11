@@ -383,8 +383,8 @@ class CommMethod : public MythUIComboBoxSetting
         tmp.push_front(COMM_DETECT_UNINIT);
         tmp.push_back(COMM_DETECT_COMMFREE);
 
-        for (size_t i = 0; i < tmp.size(); i++)
-            addSelection(SkipTypeToString(tmp[i]), QString::number(tmp[i]));
+        for (int pref : tmp)
+            addSelection(SkipTypeToString(pref), QString::number(pref));
     }
 };
 
@@ -740,7 +740,7 @@ void ChannelOptionsRawTS::Save(void)
     pid_cache_t pid_cache;
     for (uint i = 0; i < kMaxPIDs; i++)
     {
-        bool ok;
+        bool ok = false;
         uint pid = m_pids[i]->getValue().toUInt(&ok, 0);
         if (!ok || (m_sids[i]->getValue().toUInt() == 0U))
             continue;

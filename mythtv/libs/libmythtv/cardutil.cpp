@@ -124,10 +124,10 @@ bool CardUtil::IsCableCardPresent(uint inputid,
     if (inputType == "HDHOMERUN")
     {
 #ifdef USING_HDHOMERUN
-        hdhomerun_device_t *hdhr;
         hdhomerun_tuner_status_t status {};
         QString device = GetVideoDevice(inputid);
-        hdhr = hdhomerun_device_create_from_str(device.toLatin1(), nullptr);
+        hdhomerun_device_t *hdhr =
+            hdhomerun_device_create_from_str(device.toLatin1(), nullptr);
         if (!hdhr)
             return false;
 
@@ -467,33 +467,25 @@ QStringList CardUtil::ProbeVideoDevices(const QString &rawtype)
     if (rawtype.toUpper() == "DVB")
     {
         QDir dir("/dev/dvb", "adapter*", QDir::Name, QDir::Dirs);
-        const QFileInfoList il = dir.entryInfoList();
-
-        QFileInfoList::const_iterator it = il.begin();
-
-        for (; it != il.end(); ++it)
+        foreach (const auto & it, dir.entryInfoList())
         {
-            QDir subdir(it->filePath(), "frontend*", QDir::Name, QDir::Files | QDir::System);
+            QDir subdir(it.filePath(), "frontend*", QDir::Name, QDir::Files | QDir::System);
             const QFileInfoList subil = subdir.entryInfoList();
             if (subil.isEmpty())
                 continue;
 
-            QFileInfoList::const_iterator subit = subil.begin();
-            for (; subit != subil.end(); ++subit)
-                devs.push_back(subit->filePath());
+            foreach (const auto & subit, subil)
+                devs.push_back(subit.filePath());
         }
     }
     else if (rawtype.toUpper() == "ASI")
     {
         QDir dir("/dev/", "asirx*", QDir::Name, QDir::System);
-        const QFileInfoList il = dir.entryInfoList();
-
-        QFileInfoList::const_iterator it = il.begin();
-        for (; it != il.end(); ++it)
+        foreach (const auto & it, dir.entryInfoList())
         {
-            if (GetASIDeviceNumber(it->filePath()) >= 0)
+            if (GetASIDeviceNumber(it.filePath()) >= 0)
             {
-                devs.push_back(it->filePath());
+                devs.push_back(it.filePath());
                 continue;
             }
             break;
@@ -609,12 +601,11 @@ QStringList CardUtil::ProbeDeliverySystems(const QString &device)
 
     delsyslist = ProbeDeliverySystems(fd_frontend);
 
-    QStringList::iterator it = delsyslist.begin();
     QString msg = "Delivery systems:";
-    for (; it != delsyslist.end(); ++it)
+    foreach (auto & item, delsyslist)
     {
         msg += " ";
-        msg += *it;
+        msg += item;
     }
     LOG(VB_GENERAL, LOG_INFO, QString("CardUtil(%1): ").arg(device) + msg);
 
@@ -1007,11 +998,10 @@ DTVModulationSystem CardUtil::ProbeBestDeliverySystem(int fd)
     // Get all supported delivery systems from the card
     QString msg = "Supported delivery systems:";
     QStringList delsyslist = ProbeDeliverySystems(fd);
-    QStringList::iterator it = delsyslist.begin();
-    for (; it != delsyslist.end(); it++)
+    foreach (auto & it, delsyslist)
     {
         msg += " ";
-        msg += *it;
+        msg += it;
     }
     LOG(VB_GENERAL, LOG_INFO, LOC + msg);
 
@@ -1508,10 +1498,10 @@ static uint clone_capturecard(uint src_inputid, uint orig_dst_inputid)
     // copy input group linkages
     vector<uint> src_grps = CardUtil::GetInputGroups(src_inputid);
     vector<uint> dst_grps = CardUtil::GetInputGroups(dst_inputid);
-    for (size_t j = 0; j < dst_grps.size(); j++)
-        CardUtil::UnlinkInputGroup(dst_inputid, dst_grps[j]);
-    for (size_t j = 0; j < src_grps.size(); j++)
-        CardUtil::LinkInputGroup(dst_inputid, src_grps[j]);
+    for (uint dst_grp : dst_grps)
+        CardUtil::UnlinkInputGroup(dst_inputid, dst_grp);
+    for (uint src_grp : src_grps)
+        CardUtil::LinkInputGroup(dst_inputid, src_grp);
 
     // clone diseqc_config (just points to the same diseqc_tree row)
     DiSEqCDevSettings diseqc;
@@ -2569,13 +2559,13 @@ int CardUtil::CreateCaptureCard(const QString &videodevice,
 bool CardUtil::DeleteInput(uint inputid)
 {
     vector<uint> childids = GetChildInputIDs(inputid);
-    for (size_t i = 0; i < childids.size(); ++i)
+    for (uint childid : childids)
     {
-        if (!DeleteInput(childids[i]))
+        if (!DeleteInput(childid))
         {
             LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("CardUtil: Failed to delete child input %1")
-                .arg(childids[i]));
+                .arg(childid));
             return false;
         }
     }
@@ -2790,8 +2780,8 @@ bool CardUtil::HDHRdoesDVB(const QString &device)
     (void) device;
 
 #ifdef USING_HDHOMERUN
-    hdhomerun_device_t  *hdhr;
-    hdhr = hdhomerun_device_create_from_str(device.toLatin1(), nullptr);
+    hdhomerun_device_t *hdhr =
+        hdhomerun_device_create_from_str(device.toLatin1(), nullptr);
     if (!hdhr)
         return false;
 
@@ -2818,8 +2808,8 @@ bool CardUtil::HDHRdoesDVBC(const QString &device)
     (void) device;
 
 #ifdef USING_HDHOMERUN
-    hdhomerun_device_t  *hdhr;
-    hdhr = hdhomerun_device_create_from_str(device.toLatin1(), nullptr);
+    hdhomerun_device_t *hdhr =
+        hdhomerun_device_create_from_str(device.toLatin1(), nullptr);
     if (!hdhr)
         return false;
 
@@ -2863,8 +2853,8 @@ QString CardUtil::GetHDHRdesc(const QString &device)
     LOG(VB_GENERAL, LOG_INFO, "CardUtil::GetHDHRdescription(" + device +
                               ") - trying to locate device");
 
-    hdhomerun_device_t  *hdhr;
-    hdhr = hdhomerun_device_create_from_str(device.toLatin1(), nullptr);
+    hdhomerun_device_t *hdhr =
+        hdhomerun_device_create_from_str(device.toLatin1(), nullptr);
     if (!hdhr)
         return QObject::tr("Invalid Device ID or address.");
 
@@ -2877,8 +2867,8 @@ QString CardUtil::GetHDHRdesc(const QString &device)
 
 
     QString   description = model;
-    char     *sVersion;
-    uint32_t  iVersion;
+    char     *sVersion = nullptr;
+    uint32_t  iVersion = 0;
 
     if (hdhomerun_device_get_version(hdhr, &sVersion, &iVersion))
         description += QObject::tr(", firmware: %2").arg(sVersion);
@@ -3030,7 +3020,7 @@ uint CardUtil::GetASIBufferSize(uint device_num, QString *error)
 #ifdef USING_ASI
     // get the buffer size
     QString sys_bufsize_contents = read_sys(sys_dev(device_num, "bufsize"));
-    bool ok;
+    bool ok = false;
     uint buf_size = sys_bufsize_contents.toUInt(&ok);
     if (!ok)
     {
@@ -3055,7 +3045,7 @@ uint CardUtil::GetASINumBuffers(uint device_num, QString *error)
 #ifdef USING_ASI
     // get the buffer size
     QString sys_numbuffers_contents = read_sys(sys_dev(device_num, "buffers"));
-    bool ok;
+    bool ok = false;
     uint num_buffers = sys_numbuffers_contents.toUInt(&ok);
     if (!ok)
     {
@@ -3079,7 +3069,7 @@ int CardUtil::GetASIMode(uint device_num, QString *error)
 {
 #ifdef USING_ASI
     QString sys_bufsize_contents = read_sys(sys_dev(device_num, "mode"));
-    bool ok;
+    bool ok = false;
     uint mode = sys_bufsize_contents.toUInt(&ok);
     if (!ok)
     {
@@ -3103,7 +3093,7 @@ bool CardUtil::SetASIMode(uint device_num, uint mode, QString *error)
 {
 #ifdef USING_ASI
     QString sys_bufsize_contents = read_sys(sys_dev(device_num, "mode"));
-    bool ok;
+    bool ok = false;
     uint old_mode = sys_bufsize_contents.toUInt(&ok);
     if (ok && old_mode == mode)
         return true;

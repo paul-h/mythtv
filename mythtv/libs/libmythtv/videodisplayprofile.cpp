@@ -457,9 +457,8 @@ bool VideoDisplayProfile::CheckVideoRendererGroup(const QString &Renderer)
         QString("Preferred video renderer: %1 (current: %2)")
                 .arg(Renderer).arg(m_lastVideoRenderer));
 
-    QMap<QString,QStringList>::const_iterator it = s_safe_renderer_group.begin();
-    for (; it != s_safe_renderer_group.end(); ++it)
-        if (it->contains(m_lastVideoRenderer) && it->contains(Renderer))
+    foreach (const auto & group, s_safe_renderer_group)
+        if (group.contains(m_lastVideoRenderer) && group.contains(Renderer))
             return true;
     return false;
 }
@@ -499,8 +498,7 @@ void VideoDisplayProfile::SetPreference(const QString &Key, const QString &Value
 vector<ProfileItem>::const_iterator VideoDisplayProfile::FindMatch
     (const QSize &Size, float Framerate, const QString &CodecName)
 {
-    vector<ProfileItem>::const_iterator it = m_allowedPreferences.begin();
-    for (; it != m_allowedPreferences.end(); ++it)
+    for (auto it = m_allowedPreferences.cbegin(); it != m_allowedPreferences.cend(); ++it)
         if ((*it).IsMatch(Size, Framerate, CodecName))
             return it;
     return m_allowedPreferences.end();
@@ -592,14 +590,13 @@ bool VideoDisplayProfile::DeleteDB(uint GroupId, const vector<ProfileItem> &Item
         "      profileid      = :PROFILEID");
 
     bool ok = true;
-    auto it = Items.cbegin();
-    for (; it != Items.cend(); ++it)
+    for (const auto & item : Items)
     {
-        if (!(*it).GetProfileID())
+        if (!item.GetProfileID())
             continue;
 
         query.bindValue(":GROUPID",   GroupId);
-        query.bindValue(":PROFILEID", (*it).GetProfileID());
+        query.bindValue(":PROFILEID", item.GetProfileID());
         if (!query.exec())
         {
             MythDB::DBError("vdp::deletedb", query);
@@ -637,16 +634,15 @@ bool VideoDisplayProfile::SaveDB(uint GroupId, vector<ProfileItem> &Items)
         "      value          = :VALUE");
 
     bool ok = true;
-    auto it = Items.begin();
-    for (; it != Items.end(); ++it)
+    for (auto & item : Items)
     {
-        QMap<QString,QString> list = (*it).GetAll();
+        QMap<QString,QString> list = item.GetAll();
         if (list.begin() == list.end())
             continue;
 
         QMap<QString,QString>::const_iterator lit = list.begin();
 
-        if (!(*it).GetProfileID())
+        if (!item.GetProfileID())
         {
             // create new profileid
             if (!query.exec("SELECT MAX(profileid) FROM displayprofiles"))
@@ -657,7 +653,7 @@ bool VideoDisplayProfile::SaveDB(uint GroupId, vector<ProfileItem> &Items)
             }
             if (query.next())
             {
-                (*it).SetProfileID(query.value(0).toUInt() + 1);
+                item.SetProfileID(query.value(0).toUInt() + 1);
             }
 
             for (; lit != list.end(); ++lit)
@@ -666,7 +662,7 @@ bool VideoDisplayProfile::SaveDB(uint GroupId, vector<ProfileItem> &Items)
                     continue;
 
                 insert.bindValue(":GROUPID",   GroupId);
-                insert.bindValue(":PROFILEID", (*it).GetProfileID());
+                insert.bindValue(":PROFILEID", item.GetProfileID());
                 insert.bindValue(":VALUE",     lit.key());
                 insert.bindValue(":DATA", ((*lit).isNull()) ? "" : (*lit));
                 if (!insert.exec())
@@ -688,7 +684,7 @@ bool VideoDisplayProfile::SaveDB(uint GroupId, vector<ProfileItem> &Items)
                 "       profileid      = :PROFILEID AND "
                 "       value          = :VALUE");
             query.bindValue(":GROUPID",   GroupId);
-            query.bindValue(":PROFILEID", (*it).GetProfileID());
+            query.bindValue(":PROFILEID", item.GetProfileID());
             query.bindValue(":VALUE",     lit.key());
 
             if (!query.exec())
@@ -702,7 +698,7 @@ bool VideoDisplayProfile::SaveDB(uint GroupId, vector<ProfileItem> &Items)
                 if (lit->isEmpty())
                 {
                     sqldelete.bindValue(":GROUPID",   GroupId);
-                    sqldelete.bindValue(":PROFILEID", (*it).GetProfileID());
+                    sqldelete.bindValue(":PROFILEID", item.GetProfileID());
                     sqldelete.bindValue(":VALUE",     lit.key());
                     if (!sqldelete.exec())
                     {
@@ -714,7 +710,7 @@ bool VideoDisplayProfile::SaveDB(uint GroupId, vector<ProfileItem> &Items)
                 else
                 {
                     update.bindValue(":GROUPID",   GroupId);
-                    update.bindValue(":PROFILEID", (*it).GetProfileID());
+                    update.bindValue(":PROFILEID", item.GetProfileID());
                     update.bindValue(":VALUE",     lit.key());
                     update.bindValue(":DATA", ((*lit).isNull()) ? "" : (*lit));
                     if (!update.exec())
@@ -728,7 +724,7 @@ bool VideoDisplayProfile::SaveDB(uint GroupId, vector<ProfileItem> &Items)
             else
             {
                 insert.bindValue(":GROUPID",   GroupId);
-                insert.bindValue(":PROFILEID", (*it).GetProfileID());
+                insert.bindValue(":PROFILEID", item.GetProfileID());
                 insert.bindValue(":VALUE",     lit.key());
                 insert.bindValue(":DATA", ((*lit).isNull()) ? "" : (*lit));
                 if (!insert.exec())
@@ -756,9 +752,8 @@ QStringList VideoDisplayProfile::GetDecoderNames(void)
     QStringList list;
 
     const QStringList decs = GetDecoders();
-    QStringList::const_iterator it = decs.begin();
-    for (; it != decs.end(); ++it)
-        list += GetDecoderName(*it);
+    foreach (const auto & dec, decs)
+        list += GetDecoderName(dec);
 
     return list;
 }
@@ -1113,14 +1108,13 @@ bool VideoDisplayProfile::DeleteProfileGroup(const QString &GroupName, const QSt
 void VideoDisplayProfile::CreateProfiles(const QString &HostName)
 {
     QStringList profiles = GetProfiles(HostName);
-    uint groupid;
 
 #ifdef USING_OPENGL
     if (!profiles.contains("OpenGL High Quality"))
     {
         (void) QObject::tr("OpenGL High Quality",
                            "Sample: OpenGL high quality");
-        groupid = CreateProfileGroup("OpenGL High Quality", HostName);
+        uint groupid = CreateProfileGroup("OpenGL High Quality", HostName);
         CreateProfile(groupid, 1, "", "", "",
                       "ffmpeg", 2, true, "opengl-yv12",
                       "shader:high", "shader:high");
@@ -1129,7 +1123,7 @@ void VideoDisplayProfile::CreateProfiles(const QString &HostName)
     if (!profiles.contains("OpenGL Normal"))
     {
         (void) QObject::tr("OpenGL Normal", "Sample: OpenGL medium quality");
-        groupid = CreateProfileGroup("OpenGL Normal", HostName);
+        uint groupid = CreateProfileGroup("OpenGL Normal", HostName);
         CreateProfile(groupid, 1, "", "", "",
                       "ffmpeg", 2, true, "opengl-yv12",
                       "shader:medium", "shader:medium");
@@ -1138,7 +1132,7 @@ void VideoDisplayProfile::CreateProfiles(const QString &HostName)
     if (!profiles.contains("OpenGL Slim"))
     {
         (void) QObject::tr("OpenGL Slim", "Sample: OpenGL low power GPU");
-        groupid = CreateProfileGroup("OpenGL Slim", HostName);
+        uint groupid = CreateProfileGroup("OpenGL Slim", HostName);
         CreateProfile(groupid, 1, "", "", "",
                       "ffmpeg", 1, true, "opengl",
                       "medium", "medium");
@@ -1149,7 +1143,7 @@ void VideoDisplayProfile::CreateProfiles(const QString &HostName)
     if (!profiles.contains("VAAPI Normal"))
     {
         (void) QObject::tr("VAAPI Normal", "Sample: VAAPI average quality");
-        groupid = CreateProfileGroup("VAAPI Normal", HostName);
+        uint groupid = CreateProfileGroup("VAAPI Normal", HostName);
         CreateProfile(groupid, 1, "", "", "",
                       "vaapi", 2, true, "opengl-hw",
                       "shader:driver:high", "shader:driver:high");
@@ -1163,7 +1157,7 @@ void VideoDisplayProfile::CreateProfiles(const QString &HostName)
     if (!profiles.contains("VDPAU Normal"))
     {
         (void) QObject::tr("VDPAU Normal", "Sample: VDPAU medium quality");
-        groupid = CreateProfileGroup("VDPAU Normal", HostName);
+        uint groupid = CreateProfileGroup("VDPAU Normal", HostName);
         CreateProfile(groupid, 1, "", "", "",
                       "vdpau", 1, true, "opengl-hw",
                       "driver:medium", "driver:medium");
@@ -1175,7 +1169,7 @@ void VideoDisplayProfile::CreateProfiles(const QString &HostName)
     {
         (void) QObject::tr("MediaCodec Normal",
                            "Sample: MediaCodec Normal");
-        groupid = CreateProfileGroup("MediaCodec Normal", HostName);
+        uint groupid = CreateProfileGroup("MediaCodec Normal", HostName);
         CreateProfile(groupid, 1, "", "", "",
                       "mediacodec-dec", 4, true, "opengl-yv12",
                       "shader:driver:medium", "shader:driver:medium");
@@ -1186,7 +1180,7 @@ void VideoDisplayProfile::CreateProfiles(const QString &HostName)
     if (!profiles.contains("NVDEC Normal"))
     {
         (void) QObject::tr("NVDEC Normal", "Sample: NVDEC Normal");
-        groupid = CreateProfileGroup("NVDEC Normal", HostName);
+        uint groupid = CreateProfileGroup("NVDEC Normal", HostName);
         CreateProfile(groupid, 1, "", "", "",
                       "nvdec", 1, true, "opengl-hw",
                       "shader:driver:high", "shader:driver:high");
@@ -1196,7 +1190,7 @@ void VideoDisplayProfile::CreateProfiles(const QString &HostName)
 #if defined(USING_VTB) && defined(USING_OPENGL)
     if (!profiles.contains("VideoToolBox Normal")) {
         (void) QObject::tr("VideoToolBox Normal", "Sample: VideoToolBox Normal");
-        groupid = CreateProfileGroup("VideoToolBox Normal", HostName);
+        uint groupid = CreateProfileGroup("VideoToolBox Normal", HostName);
         CreateProfile(groupid, 1, "", "", "",
                       "vtb", 1, true, "opengl-hw",
                       "shader:driver:medium", "shader:driver:medium");
@@ -1207,7 +1201,7 @@ void VideoDisplayProfile::CreateProfiles(const QString &HostName)
     if (!profiles.contains("MMAL"))
     {
         (void) QObject::tr("MMAL", "Sample: MMAL");
-        groupid = CreateProfileGroup("MMAL", HostName);
+        uint groupid = CreateProfileGroup("MMAL", HostName);
         CreateProfile(groupid, 1, "", "", "",
                       "mmal", 1, true, "opengl-hw",
                       "shader:driver:medium", "shader:driver:medium");
@@ -1218,7 +1212,7 @@ void VideoDisplayProfile::CreateProfiles(const QString &HostName)
     if (!profiles.contains("V4L2 Codecs"))
     {
         (void) QObject::tr("V4L2 Codecs", "Sample: V4L2");
-        groupid = CreateProfileGroup("V4L2 Codecs", HostName);
+        uint groupid = CreateProfileGroup("V4L2 Codecs", HostName);
         CreateProfile(groupid, 1, "", "", "",
                       "v4l2-dec", 1, true, "opengl-yv12",
                       "shader:driver:medium", "shader:driver:medium");
@@ -1304,10 +1298,9 @@ QStringList VideoDisplayProfile::GetFilteredRenderers(const QString &Decoder, co
     const QStringList dec_list = GetVideoRenderers(Decoder);
     QStringList new_list;
 
-    QStringList::const_iterator it = dec_list.begin();
-    for (; it != dec_list.end(); ++it)
-        if (Renderers.contains(*it))
-            new_list.push_back(*it);
+    foreach (const auto & dec, dec_list)
+        if (Renderers.contains(dec))
+            new_list.push_back(dec);
 
     return new_list;
 }
@@ -1320,14 +1313,13 @@ QString VideoDisplayProfile::GetBestVideoRenderer(const QStringList &Renderers)
     uint    top_priority = 0;
     QString top_renderer;
 
-    QStringList::const_iterator it = Renderers.begin();
-    for (; it != Renderers.end(); ++it)
+    foreach (const auto & renderer, Renderers)
     {
-        QMap<QString,uint>::const_iterator p = s_safe_renderer_priority.find(*it);
+        QMap<QString,uint>::const_iterator p = s_safe_renderer_priority.find(renderer);
         if ((p != s_safe_renderer_priority.end()) && (*p >= top_priority))
         {
             top_priority = *p;
-            top_renderer = *it;
+            top_renderer = renderer;
         }
     }
 

@@ -168,10 +168,9 @@ static void exec_program_tv_cb(const QString &cmd)
 
     if (cardid >= 0)
     {
-        s = s.sprintf(qPrintable(s),
-                      qPrintable(strlist[1]),
-                      qPrintable(strlist[2]),
-                      qPrintable(strlist[3]));
+        s = s.arg(qPrintable(strlist[1]))
+            .arg(qPrintable(strlist[2]))
+            .arg(qPrintable(strlist[3]));
 
         myth_system(s);
 
@@ -1173,7 +1172,7 @@ int MythContextPrivate::UPnPautoconf(const int milliSeconds)
     LOG(VB_GENERAL, LOG_INFO, QString("UPNP Search %1 secs")
         .arg(milliSeconds / 1000));
 
-    SSDP::Instance()->PerformSearch(gBackendURI, milliSeconds / 1000);
+    SSDP::Instance()->PerformSearch(kBackendURI, milliSeconds / 1000);
 
     // Search for a total of 'milliSeconds' ms, sending new search packet
     // about every 250 ms until less than one second remains.
@@ -1187,12 +1186,12 @@ int MythContextPrivate::UPnPautoconf(const int milliSeconds)
         {
             LOG(VB_GENERAL, LOG_INFO, QString("UPNP Search %1 secs")
                 .arg(ttl / 1000));
-            SSDP::Instance()->PerformSearch(gBackendURI, ttl / 1000);
+            SSDP::Instance()->PerformSearch(kBackendURI, ttl / 1000);
             searchTime.start();
         }
     }
 
-    SSDPCacheEntries *backends = SSDP::Find(gBackendURI);
+    SSDPCacheEntries *backends = SSDP::Find(kBackendURI);
 
     if (!backends)
     {
@@ -1257,7 +1256,7 @@ bool MythContextPrivate::DefaultUPnP(QString &error)
     int timeout_ms = 2000;
     LOG(VB_GENERAL, LOG_INFO, QString("UPNP Search up to %1 secs")
         .arg(timeout_ms / 1000));
-    SSDP::Instance()->PerformSearch(gBackendURI, timeout_ms / 1000);
+    SSDP::Instance()->PerformSearch(kBackendURI, timeout_ms / 1000);
 
     // ----------------------------------------------------------------------
     // We need to give the server time to respond...
@@ -1268,7 +1267,7 @@ bool MythContextPrivate::DefaultUPnP(QString &error)
     MythTimer searchTime; searchTime.start();
     while (totalTime.elapsed() < timeout_ms)
     {
-        pDevLoc = SSDP::Find( gBackendURI, USN );
+        pDevLoc = SSDP::Find( kBackendURI, USN );
 
         if (pDevLoc)
             break;
@@ -1280,7 +1279,7 @@ bool MythContextPrivate::DefaultUPnP(QString &error)
         {
             LOG(VB_GENERAL, LOG_INFO, QString("UPNP Search up to %1 secs")
                 .arg(ttl / 1000));
-            SSDP::Instance()->PerformSearch(gBackendURI, ttl / 1000);
+            SSDP::Instance()->PerformSearch(kBackendURI, ttl / 1000);
             searchTime.start();
         }
     }
@@ -1486,15 +1485,14 @@ bool MythContextPrivate::saveSettingsCache(void)
     QDir dir(cacheDirName);
     dir.mkpath(cacheDirName);
     XmlConfiguration config = XmlConfiguration("cache/contextcache.xml");
-    static constexpr int kArraySize = sizeof(kSettingsToSave)/sizeof(kSettingsToSave[0]);
-    for (int ix = 0; ix < kArraySize; ix++)
+    for (const auto & setting : kSettingsToSave)
     {
-        QString cacheValue = config.GetValue("Settings/"+kSettingsToSave[ix],QString());
-        gCoreContext->ClearOverrideSettingForSession(kSettingsToSave[ix]);
-        QString value = gCoreContext->GetSetting(kSettingsToSave[ix],QString());
+        QString cacheValue = config.GetValue("Settings/"+setting,QString());
+        gCoreContext->ClearOverrideSettingForSession(setting);
+        QString value = gCoreContext->GetSetting(setting,QString());
         if (value != cacheValue)
         {
-            config.SetValue("Settings/"+kSettingsToSave[ix],value);
+            config.SetValue("Settings/"+setting,value);
             m_settingsCacheDirty = true;
         }
     }
@@ -1507,14 +1505,13 @@ void MythContextPrivate::loadSettingsCacheOverride(void)
     if (!m_gui)
         return;
     XmlConfiguration config = XmlConfiguration("cache/contextcache.xml");
-    static constexpr int kArraySize = sizeof(kSettingsToSave)/sizeof(kSettingsToSave[0]);
-    for (int ix = 0; ix < kArraySize; ix++)
+    for (const auto & setting : kSettingsToSave)
     {
-        if (!gCoreContext->GetSetting(kSettingsToSave[ix],QString()).isEmpty())
+        if (!gCoreContext->GetSetting(setting,QString()).isEmpty())
             continue;
-        QString value = config.GetValue("Settings/"+kSettingsToSave[ix],QString());
+        QString value = config.GetValue("Settings/"+setting,QString());
         if (!value.isEmpty())
-            gCoreContext->OverrideSettingForSession(kSettingsToSave[ix], value);
+            gCoreContext->OverrideSettingForSession(setting, value);
     }
     // Prevent power off TV after temporary window
     gCoreContext->OverrideSettingForSession("PowerOffTVAllowed", nullptr);
@@ -1526,11 +1523,8 @@ void MythContextPrivate::loadSettingsCacheOverride(void)
 void MythContextPrivate::clearSettingsCacheOverride(void)
 {
     QString language = gCoreContext->GetSetting("Language",QString());
-    static constexpr int kArraySize = sizeof(kSettingsToSave)/sizeof(kSettingsToSave[0]);
-    for (int ix = 0; ix < kArraySize; ix++)
-    {
-        gCoreContext->ClearOverrideSettingForSession(kSettingsToSave[ix]);
-    }
+    for (const auto & setting : kSettingsToSave)
+        gCoreContext->ClearOverrideSettingForSession(setting);
     // Restore power off TV setting
     gCoreContext->ClearOverrideSettingForSession("PowerOffTVAllowed");
 

@@ -38,11 +38,8 @@ static uint32_t crc32(const unsigned char *data, int len);
  */
 ObjCarousel *Dsmcc::GetCarouselById(unsigned int carouselId)
 {
-    QLinkedList<ObjCarousel*>::iterator it = m_carousels.begin();
-
-    for (; it != m_carousels.end(); ++it)
+    foreach (auto car, m_carousels)
     {
-        ObjCarousel *car = *it;
         if (car && car->m_id == carouselId)
             return car;
     }
@@ -132,7 +129,7 @@ void Dsmcc::ProcessDownloadServerInitiate(const unsigned char *data,
                                           int length)
 {
     /* 0-19 Server id = 20 * 0xFF */
-    int off;
+    int off = 0;
     for (off = 0; off < 20; ++off)
     {
         if (data[off] != 0xff)
@@ -451,17 +448,14 @@ void Dsmcc::ProcessSection(const unsigned char *data, int length,
                            int dataBroadcastId)
 {
     // Does this component tag match one of our carousels?
-    QLinkedList<ObjCarousel*>::iterator it = m_carousels.begin();
-
     LOG(VB_DSMCC, LOG_DEBUG, QString("[dsmcc] Read block size %1 from tag %2 "
                                      "carousel id %3 data broadcast Id %4")
             .arg(length).arg(componentTag)
             .arg(carouselId).arg(dataBroadcastId,0,16));
 
     bool found = false;
-    for (; it != m_carousels.end(); ++it)
+    foreach (auto car, m_carousels)
     {
-        ObjCarousel *car = *it;
         // Is the component tag one of the ones we know?
         vector<unsigned short>::iterator it2;
         for (it2 = car->m_Tags.begin(); it2 != car->m_Tags.end(); ++it2)
@@ -542,9 +536,8 @@ void Dsmcc::ProcessSection(const unsigned char *data, int length,
 void Dsmcc::Reset()
 {
     LOG(VB_DSMCC, LOG_INFO, "[dsmcc] Resetting carousel");
-    QLinkedList<ObjCarousel*>::iterator it = m_carousels.begin();
-    for (; it != m_carousels.end(); ++it)
-        delete *it;
+    foreach (auto & carousel, m_carousels)
+        delete carousel;
     m_carousels.clear();
     m_startTag = 0;
 }
@@ -619,10 +612,9 @@ static unsigned long crc_table[256] =
 
 static uint32_t crc32(const unsigned char *data, int len)
 {
-    int i;
     uint32_t crc = 0xffffffff;
 
-    for (i = 0; i < len; i++)
+    for (int i = 0; i < len; i++)
         crc = (crc << 8) ^ crc_table[((crc >> 24) ^ *data++) & 0xff];
 
     return crc;
