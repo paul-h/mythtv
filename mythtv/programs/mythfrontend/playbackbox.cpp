@@ -1638,6 +1638,7 @@ bool PlaybackBox::UpdateUILists(void)
     ViewTitleSort titleSort = (ViewTitleSort)gCoreContext->GetNumSetting(
                                 "DisplayGroupTitleSort", TitleSortAlphabetical);
 
+    bool isAllProgsGroup   = (m_recGroup == "All Programs");
     QMap<QString, QString> sortedList;
     QMap<int, QString> searchRule;
     QMap<int, int> recidEpisodes;
@@ -1668,7 +1669,6 @@ bool PlaybackBox::UpdateUILists(void)
 
         bool isCategoryFilter  = (m_recGroupType[m_recGroup] == "category");
         bool isUnknownCategory = (m_recGroup == tr("Unknown"));
-        bool isAllProgsGroup   = (m_recGroup == "All Programs");
         bool isDeletedGroup    = (m_recGroup == "Deleted");
         bool isLiveTvGroup     = (m_recGroup == "LiveTV");
 
@@ -1829,7 +1829,11 @@ bool PlaybackBox::UpdateUILists(void)
         m_progLists[""];
         m_titleList << "";
         m_playList.clear();
-        SelectNextRecGroup();
+        if (!isAllProgsGroup)
+            SelectNextRecGroup();
+
+        UpdateUIRecGroupList();
+        UpdateUIGroupList(groupSelPref);
 
         m_isFilling = false;
         return false;
