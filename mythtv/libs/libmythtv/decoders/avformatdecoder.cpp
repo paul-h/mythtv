@@ -345,6 +345,9 @@ AvFormatDecoder::AvFormatDecoder(MythPlayer *parent,
       m_ccd708(new CC708Decoder(parent->GetCC708Reader())),
       m_ttd(new TeletextDecoder(parent->GetTeletextReader()))
 {
+    // this will be deleted and recreated once decoder is set up
+    m_mythCodecCtx = new MythCodecContext(this, kCodec_NONE);
+
     m_audioSamples = (uint8_t *)av_mallocz(AudioOutput::kMaxSizeBuffer);
     m_ccd608->SetIgnoreTimecode(true);
 
@@ -2282,7 +2285,8 @@ int AvFormatDecoder::ScanStreams(bool novideo)
                 QString("Selected track #%1: ID: 0x%2 Codec ID: %3 Profile: %4 Type: %5 Bitrate: %6")
                     .arg(selTrack).arg(static_cast<uint64_t>(stream->id), 0, 16)
                     .arg(ff_codec_id_string(enc->codec_id))
-                    .arg(enc->profile).arg(codectype).arg(enc->bit_rate));
+                    .arg(avcodec_profile_name(enc->codec_id, enc->profile))
+                    .arg(codectype).arg(enc->bit_rate));
 
             // If ScanStreams has been called on a stream change triggered by a
             // decoder error - because the decoder does not handle resolution
@@ -2372,9 +2376,8 @@ int AvFormatDecoder::ScanStreams(bool novideo)
 
             // N.B. MediaCodec and NVDEC require frame timing
             m_useFrameTiming = false;
-            if ((!m_ringBuffer->IsDVD() && (codec_sw_copy(m_videoCodecId) ||
-                codec_is_mediacodec(m_videoCodecId) || codec_is_v4l2(m_videoCodecId))) ||
-                codec_is_nvdec(m_videoCodecId))
+            if ((!m_ringBuffer->IsDVD() && (codec_sw_copy(m_videoCodecId) || codec_is_v4l2(m_videoCodecId))) ||
+                (codec_is_nvdec(m_videoCodecId) || codec_is_mediacodec(m_videoCodecId) || codec_is_mediacodec_dec(m_videoCodecId)))
             {
                 m_useFrameTiming = true;
             }
@@ -3250,7 +3253,7 @@ int AvFormatDecoder::H264PreProcessPkt(AVStream *stream, AVPacket *pkt)
             // size and rate is extremely error prone and FFmpeg gets it right far more often.
             // N.B. if a decoder deinterlacer is in use - the stream must be progressive
             bool doublerate = false;
-            bool decoderdeint = m_mythCodecCtx->IsDeinterlacing(doublerate, true);
+            bool decoderdeint = m_mythCodecCtx ? m_mythCodecCtx->IsDeinterlacing(doublerate, true) : false;
             m_parent->SetVideoParams(width, height, seqFPS, m_currentAspect, forcechange,
                                      static_cast<int>(m_h264Parser->getRefFrames()),
                                      decoderdeint ? kScan_Progressive : kScan_Ignore);
