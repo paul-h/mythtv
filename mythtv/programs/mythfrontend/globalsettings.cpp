@@ -1912,7 +1912,6 @@ static HostSpinBoxSetting *FrontendIdleTimeout()
     return gs;
 }
 
-<<<<<<< HEAD
 static HostSpinBoxSetting *FrontendShutdownTimeout()
 {
     HostSpinBoxSetting *gs = new HostSpinBoxSetting("FrontendShutdownTimeout", 0, 360, 1);
@@ -1933,10 +1932,7 @@ static HostSpinBoxSetting *FrontendShutdownTimeout()
     return gs;
 }
 
-static HostComboBoxSetting *OverrideExitMenu()
-=======
 static HostComboBoxSetting *OverrideExitMenu(MythPower *Power)
->>>>>>> upstream/master
 {
     auto *gc = new HostComboBoxSetting("OverrideExitMenu");
 
@@ -3977,12 +3973,7 @@ ShutDownRebootSetting::ShutDownRebootSetting()
 {
     setLabel(MainGeneralSettings::tr("Shutdown/Reboot Settings"));
     addChild(FrontendIdleTimeout());
-<<<<<<< HEAD
     addChild(FrontendShutdownTimeout());
-    addChild(m_overrideExitMenu = OverrideExitMenu());
-    addChild(m_haltCommand      = HaltCommand());
-    addChild(m_rebootCommand    = RebootCommand());
-=======
     auto *power = MythPower::AcquireRelease(this, true);
     addChild(m_overrideExitMenu = OverrideExitMenu(power));
 #ifndef Q_OS_ANDROID
@@ -3992,7 +3983,6 @@ ShutDownRebootSetting::ShutDownRebootSetting()
 #endif
     if (power)
         MythPower::AcquireRelease(this, false);
->>>>>>> upstream/master
     connect(m_overrideExitMenu,SIGNAL(valueChanged(StandardSetting *)),
             SLOT(childChanged(StandardSetting *)));
 }
