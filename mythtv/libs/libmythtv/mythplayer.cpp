@@ -716,14 +716,14 @@ void MythPlayer::OpenDummy(void)
 
 void MythPlayer::CreateDecoder(char *TestBuffer, int TestSize)
 {
-    if (NuppelDecoder::CanHandle(TestBuffer, TestSize))
+    if (AvFormatDecoder::CanHandle(TestBuffer, m_playerCtx->m_buffer->GetFilename(), TestSize))
     {
-        SetDecoder(new NuppelDecoder(this, *m_playerCtx->m_playingInfo));
+        SetDecoder(new AvFormatDecoder(this, *m_playerCtx->m_playingInfo, m_playerFlags));
         return;
     }
 
-    if (AvFormatDecoder::CanHandle(TestBuffer, m_playerCtx->m_buffer->GetFilename(), TestSize))
-        SetDecoder(new AvFormatDecoder(this, *m_playerCtx->m_playingInfo, m_playerFlags));
+    if (NuppelDecoder::CanHandle(TestBuffer, TestSize))
+        SetDecoder(new NuppelDecoder(this, *m_playerCtx->m_playingInfo));
 }
 
 int MythPlayer::OpenFile(int Retries)
@@ -3035,7 +3035,7 @@ void MythPlayer::HandleDecoderCallback(MythPlayer *Player, const QString &Debug,
 void MythPlayer::ProcessCallbacks(void)
 {
     m_decoderCallbackLock.lock();
-    for (auto it = m_decoderCallbacks.cbegin(); it != m_decoderCallbacks.cend(); ++it)
+    for (const auto *it = m_decoderCallbacks.cbegin(); it != m_decoderCallbacks.cend(); ++it)
     {
         if (it->m_function)
         {

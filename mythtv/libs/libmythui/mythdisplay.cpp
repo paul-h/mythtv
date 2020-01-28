@@ -11,6 +11,7 @@
 #include "mythcorecontext.h"
 #include "mythuihelper.h"
 #include "mythdisplay.h"
+#include "mythegl.h"
 #include "mythmainwindow.h"
 
 #ifdef Q_OS_ANDROID
@@ -1033,3 +1034,68 @@ void MythDisplay::DebugModes(void) const
     }
 }
 
+/*! \brief Shared static initialistaion code for all MythTV GUI applications.
+ *
+ * \note This function must be called before Qt/QPA is initialised i.e. before
+ * any call to QApplication.
+*/
+void MythDisplay::ConfigureQtGUI(int SwapInterval)
+{
+    // Set the default surface format. Explicitly required on some platforms.
+    QSurfaceFormat format;
+    format.setDepthBufferSize(0);
+    format.setStencilBufferSize(0);
+    format.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
+    format.setProfile(QSurfaceFormat::CompatibilityProfile);
+    format.setSwapInterval(SwapInterval);
+    QSurfaceFormat::setDefaultFormat(format);
+
+#ifdef Q_OS_MAC
+    // Without this, we can't set focus to any of the CheckBoxSetting, and most
+    // of the MythPushButton widgets, and they don't use the themed background.
+    QApplication::setDesktopSettingsAware(false);
+#endif
+#if defined (Q_OS_LINUX)
+    // We want to use EGL for VAAPI/MMAL/DRMPRIME rendering to ensure we
+    // can use zero copy video buffers for the best performance (N.B. not tested
+    // on AMD desktops). To force Qt to use EGL we must set 'QT_XCB_GL_INTEGRATION'
+    // to 'xcb_egl' and this must be done before any GUI is created. If the platform
+    // plugin is not xcb then this should have no effect.
+    // This does however break when using NVIDIA drivers - which do not support
+    // EGL like other drivers so we try to check the EGL vendor - and we currently
+    // have no need for EGL with NVIDIA (that may change however).
+    // NOTE force using EGL by setting MYTHTV_FORCE_EGL
+    // NOTE disable using EGL by setting MYTHTV_NO_EGL
+    // NOTE We have no Qt platform information, window/surface or logging when this is called.
+    if (qgetenv("MYTHTV_NO_EGL").isEmpty())
+    {
+        bool force = !qgetenv("MYTHTV_FORCE_EGL").isEmpty();
+        QString vendor = MythEGL::GetEGLVendor();
+        if ((vendor == EGL_NO_VENDOR) && !force)
+        {
+            qInfo() << LOC + "Failed to check EGL vendor - will not request EGL.";
+        }
+        else if (vendor.contains("nvidia", Qt::CaseInsensitive) && !force)
+        {
+            qInfo() << LOC + QString("Not requesting EGL for vendor '%1'").arg(vendor);
+        }
+        else
+        {
+            qInfo() << LOC + "Requesting EGL";
+            setenv("QT_XCB_GL_INTEGRATION", "xcb_egl", 0);
+        }
+    }
+
+    // This makes Xlib calls thread-safe which seems to be required for hardware
+    // accelerated Flash playback to work without causing mythfrontend to abort.
+    QApplication::setAttribute(Qt::AA_X11InitThreads);
+#endif
+#ifdef Q_OS_ANDROID
+    //QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+#endif
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)
+    // Ignore desktop scaling
+    QApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
+#endif
+}
