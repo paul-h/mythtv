@@ -77,8 +77,11 @@ MythRenderOpenGL* MythRenderOpenGL::GetOpenGLRender(void)
     return nullptr;
 }
 
-MythRenderOpenGL* MythRenderOpenGL::Create(void)
+MythRenderOpenGL* MythRenderOpenGL::Create(QWidget *Widget)
 {
+    if (!Widget)
+        return nullptr;
+
     QString display = getenv("DISPLAY");
     // Determine if we are running a remote X11 session
     // DISPLAY=:x or DISPLAY=unix:x are local
@@ -122,11 +125,13 @@ MythRenderOpenGL* MythRenderOpenGL::Create(void)
     if (VERBOSE_LEVEL_CHECK(VB_GPU, LOG_INFO))
         format.setOption(QSurfaceFormat::DebugContext);
 
-    return new MythRenderOpenGL(format);
+    return new MythRenderOpenGL(format, Widget);
 }
 
-MythRenderOpenGL::MythRenderOpenGL(const QSurfaceFormat& Format)
-  : MythEGL(this),
+MythRenderOpenGL::MythRenderOpenGL(const QSurfaceFormat& Format, QWidget *Widget)
+  : QOpenGLContext(),
+    QOpenGLFunctions(),
+    MythEGL(this),
     MythRender(kRenderOpenGL),
     m_fullRange(gCoreContext->GetBoolSetting("GUIRGBLevels", true))
 {
@@ -136,6 +141,7 @@ MythRenderOpenGL::MythRenderOpenGL(const QSurfaceFormat& Format)
     m_transforms.push(QMatrix4x4());
     setFormat(Format);
     connect(this, &QOpenGLContext::aboutToBeDestroyed, this, &MythRenderOpenGL::contextToBeDestroyed);
+    SetWidget(Widget);
 }
 
 MythRenderOpenGL::~MythRenderOpenGL()
@@ -144,7 +150,8 @@ MythRenderOpenGL::~MythRenderOpenGL()
     if (!isValid())
         return;
     disconnect(this, &QOpenGLContext::aboutToBeDestroyed, this, &MythRenderOpenGL::contextToBeDestroyed);
-    MythRenderOpenGL::ReleaseResources();
+    if (m_ready)
+        MythRenderOpenGL::ReleaseResources();
 }
 
 void MythRenderOpenGL::messageLogged(const QOpenGLDebugMessage &Message)
@@ -221,6 +228,7 @@ bool MythRenderOpenGL::Init(void)
 
     OpenGLLocker locker(this);
     initializeOpenGLFunctions();
+    m_ready = true;
     m_features = openGLFeatures();
 
     // don't enable this by default - it can generate a lot of detail
@@ -465,6 +473,9 @@ QOpenGLFunctions::OpenGLFeatures MythRenderOpenGL::GetFeatures(void) const
 
 bool MythRenderOpenGL::IsRecommendedRenderer(void)
 {
+    if (!IsReady())
+        return false;
+
     bool recommended = true;
     OpenGLLocker locker(this);
     QString renderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
@@ -491,7 +502,19 @@ bool MythRenderOpenGL::IsRecommendedRenderer(void)
             "configuration, and device permissions.");
         recommended = false;
     }
+
+    if (!recommended)
+    {
+        LOG(VB_GENERAL, LOG_INFO, LOC +
+            "OpenGL not recommended with this system's hardware/drivers.");
+    }
+
     return recommended;
+}
+
+bool MythRenderOpenGL::IsReady(void)
+{
+    return isValid() && m_ready;
 }
 
 void MythRenderOpenGL::swapBuffers()
