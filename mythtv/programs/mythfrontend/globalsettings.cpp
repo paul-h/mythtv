@@ -2859,7 +2859,7 @@ static HostCheckBoxSetting *BrowseChannelGroup()
 #if 0
 static GlobalCheckBoxSetting *SortCaseSensitive()
 {
-    auto gc = new GlobalCheckBoxSetting("SortCaseSensitive");
+    auto *gc = new GlobalCheckBoxSetting("SortCaseSensitive");
     gc->setLabel(GeneralSettings::tr("Case-sensitive sorting"));
     gc->setValue(false);
     gc->setHelpText(GeneralSettings::tr("If enabled, all sorting will be "
@@ -2873,7 +2873,7 @@ static GlobalCheckBoxSetting *SortCaseSensitive()
 
 static GlobalCheckBoxSetting *SortStripPrefixes()
 {
-    auto gc = new GlobalCheckBoxSetting("SortStripPrefixes");
+    auto *gc = new GlobalCheckBoxSetting("SortStripPrefixes");
 
     gc->setLabel(GeneralSettings::tr("Remove prefixes when sorting"));
     gc->setValue(true);
@@ -2889,7 +2889,7 @@ static GlobalCheckBoxSetting *SortStripPrefixes()
 
 static GlobalTextEditSetting *SortPrefixExceptions()
 {
-    auto gc = new GlobalTextEditSetting("SortPrefixExceptions");
+    auto *gc = new GlobalTextEditSetting("SortPrefixExceptions");
 
     gc->setLabel(MainGeneralSettings::tr("Names exempt from prefix removal"));
     gc->setValue("");
@@ -4052,7 +4052,7 @@ MainGeneralSettings::MainGeneralSettings()
         // presenting this option to a user.
         general->addChild(SortCaseSensitive());
 #endif
-        auto stripPrefixes = SortStripPrefixes();
+        auto *stripPrefixes = SortStripPrefixes();
         general->addChild(stripPrefixes);
         stripPrefixes->addTargetedChild("1", SortPrefixExceptions());
     }
