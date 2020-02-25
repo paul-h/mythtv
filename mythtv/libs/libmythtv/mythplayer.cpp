@@ -1680,7 +1680,7 @@ void MythPlayer::AVSync(VideoFrame *buffer)
     m_outputJmeter && m_outputJmeter->RecordCycleTime();
     m_avsyncAvg = static_cast<int>(m_lastFix * 1000 / s_av_control_gain);
 
-    bool decoderdeint = buffer && buffer->decoder_deinterlaced;
+    bool decoderdeint = buffer && buffer->already_deinterlaced;
     FrameScanType ps = m_scan;
     if (kScan_Detect == m_scan || kScan_Ignore == m_scan || decoderdeint)
     {
@@ -1789,7 +1789,7 @@ void MythPlayer::RefreshPauseFrame(void)
     {
         if (m_videoOutput->ValidVideoFrames())
         {
-            m_videoOutput->UpdatePauseFrame(m_dispTimecode);
+            m_videoOutput->UpdatePauseFrame(m_dispTimecode, m_scan);
             m_needNewPauseFrame = false;
 
             if (m_deleteMap.IsEditing())
@@ -4417,7 +4417,7 @@ char *MythPlayer::GetScreenGrabAtFrame(uint64_t FrameNum, bool Absolute,
         frame->deinterlace_double = DEINT_NONE;
         frame->deinterlace_allowed = frame->deinterlace_single = DEINT_CPU | DEINT_MEDIUM;
         MythDeinterlacer deinterlacer;
-        deinterlacer.Filter(frame, kScan_Interlaced, true);
+        deinterlacer.Filter(frame, kScan_Interlaced, nullptr, true);
     }
     unsigned char *result = CreateBuffer(FMT_RGB32, m_videoDim.width(), m_videoDim.height());
     MythAVCopy copyCtx;

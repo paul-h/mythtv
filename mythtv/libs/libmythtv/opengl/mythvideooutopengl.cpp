@@ -459,7 +459,7 @@ void MythVideoOutputOpenGL::ProcessFrame(VideoFrame *Frame, OSD */*osd*/,
 
     // software deinterlacing
     if (!dummy && swframe)
-        m_deinterlacer.Filter(Frame, Scan);
+        m_deinterlacer.Filter(Frame, Scan, m_dbDisplayProfile);
 
     if (!m_window.IsEmbedding())
     {
@@ -737,7 +737,7 @@ VideoFrameType* MythVideoOutputOpenGL::DirectRenderFormats(void)
 {
     // Complete list of formats supported for OpenGL 2.0 and higher and OpenGL ES3.X
     static VideoFrameType s_AllFormats[] =
-        { FMT_YV12,     FMT_NV12,      FMT_YUY2,      FMT_YUV422P,   FMT_YUV444P,
+        { FMT_YV12,     FMT_NV12,      FMT_YUV422P,   FMT_YUV444P,
           FMT_YUV420P9, FMT_YUV420P10, FMT_YUV420P12, FMT_YUV420P14, FMT_YUV420P16,
           FMT_YUV422P9, FMT_YUV422P10, FMT_YUV422P12, FMT_YUV422P14, FMT_YUV422P16,
           FMT_YUV444P9, FMT_YUV444P10, FMT_YUV444P12, FMT_YUV444P14, FMT_YUV444P16,
@@ -746,7 +746,7 @@ VideoFrameType* MythVideoOutputOpenGL::DirectRenderFormats(void)
 
     // OpenGL ES 2.0 and OpenGL1.X only allow luminance textures
     static VideoFrameType s_LegacyFormats[] =
-        { FMT_YV12, FMT_YUY2, FMT_YUV422P, FMT_YUV444P, FMT_NONE };
+        { FMT_YV12, FMT_YUV422P, FMT_YUV444P, FMT_NONE };
 
     static VideoFrameType* s_formats[2] = { s_AllFormats, s_LegacyFormats };
     return s_formats[m_textureFormats];
@@ -831,16 +831,22 @@ QStringList MythVideoOutputOpenGL::GetAllowedRenderers(MythCodecID CodecId, cons
     return allowed;
 }
 
-void MythVideoOutputOpenGL::UpdatePauseFrame(int64_t &DisplayTimecode)
+void MythVideoOutputOpenGL::UpdatePauseFrame(int64_t &DisplayTimecode, FrameScanType Scan)
 {
     m_videoBuffers.BeginLock(kVideoBuffer_used);
     VideoFrame *used = m_videoBuffers.Head(kVideoBuffer_used);
     if (used)
     {
         if (format_is_hw(used->codec))
+        {
             DoneDisplayingFrame(used);
+        }
         else
-            m_openGLVideo->ProcessFrame(used);
+        {
+            Scan = (is_interlaced(Scan) && !used->already_deinterlaced) ? kScan_Interlaced : kScan_Progressive;
+            m_deinterlacer.Filter(used, Scan, m_dbDisplayProfile, true);
+            m_openGLVideo->ProcessFrame(used, Scan);
+        }
         DisplayTimecode = used->disp_timecode;
     }
     else
