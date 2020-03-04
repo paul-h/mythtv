@@ -519,12 +519,54 @@ FrameScanType MythPlayer::detectInterlace(FrameScanType newScan,
 
 void MythPlayer::SetKeyframeDistance(int keyframedistance)
 {
-    m_keyframeDist = (keyframedistance > 0) ? keyframedistance : m_keyframeDist;
+    m_keyframeDist = (keyframedistance > 0) ? static_cast<uint>(keyframedistance) : m_keyframeDist;
 }
 
+/*! \brief Check whether deinterlacing should be enabled
+ *
+ * If the user has triggered an override, this will always be used (until 'detect'
+ * is requested to turn it off again).
+ *
+ * For H264 material, the decoder will signal when the current frame is on a new
+ * GOP boundary and if the frame's interlaced flag does not match the current
+ * scan type, the scan type is unlocked. This works well for all test clips
+ * with mixed progressive/interlaced sequences.
+ *
+ * For all other material, we lock the scan type to interlaced when interlaced
+ * frames are seen - and do not unlock if we see progressive frames. This is
+ * primarily targetted at MPEG2 material where there is a lot of content where
+ * the scan type changes frequently - and for no obvious reason. This will result
+ * in 'false positives' in some cases but there is no clear approach that works
+ * for all cases. The previous behaviour is preserved (i.e. lock to interlaced
+ * if interlaced frames are seen) which results in less erratic playback (as the
+ * deinterlacers are not continually switched on and off) and correctly deinterlaces
+ * material that is not otherwise flagged correctly.
+*/
 void MythPlayer::AutoDeint(VideoFrame *frame, bool allow_lock)
 {
-    if (!frame || m_scanLocked)
+    if (!frame)
+        return;
+
+    if ((m_scanOverride > kScan_Detect) && (m_scan != m_scanOverride))
+    {
+        LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Locking scan override to '%1'")
+            .arg(ScanTypeToString(m_scanOverride, true)));
+        SetScanType(m_scanOverride);
+    }
+
+    // This is currently only signalled for H264 content
+    if (frame->new_gop)
+    {
+        if (m_scanOverride < kScan_Interlaced &&
+            ((frame->interlaced_frame && !is_interlaced(m_scan)) ||
+            (!frame->interlaced_frame && is_interlaced(m_scan))))
+        {
+            LOG(VB_PLAYBACK, LOG_INFO, LOC + "Unlocking frame scan");
+            m_scanLocked = false;
+        }
+    }
+
+    if (m_scanLocked)
         return;
 
     if (frame->interlaced_frame)
@@ -564,40 +606,67 @@ void MythPlayer::AutoDeint(VideoFrame *frame, bool allow_lock)
     m_scanLocked  = false;
 }
 
-void MythPlayer::SetScanType(FrameScanType scan)
+FrameScanType MythPlayer::NextScanOverride(void)
+{
+    int next = m_scanOverride + 1;
+    if (next > kScan_Progressive)
+        next = kScan_Detect;
+    return static_cast<FrameScanType>(next);
+}
+
+void MythPlayer::SetScanOverride(FrameScanType Scan)
+{
+    if (m_scanOverride == Scan)
+        return;
+    m_scanOverride = Scan;
+    if (m_scanOverride == kScan_Detect)
+    {
+        m_scanLocked = false;
+        m_scanInitialized = false;
+        LOG(VB_PLAYBACK, LOG_INFO, LOC + "Reverting to auto detection of scan");
+    }
+}
+
+FrameScanType MythPlayer::GetScanType(void) const
+{
+    if (m_scanOverride > kScan_Detect)
+        return m_scanOverride;
+    return m_scan;
+}
+
+void MythPlayer::SetScanType(FrameScanType Scan)
 {
     if (!is_current_thread(m_playerThread))
     {
-        m_resetScan = scan;
+        m_resetScan = Scan;
         return;
     }
 
     if (!m_videoOutput)
-        return; // hopefully this will be called again later...
+        return;
 
     m_resetScan = kScan_Ignore;
 
-    if (m_scanInitialized && m_scan == scan && m_frameIntervalPrev == m_frameInterval)
+    if (m_scanInitialized && m_scan == Scan && m_frameIntervalPrev == m_frameInterval)
         return;
 
-    m_scanLocked = (scan != kScan_Detect);
-
+    m_scanLocked = (Scan != kScan_Detect);
     m_scanInitialized = true;
     m_frameIntervalPrev = m_frameInterval;
 
-    if (is_interlaced(scan))
+    if (is_interlaced(Scan))
     {
         bool normal = m_playSpeed > 0.99F && m_playSpeed < 1.01F && m_normalSpeed;
         m_doubleFramerate = CanSupportDoubleRate() && normal;
         m_videoOutput->SetDeinterlacing(true, m_doubleFramerate);
     }
-    else if (kScan_Progressive == scan)
+    else if (kScan_Progressive == Scan)
     {
         m_doubleFramerate = false;
         m_videoOutput->SetDeinterlacing(false, false);
     }
 
-    m_scan = scan;
+    m_scan = Scan;
 }
 
 void MythPlayer::SetVideoParams(int width, int height, double fps,
@@ -1869,25 +1938,26 @@ bool MythPlayer::PrebufferEnoughFrames(int min_buffers)
         // for the jerking is detected.
 
         bool watchingTV = IsWatchingInprogress();
-        if ( (m_liveTV || watchingTV) && !FlagIsSet(kMusicChoice))
+        if ((m_liveTV || watchingTV) && !FlagIsSet(kMusicChoice))
         {
             uint64_t frameCount = GetCurrentFrameCount();
             uint64_t framesLeft = frameCount - m_framesPlayed;
-            auto margin = (uint64_t) (m_videoFrameRate * 3);
+            auto margin = static_cast<uint64_t>(m_videoFrameRate * 3);
             if (framesLeft < margin)
             {
                 if (m_rtcBase)
                 {
-                    LOG(VB_PLAYBACK, LOG_NOTICE, LOC +
-                        QString("Pause to allow live tv catch up. Position in sec. Current: %2, Total: %3")
-                        .arg(m_framesPlayed).arg(frameCount));
+                    LOG(VB_PLAYBACK, LOG_NOTICE, LOC + "Pause to allow live tv catch up");
+                    LOG(VB_PLAYBACK, LOG_NOTICE, LOC + QString("Played: %1 Avail: %2 Buffered: %3 Margin: %4")
+                        .arg(m_framesPlayed).arg(frameCount)
+                        .arg(m_videoOutput->ValidVideoFrames()).arg(margin));
                 }
                 m_audio.Pause(true);
                 m_avsyncAudioPaused = true;
                 m_rtcBase = 0;
             }
         }
-        usleep(m_frameInterval >> 3);
+        usleep(static_cast<uint>(m_frameInterval >> 3));
         int waited_for = m_bufferingStart.msecsTo(QTime::currentTime());
         int last_msg = m_bufferingLastMsg.msecsTo(QTime::currentTime());
         if (last_msg > 100 && !FlagIsSet(kMusicChoice))
@@ -1911,7 +1981,7 @@ bool MythPlayer::PrebufferEnoughFrames(int min_buffers)
             if (m_audio.IsBufferAlmostFull() && m_framesPlayed < 5
                 && gCoreContext->GetBoolSetting("MusicChoiceEnabled", false))
             {
-                m_playerFlags = (PlayerFlags)(m_playerFlags | kMusicChoice);
+                m_playerFlags = static_cast<PlayerFlags>(m_playerFlags | kMusicChoice);
                 LOG(VB_GENERAL, LOG_NOTICE, LOC +
                     "Music Choice program detected - disabling AV Sync.");
                 m_avsyncAudioPaused = false;
