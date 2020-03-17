@@ -2153,6 +2153,7 @@ static int grabThumbnail(const QString& inFile, const QString& thumbList, const 
     LOG(VB_JOBQUEUE, LOG_INFO, QString("grabThumbnail(): Opening '%1'")
             .arg(inFile));
 
+    MythCodecMap codecmap;
     RemoteAVFormatContext inputFC(inFile);
     if (!inputFC.isOpen())
     {
@@ -2199,8 +2200,7 @@ static int grabThumbnail(const QString& inFile, const QString& thumbList, const 
     }
 
     // get the codec context for the video stream
-    AVCodecContext *codecCtx = gCodecMap->getCodecContext
-        (inputFC->streams[videostream]);
+    AVCodecContext *codecCtx = codecmap.getCodecContext(inputFC->streams[videostream]);
 
     // get decoder for video stream
     AVCodec * codec = avcodec_find_decoder(codecCtx->codec_id);
@@ -2350,8 +2350,7 @@ static int grabThumbnail(const QString& inFile, const QString& thumbList, const 
     delete[] outputbuf;
 
     // close the codec
-    gCodecMap->freeCodecContext
-        (inputFC->streams[videostream]);
+    codecmap.freeCodecContext(inputFC->streams[videostream]);
 
     return 0;
 }
@@ -2501,6 +2500,7 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
     LOG(VB_JOBQUEUE , LOG_INFO, QString("getFileInfo(): Opening '%1'")
             .arg(inFile));
 
+    MythCodecMap codecmap;
     RemoteAVFormatContext inputFC(inFile);
     if (!inputFC.isOpen())
     {
@@ -2540,7 +2540,7 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
     {
         AVStream *st = inputFC->streams[i];
         char buf[256];
-        AVCodecContext *avctx = gCodecMap->getCodecContext(st);
+        AVCodecContext *avctx = codecmap.getCodecContext(st);
         AVCodecParameters *par = st->codecpar;
 
         buf[0]=0;
@@ -2761,7 +2761,7 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
                         .arg(inputFC->streams[i]->codecpar->codec_type).arg(i));
                 break;
         }
-        gCodecMap->freeCodecContext(st);
+        codecmap.freeCodecContext(st);
     }
 
     // finally save the xml to the file

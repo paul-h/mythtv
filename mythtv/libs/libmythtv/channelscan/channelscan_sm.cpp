@@ -188,7 +188,8 @@ ChannelScanSM::ChannelScanSM(ScanMonitor *_scan_monitor,
                 QString("Setting NIT-ID to %1").arg(nitid));
 
             m_bouquetId = query.value(1).toUInt();
-            m_regionId = query.value(2).toUInt();
+            m_regionId  = query.value(2).toUInt();
+            m_nitId     = nitid > 0 ? nitid : 0;
         }
 
         LOG(VB_CHANSCAN, LOG_INFO, LOC +
@@ -352,15 +353,17 @@ bool ChannelScanSM::ScanExistingTransports(uint sourceid, bool follow_nit)
         return false;
     }
 
-
     return m_scanning;
 }
 
 void ChannelScanSM::LogLines(const QString& string)
 {
-    QStringList lines = string.split('\n');
-    for (int i = 0; i < lines.size(); ++i)
-        LOG(VB_CHANSCAN, LOG_DEBUG, lines[i]);
+    if (VERBOSE_LEVEL_CHECK(VB_CHANSCAN, LOG_DEBUG))
+    {
+        QStringList lines = string.split('\n');
+        for (int i = 0; i < lines.size(); ++i)
+            LOG(VB_CHANSCAN, LOG_DEBUG, lines[i]);
+    }
 }
 
 void ChannelScanSM::HandlePAT(const ProgramAssociationTable *pat)
@@ -907,6 +910,12 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
     if (transport_tune_complete)
     {
         transport_tune_complete &= !m_currentInfo->m_pmts.empty();
+
+        if (!(sd->HasCachedMGT() || sd->HasCachedAnyNIT()))
+        {
+            transport_tune_complete = false;
+        }
+
         if (sd->HasCachedMGT() || sd->HasCachedAnyVCTs())
         {
             transport_tune_complete &= sd->HasCachedMGT();
@@ -926,7 +935,6 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
         {
             uint tsid = dtv_sm->GetTransportID();
             LOG(VB_CHANSCAN, LOG_INFO, LOC +
-                QString("transport_tune_complete: ") +
                 QString("\n\t\t\tsd->HasCachedAnyNIT():         %1").arg(sd->HasCachedAnyNIT()) +
                 QString("\n\t\t\tsd->HasCachedAnySDTs():        %1").arg(sd->HasCachedAnySDTs()) +
                 QString("\n\t\t\tsd->HasCachedAnyBATs():        %1").arg(sd->HasCachedAnyBATs()) +
@@ -951,8 +959,7 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
     if (transport_tune_complete)
     {
         LOG(VB_CHANSCAN, LOG_INFO, LOC +
-            QString("transport_tune_complete: wait_until_complete %1")
-                .arg(wait_until_complete));
+            QString("transport_tune_complete: wait_until_complete %1").arg(wait_until_complete));
     }
 
     if (transport_tune_complete &&
@@ -1021,6 +1028,7 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
         {
             TransportScanItem &item = *m_current;
             item.m_tuning.m_frequency = item.freq_offset(m_current.offset());
+            item.m_signalStrength = m_signalMonitor->GetSignalStrength();
 
             if (m_scanDTVTunerType == DTVTunerType::kTunerTypeDVBT2)
             {
@@ -1031,8 +1039,9 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
             }
 
             LOG(VB_CHANSCAN, LOG_INFO, LOC +
-                QString("Adding %1 offset %2 to m_channelList.")
-                    .arg((*m_current).m_tuning.toString()).arg(m_current.offset()));
+                QString("Adding %1 offset %2 ss %3 to m_channelList.")
+                    .arg(item.m_tuning.toString()).arg(m_current.offset())
+                    .arg(item.m_signalStrength));
 
             LOG(VB_CHANSCAN, LOG_DEBUG, LOC +
                 QString("%1(%2) m_inputName: %3 ").arg(__FUNCTION__).arg(__LINE__).arg(m_inputName) +
@@ -1130,9 +1139,9 @@ static void update_info(ChannelInsertInfo &info,
 
     info.m_chanNum.clear();
 
-    info.m_serviceId          = vct->ProgramNumber(i);
-    info.m_atscMajorChannel   = vct->MajorChannel(i);
-    info.m_atscMinorChannel   = vct->MinorChannel(i);
+    info.m_serviceId        = vct->ProgramNumber(i);
+    info.m_atscMajorChannel = vct->MajorChannel(i);
+    info.m_atscMinorChannel = vct->MinorChannel(i);
 
     info.m_useOnAirGuide    = !vct->IsHidden(i) || !vct->IsHiddenInGuide(i);
 
@@ -1737,6 +1746,7 @@ ScanDTVTransportList ChannelScanSM::GetChannelList(bool addFullTS) const
 
         ScanDTVTransport item((*it.first).m_tuning, tuner_type, cardid);
         item.m_iptvTuning = (*(it.first)).m_iptvTuning;
+        item.m_signalStrength = (*(it.first)).m_signalStrength;
 
         QMap<uint,ChannelInsertInfo>::iterator dbchan_it;
         for (dbchan_it = pnum_to_dbchan.begin();
@@ -1808,7 +1818,6 @@ ScanDTVTransportList ChannelScanSM::GetChannelList(bool addFullTS) const
 
     return list;
 }
-
 
 DTVSignalMonitor* ChannelScanSM::GetDTVSignalMonitor(void)
 {
@@ -1940,7 +1949,6 @@ bool ChannelScanSM::HasTimedOut(void)
     }
 #endif // USING_DVB
 
-
     // have the tables have timed out?
     if (m_timer.hasExpired(m_channelTimeout))
     {
@@ -2047,8 +2055,7 @@ void ChannelScanSM::HandleActiveScan(void)
             {
                 QString name = QString("TransportID %1").arg(it.key() & 0xffff);
                 TransportScanItem item(m_sourceID, name, *it, m_signalTimeout);
-                LOG(VB_CHANSCAN, LOG_INFO, LOC + "Adding " + name + " - " +
-                    item.m_tuning.toString());
+                LOG(VB_CHANSCAN, LOG_INFO, LOC + "Adding " + name + ' ' + item.m_tuning.toString());
                 m_scanTransports.push_back(item);
                 m_tsScanned.insert(it.key());
             }
@@ -2359,8 +2366,8 @@ bool ChannelScanSM::ScanIPTVChannels(uint sourceid,
 bool ChannelScanSM::ScanTransportsStartingOn(
     int sourceid, const QMap<QString,QString> &startChan)
 {
-    if (startChan.find("std")        == startChan.end() ||
-        startChan.find("type")       == startChan.end())
+    if (startChan.find("std")  == startChan.end() ||
+        startChan.find("type") == startChan.end())
     {
         return false;
     }

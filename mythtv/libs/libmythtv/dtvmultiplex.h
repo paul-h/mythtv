@@ -103,7 +103,7 @@ class MTV_PUBLIC DTVMultiplex
     DTVHierarchy     m_hierarchy;
     DTVPolarity      m_polarity;
     DTVCodeRate      m_fec;             ///< Inner Forward Error Correction rate
-    DTVModulationSystem m_modSys;      ///< Modulation system
+    DTVModulationSystem m_modSys;       ///< Modulation system
     DTVRollOff       m_rolloff;
 
     // Optional additional info
@@ -136,6 +136,7 @@ class MTV_PUBLIC ScanDTVTransport : public DTVMultiplex
     DTVTunerType          m_tuner_type {DTVTunerType::kTunerTypeUnknown};
     uint                  m_cardid     {0};
     ChannelInsertInfoList m_channels;
+    int                   m_signalStrength {0};
 };
 using ScanDTVTransportList = vector<ScanDTVTransport>;
 
