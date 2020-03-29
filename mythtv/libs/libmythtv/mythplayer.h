@@ -136,7 +136,7 @@ class DecoderCallback
   public:
     using Callback = void (*)(void*, void*, void*);
     DecoderCallback() = default;
-    DecoderCallback(QString &Debug, Callback Function, QAtomicInt *Ready,
+    DecoderCallback(const QString &Debug, Callback Function, QAtomicInt *Ready,
                     void *Opaque1, void *Opaque2, void *Opaque3)
       : m_debug(std::move(Debug)),
         m_function(Function),
@@ -309,12 +309,9 @@ class MTV_PUBLIC MythPlayer
     virtual bool HasReachedEof(void) const;
     void SetDisablePassThrough(bool disabled);
     void ForceSetupAudioStream(void);
-    static void HandleDecoderCallback(MythPlayer *Player, const QString &Debug,
-                                      DecoderCallback::Callback Function,
-                                      void *Opaque1, void *Opaque2);
+    void HandleDecoderCallback(const QString &Debug, DecoderCallback::Callback Function,
+                               void *Opaque1, void *Opaque2);
     void ProcessCallbacks(void);
-    void QueueCallback(QString Debug, DecoderCallback::Callback Function, QAtomicInt *Ready,
-                       void *Opaque1, void *Opaque2, void *Opaque3);
 
     // Reinit
     void ReinitVideo(bool ForceUpdate);
