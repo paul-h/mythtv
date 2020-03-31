@@ -27,7 +27,12 @@ echo "SOURCE_VERSION: $SOURCE_VERSION"
 
 case "${SOURCE_VERSION}" in
     exported|Unknown)
-        if ! grep -q Format $GITTREEDIR/EXPORTED_VERSION; then
+        if test -e ../$GITTREEDIR/debian/DESCRIBE ; then
+            echo "Using ../$GITTREEDIR/debian/DESCRIBE"
+            . ../$GITTREEDIR/debian/DESCRIBE
+            echo "BRANCH: $BRANCH"
+            echo "SOURCE_VERSION: $SOURCE_VERSION"
+        elif ! grep -q Format $GITTREEDIR/EXPORTED_VERSION; then
             . $GITTREEDIR/EXPORTED_VERSION
             echo "Using $GITTREEDIR/EXPORTED_VERSION"
             echo "BRANCH: $BRANCH"
@@ -55,8 +60,10 @@ case "${SOURCE_VERSION}" in
             echo "Source Version created as $SOURCE_VERSION"
             echo "Branch created as $BRANCH"
         elif test -e $GITTREEDIR/VERSION ; then
-              echo "NOT Using $GITTREEDIR/EXPORTED_VERSION"
+            echo "Using $GITTREEDIR/VERSION"
             . $GITTREEDIR/VERSION
+            echo "BRANCH: $BRANCH"
+            echo "SOURCE_VERSION: $SOURCE_VERSION"
         fi
     ;;
     *)
