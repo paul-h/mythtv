@@ -27,9 +27,9 @@ echo "SOURCE_VERSION: $SOURCE_VERSION"
 
 case "${SOURCE_VERSION}" in
     exported|Unknown)
-        if test -e ../$GITTREEDIR/debian/DESCRIBE ; then
-            echo "Using ../$GITTREEDIR/debian/DESCRIBE"
-            . ../$GITTREEDIR/debian/DESCRIBE
+        if test -e $GITTREEDIR/DESCRIBE ; then
+            echo "Using $GITTREEDIR/DESCRIBE"
+            . $GITTREEDIR/DESCRIBE
             echo "BRANCH: $BRANCH"
             echo "SOURCE_VERSION: $SOURCE_VERSION"
         elif ! grep -q Format $GITTREEDIR/EXPORTED_VERSION; then
