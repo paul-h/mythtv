@@ -23,11 +23,15 @@ cd ${GITTREEDIR}
 
 git status > /dev/null 2>&1
 SOURCE_VERSION=$(git describe --dirty || git describe || echo Unknown)
+echo "SOURCE_VERSION: $SOURCE_VERSION"
 
 case "${SOURCE_VERSION}" in
     exported|Unknown)
         if ! grep -q Format $GITTREEDIR/EXPORTED_VERSION; then
             . $GITTREEDIR/EXPORTED_VERSION
+            echo "Using $GITTREEDIR/EXPORTED_VERSION"
+            echo "BRANCH: $BRANCH"
+            echo "SOURCE_VERSION: $SOURCE_VERSION"
             # This file has SOURCE_VERSION and BRANCH
             # example SOURCE_VERSION="30d8a96"
             # BRANCH examples from github
@@ -49,7 +53,9 @@ case "${SOURCE_VERSION}" in
             fi
             SOURCE_VERSION="${SOURCE_VERSION}-${hash}"
             echo "Source Version created as $SOURCE_VERSION"
+            echo "Branch created as $BRANCH"
         elif test -e $GITTREEDIR/VERSION ; then
+              echo "NOT Using $GITTREEDIR/EXPORTED_VERSION"
             . $GITTREEDIR/VERSION
         fi
     ;;
