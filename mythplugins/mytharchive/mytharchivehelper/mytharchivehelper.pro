@@ -28,6 +28,7 @@ LIBS += -lmythavfilter
 LIBS += -lz
 LIBS += -lmythtv-$$LIBVERSION
 LIBS += -lmythmetadata-$$LIBVERSION
+LIBS += -lmythexiv2-0.28
 
 # libmythtv dependencies
 using_live: LIBS += -lmythlivemedia-$$LIBVERSION
