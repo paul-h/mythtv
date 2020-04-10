@@ -243,9 +243,6 @@ HEADERS += channelscan/iptvchannelfetcher.h
 SOURCES += channelscan/scaninfo.cpp channelscan/channelimporter.cpp
 SOURCES += channelscan/iptvchannelfetcher.cpp
 
-HEADERS += dvdstream.h
-SOURCES += dvdstream.cpp
-
 # subtitles: srt
 HEADERS += srtwriter.h
 SOURCES += srtwriter.cpp
@@ -276,6 +273,8 @@ INSTALLS += inc2
 #DVD stuff
 DEPENDPATH  += ../../external/libmythdvdnav/
 DEPENDPATH  += ../../external/libmythdvdnav/dvdread # for dvd_reader.h & dvd_input.h
+INCLUDEPATH += ../../external/libmythdvdnav/dvdnav
+INCLUDEPATH += ../../external/libmythdvdnav/dvdread
 
 win32-msvc*|freebsd {
   INCLUDEPATH += ../../external/libmythdvdnav/dvdnav
@@ -287,13 +286,19 @@ win32-msvc*|freebsd {
 
 !win32-msvc*:POST_TARGETDEPS += ../../external/libmythdvdnav/libmythdvdnav-$${MYTH_LIB_EXT}
 
-HEADERS += DVD/dvdringbuffer.h
-SOURCES += DVD/dvdringbuffer.cpp
+HEADERS += DVD/mythdvdbuffer.h
+HEADERS += DVD/mythdvdcontext.h
+HEADERS += DVD/mythdvdinfo.h
+HEADERS += DVD/mythdvdstream.h
+SOURCES += DVD/mythdvdbuffer.cpp
+SOURCES += DVD/mythdvdcontext.cpp
+SOURCES += DVD/mythdvdinfo.cpp
+SOURCES += DVD/mythdvdstream.cpp
 using_frontend {
     HEADERS += DVD/mythdvdplayer.h
     SOURCES += DVD/mythdvdplayer.cpp
-    HEADERS += DVD/avformatdecoderdvd.h
-    SOURCES += DVD/avformatdecoderdvd.cpp
+    HEADERS += DVD/mythdvddecoder.h
+    SOURCES += DVD/mythdvddecoder.cpp
 }
 LIBS += -L../../external/libmythdvdnav
 LIBS += -lmythdvdnav-$$LIBVERSION

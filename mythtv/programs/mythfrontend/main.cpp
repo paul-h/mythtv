@@ -103,7 +103,7 @@ using namespace std;
 #include "gallerythumbview.h"
 
 // DVD & Bluray
-#include "DVD/dvdringbuffer.h"
+#include "DVD/mythdvdbuffer.h"
 #include "Bluray/bdringbuffer.h"
 
 // AirPlay
@@ -1304,7 +1304,7 @@ static int internal_play_media(const QString &mrl, const QString &plot,
 
     if (pginfo->IsVideoDVD())
     {
-        auto *dvd = new DVDInfo(pginfo->GetPlaybackURL());
+        auto *dvd = new MythDVDInfo(pginfo->GetPlaybackURL());
         if (dvd->IsValid())
         {
             QString name;
