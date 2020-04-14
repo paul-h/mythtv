@@ -3,7 +3,7 @@
 #include <utility>
 
 #include "filetransfer.h"
-#include "io/ringbuffer.h"
+#include "io/mythmediabuffer.h"
 #include "programinfo.h"
 #include "mythsocket.h"
 #include "mythlogging.h"
@@ -12,7 +12,7 @@ FileTransfer::FileTransfer(QString &filename, MythSocket *remote,
                            MythSocketManager *parent,
                            bool usereadahead, int timeout_ms) :
     SocketHandler(remote, parent, ""),
-    m_rbuffer(RingBuffer::Create(filename, false, usereadahead, timeout_ms))
+    m_rbuffer(MythMediaBuffer::Create(filename, false, usereadahead, timeout_ms))
 {
     m_pginfo = new ProgramInfo(filename);
     m_pginfo->MarkAsInUse(true, kFileTransferInUseID);
@@ -21,7 +21,7 @@ FileTransfer::FileTransfer(QString &filename, MythSocket *remote,
 FileTransfer::FileTransfer(QString &filename, MythSocket *remote,
                            MythSocketManager *parent, bool write) :
     SocketHandler(remote, parent, ""),
-    m_rbuffer(RingBuffer::Create(filename, write)),
+    m_rbuffer(MythMediaBuffer::Create(filename, write)),
     m_writemode(write)
 {
     m_pginfo = new ProgramInfo(filename);
@@ -62,7 +62,7 @@ bool FileTransfer::ReOpen(const QString& newFilename)
         return false;
 
     if (m_rbuffer)
-        return m_rbuffer->ReOpen(std::move(newFilename));
+        return m_rbuffer->ReOpen(newFilename);
 
     return false;
 }

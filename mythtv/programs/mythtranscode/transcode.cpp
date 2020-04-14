@@ -30,7 +30,7 @@
 #include "mythplayer.h"
 #include "programinfo.h"
 #include "mythdbcon.h"
-#include "io/avformatwriter.h"
+#include "io/mythavformatwriter.h"
 #include "HLS/httplivestream.h"
 
 #include "videodecodebuffer.h"
@@ -61,7 +61,7 @@ Transcode::~Transcode()
     delete m_nvr;
 #endif
     SetPlayerContext(nullptr);
-    delete m_outRingBuffer;
+    delete m_outBuffer;
     delete m_fifow;
     delete m_kfaTable;
     delete m_recProfile;
@@ -206,8 +206,8 @@ int Transcode::TranscodeFile(const QString &inputname,
     QDateTime statustime = curtime;
     int audioFrame = 0;
     std::unique_ptr<Cutter> cutter = nullptr;
-    std::unique_ptr<AVFormatWriter> avfw = nullptr;
-    std::unique_ptr<AVFormatWriter> avfw2 = nullptr;
+    std::unique_ptr<MythAVFormatWriter> avfw = nullptr;
+    std::unique_ptr<MythAVFormatWriter> avfw2 = nullptr;
     std::unique_ptr<HTTPLiveStream> hls = nullptr;
     int hlsSegmentSize = 0;
     int hlsSegmentFrames = 0;
@@ -249,9 +249,9 @@ int Transcode::TranscodeFile(const QString &inputname,
     // Input setup
     auto *player_ctx = new PlayerContext(kTranscoderInUseID);
     player_ctx->SetPlayingInfo(m_proginfo);
-    RingBuffer *rb = (hls && (m_hlsStreamID != -1)) ?
-        RingBuffer::Create(hls->GetSourceFile(), false, false) :
-        RingBuffer::Create(inputname, false, false);
+    MythMediaBuffer *rb = (hls && (m_hlsStreamID != -1)) ?
+        MythMediaBuffer::Create(hls->GetSourceFile(), false, false) :
+        MythMediaBuffer::Create(inputname, false, false);
     if (!rb || !rb->GetLastError().isEmpty())
     {
         LOG(VB_GENERAL, LOG_ERR,
@@ -426,7 +426,7 @@ int Transcode::TranscodeFile(const QString &inputname,
         newHeight = (newHeight + 15) & ~0xF;
         newWidth  = (newWidth  + 15) & ~0xF;
 
-        avfw = std::make_unique<AVFormatWriter>();
+        avfw = std::make_unique<MythAVFormatWriter>();
         if (!avfw)
         {
             LOG(VB_GENERAL, LOG_ERR,
@@ -472,7 +472,7 @@ int Transcode::TranscodeFile(const QString &inputname,
             {
                 int audioOnlyBitrate = hls->GetAudioOnlyBitrate();
 
-                avfw2 = std::make_unique<AVFormatWriter>();
+                avfw2 = std::make_unique<MythAVFormatWriter>();
                 avfw2->SetContainer("mpegts");
                 avfw2->SetAudioCodec("aac");
                 avfw2->SetAudioBitrate(audioOnlyBitrate);
@@ -794,8 +794,8 @@ int Transcode::TranscodeFile(const QString &inputname,
         else if (vidsetting == "RTjpeg")
             m_nvr->SetupRTjpeg();
 
-        m_outRingBuffer = RingBuffer::Create(outputname, true, false);
-        m_nvr->SetRingBuffer(m_outRingBuffer);
+        m_outBuffer = MythMediaBuffer::Create(outputname, true, false);
+        m_nvr->SetRingBuffer(m_outBuffer);
         m_nvr->WriteHeader();
         m_nvr->StreamAllocate();
     }
@@ -1255,8 +1255,7 @@ int Transcode::TranscodeFile(const QString &inputname,
 // from here on the timecode is on the output time base
             frame.timecode -= timecodeOffset;
 
-            if (!GetPlayer()->WriteStoredData(
-                    m_outRingBuffer, (did_ff == 0), timecodeOffset))
+            if (!GetPlayer()->WriteStoredData(m_outBuffer, (did_ff == 0), timecodeOffset))
             {
                 if (video_aspect != new_aspect)
                 {

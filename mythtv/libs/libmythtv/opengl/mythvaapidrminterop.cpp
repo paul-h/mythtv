@@ -350,8 +350,12 @@ VideoFrameType MythVAAPIInteropDRM::VATypeToMythType(uint32_t Fourcc)
         case VA_FOURCC_NV12: return FMT_NV12;
         case VA_FOURCC_YUY2:
         case VA_FOURCC_UYVY: return FMT_YUY2;
+#if defined (VA_FOURCC_P010)
         case VA_FOURCC_P010: return FMT_P010;
+#endif
+#if defined (VA_FOURCC_P016)
         case VA_FOURCC_P016: return FMT_P016;
+#endif
         case VA_FOURCC_ARGB: return FMT_ARGB32;
         case VA_FOURCC_RGBA: return FMT_RGBA32;
     }
@@ -432,11 +436,11 @@ void MythVAAPIInteropDRM::CleanupDRMPRIME(void)
         return;
 
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Releasing %1 DRM descriptors").arg(m_drmFrames.size()));
-    for (auto it = m_drmFrames.begin() ; it != m_drmFrames.end(); ++it)
+    foreach (auto * frame, m_drmFrames)
     {
-        for (int i = 0; i < (*it)->nb_objects; i++)
-            close((*it)->objects[i].fd);
-        av_freep(&(*it));
+        for (int i = 0; i < frame->nb_objects; i++)
+            close(frame->objects[i].fd);
+        av_freep(&frame);
     }
     m_drmFrames.clear();
 }
@@ -482,7 +486,7 @@ bool MythVAAPIInteropDRM::TestPrimeInterop(void)
             {
                 s_supported = true;
                 for (auto & texture : textures)
-                    s_supported &= texture->m_data && texture->m_textureId;
+                    s_supported &= texture->m_data && (texture->m_textureId != 0U);
                 ClearDMATextures(m_context, textures);
             }
             for (uint32_t i = 0; i < vadesc.num_objects; ++i)

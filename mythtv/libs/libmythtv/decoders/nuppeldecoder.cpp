@@ -152,7 +152,7 @@ bool NuppelDecoder::ReadFrameheader(struct rtframeheader *fh)
     return true;
 }
 
-int NuppelDecoder::OpenFile(RingBuffer *rbuffer, bool novideo,
+int NuppelDecoder::OpenFile(MythMediaBuffer *rbuffer, bool novideo,
                             char testbuf[kDecoderProbeBufferSize],
                             int /*testbufsize*/)
 {
@@ -167,7 +167,6 @@ int NuppelDecoder::OpenFile(RingBuffer *rbuffer, bool novideo,
 
     struct rtframeheader frameheader {};
     long long startpos = 0;
-    int foundit = 0;
 
     if (!ReadFileheader(&m_fileHeader))
     {
@@ -482,7 +481,7 @@ int NuppelDecoder::OpenFile(RingBuffer *rbuffer, bool novideo,
         }
     }
 
-    foundit = 0;
+    bool foundit = false;
 
     m_effDsp = m_audioSamplerate * 100;
     m_audio->SetEffDsp(m_effDsp);
@@ -510,7 +509,7 @@ int NuppelDecoder::OpenFile(RingBuffer *rbuffer, bool novideo,
                                 AV_CODEC_ID_NONE, m_extraData.audio_sample_rate,
                                 false /* AC3/DTS pass through */);
         m_audio->ReinitAudio();
-        foundit = 1;
+        foundit = true;
     }
 
     while (!foundit)
@@ -523,7 +522,7 @@ int NuppelDecoder::OpenFile(RingBuffer *rbuffer, bool novideo,
                 if (m_effDsp > 0)
                 {
                     m_audio->SetEffDsp(m_effDsp);
-                    foundit = 1;
+                    foundit = true;
                     continue;
                 }
             }
@@ -533,7 +532,7 @@ int NuppelDecoder::OpenFile(RingBuffer *rbuffer, bool novideo,
             if (frameheader.packetlength != m_ringBuffer->Read(space,
                                                  frameheader.packetlength))
             {
-                foundit = 1;
+                foundit = true;
                 continue;
             }
         }
@@ -984,7 +983,7 @@ long NuppelDecoder::UpdateStoredFrameNum(long framenum)
     return 0;
 }
 
-void NuppelDecoder::WriteStoredData(RingBuffer *rb, bool storevid,
+void NuppelDecoder::WriteStoredData(MythMediaBuffer *rb, bool storevid,
                                     long timecodeOffset)
 {
     while (!m_storedData.empty())
@@ -1171,7 +1170,7 @@ bool NuppelDecoder::GetFrame(DecodeType decodetype, bool& /*Retry*/)
             buf->aspect = m_currentAspect;
             buf->frameNumber = m_framesPlayed;
             buf->frameCounter = m_frameCounter++;
-            buf->dummy = 0;
+            buf->dummy = false;
             GetPlayer()->ReleaseNextVideoFrame(buf, m_frameHeader.timecode);
 
             // We need to make the frame available ourselves

@@ -63,7 +63,7 @@ using namespace std;
 #include "autoexpire.h"
 #include "storagegroup.h"
 #include "compat.h"
-#include "io/ringbuffer.h"
+#include "io/mythmediabuffer.h"
 #include "remotefile.h"
 #include "mythsystemevent.h"
 #include "tv.h"
@@ -5315,7 +5315,7 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
     {
         strlist << fsInfo.getHostname();
         strlist << fsInfo.getPath();
-        strlist << QString::number(fsInfo.isLocal());
+        strlist << QString::number(static_cast<int>(fsInfo.isLocal()));
         strlist << QString::number(fsInfo.getFSysID());
         strlist << QString::number(fsInfo.getGroupID());
         strlist << QString::number(fsInfo.getBlockSize());
@@ -6550,7 +6550,7 @@ void MainServer::HandleMusicFindAlbumArt(const QStringList &slist, PlaybackSock 
         AlbumArtImage *image = images->getImageAt(x);
         strlist.append(QString("%1").arg(image->m_id));
         strlist.append(QString("%1").arg((int)image->m_imageType));
-        strlist.append(QString("%1").arg(image->m_embedded));
+        strlist.append(QString("%1").arg(static_cast<int>(image->m_embedded)));
         strlist.append(image->m_description);
         strlist.append(image->m_filename);
         strlist.append(image->m_hostname);
@@ -7389,11 +7389,11 @@ void MainServer::HandleFileTransferQuery(QStringList &slist,
     {
         bool isopen = ft->isOpen();
 
-        retlist << QString::number(isopen);
+        retlist << QString::number(static_cast<int>(isopen));
     }
     else if (command == "REOPEN")
     {
-        retlist << QString::number(ft->ReOpen(slist[2]));
+        retlist << QString::number(static_cast<int>(ft->ReOpen(slist[2])));
     }
     else if (command == "DONE")
     {
@@ -7410,7 +7410,7 @@ void MainServer::HandleFileTransferQuery(QStringList &slist,
     {
         // return size and if the file is not opened for writing
         retlist << QString::number(ft->GetFileSize());
-        retlist << QString::number(!gCoreContext->IsRegisteredFileForWrite(ft->GetFileName()));
+        retlist << QString::number(static_cast<int>(!gCoreContext->IsRegisteredFileForWrite(ft->GetFileName())));
     }
     else
     {

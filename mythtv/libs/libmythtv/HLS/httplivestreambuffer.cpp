@@ -330,6 +330,7 @@ public:
                m_data.size() - aeslen);
 
         // remove the PKCS#7 padding from the buffer
+        // NOLINTNEXTLINE(bugprone-signed-char-misuse)
         int pad = decrypted_data[m_data.size()-1];
         if (pad <= 0 || pad > AES_BLOCK_SIZE)
         {
@@ -780,7 +781,7 @@ public:
      * Will download all required segment AES-128 keys
      * Will try to re-use already downloaded keys if possible
      */
-    int ManageSegmentKeys()
+    int ManageSegmentKeys() const
     {
         HLSSegment   *seg       = nullptr;
         HLSSegment   *prev_seg  = nullptr;
@@ -1536,7 +1537,7 @@ private:
 };
 
 HLSRingBuffer::HLSRingBuffer(const QString &lfilename) :
-    RingBuffer(kRingBuffer_HLS),
+    MythMediaBuffer(kMythBufferHLS),
     m_playback(new HLSPlayback())
 {
     m_startReadAhead = false;
@@ -1544,7 +1545,7 @@ HLSRingBuffer::HLSRingBuffer(const QString &lfilename) :
 }
 
 HLSRingBuffer::HLSRingBuffer(const QString &lfilename, bool open) :
-    RingBuffer(kRingBuffer_HLS),
+    MythMediaBuffer(kMythBufferHLS),
     m_playback(new HLSPlayback())
 {
     m_startReadAhead = false;
@@ -1714,7 +1715,7 @@ bool HLSRingBuffer::TestForHTTPLiveStreaming(const QString &filename)
     URLContext *context = nullptr;
 
     // Do a peek on the URL to test the format
-    RingBuffer::AVFormatInitNetwork();
+    MythMediaBuffer::AVFormatInitNetwork();
     int ret = ffurl_open(&context, filename.toLatin1(),
                          AVIO_FLAG_READ, nullptr, nullptr);
     if (ret >= 0)

@@ -24,7 +24,7 @@
 #define MythXCode_hlsbuffer_h
 
 #include "mythcorecontext.h"
-#include "ringbuffer.h"
+#include "io/mythmediabuffer.h"
 
 extern "C" {
 #include "libavformat/avformat.h"
@@ -40,7 +40,7 @@ class HLSPlayback;
 
 using StreamsList = QList<HLSStream*>;
 
-class HLSRingBuffer : public RingBuffer
+class HLSRingBuffer : public MythMediaBuffer
 {
 public:
     explicit HLSRingBuffer(const QString &lfilename);

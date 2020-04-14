@@ -60,7 +60,7 @@ extern "C" {
 
 #endif // USING_V4L2
 
-#include "ringbuffer.h"
+#include "io/mythmediabuffer.h"
 #include "RTjpegN.h"
 
 #include "programinfo.h"
@@ -598,7 +598,7 @@ void NuppelVideoRecorder::Initialize(void)
     if (!m_ringBuffer)
     {
         LOG(VB_GENERAL, LOG_WARNING, LOC + "Warning, old RingBuffer creation");
-        m_ringBuffer = RingBuffer::Create("output.nuv", true);
+        m_ringBuffer = MythMediaBuffer::Create("output.nuv", true);
         m_weMadeBuffer = true;
         m_livetv = false;
         if (!m_ringBuffer || !m_ringBuffer->IsOpen())
@@ -778,7 +778,7 @@ void NuppelVideoRecorder::InitBuffers(void)
         vidbuf->freeToEncode = 0;
         vidbuf->freeToBuffer = 1;
         vidbuf->bufferlen = 0;
-        vidbuf->forcekey = 0;
+        vidbuf->forcekey = false;
 
         m_videoBuffer.push_back(vidbuf);
     }
@@ -2145,7 +2145,7 @@ void NuppelVideoRecorder::Reset(void)
         vidbuf->timecode = 0;
         vidbuf->freeToEncode = 0;
         vidbuf->freeToBuffer = 1;
-        vidbuf->forcekey = 0;
+        vidbuf->forcekey = false;
     }
 
     for (int i = 0; i < m_audioBufferCount; i++)
@@ -2579,7 +2579,7 @@ void NuppelVideoRecorder::doWriteThread(void)
                 m_videoBuffer[m_actVideoEncode]->sample = 0;
                 m_videoBuffer[m_actVideoEncode]->freeToEncode = 0;
                 m_videoBuffer[m_actVideoEncode]->freeToBuffer = 1;
-                m_videoBuffer[m_actVideoEncode]->forcekey = 0;
+                m_videoBuffer[m_actVideoEncode]->forcekey = false;
                 m_actVideoEncode++;
                 if (m_actVideoEncode >= m_videoBufferCount)
                     m_actVideoEncode = 0;
