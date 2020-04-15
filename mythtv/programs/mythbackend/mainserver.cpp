@@ -5987,10 +5987,10 @@ class DoChangeStorageGroup : public QRunnable
         }
 
         LOG(VB_GENERAL, LOG_INFO, QString("Copying %1 to %2").arg(srcURL).arg(destURL));
-        RingBuffer *srcRB = RingBuffer::Create(srcURL, false);
+        MythMediaBuffer *srcRB = MythMediaBuffer::Create(srcURL, false);
         if (!srcRB)
         {
-            LOG(VB_GENERAL, LOG_ERR, "ERROR, couldn't create Read RingBuffer");
+            LOG(VB_GENERAL, LOG_ERR, "ERROR, couldn't create Read MythMediaBuffer");
             delete[] buf;
             return false;
         }
@@ -6003,10 +6003,10 @@ class DoChangeStorageGroup : public QRunnable
             return false;
         }
 
-        RingBuffer *destRB = RingBuffer::Create(destURL, true);
+        MythMediaBuffer *destRB = MythMediaBuffer::Create(destURL, true);
         if (!destRB)
         {
-            LOG(VB_GENERAL, LOG_ERR, "ERROR, couldn't create Write RingBuffer");
+            LOG(VB_GENERAL, LOG_ERR, "ERROR, couldn't create Write MythMediaBuffer");
             delete[] buf;
             delete srcRB;
             return false;
