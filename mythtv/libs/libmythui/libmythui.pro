@@ -23,9 +23,10 @@ LIBS += -L../libmythbase -lmythbase-$$LIBVERSION
 QMAKE_CLEAN += $(TARGET) $(TARGETA) $(TARGETD) $(TARGET0) $(TARGET1) $(TARGET2)
 
 # Input
-HEADERS  = mythmainwindow.h mythpainter.h mythimage.h mythrect.h
-HEADERS += myththemebase.h  mythpainter_qimage.h
-HEADERS += mythpainter_qt.h mythmainwindow_internal.h mythuihelper.h
+HEADERS  = mythmainwindowprivate.h mythmainwindow.h mythpainter.h mythimage.h mythrect.h
+HEADERS += mythpainterwindow.h mythpainterwindowqt.h
+HEADERS += myththemebase.h
+HEADERS += mythpainter_qt.h mythuihelper.h
 HEADERS += mythscreenstack.h mythgesture.h mythuitype.h mythscreentype.h
 HEADERS += mythuiimage.h mythuitext.h mythuistatetype.h  xmlparsebase.h
 HEADERS += mythuibutton.h myththemedmenu.h mythdialogbox.h
@@ -43,9 +44,11 @@ HEADERS += mythuianimation.h mythuiscrollbar.h
 HEADERS += mythnotificationcenter.h mythnotificationcenter_private.h
 HEADERS += mythuicomposite.h mythnotification.h
 HEADERS += mythedid.h
+HEADERS += devices/mythinputdevicehandler.h
 
-SOURCES  = mythmainwindow.cpp mythpainter.cpp mythimage.cpp mythrect.cpp
-SOURCES += myththemebase.cpp  mythpainter_qimage.cpp
+SOURCES  = mythmainwindowprivate.cpp mythmainwindow.cpp mythpainter.cpp mythimage.cpp mythrect.cpp
+SOURCES += mythpainterwindow.cpp mythpainterwindowqt.cpp
+SOURCES += myththemebase.cpp
 SOURCES += mythpainter_qt.cpp xmlparsebase.cpp mythuihelper.cpp
 SOURCES += mythscreenstack.cpp mythgesture.cpp mythuitype.cpp mythscreentype.cpp
 SOURCES += mythuiimage.cpp mythuitext.cpp mythuifilebrowser.cpp
@@ -65,6 +68,7 @@ SOURCES += mythuianimation.cpp mythuiscrollbar.cpp
 SOURCES += mythnotificationcenter.cpp mythnotification.cpp
 SOURCES += mythuicomposite.cpp
 SOURCES += mythedid.cpp
+SOURCES += devices/mythinputdevicehandler.cpp
 
 using_qtwebkit {
 HEADERS += mythuiwebbrowser.h
@@ -141,10 +145,10 @@ macx {
     LIBS              += -framework Cocoa -framework IOKit
 
     using_appleremote {
-        HEADERS += AppleRemote.h   AppleRemoteListener.h
-        SOURCES += AppleRemote.cpp AppleRemoteListener.cpp
-        !using_lirc: HEADERS += lircevent.h
-        !using_lirc: SOURCES += lircevent.cpp
+        HEADERS += devices/AppleRemote.h   devices/AppleRemoteListener.h
+        SOURCES += devices/AppleRemote.cpp devices/AppleRemoteListener.cpp
+        !using_lirc: HEADERS += devices/lircevent.h
+        !using_lirc: SOURCES += devices/lircevent.cpp
     }
 }
 
@@ -155,14 +159,14 @@ android {
 
 using_joystick_menu {
     DEFINES += USE_JOYSTICK_MENU
-    HEADERS += jsmenu.h jsmenuevent.h
-    SOURCES += jsmenu.cpp jsmenuevent.cpp
+    HEADERS += devices/jsmenu.h devices/jsmenuevent.h
+    SOURCES += devices/jsmenu.cpp devices/jsmenuevent.cpp
 }
 
 using_lirc {
     DEFINES += USE_LIRC
-    HEADERS += lirc.h   lircevent.h   lirc_client.h
-    SOURCES += lirc.cpp lircevent.cpp lirc_client.cpp
+    HEADERS += devices/lirc.h   devices/lircevent.h   devices/lirc_client.h
+    SOURCES += devices/lirc.cpp devices/lircevent.cpp devices/lirc_client.cpp
 }
 
 using_libcec {
@@ -191,12 +195,17 @@ mingw | win32-msvc*{
 
 using_opengl {
     DEFINES += USING_OPENGL
-    SOURCES += opengl/mythpainteropengl.cpp  opengl/mythrenderopengl.cpp
-    HEADERS += opengl/mythpainteropengl.h    opengl/mythrenderopengl.h
-    HEADERS += opengl/mythrenderopengldefs.h opengl/mythrenderopenglshaders.h
+    HEADERS += opengl/mythpainterwindowopengl.h
+    HEADERS += opengl/mythpainteropengl.h
+    HEADERS += opengl/mythrenderopengl.h
+    HEADERS += opengl/mythrenderopengldefs.h
+    HEADERS += opengl/mythrenderopenglshaders.h
     HEADERS += opengl/mythopenglperf.h
-    SOURCES += opengl/mythopenglperf.cpp
     HEADERS += opengl/mythegl.h
+    SOURCES += opengl/mythpainterwindowopengl.cpp
+    SOURCES += opengl/mythpainteropengl.cpp
+    SOURCES += opengl/mythrenderopengl.cpp
+    SOURCES += opengl/mythopenglperf.cpp
     SOURCES += opengl/mythegl.cpp
 
     using_egl {

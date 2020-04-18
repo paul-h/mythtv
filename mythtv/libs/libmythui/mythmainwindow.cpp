@@ -1,5 +1,5 @@
 #include "mythmainwindow.h"
-#include "mythmainwindow_internal.h"
+#include "mythmainwindowprivate.h"
 
 // C headers
 #include <cmath>
@@ -41,37 +41,19 @@ using namespace std;
 // libmythui headers
 #include "myththemebase.h"
 #include "screensaver.h"
-#include "lirc.h"
-#include "lircevent.h"
 #include "mythudplistener.h"
 #include "mythrender_base.h"
 #include "mythuistatetracker.h"
 #include "mythuiactions.h"
 #include "mythrect.h"
 #include "mythdisplay.h"
-
-#ifdef USING_APPLEREMOTE
-#include "AppleRemoteListener.h"
-#endif
-
-#ifdef USE_JOYSTICK_MENU
-#include "jsmenu.h"
-#include "jsmenuevent.h"
-#endif
-
-#ifdef USING_LIBCEC
-#include "devices/mythcecadapter.h"
-#endif
-
 #include "mythscreentype.h"
 #include "mythpainter.h"
-#ifdef USING_OPENGL
-#include "mythpainteropengl.h"
-#endif
-#include "mythpainter_qt.h"
+#include "mythpainterwindow.h"
 #include "mythgesture.h"
 #include "mythuihelper.h"
 #include "mythdialogbox.h"
+#include "devices/mythinputdevicehandler.h"
 
 #ifdef _WIN32
 #include "mythpainter_d3d9.h"
@@ -85,182 +67,7 @@ using namespace std;
 #define STANDBY_TIMEOUT 90 // Minutes
 #define LONGPRESS_INTERVAL 1000
 
-#define LOC      QString("MythMainWindow: ")
-
-class KeyContext
-{
-  public:
-    void AddMapping(int key, const QString& action)
-    {
-        m_actionMap[key].append(action);
-    }
-
-    bool GetMapping(int key, QStringList &actions)
-    {
-        if (m_actionMap.count(key) > 0)
-        {
-            actions += m_actionMap[key];
-            return true;
-        }
-        return false;
-    }
-
-    QMap<int, QStringList> m_actionMap;
-};
-
-// Adding member initializers caused compilation to fail with an error
-// that it cannot convert a brace-enclosed initializer list to JumpData.
-// NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
-struct JumpData
-{
-    void (*m_callback)(void);
-    QString m_destination;
-    QString m_description;
-    bool    m_exittomain;
-    QString m_localAction;
-};
-
-// NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
-struct MPData {
-    QString           m_description;
-    MediaPlayCallback m_playFn;
-};
-
-class MythMainWindowPrivate
-{
-  public:
-    MythMainWindowPrivate() = default;
-
-    static int TranslateKeyNum(QKeyEvent *e);
-
-    float                m_wmult                {1.0F};
-    float                m_hmult                {1.0F};
-    QRect                m_screenRect;
-    QRect                m_uiScreenRect;
-    bool                 m_doesFillScreen       {false};
-
-    bool                 m_ignoreLircKeys       {false};
-    bool                 m_ignoreJoystickKeys   {false};
-
-    LIRC                *m_lircThread           {nullptr};
-
-#ifdef USE_JOYSTICK_MENU
-    JoystickMenuThread  *m_joystickThread       {nullptr};
-#endif
-
-#ifdef USING_APPLEREMOTE
-    AppleRemoteListener *m_appleRemoteListener  {nullptr};
-    AppleRemote         *m_appleRemote          {nullptr};
-#endif
-
-#ifdef USING_LIBCEC
-    MythCECAdapter       m_cecAdapter           { };
-#endif
-
-    bool                 m_exitingtomain        {false};
-    bool                 m_popwindows           {false};
-
-    /// To allow or prevent database access
-    bool                 m_useDB                {true};
-
-    QHash<QString, KeyContext *> m_keyContexts;
-    QMap<int, JumpData*> m_jumpMap;
-    QMap<QString, JumpData> m_destinationMap;
-    QMap<QString, MPData> m_mediaPluginMap;
-    QHash<QString, QHash<QString, QString> > m_actionText;
-
-    void (*m_exitMenuCallback)(void) {nullptr};
-
-    void (*m_exitMenuMediaDeviceCallback)(MythMediaDevice* mediadevice) {nullptr};
-    MythMediaDevice * m_mediaDeviceForCallback {nullptr};
-
-    int      m_escapekey                 {0};
-
-    QObject *m_sysEventHandler           {nullptr};
-
-    int      m_drawInterval              {1000 / MythMainWindow::drawRefresh};
-    MythSignalingTimer *m_drawTimer      {nullptr};
-    QVector<MythScreenStack *> m_stackList;
-    MythScreenStack *m_mainStack         {nullptr};
-
-    MythDisplay     *m_display           { MythDisplay::AcquireRelease() };
-    MythPainter     *m_painter           {nullptr};
-
-    QRegion          m_repaintRegion;
-
-    MythGesture      m_gesture;
-    QTimer          *m_gestureTimer      {nullptr};
-    QTimer          *m_hideMouseTimer    {nullptr};
-
-    /* compatibility only, FIXME remove */
-    std::vector<QWidget *> m_widgetList;
-    QMap<QWidget *, bool> m_enabledWidgets;
-
-    MythPainterWindow *m_paintwin        {nullptr};
-
-    QWidget         *m_oldpaintwin       {nullptr};
-    MythPainter     *m_oldpainter        {nullptr};
-
-    QMutex           m_drawDisableLock;
-    uint             m_drawDisabledDepth {0};
-    bool             m_drawEnabled       {true};
-
-    MythThemeBase   *m_themeBase         {nullptr};
-    MythUDPListener *m_udpListener       {nullptr};
-
-    MythNotificationCenter *m_nc         {nullptr};
-    QTimer          *m_idleTimer         {nullptr};
-    int              m_idleTime          {0};
-    bool             m_standby           {false};
-    bool             m_enteringStandby   {false};
-    bool             m_disableIdle       {false};
-
-    bool             m_allowInput        {true};
-
-    bool             m_pendingUpdate     {false};
-
-        // window aspect
-    bool             m_firstinit         {true};
-    bool             m_bSavedPOS         {false};
-    // Support for long press
-    int              m_longPressKeyCode  {0};
-    ulong            m_longPressTime     {0};
-};
-
-// Make keynum in QKeyEvent be equivalent to what's in QKeySequence
-int MythMainWindowPrivate::TranslateKeyNum(QKeyEvent* e)
-{
-    int keynum = e->key();
-
-    if ((keynum != Qt::Key_Shift  ) && (keynum !=Qt::Key_Control   ) &&
-        (keynum != Qt::Key_Meta   ) && (keynum !=Qt::Key_Alt       ) &&
-        (keynum != Qt::Key_Super_L) && (keynum !=Qt::Key_Super_R   ) &&
-        (keynum != Qt::Key_Hyper_L) && (keynum !=Qt::Key_Hyper_R   ) &&
-        (keynum != Qt::Key_AltGr  ) && (keynum !=Qt::Key_CapsLock  ) &&
-        (keynum != Qt::Key_NumLock) && (keynum !=Qt::Key_ScrollLock ))
-    {
-        Qt::KeyboardModifiers modifiers;
-        // if modifiers have been pressed, rebuild keynum
-        if ((modifiers = e->modifiers()) != Qt::NoModifier)
-        {
-            int modnum = Qt::NoModifier;
-            if (((modifiers & Qt::ShiftModifier) != 0U) &&
-                (keynum > 0x7f) &&
-                (keynum != Qt::Key_Backtab))
-                modnum |= Qt::SHIFT;
-            if ((modifiers & Qt::ControlModifier) != 0U)
-                modnum |= Qt::CTRL;
-            if ((modifiers & Qt::MetaModifier) != 0U)
-                modnum |= Qt::META;
-            if ((modifiers & Qt::AltModifier) != 0U)
-                modnum |= Qt::ALT;
-            modnum &= ~Qt::UNICODE_ACCEL;
-            return (keynum | modnum);
-        }
-    }
-
-    return keynum;
-}
+#define LOC QString("MythMainWindow: ")
 
 static MythMainWindow *mainWin = nullptr;
 static QMutex mainLock;
@@ -325,96 +132,13 @@ MythNotificationCenter *GetNotificationCenter(void)
     return mainWin->GetCurrentNotificationCenter();
 }
 
-MythPainterWindow::MythPainterWindow(MythMainWindow *MainWin)
-  : QWidget(MainWin)
-{
-}
-
-#ifdef USING_OPENGL
-MythPainterWindowGL::MythPainterWindowGL(MythMainWindow *MainWin,
-                                         MythMainWindowPrivate *MainWinPriv)
-  : MythPainterWindow(MainWin),
-    m_parent(MainWin),
-    d(MainWinPriv)
-{
-    setAttribute(Qt::WA_NoSystemBackground);
-    setAttribute(Qt::WA_NativeWindow);
-    setAttribute(Qt::WA_DontCreateNativeAncestors);
-    winId();
-#ifdef Q_OS_MACOS
-     // must be visible before OpenGL initialisation on OSX
-    setVisible(true);
-#endif
-    MythRenderOpenGL *render = MythRenderOpenGL::Create(this);
-    if (render)
-    {
-        m_render = render;
-        if (render->Init() && render->IsRecommendedRenderer())
-            m_valid = true;
-    }
-    else
-    {
-        LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create MythRenderOpenGL");
-    }
-}
-
-QPaintEngine *MythPainterWindowGL::paintEngine() const
-{
-    return testAttribute(Qt::WA_PaintOnScreen) ? nullptr : m_parent->paintEngine();
-}
-
-MythPainterWindowGL::~MythPainterWindowGL()
-{
-    if (m_render)
-        m_render->DecrRef();
-}
-
-bool MythPainterWindowGL::IsValid(void) const
-{
-    return m_valid;
-}
-
-void MythPainterWindowGL::paintEvent(QPaintEvent *pe)
-{
-    d->m_repaintRegion = d->m_repaintRegion.united(pe->region());
-    m_parent->drawScreen();
-}
-#endif
-
-#ifdef _WIN32
-MythPainterWindowD3D9::MythPainterWindowD3D9(MythMainWindow *win,
-                                             MythMainWindowPrivate *priv)
-                   : QWidget(win),
-                     m_parent(win), d(priv)
-{
-    setAutoBufferSwap(false);
-}
-
-void MythPainterWindowD3D9::paintEvent(QPaintEvent *pe)
-{
-    d->m_repaintRegion = d->m_repaintRegion.united(pe->region());
-    m_parent->drawScreen();
-}
-#endif
-
-MythPainterWindowQt::MythPainterWindowQt(MythMainWindow *MainWin,
-                                         MythMainWindowPrivate *MainWinPriv)
-  : MythPainterWindow(MainWin),
-    m_parent(MainWin),
-    d(MainWinPriv)
-{
-    setAttribute(Qt::WA_NoSystemBackground);
-}
-
-void MythPainterWindowQt::paintEvent(QPaintEvent *pe)
-{
-    d->m_repaintRegion = d->m_repaintRegion.united(pe->region());
-    m_parent->drawScreen();
-}
-
 MythMainWindow::MythMainWindow(const bool useDB)
   : QWidget(nullptr)
 {
+    m_display = MythDisplay::AcquireRelease();
+    m_deviceHandler = new MythInputDeviceHandler(this);
+    connect(this, &MythMainWindow::signalWindowReady, m_deviceHandler, &MythInputDeviceHandler::MainWindowReady);
+
     d = new MythMainWindowPrivate;
 
     setObjectName("mainwindow");
@@ -423,15 +147,9 @@ MythMainWindow::MythMainWindow(const bool useDB)
 
     // This prevents database errors from RegisterKey() when there is no DB:
     d->m_useDB = useDB;
-    d->m_painter = nullptr;
-    d->m_paintwin = nullptr;
-    d->m_oldpainter = nullptr;
-    d->m_oldpaintwin = nullptr;
 
     //Init();
 
-    d->m_ignoreLircKeys = false;
-    d->m_ignoreJoystickKeys = false;
     d->m_exitingtomain = false;
     d->m_popwindows = true;
     d->m_exitMenuCallback = nullptr;
@@ -439,43 +157,8 @@ MythMainWindow::MythMainWindow(const bool useDB)
     d->m_mediaDeviceForCallback = nullptr;
     d->m_escapekey = Qt::Key_Escape;
     d->m_mainStack = nullptr;
-    d->m_sysEventHandler = nullptr;
 
     installEventFilter(this);
-
-    d->m_lircThread = nullptr;
-    StartLIRC();
-
-#ifdef USE_JOYSTICK_MENU
-    d->m_ignoreJoystickKeys = false;
-
-    QString joy_config_file = GetConfDir() + "/joystickmenurc";
-
-    d->m_joystickThread = nullptr;
-    d->m_joystickThread = new JoystickMenuThread(this);
-    if (d->m_joystickThread->Init(joy_config_file))
-        d->m_joystickThread->start();
-#endif
-
-#ifdef USING_APPLEREMOTE
-    d->m_appleRemoteListener = new AppleRemoteListener(this);
-    d->m_appleRemote         = AppleRemote::Get();
-
-    d->m_appleRemote->setListener(d->m_appleRemoteListener);
-    d->m_appleRemote->startListening();
-    if (d->m_appleRemote->isListeningToRemote())
-    {
-        d->m_appleRemote->start();
-    }
-    else
-    {
-        // start listening failed, no remote receiver present
-        delete d->m_appleRemote;
-        delete d->m_appleRemoteListener;
-        d->m_appleRemote = nullptr;
-        d->m_appleRemoteListener = nullptr;
-    }
-#endif
 
     d->m_udpListener = new MythUDPListener();
 
@@ -492,9 +175,6 @@ MythMainWindow::MythMainWindow(const bool useDB)
     d->m_drawTimer->start(d->m_drawInterval);
 
     d->m_allowInput = true;
-
-    d->m_repaintRegion = QRegion(QRect(0,0,0,0));
-
     d->m_drawEnabled = true;
 
     connect(this, SIGNAL(signalRemoteScreenShot(QString,int,int)),
@@ -552,41 +232,10 @@ MythMainWindow::~MythMainWindow()
         delete context;
     }
 
-#ifdef USE_LIRC
-    if (d->m_lircThread)
-    {
-        d->m_lircThread->deleteLater();
-        d->m_lircThread = nullptr;
-    }
-#endif
-
-#ifdef USE_JOYSTICK_MENU
-    if (d->m_joystickThread)
-    {
-        if (d->m_joystickThread->isRunning())
-        {
-            d->m_joystickThread->Stop();
-            d->m_joystickThread->wait();
-        }
-
-        delete d->m_joystickThread;
-        d->m_joystickThread = nullptr;
-    }
-#endif
-
-#ifdef USING_APPLEREMOTE
-    delete d->m_appleRemote;
-    delete d->m_appleRemoteListener;
-#endif
-
-#ifdef USING_LIBCEC
-    d->m_cecAdapter.Close();
-#endif
-
+    delete m_deviceHandler;
     delete d->m_nc;
-
-    delete d->m_painter;
-    delete d->m_paintwin;
+    delete m_painter;
+    delete m_painterWin;
 
     MythDisplay::AcquireRelease(false);
 
@@ -595,7 +244,7 @@ MythMainWindow::~MythMainWindow()
 
 MythPainter *MythMainWindow::GetCurrentPainter(void)
 {
-    return d->m_painter;
+    return m_painter;
 }
 
 MythNotificationCenter *MythMainWindow::GetCurrentNotificationCenter(void)
@@ -605,31 +254,31 @@ MythNotificationCenter *MythMainWindow::GetCurrentNotificationCenter(void)
 
 QWidget *MythMainWindow::GetPaintWindow(void)
 {
-    return d->m_paintwin;
+    return m_painterWin;
 }
 
 void MythMainWindow::ShowPainterWindow(void)
 {
-    if (d->m_paintwin)
+    if (m_painterWin)
     {
-        d->m_paintwin->show();
-        d->m_paintwin->raise();
+        m_painterWin->show();
+        m_painterWin->raise();
     }
 }
 
 void MythMainWindow::HidePainterWindow(void)
 {
-    if (d->m_paintwin)
+    if (m_painterWin)
     {
-        d->m_paintwin->clearMask();
-        if (!d->m_paintwin->RenderIsShared())
-            d->m_paintwin->hide();
+        m_painterWin->clearMask();
+        if (!m_painterWin->RenderIsShared())
+            m_painterWin->hide();
     }
 }
 
 MythRender *MythMainWindow::GetRenderDevice()
 {
-    return d->m_paintwin->GetRenderDevice();
+    return m_painterWin->GetRenderDevice();
 }
 
 void MythMainWindow::AddScreenStack(MythScreenStack *stack, bool main)
@@ -678,14 +327,14 @@ MythScreenStack* MythMainWindow::GetStackAt(int pos)
 
 void MythMainWindow::animate(void)
 {
-    if (!d->m_drawEnabled || !d->m_paintwin)
+    if (!d->m_drawEnabled || !m_painterWin)
         return;
 
     d->m_drawTimer->blockSignals(true);
 
     bool redraw = false;
 
-    if (!d->m_repaintRegion.isEmpty())
+    if (!m_repaintRegion.isEmpty())
         redraw = true;
 
     foreach (auto & widget, d->m_stackList)
@@ -701,14 +350,14 @@ void MythMainWindow::animate(void)
             {
                 QRegion topDirty = screen->GetDirtyArea();
                 screen->ResetNeedsRedraw();
-                d->m_repaintRegion = d->m_repaintRegion.united(topDirty);
+                m_repaintRegion = m_repaintRegion.united(topDirty);
                 redraw = true;
             }
         }
     }
 
-    if (redraw && !d->m_paintwin->RenderIsShared())
-        d->m_paintwin->update(d->m_repaintRegion);
+    if (redraw && !m_painterWin->RenderIsShared())
+        m_painterWin->update(m_repaintRegion);
 
     foreach (auto & widget, d->m_stackList)
         widget->ScheduleInitIfNeeded();
@@ -716,18 +365,23 @@ void MythMainWindow::animate(void)
     d->m_drawTimer->blockSignals(false);
 }
 
-void MythMainWindow::drawScreen(void)
+void MythMainWindow::drawScreen(QPaintEvent* Event)
 {
     if (!d->m_drawEnabled)
         return;
 
-    if (!d->m_painter->SupportsClipping())
-        d->m_repaintRegion = d->m_repaintRegion.united(d->m_uiScreenRect);
+    if (Event)
+        m_repaintRegion = m_repaintRegion.united(Event->region());
+
+    if (!m_painter->SupportsClipping())
+    {
+        m_repaintRegion = m_repaintRegion.united(d->m_uiScreenRect);
+    }
     else
     {
         // Ensure that the region is not larger than the screen which
         // can happen with bad themes
-        d->m_repaintRegion = d->m_repaintRegion.intersected(d->m_uiScreenRect);
+        m_repaintRegion = m_repaintRegion.intersected(d->m_uiScreenRect);
 
         // Check for any widgets that have been updated since we built
         // the dirty region list in ::animate()
@@ -746,7 +400,7 @@ void MythMainWindow::drawScreen(void)
                     for (int i = 0; i < wrects.size(); i++)
                     {
                         bool foundThisRect = false;
-                        QVector<QRect> drects = d->m_repaintRegion.rects();
+                        QVector<QRect> drects = m_repaintRegion.rects();
                         for (int j = 0; j < drects.size(); j++)
                         {
                             // Can't use QRegion::contains because it only
@@ -766,7 +420,7 @@ void MythMainWindow::drawScreen(void)
                     for (const QRect& wrect: screen->GetDirtyArea())
                     {
                         bool foundThisRect = false;
-                        for (const QRect& drect: d->m_repaintRegion)
+                        for (const QRect& drect: m_repaintRegion)
                         {
                             // Can't use QRegion::contains because it only
                             // checks for overlap.  QRect::contains checks
@@ -787,54 +441,50 @@ void MythMainWindow::drawScreen(void)
         }
     }
 
-    if (!d->m_paintwin->RenderIsShared())
-        draw();
+    if (!m_painterWin->RenderIsShared())
+        Draw();
 
-    d->m_repaintRegion = QRegion(QRect(0, 0, 0, 0));
+    m_repaintRegion = QRegion();
 }
 
-void MythMainWindow::draw(MythPainter *painter /* = 0 */)
+void MythMainWindow::Draw(MythPainter *Painter /* = nullptr */)
 {
-    if (!painter)
-        painter = d->m_painter;
-
-    if (!painter)
+    if (!Painter)
+        Painter = m_painter;
+    if (!Painter)
         return;
 
-    painter->Begin(d->m_paintwin);
+    Painter->Begin(m_painterWin);
 
-    if (!painter->SupportsClipping())
-        d->m_repaintRegion = QRegion(d->m_uiScreenRect);
+    if (!Painter->SupportsClipping())
+        m_repaintRegion = QRegion(d->m_uiScreenRect);
 
 #if QT_VERSION < QT_VERSION_CHECK(5, 8, 0)
-    QVector<QRect> rects = d->m_repaintRegion.rects();
+    QVector<QRect> rects = m_repaintRegion.rects();
     for (int i = 0; i < rects.size(); i++)
     {
-        const QRect& r = rects[i];
+        const QRect& rect = rects[i];
 #else
-    for (const QRect& r : d->m_repaintRegion)
+    for (const QRect& rect : m_repaintRegion)
     {
 #endif
-        if (r.width() == 0 || r.height() == 0)
+        if (rect.width() == 0 || rect.height() == 0)
             continue;
 
-        if (r != d->m_uiScreenRect)
-            painter->SetClipRect(r);
+        if (rect != d->m_uiScreenRect)
+            Painter->SetClipRect(rect);
 
         foreach (auto & widget, d->m_stackList)
         {
             QVector<MythScreenType *> redrawList;
             widget->GetDrawOrder(redrawList);
-
             foreach (auto & screen, redrawList)
-            {
-                screen->Draw(painter, 0, 0, 255, r);
-            }
+                screen->Draw(Painter, 0, 0, 255, rect);
         }
     }
 
-    painter->End();
-    d->m_repaintRegion = QRegion();
+    Painter->End();
+    m_repaintRegion = QRegion();
 }
 
 // virtual
@@ -963,23 +613,15 @@ bool MythMainWindow::event(QEvent *e)
         return true;
     }
 
-#ifdef USING_APPLEREMOTE
-    if (d->m_appleRemote)
-    {
-        if (e->type() == QEvent::WindowActivate)
-            d->m_appleRemote->startListening();
-
-        if (e->type() == QEvent::WindowDeactivate)
-            d->m_appleRemote->stopListening();
-    }
-#endif
+    if ((e->type() == QEvent::WindowActivate) || (e->type() == QEvent::WindowDeactivate))
+        m_deviceHandler->Event(e);
 
     return QWidget::event(e);
 }
 
 void MythMainWindow::Init(bool mayReInit)
 {
-    d->m_display->SetWidget(nullptr);
+    m_display->SetWidget(nullptr);
     d->m_useDB = ! gCoreContext->GetDB()->SuppressDBMessages();
 
     if (!(mayReInit || d->m_firstinit))
@@ -1043,7 +685,7 @@ void MythMainWindow::Init(bool mayReInit)
     setWindowFlags(flags);
 
     // SetWidget may move the widget into a new screen.
-    d->m_display->SetWidget(this);
+    m_display->SetWidget(this);
     // Ensure MythUIHelper has latest screen bounds if we have moved
     GetMythUI()->UpdateScreenSettings();
     // And use them
@@ -1058,7 +700,7 @@ void MythMainWindow::Init(bool mayReInit)
     Show();
     // The window is sometimes not created until Show has been called - so try
     // MythDisplay::setWidget again to ensure we listen for QScreen changes
-    d->m_display->SetWidget(this);
+    m_display->SetWidget(this);
 
     if (!GetMythDB()->GetBoolSetting("HideMouseCursor", false))
         setMouseTracking(true); // Required for mouse cursor auto-hide
@@ -1067,54 +709,30 @@ void MythMainWindow::Init(bool mayReInit)
 
     move(d->m_screenRect.topLeft());
 
-    if (d->m_paintwin)
+    if (m_painterWin)
     {
-        d->m_oldpaintwin = d->m_paintwin;
-        d->m_paintwin = nullptr;
+        m_oldPainterWin = m_painterWin;
+        m_painterWin = nullptr;
         d->m_drawTimer->stop();
     }
 
-    if (d->m_painter)
+    if (m_painter)
     {
-        d->m_oldpainter = d->m_painter;
-        d->m_painter = nullptr;
+        m_oldPainter = m_painter;
+        m_painter = nullptr;
     }
 
-#ifdef USING_OPENGL
-    // always use OpenGL by default. Only fallback to Qt painter as a last resort.
-    if (!d->m_painter && !d->m_paintwin)
-    {
-        auto* glwindow = new MythPainterWindowGL(this, d);
-        if (glwindow && glwindow->IsValid())
-        {
-            d->m_paintwin = glwindow;
-            auto *render = dynamic_cast<MythRenderOpenGL*>(glwindow->GetRenderDevice());
-            d->m_painter = new MythOpenGLPainter(render, this);
-        }
-        else
-        {
-            delete glwindow;
-        }
-    }
-#endif
+    QString warningmsg;
+    if (!m_painter && !m_painterWin)
+        warningmsg = MythPainterWindow::CreatePainters(this, m_painterWin, m_painter);
 
-    // NOLINTNEXTLINE(readability-misleading-indentation)
-    bool openglwarn = false;
-    if (!d->m_painter && !d->m_paintwin)
-    {
-        LOG(VB_GENERAL, LOG_INFO, "Using the Qt painter. Video playback will not work!");
-        d->m_painter = new MythQtPainter();
-        d->m_paintwin = new MythPainterWindowQt(this, d);
-        openglwarn = QCoreApplication::applicationName() == MYTH_APPNAME_MYTHFRONTEND;
-    }
-
-    if (!d->m_paintwin)
+    if (!m_painterWin)
     {
         LOG(VB_GENERAL, LOG_ERR, "MythMainWindow failed to create a painter window.");
         return;
     }
 
-    if (d->m_painter && d->m_painter->GetName() != "Qt")
+    if (m_painter && m_painter->GetName() != "Qt")
     {
         setAttribute(Qt::WA_NoSystemBackground);
         setAutoFillBackground(false);
@@ -1136,7 +754,7 @@ void MythMainWindow::Init(bool mayReInit)
         QCoreApplication::processEvents();
 
     if (!GetMythDB()->GetBoolSetting("HideMouseCursor", false))
-        d->m_paintwin->setMouseTracking(true); // Required for mouse cursor auto-hide
+        m_painterWin->setMouseTracking(true); // Required for mouse cursor auto-hide
 
     GetMythUI()->UpdateImageCache();
     if (d->m_themeBase)
@@ -1147,16 +765,11 @@ void MythMainWindow::Init(bool mayReInit)
     if (!d->m_nc)
         d->m_nc = new MythNotificationCenter();
 
-#ifdef USING_LIBCEC
-    // Open any adapter after the window has been created to ensure we capture
-    // the EDID if available. This will close any existing adapter in the event
-    // that the window has been re-init'ed.
-    d->m_cecAdapter.Open();
-#endif
+    emit signalWindowReady();
 
-    if (openglwarn)
+    if (!warningmsg.isEmpty())
     {
-        MythNotification notification(tr("Warning: OpenGL is not available."), "");
+        MythNotification notification(warningmsg, "");
         d->m_nc->Queue(notification);
     }
 }
@@ -1342,10 +955,10 @@ void MythMainWindow::ReloadKeys()
 
 void MythMainWindow::ReinitDone(void)
 {
-    delete d->m_oldpainter;
-    d->m_oldpainter = nullptr;
-    delete d->m_oldpaintwin;
-    d->m_oldpaintwin = nullptr;
+    delete m_oldPainter;
+    m_oldPainter = nullptr;
+    delete m_oldPainterWin;
+    m_oldPainterWin = nullptr;
 
 
     ShowPainterWindow();
@@ -1370,10 +983,10 @@ void MythMainWindow::MoveResize(QRect &Geometry)
     setFixedSize(Geometry.size());
     setGeometry(Geometry);
 
-    if (d->m_paintwin)
+    if (m_painterWin)
     {
-        d->m_paintwin->setFixedSize(Geometry.size());
-        d->m_paintwin->setGeometry(0, 0, Geometry.width(), Geometry.height());
+        m_painterWin->setFixedSize(Geometry.size());
+        m_painterWin->setGeometry(0, 0, Geometry.width(), Geometry.height());
     }
 }
 
@@ -1895,8 +1508,7 @@ void MythMainWindow::RegisterMediaPlugin(const QString &name,
     {
         LOG(VB_GENERAL, LOG_NOTICE,
             QString("Registering %1 as a media playback plugin.").arg(name));
-        MPData mpd = {desc, fn};
-        d->m_mediaPluginMap[name] = mpd;
+        d->m_mediaPluginMap[name] = { desc, fn };
     }
     else
     {
@@ -1921,23 +1533,19 @@ bool MythMainWindow::HandleMedia(const QString &handler, const QString &mrl,
     // Let's see if we have a plugin that matches the handler name...
     if (d->m_mediaPluginMap.count(lhandler))
     {
-        d->m_mediaPluginMap[lhandler].m_playFn(mrl, plot, title, subtitle,
-                                           director, season, episode,
-                                           inetref, lenMins, year, id,
-                                           useBookmarks);
+        d->m_mediaPluginMap[lhandler].second(mrl, plot, title, subtitle,
+                                             director, season, episode,
+                                             inetref, lenMins, year, id,
+                                             useBookmarks);
         return true;
     }
 
     return false;
 }
 
-void MythMainWindow::HandleTVPower(bool poweron)
+void MythMainWindow::HandleTVAction(const QString &Action)
 {
-#ifdef USING_LIBCEC
-    d->m_cecAdapter.Action((poweron) ? ACTION_TVPOWERON : ACTION_TVPOWEROFF);
-#else
-    (void) poweron;
-#endif
+    m_deviceHandler->Action(Action);
 }
 
 void MythMainWindow::AllowInput(bool allow)
@@ -2369,75 +1977,6 @@ void MythMainWindow::customEvent(QEvent *ce)
         else
             QCoreApplication::sendEvent(key_target, &key);
     }
-#if defined(USE_LIRC) || defined(USING_APPLEREMOTE)
-    else if (ce->type() == LircKeycodeEvent::kEventType &&
-             !d->m_ignoreLircKeys)
-    {
-        auto *lke = dynamic_cast<LircKeycodeEvent *>(ce);
-        if (lke == nullptr)
-            return;
-
-        if (LircKeycodeEvent::kLIRCInvalidKeyCombo == lke->modifiers())
-        {
-            LOG(VB_GENERAL, LOG_WARNING,
-                    QString("Attempt to convert LIRC key sequence '%1' "
-                            "to a Qt key sequence failed.")
-                    .arg(lke->lirctext()));
-        }
-        else
-        {
-            MythUIHelper::ResetScreensaver();
-            if (GetMythUI()->GetScreenIsAsleep())
-                return;
-
-            QKeyEvent key(lke->keytype(),   lke->key(),
-                          lke->modifiers(), lke->text());
-
-            QObject *key_target = getTarget(key);
-            if (!key_target)
-                QCoreApplication::sendEvent(this, &key);
-            else
-                QCoreApplication::sendEvent(key_target, &key);
-        }
-    }
-#endif
-#ifdef USE_JOYSTICK_MENU
-    else if (ce->type() == JoystickKeycodeEvent::kEventType &&
-             !d->m_ignoreJoystickKeys)
-    {
-        auto *jke = dynamic_cast<JoystickKeycodeEvent *>(ce);
-        if (jke == nullptr)
-            return;
-
-        int keycode = jke->getKeycode();
-        if (keycode)
-        {
-            MythUIHelper::ResetScreensaver();
-            if (GetMythUI()->GetScreenIsAsleep())
-                return;
-
-            auto mod = Qt::KeyboardModifiers(keycode & Qt::MODIFIER_MASK);
-            int k = (keycode & ~Qt::MODIFIER_MASK); /* trim off the mod */
-            QString text;
-
-            QKeyEvent key(jke->isKeyDown() ? QEvent::KeyPress :
-                          QEvent::KeyRelease, k, mod, text);
-
-            QObject *key_target = getTarget(key);
-            if (!key_target)
-                QCoreApplication::sendEvent(this, &key);
-            else
-                QCoreApplication::sendEvent(key_target, &key);
-        }
-        else
-        {
-            LOG(VB_GENERAL, LOG_WARNING,
-                    QString("attempt to convert '%1' to a key sequence failed. "
-                            "Fix your key mappings.")
-                    .arg(jke->getJoystickMenuText()));
-        }
-    }
-#endif
     else if (ce->type() == MythMediaEvent::kEventType)
     {
         auto *me = dynamic_cast<MythMediaEvent*>(ce);
@@ -2516,12 +2055,12 @@ void MythMainWindow::customEvent(QEvent *ce)
     }
     else if (ce->type() == MythEvent::kLockInputDevicesEventType)
     {
-        LockInputDevices(true);
+        m_deviceHandler->IgnoreKeys(true);
         PauseIdleTimer(true);
     }
     else if (ce->type() == MythEvent::kUnlockInputDevicesEventType)
     {
-        LockInputDevices(false);
+        m_deviceHandler->IgnoreKeys(false);
         PauseIdleTimer(false);
     }
     else if (ce->type() == MythEvent::kDisableUDPListenerEventType)
@@ -2755,55 +2294,9 @@ int MythMainWindow::GetDrawInterval() const
     return d->m_drawInterval;
 }
 
-void MythMainWindow::StartLIRC(void)
+void MythMainWindow::RestartInputHandlers(void)
 {
-#ifdef USE_LIRC
-    if (d->m_lircThread)
-    {
-        d->m_lircThread->deleteLater();
-        d->m_lircThread = nullptr;
-    }
-
-    QString config_file = GetConfDir() + "/lircrc";
-    if (!QFile::exists(config_file))
-        config_file = QDir::homePath() + "/.lircrc";
-
-    /* lircd socket moved from /dev/ to /var/run/lirc/ in lirc 0.8.6 */
-    QString lirc_socket = "/dev/lircd";
-    if (!QFile::exists(lirc_socket))
-        lirc_socket = "/var/run/lirc/lircd";
-
-    d->m_lircThread = new LIRC(
-        this,
-        GetMythDB()->GetSetting("LircSocket", lirc_socket),
-        "mythtv", config_file);
-
-    if (d->m_lircThread->Init())
-    {
-        d->m_lircThread->start();
-    }
-    else
-    {
-        d->m_lircThread->deleteLater();
-        d->m_lircThread = nullptr;
-    }
-#endif
-}
-
-void MythMainWindow::LockInputDevices( bool locked )
-{
-    if( locked )
-        LOG(VB_GENERAL, LOG_INFO, "Locking input devices");
-    else
-        LOG(VB_GENERAL, LOG_INFO, "Unlocking input devices");
-
-#ifdef USE_LIRC
-    d->m_ignoreLircKeys = locked;
-#endif
-
-#ifdef USE_JOYSTICK_MENU
-    d->m_ignoreJoystickKeys = locked;
-#endif
+    m_deviceHandler->Reset();
 }
 
 void MythMainWindow::ShowMouseCursor(bool show)
