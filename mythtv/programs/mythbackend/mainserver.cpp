@@ -63,7 +63,7 @@ using namespace std;
 #include "autoexpire.h"
 #include "storagegroup.h"
 #include "compat.h"
-#include "ringbuffer.h"
+#include "io/mythmediabuffer.h"
 #include "remotefile.h"
 #include "mythsystemevent.h"
 #include "tv.h"
@@ -2817,7 +2817,7 @@ void MainServer::HandleCheckRecordingActive(QStringList &slist,
     else
     {
         TVRec::s_inputsLock.lockForRead();
-        for (auto iter = m_encoderList->begin(); iter != m_encoderList->end(); ++iter)
+        for (auto iter = m_encoderList->constBegin(); iter != m_encoderList->constEnd(); ++iter)
         {
             EncoderLink *elink = *iter;
 
@@ -2916,7 +2916,7 @@ void MainServer::DoHandleStopRecording(
     int recnum = -1;
 
     TVRec::s_inputsLock.lockForRead();
-    for (auto iter = m_encoderList->begin(); iter != m_encoderList->end(); ++iter)
+    for (auto iter = m_encoderList->constBegin(); iter != m_encoderList->constEnd(); ++iter)
     {
         EncoderLink *elink = *iter;
 
@@ -4322,8 +4322,8 @@ void MainServer::HandleFreeTuner(int cardid, PlaybackSock *pbs)
     EncoderLink *encoder = nullptr;
 
     TVRec::s_inputsLock.lockForRead();
-    auto iter = m_encoderList->find(cardid);
-    if (iter == m_encoderList->end())
+    auto iter = m_encoderList->constFind(cardid);
+    if (iter == m_encoderList->constEnd())
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "MainServer::HandleFreeTuner() " +
             QString("Unknown encoder: %1").arg(cardid));
@@ -4486,8 +4486,8 @@ void MainServer::HandleRecorderQuery(QStringList &slist, QStringList &commands,
     int recnum = commands[1].toInt();
 
     TVRec::s_inputsLock.lockForRead();
-    auto iter = m_encoderList->find(recnum);
-    if (iter == m_encoderList->end())
+    auto iter = m_encoderList->constFind(recnum);
+    if (iter == m_encoderList->constEnd())
     {
         TVRec::s_inputsLock.unlock();
         LOG(VB_GENERAL, LOG_ERR, LOC + "MainServer::HandleRecorderQuery() " +
@@ -4862,8 +4862,8 @@ void MainServer::HandleSetNextLiveTVDir(QStringList &commands,
     int recnum = commands[1].toInt();
 
     TVRec::s_inputsLock.lockForRead();
-    auto iter = m_encoderList->find(recnum);
-    if (iter == m_encoderList->end())
+    auto iter = m_encoderList->constFind(recnum);
+    if (iter == m_encoderList->constEnd())
     {
         TVRec::s_inputsLock.unlock();
         LOG(VB_GENERAL, LOG_ERR, LOC + "MainServer::HandleSetNextLiveTVDir() " +
@@ -4925,8 +4925,8 @@ void MainServer::HandleRemoteEncoder(QStringList &slist, QStringList &commands,
     QStringList retlist;
 
     TVRec::s_inputsLock.lockForRead();
-    auto iter = m_encoderList->find(recnum);
-    if (iter == m_encoderList->end())
+    auto iter = m_encoderList->constFind(recnum);
+    if (iter == m_encoderList->constEnd())
     {
         TVRec::s_inputsLock.unlock();
         LOG(VB_GENERAL, LOG_ERR, LOC +
@@ -5315,7 +5315,7 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
     {
         strlist << fsInfo.getHostname();
         strlist << fsInfo.getPath();
-        strlist << QString::number(fsInfo.isLocal());
+        strlist << QString::number(static_cast<int>(fsInfo.isLocal()));
         strlist << QString::number(fsInfo.getFSysID());
         strlist << QString::number(fsInfo.getGroupID());
         strlist << QString::number(fsInfo.getBlockSize());
@@ -6550,7 +6550,7 @@ void MainServer::HandleMusicFindAlbumArt(const QStringList &slist, PlaybackSock 
         AlbumArtImage *image = images->getImageAt(x);
         strlist.append(QString("%1").arg(image->m_id));
         strlist.append(QString("%1").arg((int)image->m_imageType));
-        strlist.append(QString("%1").arg(image->m_embedded));
+        strlist.append(QString("%1").arg(static_cast<int>(image->m_embedded)));
         strlist.append(image->m_description);
         strlist.append(image->m_filename);
         strlist.append(image->m_hostname);
@@ -7389,11 +7389,11 @@ void MainServer::HandleFileTransferQuery(QStringList &slist,
     {
         bool isopen = ft->isOpen();
 
-        retlist << QString::number(isopen);
+        retlist << QString::number(static_cast<int>(isopen));
     }
     else if (command == "REOPEN")
     {
-        retlist << QString::number(ft->ReOpen(slist[2]));
+        retlist << QString::number(static_cast<int>(ft->ReOpen(slist[2])));
     }
     else if (command == "DONE")
     {
@@ -7410,7 +7410,7 @@ void MainServer::HandleFileTransferQuery(QStringList &slist,
     {
         // return size and if the file is not opened for writing
         retlist << QString::number(ft->GetFileSize());
-        retlist << QString::number(!gCoreContext->IsRegisteredFileForWrite(ft->GetFileName()));
+        retlist << QString::number(static_cast<int>(!gCoreContext->IsRegisteredFileForWrite(ft->GetFileName())));
     }
     else
     {
@@ -7436,7 +7436,7 @@ void MainServer::HandleGetRecorderNum(QStringList &slist, PlaybackSock *pbs)
     EncoderLink *encoder = nullptr;
 
     TVRec::s_inputsLock.lockForRead();
-    for (auto iter = m_encoderList->begin(); iter != m_encoderList->end(); ++iter)
+    for (auto iter = m_encoderList->constBegin(); iter != m_encoderList->constEnd(); ++iter)
     {
         EncoderLink *elink = *iter;
 
@@ -7482,8 +7482,8 @@ void MainServer::HandleGetRecorderFromNum(QStringList &slist,
     QStringList strlist;
 
     TVRec::s_inputsLock.lockForRead();
-    auto iter = m_encoderList->find(recordernum);
-    if (iter != m_encoderList->end())
+    auto iter = m_encoderList->constFind(recordernum);
+    if (iter != m_encoderList->constEnd())
         encoder =  (*iter);
     TVRec::s_inputsLock.unlock();
 

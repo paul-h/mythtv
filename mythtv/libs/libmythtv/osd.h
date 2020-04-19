@@ -41,7 +41,7 @@ class MythPlayer;
 class TeletextScreen;
 class SubtitleScreen;
 struct AVSubtitle;
-class BDOverlay;
+class MythBDOverlay;
 
 enum OSDFunctionalType
 {
@@ -186,7 +186,7 @@ class OSD
     void ClearSubtitles(void);
     void DisplayDVDButton(AVSubtitle* DVDButton, QRect &Pos);
 
-    void DisplayBDOverlay(BDOverlay *Overlay);
+    void DisplayBDOverlay(MythBDOverlay *Overlay);
     MythPlayer *GetPlayer(void) { return m_parent; }
 
   private:
@@ -234,7 +234,7 @@ class OsdNavigation : public MythScreenType
     void SetTextFromMap(const InfoMap &Map) override;
     void ShowMenu(void) override;
 
-    int getVisibleGroup() { return m_visibleGroup; }
+    int getVisibleGroup() const { return m_visibleGroup; }
 
   public slots:
     void GeneralAction(void);

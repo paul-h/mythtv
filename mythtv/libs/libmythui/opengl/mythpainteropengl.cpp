@@ -6,7 +6,6 @@
 #include <QPainter>
 
 // MythTV
-#include "mythmainwindow_internal.h"
 #include "mythrenderopengl.h"
 #include "mythpainteropengl.h"
 
@@ -51,6 +50,8 @@ void MythOpenGLPainter::FreeResources(void)
         }
         m_mappedBufferPoolReady = false;
     }
+
+    MythPainter::FreeResources();
 }
 
 void MythOpenGLPainter::DeleteTextures(void)

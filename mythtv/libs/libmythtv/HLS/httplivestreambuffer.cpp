@@ -94,6 +94,12 @@ static uint64_t mdate(void)
     return t.tv_sec * 1000000ULL + t.tv_usec;
 }
 
+static bool downloadURL(const QString &url, QByteArray *buffer, QString &finalURL)
+{
+    MythDownloadManager *mdm = GetMythDownloadManager();
+    return mdm->download(url, buffer, false, &finalURL);
+}
+
 static bool downloadURL(const QString &url, QByteArray *buffer)
 {
     MythDownloadManager *mdm = GetMythDownloadManager();
@@ -330,6 +336,7 @@ public:
                m_data.size() - aeslen);
 
         // remove the PKCS#7 padding from the buffer
+        // NOLINTNEXTLINE(bugprone-signed-char-misuse)
         int pad = decrypted_data[m_data.size()-1];
         if (pad <= 0 || pad > AES_BLOCK_SIZE)
         {
@@ -780,7 +787,7 @@ public:
      * Will download all required segment AES-128 keys
      * Will try to re-use already downloaded keys if possible
      */
-    int ManageSegmentKeys()
+    int ManageSegmentKeys() const
     {
         HLSSegment   *seg       = nullptr;
         HLSSegment   *prev_seg  = nullptr;
@@ -1536,7 +1543,7 @@ private:
 };
 
 HLSRingBuffer::HLSRingBuffer(const QString &lfilename) :
-    RingBuffer(kRingBuffer_HLS),
+    MythMediaBuffer(kMythBufferHLS),
     m_playback(new HLSPlayback())
 {
     m_startReadAhead = false;
@@ -1544,7 +1551,7 @@ HLSRingBuffer::HLSRingBuffer(const QString &lfilename) :
 }
 
 HLSRingBuffer::HLSRingBuffer(const QString &lfilename, bool open) :
-    RingBuffer(kRingBuffer_HLS),
+    MythMediaBuffer(kMythBufferHLS),
     m_playback(new HLSPlayback())
 {
     m_startReadAhead = false;
@@ -1714,7 +1721,7 @@ bool HLSRingBuffer::TestForHTTPLiveStreaming(const QString &filename)
     URLContext *context = nullptr;
 
     // Do a peek on the URL to test the format
-    RingBuffer::AVFormatInitNetwork();
+    MythMediaBuffer::AVFormatInitNetwork();
     int ret = ffurl_open(&context, filename.toLatin1(),
                          AVIO_FLAG_READ, nullptr, nullptr);
     if (ret >= 0)
@@ -2505,13 +2512,20 @@ bool HLSRingBuffer::OpenFile(const QString &lfilename, uint /*retry_ms*/)
 
     m_safeFilename = lfilename;
     m_filename = lfilename;
+    QString finalURL;
 
     QByteArray buffer;
-    if (!downloadURL(m_filename, &buffer))
+    if (!downloadURL(m_filename, &buffer, finalURL))
     {
         LOG(VB_PLAYBACK, LOG_ERR, LOC +
             QString("Couldn't open URL %1").arg(m_filename));
         return false;   // can't download file
+    }
+    if (m_filename != finalURL)
+    {
+        LOG(VB_PLAYBACK, LOG_INFO, LOC +
+            QString("Redirected %1 -> %2 ").arg(m_filename).arg(finalURL));
+        m_filename = finalURL;
     }
     if (!IsHTTPLiveStreaming(&buffer))
     {
@@ -2657,7 +2671,7 @@ void HLSRingBuffer::WaitUntilBuffered(void)
     m_streamworker->Unlock();
 }
 
-int HLSRingBuffer::safe_read(void *data, uint sz)
+int HLSRingBuffer::SafeRead(void *data, uint sz)
 {
     if (m_error)
         return -1;

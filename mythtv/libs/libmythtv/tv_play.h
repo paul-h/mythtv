@@ -32,6 +32,7 @@ using namespace std;
 #include "mythtimer.h"
 #include "osd.h"
 #include "decoders/decoderbase.h"
+#include "mythmiscutil.h"
 
 class QEvent;
 class QKeyEvent;
@@ -43,7 +44,7 @@ class OSD;
 class RemoteEncoder;
 class MythPlayer;
 class DetectLetterbox;
-class RingBuffer;
+class MythMediaBuffer;
 class ProgramInfo;
 class PlayerContext;
 class TvPlayWindow;

@@ -40,15 +40,15 @@ using namespace std;
 #include "mythsystemevent.h"
 #include "mythlogging.h"
 #include "mythmiscutil.h"
-#include "icringbuffer.h"
+#include "io/mythinteractivebuffer.h"
 #include "audiooutput.h"
 #include "cardutil.h"
 #include "mythavutil.h"
-#include "jitterometer.h"               // for Jitterometer
-#include "mythtimer.h"                  // for MythTimer
-#include "mythuiactions.h"              // for ACTION_LEFT, ACTION_RIGHT, etc
-#include "ringbuffer.h"                 // for RingBuffer, etc
-#include "tv_actions.h"                 // for ACTION_BIGJUMPFWD, etc
+#include "jitterometer.h"
+#include "mythtimer.h"
+#include "mythuiactions.h"
+#include "io/mythmediabuffer.h"
+#include "tv_actions.h"
 #include "mythcodeccontext.h"
 
 // MythUI headers
@@ -492,7 +492,7 @@ static inline QString toQString(FrameScanType scan) {
 
 FrameScanType MythPlayer::detectInterlace(FrameScanType newScan,
                                           FrameScanType scan,
-                                          float fps, int video_height)
+                                          float fps, int video_height) const
 {
     QString dbg = QString("detectInterlace(") + toQString(newScan) +
         QString(", ") + toQString(scan) + QString(", ") +
@@ -1199,7 +1199,8 @@ void MythPlayer::DisableCaptions(uint mode, bool osd_msg)
         msg += tr("TXT CAP");
     if (kDisplayTeletextCaptions & mode)
     {
-        msg += m_decoder->GetTrackDesc(kTrackTypeTeletextCaptions,
+        if (m_decoder != nullptr)
+            msg += m_decoder->GetTrackDesc(kTrackTypeTeletextCaptions,
                                        GetTrack(kTrackTypeTeletextCaptions));
         DisableTeletext();
     }
@@ -1210,7 +1211,8 @@ void MythPlayer::DisableCaptions(uint mode, bool osd_msg)
         (kDisplayAVSubtitle & mode) || (kDisplayRawTextSubtitle & mode))
     {
         int type = toTrackType(mode);
-        msg += m_decoder->GetTrackDesc(type, GetTrack(type));
+        if (m_decoder != nullptr)
+            msg += m_decoder->GetTrackDesc(type, GetTrack(type));
         if (m_osd)
             m_osd->EnableSubtitles(preserve);
     }
@@ -1239,7 +1241,8 @@ void MythPlayer::EnableCaptions(uint mode, bool osd_msg)
         (kDisplayAVSubtitle & mode) || kDisplayRawTextSubtitle & mode)
     {
         int type = toTrackType(mode);
-        msg += m_decoder->GetTrackDesc(type, GetTrack(type));
+        if (m_decoder != nullptr)
+            msg += m_decoder->GetTrackDesc(type, GetTrack(type));
         if (m_osd)
             m_osd->EnableSubtitles(mode);
     }
@@ -1251,7 +1254,7 @@ void MythPlayer::EnableCaptions(uint mode, bool osd_msg)
     }
     if (kDisplayNUVTeletextCaptions & mode)
         msg += tr("TXT %1").arg(m_ttPageNum, 3, 16);
-    if (kDisplayTeletextCaptions & mode)
+    if ((kDisplayTeletextCaptions & mode) && (m_decoder != nullptr))
     {
         msg += m_decoder->GetTrackDesc(kTrackTypeTeletextCaptions,
                                        GetTrack(kTrackTypeTeletextCaptions));
@@ -1279,7 +1282,7 @@ void MythPlayer::EnableCaptions(uint mode, bool osd_msg)
 bool MythPlayer::ToggleCaptions(void)
 {
     SetCaptionsEnabled(!((bool)m_textDisplayMode));
-    return m_textDisplayMode;
+    return m_textDisplayMode != 0U;
 }
 
 bool MythPlayer::ToggleCaptions(uint type)
@@ -1291,10 +1294,10 @@ bool MythPlayer::ToggleCaptions(uint type)
     if (m_textDisplayMode)
         DisableCaptions(m_textDisplayMode, (origMode & mode) != 0U);
     if (origMode & mode)
-        return m_textDisplayMode;
+        return m_textDisplayMode != 0U;
     if (mode)
         EnableCaptions(mode);
-    return m_textDisplayMode;
+    return m_textDisplayMode != 0U;
 }
 
 void MythPlayer::SetCaptionsEnabled(bool enable, bool osd_msg)
@@ -1337,7 +1340,7 @@ void MythPlayer::SetCaptionsEnabled(bool enable, bool osd_msg)
     ResetCaptions();
 }
 
-bool MythPlayer::GetCaptionsEnabled(void)
+bool MythPlayer::GetCaptionsEnabled(void) const
 {
     return (kDisplayNUVTeletextCaptions == m_textDisplayMode) ||
            (kDisplayTeletextCaptions    == m_textDisplayMode) ||
@@ -1805,7 +1808,7 @@ void MythPlayer::AVSync(VideoFrame *buffer)
     else if (buffer && is_interlaced(ps))
     {
         ps = kScan_Interlaced;
-        buffer->interlaced_reversed = m_scan == kScan_Intr2ndField;
+        buffer->interlaced_reversed = (m_scan == kScan_Intr2ndField);
     }
 
     // only display the second field if needed
@@ -2462,17 +2465,17 @@ void MythPlayer::SwitchToProgram(void)
         return;
     }
 
-    if (m_playerCtx->m_buffer->GetType() == ICRingBuffer::kRingBufferType)
+    if (m_playerCtx->m_buffer->GetType() == kMythBufferMHEG)
     {
         // Restore original ringbuffer
-        auto *ic = dynamic_cast< ICRingBuffer* >(m_playerCtx->m_buffer);
-        if (ic) // should always be true
-            m_playerCtx->m_buffer = ic->Take();
+        auto *ic = dynamic_cast<MythInteractiveBuffer*>(m_playerCtx->m_buffer);
+        if (ic)
+            m_playerCtx->m_buffer = ic->TakeBuffer();
         delete ic;
     }
 
     m_playerCtx->m_buffer->OpenFile(
-        pginfo->GetPlaybackURL(), RingBuffer::kLiveTVOpenTimeout);
+        pginfo->GetPlaybackURL(), MythMediaBuffer::kLiveTVOpenTimeout);
 
     if (!m_playerCtx->m_buffer->IsOpen())
     {
@@ -2623,17 +2626,16 @@ void MythPlayer::JumpToProgram(void)
 
     SendMythSystemPlayEvent("PLAY_CHANGED", pginfo);
 
-    if (m_playerCtx->m_buffer->GetType() == ICRingBuffer::kRingBufferType)
+    if (m_playerCtx->m_buffer->GetType() == kMythBufferMHEG)
     {
         // Restore original ringbuffer
-        auto *ic = dynamic_cast< ICRingBuffer* >(m_playerCtx->m_buffer);
-        if (ic) // should always be true
-            m_playerCtx->m_buffer = ic->Take();
+        auto *ic = dynamic_cast<MythInteractiveBuffer*>(m_playerCtx->m_buffer);
+        if (ic)
+            m_playerCtx->m_buffer = ic->TakeBuffer();
         delete ic;
     }
 
-    m_playerCtx->m_buffer->OpenFile(
-        pginfo->GetPlaybackURL(), RingBuffer::kLiveTVOpenTimeout);
+    m_playerCtx->m_buffer->OpenFile(pginfo->GetPlaybackURL(), MythMediaBuffer::kLiveTVOpenTimeout);
     QString subfn = m_playerCtx->m_buffer->GetSubtitleFilename();
     TVState desiredState = m_playerCtx->GetState();
     bool isInProgress = (desiredState == kState_WatchingRecording ||
@@ -3646,7 +3648,7 @@ bool MythPlayer::UpdateFFRewSkip(void)
             m_fpsMultiplier = m_decoder->GetfpsMultiplier();
         m_frameInterval = (int) (1000000.0 / m_videoFrameRate / static_cast<double>(temp_speed))
             / m_fpsMultiplier;
-        m_ffrewSkip = (m_playSpeed != 0.0F);
+        m_ffrewSkip = static_cast<int>(m_playSpeed != 0.0F);
     }
     else
     {
@@ -4793,15 +4795,15 @@ void MythPlayer::SetCutList(const frm_dir_map_t &newCutList)
     m_deleteMap.SetMap(newCutList);
 }
 
-bool MythPlayer::WriteStoredData(RingBuffer *outRingBuffer,
-                                 bool writevideo, long timecodeOffset)
+bool MythPlayer::WriteStoredData(MythMediaBuffer *OutBuffer,
+                                 bool Writevideo, long TimecodeOffset)
 {
     if (!m_decoder)
         return false;
-    if (writevideo && !m_decoder->GetRawVideoState())
-        writevideo = false;
-    m_decoder->WriteStoredData(outRingBuffer, writevideo, timecodeOffset);
-    return writevideo;
+    if (Writevideo && !m_decoder->GetRawVideoState())
+        Writevideo = false;
+    m_decoder->WriteStoredData(OutBuffer, Writevideo, TimecodeOffset);
+    return Writevideo;
 }
 
 void MythPlayer::SetCommBreakMap(frm_dir_map_t &newMap)
@@ -4828,7 +4830,7 @@ int MythPlayer::GetStatusbarPos(void) const
 
 void MythPlayer::GetPlaybackData(InfoMap &infoMap)
 {
-    QString samplerate = RingBuffer::BitrateToString(m_audio.GetSampleRate(), true);
+    QString samplerate = MythMediaBuffer::BitrateToString(m_audio.GetSampleRate(), true);
     infoMap.insert("samplerate",  samplerate);
     infoMap.insert("filename",    m_playerCtx->m_buffer->GetSafeFilename());
     infoMap.insert("decoderrate", m_playerCtx->m_buffer->GetDecoderRate());
@@ -4871,7 +4873,7 @@ int64_t MythPlayer::GetTotalSeconds(bool honorCutList, int divisor) const
     uint64_t pos = m_totalFrames;
 
     if (IsWatchingInprogress())
-        pos = (uint64_t)-1;
+        pos = UINT64_MAX;
 
     return TranslatePositionFrameToMs(pos, honorCutList) / divisor;
 }
@@ -5016,6 +5018,7 @@ void MythPlayer::calcSliderPos(osdInfo &info, bool paddedFields)
         stillFrame = (secsplayed < 0);
         playbackLen = max(playbackLen, 0);
         secsplayed = min(playbackLen, max(secsplayed, 0));
+        int secsbehind = max((playbackLen - secsplayed), 0);
 
         if (playbackLen > 0)
             pos = (int)(1000.0F * (secsplayed / (float)playbackLen));
@@ -5024,70 +5027,32 @@ void MythPlayer::calcSliderPos(osdInfo &info, bool paddedFields)
         info.values.insert(relPrefix + "totalseconds", playbackLen);
         info.values[relPrefix + "position"] = pos;
 
-        int phours = secsplayed / 3600;
-        int pmins = (secsplayed - phours * 3600) / 60;
-        int psecs = (secsplayed - phours * 3600 - pmins * 60);
-
-        int shours = playbackLen / 3600;
-        int smins = (playbackLen - shours * 3600) / 60;
-        int ssecs = (playbackLen - shours * 3600 - smins * 60);
-
-        int secsbehind = max((playbackLen - secsplayed), 0);
-        int sbhours = secsbehind / 3600;
-        int sbmins = (secsbehind - sbhours * 3600) / 60;
-        int sbsecs = (secsbehind - sbhours * 3600 - sbmins * 60);
-
         QString text1;
         QString text2;
         QString text3;
         if (paddedFields)
         {
-            text1 = QString("%1:%2:%3")
-                    .arg(phours, 2, 10, QLatin1Char('0'))
-                    .arg(pmins,  2, 10, QLatin1Char('0'))
-                    .arg(psecs,  2, 10, QLatin1Char('0'));
-            text2 = QString("%1:%2:%3")
-                    .arg(shours, 2, 10, QLatin1Char('0'))
-                    .arg(smins,  2, 10, QLatin1Char('0'))
-                    .arg(ssecs,  2, 10, QLatin1Char('0'));
-            text3 = QString("%1:%2:%3")
-                    .arg(sbhours, 2, 10, QLatin1Char('0'))
-                    .arg(sbmins,  2, 10, QLatin1Char('0'))
-                    .arg(sbsecs,  2, 10, QLatin1Char('0'));
+            text1 = MythFormatTime(secsplayed, "HH:mm:ss");
+            text2 = MythFormatTime(playbackLen, "HH:mm:ss");
+            text3 = MythFormatTime(secsbehind, "HH:mm:ss");
         }
         else
         {
-            if (shours > 0)
-            {
-                text1 = QString("%1:%2:%3")
-                        .arg(phours)
-                        .arg(pmins,  2, 10, QLatin1Char('0'))
-                        .arg(psecs,  2, 10, QLatin1Char('0'));
-                text2 = QString("%1:%2:%3")
-                        .arg(shours)
-                        .arg(smins,  2, 10, QLatin1Char('0'))
-                        .arg(ssecs,  2, 10, QLatin1Char('0'));
-            }
-            else
-            {
-                text1 = QString("%1:%2").arg(pmins).arg(psecs,  2, 10, QLatin1Char('0'));
-                text2 = QString("%1:%2").arg(smins).arg(ssecs,  2, 10, QLatin1Char('0'));
-            }
+            QString fmt = (playbackLen >= ONEHOURINSEC) ? "H:mm:ss" : "mm:ss";
+            text1 = MythFormatTime(secsplayed, fmt);
+            text2 = MythFormatTime(playbackLen, fmt);
 
-            if (sbhours > 0)
+            if (secsbehind >= ONEHOURINSEC)
             {
-                text3 = QString("%1:%2:%3")
-                        .arg(sbhours)
-                        .arg(sbmins,  2, 10, QLatin1Char('0'))
-                        .arg(sbsecs,  2, 10, QLatin1Char('0'));
+                text3 = MythFormatTime(secsbehind, "H:mm:ss");
             }
-            else if (sbmins > 0)
+            else if (secsbehind >= ONEMININSEC)
             {
-                text3 = QString("%1:%2").arg(sbmins).arg(sbsecs,  2, 10, QLatin1Char('0'));
+                text3 = MythFormatTime(secsbehind, "mm:ss");
             }
             else
             {
-                text3 = tr("%n second(s)", "", sbsecs);
+                text3 = tr("%n second(s)", "", secsbehind);
             }
         }
 
@@ -5109,7 +5074,7 @@ uint64_t MythPlayer::TranslatePositionFrameToMs(uint64_t position,
                                                 bool use_cutlist) const
 {
     float frameRate = GetFrameRate();
-    if (position == (uint64_t)-1 &&
+    if (position == UINT64_MAX &&
         m_playerCtx->m_recorder && m_playerCtx->m_recorder->IsValidRecorder())
     {
         float recorderFrameRate = m_playerCtx->m_recorder->GetFrameRate();
@@ -5288,7 +5253,7 @@ bool MythPlayer::SetStream(const QString &stream)
     // If successful will call m_interactiveTV->StreamStarted();
 
     if (stream.isEmpty() && m_playerCtx->m_tvchain &&
-        m_playerCtx->m_buffer->GetType() == ICRingBuffer::kRingBufferType)
+        m_playerCtx->m_buffer->GetType() == kMythBufferMHEG)
     {
         // Restore livetv
         SetEof(kEofStateDelayed);
@@ -5313,8 +5278,8 @@ void MythPlayer::JumpToStream(const QString &stream)
     ProgramInfo pginfo(stream);
     SetPlayingInfo(pginfo);
 
-    if (m_playerCtx->m_buffer->GetType() != ICRingBuffer::kRingBufferType)
-        m_playerCtx->m_buffer = new ICRingBuffer(stream, m_playerCtx->m_buffer);
+    if (m_playerCtx->m_buffer->GetType() != kMythBufferMHEG)
+        m_playerCtx->m_buffer = new MythInteractiveBuffer(stream, m_playerCtx->m_buffer);
     else
         m_playerCtx->m_buffer->OpenFile(stream);
 

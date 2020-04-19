@@ -1092,6 +1092,7 @@ uint Dvr::AddRecordSchedule   (
                                uint      nPreferredInput,
                                int       nStartOffset,
                                int       nEndOffset,
+                               QDateTime lastrectsRaw,
                                QString   sDupMethod,
                                QString   sDupIn,
                                uint      nFilter,
@@ -1113,6 +1114,7 @@ uint Dvr::AddRecordSchedule   (
 {
     QDateTime recstartts = recstarttsRaw.toUTC();
     QDateTime recendts = recendtsRaw.toUTC();
+    QDateTime lastrects = lastrectsRaw.toUTC();
     RecordingRule rule;
     rule.LoadTemplate("Default");
 
@@ -1199,9 +1201,11 @@ uint Dvr::AddRecordSchedule   (
 
     rule.m_transcoder = nTranscoder;
 
+    rule.m_lastRecorded = lastrects;
+
     QString msg;
     if (!rule.IsValid(msg))
-        throw msg;
+        throw QString(msg);
 
     rule.Save();
 
@@ -1362,7 +1366,7 @@ bool Dvr::UpdateRecordSchedule ( uint      nRecordId,
 
     QString msg;
     if (!pRule.IsValid(msg))
-        throw msg;
+        throw QString(msg);
 
     bool bResult = pRule.Save();
 

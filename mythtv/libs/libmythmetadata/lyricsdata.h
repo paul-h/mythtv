@@ -12,6 +12,7 @@
 #include "mythmetaexp.h"
 #include "mythcorecontext.h"
 #include "musicmetadata.h"
+#include "mythmiscutil.h"
 
 class LyricsData;
 
@@ -34,17 +35,11 @@ class META_PUBLIC LyricsLine
     }
 
   private:
-    QString formatTime(void)
+    QString formatTime(void) const
     {
-        QString res;
-        int minutes = m_time / (1000 * 60);
-        int seconds = m_time  % (1000 * 60) / 1000;
-        int hundredths = (m_time % 1000) / 10;
-
-        return QString("[%1:%2.%3]")
-            .arg(minutes,    2,10,QChar('0'))
-            .arg(seconds,    2,10,QChar('0'))
-            .arg(hundredths, 2,10,QChar('0'));
+        QString timestr = MythFormatTimeMs(m_time,"mm:ss.zzz");
+        timestr.chop(1); // Chop 1 to return hundredths
+        return QString("[%1]").arg(timestr);
     }
 };
 
@@ -78,10 +73,10 @@ class META_PUBLIC LyricsData : public QObject
     QMap<int, LyricsLine*>* lyrics(void) { return &m_lyricsMap; }
     void setLyrics(const QStringList &lyrics);
 
-    bool syncronized(void) { return m_syncronized; }
+    bool syncronized(void) const { return m_syncronized; }
     void setSyncronized(bool syncronized ) { m_syncronized = syncronized; }
 
-    bool changed(void) { return m_changed; }
+    bool changed(void) const { return m_changed; }
     void setChanged(bool changed) { m_changed = changed; }
 
     enum Status

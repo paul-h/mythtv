@@ -46,17 +46,18 @@ using namespace std;
 #include "mythuihelper.h"
 #include "mythdialogbox.h"
 #include "mythmainwindow.h"
+#include "mythmiscutil.h"
 #include "mythscreenstack.h"
 #include "mythscreentype.h"
 #include "mythuiactions.h"              // for ACTION_LEFT, ACTION_RIGHT, etc
 
 // libmythtv
-#include "DVD/dvdringbuffer.h"
-#include "Bluray/bdringbuffer.h"
+#include "DVD/mythdvdbuffer.h"
+#include "Bluray/mythbdbuffer.h"
 #include "remoteencoder.h"
 #include "tvremoteutil.h"
 #include "mythplayer.h"
-#include "subtitlescreen.h"
+#include "captions/subtitlescreen.h"
 #include "DetectLetterbox.h"
 #include "jobqueue.h"
 #include "livetvchain.h"
@@ -73,7 +74,7 @@ using namespace std;
 #include "tvbrowsehelper.h"
 #include "playercontext.h"              // for PlayerContext, osdInfo, etc
 #include "programtypes.h"
-#include "ringbuffer.h"                 // for RingBuffer, etc
+#include "io/mythmediabuffer.h"
 #include "tv_actions.h"                 // for ACTION_TOGGLESLEEP, etc
 #include "mythcodeccontext.h"
 
@@ -420,7 +421,7 @@ bool TV::StartTV(ProgramInfo *tvrec, uint flags,
 
     LOG(VB_PLAYBACK, LOG_INFO, LOC + "-- process events 2 begin");
     do
-        qApp->processEvents();
+        QCoreApplication::processEvents();
     while (tv->m_isEmbedded);
     LOG(VB_PLAYBACK, LOG_INFO, LOC + "-- process events 2 end");
 
@@ -1118,7 +1119,7 @@ void TV::InitFromDB(void)
 
     RecordingRule record;
     record.LoadTemplate("Default");
-    m_dbAutoexpireDefault  = record.m_autoExpire;
+    m_dbAutoexpireDefault  = static_cast<uint>(record.m_autoExpire);
 
     if (m_dbUseChannelGroups)
     {
@@ -1217,14 +1218,14 @@ bool TV::Init(bool createWindow)
         if (mainwindow->GetPaintWindow())
             mainwindow->GetPaintWindow()->update();
         mainwindow->installEventFilter(this);
-        qApp->processEvents();
+        QCoreApplication::processEvents();
     }
 
     {
         QMutexLocker locker(&m_initFromDBLock);
         while (!m_initFromDBDone)
         {
-            qApp->processEvents();
+            QCoreApplication::processEvents();
             m_initFromDBWait.wait(&m_initFromDBLock, 50);
         }
     }
@@ -1339,7 +1340,7 @@ void TV::PlaybackLoop(void)
 {
     while (true)
     {
-        qApp->processEvents();
+        QCoreApplication::processEvents();
         if (SignalHandler::IsExiting())
         {
             m_wantsToQuit = true;
@@ -2239,9 +2240,9 @@ void TV::HandleStateChange(PlayerContext *mctx, PlayerContext *ctx)
                     .arg(playbackURL).arg(ctx->m_tvchain->GetInputType(-1)));
 
             ctx->SetRingBuffer(
-                RingBuffer::Create(
+                MythMediaBuffer::Create(
                     playbackURL, false, true,
-                    opennow ? RingBuffer::kLiveTVOpenTimeout : -1));
+                    opennow ? MythMediaBuffer::kLiveTVOpenTimeout : -1));
 
             if (ctx->m_buffer)
                 ctx->m_buffer->SetLiveMode(ctx->m_tvchain);
@@ -2292,7 +2293,7 @@ void TV::HandleStateChange(PlayerContext *mctx, PlayerContext *ctx)
         QString playbackURL = ctx->m_playingInfo->GetPlaybackURL(true);
         ctx->UnlockPlayingInfo(__FILE__, __LINE__);
 
-        RingBuffer *buffer = RingBuffer::Create(playbackURL, false);
+        MythMediaBuffer *buffer = MythMediaBuffer::Create(playbackURL, false);
         if (buffer && !buffer->GetLastError().isEmpty())
         {
             ShowNotificationError(tr("Can't start playback"),
@@ -3532,6 +3533,9 @@ bool TV::eventFilter(QObject *o, QEvent *e)
 /// This handles all standard events
 bool TV::event(QEvent *e)
 {
+    if (e == nullptr)
+        return false;
+
     if (QEvent::Resize == e->type())
     {
         PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
@@ -3799,6 +3803,9 @@ bool TV::TranslateKeyPressOrGesture(const QString &context,
                                     QEvent *e, QStringList &actions,
                                     bool isLiveTV, bool allowJumps)
 {
+    if (e == nullptr)
+        return false;
+
     if (QEvent::KeyPress == e->type())
     {
         return GetMythMainWindow()->TranslateKeyPress(
@@ -3814,6 +3821,9 @@ bool TV::TranslateKeyPressOrGesture(const QString &context,
 
 bool TV::ProcessKeypressOrGesture(PlayerContext *actx, QEvent *e)
 {
+    if (e == nullptr)
+        return false;
+
     bool ignoreKeys = actx->IsPlayerChangingBuffers();
 #if DEBUG_ACTIONS
     LOG(VB_GENERAL, LOG_DEBUG, LOC + QString("ignoreKeys: %1")
@@ -4862,7 +4872,7 @@ bool TV::ActivePostQHandleAction(PlayerContext *ctx, const QStringList &actions)
         if (!CommitQueuedInput(ctx))
         {
             ctx->LockDeletePlayer(__FILE__, __LINE__);
-            SetBookmark(ctx, ctx->m_player->GetBookmark());
+            SetBookmark(ctx, ctx->m_player->GetBookmark() != 0U);
             ctx->UnlockDeletePlayer(__FILE__, __LINE__);
         }
     }
@@ -5036,14 +5046,14 @@ void TV::ProcessNetworkControlCommand(PlayerContext *ctx,
                 QString speed = tokens[2].left(tokens[2].length()-1);
                 tmpSpeed = speed.toFloat(&ok);
             }
-            else if (tokens[2].contains(QRegExp("^\\-*\\d*\\.\\d+x$")))
+            else if (tokens[2].contains(QRegExp(R"(^\-*\d*\.\d+x$)")))
             {
                 QString speed = tokens[2].left(tokens[2].length() - 1);
                 tmpSpeed = speed.toFloat(&ok);
             }
             else
             {
-                QRegExp re = QRegExp("^(\\-*\\d+)\\/(\\d+)x$");
+                QRegExp re = QRegExp(R"(^(\-*\d+)\/(\d+)x$)");
                 if (tokens[2].contains(re))
                 {
                     QStringList matches = re.capturedTexts();
@@ -6411,7 +6421,7 @@ void TV::UpdateNavDialog(PlayerContext *ctx)
         osdInfo info;
         ctx->LockDeletePlayer(__FILE__, __LINE__);
         bool paused = (ctx->m_player
-            && (ctx->m_ffRewState || ctx->m_ffRewSpeed != 0
+            && ((ctx->m_ffRewState != 0) || (ctx->m_ffRewSpeed != 0)
                 || ctx->m_player->IsPaused()));
         ctx->UnlockDeletePlayer(__FILE__, __LINE__);
         info.text["paused"] = (paused ? "Y" : "N");
@@ -6728,7 +6738,7 @@ void TV::ChangeSpeed(PlayerContext *ctx, int direction)
 
     ctx->LockDeletePlayer(__FILE__, __LINE__);
     if (ctx->m_player && !ctx->m_player->Play(
-            (!ctx->m_ffRewSpeed) ? ctx->m_tsNormal: speed, !ctx->m_ffRewSpeed))
+            (!ctx->m_ffRewSpeed) ? ctx->m_tsNormal: speed, ctx->m_ffRewSpeed == 0))
     {
         ctx->m_ffRewSpeed = old_speed;
         ctx->UnlockDeletePlayer(__FILE__, __LINE__);
@@ -7140,7 +7150,7 @@ void TV::SwitchInputs(PlayerContext *ctx,
     // state of the new player e.g. when switching inputs from the guide grid,
     // "EPG_EXITING" may not be received until after the player is re-created
     // and we inadvertantly disable drawing...
-    qApp->processEvents();
+    QCoreApplication::processEvents();
 
     LOG(VB_CHANNEL, LOG_INFO, LOC + QString("(%1,'%2',%3)")
             .arg(chanid).arg(channum).arg(inputid));
@@ -7240,9 +7250,9 @@ void TV::SwitchInputs(PlayerContext *ctx,
             QString playbackURL = ctx->m_playingInfo->GetPlaybackURL(true);
             bool opennow = (ctx->m_tvchain->GetInputType(-1) != "DUMMY");
             ctx->SetRingBuffer(
-                RingBuffer::Create(
+                MythMediaBuffer::Create(
                     playbackURL, false, true,
-                    opennow ? RingBuffer::kLiveTVOpenTimeout : -1));
+                    opennow ? MythMediaBuffer::kLiveTVOpenTimeout : -1));
 
             ctx->m_tvchain->SetProgram(*ctx->m_playingInfo);
             if (ctx->m_buffer)
@@ -7711,7 +7721,7 @@ void TV::ChangeChannel(PlayerContext *ctx, uint chanid, const QString &chan)
             }
             foreach (const auto & rec, tmp)
             {
-                if (!chanid || tunable_on.contains(rec.toUInt()))
+                if ((chanid == 0U) || tunable_on.contains(rec.toUInt()))
                     reclist.push_back(rec);
             }
         }
@@ -7775,7 +7785,7 @@ void TV::ChangeChannel(PlayerContext *ctx, uint chanid, const QString &chan)
     if (ctx->m_player)
         ctx->m_player->GetAudio()->Reset();
 
-    UnpauseLiveTV(ctx, chanid && GetQueuedChanID());
+    UnpauseLiveTV(ctx, (chanid != 0U) && (GetQueuedChanID() != 0U));
 
     if (oldinputname != ctx->m_recorder->GetInput())
         UpdateOSDInput(ctx);
@@ -8329,17 +8339,6 @@ void TV::ShowLCDChannelInfo(const PlayerContext *ctx)
     }
 }
 
-static void format_time(int seconds, QString &tMin, QString &tHrsMin)
-{
-    int minutes     = seconds / 60;
-    int hours       = minutes / 60;
-    int min         = minutes % 60;
-
-    tMin = TV::tr("%n minute(s)", "", minutes);
-    tHrsMin = QString("%1:%2").arg(hours).arg(min, 2, 10, QChar('0'));
-}
-
-
 void TV::ShowLCDDVDInfo(const PlayerContext *ctx)
 {
     LCD *lcd = LCD::Get();
@@ -8349,7 +8348,7 @@ void TV::ShowLCDDVDInfo(const PlayerContext *ctx)
         return;
     }
 
-    DVDRingBuffer *dvd = ctx->m_buffer->DVD();
+    MythDVDBuffer *dvd = ctx->m_buffer->DVD();
     QString dvdName;
     QString dvdSerial;
     QString mainStatus;
@@ -8370,16 +8369,14 @@ void TV::ShowLCDDVDInfo(const PlayerContext *ctx)
     }
     else
     {
-        QString timeMins;
-        QString timeHrsMin;
         int playingTitle = 0;
         int playingPart = 0;
 
         dvd->GetPartAndTitle(playingPart, playingTitle);
         int totalParts = dvd->NumPartsInTitle();
-        format_time(dvd->GetTotalTimeOfTitle(), timeMins, timeHrsMin);
 
-        mainStatus = tr("Title: %1 (%2)").arg(playingTitle).arg(timeHrsMin);
+        mainStatus = tr("Title: %1 (%2)").arg(playingTitle)
+            .arg(MythFormatTime(dvd->GetTotalTimeOfTitle(), "HH:mm"));
         subStatus = tr("Chapter: %1/%2").arg(playingPart).arg(totalParts);
     }
     if ((dvdName != m_lcdCallsign) || (mainStatus != m_lcdTitle) ||
@@ -8705,7 +8702,7 @@ void TV::EditSchedule(const PlayerContext */*ctx*/, int editType)
     // post the request so the guide will be created in the UI thread
     QString message = QString("START_EPG %1").arg(editType);
     auto* me = new MythEvent(message);
-    qApp->postEvent(this, me);
+    QCoreApplication::postEvent(this, me);
 }
 
 void TV::ChangeVolume(PlayerContext *ctx, bool up, int newvolume)
@@ -9268,7 +9265,7 @@ void TV::customEvent(QEvent *e)
         auto *dce = reinterpret_cast<DialogCompletionEvent*>(e);
         if (dce->GetData().userType() == qMetaTypeId<MenuNodeTuple>())
         {
-            MenuNodeTuple data = dce->GetData().value<MenuNodeTuple>();
+            auto data = dce->GetData().value<MenuNodeTuple>();
             if (dce->GetResult() == -1) // menu exit/back
             {
                 PlaybackMenuShow(data.m_menu, data.m_node.parentNode(),
@@ -9708,7 +9705,7 @@ void TV::customEvent(QEvent *e)
             GetMythMainWindow()->PushDrawDisabled();
         }
 
-        qApp->processEvents();
+        QCoreApplication::processEvents();
 
         m_isEmbedded = false;
         m_ignoreKeyPresses = false;
@@ -10209,10 +10206,10 @@ void TV::ShowOSDAlreadyEditing(PlayerContext *ctx)
 
         QString message = tr("This program is currently being edited");
         osd->DialogShow(OSD_DLG_EDITING, message);
-        QString def = QString("DIALOG_EDITING_CONTINUE_%1").arg(was_paused);
+        QString def = QString("DIALOG_EDITING_CONTINUE_%1").arg(static_cast<int>(was_paused));
         osd->DialogAddButton(tr("Continue Editing"), def, false, true);
         osd->DialogAddButton(tr("Do not edit"),
-                             QString("DIALOG_EDITING_STOP_%1").arg(was_paused));
+                             QString("DIALOG_EDITING_STOP_%1").arg(static_cast<int>(was_paused)));
         osd->DialogBack("", def, true);
     }
     ReturnOSDLock(ctx, osd);
@@ -10938,7 +10935,7 @@ QDomElement MenuBase::GetRoot(void) const
 
 QString MenuBase::Translate(const QString &text) const
 {
-    return qApp->translate(m_translationContext, text.toUtf8(), nullptr);
+    return QCoreApplication::translate(m_translationContext, text.toUtf8(), nullptr);
 }
 
 bool MenuBase::Show(const QDomNode &node,
@@ -11424,15 +11421,10 @@ bool TV::MenuItemDisplayPlayback(const MenuItemContext &c)
             int size = QString::number(m_tvmNumChapters).size();
             for (int i = 0; i < m_tvmNumChapters; i++)
             {
-                int hours   =  m_tvmChapterTimes[i] / 60 / 60;
-                int minutes = (m_tvmChapterTimes[i] / 60) - (hours * 60);
-                int secs    =  m_tvmChapterTimes[i] % 60;
                 QString chapter1 = QString("%1").arg(i+1, size, 10, QChar(48));
                 QString chapter2 = QString("%1").arg(i+1, 3   , 10, QChar(48));
-                QString desc = chapter1 + QString(" (%1:%2:%3)")
-                    .arg(hours,   2, 10, QChar(48))
-                    .arg(minutes, 2, 10, QChar(48))
-                    .arg(secs,    2, 10, QChar(48));
+                QString timestr = MythFormatTime(m_tvmChapterTimes[i], "HH:mm:ss");
+                QString desc = chapter1 + QString(" (%1)").arg(timestr);
                 QString action = prefix + chapter2;
                 active = (m_tvmCurrentChapter == (i + 1));
                 BUTTON(action, desc);
@@ -11922,7 +11914,7 @@ void TV::PlaybackMenuInit(const MenuBase &menu)
     m_tvmIsDvd             = (m_tvmState == kState_WatchingDVD);
     m_tvmIsBd              = (ctx->m_buffer && ctx->m_buffer->IsBD() &&
                               ctx->m_buffer->BD()->IsHDMVNavigation());
-    m_tvmJump              = (!m_tvmNumChapters && !m_tvmIsDvd &&
+    m_tvmJump              = ((m_tvmNumChapters == 0) && !m_tvmIsDvd &&
                               !m_tvmIsBd && ctx->m_buffer &&
                               ctx->m_buffer->IsSeekingAllowed());
     m_tvmIsLiveTv          = StateIsLiveTV(m_tvmState);
@@ -12696,22 +12688,22 @@ void TV::DoSeekRWND(PlayerContext *ctx)
 */
 void TV::DVDJumpBack(PlayerContext *ctx)
 {
-    auto *dvdrb = dynamic_cast<DVDRingBuffer*>(ctx->m_buffer);
-    if (!ctx->HasPlayer() || !dvdrb)
+    auto *dvd = dynamic_cast<MythDVDBuffer*>(ctx->m_buffer);
+    if (!ctx->HasPlayer() || !dvd)
         return;
 
     if (ctx->m_buffer->IsInDiscMenuOrStillFrame())
     {
         UpdateOSDSeekMessage(ctx, tr("Skip Back Not Allowed"), kOSDTimeout_Med);
     }
-    else if (!dvdrb->StartOfTitle())
+    else if (!dvd->StartOfTitle())
     {
         DoJumpChapter(ctx, -1);
     }
     else
     {
-        uint titleLength = dvdrb->GetTotalTimeOfTitle();
-        uint chapterLength = dvdrb->GetChapterLength();
+        uint titleLength = dvd->GetTotalTimeOfTitle();
+        uint chapterLength = dvd->GetChapterLength();
         if ((titleLength == chapterLength) && chapterLength > 300)
         {
             DoSeek(ctx, -ctx->m_jumptime * 60, tr("Jump Back"),
@@ -12735,26 +12727,26 @@ void TV::DVDJumpBack(PlayerContext *ctx)
  */
 void TV::DVDJumpForward(PlayerContext *ctx)
 {
-    auto *dvdrb = dynamic_cast<DVDRingBuffer*>(ctx->m_buffer);
-    if (!ctx->HasPlayer() || !dvdrb)
+    auto *dvd = dynamic_cast<MythDVDBuffer*>(ctx->m_buffer);
+    if (!ctx->HasPlayer() || !dvd)
         return;
 
-    bool in_still = dvdrb->IsInStillFrame();
-    bool in_menu  = dvdrb->IsInMenu();
-    if (in_still && !dvdrb->NumMenuButtons())
+    bool in_still = dvd->IsInStillFrame();
+    bool in_menu  = dvd->IsInMenu();
+    if (in_still && !dvd->NumMenuButtons())
     {
-        dvdrb->SkipStillFrame();
+        dvd->SkipStillFrame();
         UpdateOSDSeekMessage(ctx, tr("Skip Still Frame"), kOSDTimeout_Med);
     }
-    else if (!dvdrb->EndOfTitle() && !in_still && !in_menu)
+    else if (!dvd->EndOfTitle() && !in_still && !in_menu)
     {
         DoJumpChapter(ctx, 9999);
     }
     else if (!in_still && !in_menu)
     {
-        uint titleLength = dvdrb->GetTotalTimeOfTitle();
-        uint chapterLength = dvdrb->GetChapterLength();
-        uint currentTime = (uint)dvdrb->GetCurrentTime();
+        uint titleLength = dvd->GetTotalTimeOfTitle();
+        uint chapterLength = dvd->GetChapterLength();
+        uint currentTime = (uint)dvd->GetCurrentTime();
         if ((titleLength == chapterLength) &&
              (currentTime < (chapterLength - (ctx->m_jumptime * 60))) &&
              chapterLength > 300)

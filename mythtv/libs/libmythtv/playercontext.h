@@ -1,5 +1,5 @@
-#ifndef _PLAYER_CONTEXT_H_
-#define _PLAYER_CONTEXT_H_
+#ifndef PLAYER_CONTEXT_H
+#define PLAYER_CONTEXT_H
 
 #include <vector>
 #include <deque>
@@ -25,7 +25,7 @@ using namespace std;
 class TV;
 class RemoteEncoder;
 class MythPlayer;
-class RingBuffer;
+class MythMediaBuffer;
 class ProgramInfo;
 class LiveTVChain;
 class QPainter;
@@ -58,7 +58,7 @@ class MTV_PUBLIC PlayerContext
                    bool muted = false);
     void TeardownPlayer(void);
     bool StartPlaying(int maxWait = -1);
-    void StopPlaying(void);
+    void StopPlaying(void) const;
     void UpdateTVChain(const QStringList &data = QStringList());
     bool ReloadTVChain(void);
     void CreatePIPWindow(const QRect &rect, int pos = -1,
@@ -67,8 +67,8 @@ class MTV_PUBLIC PlayerContext
     bool StartPIPPlayer(TV *tv, TVState desiredState);
     void PIPTeardown(void);
     void SetNullVideo(bool setting) { m_useNullVideo = setting; }
-    bool StartEmbedding(const QRect &rect);
-    void StopEmbedding(void);
+    bool StartEmbedding(const QRect &rect) const;
+    void StopEmbedding(void) const;
     void    PushPreviousChannel(void);
     QString PopPreviousChannel(void);
 
@@ -98,7 +98,7 @@ class MTV_PUBLIC PlayerContext
     void SetPlayer(MythPlayer *newplayer);
     void SetRecorder(RemoteEncoder *rec);
     void SetTVChain(LiveTVChain *chain);
-    void SetRingBuffer(RingBuffer *buf);
+    void SetRingBuffer(MythMediaBuffer *Buffer);
     void SetPlayingInfo(const ProgramInfo *info);
     void SetPlayGroup(const QString &group);
     void SetPseudoLiveTV(const ProgramInfo *pi, PseudoState new_state);
@@ -152,7 +152,7 @@ class MTV_PUBLIC PlayerContext
     volatile bool       m_playerUnsafe       {false};
     RemoteEncoder      *m_recorder           {nullptr};
     LiveTVChain        *m_tvchain            {nullptr};
-    RingBuffer         *m_buffer             {nullptr};
+    MythMediaBuffer    *m_buffer             {nullptr};
     ProgramInfo        *m_playingInfo        {nullptr}; ///< Currently playing info
     long long           m_playingLen         {0};  ///< Initial CalculateLength()
     bool                m_nohardwaredecoders {false}; // < Disable use of VDPAU decoding
@@ -213,4 +213,4 @@ class MTV_PUBLIC PlayerContext
     static const uint kMaxChannelHistory;
 };
 
-#endif // _PLAYER_CONTEXT_H_
+#endif // PLAYER_CONTEXT_H

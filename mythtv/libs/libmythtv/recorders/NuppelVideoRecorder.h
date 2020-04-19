@@ -31,7 +31,7 @@ using namespace std;
 // MythTV headers
 #include "v4lrecorder.h"
 #include "format.h"
-#include "cc608decoder.h"
+#include "captions/cc608decoder.h"
 #include "lzo/lzo1x.h"
 #include "mthread.h"
 #include "mythframe.h"
@@ -42,7 +42,7 @@ using namespace std;
 
 struct video_audio;
 class RTjpeg;
-class RingBuffer;
+class MythMediaBuffer;
 class ChannelBase;
 class AudioInput;
 class NuppelVideoRecorder;

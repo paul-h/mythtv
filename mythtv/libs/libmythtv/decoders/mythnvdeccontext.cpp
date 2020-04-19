@@ -65,6 +65,11 @@ MythCodecID MythNVDECContext::GetSupportedCodec(AVCodecContext **Context,
 
     cudaVideoChromaFormat cudaformat = cudaVideoChromaFormat_Monochrome;
     VideoFrameType type = PixelFormatToFrameType((*Context)->pix_fmt);
+    uint depth = static_cast<uint>(ColorDepth(type) - 8);
+    QString desc = QString("'%1 %2 %3 Depth:%4 %5x%6'")
+            .arg(codecstr).arg(profile).arg(pixfmt).arg(depth + 8)
+            .arg((*Context)->width).arg((*Context)->height);
+
     // N.B. on stream changes format is set to CUDA/NVDEC. This may break if the new
     // stream has an unsupported chroma but the decoder should fail gracefully - just later.
     if ((FMT_NVDEC == type) || (format_is_420(type)))
@@ -74,58 +79,60 @@ MythCodecID MythNVDECContext::GetSupportedCodec(AVCodecContext **Context,
     else if (format_is_444(type))
         cudaformat = cudaVideoChromaFormat_444;
 
-    uint depth = static_cast<uint>(ColorDepth(type) - 8);
-    bool supported = false;
-
     if ((cudacodec == cudaVideoCodec_NumCodecs) || (cudaformat == cudaVideoChromaFormat_Monochrome))
+    {
+        LOG(VB_PLAYBACK, LOG_DEBUG, LOC + "Unknown codec or format");
+        LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("NVDEC does NOT support %1").arg(desc));
         return failure;
+    }
 
     // iterate over known decoder capabilities
+    bool supported = false;
     const std::vector<MythNVDECCaps>& profiles = MythNVDECContext::GetProfiles();
     for (auto cap : profiles)
     {
-        if (cap.Supports(cudacodec, cudaformat, depth, (*Context)->width, (*Context)->width))
+        if (cap.Supports(cudacodec, cudaformat, depth, (*Context)->width, (*Context)->height))
         {
             supported = true;
             break;
         }
     }
 
-    QString desc = QString("'%1 %2 %3 Depth:%4 %5x%6'")
-            .arg(codecstr).arg(profile).arg(pixfmt).arg(depth + 8)
-            .arg((*Context)->width).arg((*Context)->height);
-
-    AvFormatDecoder *decoder = dynamic_cast<AvFormatDecoder*>(reinterpret_cast<DecoderBase*>((*Context)->opaque));
-    // and finally try and retrieve the actual FFmpeg decoder
-    if (supported && decoder)
+    if (!supported)
     {
-        for (int i = 0; ; i++)
-        {
-            const AVCodecHWConfig *config = avcodec_get_hw_config(*Codec, i);
-            if (!config)
-                break;
+        LOG(VB_PLAYBACK, LOG_DEBUG, LOC + "No matching profile support");
+        LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("NVDEC does NOT support %1").arg(desc));
+        return failure;
+    }
 
-            if ((config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) &&
-                (config->device_type == AV_HWDEVICE_TYPE_CUDA))
+    auto *decoder = dynamic_cast<AvFormatDecoder*>(reinterpret_cast<DecoderBase*>((*Context)->opaque));
+    // and finally try and retrieve the actual FFmpeg decoder
+    QString name = QString((*Codec)->name) + "_cuvid";
+    if (name == "mpeg2video_cuvid")
+        name = "mpeg2_cuvid";
+    for (int i = 0; ; i++)
+    {
+        const AVCodecHWConfig *config = avcodec_get_hw_config(*Codec, i);
+        if (!config)
+            break;
+
+        if ((config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) &&
+            (config->device_type == AV_HWDEVICE_TYPE_CUDA))
+        {
+            AVCodec *codec = avcodec_find_decoder_by_name(name.toLocal8Bit());
+            if (codec)
             {
-                QString name = QString((*Codec)->name) + "_cuvid";
-                if (name == "mpeg2video_cuvid")
-                    name = "mpeg2_cuvid";
-                AVCodec *codec = avcodec_find_decoder_by_name(name.toLocal8Bit());
-                if (codec)
-                {
-                    LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("NVDEC supports decoding %1").arg(desc));
-                    *Codec = codec;
-                    decoder->CodecMap()->freeCodecContext(Stream);
-                    *Context = decoder->CodecMap()->getCodecContext(Stream, *Codec);
-                    return success;
-                }
-                break;
+                LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("NVDEC supports decoding %1").arg(desc));
+                *Codec = codec;
+                decoder->CodecMap()->freeCodecContext(Stream);
+                *Context = decoder->CodecMap()->getCodecContext(Stream, *Codec);
+                return success;
             }
+            break;
         }
     }
 
-    LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("NVDEC does NOT support %1").arg(desc));
+    LOG(VB_GENERAL, LOG_ERR, LOC + QString("Failed to find decoder '%1'").arg(name));
     return failure;
 }
 
@@ -337,11 +344,11 @@ void MythNVDECContext::PostProcessFrame(AVCodecContext* /*Context*/, VideoFrame 
     if (Frame && m_deinterlacer)
     {
         Frame->interlaced_frame = 0;
-        Frame->interlaced_reversed = 0;
-        Frame->top_field_first = 0;
+        Frame->interlaced_reversed = false;
+        Frame->top_field_first = false;
         Frame->deinterlace_inuse = m_deinterlacer | DEINT_DRIVER;
         Frame->deinterlace_inuse2x = m_deinterlacer2x;
-        Frame->already_deinterlaced = 1;
+        Frame->already_deinterlaced = true;
     }
 }
 
@@ -367,10 +374,10 @@ enum AVPixelFormat MythNVDECContext::GetFormat(AVCodecContext* Context, const AV
     {
         if (*PixFmt == AV_PIX_FMT_CUDA)
         {
-            AvFormatDecoder* decoder = reinterpret_cast<AvFormatDecoder*>(Context->opaque);
+            auto * decoder = reinterpret_cast<AvFormatDecoder*>(Context->opaque);
             if (decoder)
             {
-                MythNVDECContext* me = dynamic_cast<MythNVDECContext*>(decoder->GetMythCodecContext());
+                auto * me = dynamic_cast<MythNVDECContext*>(decoder->GetMythCodecContext());
                 if (me)
                     me->InitFramesContext(Context);
             }
@@ -421,7 +428,7 @@ bool MythNVDECContext::GetBuffer(struct AVCodecContext *Context, VideoFrame *Fra
     Frame->width = AvFrame->width;
     Frame->height = AvFrame->height;
     Frame->pix_fmt = Context->pix_fmt;
-    Frame->directrendering = 1;
+    Frame->directrendering = true;
 
     AvFrame->opaque = Frame;
     AvFrame->reordered_opaque = Context->reordered_opaque;
@@ -435,7 +442,7 @@ bool MythNVDECContext::GetBuffer(struct AVCodecContext *Context, VideoFrame *Fra
     }
 
     // NVDEC 'fixes' 10/12/16bit colour values
-    Frame->colorshifted = 1;
+    Frame->colorshifted = true;
 
     // Frame->data[0] holds CUdeviceptr for the frame data - offsets calculated above
     Frame->buf = AvFrame->data[0];
@@ -495,13 +502,26 @@ MythNVDECContext::MythNVDECCaps::MythNVDECCaps(cudaVideoCodec Codec, uint Depth,
 }
 
 bool MythNVDECContext::MythNVDECCaps::Supports(cudaVideoCodec Codec, cudaVideoChromaFormat Format,
-                                               uint Depth, int Width, int Height)
+                                               uint Depth, int Width, int Height) const
 {
     uint mblocks = static_cast<uint>((Width * Height) / 256);
-    return (Codec == m_codec) && (Format == m_format) && (Depth == m_depth) &&
-           (m_maximum.width() >= Width) && (m_maximum.height() >= Height) &&
-           (m_minimum.width() <= Width) && (m_minimum.height() <= Height) &&
-           (m_macroBlocks >= mblocks);
+
+    LOG(VB_PLAYBACK, LOG_DEBUG, LOC +
+        QString("Trying to match: Codec %1 Format %2 Depth %3 Width %4 Height %5 MBs %6")
+            .arg(Codec).arg(Format).arg(Depth).arg(Width).arg(Height).arg(mblocks));
+    LOG(VB_PLAYBACK, LOG_DEBUG, LOC +
+        QString("to this profile: Codec %1 Format %2 Depth %3 Width %4<->%5 Height %6<->%7 MBs %8")
+            .arg(m_codec).arg(m_format).arg(m_depth)
+            .arg(m_minimum.width()).arg(m_maximum.width())
+            .arg(m_minimum.height()).arg(m_maximum.height()).arg(m_macroBlocks));
+
+    bool result = (Codec == m_codec) && (Format == m_format) && (Depth == m_depth) &&
+                  (m_maximum.width() >= Width) && (m_maximum.height() >= Height) &&
+                  (m_minimum.width() <= Width) && (m_minimum.height() <= Height) &&
+                  (m_macroBlocks >= mblocks);
+
+    LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("%1 Match").arg(result ? "" : "NO"));
+    return result;
 }
 
 bool MythNVDECContext::HaveNVDEC(void)
@@ -525,9 +545,9 @@ bool MythNVDECContext::HaveNVDEC(void)
                 LOG(VB_GENERAL, LOG_INFO, LOC + "Supported/available NVDEC decoders:");
                 for (auto profile : profiles)
                 {
-                    LOG(VB_GENERAL, LOG_INFO, LOC +
-                        MythCodecContext::GetProfileDescription(profile.m_profile,profile.m_maximum,
-                                                                profile.m_type, profile.m_depth + 8));
+                    QString desc = MythCodecContext::GetProfileDescription(profile.m_profile,profile.m_maximum,
+                                                                           profile.m_type, profile.m_depth + 8);
+                    LOG(VB_GENERAL, LOG_INFO, LOC + desc + QString(" MBs: %1").arg(profile.m_macroBlocks));
                 }
             }
         }
@@ -548,9 +568,11 @@ void MythNVDECContext::GetDecoderList(QStringList &Decoders)
         return;
     Decoders.append("NVDEC:");
     for (auto profile : profiles)
+    {
         if (!(profile.m_depth % 2)) // Ignore 9/11bit etc
             Decoders.append(MythCodecContext::GetProfileDescription(profile.m_profile, profile.m_maximum,
                                                                     profile.m_type, profile.m_depth + 8));
+    }
 }
 
 const std::vector<MythNVDECContext::MythNVDECCaps> &MythNVDECContext::GetProfiles(void)
@@ -631,7 +653,7 @@ void MythNVDECContext::InitFramesContext(AVCodecContext *Context)
 
     if (m_framesContext)
     {
-        AVHWFramesContext *frames = reinterpret_cast<AVHWFramesContext*>(m_framesContext->data);
+        auto *frames = reinterpret_cast<AVHWFramesContext*>(m_framesContext->data);
         if ((frames->sw_format == Context->sw_pix_fmt) && (frames->width == Context->coded_width) &&
             (frames->height == Context->coded_height))
         {
@@ -648,7 +670,7 @@ void MythNVDECContext::InitFramesContext(AVCodecContext *Context)
     av_buffer_unref(&m_framesContext);
 
     AVBufferRef* framesref = av_hwframe_ctx_alloc(Context->hw_device_ctx);
-    AVHWFramesContext *frames = reinterpret_cast<AVHWFramesContext*>(framesref->data);
+    auto *frames = reinterpret_cast<AVHWFramesContext*>(framesref->data);
     frames->free = MythCodecContext::FramesContextFinished;
     frames->user_opaque = nullptr;
     frames->sw_format = Context->sw_pix_fmt;

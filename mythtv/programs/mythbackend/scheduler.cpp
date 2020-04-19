@@ -63,8 +63,6 @@ Scheduler::Scheduler(bool runthread, QMap<int, EncoderLink *> *tvList,
     m_specSched(master_sched),
     m_tvList(tvList),
     m_doRun(runthread),
-    m_livetvTime(QDateTime()),
-    m_lastPrepareTime(QDateTime()),
     m_openEnd(openEndNever)
 {
     char *debug = getenv("DEBUG_CONFLICTS");
@@ -311,14 +309,16 @@ static bool comp_recstart(RecordingInfo *a, RecordingInfo *b)
 
 static bool comp_priority(RecordingInfo *a, RecordingInfo *b)
 {
-    int arec = (a->GetRecordingStatus() != RecStatus::Recording &&
-                a->GetRecordingStatus() != RecStatus::Tuning &&
-                a->GetRecordingStatus() != RecStatus::Failing &&
-                a->GetRecordingStatus() != RecStatus::Pending);
-    int brec = (b->GetRecordingStatus() != RecStatus::Recording &&
-                b->GetRecordingStatus() != RecStatus::Tuning &&
-                b->GetRecordingStatus() != RecStatus::Failing &&
-                b->GetRecordingStatus() != RecStatus::Pending);
+    int arec = static_cast<int>
+        (a->GetRecordingStatus() != RecStatus::Recording &&
+         a->GetRecordingStatus() != RecStatus::Tuning &&
+         a->GetRecordingStatus() != RecStatus::Failing &&
+         a->GetRecordingStatus() != RecStatus::Pending);
+    int brec = static_cast<int>
+        (b->GetRecordingStatus() != RecStatus::Recording &&
+         b->GetRecordingStatus() != RecStatus::Tuning &&
+         b->GetRecordingStatus() != RecStatus::Failing &&
+         b->GetRecordingStatus() != RecStatus::Pending);
 
     if (arec != brec)
         return arec < brec;
@@ -329,16 +329,20 @@ static bool comp_priority(RecordingInfo *a, RecordingInfo *b)
     if (a->GetRecordingPriority2() != b->GetRecordingPriority2())
         return a->GetRecordingPriority2() > b->GetRecordingPriority2();
 
-    int atype = (a->GetRecordingRuleType() == kOverrideRecord ||
-                 a->GetRecordingRuleType() == kSingleRecord);
-    int btype = (b->GetRecordingRuleType() == kOverrideRecord ||
-                 b->GetRecordingRuleType() == kSingleRecord);
+    int atype = static_cast<int>
+        (a->GetRecordingRuleType() == kOverrideRecord ||
+         a->GetRecordingRuleType() == kSingleRecord);
+    int btype = static_cast<int>
+         (b->GetRecordingRuleType() == kOverrideRecord ||
+          b->GetRecordingRuleType() == kSingleRecord);
     if (atype != btype)
         return atype > btype;
 
     QDateTime pasttime = MythDate::current().addSecs(-30);
-    int apast = (a->GetRecordingStartTime() < pasttime && !a->IsReactivated());
-    int bpast = (b->GetRecordingStartTime() < pasttime && !b->IsReactivated());
+    int apast = static_cast<int>
+        (a->GetRecordingStartTime() < pasttime && !a->IsReactivated());
+    int bpast = static_cast<int>
+        (b->GetRecordingStartTime() < pasttime && !b->IsReactivated());
     if (apast != bpast)
         return apast < bpast;
 
@@ -371,10 +375,12 @@ static bool comp_priority(RecordingInfo *a, RecordingInfo *b)
 
 static bool comp_retry(RecordingInfo *a, RecordingInfo *b)
 {
-    int arec = (a->GetRecordingStatus() != RecStatus::Recording &&
-                a->GetRecordingStatus() != RecStatus::Tuning);
-    int brec = (b->GetRecordingStatus() != RecStatus::Recording &&
-                b->GetRecordingStatus() != RecStatus::Tuning);
+    int arec = static_cast<int>
+        (a->GetRecordingStatus() != RecStatus::Recording &&
+         a->GetRecordingStatus() != RecStatus::Tuning);
+    int brec = static_cast<int>
+        (b->GetRecordingStatus() != RecStatus::Recording &&
+         b->GetRecordingStatus() != RecStatus::Tuning);
 
     if (arec != brec)
         return arec < brec;
@@ -385,16 +391,20 @@ static bool comp_retry(RecordingInfo *a, RecordingInfo *b)
     if (a->GetRecordingPriority2() != b->GetRecordingPriority2())
         return a->GetRecordingPriority2() > b->GetRecordingPriority2();
 
-    int atype = (a->GetRecordingRuleType() == kOverrideRecord ||
-                 a->GetRecordingRuleType() == kSingleRecord);
-    int btype = (b->GetRecordingRuleType() == kOverrideRecord ||
-                 b->GetRecordingRuleType() == kSingleRecord);
+    int atype = static_cast<int>
+        (a->GetRecordingRuleType() == kOverrideRecord ||
+         a->GetRecordingRuleType() == kSingleRecord);
+    int btype = static_cast<int>
+         (b->GetRecordingRuleType() == kOverrideRecord ||
+          b->GetRecordingRuleType() == kSingleRecord);
     if (atype != btype)
         return atype > btype;
 
     QDateTime pasttime = MythDate::current().addSecs(-30);
-    int apast = (a->GetRecordingStartTime() < pasttime && !a->IsReactivated());
-    int bpast = (b->GetRecordingStartTime() < pasttime && !b->IsReactivated());
+    int apast = static_cast<int>
+        (a->GetRecordingStartTime() < pasttime && !a->IsReactivated());
+    int bpast = static_cast<int>
+        (b->GetRecordingStartTime() < pasttime && !b->IsReactivated());
     if (apast != bpast)
         return apast < bpast;
 
@@ -795,7 +805,7 @@ bool Scheduler::ChangeRecordingEnd(RecordingInfo *oldp, RecordingInfo *newp)
         // If any pending recordings are affected, set them to
         // future conflicting and force a reschedule by marking
         // reclist as changed.
-        RecConstIter j = m_recList.begin();
+        auto j = m_recList.cbegin();
         while (FindNextConflict(m_recList, foundp, j, openEndNever, nullptr))
         {
             RecordingInfo *recp = *j;
@@ -1167,7 +1177,7 @@ const RecordingInfo *Scheduler::FindConflict(
     bool checkAll) const
 {
     RecList &conflictlist = *m_sinputInfoMap[p->GetInputID()].m_conflictList;
-    RecConstIter k = conflictlist.begin();
+    auto k = conflictlist.cbegin();
     if (FindNextConflict(conflictlist, p, k, openend, affinity))
     {
         RecordingInfo *firstConflict = *k;
@@ -1305,7 +1315,7 @@ bool Scheduler::TryAnotherShowing(RecordingInfo *p, bool samePriority,
         {
             // It is pointless to preempt another livetv session.
             // (the livetvlist contains dummy livetv pginfo's)
-            RecConstIter k = m_livetvList.begin();
+            auto k = m_livetvList.cbegin();
             if (FindNextConflict(m_livetvList, q, k))
             {
                 PrintRec(q, "    #");
@@ -1526,7 +1536,7 @@ void Scheduler::SchedNewRetryPass(const RecIter& start, const RecIter& end,
         // Try to move each conflict.  Restore the old status if we
         // can't.
         RecList &conflictlist = *m_sinputInfoMap[p->GetInputID()].m_conflictList;
-        RecConstIter k = conflictlist.begin();
+        auto k = conflictlist.cbegin();
         for ( ; FindNextConflict(conflictlist, p, k); ++k)
         {
             if (!TryAnotherShowing(*k, samePriority, livetv))
@@ -1714,7 +1724,7 @@ void Scheduler::getConflicting(RecordingInfo *pginfo, RecList *retlist)
     QMutexLocker lockit(&m_schedLock);
     QReadLocker tvlocker(&TVRec::s_inputsLock);
 
-    RecConstIter i = m_recList.begin();
+    auto i = m_recList.cbegin();
     for (; FindNextConflict(m_recList, pginfo, i); ++i)
     {
         const RecordingInfo *p = *i;
@@ -1801,7 +1811,7 @@ void Scheduler::GetAllPending(QStringList &strList) const
     RecList retlist;
     bool hasconflicts = GetAllPending(retlist);
 
-    strList << QString::number(hasconflicts);
+    strList << QString::number(static_cast<int>(hasconflicts));
     strList << QString::number(retlist.size());
 
     while (!retlist.empty())
@@ -2513,7 +2523,7 @@ void Scheduler::HandleWakeSlave(RecordingInfo &ri, int prerollseconds)
 
     QReadLocker tvlocker(&TVRec::s_inputsLock);
 
-    QMap<int, EncoderLink*>::iterator tvit = m_tvList->find(ri.GetInputID());
+    QMap<int, EncoderLink*>::const_iterator tvit = m_tvList->constFind(ri.GetInputID());
     if (tvit == m_tvList->end())
         return;
 
@@ -2671,7 +2681,7 @@ bool Scheduler::HandleRecording(
 
     QReadLocker tvlocker(&TVRec::s_inputsLock);
 
-    QMap<int, EncoderLink*>::iterator tvit = m_tvList->find(ri.GetInputID());
+    QMap<int, EncoderLink*>::const_iterator tvit = m_tvList->constFind(ri.GetInputID());
     if (tvit == m_tvList->end())
     {
         QString msg = QString("Invalid cardid [%1] for %2")
@@ -3078,8 +3088,8 @@ void Scheduler::HandleIdleShutdown(
         bool recording = false;
         m_schedLock.unlock();
         TVRec::s_inputsLock.lockForRead();
-        QMap<int, EncoderLink *>::Iterator it;
-        for (it = m_tvList->begin(); (it != m_tvList->end()) &&
+        QMap<int, EncoderLink *>::const_iterator it;
+        for (it = m_tvList->constBegin(); (it != m_tvList->constEnd()) &&
                  !recording; ++it)
         {
             if ((*it)->IsBusy())
@@ -3478,7 +3488,7 @@ void Scheduler::PutInactiveSlavesToSleep(void)
         if (secsleft > sleepThreshold)
             continue;
 
-        if (m_tvList->find(pginfo->GetInputID()) != m_tvList->end())
+        if (m_tvList->constFind(pginfo->GetInputID()) != m_tvList->constEnd())
         {
             EncoderLink *enc = (*m_tvList)[pginfo->GetInputID()];
             if ((!enc->IsLocal()) &&
@@ -3660,7 +3670,7 @@ void Scheduler::UpdateManuals(uint recordid)
 
     query.prepare(QString("SELECT type,title,subtitle,description,"
                           "station,startdate,starttime,"
-                          "enddate,endtime,season,episode,inetref "
+                          "enddate,endtime,season,episode,inetref,last_record "
                   "FROM %1 WHERE recordid = :RECORDID").arg(m_recordTable));
     query.bindValue(":RECORDID", recordid);
     if (!query.exec() || query.size() != 1)
@@ -3686,6 +3696,10 @@ void Scheduler::UpdateManuals(uint recordid)
     int season = query.value(9).toInt();
     int episode = query.value(10).toInt();
     QString inetref = query.value(11).toString();
+
+    // A bit of a hack: mythconverg.record.last_record can be used by
+    // the services API to propegate originalairdate information.
+    QDate originalairdate = QDate(query.value(12).toDate());
 
     if (description.isEmpty())
         description = startdt.toLocalTime().toString();
@@ -3753,10 +3767,10 @@ void Scheduler::UpdateManuals(uint recordid)
 
             query.prepare("REPLACE INTO program (chanid, starttime, endtime,"
                           " title, subtitle, description, manualid,"
-                          " season, episode, inetref, generic) "
+                          " season, episode, inetref, originalairdate, generic) "
                           "VALUES (:CHANID, :STARTTIME, :ENDTIME, :TITLE,"
                           " :SUBTITLE, :DESCRIPTION, :RECORDID, "
-                          " :SEASON, :EPISODE, :INETREF, 1)");
+                          " :SEASON, :EPISODE, :INETREF, :ORIGINALAIRDATE, 1)");
             query.bindValue(":CHANID", id);
             query.bindValue(":STARTTIME", startdt);
             query.bindValue(":ENDTIME", startdt.addSecs(duration));
@@ -3766,6 +3780,7 @@ void Scheduler::UpdateManuals(uint recordid)
             query.bindValue(":SEASON", season);
             query.bindValue(":EPISODE", episode);
             query.bindValue(":INETREF", inetref);
+            query.bindValue(":ORIGINALAIRDATE", originalairdate);
             query.bindValue(":RECORDID", recordid);
             if (!query.exec())
             {

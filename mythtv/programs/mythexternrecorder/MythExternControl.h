@@ -18,8 +18,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _MythExternControl_H_
-#define _MythExternControl_H_
+#ifndef MYTHEXTERNCONTROL_H
+#define MYTHEXTERNCONTROL_H
 
 #include "MythExternRecApp.h"
 
@@ -103,9 +103,11 @@ class Commands : public QObject
     void HasPictureAttributes(const QString & serial) const;
     void SetBlockSize(const QString & serial, int blksz);
     void TuneChannel(const QString & serial, const QString & channum);
+    void TuneStatus(const QString & serial);
     void LoadChannels(const QString & serial);
     void FirstChannel(const QString & serial);
     void NextChannel(const QString & serial);
+    void Cleanup(void);
 
   private:
     std::thread m_thread;
@@ -145,9 +147,11 @@ class MythExternControl : public QObject
     void HasPictureAttributes(const QString & serial) const;
     void SetBlockSize(const QString & serial, int blksz);
     void TuneChannel(const QString & serial, const QString & channum);
+    void TuneStatus(const QString & serial);
     void LoadChannels(const QString & serial);
     void FirstChannel(const QString & serial);
     void NextChannel(const QString & serial);
+    void Cleanup(void);
 
   public slots:
     void SetDescription(const QString & desc) { m_desc = desc; }
@@ -181,4 +185,4 @@ class MythExternControl : public QObject
     std::atomic<bool> m_ready            {false};
 };
 
-#endif
+#endif // MYTHEXTERNCONTROL_H

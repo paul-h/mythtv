@@ -1,7 +1,7 @@
 /// -*- Mode: c++ -*-
 
-#ifndef _EXTERNAL_CHANNEL_H_
-#define _EXTERNAL_CHANNEL_H_
+#ifndef EXTERNAL_CHANNEL_H
+#define EXTERNAL_CHANNEL_H
 
 #include <cstdint>
 #include <utility>
@@ -46,16 +46,20 @@ class ExternalChannel : public DTVChannel
 
     QString UpdateDescription(void);
     QString GetDescription(void);
+    bool IsBackgroundTuning(void) const { return m_backgroundTuning; }
+    uint GetTuneStatus(void);
 
   protected:
     bool IsExternalChannelChangeSupported(void) override // ChannelBase
         { return true; }
 
   private:
+    int                      m_tuneTimeout { -1 };
+    bool                     m_backgroundTuning {false};
     QString                  m_device;
     QStringList              m_args;
     ExternalStreamHandler   *m_streamHandler {nullptr};
     QString                  m_loc;
 };
 
-#endif // _EXTERNAL_CHANNEL_H_
+#endif // EXTERNAL_CHANNEL_H

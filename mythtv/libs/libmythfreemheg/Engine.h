@@ -33,9 +33,10 @@
 #include <QString>
 #include <QRect>
 #include <QRegion>
+#include <QElapsedTimer>
 #include <QList>
-#include <QStack>
 #include <QQueue>
+#include <QStack>
 #include <QTime>
 
 class MHDLADisplay;
@@ -44,7 +45,7 @@ class MHDLADisplay;
 class MHAsynchEvent {
   public:
     MHRoot *m_pEventSource {nullptr};
-    enum EventType m_eventType;
+    enum EventType m_eventType {EventIsAvailable};
     MHUnion m_eventData;
 };
 
@@ -63,7 +64,7 @@ class MHExternContent {
   public:
     QString m_FileName;
     MHIngredient *m_pRequester {nullptr}; 
-    QTime m_time;
+    QElapsedTimer m_time;
 };
 
 class MHInteractible;
@@ -131,7 +132,7 @@ class MHEngine: public MHEG {
     void AddLink(MHLink *pLink);
     void RemoveLink(MHLink *pLink);
 
-    bool InTransition() { return m_fInTransition; }
+    bool InTransition() const { return m_fInTransition; }
 
     bool GetEngineSupport(const MHOctetString &feature);
 

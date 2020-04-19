@@ -25,7 +25,7 @@
 #include "programinfo.h"
 #include "mythlogging.h"
 #include "mpegtables.h"
-#include "ringbuffer.h"
+#include "io/mythmediabuffer.h"
 #include "tv_rec.h"
 #include "mythsystemevent.h"
 
@@ -214,6 +214,9 @@ void DTVRecorder::SetStreamData(MPEGStreamData *data)
 
 void DTVRecorder::InitStreamData(void)
 {
+    if (m_streamData == nullptr)
+        return;
+
     m_streamData->AddMPEGSPListener(this);
     m_streamData->AddMPEGListener(this);
 
@@ -228,6 +231,9 @@ void DTVRecorder::InitStreamData(void)
         atsc->SetDesiredChannel(atsc->DesiredMajorChannel(),
                                 atsc->DesiredMinorChannel());
     }
+    // clang-tidy assumes that if the result of dynamic_cast is
+    // nullptr that the thing being casted must also be a nullptr.
+    // NOLINTNEXTLINE(clang-analyzer-core.CallAndMessage)
     else if (m_streamData->DesiredProgram() >= 0)
     {
         m_streamData->SetDesiredProgram(m_streamData->DesiredProgram());
