@@ -6,6 +6,7 @@
 // MythTV headers
 #include "sourceutil.h"
 #include "cardutil.h"
+#include "scaninfo.h"
 #include "mythdb.h"
 #include "mythdirs.h"
 #include "mythlogging.h"
@@ -63,6 +64,29 @@ QString SourceUtil::GetSourceName(uint sourceid)
     }
 
     return query.value(0).toString();
+}
+
+uint SourceUtil::GetSourceID(const QString &name)
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare(
+        "SELECT sourceid "
+        "FROM videosource "
+        "WHERE name = :NAME");
+    query.bindValue(":NAME", name);
+
+    if (!query.exec())
+    {
+        MythDB::DBError("SourceUtil::GetSourceID()", query);
+        return 0;
+    }
+    if (!query.next())
+    {
+        return 0;
+    }
+
+    return query.value(0).toUInt();
 }
 
 QString SourceUtil::GetChannelSeparator(uint sourceid)
@@ -532,6 +556,9 @@ bool SourceUtil::DeleteSource(uint sourceid)
         MythDB::DBError("Deleting inputs", query);
         return false;
     }
+
+    // Delete all the saved channel scans for this source
+    ScanInfo::DeleteScansFromSource(sourceid);
 
     // Delete the source itself
     query.prepare("DELETE FROM videosource "

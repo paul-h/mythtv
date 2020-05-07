@@ -114,6 +114,7 @@ void MythInputDeviceHandler::Start(void)
 
 void MythInputDeviceHandler::Stop(bool Finishing /* = true */)
 {
+    Q_UNUSED(Finishing); // depending on #ifdefs
     LOG(VB_GENERAL, LOG_INFO, LOC + "Stopping");
 
 #ifdef USING_LIBCEC
@@ -159,7 +160,8 @@ void MythInputDeviceHandler::Reset(void)
     Start();
 }
 
-void MythInputDeviceHandler::Event(QEvent *Event)
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+void MythInputDeviceHandler::Event(QEvent *Event) const
 {
     if (!Event)
         return;
@@ -208,6 +210,8 @@ void MythInputDeviceHandler::MainWindowReady(void)
 
 void MythInputDeviceHandler::customEvent(QEvent* Event)
 {
+    Q_UNUSED(Event); // depending on #ifdefs
+
     if (m_ignoreKeys)
         return;
 

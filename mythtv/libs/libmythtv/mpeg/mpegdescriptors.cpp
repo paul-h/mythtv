@@ -86,6 +86,19 @@ const unsigned char *MPEGDescriptor::Find(const desc_list_t &parsed,
     return nullptr;
 }
 
+const unsigned char *MPEGDescriptor::FindExtension(const desc_list_t &parsed,
+                                                    uint desc_tag)
+{
+    for (const auto *item : parsed)
+    {
+        if (item[0] == DescriptorID::extension &&
+            item[1] > 1 &&
+            item[2] == desc_tag)
+            return item;
+    }
+    return nullptr;
+}
+
 desc_list_t MPEGDescriptor::FindAll(const desc_list_t &parsed, uint desc_tag)
 {
     desc_list_t tmp;
@@ -279,8 +292,8 @@ const char *descriptor_tag_strings[256] =
     /* 0x76 */ "DVB Content Identifier",/* 0x77 */ "Time Slice FEC Identifier",
     /* 0x78 */ "ECM Repetition Rate",   /* 0x79 */ "DVB-S2 Delivery Identifier",
     /* 0x7A */ "E-AC-3",                /* 0x7B */ "DTS",
-    /* 0x7C */ "AAC",                   /* 0x7D */ "",
-    /* 0x7E */ "",                      /* 0x7F */ "",
+    /* 0x7C */ "AAC",                   /* 0x7D */ "XAIT location",
+    /* 0x7E */ "FTA content management",/* 0x7F */ "Extension",
 
     /* 0x80 */ "ATSC Stuffing",         /* 0x81 */ "AC-3 Audio",
     /* 0x82 */ "SCTE Frame Rate",       /* 0x83 */ "SCTE Extended Video",
@@ -491,9 +504,32 @@ QString MPEGDescriptor::toStringPD(uint priv_dsid) const
     {
         SET_STRING(DefaultAuthorityDescriptor);
     }
-    else if (DescriptorID::t2_terrestrial_delivery_system == DescriptorTag())
+    //
+    // Extension descriptors for extension 0x7F
+    else if (DescriptorTag() == DescriptorID::extension &&
+             DescriptorTagExtension() == DescriptorID::image_icon)
     {
-        SET_STRING(T2TerrestrialDeliverySystemDescriptor);
+        SET_STRING(ImageIconDescriptor);
+    }
+    else if (DescriptorTag() == DescriptorID::extension &&
+             DescriptorTagExtension() == DescriptorID::t2_delivery_system)
+    {
+        SET_STRING(T2DeliverySystemDescriptor);
+    }
+    else if (DescriptorTag() == DescriptorID::extension &&
+             DescriptorTagExtension() == DescriptorID::c2_delivery_system)
+    {
+        SET_STRING(C2DeliverySystemDescriptor);
+    }
+    else if (DescriptorTag() == DescriptorID::extension &&
+             DescriptorTagExtension() == DescriptorID::sh_delivery_system)
+    {
+        SET_STRING(SHDeliverySystemDescriptor);
+    }
+    else if (DescriptorTag() == DescriptorID::extension &&
+             DescriptorTagExtension() == DescriptorID::s2x_satellite_delivery_system)
+    {
+        SET_STRING(S2XSatelliteDeliverySystemDescriptor);
     }
     //
     // User Defined DVB descriptors, range 0x80-0xFE

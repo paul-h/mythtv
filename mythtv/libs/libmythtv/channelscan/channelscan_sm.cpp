@@ -332,12 +332,10 @@ bool ChannelScanSM::ScanExistingTransports(uint sourceid, bool follow_nit)
 
         return false;
     }
-    else
-    {
-        LOG(VB_CHANSCAN, LOG_INFO, LOC +
-            QString("Found %1 transports for ").arg(multiplexes.size()) +
-            QString("sourceid %1").arg(sourceid));
-    }
+
+    LOG(VB_CHANSCAN, LOG_INFO, LOC +
+        QString("Found %1 transports for ").arg(multiplexes.size()) +
+        QString("sourceid %1").arg(sourceid));
 
     for (uint multiplex : multiplexes)
         AddToList(multiplex);
@@ -535,12 +533,12 @@ void ChannelScanSM::HandleBAT(const BouquetAssociationTable *bat)
             ServiceListDescriptor services(serv_list);
             if (!authority.IsValid() || !services.IsValid())
                 continue;
-
+#if 0
             LOG(VB_CHANSCAN, LOG_DEBUG, LOC +
                 QString("Found default authority '%1' in BAT for services in nid %2 tid %3")
                     .arg(authority.DefaultAuthority())
                     .arg(netid).arg(tsid));
-
+#endif
             for (uint j = 0; j < services.ServiceCount(); ++j)
             {
                 // If the default authority is given in the SDT this
@@ -586,10 +584,12 @@ void ChannelScanSM::HandleSDTo(uint tsid, const ServiceDescriptionTable *sdt)
             DefaultAuthorityDescriptor authority(def_auth);
             if (!authority.IsValid())
                 continue;
+#if 0
             LOG(VB_CHANSCAN, LOG_DEBUG, LOC +
                 QString("Found default authority '%1' in SDTo for service nid %2 tid %3 sid %4")
                     .arg(authority.DefaultAuthority())
                     .arg(netid).arg(tsid).arg(serviceId));
+#endif
             m_defAuthorities[((uint64_t)netid << 32) | (tsid << 16) | serviceId] =
                 authority.DefaultAuthority();
         }
@@ -694,7 +694,7 @@ bool ChannelScanSM::TestNextProgramEncryption(void)
 
 DTVTunerType ChannelScanSM::GuessDTVTunerType(DTVTunerType type) const
 {
-    if (m_scanDTVTunerType != (int)DTVTunerType::kTunerTypeUnknown)
+    if (m_scanDTVTunerType != DTVTunerType::kTunerTypeUnknown)
         type = m_scanDTVTunerType;
 
     const DTVChannel *chan = GetDTVChannel();
@@ -716,8 +716,12 @@ DTVTunerType ChannelScanSM::GuessDTVTunerType(DTVTunerType type) const
     return type;
 }
 
-void ChannelScanSM::UpdateScanTransports(const NetworkInformationTable *nit)
+void ChannelScanSM::UpdateScanTransports(uint nit_frequency, const NetworkInformationTable *nit)
 {
+    LOG(VB_CHANSCAN, LOG_DEBUG, LOC + QString("%1 NIT nid:%2 fr:%3 section:%4/%5 ts count:%6 ")
+        .arg(__func__).arg(nit->NetworkID()).arg(nit_frequency).arg(nit->Section()).arg(nit->LastSection())
+        .arg(nit->TransportStreamCount()));
+
     for (uint i = 0; i < nit->TransportStreamCount(); ++i)
     {
         uint32_t tsid  = nit->TSID(i);
@@ -733,18 +737,12 @@ void ChannelScanSM::UpdateScanTransports(const NetworkInformationTable *nit)
 
         for (size_t j = 0; j < list.size(); ++j)
         {
-            int mplexid = -1;
             uint64_t frequency = 0;
             const MPEGDescriptor desc(list[j]);
             uint tag = desc.DescriptorTag();
-            uint length = desc.DescriptorLength();
             QString tagString = desc.DescriptorTagString();
 
             DTVTunerType tt(DTVTunerType::kTunerTypeUnknown);
-
-            LOG(VB_CHANSCAN, LOG_DEBUG, LOC + QString("NIT ts-loop j:%1 tag:%2 (0x%3) '%4' length:%5")
-                .arg(j).arg(tag).arg(tag,0,16).arg(tagString).arg(length));
-
             switch (tag)
             {
                 case DescriptorID::terrestrial_delivery_system:
@@ -754,10 +752,18 @@ void ChannelScanSM::UpdateScanTransports(const NetworkInformationTable *nit)
                     tt = DTVTunerType::kTunerTypeDVBT;
                     break;
                 }
-                case DescriptorID::t2_terrestrial_delivery_system:
+                case DescriptorID::extension:
                 {
-                    tt = DTVTunerType::kTunerTypeDVBT2;
-                    continue;                           // T2 descriptor not yet used
+                    switch (desc.DescriptorTagExtension())
+                    {
+                        case DescriptorID::t2_delivery_system:
+                        {
+                            tt = DTVTunerType::kTunerTypeDVBT2;
+                            continue;                           // T2 descriptor not yet used
+                        }
+                        default:
+                            continue;                           // Next descriptor
+                    }
                 }
                 case DescriptorID::satellite_delivery_system:
                 {
@@ -779,26 +785,25 @@ void ChannelScanSM::UpdateScanTransports(const NetworkInformationTable *nit)
                     break;
                 }
                 default:
-                    continue;
+                    continue;                           // Next descriptor
             }
 
-            mplexid = ChannelUtil::GetMplexID(m_sourceID, frequency, tsid, netid);
-            mplexid = max(0, mplexid);
-
+            // Have now a delivery system descriptor
             tt = GuessDTVTunerType(tt);
-
             DTVMultiplex tuning;
-            if (mplexid)
+            if (tuning.FillFromDeliverySystemDesc(tt, desc))
             {
-                if (!tuning.FillFromDB(tt, mplexid))
-                    continue;
+                LOG(VB_CHANSCAN, LOG_DEBUG, QString("NIT onid:%1 add ts(%2):%3  %4")
+                    .arg(netid).arg(i).arg(tsid).arg(tuning.toString()));
+                m_extendTransports[id] = tuning;
             }
-            else if (!tuning.FillFromDeliverySystemDesc(tt, desc))
+            else
             {
-                continue;
+                LOG(VB_CHANSCAN, LOG_DEBUG, QString("NIT onid:%1 cannot add ts(%2):%3 fr:%4")
+                    .arg(netid).arg(i).arg(tsid).arg(frequency));
             }
 
-            m_extendTransports[id] = tuning;
+            // Next TS in loop
             break;
         }
     }
@@ -1011,7 +1016,7 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
         auto it = m_currentInfo->m_nits.begin();
         while (it != m_currentInfo->m_nits.end())
         {
-            UpdateScanTransports(*it);
+            UpdateScanTransports((*m_current).m_tuning.m_frequency, *it);
             ++it;
         }
     }
@@ -1247,10 +1252,12 @@ static void update_info(ChannelInsertInfo &info,
         DefaultAuthorityDescriptor authority(def_auth);
         if (authority.IsValid())
         {
+#if 0
             LOG(VB_CHANSCAN, LOG_DEBUG,
                 QString("ChannelScanSM: Found default authority '%1' in SDT for service onid %2 tid %3 sid %4")
                     .arg(authority.DefaultAuthority())
                     .arg(info.m_origNetId).arg(info.m_sdtTsId).arg(info.m_serviceId));
+#endif
             info.m_defaultAuthority = authority.DefaultAuthority();
             return;
         }
@@ -1448,10 +1455,27 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
                     continue;
                 }
 
-                // Get channel numbers from UK Frequency List Descriptors
+                // Descriptors in the transport stream loop of this transport in the NIT
                 const desc_list_t &list =
                     MPEGDescriptor::Parse(nit->TransportDescriptors(i),
                                           nit->TransportDescriptorsLength(i));
+
+                // Presence of T2 delivery system descriptor indicates DVB-T2 delivery system
+                // DVB BlueBook A038 (Feb 2019) page 104, paragraph 6.4.6.3
+                {
+                    const unsigned char *desc =
+                        MPEGDescriptor::FindExtension(
+                            list, DescriptorID::t2_delivery_system);
+
+                    if (desc)
+                    {
+                        T2DeliverySystemDescriptor t2tdsd(desc);
+                        if (t2tdsd.IsValid())
+                        {
+                            (*trans_info).m_tuning.m_modSys = DTVModulationSystem::kModulationSystem_DVBT2;
+                        }
+                    }
+                }
 
                 // Logical channel numbers
                 {
