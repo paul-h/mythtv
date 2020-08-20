@@ -121,7 +121,7 @@ static float get_aspect(const AVCodecContext &ctx)
 
     return aspect_ratio;
 }
-static float get_aspect(H264Parser &p)
+static float get_aspect(AVCParser &p)
 {
     static constexpr float kDefaultAspect = 4.0F / 3.0F;
     int asp = p.aspectRatio();
@@ -321,7 +321,7 @@ AvFormatDecoder::AvFormatDecoder(MythPlayer *parent,
                                  PlayerFlags flags)
     : DecoderBase(parent, pginfo),
       m_isDbIgnored(gCoreContext->IsDatabaseIgnored()),
-      m_h264Parser(new H264Parser()),
+      m_avcParser(new AVCParser()),
       m_playerFlags(flags),
       // Closed Caption & Teletext decoders
       m_ccd608(new CC608Decoder(parent->GetCC608Reader())),
@@ -362,7 +362,7 @@ AvFormatDecoder::~AvFormatDecoder()
     delete m_ccd708;
     delete m_ttd;
     delete m_privateDec;
-    delete m_h264Parser;
+    delete m_avcParser;
     delete m_mythCodecCtx;
 
     sws_freeContext(m_swsCtx);
@@ -416,7 +416,7 @@ void AvFormatDecoder::CloseContext()
 
     delete m_privateDec;
     m_privateDec = nullptr;
-    m_h264Parser->Reset();
+    m_avcParser->Reset();
 }
 
 static int64_t lsb3full(int64_t lsb, int64_t base_ts, int lsb_bits)
@@ -1025,9 +1025,9 @@ int AvFormatDecoder::OpenFile(MythMediaBuffer *Buffer, bool novideo,
             err = avformat_open_input(&m_ic, filename, fmt, nullptr);
             if (err < 0)
             {
-                char error[AV_ERROR_MAX_STRING_SIZE];
-                av_make_error_string(error, sizeof(error), err);
-                LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Failed to open input ('%1')").arg(error));
+                std::string error;
+                LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Failed to open input ('%1')")
+                    .arg(av_make_error_stdstring(error, err)));
 
                 // note - m_ic (AVFormatContext) is freed on failure
                 if (retries > 1)
@@ -1447,7 +1447,7 @@ int AvFormatDecoder::GetMaxReferenceFrames(AVCodecContext *Context)
 
                 if (offset)
                 {
-                    H264Parser parser;
+                    AVCParser parser;
                     bool dummy = false;
                     parser.parse_SPS(Context->extradata + offset,
                                      static_cast<uint>(Context->extradata_size - offset), dummy, result);
@@ -2318,7 +2318,7 @@ int AvFormatDecoder::ScanStreams(bool novideo)
 
             delete m_privateDec;
             m_privateDec = nullptr;
-            m_h264Parser->Reset();
+            m_avcParser->Reset();
 
             QSize dim = get_video_dim(*enc);
             int width  = max(dim.width(),  16);
@@ -2519,15 +2519,13 @@ bool AvFormatDecoder::OpenAVCodec(AVCodecContext *avctx, const AVCodec *codec)
     int ret = avcodec_open2(avctx, codec, nullptr);
     if (ret < 0)
     {
-        char error[AV_ERROR_MAX_STRING_SIZE];
-
-        av_make_error_string(error, sizeof(error), ret);
+        std::string error;
         LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("Could not open codec 0x%1, id(%2) type(%3) "
                     "ignoring. reason %4").arg((uint64_t)avctx,0,16)
             .arg(ff_codec_id_string(avctx->codec_id))
             .arg(ff_codec_type_string(avctx->codec_type))
-            .arg(error));
+            .arg(av_make_error_stdstring(error, ret)));
         return false;
     }
 
@@ -3238,16 +3236,16 @@ int AvFormatDecoder::H264PreProcessPkt(AVStream *stream, AVPacket *pkt)
 
     while (buf < buf_end)
     {
-        buf += m_h264Parser->addBytes(buf, static_cast<unsigned int>(buf_end - buf), 0);
+        buf += m_avcParser->addBytes(buf, static_cast<unsigned int>(buf_end - buf), 0);
 
-        if (m_h264Parser->stateChanged())
+        if (m_avcParser->stateChanged())
         {
-            if (m_h264Parser->FieldType() != H264Parser::FIELD_BOTTOM)
+            if (m_avcParser->getFieldType() != AVCParser::FIELD_BOTTOM)
             {
-                if (m_h264Parser->onFrameStart())
+                if (m_avcParser->onFrameStart())
                     ++num_frames;
 
-                if (!m_h264Parser->onKeyFrameStart())
+                if (!m_avcParser->onKeyFrameStart())
                     continue;
             }
             else
@@ -3261,10 +3259,10 @@ int AvFormatDecoder::H264PreProcessPkt(AVStream *stream, AVPacket *pkt)
         }
 
         m_nextDecodedFrameIsKeyFrame = true;
-        float aspect = get_aspect(*m_h264Parser);
-        int width  = static_cast<int>(m_h264Parser->pictureWidthCropped());
-        int height = static_cast<int>(m_h264Parser->pictureHeightCropped());
-        double seqFPS = m_h264Parser->frameRate();
+        float aspect = get_aspect(*m_avcParser);
+        int width  = static_cast<int>(m_avcParser->pictureWidthCropped());
+        int height = static_cast<int>(m_avcParser->pictureHeightCropped());
+        double seqFPS = m_avcParser->frameRate();
 
         bool res_changed = ((width  != m_currentWidth) || (height != m_currentHeight));
         bool fps_changed = (seqFPS > 0.0) && ((seqFPS > static_cast<double>(m_fps) + 0.01) ||
@@ -3284,7 +3282,7 @@ int AvFormatDecoder::H264PreProcessPkt(AVStream *stream, AVPacket *pkt)
             bool doublerate = false;
             bool decoderdeint = m_mythCodecCtx ? m_mythCodecCtx->IsDeinterlacing(doublerate, true) : false;
             m_parent->SetVideoParams(width, height, seqFPS, m_currentAspect, forcechange,
-                                     static_cast<int>(m_h264Parser->getRefFrames()),
+                                     static_cast<int>(m_avcParser->getRefFrames()),
                                      decoderdeint ? kScan_Progressive : kScan_Ignore);
 
             // the SetVideoParams call above will have released all held frames
@@ -3455,12 +3453,12 @@ bool AvFormatDecoder::ProcessVideoPacket(AVStream *curstream, AVPacket *pkt, boo
 
     if (ret < 0 || ret2 < 0)
     {
-        char error[AV_ERROR_MAX_STRING_SIZE];
+        std::string error;
         if (ret < 0)
         {
             LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("video avcodec_receive_frame error: %1 (%2) gotpicture:%3")
-                .arg(av_make_error_string(error, sizeof(error), ret))
+                .arg(av_make_error_stdstring(error, ret))
                 .arg(ret).arg(gotpicture));
         }
 
@@ -3468,7 +3466,7 @@ bool AvFormatDecoder::ProcessVideoPacket(AVStream *curstream, AVPacket *pkt, boo
         {
             LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("video avcodec_send_packet error: %1 (%2) gotpicture:%3")
-                .arg(av_make_error_string(error, sizeof(error), ret2))
+                .arg(av_make_error_stdstring(error, ret2))
                 .arg(ret2).arg(gotpicture));
         }
 
@@ -3977,10 +3975,15 @@ bool AvFormatDecoder::ProcessSubtitlePacket(AVStream *curstream, AVPacket *pkt)
     if (!m_parent->GetSubReader(pkt->stream_index))
         return true;
 
-    long long pts = 0;
-
-    if (pkt->dts != AV_NOPTS_VALUE)
-        pts = (long long)(av_q2d(curstream->time_base) * pkt->dts * 1000);
+    long long pts = pkt->pts;
+    if (pts == AV_NOPTS_VALUE)
+        pts = pkt->dts;
+    if (pts == AV_NOPTS_VALUE)
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC + "No PTS found - unable to process subtitle.");
+        return false;
+    }
+    pts = static_cast<long long>(av_q2d(curstream->time_base) * pts * 1000);
 
     m_trackLock.lock();
     int subIdx = m_selectedTrack[kTrackTypeSubtitle].m_av_stream_index;
@@ -4047,7 +4050,11 @@ bool AvFormatDecoder::ProcessRawTextPacket(AVPacket *pkt)
     QTextCodec *codec = QTextCodec::codecForName("utf-8");
     QTextDecoder *dec = codec->makeDecoder();
     QString text      = dec->toUnicode((const char*)pkt->data, pkt->size - 1);
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList list  = text.split('\n', QString::SkipEmptyParts);
+#else
+    QStringList list  = text.split('\n', Qt::SkipEmptyParts);
+#endif
     delete dec;
 
     m_parent->GetSubReader(pkt->stream_index + 0x2000)->AddRawTextSubtitle(list, pkt->duration);
@@ -4937,10 +4944,10 @@ bool AvFormatDecoder::GetFrame(DecodeType decodetype, bool &Retry)
 
                 SetEof(true);
                 delete pkt;
-                char errbuf[256];
+                std::string errbuf(256,'\0');
                 QString errmsg;
-                if (av_strerror(retval, errbuf, sizeof errbuf) == 0)
-                    errmsg = QString(errbuf);
+                if (av_strerror_stdstring(retval, errbuf) == 0)
+                    errmsg = QString::fromStdString(errbuf);
                 else
                     errmsg = "UNKNOWN";
 

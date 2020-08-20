@@ -176,6 +176,21 @@ ServiceDescriptor *ServiceDescriptionTable::GetServiceDescriptor(uint i) const
     return nullptr;
 }
 
+ServiceRelocatedDescriptor *ServiceDescriptionTable::GetServiceRelocatedDescriptor(uint i) const
+{
+    desc_list_t parsed =
+        MPEGDescriptor::Parse(ServiceDescriptors(i),
+                              ServiceDescriptorsLength(i));
+
+    const unsigned char *desc =
+        MPEGDescriptor::FindExtension(parsed, DescriptorID::service_relocated);
+
+    if (desc)
+        return new ServiceRelocatedDescriptor(desc);
+
+    return nullptr;
+}
+
 bool ServiceDescriptionTable::Mutate(void)
 {
     if (VerifyCRC())
@@ -298,11 +313,7 @@ QDateTime dvbdate2qt(const unsigned char *buf)
         secsSince1970 += byteBCD2int(buf[2]) * 3600;
         secsSince1970 += byteBCD2int(buf[3]) * 60;
         secsSince1970 += byteBCD2int(buf[4]);
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-        return MythDate::fromTime_t(secsSince1970);
-#else
         return MythDate::fromSecsSinceEpoch(secsSince1970);
-#endif
     }
 
     // Original function taken from dvbdate.c in linuxtv-apps code

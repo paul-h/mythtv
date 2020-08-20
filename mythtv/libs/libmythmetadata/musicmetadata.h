@@ -41,7 +41,7 @@ class META_PUBLIC AlbumArtImage
   public:
     AlbumArtImage(void) :
             m_filename(""), m_hostname(""), m_description("") {}
-    AlbumArtImage(AlbumArtImage *image) :
+    explicit AlbumArtImage(const AlbumArtImage * const image) :
             m_id(image->m_id), m_filename(image->m_filename),
             m_hostname(image->m_hostname), m_imageType(image->m_imageType),
             m_description(image->m_description), m_embedded(image->m_embedded) {}
@@ -108,7 +108,6 @@ class META_PUBLIC MusicMetadata
                    m_filename(std::move(lfilename))
     {
         checkEmptyFields();
-        ensureSortFields();
     }
 
     MusicMetadata(int lid, QString lbroadcaster, QString lchannel, QString ldescription, UrlList lurls, QString llogourl,
@@ -130,6 +129,7 @@ class META_PUBLIC MusicMetadata
                    const QString &lartist_sort = nullptr)
     {
         m_artist = lartist;
+        m_artistId = -1;
         m_artistSort = lartist_sort;
         m_formattedArtist.clear(); m_formattedTitle.clear();
         ensureSortFields();
@@ -141,6 +141,7 @@ class META_PUBLIC MusicMetadata
                               const QString &lcompilation_artist_sort = nullptr)
     {
         m_compilationArtist = lcompilation_artist;
+        m_compartistId = -1;
         m_compilationArtistSort = lcompilation_artist_sort;
         m_formattedArtist.clear(); m_formattedTitle.clear();
         ensureSortFields();
@@ -152,6 +153,7 @@ class META_PUBLIC MusicMetadata
                   const QString &lalbum_sort = nullptr)
     {
         m_album = lalbum;
+        m_albumId = -1;
         m_albumSort = lalbum_sort;
         m_formattedArtist.clear(); m_formattedTitle.clear();
         ensureSortFields();
@@ -171,13 +173,19 @@ class META_PUBLIC MusicMetadata
     QString FormatTitle();
 
     QString Genre() const { return m_genre; }
-    void setGenre(const QString &lgenre) { m_genre = lgenre; }
+    void setGenre(const QString &lgenre) {
+        m_genre = lgenre;
+        m_genreId = -1;
+    }
 
     void setDirectoryId(int ldirectoryid) { m_directoryId = ldirectoryid; }
     int getDirectoryId();
 
     void setArtistId(int lartistid) { m_artistId = lartistid; }
     int getArtistId();
+
+    void setCompilationArtistId(int lartistid) { m_compartistId = lartistid; }
+    int getCompilationArtistId();
 
     void setAlbumId(int lalbumid) { m_albumId = lalbumid; }
     int getAlbumId();
@@ -458,13 +466,8 @@ class META_PUBLIC AllMusic
 
     int                      m_playCountMin    {0};
     int                      m_playCountMax    {0};
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-    double                   m_lastPlayMin     {0.0};
-    double                   m_lastPlayMax     {0.0};
-#else
     qint64                   m_lastPlayMin     {0};
     qint64                   m_lastPlayMax     {0};
-#endif
 };
 
 using StreamList = QList<MusicMetadata*>;
@@ -522,7 +525,7 @@ class META_PUBLIC AlbumArtImages
     ~AlbumArtImages();
 
     void           scanForImages(void);
-    void           addImage(const AlbumArtImage &newImage);
+    void           addImage(const AlbumArtImage * newImage);
     uint           getImageCount() { return m_imageList.size(); }
     AlbumArtImage *getImage(ImageType type);
     AlbumArtImage *getImageByID(int imageID);

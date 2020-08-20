@@ -790,7 +790,7 @@ PlaybackProfileItemConfig::PlaybackProfileItemConfig(
     m_doubleDriver->setEnabled(false);
 
     QList<QPair<QString,QString> > options = VideoDisplayProfile::GetDeinterlacers();
-    foreach (const auto & option, options)
+    for (const auto & option : qAsConst(options))
     {
         m_singleDeint->addSelection(option.second, option.first);
         m_doubleDeint->addSelection(option.second, option.first);
@@ -1099,7 +1099,7 @@ bool PlaybackProfileItemConfig::keyPressEvent(QKeyEvent *e)
     if (GetMythMainWindow()->TranslateKeyPress("Global", e, actions))
         return true;
 
-    foreach (const QString &action, actions)
+    for (const QString & action : qAsConst(actions))
     {
         if (action == "DELETE")
         {
@@ -1216,7 +1216,7 @@ void PlaybackProfileConfig::Save(void)
         return;
     }
 
-    foreach (PlaybackProfileItemConfig *profile, m_profiles)
+    for (PlaybackProfileItemConfig *profile : qAsConst(m_profiles))
     {
         profile->Save();
     }
@@ -1241,7 +1241,7 @@ void PlaybackProfileConfig::Save(void)
 void PlaybackProfileConfig::DeleteProfileItem(
     PlaybackProfileItemConfig *profileToDelete)
 {
-    foreach (PlaybackProfileItemConfig *profile, m_profiles)
+    for (PlaybackProfileItemConfig *profile : qAsConst(m_profiles))
     {
         profile->Save();
     }
@@ -1255,7 +1255,7 @@ void PlaybackProfileConfig::DeleteProfileItem(
 
 void PlaybackProfileConfig::AddNewEntry(void)
 {
-    foreach (PlaybackProfileItemConfig *profile, m_profiles)
+    for (PlaybackProfileItemConfig *profile : qAsConst(m_profiles))
     {
         profile->Save();
     }
@@ -1272,7 +1272,7 @@ void PlaybackProfileConfig::ReloadSettings(void)
     getParent()->removeTargetedChild(m_profileName, m_markForDeletion);
     getParent()->removeTargetedChild(m_profileName, m_addNewEntry);
 
-    foreach (StandardSetting *setting, m_profiles)
+    for (StandardSetting *setting : qAsConst(m_profiles))
     {
         getParent()->removeTargetedChild(m_profileName, setting);
     }
@@ -1280,7 +1280,7 @@ void PlaybackProfileConfig::ReloadSettings(void)
 
     InitUI(getParent());
 
-    foreach (StandardSetting *setting, m_profiles)
+    for (StandardSetting *setting : qAsConst(m_profiles))
     {
         setting->Load();
     }
@@ -1291,7 +1291,7 @@ void PlaybackProfileConfig::ReloadSettings(void)
 
 void PlaybackProfileConfig::swap(int indexA, int indexB)
 {
-    foreach (PlaybackProfileItemConfig *profile, m_profiles)
+    for (PlaybackProfileItemConfig *profile : qAsConst(m_profiles))
     {
         profile->Save();
     }
@@ -1520,7 +1520,7 @@ static HostComboBoxSetting *SubtitleCodec()
 
     QList<QByteArray> list = QTextCodec::availableCodecs();
 
-    foreach (const auto & codec, list)
+    for (const auto & codec : qAsConst(list))
     {
         QString val = QString(codec);
         gc->addSelection(val, val, val.toLower() == "utf-8");
@@ -1649,7 +1649,7 @@ static HostComboBoxSetting *Visualiser()
                                        "is no video. Defaults to none."));
     combo->addSelection("None", "");
     QStringList visuals = VideoVisual::GetVisualiserList(RenderType::kRenderOpenGL);
-    foreach (const auto & visual, visuals)
+    for (const auto & visual : qAsConst(visuals))
         combo->addSelection(visual, visual);
     return combo;
 }
@@ -2106,7 +2106,8 @@ static HostComboBoxSetting *ScreenAspectRatio()
     auto *gc = new HostComboBoxSetting("XineramaMonitorAspectRatio");
 
     gc->setLabel(AppearanceSettings::tr("Screen aspect ratio"));
-    gc->addSelection(AppearanceSettings::tr("Auto"),    "0.0");
+    gc->addSelection(AppearanceSettings::tr("Auto (Assume square pixels)"), "-1.0");
+    gc->addSelection(AppearanceSettings::tr("Auto (Detect from display)"), "0.0");
     gc->addSelection(AppearanceSettings::tr("16:9"),    "1.7777");
     gc->addSelection(AppearanceSettings::tr("16:10"),   "1.6");
     gc->addSelection(AppearanceSettings::tr("21:9"),    "2.3704"); // N.B. Actually 64:27
@@ -2119,8 +2120,10 @@ static HostComboBoxSetting *ScreenAspectRatio()
     gc->addSelection(AppearanceSettings::tr("32:10 (16:10 Side by side)"),    "3.2");
     gc->addSelection(AppearanceSettings::tr("16:20 (16:10 Above and below)"), "0.8");
     gc->setHelpText(AppearanceSettings::tr(
-            "The aspect ratio of the screen (or screens) is usually automatically detected "
-            "from the connected display ('Auto'). If automatic detection fails, the correct "
+            "Most modern displays have square pixels and the aspect ratio of the screen can be "
+            "computed from the resolution (default). "
+            "The aspect ratio can also be automatically detected from the connected display "
+            "- though this may be slightly less accurate. If automatic detection fails, the correct "
             "aspect ratio can be specified here. Note: Some values (e.g 32:10) are "
             "primarily intended for multiscreen setups."));
     return gc;
@@ -3109,7 +3112,7 @@ static GlobalComboBoxSetting *MythLanguage()
 
     gc->clearSelections();
 
-    foreach (auto label, langs)
+    for (const auto & label : qAsConst(langs))
     {
         QString value = langMap.key(label);
         gc->addSelection(label, value, (value.toLower() == langCode));
@@ -4581,7 +4584,7 @@ void AppearanceSettings::applyChange()
 void AppearanceSettings::PopulateScreens(int Screens)
 {
     m_screen->clearSelections();
-    foreach (QScreen *qscreen, QGuiApplication::screens())
+    for (QScreen *qscreen : QGuiApplication::screens())
     {
         QString extra = MythDisplay::GetExtraScreenInfo(qscreen);
         m_screen->addSelection(qscreen->name() + extra, qscreen->name());

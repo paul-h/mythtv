@@ -2307,7 +2307,13 @@ bool Scheduler::HandleReschedule(void)
         QStringList request = m_reschedQueue.dequeue();
         QStringList tokens;
         if (!request.empty())
+        {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             tokens = request[0].split(' ', QString::SkipEmptyParts);
+#else
+            tokens = request[0].split(' ', Qt::SkipEmptyParts);
+#endif
+        }
 
         if (request.empty() || tokens.empty())
         {
@@ -3384,11 +3390,7 @@ void Scheduler::ShutdownServer(int prerollseconds, QDateTime &idleSince)
         {
             QString time_ts;
             setwakeup_cmd.replace("$time",
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-                                  time_ts.setNum(restarttime.toTime_t())
-#else
                                   time_ts.setNum(restarttime.toSecsSinceEpoch())
-#endif
                 );
         }
         else

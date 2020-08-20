@@ -37,9 +37,17 @@ VDPAUCodec::VDPAUCodec(MythCodecContext::CodecProfile Profile, QSize Size, uint3
 
 bool VDPAUCodec::Supported(int Width, int Height, int Level) const
 {
+    // Note - level checks are now ignored here and in FFmpeg
     uint32_t macros = static_cast<uint32_t>(((Width + 15) & ~15) * ((Height + 15) & ~15)) / 256;
-    return (Width <= m_maxSize.width()) && (Height <= m_maxSize.height()) &&
-           (macros <= m_maxMacroBlocks) && (static_cast<uint32_t>(Level) <= m_maxLevel);
+    bool result = (Width <= m_maxSize.width()) && (Height <= m_maxSize.height()) &&
+                  (macros <= m_maxMacroBlocks) /*&& (static_cast<uint32_t>(Level) <= m_maxLevel)*/;
+    if (!result)
+    {
+        LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("Not supported: Size %1x%2 > %3x%4, MBs %5 > %6, Level %7 > %8")
+                .arg(Width).arg(Height).arg(m_maxSize.width()).arg(m_maxSize.height())
+                .arg(macros).arg(m_maxMacroBlocks).arg(Level).arg(m_maxLevel));
+    }
+    return result;
 }
 
 bool MythVDPAUHelper::HaveVDPAU(void)
@@ -62,7 +70,7 @@ bool MythVDPAUHelper::HaveVDPAU(void)
     {
         LOG(VB_GENERAL, LOG_INFO, LOC + "Supported/available VDPAU decoders:");
         const VDPAUProfiles& profiles = MythVDPAUHelper::GetProfiles();
-        foreach (auto profile, profiles)
+        for (auto profile : qAsConst(profiles))
             LOG(VB_GENERAL, LOG_INFO, LOC +
                 MythCodecContext::GetProfileDescription(profile.first, profile.second.m_maxSize));
     }
@@ -80,16 +88,38 @@ bool MythVDPAUHelper::ProfileCheck(VdpDecoderProfile Profile, uint32_t &Level,
         return false;
 
     INIT_ST
-    VdpBool supported = 0;
+    VdpBool supported = VDP_FALSE;
     status = m_vdpDecoderQueryCapabilities(m_device, Profile, &supported,
                                            &Level, &Macros, &Width, &Height);
     CHECK_ST
-    return supported > 0;
+
+    LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("ProfileCheck: Prof %1 Supp %2 Level %3 Macros %4 Width %5 Height %6 Status %7")
+        .arg(Profile).arg(supported).arg(Level).arg(Macros).arg(Width).arg(Height).arg(status));
+
+    if (((supported != VDP_TRUE) || (status != VDP_STATUS_OK)) &&
+        (Profile == VDP_DECODER_PROFILE_H264_CONSTRAINED_BASELINE ||
+         Profile == VDP_DECODER_PROFILE_H264_BASELINE))
+    {
+        LOG(VB_GENERAL, LOG_INFO, LOC + QString("Driver does not report support for H264 %1Baseline")
+            .arg(Profile == VDP_DECODER_PROFILE_H264_CONSTRAINED_BASELINE ? "Constrained " : ""));
+
+        // H264 Constrained baseline is reported as not supported on older chipsets but
+        // works due to support for H264 Main. Test for H264 main if constrained baseline
+        // fails - which mimics the fallback in FFmpeg.
+        // Updated to included baseline... not so sure about that:)
+        status = m_vdpDecoderQueryCapabilities(m_device, VDP_DECODER_PROFILE_H264_MAIN, &supported,
+                                               &Level, &Macros, &Width, &Height);
+        CHECK_ST
+        if (supported == VDP_TRUE)
+            LOG(VB_GENERAL, LOG_INFO, LOC + "... but assuming available as H264 Main is supported");
+    }
+
+    return supported == VDP_TRUE;
 }
 
 const VDPAUProfiles& MythVDPAUHelper::GetProfiles(void)
 {
-    static const VdpDecoderProfile MainProfiles[] =
+    static const std::array<const VdpDecoderProfile,15> MainProfiles
     {
         VDP_DECODER_PROFILE_MPEG1, VDP_DECODER_PROFILE_MPEG2_SIMPLE, VDP_DECODER_PROFILE_MPEG2_MAIN,
         VDP_DECODER_PROFILE_MPEG4_PART2_SP, VDP_DECODER_PROFILE_MPEG4_PART2_ASP,
@@ -99,7 +129,7 @@ const VDPAUProfiles& MythVDPAUHelper::GetProfiles(void)
         VDP_DECODER_PROFILE_H264_CONSTRAINED_HIGH, VDP_DECODER_PROFILE_H264_HIGH_444_PREDICTIVE
     };
 
-    static const VdpDecoderProfile HEVCProfiles[] =
+    static const std::array<const VdpDecoderProfile,4> HEVCProfiles
     {
         VDP_DECODER_PROFILE_HEVC_MAIN, VDP_DECODER_PROFILE_HEVC_MAIN_10,
         VDP_DECODER_PROFILE_HEVC_MAIN_STILL, VDP_DECODER_PROFILE_HEVC_MAIN_444
@@ -186,7 +216,7 @@ void MythVDPAUHelper::GetDecoderList(QStringList &Decoders)
         return;
 
     Decoders.append("VDPAU:");
-    foreach (auto profile, profiles)
+    for (auto profile : qAsConst(profiles))
         if (profile.first != MythCodecContext::MJPEG)
             Decoders.append(MythCodecContext::GetProfileDescription(profile.first, profile.second.m_maxSize));
 }
@@ -218,8 +248,7 @@ MythVDPAUHelper::MythVDPAUHelper(AVVDPAUDeviceContext* Context)
 
 static const char* DummyGetError(VdpStatus /*status*/)
 {
-    static constexpr char kDummy[] = "Unknown";
-    return &kDummy[0];
+    return "Unknown";
 }
 
 MythVDPAUHelper::MythVDPAUHelper(void)
@@ -324,9 +353,7 @@ bool MythVDPAUHelper::CheckH264Decode(AVCodecContext *Context)
     switch (Context->profile & ~FF_PROFILE_H264_INTRA)
     {
         case FF_PROFILE_H264_BASELINE: profile = VDP_DECODER_PROFILE_H264_BASELINE; break;
-#ifdef VDP_DECODER_PROFILE_H264_CONSTRAINED_BASELINE
         case FF_PROFILE_H264_CONSTRAINED_BASELINE: profile = VDP_DECODER_PROFILE_H264_CONSTRAINED_BASELINE; break;
-#endif
         case FF_PROFILE_H264_MAIN: profile = VDP_DECODER_PROFILE_H264_MAIN; break;
         case FF_PROFILE_H264_HIGH: profile = VDP_DECODER_PROFILE_H264_HIGH; break;
 #ifdef VDP_DECODER_PROFILE_H264_EXTENDED

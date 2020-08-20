@@ -457,13 +457,13 @@ static void init_freq_tables(freq_table_map_t &fmap)
 
     // New Zealand
     fmap["dvbt_ofdm_nz0"] = new FrequencyTable(
-        474000000, 858000000, 8000000, "Channel %1", 21,
+        474000000, 690000000, 8000000, "Channel %1", 21,
         DTVInversion::kInversionOff,
         DTVBandwidth::kBandwidth8MHz, DTVCodeRate::kFEC_3_4,
         DTVCodeRate::kFEC_3_4, DTVModulation::kModulationQAM64,
         DTVTransmitMode::kTransmissionMode8K,
         DTVGuardInterval::kGuardInterval_1_16, DTVHierarchy::kHierarchyNone,
-        DTVModulation::kModulationQAM64, 0 , 0); // UHF 21-69
+        DTVModulation::kModulationQAM64, 0 , 0); // UHF 21-48
 
     // France
     fmap["dvbt_ofdm_fr0"] = new FrequencyTable(
@@ -487,13 +487,13 @@ static void init_freq_tables(freq_table_map_t &fmap)
 
     // Netherlands
     fmap["dvbt_ofdm_nl0"] = new FrequencyTable(
-        474000000, 786000000, 8000000, "Channel %1", 21,
+        474000000, 690000000, 8000000, "Channel %1", 21,
         DTVInversion::kInversionOff,
         DTVBandwidth::kBandwidth8MHz, DTVCodeRate::kFECAuto,
         DTVCodeRate::kFECAuto, DTVModulation::kModulationQAMAuto,
         DTVTransmitMode::kTransmissionModeAuto,
         DTVGuardInterval::kGuardIntervalAuto, DTVHierarchy::kHierarchyNone,
-        DTVModulation::kModulationQAMAuto, 0, 0); // UHF 21-60
+        DTVModulation::kModulationQAMAuto, 0, 0); // UHF 21-48
 
     // Chile (ISDB-Tb)
     fmap["dvbt_ofdm_cl0"] = new FrequencyTable(
@@ -584,12 +584,15 @@ static void init_freq_tables(freq_table_map_t &fmap)
         DTVModulation::kModulation8VSB);
 #endif // !DEBUG_DVB_OFFSETS
 
-    QString modStr[] = { "vsb8",  "qam256",   "qam128",   "qam64",   };
-    DTVModulation::Types mod[] = { DTVModulation::kModulation8VSB,
+    const std::array<const QString,4> modStr {
+        "vsb8", "qam256", "qam128", "qam64" };
+    const std::array<const DTVModulation::Types,4> mod {
+                         DTVModulation::kModulation8VSB,
                          DTVModulation::kModulationQAM256,
                          DTVModulation::kModulationQAM128,
                          DTVModulation::kModulationQAM64, };
-    QString desc[]   = { "ATSC ", "QAM-256 ", "QAM-128 ", "QAM-64 ", };
+    const std::array<const QString,4> desc {
+        "ATSC ", "QAM-256 ", "QAM-128 ", "QAM-64 ", };
 
 #define FREQ(A,B, C,D, E,F,G, H, I) \
     fmap[QString("atsc_%1_us%2").arg(A).arg(B)] = \
@@ -703,18 +706,16 @@ static void init_freq_tables(freq_table_map_t &fmap)
     }
 
     // create old school frequency tables...
-    for (CHANLISTS *ptr = gChanLists; ptr->name ; ptr++)
+    for (const auto & [name, list] : gChanLists)
     {
-        QString tbl_name = ptr->name;
-        for (uint i = 0; i < (uint)ptr->count; i++)
+        for (uint i = 0; i < (uint)list.size(); i++)
         {
-            uint64_t freq = (ptr->list[i].freq * 1000LL) + 1750000;
-            fmap[QString("analog_analog_%1%2").arg(tbl_name).arg(i)] =
+            uint64_t freq = (list[i].freq * 1000LL) + 1750000;
+            fmap[QString("analog_analog_%1%2").arg(name).arg(i)] =
                 new FrequencyTable(
-                    QString("%1 %2").arg(tbl_name).arg(ptr->list[i].name), i+2,
+                    QString("%1 %2").arg(name).arg(list[i].name), i+2,
                     freq, freq + 3000000,
                     6000000, DTVModulation::kModulationAnalog);
         }
     }
-
 }

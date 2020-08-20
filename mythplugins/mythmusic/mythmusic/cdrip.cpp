@@ -309,21 +309,21 @@ void CDRipperThread::run(void)
                     if (encodertype == "mp3")
                     {
                         outfile = QString("track%1.mp3").arg(trackno);
-                        encoder.reset(new LameEncoder(saveDir + outfile, m_quality,
-                                                      titleTrack, mp3usevbr));
+                        encoder = std::make_unique<LameEncoder>(saveDir + outfile, m_quality,
+                                                      titleTrack, mp3usevbr);
                     }
                     else // ogg
                     {
                         outfile = QString("track%1.ogg").arg(trackno);
-                        encoder.reset(new VorbisEncoder(saveDir + outfile, m_quality,
-                                                        titleTrack));
+                        encoder = std::make_unique<VorbisEncoder>(saveDir + outfile, m_quality,
+                                                        titleTrack);
                     }
                 }
                 else
                 {
                     outfile = QString("track%1.flac").arg(trackno);
-                    encoder.reset(new FlacEncoder(saveDir + outfile, m_quality,
-                                                  titleTrack));
+                    encoder = std::make_unique<FlacEncoder>(saveDir + outfile, m_quality,
+                                                  titleTrack);
                 }
 
                 if (!encoder->isValid())
@@ -951,7 +951,7 @@ void Ripper::artistChanged()
 
     if (!m_tracks->empty())
     {
-        foreach (auto track, *m_tracks)
+        for (const auto *track : qAsConst(*m_tracks))
         {
             MusicMetadata *data = track->metadata;
             if (data)
@@ -980,7 +980,7 @@ void Ripper::albumChanged()
 
     if (!m_tracks->empty())
     {
-        foreach (auto track, *m_tracks)
+        for (const auto *track : qAsConst(*m_tracks))
         {
             MusicMetadata *data = track->metadata;
             if (data)
@@ -997,7 +997,7 @@ void Ripper::genreChanged()
 
     if (!m_tracks->empty())
     {
-        foreach (auto track, *m_tracks)
+        for (const auto *track : qAsConst(*m_tracks))
         {
             MusicMetadata *data = track->metadata;
             if (data)
@@ -1014,7 +1014,7 @@ void Ripper::yearChanged()
 
     if (!m_tracks->empty())
     {
-        foreach (auto track, *m_tracks)
+        for (const auto *track : qAsConst(*m_tracks))
         {
             MusicMetadata *data = track->metadata;
             if (data)
@@ -1032,7 +1032,7 @@ void Ripper::compilationChanged(bool state)
         if (!m_tracks->empty())
         {
             // Update artist MetaData of each track on the ablum...
-            foreach (auto track, *m_tracks)
+            for (const auto *track : qAsConst(*m_tracks))
             {
                 MusicMetadata *data = track->metadata;
                 if (data)
@@ -1051,7 +1051,7 @@ void Ripper::compilationChanged(bool state)
         if (!m_tracks->empty())
         {
             // Update artist MetaData of each track on the album...
-            foreach (auto track, *m_tracks)
+            for (const auto *track : qAsConst(*m_tracks))
             {
                 MusicMetadata *data = track->metadata;
 
@@ -1079,7 +1079,7 @@ void Ripper::switchTitlesAndArtists()
     QString tmp;
     if (!m_tracks->empty())
     {
-        foreach (auto track, *m_tracks)
+        for (const auto *track : qAsConst(*m_tracks))
         {
             MusicMetadata *data = track->metadata;
 

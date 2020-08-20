@@ -140,7 +140,7 @@ void MythMultiLocker::Unlock(void)
 
 void MythMultiLocker::Relock(void)
 {
-    foreach (auto lock, m_locks)
+    for (auto *lock : qAsConst(m_locks))
         if (lock)
             lock->lock();
 }
@@ -1871,7 +1871,11 @@ void MythPlayer::AVSync(VideoFrame *buffer)
             m_osdLock.lock();
             // Only double rate CPU deinterlacers require an extra call to ProcessFrame
             if (GetDoubleRateOption(buffer, DEINT_CPU) && !GetDoubleRateOption(buffer, DEINT_SHADER))
+            {
+                // the first deinterlacing pass will have marked the frame as already deinterlaced
+                buffer->already_deinterlaced = false;
                 m_videoOutput->ProcessFrame(buffer, m_osd, m_pipPlayers, ps);
+            }
             m_videoOutput->PrepareFrame(buffer, ps, m_osd);
             m_osdLock.unlock();
             // Display the second field
@@ -2107,7 +2111,7 @@ void MythPlayer::DisplayNormalFrame(bool check_prebuffer)
 {
     if (m_allPaused)
         return;
-   
+
     bool ispip = m_playerCtx->IsPIP();
     if (ispip)
     {
@@ -3558,30 +3562,12 @@ void MythPlayer::SetWatched(bool forceWatched)
 
         // If the recording is stopped early we need to use the recording end
         // time, not the programme end time
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-        uint endtime;
-        if (m_playerCtx->m_playingInfo->GetRecordingEndTime().toTime_t() <
-            m_playerCtx->m_playingInfo->GetScheduledEndTime().toTime_t())
-        {
-            endtime = m_playerCtx->m_playingInfo->GetRecordingEndTime().toTime_t();
-        }
-        else
-        {
-            endtime = m_playerCtx->m_playingInfo->GetScheduledEndTime().toTime_t();
-        }
-
-        numFrames = (long long)
-            ((endtime -
-              m_playerCtx->m_playingInfo->GetRecordingStartTime().toTime_t()) *
-             m_videoFrameRate);
-#else
         ProgramInfo *pi = m_playerCtx->m_playingInfo;
         qint64 starttime = pi->GetRecordingStartTime().toSecsSinceEpoch();
         qint64 endactual = pi->GetRecordingEndTime().toSecsSinceEpoch();
         qint64 endsched = pi->GetScheduledEndTime().toSecsSinceEpoch();
         qint64 endtime = min(endactual, endsched);
         numFrames = (long long) ((endtime - starttime) * m_videoFrameRate);
-#endif
     }
 
     int offset = (int) round(0.14 * (numFrames / m_videoFrameRate));
@@ -4532,9 +4518,9 @@ char *MythPlayer::GetScreenGrabAtFrame(uint64_t FrameNum, bool Absolute,
 
     if (frame->interlaced_frame)
     {
-        // Use medium quality - which is currently yadif
+        // Use high quality - which is currently yadif
         frame->deinterlace_double = DEINT_NONE;
-        frame->deinterlace_allowed = frame->deinterlace_single = DEINT_CPU | DEINT_MEDIUM;
+        frame->deinterlace_allowed = frame->deinterlace_single = DEINT_CPU | DEINT_HIGH;
         MythDeinterlacer deinterlacer;
         deinterlacer.Filter(frame, kScan_Interlaced, nullptr, true);
     }
@@ -4670,13 +4656,16 @@ void MythPlayer::GetCodecDescription(InfoMap &infoMap)
         return;
 
     bool interlaced = is_interlaced(m_scan);
-    if (width == 1920 || height == 1080 || height == 1088)
+    if (height > 2100)
+        infoMap["videodescrip"] = interlaced ? "UHD_4K_I" : "UHD_4K_P";
+    else if (width == 1920 || height == 1080 || height == 1088)
         infoMap["videodescrip"] = interlaced ? "HD_1080_I" : "HD_1080_P";
     else if ((width == 1280 || height == 720) && !interlaced)
         infoMap["videodescrip"] = "HD_720_P";
     else if (height >= 720)
         infoMap["videodescrip"] = "HD";
-    else infoMap["videodescrip"] = "SD";
+    else
+        infoMap["videodescrip"] = "SD";
 }
 
 bool MythPlayer::GetRawAudioState(void) const
@@ -5038,7 +5027,7 @@ void MythPlayer::calcSliderPos(osdInfo &info, bool paddedFields)
         }
         else
         {
-            QString fmt = (playbackLen >= ONEHOURINSEC) ? "H:mm:ss" : "mm:ss";
+            QString fmt = (playbackLen >= ONEHOURINSEC) ? "H:mm:ss" : "m:ss";
             text1 = MythFormatTime(secsplayed, fmt);
             text2 = MythFormatTime(playbackLen, fmt);
 
@@ -5048,7 +5037,7 @@ void MythPlayer::calcSliderPos(osdInfo &info, bool paddedFields)
             }
             else if (secsbehind >= ONEMININSEC)
             {
-                text3 = MythFormatTime(secsbehind, "mm:ss");
+                text3 = MythFormatTime(secsbehind, "m:ss");
             }
             else
             {

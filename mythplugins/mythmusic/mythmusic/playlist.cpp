@@ -207,11 +207,7 @@ void Playlist::shuffleTracks(MusicPlayer::ShuffleMode shuffleMode)
                     {
                         // first song
                         playcountMin = playcountMax = mdata->PlayCount();
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-                        lastplayMin = lastplayMax = mdata->LastPlay().toTime_t();
-#else
                         lastplayMin = lastplayMax = mdata->LastPlay().toSecsSinceEpoch();
-#endif
                     }
                     else
                     {
@@ -220,18 +216,11 @@ void Playlist::shuffleTracks(MusicPlayer::ShuffleMode shuffleMode)
                         else if (mdata->PlayCount() > playcountMax)
                             playcountMax = mdata->PlayCount();
 
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-                        if (mdata->LastPlay().toTime_t() < lastplayMin)
-                            lastplayMin = mdata->LastPlay().toTime_t();
-                        else if (mdata->LastPlay().toTime_t() > lastplayMax)
-                            lastplayMax = mdata->LastPlay().toTime_t();
-#else
                         double lastplaysecs = mdata->LastPlay().toSecsSinceEpoch();
                         if (lastplaysecs < lastplayMin)
                             lastplayMin = lastplaysecs;
                         else if (lastplaysecs > lastplayMax)
                             lastplayMax = lastplaysecs;
-#endif
                     }
                 }
             }
@@ -248,11 +237,7 @@ void Playlist::shuffleTracks(MusicPlayer::ShuffleMode shuffleMode)
                 {
                     int rating = mdata->Rating();
                     int playcount = mdata->PlayCount();
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-                    double lastplaydbl = mdata->LastPlay().toTime_t();
-#else
                     double lastplaydbl = mdata->LastPlay().toSecsSinceEpoch();
-#endif
                     double ratingValue = (double)(rating) / 10;
                     double playcountValue = NAN;
                     double lastplayValue = NAN;
@@ -651,8 +636,12 @@ void Playlist::fillSongsFromSonglist(const QString& songList)
 {
     bool badTrack = false;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList list = songList.split(",", QString::SkipEmptyParts);
-    foreach (auto & song, list)
+#else
+    QStringList list = songList.split(",", Qt::SkipEmptyParts);
+#endif
+    for (const auto & song : qAsConst(list))
     {
         MusicMetadata::IdType id = song.toUInt();
         int repo = ID_TO_REPO(id);
@@ -755,10 +744,14 @@ void Playlist::fillSonglistFromQuery(const QString& whereClause,
 
         case PL_INSERTAFTERCURRENT:
         {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList list = orig_songlist.split(",", QString::SkipEmptyParts);
+#else
+            QStringList list = orig_songlist.split(",", Qt::SkipEmptyParts);
+#endif
             bool bFound = false;
             QString tempList;
-            foreach (auto & song, list)
+            for (const auto& song : qAsConst(list))
             {
                 int an_int = song.toInt();
                 tempList += "," + song;
@@ -824,10 +817,14 @@ void Playlist::fillSonglistFromList(const QList<int> &songList,
 
         case PL_INSERTAFTERCURRENT:
         {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList list = orig_songlist.split(",", QString::SkipEmptyParts);
+#else
+            QStringList list = orig_songlist.split(",", Qt::SkipEmptyParts);
+#endif
             bool bFound = false;
             QString tempList;
-            foreach (auto & song, list)
+            for (const auto & song : qAsConst(list))
             {
                 int an_int = song.toInt();
                 tempList += "," + song;
@@ -1072,11 +1069,16 @@ void Playlist::savePlaylist(const QString& a_name, const QString& a_host)
 
 QString Playlist::removeDuplicateTracks(const QString &orig_songlist, const QString &new_songlist)
 {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList curList = orig_songlist.split(",", QString::SkipEmptyParts);
     QStringList newList = new_songlist.split(",", QString::SkipEmptyParts);
+#else
+    QStringList curList = orig_songlist.split(",", Qt::SkipEmptyParts);
+    QStringList newList = new_songlist.split(",", Qt::SkipEmptyParts);
+#endif
     QString songlist;
 
-    foreach (auto & song, newList)
+    for (const auto & song : qAsConst(newList))
     {
         if (curList.indexOf(song) == -1)
             songlist += "," + song;
@@ -1167,8 +1169,13 @@ void Playlist::cdrecordData(int fd)
         // to update the same line, so I'm splitting it on \r or \n
         // Track 01:    6 of  147 MB written (fifo 100%) [buf  99%]  16.3x.
         QString data(buf);
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
         QStringList list = data.split(QRegExp("[\\r\\n]"),
                                       QString::SkipEmptyParts);
+#else
+        QStringList list = data.split(QRegExp("[\\r\\n]"),
+                                      Qt::SkipEmptyParts);
+#endif
 
         for (int i = 0; i < list.size(); i++)
         {

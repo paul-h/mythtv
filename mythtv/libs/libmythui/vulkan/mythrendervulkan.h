@@ -6,6 +6,7 @@
 #include <QVulkanDeviceFunctions>
 
 // MythTV
+#include "mythuiexp.h"
 #include "mythrender_base.h"
 
 class MythImage;
@@ -24,21 +25,23 @@ class MythVulkanObject
     QVulkanDeviceFunctions* m_devFuncs { nullptr };
 };
 
-class MythRenderVulkan : public QObject, public QVulkanWindowRenderer, public MythRender
+class MUI_PUBLIC MythRenderVulkan : public QObject, public QVulkanWindowRenderer, public MythRender
 {
     Q_OBJECT
 
   public:
-    static const std::vector<uint16_t> s_VertexIndices;
+
+    static MythRenderVulkan* GetVulkanRender(void);
 
     MythRenderVulkan();
    ~MythRenderVulkan() override;
 
     void SetVulkanWindow           (MythWindowVulkan *VulkanWindow);
+    MythWindowVulkan* GetVulkanWindow(void);
     void SetFrameExpected          (void);
-    bool GetFrameExpected          (void);
-    bool GetFrameStarted           (void);
-    bool Init                      (void);
+    bool GetFrameExpected          (void) const;
+    bool GetFrameStarted           (void) const;
+    static bool Init               (void);
     void EndFrame                  (void);
     QStringList GetDescription(void) override;
 
@@ -54,8 +57,11 @@ class MythRenderVulkan : public QObject, public QVulkanWindowRenderer, public My
     bool            CreateImage(QSize Size, VkFormat Format, VkImageTiling Tiling,
                                 VkImageUsageFlags Usage, VkMemoryPropertyFlags Properties,
                                 VkImage& Image, VkDeviceMemory& ImageMemory);
-    void            TransitionImageLayout(VkImage &Image, VkImageLayout OldLayout, VkImageLayout NewLayout);
-    void            CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+    void            TransitionImageLayout(VkImage &Image, VkImageLayout OldLayout,
+                                          VkImageLayout NewLayout, VkCommandBuffer CommandBuffer = nullptr);
+    void            CopyBufferToImage(VkBuffer Buffer, VkImage Image,
+                                      uint32_t Width, uint32_t Height,
+                                      VkCommandBuffer CommandBuffer = nullptr);
     bool            CreateBuffer(VkDeviceSize Size, VkBufferUsageFlags Usage,
                                  VkMemoryPropertyFlags Properties, VkBuffer& Buffer,
                                  VkDeviceMemory& Memory);
@@ -64,6 +70,7 @@ class MythRenderVulkan : public QObject, public QVulkanWindowRenderer, public My
     VkPipeline      CreatePipeline(MythShaderVulkan* Shader, VkPipelineLayout Layout, const QRect &Viewport);
     VkCommandBuffer CreateSingleUseCommandBuffer(void);
     void            FinishSingleUseCommandBuffer(VkCommandBuffer &Buffer);
+    VkSampler       CreateSampler(VkFilter Min, VkFilter Mag);
 
   signals:
     void DoFreeResources    (void);

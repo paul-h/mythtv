@@ -520,20 +520,13 @@ void MythVideoOutputOpenGL::PrepareFrame(VideoFrame *Frame, FrameScanType Scan, 
     if (VERBOSE_LEVEL_CHECK(VB_GPU, LOG_INFO))
         m_render->logDebugMarker(LOC + "CLEAR_START");
 
-    int gray = m_dbLetterboxColour == kLetterBoxColour_Gray25 ? 64 : 0;
-    bool useclear = !Frame || dummy || ((m_render->GetExtraFeatures() & kGLTiled) != 0);
-#if QT_VERSION < QT_VERSION_CHECK(5, 8, 0)
-    // Qt < 5.8 uses a different QRegion API. Just clear and remove this code
-    // when 5.8 is standard
-    useclear = true;
-#endif
+    uint8_t gray = m_dbLetterboxColour == kLetterBoxColour_Gray25 ? 64 : 0;
 
-    if (useclear)
+    if (!Frame || dummy || ((m_render->GetExtraFeatures() & kGLTiled) != 0))
     {
         m_render->SetBackground(gray, gray, gray, 255);
         m_render->ClearFramebuffer();
     }
-#if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
     // avoid clearing the framebuffer if it will be entirely overwritten by video
     else if (!m_window.VideoIsFullScreen())
     {
@@ -547,11 +540,10 @@ void MythVideoOutputOpenGL::PrepareFrame(VideoFrame *Frame, FrameScanType Scan, 
             // in the vast majority of cases it is significantly quicker to just
             // clear the unused portions of the screen
             QRegion toclear = m_window.GetBoundingRegion();
-            foreach (auto rect, toclear)
+            for (auto rect : qAsConst(toclear))
                 m_render->ClearRect(nullptr, rect, gray);
         }
     }
-#endif
 
     if (VERBOSE_LEVEL_CHECK(VB_GPU, LOG_INFO))
         m_render->logDebugMarker(LOC + "CLEAR_END");
@@ -785,18 +777,12 @@ void MythVideoOutputOpenGL::ClearAfterSeek(void)
 }
 
 /*! \brief Generate a list of supported OpenGL profiles.
- *
- * \note This list could be filtered based upon current feature support. This
- * would however assume an OpenGL render device (not currently a given) but more
- * importantly, filtering out a selected profile encourages the display profile
- * code to use a higher priority, non-OpenGL renderer (such as VDPAU). By not
- * filtering, we allow the OpenGL video code to fallback to a supported, reasonable
- * alternative.
 */
 QStringList MythVideoOutputOpenGL::GetAllowedRenderers(MythCodecID CodecId, const QSize& /*VideoDim*/)
 {
     QStringList allowed;
-    if (getenv("NO_OPENGL"))
+
+    if (MythRenderOpenGL::GetOpenGLRender() == nullptr)
         return allowed;
 
     if (codec_sw_copy(CodecId))

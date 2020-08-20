@@ -105,22 +105,22 @@ static const TBuiltInResource s_TBuiltInResource = {
     /* .maxMeshViewCountNV = */ 4,
 
     .limits = {
-        /* .nonInductiveForLoops = */ 1,
-        /* .whileLoops = */ 1,
-        /* .doWhileLoops = */ 1,
-        /* .generalUniformIndexing = */ 1,
-        /* .generalAttributeMatrixVectorIndexing = */ 1,
-        /* .generalVaryingIndexing = */ 1,
-        /* .generalSamplerIndexing = */ 1,
-        /* .generalVariableIndexing = */ 1,
-        /* .generalConstantMatrixVectorIndexing = */ 1,
+        /* .nonInductiveForLoops = */ true,
+        /* .whileLoops = */ true,
+        /* .doWhileLoops = */ true,
+        /* .generalUniformIndexing = */ true,
+        /* .generalAttributeMatrixVectorIndexing = */ true,
+        /* .generalVaryingIndexing = */ true,
+        /* .generalSamplerIndexing = */ true,
+        /* .generalVariableIndexing = */ true,
+        /* .generalConstantMatrixVectorIndexing = */ true,
     }
 };
 
 static auto GLSLangCompile(EShLanguage Stage, const QString &Code)
 {
     std::vector<uint32_t> result;
-    glslang::TShader *shader = new glslang::TShader(Stage);
+    auto *shader = new glslang::TShader(Stage);
     if (!shader)
         return result;
 
@@ -137,7 +137,7 @@ static auto GLSLangCompile(EShLanguage Stage, const QString &Code)
         return result;
     }
 
-    glslang::TProgram *program = new glslang::TProgram();
+    auto *program = new glslang::TProgram();
     if (!program)
     {
         delete shader;
@@ -232,7 +232,7 @@ bool MythShaderVulkan::CreateShaderFromGLSL(const std::vector<MythGLSLStage> &St
         return EShLangCount;
     };
 
-    for (auto stage : Stages)
+    for (const auto& stage : Stages)
         if (glslangtype(stage.first) != EShLangCount)
             spirvstages.emplace_back(stage.first, GLSLangCompile(glslangtype(stage.first), stage.second));
     MythShaderVulkan::InitGLSLang(true);
@@ -254,7 +254,7 @@ MythShaderVulkan* MythShaderVulkan::Create(MythRenderVulkan *Render, VkDevice De
                                            const MythShaderMap *Sources,
                                            const MythBindingMap *Bindings)
 {
-    MythShaderVulkan* result = new MythShaderVulkan(Render, Device, Functions, Stages, Sources, Bindings);
+    auto* result = new MythShaderVulkan(Render, Device, Functions, Stages, Sources, Bindings);
     if (result && !result->m_valid)
     {
         delete result;
@@ -280,15 +280,18 @@ MythShaderVulkan::MythShaderVulkan(MythRenderVulkan* Render, VkDevice Device,
         Bindings = &k450ShaderBindings;
 
     // ensure we have sources and bindings
-    for (auto & stage : Stages)
+    for (const auto & stage : Stages)
         if (Sources->find(stage) == Sources->end() || Bindings->find(stage) == Bindings->end())
             return;
 
     // build the descriptor set layouts from the shader descriptions
     bool foundvertices = false;
+    bool pushconstants = false;
+    VkPushConstantRange ranges = { };
+
     std::map<int, std::vector<VkDescriptorSetLayoutBinding>> layoutbindings;
     std::map<int, std::vector<VkDescriptorPoolSize>> poolsizes;
-    for (auto & stage : Stages)
+    for (const auto & stage : Stages)
     {
         bool isvertex = false;
         MythBindingDesc desc = Bindings->at(stage);
@@ -316,10 +319,20 @@ MythShaderVulkan::MythShaderVulkan(MythRenderVulkan* Render, VkDevice Device,
             m_vertexBindingDesc = std::get<1>(desc);
             m_vertexAttributes  = std::get<2>(desc);
         }
+
+        if (!pushconstants)
+        {
+            VkPushConstantRange range = std::get<3>(desc);
+            if (range.stageFlags)
+            {
+                pushconstants = true;
+                ranges = range;
+            }
+        }
     }
 
     // convert poolsizes to vector
-    for (auto poolsize : poolsizes)
+    for (const auto& poolsize : poolsizes)
         m_descriptorPoolSizes.emplace_back(poolsize.second);
 
     // create the desriptor layouts
@@ -346,6 +359,13 @@ MythShaderVulkan::MythShaderVulkan(MythRenderVulkan* Render, VkDevice Device,
     pipelinelayout.sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelinelayout.setLayoutCount = static_cast<uint32_t>(m_descriptorSetLayouts.size());
     pipelinelayout.pSetLayouts    = m_descriptorSetLayouts.data();
+
+    if (pushconstants)
+    {
+        pipelinelayout.pushConstantRangeCount = 1;
+        pipelinelayout.pPushConstantRanges    = &ranges;
+    }
+
     if (m_devFuncs->vkCreatePipelineLayout(m_device, &pipelinelayout, nullptr, &m_pipelineLayout) != VK_SUCCESS)
         LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create pipeline layout");
 
@@ -357,7 +377,7 @@ MythShaderVulkan::MythShaderVulkan(MythRenderVulkan* Render, VkDevice Device,
     if (useglsl)
     {
         std::vector<MythGLSLStage> glslstages;
-        for (auto & stage : Stages)
+        for (const auto & stage : Stages)
             glslstages.emplace_back(std::get<0>(Bindings->at(stage)).front().second.stageFlags, Sources->at(stage).first);
         m_valid = MythShaderVulkan::CreateShaderFromGLSL(glslstages);
         return;
@@ -365,7 +385,7 @@ MythShaderVulkan::MythShaderVulkan(MythRenderVulkan* Render, VkDevice Device,
 #endif
 
     std::vector<MythSPIRVStage> stages;
-    for (auto & stage : Stages)
+    for (const auto & stage : Stages)
         stages.emplace_back(std::get<0>(Bindings->at(stage)).front().second.stageFlags, Sources->at(stage).second);
     m_valid = MythShaderVulkan::CreateShaderFromSPIRV(stages);
 }
@@ -389,15 +409,15 @@ bool MythShaderVulkan::CreateShaderFromSPIRV(const std::vector<MythSPIRVStage> &
     if (Stages.empty())
         return false;
 
-    for (auto & stage : Stages)
+    for (const auto & stage : Stages)
         if (stage.second.empty())
             return false;
 
     bool success = true;
-    for (auto & stage : Stages)
+    for (const auto & stage : Stages)
     {
         auto size = stage.second.size() * sizeof (uint32_t);
-        auto code = reinterpret_cast<uint32_t*>(new uint8_t [size]);
+        auto *code = reinterpret_cast<uint32_t*>(new uint8_t [size]);
         memcpy(code, stage.second.data(), size);
         VkShaderModule module = nullptr;
         VkShaderModuleCreateInfo create { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, nullptr, 0, size, code };

@@ -74,6 +74,9 @@ static inline int get_ue_golomb(GetBitContext *gb)
     }
 #else
     OPEN_READER(re, gb);
+    /* MythTV: clang-tidy warns "Access to field 'l' results in a
+     * dereference of a null pointer".  No plans to investigate.
+     * NOLINTNEXTLINE(clang-analyzer-core.NullDereference) */
     UPDATE_CACHE(re, gb);
     buf = GET_CACHE(re, gb);
 
@@ -313,7 +316,7 @@ static inline int get_interleaved_se_golomb(GetBitContext *gb)
     } else {
         int log;
         skip_bits(gb, 8);
-        buf |= 1 | show_bits_long(gb, 24);
+        buf |= 1 | show_bits(gb, 24);
 
         if ((buf & 0xAAAAAAAA) == 0)
             return INVALID_VLC;

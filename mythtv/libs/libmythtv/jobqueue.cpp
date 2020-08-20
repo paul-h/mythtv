@@ -95,7 +95,11 @@ void JobQueue::customEvent(QEvent *e)
             // LOCAL_JOB action type chanid recstartts hostname
             QString msg;
             message = message.simplified();
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList tokens = message.split(" ", QString::SkipEmptyParts);
+#else
+            QStringList tokens = message.split(" ", Qt::SkipEmptyParts);
+#endif
             QString action = tokens[1];
             int jobID = -1;
 
@@ -205,7 +209,7 @@ void JobQueue::ProcessQueue(void)
         if (!jobs.empty())
         {
             inTimeWindow = InJobRunWindow();
-            foreach (auto & job, jobs)
+            for (const auto & job : qAsConst(jobs))
             {
                 int status = job.status;
                 hostname = job.hostname;
@@ -1060,7 +1064,7 @@ bool JobQueue::ChangeJobArgs(int jobID, const QString& args)
 int JobQueue::GetRunningJobID(uint chanid, const QDateTime &recstartts)
 {
     m_runningJobsLock->lock();
-    foreach (auto jInfo, m_runningJobs)
+    for (const auto& jInfo : qAsConst(m_runningJobs))
     {
         if ((jInfo.pginfo->GetChanID()             == chanid) &&
             (jInfo.pginfo->GetRecordingStartTime() == recstartts))
@@ -1871,11 +1875,12 @@ QString JobQueue::PrettyPrint(off_t bytes)
 {
     // Pretty print "bytes" as KB, MB, GB, TB, etc., subject to the desired
     // number of units
-    static const struct {
+    struct PpTab_t {
         const char   *m_suffix;
         unsigned int  m_max;
         int           m_precision;
-    } kPpTab[] = {
+    };
+    static constexpr array<const PpTab_t,9> kPpTab {{
         { "bytes", 9999, 0 },
         { "kB", 999, 0 },
         { "MB", 999, 1 },
@@ -1885,7 +1890,7 @@ QString JobQueue::PrettyPrint(off_t bytes)
         { "EB", 999, 1 },
         { "ZB", 999, 1 },
         { "YB", 0, 0 },
-    };
+    }};
     float fbytes = bytes;
 
     unsigned int ii = 0;
@@ -1961,7 +1966,11 @@ void JobQueue::DoTranscodeThread(int jobID)
     {
         command = m_runningJobs[jobID].command;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
         QStringList tokens = command.split(" ", QString::SkipEmptyParts);
+#else
+        QStringList tokens = command.split(" ", Qt::SkipEmptyParts);
+#endif
         if (!tokens.empty())
             path = tokens[0];
     }
@@ -2326,7 +2335,11 @@ void JobQueue::DoFlagCommercialsThread(int jobID)
     else
     {
         command = m_runningJobs[jobID].command;
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
         QStringList tokens = command.split(" ", QString::SkipEmptyParts);
+#else
+        QStringList tokens = command.split(" ", Qt::SkipEmptyParts);
+#endif
         if (!tokens.empty())
             path = tokens[0];
     }

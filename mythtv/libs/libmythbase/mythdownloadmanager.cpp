@@ -669,7 +669,7 @@ void MythDownloadManager::downloadQNetworkRequest(MythDownloadInfo *dlInfo)
     if (!dlInfo)
         return;
 
-    static constexpr char kDateFormat[] = "ddd, dd MMM yyyy hh:mm:ss 'GMT'";
+    static const QString kDateFormat = "ddd, dd MMM yyyy hh:mm:ss 'GMT'";
     QUrl qurl(dlInfo->m_url);
     QNetworkRequest request;
 
@@ -1036,7 +1036,7 @@ void MythDownloadManager::cancelDownload(const QString &url, bool block)
 void MythDownloadManager::cancelDownload(const QStringList &urls, bool block)
 {
     m_infoLock->lock();
-    foreach (QString url, urls)
+    for (const auto& url : qAsConst(urls))
     {
         QMutableListIterator<MythDownloadInfo*> lit(m_downloadQueue);
         while (lit.hasNext())
@@ -1222,7 +1222,7 @@ void MythDownloadManager::downloadFinished(MythDownloadInfo *dlInfo)
         return;
 
     int statusCode = -1;
-    static constexpr char kDateFormat[] = "ddd, dd MMM yyyy hh:mm:ss 'GMT'";
+    static const QString kDateFormat = "ddd, dd MMM yyyy hh:mm:ss 'GMT'";
     QNetworkReply *reply = dlInfo->m_reply;
 
     if (reply)
@@ -1560,7 +1560,7 @@ QDateTime MythDownloadManager::GetLastModified(const QString &url)
     // the cache object is less than 20 minutes old,
     // then use the cached header otherwise redownload the header
 
-    static constexpr char kDateFormat[] = "ddd, dd MMM yyyy hh:mm:ss 'GMT'";
+    static const QString kDateFormat = "ddd, dd MMM yyyy hh:mm:ss 'GMT'";
     LOG(VB_FILE, LOG_DEBUG, LOC + QString("GetLastModified('%1')").arg(url));
     QDateTime result;
 
@@ -1755,7 +1755,7 @@ QString MythDownloadManager::getHeader(const QUrl& url, const QString& header)
 QString MythDownloadManager::getHeader(const QNetworkCacheMetaData &cacheData,
                                        const QString& header)
 {
-    foreach (auto & rh, cacheData.rawHeaders())
+    for (const auto& rh : cacheData.rawHeaders())
         if (QString(rh.first) == header)
             return QString(rh.second);
     return QString();
@@ -1813,7 +1813,7 @@ void MythCookieJar::save(const QString &filename)
     QList<QNetworkCookie> cookieList = allCookies();
     QTextStream stream(&f);
 
-    foreach (auto & cookie, cookieList)
+    for (const auto& cookie : qAsConst(cookieList))
         stream << cookie.toRawForm() << endl;
 }
 

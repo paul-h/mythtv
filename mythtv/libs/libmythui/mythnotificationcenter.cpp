@@ -50,29 +50,29 @@ void MythNotificationScreenStack::PopScreen(MythScreenType *screen, bool allowFa
 
     screen->aboutToHide();
 
-    if (m_Children.isEmpty())
+    if (m_children.isEmpty())
         return;
 
     MythMainWindow *mainwindow = GetMythMainWindow();
 
     screen->setParent(nullptr);
-    if (allowFade && m_DoTransitions && !mainwindow->IsExitingToMain())
+    if (allowFade && m_doTransitions && !mainwindow->IsExitingToMain())
     {
         screen->SetFullscreen(false);
         if (deleteScreen)
         {
             screen->SetDeleting(true);
-            m_ToDelete.push_back(screen);
+            m_toDelete.push_back(screen);
         }
         screen->AdjustAlpha(1, -kFadeVal);
     }
     else
     {
-        for (int i = 0; i < m_Children.size(); ++i)
+        for (int i = 0; i < m_children.size(); ++i)
         {
-            if (m_Children.at(i) == screen)
+            if (m_children.at(i) == screen)
             {
-                m_Children.remove(i);
+                m_children.remove(i);
                 break;
             }
         }
@@ -87,12 +87,12 @@ void MythNotificationScreenStack::PopScreen(MythScreenType *screen, bool allowFa
     RecalculateDrawOrder();
 
     // If we're fading it, we still want to draw it.
-    if (screen && !m_DrawOrder.contains(screen))
-        m_DrawOrder.push_back(screen);
+    if (screen && !m_drawOrder.contains(screen))
+        m_drawOrder.push_back(screen);
 
-    if (!m_Children.isEmpty())
+    if (!m_children.isEmpty())
     {
-        foreach (auto & draw, m_DrawOrder)
+        for (auto *draw : qAsConst(m_drawOrder))
         {
             if (draw != screen && !draw->IsDeleting())
             {
@@ -123,15 +123,15 @@ void MythNotificationScreenStack::PopScreen(MythScreenType *screen, bool allowFa
 
 MythScreenType *MythNotificationScreenStack::GetTopScreen(void) const
 {
-    if (m_Children.isEmpty())
+    if (m_children.isEmpty())
         return nullptr;
     // The top screen is the only currently displayed first, if there's a
     // fullscreen notification displayed, it's the last one
-    MythScreenType *top = m_Children.front();
-    QVector<MythScreenType *>::const_iterator it = m_Children.end() - 1;
+    MythScreenType *top = m_children.front();
+    QVector<MythScreenType *>::const_iterator it = m_children.end() - 1;
 
     // loop from last to 2nd
-    for (; it != m_Children.begin(); --it)
+    for (; it != m_children.begin(); --it)
     {
         auto *s = dynamic_cast<MythNotificationScreen *>(*it);
         if (!s)
@@ -773,7 +773,7 @@ NCPrivate::~NCPrivate()
     DeleteAllScreens();
 
     // Delete all outstanding queued notifications
-    foreach(MythNotification *n, m_notifications)
+    for (MythNotification *n : qAsConst(m_notifications))
     {
         delete n;
     }
@@ -912,7 +912,7 @@ void NCPrivate::ProcessQueue(void)
 
     DeleteAllScreens();
 
-    foreach (MythNotification *n, m_notifications)
+    for (MythNotification *n : qAsConst(m_notifications))
     {
         int id = n->GetId();
         bool created = false;
@@ -1057,7 +1057,7 @@ void NCPrivate::UnRegister(void *from, int id, bool closeimemdiately)
 
 void NCPrivate::DeleteAllRegistrations(void)
 {
-    foreach (auto & registration, m_registrations)
+    for (auto *registration : qAsConst(m_registrations))
     {
         if (registration)
         {
@@ -1234,7 +1234,7 @@ void NCPrivate::GetNotificationScreens(QList<MythScreenType*> &_screens)
     m_screenStack->GetScreenList(screens);
 
     int position = 0;
-    foreach (auto item, screens)
+    for (auto *item : qAsConst(screens))
     {
         auto *screen = dynamic_cast<MythNotificationScreen*>(item);
         if (screen)

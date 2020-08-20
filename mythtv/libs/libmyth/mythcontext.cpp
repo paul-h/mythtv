@@ -13,10 +13,9 @@
 
 #include <cmath>
 #include <iostream>
-
-#include <algorithm>
 #include <queue>
 #include <thread>
+#include <vector>
 
 using namespace std;
 
@@ -29,7 +28,6 @@ using namespace std;
 #include "dbsettings.h"
 #include "langsettings.h"
 #include "mythtranslation.h"
-#include "platforms/mythxdisplay.h"
 #include "mythevent.h"
 #include "dbutil.h"
 #include "mythmediamonitor.h"
@@ -138,7 +136,7 @@ class MythContextPrivate : public QObject
     int                     m_registration       {-1};
     QDateTime               m_lastCheck;
     QTcpSocket             *m_socket             {nullptr};
-    static const QString    kSettingsToSave[];
+    static const std::vector<QString> kSettingsToSave;
 };
 
 static void exec_program_cb(const QString &cmd)
@@ -830,7 +828,7 @@ QString MythContextPrivate::TestDBconnection(bool prompt)
         st_success = 6
     } startupState = st_start;
 
-    static const QString kGuiStatuses[7] =
+    static const std::array<const QString,7> kGuiStatuses
         {"start","dbAwake","dbStarted","dbConnects","beWOL","beAwake",
             "success" };
 
@@ -1470,7 +1468,7 @@ void MythContextPrivate::processEvents(void)
 // cache some settings in cache/contextcache.xml
 // only call this if the database is available.
 
-const QString MythContextPrivate::kSettingsToSave[] =
+const std::vector<QString> MythContextPrivate::kSettingsToSave
 { "Theme", "Language", "Country", "GuiHeight",
   "GuiOffsetX", "GuiOffsetY", "GuiWidth", "RunFrontendInWindow",
   "AlwaysOnTop", "HideMouseCursor", "ThemePainter", "libCECEnabled",

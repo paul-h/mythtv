@@ -22,9 +22,7 @@
 
 #define LOC      QString("MythUIVirtualKeyboard: ")
 
-static const int numcomps = 95;
-
-static const QString comps[numcomps][3] = {
+static const std::array<std::array<QString,3>,95> comps {{
         {"!", "!", (QChar)0xa1},    {"c", "/", (QChar)0xa2},
         {"l", "-", (QChar)0xa3},    {"o", "x", (QChar)0xa4},
         {"y", "-", (QChar)0xa5},    {"|", "|", (QChar)0xa6},
@@ -73,7 +71,7 @@ static const QString comps[numcomps][3] = {
         {"u", "^", (QChar)0xfb},    {"u", "\"", (QChar)0xfc},
         {"y", "'", (QChar)0xfd},    {"t", "h", (QChar)0xfe},
         {"y", "\"", (QChar)0xff}
-};
+}};
 
 MythUIVirtualKeyboard::MythUIVirtualKeyboard(MythScreenStack *parentStack, MythUITextEdit *parentEdit)
           : MythScreenType(parentStack, "MythUIVirtualKeyboard")
@@ -284,7 +282,7 @@ void MythUIVirtualKeyboard::parseKey(const QDomElement &element)
 void MythUIVirtualKeyboard::updateKeys(bool connectSignals)
 {
     QList<MythUIType *> *children = GetAllChildren();
-    foreach (auto child, *children)
+    for (auto *child : qAsConst(*children))
     {
         auto *button = dynamic_cast<MythUIButton *>(child);
         if (button)
@@ -633,7 +631,11 @@ QString MythUIVirtualKeyboard::getKeyText(const KeyDefinition& key) const
 void MythUIVirtualKeyboard::loadEventKeyDefinitions(KeyEventDefinition *keyDef, const QString &action)
 {
     QString keylist = MythMainWindow::GetKey("Global", action);
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList keys = keylist.split(',', QString::SkipEmptyParts);
+#else
+    QStringList keys = keylist.split(',', Qt::SkipEmptyParts);
+#endif
     if (keys.empty())
         return;
 

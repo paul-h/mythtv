@@ -46,6 +46,10 @@
 #include "mythmiscutil.h"
 #endif
 
+#ifdef USING_SATIP
+#include "satiputils.h"
+#endif
+
 #ifdef USING_ASI
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -89,6 +93,12 @@ QString CardUtil::GetScanableInputTypes(void)
         inputTypes += ",";
     inputTypes += "'HDHOMERUN'";
 #endif // USING_HDHOMERUN
+
+#ifdef USING_SATIP
+    if (!inputTypes.isEmpty())
+        inputTypes += ",";
+    inputTypes += "'SATIP'";
+#endif // USING_SATIP
 
 #ifdef USING_ASI
     if (!inputTypes.isEmpty())
@@ -228,7 +238,8 @@ bool CardUtil::IsCableCardPresent(uint inputid,
 bool CardUtil::HasTuner(const QString &rawtype, const QString & device)
 {
     if (rawtype == "DVB"     || rawtype == "HDHOMERUN" ||
-        rawtype == "FREEBOX" || rawtype == "CETON" || rawtype == "VBOX")
+        rawtype == "FREEBOX" || rawtype == "CETON" ||
+        rawtype == "VBOX"    || rawtype == "SATIP")
         return true;
 
 #ifdef USING_V4L2
@@ -467,21 +478,21 @@ QStringList CardUtil::ProbeVideoDevices(const QString &rawtype)
     if (rawtype.toUpper() == "DVB")
     {
         QDir dir("/dev/dvb", "adapter*", QDir::Name, QDir::Dirs);
-        foreach (const auto & it, dir.entryInfoList())
+        for (const auto & it : dir.entryInfoList())
         {
             QDir subdir(it.filePath(), "frontend*", QDir::Name, QDir::Files | QDir::System);
             const QFileInfoList subil = subdir.entryInfoList();
             if (subil.isEmpty())
                 continue;
 
-            foreach (const auto & subit, subil)
+            for (const auto & subit : qAsConst(subil))
                 devs.push_back(subit.filePath());
         }
     }
     else if (rawtype.toUpper() == "ASI")
     {
         QDir dir("/dev/", "asirx*", QDir::Name, QDir::System);
-        foreach (const auto & it, dir.entryInfoList())
+        for (const auto & it : dir.entryInfoList())
         {
             if (GetASIDeviceNumber(it.filePath()) >= 0)
             {
@@ -543,6 +554,12 @@ QStringList CardUtil::ProbeVideoDevices(const QString &rawtype)
         }
     }
 #endif // USING_HDHOMERUN
+#ifdef USING_SATIP
+    else if (rawtype.toUpper() == "SATIP")
+    {
+        devs = SatIP::probeDevices();
+    }
+#endif // USING_SATIP
 #ifdef USING_VBOX
     else if (rawtype.toUpper() == "VBOX")
     {
@@ -602,7 +619,7 @@ QStringList CardUtil::ProbeDeliverySystems(const QString &device)
     delsyslist = ProbeDeliverySystems(fd_frontend);
 
     QString msg = "Delivery systems:";
-    foreach (auto & item, delsyslist)
+    for (const auto & item : qAsConst(delsyslist))
     {
         msg += " ";
         msg += item;
@@ -1000,7 +1017,7 @@ DTVModulationSystem CardUtil::ProbeBestDeliverySystem(int fd)
     // Get all supported delivery systems from the card
     QString msg = "Supported delivery systems:";
     QStringList delsyslist = ProbeDeliverySystems(fd);
-    foreach (auto & it, delsyslist)
+    for (const auto & it : qAsConst(delsyslist))
     {
         msg += " ";
         msg += it;
@@ -1893,9 +1910,9 @@ uint CardUtil::CreateDeviceInputGroup(uint inputid,
                                       const QString &device)
 {
     QString name = host + '|' + device;
-    if (type == "FREEBOX" || type == "IMPORT" ||
-        type == "DEMO"    || type == "EXTERNAL" ||
-        type == "HDHOMERUN")
+    if (type == "FREEBOX"   || type == "IMPORT"   ||
+        type == "DEMO"      || type == "EXTERNAL" ||
+        type == "HDHOMERUN" || type == "SATIP")
         name += QString("|%1").arg(inputid);
     return CreateInputGroup(name);
 }
@@ -2189,7 +2206,7 @@ bool CardUtil::GetV4LInfo(
 #endif // USING_V4L2
 
     if (!driver.isEmpty())
-        driver.remove( QRegExp("\\[[0-9]\\]$") );
+        driver.remove( QRegularExpression(R"(\[[0-9]\]$)") );
 
     return !input.isEmpty();
 }

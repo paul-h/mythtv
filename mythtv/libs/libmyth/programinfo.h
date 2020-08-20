@@ -68,6 +68,7 @@ class MPUBLIC ProgramInfo
 {
     friend int pginfo_init_statics(void);
   public:
+    static constexpr int kNumCatTypes = 5;
     enum CategoryType { kCategoryNone, kCategoryMovie, kCategorySeries,
                         kCategorySports, kCategoryTVShow };
 
@@ -592,6 +593,7 @@ class MPUBLIC ProgramInfo
     uint        QueryAverageHeight(void) const;
     uint        QueryAverageFrameRate(void) const;
     MarkTypes   QueryAverageAspectRatio(void) const;
+    bool        QueryAverageScanProgressive(void) const;
     uint32_t    QueryTotalDuration(void) const;
     int64_t     QueryTotalFrames(void) const;
     QString     QueryRecordingGroup(void) const;
@@ -616,6 +618,7 @@ class MPUBLIC ProgramInfo
     void SaveAspect(uint64_t frame, MarkTypes type, uint customAspect);
     void SaveResolution(uint64_t frame, uint width, uint height);
     void SaveFrameRate(uint64_t frame, uint framerate);
+    void SaveVideoScanType(uint64_t frame, bool progressive);
     void SaveTotalDuration(int64_t duration);
     void SaveTotalFrames(int64_t frames);
     void SaveVideoProperties(uint mask, uint video_property_flags);
@@ -856,10 +859,10 @@ MPUBLIC bool LoadFromOldRecorded(
     const MSqlBindings &bindings);
 
 MPUBLIC bool LoadFromOldRecorded(
-    ProgramList        &destination, 
-    const QString      &sql, 
+    ProgramList        &destination,
+    const QString      &sql,
     const MSqlBindings &bindings,
-    const uint         &start, 
+    const uint         &start,
     const uint         &limit,
     uint               &count);
 

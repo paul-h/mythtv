@@ -7,8 +7,9 @@
 #include "vulkan/mythshadersvulkan.h"
 #include "vulkan/mythshadervulkan.h"
 #include "vulkan/mythtexturevulkan.h"
-#include "vulkan/mythindexbuffervulkan.h"
 #include "vulkan/mythuniformbuffervulkan.h"
+#include "vulkan/mythcombobuffervulkan.h"
+#include "vulkan/mythdebugvulkan.h"
 #include "vulkan/mythpaintervulkan.h"
 
 #define LOC QString("VulkanPainter: ")
@@ -23,6 +24,9 @@ MythPainterVulkan::MythPainterVulkan(MythRenderVulkan *VulkanRender, MythWindowV
 
 MythPainterVulkan::~MythPainterVulkan()
 {
+    if (m_devFuncs && m_window)
+        m_devFuncs->vkQueueWaitIdle(m_window->graphicsQueue());
+
     Teardown();
     MythPainterVulkan::FreeResources();
     DoFreeResources();
@@ -38,32 +42,43 @@ void MythPainterVulkan::FreeResources(void)
 /// \brief Free resources before the render device is released.
 void MythPainterVulkan::DoFreeResources(void)
 {
+    if (m_devFuncs && m_window)
+        m_devFuncs->vkQueueWaitIdle(m_window->graphicsQueue());
+
     LOG(VB_GENERAL, LOG_INFO, LOC + "Releasing Vulkan resources");
 
     delete m_projectionUniform;
     delete m_textureShader;
-    delete m_indexBuffer;
+    delete m_debugMarker;
 
     if (m_device && m_devFuncs)
     {
         m_devFuncs->vkDestroyPipeline(m_device, m_texturePipeline, nullptr);
         m_devFuncs->vkDestroyDescriptorPool(m_device, m_textureDescriptorPool, nullptr);
         m_devFuncs->vkDestroyDescriptorPool(m_device, m_projectionDescriptorPool, nullptr);
+        m_devFuncs->vkDestroySampler(m_device, m_textureSampler, nullptr);
+        if (m_textureUploadCmd && m_window)
+            m_devFuncs->vkFreeCommandBuffers(m_device, m_window->graphicsCommandPool(), 1, &m_textureUploadCmd);
     }
 
-    m_indexBuffer              = nullptr;
     m_projectionDescriptorPool = nullptr;
     m_projectionDescriptor     = nullptr; // destroyed with pool
     m_projectionUniform        = nullptr;
     m_textureShader            = nullptr;
+    m_debugMarker              = nullptr;
+    m_debugAvailable           = true;
+    m_textureUploadCmd         = nullptr;
+    m_textureSampler           = nullptr;
     m_textureLayout            = nullptr; // N.B. owned by shader
     m_texturePipeline          = nullptr;
     m_textureDescriptorPool    = nullptr;
+    m_textureDescriptorsCreated = false;
+    m_availableTextureDescriptors.clear(); // destroyed with pool
+
     m_device                   = nullptr;
     m_devFuncs                 = nullptr;
     m_frameStarted             = false;
     m_lastSize                 = { 0, 0 };
-    m_availableTextureDescriptors.clear();
 
     LOG(VB_GENERAL, LOG_INFO, LOC + "Finished releasing resources");
 }
@@ -109,11 +124,15 @@ void MythPainterVulkan::PopTransformation(void)
 bool MythPainterVulkan::Ready(void)
 {
     if (m_window && m_render && m_device && m_devFuncs && m_textureShader &&
-        m_texturePipeline && m_indexBuffer && m_textureDescriptorPool && m_textureLayout &&
-        m_projectionDescriptorPool && m_projectionDescriptor && m_projectionUniform)
+        m_texturePipeline && m_textureDescriptorPool && m_textureLayout &&
+        m_projectionDescriptorPool && m_projectionDescriptor &&
+        m_projectionUniform && m_textureSampler)
     {
         return true;
     }
+
+    if (!m_window || !m_render)
+        return false;
 
     // we need device, functions, shader, pipeline etc
     if (!m_device)
@@ -127,13 +146,6 @@ bool MythPainterVulkan::Ready(void)
     {
         m_devFuncs = m_window->vulkanInstance()->deviceFunctions(m_device);
         if (!m_devFuncs)
-            return false;
-    }
-
-    if (!m_indexBuffer)
-    {
-        m_indexBuffer = MythIndexBufferVulkan::Create(m_render, m_device, m_devFuncs, MythRenderVulkan::s_VertexIndices);
-        if (!m_indexBuffer)
             return false;
     }
 
@@ -162,7 +174,7 @@ bool MythPainterVulkan::Ready(void)
 
     if (!m_projectionDescriptorPool)
     {
-        auto & sizes = m_textureShader->GetPoolSizes(0);
+        const auto & sizes = m_textureShader->GetPoolSizes(0);
         VkDescriptorPoolCreateInfo pool { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, nullptr,
                                           0, 1, static_cast<uint32_t>(sizes.size()), sizes.data() };
         if (m_devFuncs->vkCreateDescriptorPool(m_device, &pool, nullptr, &m_projectionDescriptorPool) != VK_SUCCESS)
@@ -217,10 +229,10 @@ bool MythPainterVulkan::Ready(void)
 
     if (!m_textureDescriptorPool)
     {
-        auto & sizes = m_textureShader->GetPoolSizes(1);
+        const auto & sizes = m_textureShader->GetPoolSizes(1);
         // match total number of individual descriptors with pool size
         std::vector<VkDescriptorPoolSize> adjsizes;
-        for (auto & size : sizes)
+        for (const auto & size : sizes)
             adjsizes.push_back( { size.type, MAX_TEXTURE_COUNT } );
         VkDescriptorPoolCreateInfo pool { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, nullptr,
                                           0, MAX_TEXTURE_COUNT, static_cast<uint32_t>(adjsizes.size()), adjsizes.data() };
@@ -229,6 +241,35 @@ bool MythPainterVulkan::Ready(void)
             LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create descriptor pool");
             return false;
         }
+    }
+
+    if (!m_textureDescriptorsCreated)
+    {
+        // transform and sampler are set 1 (projection is set 0)
+        VkDescriptorSetLayout layout = m_textureShader->GetDescSetLayout(1);
+        m_availableTextureDescriptors.clear();
+        for (int i = 0; i < MAX_TEXTURE_COUNT; ++i)
+        {
+            VkDescriptorSet descset = nullptr;
+            VkDescriptorSetAllocateInfo alloc { };
+            alloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+            alloc.descriptorPool = m_textureDescriptorPool;
+            alloc.descriptorSetCount = 1;
+            alloc.pSetLayouts = &layout;
+            VkResult res = m_devFuncs->vkAllocateDescriptorSets(m_device, &alloc, &descset);
+            if (res != VK_SUCCESS)
+                LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to allocate descriptor set");
+            m_availableTextureDescriptors.push_back(descset);
+        }
+
+        m_textureDescriptorsCreated = true;
+    }
+
+    if (!m_textureSampler)
+    {
+        m_textureSampler = m_render->CreateSampler(VK_FILTER_LINEAR, VK_FILTER_LINEAR);
+        if (!m_textureSampler)
+            return false;
     }
 
     return true;
@@ -259,11 +300,24 @@ void MythPainterVulkan::Begin(QPaintDevice* /*Parent*/)
     if (!Ready())
         return;
 
-    DeleteTextures();
-    m_frameStarted = true;
+    if (m_debugAvailable && !m_debugMarker && VERBOSE_LEVEL_CHECK(VB_GPU, LOG_INFO))
+    {
+        m_debugMarker = MythDebugVulkan::Create(m_render, m_device, m_devFuncs, m_window);
+        if (!m_debugMarker)
+            m_debugAvailable = false;
+    }
 
-    // TODO refactor so this is only created when needed
-    m_singleUseCmdBuffer = m_render->CreateSingleUseCommandBuffer();
+    // Sometimes the UI engine will mark images as 'changed' when moving between
+    // screens. These are then often released here whilst still in use for the
+    // previous frame. To avoid validation errors, wait for the last frame to
+    // complete before continuing - though this feels like a hack and surely
+    // the last frame should already be complete at this point?
+    if (!m_texturesToDelete.empty())
+    {
+        m_devFuncs->vkQueueWaitIdle(m_window->graphicsQueue());
+        DeleteTextures();
+    }
+    m_frameStarted = true;
 }
 
 void MythPainterVulkan::End(void)
@@ -271,46 +325,66 @@ void MythPainterVulkan::End(void)
     if (!(m_render && m_frameStarted))
         return;
 
-    // Cleanup
-    m_render->FinishSingleUseCommandBuffer(m_singleUseCmdBuffer);
-    m_singleUseCmdBuffer = nullptr;
+    // Complete any texture updates first
+    if (m_textureUploadCmd)
+    {
+        m_render->FinishSingleUseCommandBuffer(m_textureUploadCmd);
+        m_textureUploadCmd = nullptr;
 
-    // Tell the renderer that we are requesting a frame start
-    m_render->SetFrameExpected();
+        // release staging buffers which are no longer needed
+        for (auto * texture : m_stagedTextures)
+            texture->StagingFinished();
+        m_stagedTextures.clear();
+    }
 
-    // Signal DIRECTLY to the window to start the frame - which ensures
-    // the event is not delayed and we can start to render immediately.
-    QEvent update(QEvent::UpdateRequest);
-    QGuiApplication::sendEvent(m_window, &update);
+    if (m_queuedTextures.empty())
+        return;
 
-    // Bind our pipeline - we currently only use one
+    if (m_master)
+    {
+        // Tell the renderer that we are requesting a frame start
+        m_render->SetFrameExpected();
+
+        // Signal DIRECTLY to the window to start the frame - which ensures
+        // the event is not delayed and we can start to render immediately.
+        QEvent update(QEvent::UpdateRequest);
+        QGuiApplication::sendEvent(m_window, &update);
+    }
+
+    // Retrieve the command buffer
     VkCommandBuffer currentcmdbuf = m_window->currentCommandBuffer();
-    m_devFuncs->vkCmdBindPipeline(currentcmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_texturePipeline);
+    if (m_debugMarker)
+        m_debugMarker->BeginRegion(currentcmdbuf, "PAINTER_RENDER", MythDebugVulkan::s_DebugGreen);
 
-    // Bind index buffer - use the same one for all vertices
-    m_devFuncs->vkCmdBindIndexBuffer(currentcmdbuf, m_indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT16);
+    // Bind our pipeline
+    m_devFuncs->vkCmdBindPipeline(currentcmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_texturePipeline);
 
     // Bind descriptor set 0 - which is the projection, which is 'constant' for all textures
     m_devFuncs->vkCmdBindDescriptorSets(currentcmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                         m_textureLayout, 0, 1, &m_projectionDescriptor, 0, nullptr);
 
-    VkDeviceSize offset = 0;
     for (auto * texture : m_queuedTextures)
     {
-        // Bind descriptor set 1 for this texture - transform and sampler
+        // Bind descriptor set 1 for this texture - sampler
         m_devFuncs->vkCmdBindDescriptorSets(currentcmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                             m_textureLayout, 1, 1, &texture->m_descriptor, 0, nullptr);
 
-        // Bind vertex buffer
-        VkBuffer vbo = texture->GetVertexBuffer();
-        m_devFuncs->vkCmdBindVertexBuffers(currentcmdbuf, 0, 1, &vbo, &offset);
+        // Push constants - transform, vertex data and color (alpha)
+        m_devFuncs->vkCmdPushConstants(currentcmdbuf, m_textureLayout,
+                                       VK_SHADER_STAGE_VERTEX_BIT, 0, MYTH_PUSHBUFFER_SIZE, texture->Data());
+        texture->PopData();
 
-        // draw indexed
-        m_devFuncs->vkCmdDrawIndexed(currentcmdbuf, m_indexBuffer->GetSize(), 1, 0, 0, 0);
+        // Draw
+        m_devFuncs->vkCmdDraw(currentcmdbuf, 4, 1, 0, 0);
     }
 
+    if (m_debugMarker)
+        m_debugMarker->EndRegion(currentcmdbuf);
+
     m_queuedTextures.clear();
-    m_render->EndFrame();
+
+    if (m_master)
+        m_render->EndFrame();
 }
 
 void MythPainterVulkan::DrawImage(const QRect &Dest, MythImage *Image, const QRect &Source, int Alpha)
@@ -319,15 +393,13 @@ void MythPainterVulkan::DrawImage(const QRect &Dest, MythImage *Image, const QRe
         return;
 
     MythTextureVulkan* texture = GetTextureFromCache(Image);
-    if (!texture)
-        return;
-
-    // Update vertex buffer
-    texture->UpdateVertices(Source, Dest, Alpha, 0, m_singleUseCmdBuffer);
-
-    // Update transformation
-    texture->m_uniform->Update(m_transforms.top().data());
-    m_queuedTextures.emplace_back(texture);
+    if (texture)
+    {
+        // Update push constant buffer
+        texture->PushData(m_transforms.top(), Source, Dest, Alpha);
+        // Queue
+        m_queuedTextures.emplace_back(texture);
+    }
 }
 
 MythImage* MythPainterVulkan::GetFormatImagePriv(void)
@@ -380,22 +452,12 @@ MythTextureVulkan* MythPainterVulkan::GetTextureFromCache(MythImage *Image)
     MythTextureVulkan *texture = nullptr;
     for (;;)
     {
-        texture = MythTextureVulkan::Create(m_render, m_device, m_devFuncs, Image);
+        if (!m_textureUploadCmd)
+            m_textureUploadCmd = m_render->CreateSingleUseCommandBuffer();
+        texture = MythTextureVulkan::Create(m_render, m_device, m_devFuncs, Image,
+                                            m_textureSampler, m_textureUploadCmd);
         if (texture)
-        {
-            auto uniform = MythUniformBufferVulkan::Create(m_render, m_device, m_devFuncs, sizeof(float) * 16);
-            if (uniform)
-            {
-                texture->AddUniform(uniform);
-            }
-            else
-            {
-                LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create uniform for texture");
-                delete texture;
-                return nullptr;
-            }
             break;
-        }
 
         // This can happen if the cached textures are too big for GPU memory
         if (m_hardwareCacheSize < (8 * 1024 * 1024))
@@ -431,67 +493,36 @@ MythTextureVulkan* MythPainterVulkan::GetTextureFromCache(MythImage *Image)
         // text images, we can easily hit the max texture count before the cache
         // size. So ensure we always have a descriptor available.
 
-        if ((m_allocatedTextureDescriptors >= MAX_TEXTURE_COUNT) && m_availableTextureDescriptors.empty())
+        if (m_availableTextureDescriptors.empty())
         {
             MythImage *expired = m_imageExpire.front();
             m_imageExpire.pop_front();
             DeleteFormatImagePriv(expired);
             DeleteTextures();
-        }
 
-        VkDescriptorSet descset = nullptr;
-
-        // For some reason, the descriptor pool will not reallocate sets that
-        // have been freed. So we retrieve used sets and recycle them.
-        if (!m_availableTextureDescriptors.empty())
-        {
-            descset = m_availableTextureDescriptors.back();
-            m_availableTextureDescriptors.pop_back();
-        }
-        else
-        {
-            // transform and sampler are set 1 (projection is set 0)
-            VkDescriptorSetLayout layout = m_textureShader->GetDescSetLayout(1);
-            VkDescriptorSetAllocateInfo alloc { };
-            alloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-            alloc.descriptorPool = m_textureDescriptorPool;
-            alloc.descriptorSetCount = 1;
-            alloc.pSetLayouts = &layout;
-
-            VkResult res = m_devFuncs->vkAllocateDescriptorSets(m_device, &alloc, &descset);
-            if (res != VK_SUCCESS)
+            if (m_availableTextureDescriptors.empty())
             {
-                LOG(VB_GENERAL, LOG_INFO, LOC + QString("Failed to allocate descriptor set (%1)").arg(res));
+                LOG(VB_GENERAL, LOG_WARNING, LOC + "No texture descriptor available??");
                 delete texture;
                 return nullptr;
             }
-
-            m_allocatedTextureDescriptors++;
         }
 
+        VkDescriptorSet descset = m_availableTextureDescriptors.back();
+        m_availableTextureDescriptors.pop_back();
+
         auto imagedesc = texture->GetDescriptorImage();
-        auto buffdesc  = texture->m_uniform->GetBufferInfo();
-
-        std::array<VkWriteDescriptorSet, 2> writes { };
-        writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[0].dstSet = descset;
-        writes[0].dstBinding = 0;
-        writes[0].dstArrayElement = 0;
-        writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        writes[0].descriptorCount = 1;
-        writes[0].pBufferInfo = &buffdesc;
-
-        writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[1].dstSet = descset;
-        writes[1].dstBinding = 1;
-        writes[1].dstArrayElement = 0;
-        writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writes[1].descriptorCount = 1;
-        writes[1].pImageInfo = &imagedesc;
-
-        m_devFuncs->vkUpdateDescriptorSets(m_device, static_cast<uint32_t>(writes.size()),
-                                           writes.data(), 0, nullptr);
+        VkWriteDescriptorSet write { };
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = descset;
+        write.dstBinding = 0;
+        write.dstArrayElement = 0;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        write.descriptorCount = 1;
+        write.pImageInfo = &imagedesc;
+        m_devFuncs->vkUpdateDescriptorSets(m_device, 1, &write, 0, nullptr);
         texture->AddDescriptor(descset);
+        m_stagedTextures.emplace_back(texture);
     }
 
     CheckFormatImage(Image);
@@ -515,6 +546,11 @@ MythTextureVulkan* MythPainterVulkan::GetTextureFromCache(MythImage *Image)
     return texture;
 }
 
+void MythPainterVulkan::SetMaster(bool Master)
+{
+    m_master = Master;
+}
+
 void MythPainterVulkan::DeleteTextures(void)
 {
     if (!m_render || m_texturesToDelete.empty())
@@ -526,7 +562,7 @@ void MythPainterVulkan::DeleteTextures(void)
         m_hardwareCacheSize -= texture->m_dataSize;
         VkDescriptorSet descriptor = texture->TakeDescriptor();
         if (descriptor)
-            m_availableTextureDescriptors.push_back(descriptor);
+            m_availableTextureDescriptors.emplace_back(descriptor);
         delete texture;
         m_texturesToDelete.pop_front();
     }

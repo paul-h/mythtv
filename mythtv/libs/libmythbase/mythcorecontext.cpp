@@ -151,9 +151,7 @@ MythCoreContextPrivate::MythCoreContextPrivate(MythCoreContext *lparent,
       m_power(nullptr)
 {
     MThread::ThreadSetup("CoreContext");
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-    srandom(MythDate::current().toTime_t() ^ QTime::currentTime().msec());
-#elif QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
     srandom(MythDate::current().toSecsSinceEpoch() ^ QTime::currentTime().msec());
 #endif
 }
@@ -299,6 +297,21 @@ MythCoreContext::~MythCoreContext()
 {
     delete d;
     d = nullptr;
+}
+
+void MythCoreContext::setTestIntSettings(QMap<QString,int> &overrides)
+{
+    m_testOverrideInts = std::move(overrides);
+}
+
+void MythCoreContext::setTestFloatSettings(QMap<QString,double> &overrides)
+{
+    m_testOverrideFloats = std::move(overrides);
+}
+
+void MythCoreContext::setTestStringSettings(QMap<QString,QString> &overrides)
+{
+    m_testOverrideStrings = std::move(overrides);
 }
 
 bool MythCoreContext::SetupCommandSocket(MythSocket *serverSock,
@@ -903,6 +916,8 @@ bool MythCoreContext::SaveSettingOnHost(const QString &key,
 QString MythCoreContext::GetSetting(const QString &key,
                                     const QString &defaultval)
 {
+    if (!m_testOverrideStrings.empty())
+        return m_testOverrideStrings[key];
     return d->m_database->GetSetting(key, defaultval);
 }
 
@@ -914,11 +929,15 @@ bool MythCoreContext::GetBoolSetting(const QString &key, bool defaultval)
 
 int MythCoreContext::GetNumSetting(const QString &key, int defaultval)
 {
+    if (!m_testOverrideInts.empty())
+        return m_testOverrideInts[key];
     return d->m_database->GetNumSetting(key, defaultval);
 }
 
 double MythCoreContext::GetFloatSetting(const QString &key, double defaultval)
 {
+    if (!m_testOverrideFloats.empty())
+        return m_testOverrideFloats[key];
     return d->m_database->GetFloatSetting(key, defaultval);
 }
 
@@ -926,6 +945,8 @@ QString MythCoreContext::GetSettingOnHost(const QString &key,
                                           const QString &host,
                                           const QString &defaultval)
 {
+    if (!m_testOverrideStrings.empty())
+        return m_testOverrideStrings[key];
     return d->m_database->GetSettingOnHost(key, host, defaultval);
 }
 
@@ -941,6 +962,8 @@ int MythCoreContext::GetNumSettingOnHost(const QString &key,
                                          const QString &host,
                                          int defaultval)
 {
+    if (!m_testOverrideInts.empty())
+        return m_testOverrideInts[key];
     return d->m_database->GetNumSettingOnHost(key, host, defaultval);
 }
 
@@ -948,6 +971,8 @@ double MythCoreContext::GetFloatSettingOnHost(const QString &key,
                                               const QString &host,
                                               double defaultval)
 {
+    if (!m_testOverrideFloats.empty())
+        return m_testOverrideFloats[key];
     return d->m_database->GetFloatSettingOnHost(key, host, defaultval);
 }
 
@@ -1191,7 +1216,7 @@ QString MythCoreContext::resolveAddress(const QString &host, ResolveType type,
         QHostAddress v6;
 
         // Return the first address fitting the type critera
-        foreach (const auto & item, list)
+        for (const auto& item : qAsConst(list))
         {
             addr = item;
             QAbstractSocket::NetworkLayerProtocol prot = addr.protocol();
@@ -1555,7 +1580,11 @@ void MythCoreContext::readyRead(MythSocket *sock)
 
         QString prefix = strlist[0];
         QString message = strlist[1];
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
         QStringList tokens = message.split(" ", QString::SkipEmptyParts);
+#else
+        QStringList tokens = message.split(" ", Qt::SkipEmptyParts);
+#endif
 
         if (prefix == "OK")
         {
@@ -1859,34 +1888,22 @@ MythScheduler *MythCoreContext::GetScheduler(void)
 }
 
 /**
- * \fn void MythCoreContext::WaitUntilSignals(const char *signal1, ...)
- * Wait until either of the provided signals have been received.
- * signal1 being declared as SIGNAL(SignalName(args,..))
+ * Wait until any of the provided signals have been received.
+ * signals being declared as SIGNAL(SignalName(args,..))
  */
-void MythCoreContext::WaitUntilSignals(const char *signal1, ...)
+void MythCoreContext::WaitUntilSignals(std::vector<const char *> & sigs)
 {
-    if (!signal1)
+    if (sigs.empty())
         return;
 
     QEventLoop eventLoop;
-    va_list vl;
-
-    LOG(VB_GENERAL, LOG_DEBUG, LOC +
-        QString("Waiting for signal %1")
-        .arg(signal1));
-    connect(this, signal1, &eventLoop, SLOT(quit()));
-
-    va_start(vl, signal1);
-    const char *s = va_arg(vl, const char *);
-    while (s)
+    for (const auto *s : sigs)
     {
         LOG(VB_GENERAL, LOG_DEBUG, LOC +
             QString("Waiting for signal %1")
             .arg(s));
         connect(this, s, &eventLoop, SLOT(quit()));
-        s = va_arg(vl, const char *);
     }
-    va_end(vl);
 
     eventLoop.exec(QEventLoop::ExcludeUserInputEvents | QEventLoop::ExcludeSocketNotifiers);
 }

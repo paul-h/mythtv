@@ -223,7 +223,7 @@ desc_list_t MPEGDescriptor::FindBestMatches(
 
 #define EMPTY_STR_16 "","","","", "","","","", "","","","", "","","","",
 
-const char *descriptor_tag_strings[256] =
+const std::array<const std::string,256> descriptor_tag_strings
 {
     /* 0x00 */ "",                      /* 0x01 */ "",
     /* 0x02 */ "Video",                 /* 0x03 */ "Audio",
@@ -348,7 +348,7 @@ static void comma_list_append(QString &str, const QString& extra)
 
 QString MPEGDescriptor::DescriptorTagString(void) const
 {
-    QString str = descriptor_tag_strings[DescriptorTag()];
+    QString str = QString::fromStdString(descriptor_tag_strings[DescriptorTag()]);
 
     switch (DescriptorTag())
     {
@@ -403,11 +403,15 @@ QString MPEGDescriptor::DescriptorTagString(void) const
 QString MPEGDescriptor::descrDump(const QString &name) const
 {
     QString str;
-    str = QString("%1 Descriptor (0x%2) length(%3). Dumping\n")
+    str = QString("%1 Descriptor (0x%2) length(%3).")
             .arg(name)
             .arg(DescriptorTag(),2,16,QChar('0'))
             .arg(DescriptorLength());
-    str.append(hexdump());
+    if (DescriptorLength() > 0)
+    {
+        str.append(" Dumping\n");
+        str.append(hexdump());
+    }
     return str;
 }
 
@@ -517,14 +521,44 @@ QString MPEGDescriptor::toStringPD(uint priv_dsid) const
         SET_STRING(T2DeliverySystemDescriptor);
     }
     else if (DescriptorTag() == DescriptorID::extension &&
-             DescriptorTagExtension() == DescriptorID::c2_delivery_system)
-    {
-        SET_STRING(C2DeliverySystemDescriptor);
-    }
-    else if (DescriptorTag() == DescriptorID::extension &&
              DescriptorTagExtension() == DescriptorID::sh_delivery_system)
     {
         SET_STRING(SHDeliverySystemDescriptor);
+    }
+    else if (DescriptorTag() == DescriptorID::extension &&
+             DescriptorTagExtension() == DescriptorID::supplementary_audio)
+    {
+        SET_STRING(SupplementaryAudioDescriptor);
+    }
+    else if (DescriptorTag() == DescriptorID::extension &&
+             DescriptorTagExtension() == DescriptorID::network_change_notify)
+    {
+        SET_STRING(NetworkChangeNotifyDescriptor);
+    }
+    else if (DescriptorTag() == DescriptorID::extension &&
+             DescriptorTagExtension() == DescriptorID::message)
+    {
+        SET_STRING(MessageDescriptor);
+    }
+    else if (DescriptorTag() == DescriptorID::extension &&
+             DescriptorTagExtension() == DescriptorID::target_region)
+    {
+        SET_STRING(TargetRegionDescriptor);
+    }
+    else if (DescriptorTag() == DescriptorID::extension &&
+             DescriptorTagExtension() == DescriptorID::target_region_name)
+    {
+        SET_STRING(TargetRegionNameDescriptor);
+    }
+    else if (DescriptorTag() == DescriptorID::extension &&
+             DescriptorTagExtension() == DescriptorID::service_relocated)
+    {
+        SET_STRING(ServiceRelocatedDescriptor);
+    }
+    else if (DescriptorTag() == DescriptorID::extension &&
+             DescriptorTagExtension() == DescriptorID::c2_delivery_system)
+    {
+        SET_STRING(C2DeliverySystemDescriptor);
     }
     else if (DescriptorTag() == DescriptorID::extension &&
              DescriptorTagExtension() == DescriptorID::s2x_satellite_delivery_system)
@@ -533,8 +567,18 @@ QString MPEGDescriptor::toStringPD(uint priv_dsid) const
     }
     //
     // User Defined DVB descriptors, range 0x80-0xFE
+    else if (priv_dsid == PrivateDataSpecifierID::SES &&
+             PrivateDescriptorID::nordig_content_protection == DescriptorTag())
+    {
+        str = descrDump("NorDig Content Protection");
+    }
+    else if (priv_dsid == PrivateDataSpecifierID::OTV &&
+             0x80 <= DescriptorTag() && DescriptorTag() < 0xFF)
+    {
+        str = descrDump("OpenTV Private ");
+    }
     else if (priv_dsid == PrivateDataSpecifierID::BSB1 &&
-             PrivateDescriptorID::sky_lcn_table== DescriptorTag())
+             PrivateDescriptorID::sky_lcn_table == DescriptorTag())
     {
         SET_STRING(SkyLCNDescriptor);
     }
@@ -544,19 +588,19 @@ QString MPEGDescriptor::toStringPD(uint priv_dsid) const
         SET_STRING(FreesatRegionDescriptor);
     }
     else if (priv_dsid == PrivateDataSpecifierID::FSAT &&
-             PrivateDescriptorID::freesat_lcn_table== DescriptorTag())
+             PrivateDescriptorID::freesat_lcn_table == DescriptorTag())
     {
         SET_STRING(FreesatLCNDescriptor);
     }
     else if (priv_dsid == PrivateDataSpecifierID::FSAT &&
-             PrivateDescriptorID::freesat_callsign== DescriptorTag())
+             PrivateDescriptorID::freesat_callsign == DescriptorTag())
     {
         SET_STRING(FreesatCallsignDescriptor);
     }
     else if (priv_dsid == PrivateDataSpecifierID::CASEMA &&
-             PrivateDescriptorID::casema_video_on_demand== DescriptorTag())
+             PrivateDescriptorID::casema_video_on_demand == DescriptorTag())
     {
-        descrDump("Video on Demand");
+        str = descrDump("Video on Demand");
     }
     else if ((priv_dsid == PrivateDataSpecifierID::EACEM  ||
               priv_dsid == PrivateDataSpecifierID::NORDIG ||
@@ -653,16 +697,23 @@ QString MPEGDescriptor::hexdump(void) const
             hex.append(" ");
         if (((i+1) % 16) == 0)
         {
-            str.append(QString("      %1 %2 |%3|\n")
+            str.append(QString("      %1 %2 |%3|")
                 .arg(i - (i % 16),3,16,QChar('0'))
                 .arg(hex).arg(prt));
             hex.clear();
             prt.clear();
+            if (i < (DescriptorLength() - 1))
+            {
+                str.append("\n");
+            }
         }
     }
-    str.append(QString("      %1 %2 |%3|")
-                .arg(i - (i % 16),3,16,QChar('0'))
-                .arg(hex,-50,' ').arg(prt));
+    if (!hex.isEmpty())
+    {
+        str.append(QString("      %1 %2 |%3|")
+                    .arg(i - (i % 16),3,16,QChar('0'))
+                    .arg(hex,-50,' ').arg(prt));
+    }
     return str;
 }
 

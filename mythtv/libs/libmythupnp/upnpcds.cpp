@@ -43,7 +43,7 @@ void UPnpCDSExtensionResults::Add( CDSObject *pObject )
 
 void UPnpCDSExtensionResults::Add( const CDSObjects& objects )
 {
-    foreach (auto & object, objects)
+    for (auto *const object : qAsConst(objects))
     {
         object->IncrRef();
         m_List.append( object );
@@ -59,7 +59,7 @@ QString UPnpCDSExtensionResults::GetResultXML(FilterMap &filter,
 {
     QString sXML;
 
-    foreach (auto item, m_List)
+    for (auto *item : qAsConst(m_List))
         sXML += item->toXml(filter, ignoreChildren);
 
     return sXML;
@@ -569,11 +569,15 @@ void UPnpCDS::HandleSearch( HTTPRequest *pRequest )
     // -=>TODO: This DOES NOT handle ('s or other complex expressions
     // ----------------------------------------------------------------------
 
-    QRegExp  rMatch( "\\b(or|and)\\b" );
-    rMatch.setCaseSensitivity(Qt::CaseInsensitive);
+    QRegularExpression re {"\\b(or|and)\\b", QRegularExpression::CaseInsensitiveOption};
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     request.m_sSearchList  = request.m_sSearchCriteria.split(
-        rMatch, QString::SkipEmptyParts);
+        re, QString::SkipEmptyParts);
+#else
+    request.m_sSearchList  = request.m_sSearchCriteria.split(
+        re, Qt::SkipEmptyParts);
+#endif
     request.m_sSearchClass = "object";  // Default to all objects.
 
     // ----------------------------------------------------------------------
@@ -587,7 +591,11 @@ void UPnpCDS::HandleSearch( HTTPRequest *pRequest )
     {
         if ((*it).contains("upnp:class derivedfrom", Qt::CaseInsensitive))
         {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList sParts = (*it).split(' ', QString::SkipEmptyParts);
+#else
+            QStringList sParts = (*it).split(' ', Qt::SkipEmptyParts);
+#endif
 
             if (sParts.count() > 2)
             {

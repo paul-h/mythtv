@@ -326,7 +326,11 @@ bool WebSocketWorker::ProcessHandshake(QTcpSocket *socket)
     if (line.isEmpty())
         return false;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList tokens = QString(line).split(' ', QString::SkipEmptyParts);
+#else
+    QStringList tokens = QString(line).split(' ', Qt::SkipEmptyParts);
+#endif
 
     if (tokens.length() != 3) // Anything but 3 is invalid - {METHOD} {HOST/PATH} {PROTOCOL}
     {
@@ -398,7 +402,11 @@ bool WebSocketWorker::ProcessHandshake(QTcpSocket *socket)
         return false;
     }
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList connectionValues = requestHeaders["connection"].split(',', QString::SkipEmptyParts);
+#else
+    QStringList connectionValues = requestHeaders["connection"].split(',', Qt::SkipEmptyParts);
+#endif
     if (!connectionValues.contains("Upgrade", Qt::CaseInsensitive)) // RFC 6455 - 1.3. Opening Handshake
     {
         LOG(VB_GENERAL, LOG_ERR, "WebSocketWorker::ProcessHandshake() - Invalid 'Connection' header");
@@ -679,7 +687,7 @@ void WebSocketWorker::HandleDataFrame(const WebSocketFrame &frame)
                 // For Debugging and fuzz testing
                 if (m_fuzzTesting)
                     SendText(frame.m_payload);
-                foreach (auto & extension, m_extensions)
+                for (auto *const extension : qAsConst(m_extensions))
                 {
                     if (extension->HandleTextFrame(frame))
                         break;
@@ -688,7 +696,7 @@ void WebSocketWorker::HandleDataFrame(const WebSocketFrame &frame)
             case WebSocketFrame::kOpBinaryFrame :
                 if (m_fuzzTesting)
                     SendBinary(frame.m_payload);
-                foreach (auto & extension, m_extensions)
+                for (auto *const extension : qAsConst(m_extensions))
                 {
                     if (extension->HandleBinaryFrame(frame))
                         break;

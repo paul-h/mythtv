@@ -12,7 +12,8 @@ using MythSetLayout   = std::pair<int, VkDescriptorSetLayoutBinding>;
 using MythStageLayout = std::vector<MythSetLayout>;
 using MythBindingDesc = std::tuple<MythStageLayout,
                                    VkVertexInputBindingDescription,
-                                   MythVertexAttrs>;
+                                   MythVertexAttrs,
+                                   VkPushConstantRange>;
 using MythBindingMap  = std::map<int, MythBindingDesc>;
 
 class MythShaderVulkan : protected MythVulkanObject
@@ -50,7 +51,7 @@ class MythShaderVulkan : protected MythVulkanObject
 #endif
     bool CreateShaderFromSPIRV (const std::vector<MythSPIRVStage> &Stages);
 
-    VkVertexInputBindingDescription              m_vertexBindingDesc;
+    VkVertexInputBindingDescription              m_vertexBindingDesc{};
     MythVertexAttrs                              m_vertexAttributes;
     std::vector<VkPipelineShaderStageCreateInfo> m_stages;
     std::vector<uint32_t*>                       m_spirv;

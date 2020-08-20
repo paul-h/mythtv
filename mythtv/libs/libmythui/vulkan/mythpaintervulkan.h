@@ -5,17 +5,18 @@
 #include <QStack>
 
 // MythTV
+#include "mythuiexp.h"
 #include "mythpainter.h"
 #include "mythuianimation.h"
 #include "vulkan/mythrendervulkan.h"
 #include "vulkan/mythwindowvulkan.h"
 
-class MythIndexBufferVulkan;
+class MythDebugVulkan;
 class MythUniformBufferVulkan;
 
 #define MAX_TEXTURE_COUNT (1000)
 
-class MythPainterVulkan : public QObject, public MythPainter
+class MUI_PUBLIC MythPainterVulkan : public MythPainter
 {
     Q_OBJECT
 
@@ -35,6 +36,7 @@ class MythPainterVulkan : public QObject, public MythPainter
     void    PopTransformation(void) override;
 
     void    DeleteTextures    (void);
+    void    SetMaster         (bool Master);
 
   public slots:
     void    DoFreeResources   (void);
@@ -50,34 +52,38 @@ class MythPainterVulkan : public QObject, public MythPainter
     void ClearCache(void);
     MythTextureVulkan* GetTextureFromCache(MythImage *Image);
 
+    bool              m_master           { true    };
     MythWindowVulkan* m_window           { nullptr };
     MythRenderVulkan* m_render           { nullptr };
     VkDevice          m_device           { nullptr };
     QVulkanDeviceFunctions* m_devFuncs   { nullptr };
 
-    MythIndexBufferVulkan* m_indexBuffer { nullptr };
     VkDescriptorPool  m_projectionDescriptorPool { nullptr };
     VkDescriptorSet   m_projectionDescriptor { nullptr };
     MythUniformBufferVulkan* m_projectionUniform { nullptr };
+    VkSampler         m_textureSampler   { nullptr };
     MythShaderVulkan* m_textureShader    { nullptr };
     VkPipelineLayout  m_textureLayout    { nullptr };
     VkPipeline        m_texturePipeline  { nullptr };
     VkDescriptorPool  m_textureDescriptorPool { nullptr };
-    int               m_allocatedTextureDescriptors { 0 };
+    bool              m_textureDescriptorsCreated { false };
     std::vector<VkDescriptorSet> m_availableTextureDescriptors;
+    VkCommandBuffer   m_textureUploadCmd { nullptr };
 
     bool              m_frameStarted     { false   };
     QSize             m_lastSize         { 0, 0    };
 
-    std::vector<MythTextureVulkan*> m_queuedTextures;
-    VkCommandBuffer   m_singleUseCmdBuffer { nullptr };
-
+    std::vector<MythTextureVulkan*>      m_stagedTextures;
+    std::vector<MythTextureVulkan*>      m_queuedTextures;
     QMap<MythImage*, MythTextureVulkan*> m_imageToTextureMap;
     std::list<MythImage*>                m_imageExpire;
     QVector<MythTextureVulkan*>          m_texturesToDelete;
 
     QMatrix4x4         m_projection;
     QStack<QMatrix4x4> m_transforms;
+
+    MythDebugVulkan*   m_debugMarker     { nullptr };
+    bool               m_debugAvailable  { true    };
 };
 
 #endif

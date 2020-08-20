@@ -546,8 +546,8 @@ void StatusBox::doListingsStatus()
 
     mfdLastRunStatus = gCoreContext->GetSetting("mythfilldatabaseLastRunStatus");
 
-    AddLogLine(tr("Mythfrontend version: %1 (%2)").arg(MYTH_SOURCE_PATH)
-               .arg(MYTH_SOURCE_VERSION), helpmsg);
+    AddLogLine(tr("Mythfrontend version: %1 (%2)").arg(GetMythSourcePath())
+               .arg(GetMythSourceVersion()), helpmsg);
     AddLogLine(tr("Last mythfilldatabase guide update:"), helpmsg);
     tmp = tr("Started:   %1").arg(
         MythDate::toString(
@@ -914,7 +914,7 @@ void StatusBox::doTunerStatus()
         }
     }
 
-    foreach (int inputid, inputids)
+    for (int inputid : qAsConst(inputids))
     {
         QStringList statuslist;
         if (info[inputid].m_errored)
@@ -1287,7 +1287,7 @@ void StatusBox::doMachineStatus()
                                                       .arg(QSysInfo::currentCpuArchitecture()));
     AddLogLine("   " + tr("Qt version") + QString(": %1").arg(qVersion()));
 
-    foreach(QNetworkInterface iface, QNetworkInterface::allInterfaces())
+    for (const QNetworkInterface & iface : QNetworkInterface::allInterfaces())
     {
         QNetworkInterface::InterfaceFlags f = iface.flags();
         if (!(f & QNetworkInterface::IsUp))
@@ -1305,7 +1305,7 @@ void StatusBox::doMachineStatus()
 #endif
         AddLogLine("   " + name + QString(" (%1): ").arg(iface.humanReadableName()));
         AddLogLine("        " + tr("MAC Address") + ": " + iface.hardwareAddress());
-        foreach(QNetworkAddressEntry addr, iface.addressEntries())
+        for (const QNetworkAddressEntry & addr : iface.addressEntries())
         {
             if (addr.ip().protocol() == QAbstractSocket::IPv4Protocol ||
                 addr.ip().protocol() == QAbstractSocket::IPv6Protocol)
@@ -1335,8 +1335,7 @@ void StatusBox::doMachineStatus()
 #if !defined(_WIN32) && !defined(Q_OS_ANDROID)
     auto UpdateLoad = [](StatusBoxItem* Item)
     {
-        double loads[3] = { 0.0 };
-        getloadavg(loads, 3);
+        loadArray loads = getLoadAvgs();
         Item->SetText(QString("   %1: %2 %3 %4").arg(tr("Load")).arg(loads[0], 1, 'f', 2)
                 .arg(loads[1], 1, 'f', 2).arg(loads[2], 1, 'f', 2));
     };
@@ -1535,7 +1534,7 @@ void StatusBox::doDecoderStatus()
     }
     else
     {
-        foreach (QString decoder, decoders)
+        for (const QString & decoder : qAsConst(decoders))
             AddLogLine(decoder);
     }
 }
@@ -1552,7 +1551,7 @@ void StatusBox::doDisplayStatus()
         m_justHelpText->SetText(displayhelp);
 
     QStringList desc = MythDisplay::GetDescription();
-    foreach (const auto & line, desc)
+    for (const auto & line : qAsConst(desc))
         AddLogLine(line);
     AddLogLine("");
 
@@ -1583,7 +1582,7 @@ void StatusBox::doDisplayStatus()
         }
 
         desc = render->GetDescription();
-        foreach (const auto & line, desc)
+        for (const auto & line : qAsConst(desc))
             AddLogLine(line);
     }
 }

@@ -178,9 +178,9 @@ static int ExtractImage(const MythUtilCommandLineParser &cmdline)
     return GENERIC_EXIT_OK;
 }
 
-static int ScanMusic(const MythUtilCommandLineParser &/*cmdline*/)
+static int ScanMusic(const MythUtilCommandLineParser &cmdline)
 {
-    auto *fscan = new MusicFileScanner();
+    auto *fscan = new MusicFileScanner(cmdline.toBool("musicforce"));
     QStringList dirList;
 
     if (!StorageGroup::FindDirs("Music", gCoreContext->GetHostName(), &dirList))
@@ -283,7 +283,7 @@ static int CalcTrackLength(const MythUtilCommandLineParser &cmdline)
         }
         AVCodecContext *avctx = avcodec_alloc_context3(pCodec);
         avcodec_parameters_to_context(avctx, st->codecpar);
-        av_codec_set_pkt_timebase(avctx, st->time_base);
+        avctx->pkt_timebase = st->time_base;
 
         avcodec_string(buf, sizeof(buf), avctx, static_cast<int>(false));
 
@@ -491,8 +491,9 @@ static int FindLyrics(const MythUtilCommandLineParser &cmdline)
     // query the grabbers to get their priority
     for (int x = 0; x < scripts.count(); x++)
     {
+        QStringList args { scripts.at(x), "-v" };
         QProcess p;
-        p.start(QString("%1 %2 -v").arg(PYTHON_EXE).arg(scripts.at(x)));
+        p.start(PYTHON_EXE, args);
         p.waitForFinished(-1);
         QString result = p.readAllStandardOutput();
 
@@ -536,8 +537,12 @@ static int FindLyrics(const MythUtilCommandLineParser &cmdline)
         gCoreContext->SendMessage(QString("MUSIC_LYRICS_STATUS %1 %2").arg(songID).arg(statusMessage));
 
         QProcess p;
-        p.start(QString(R"(%1 %2 --artist="%3" --album="%4" --title="%5" --filename="%6")")
-                        .arg(PYTHON_EXE).arg(grabber.m_filename).arg(artist).arg(album).arg(title).arg(filename));
+        QStringList args { grabber.m_filename,
+                           QString(R"(--artist="%1")").arg(artist),
+                           QString(R"(--album="%1")").arg(album),
+                           QString(R"(--title="%1")").arg(title),
+                           QString(R"(--filename="%1")").arg(filename) };
+        p.start(PYTHON_EXE, args);
         p.waitForFinished(-1);
         QString result = p.readAllStandardOutput();
 

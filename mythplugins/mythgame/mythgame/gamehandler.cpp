@@ -70,8 +70,13 @@ void GameHandler::updateSettings(GameHandler *handler)
         handler->m_screenshots = query.value(3).toString();
         handler->m_gameplayerid = query.value(4).toInt();
         handler->m_gametype = query.value(5).toString();
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
         handler->m_validextensions = query.value(6).toString().trimmed()
                                         .remove(" ").split(",", QString::SkipEmptyParts);
+#else
+        handler->m_validextensions = query.value(6).toString().trimmed()
+                                        .remove(" ").split(",", Qt::SkipEmptyParts);
+#endif
         handler->m_spandisks = query.value(7).toBool();
     }
 }
@@ -216,10 +221,10 @@ void GameHandler::promptForRemoval(const GameScan& scan)
     QString filename = scan.Rom();
     QString RomPath = scan.RomFullPath();
 
-    if (m_RemoveAll)
+    if (m_removeAll)
         purgeGameDB(filename , RomPath);
 
-    if (m_KeepAll || m_RemoveAll)
+    if (m_keepAll || m_removeAll)
         return;
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
@@ -300,7 +305,7 @@ static void UpdateGameCounts(const QStringList& updatelist)
     QString firstname;
     QString basename;
 
-    foreach (auto GameType, updatelist)
+    for (const auto & GameType : qAsConst(updatelist))
     {
         LOG(VB_GENERAL, LOG_NOTICE,
             LOC + QString("Update gametype %1").arg(GameType));
@@ -388,9 +393,7 @@ void GameHandler::UpdateGameDB(GameHandler *handler)
     CreateProgress(message);
 
     if (m_progressDlg)
-        m_progressDlg->SetTotal(m_GameMap.size());
-
-    GameScanMap::Iterator iter;
+        m_progressDlg->SetTotal(m_gameMap.size());
 
     QString GameName;
     QString Genre;
@@ -410,14 +413,14 @@ void GameHandler::UpdateGameDB(GameHandler *handler)
     int indepth = gCoreContext->GetSetting("GameDeepScan").toInt();
     QString screenShotPath = gCoreContext->GetSetting("mythgame.screenshotdir");
 
-    for (iter = m_GameMap.begin(); iter != m_GameMap.end(); ++iter)
+    for (const auto & game : qAsConst(m_gameMap))
     {
 
-        if (iter.value().FoundLoc() == inFileSystem)
+        if (game.FoundLoc() == inFileSystem)
         {
             if (indepth)
             {
-                GetMetadata(handler, iter.value().RomFullPath(), &Genre, &Year, &Country, &CRC32, &GameName,
+                GetMetadata(handler, game.RomFullPath(), &Genre, &Year, &Country, &CRC32, &GameName,
                             &Plot, &Publisher, &Version, &Fanart, &Boxart);
             }
             else
@@ -437,13 +440,13 @@ void GameHandler::UpdateGameDB(GameHandler *handler)
             }
 
             if (GameName == tr("Unknown", "Unknown game name"))
-                GameName = iter.value().GameName();
+                GameName = game.GameName();
 
-            int suffixPos = iter.value().Rom().lastIndexOf(QChar('.'));
-            QString baseName = iter.value().Rom();
+            int suffixPos = game.Rom().lastIndexOf(QChar('.'));
+            QString baseName = game.Rom();
 
             if (suffixPos > 0)
-                baseName = iter.value().Rom().left(suffixPos);
+                baseName = game.Rom().left(suffixPos);
 
             baseName = screenShotPath + "/" + baseName;
 
@@ -471,12 +474,12 @@ void GameHandler::UpdateGameDB(GameHandler *handler)
                           ":FANART, :BOXART, :SCREENSHOT)");
 
             query.bindValue(":SYSTEM",handler->SystemName());
-            query.bindValue(":ROMNAME",iter.value().Rom());
+            query.bindValue(":ROMNAME",game.Rom());
             query.bindValue(":GAMENAME",GameName);
             query.bindValue(":GENRE",Genre);
             query.bindValue(":YEAR",Year);
             query.bindValue(":GAMETYPE",handler->GameType());
-            query.bindValue(":ROMPATH",iter.value().RomPath());
+            query.bindValue(":ROMPATH",game.RomPath());
             query.bindValue(":COUNTRY",Country);
             query.bindValue(":CRC32", CRC32);
             query.bindValue(":PLOT", Plot);
@@ -490,10 +493,10 @@ void GameHandler::UpdateGameDB(GameHandler *handler)
                 MythDB::DBError("GameHandler::UpdateGameDB - "
                                 "insert gamemetadata", query);
         }
-        else if ((iter.value().FoundLoc() == inDatabase) && (removalprompt))
+        else if ((game.FoundLoc() == inDatabase) && (removalprompt))
         {
 
-            promptForRemoval( iter.value() );
+            promptForRemoval( game );
         }
 
         if (m_progressDlg)
@@ -538,16 +541,16 @@ void GameHandler::VerifyGameDB(GameHandler *handler)
         QString GameName = query.value(2).toString();
         if (!RomName.isEmpty())
         {
-            if ((iter = m_GameMap.find(RomName)) != m_GameMap.end())
+            if ((iter = m_gameMap.find(RomName)) != m_gameMap.end())
             {
                 // If it's both on disk and in the database we're done with it.
-                m_GameMap.erase(iter);
+                m_gameMap.erase(iter);
             }
             else
             {
                 // If it's only in the database add it to our list and mark it for
                 // removal.
-                m_GameMap[RomName] = GameScan(RomName,RomPath + "/" + RomName,inDatabase,
+                m_gameMap[RomName] = GameScan(RomName,RomPath + "/" + RomName,inDatabase,
                                         GameName,RomPath);
             }
         }
@@ -671,7 +674,7 @@ void GameHandler::buildFileList(const QString& directory, GameHandler *handler,
                 continue;
         }
 
-        m_GameMap[RomName] = GameScan(RomName,Info.filePath(),inFileSystem,
+        m_gameMap[RomName] = GameScan(RomName,Info.filePath(),inFileSystem,
                                       GameName, Info.absoluteDir().path());
 
         LOG(VB_GENERAL, LOG_INFO, LOC + QString("Found ROM : (%1) - %2")
@@ -723,7 +726,7 @@ void GameHandler::processGames(GameHandler *handler)
             busyDialog = nullptr;
         }
 
-        m_GameMap[handler->SystemCmdLine()] =
+        m_gameMap[handler->SystemCmdLine()] =
                 GameScan(handler->SystemCmdLine(),
                     handler->SystemCmdLine(),
                     inFileSystem,
@@ -758,7 +761,7 @@ void GameHandler::processGames(GameHandler *handler)
     VerifyGameDB(handler);
 
     // If we still have some games in the list then update the database
-    if (!m_GameMap.empty())
+    if (!m_gameMap.empty())
     {
         InitMetaDataMap(handler->GameType());
 
@@ -776,7 +779,7 @@ void GameHandler::processAllGames(void)
     checkHandlers();
     QStringList updatelist;
 
-    foreach (auto handler, *handlers)
+    for (auto *handler : qAsConst(*handlers))
     {
         if (handler)
         {
@@ -797,7 +800,7 @@ GameHandler* GameHandler::GetHandler(RomInfo *rominfo)
     if (!rominfo)
         return nullptr;
 
-    foreach (auto handler, *handlers)
+    for (auto *handler : qAsConst(*handlers))
     {
         if (handler)
         {
@@ -814,7 +817,7 @@ GameHandler* GameHandler::GetHandlerByName(const QString& systemname)
     if (systemname.isEmpty() || systemname.isNull())
         return nullptr;
 
-    foreach (auto handler, *handlers)
+    for (auto *handler : qAsConst(*handlers))
     {
         if (handler)
         {
@@ -914,7 +917,7 @@ void GameHandler::Launchgame(RomInfo *romdata, const QString& systemname)
     QStringList cmdlist = exec.split(";");
     if (cmdlist.count() > 0)
     {
-        foreach (auto & cmd, cmdlist)
+        for (const auto & cmd : qAsConst(cmdlist))
         {
             LOG(VB_GENERAL, LOG_INFO, LOC +
                 QString("Executing : %1").arg(cmd));
@@ -959,13 +962,13 @@ void GameHandler::customEvent(QEvent *event)
             switch (buttonNum)
             {
                 case 1:
-                    m_KeepAll = true;
+                    m_keepAll = true;
                     break;
                 case 2:
                     purgeGameDB(scan.Rom() , scan.RomFullPath());
                     break;
                 case 3:
-                    m_RemoveAll = true;
+                    m_removeAll = true;
                     purgeGameDB(scan.Rom() , scan.RomFullPath());
                     break;
                 default:

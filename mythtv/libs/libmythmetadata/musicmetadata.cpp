@@ -538,11 +538,20 @@ int MusicMetadata::getArtistId()
             }
             m_artistId = query.lastInsertId().toInt();
         }
+    }
+
+    return m_artistId;
+}
+
+int MusicMetadata::getCompilationArtistId()
+{
+    if (m_compartistId < 0) {
+        MSqlQuery query(MSqlQuery::InitCon());
 
         // Compilation Artist
         if (m_artist == m_compilationArtist)
         {
-            m_compartistId = m_artistId;
+            m_compartistId = getArtistId();
         }
         else
         {
@@ -573,7 +582,7 @@ int MusicMetadata::getArtistId()
         }
     }
 
-    return m_artistId;
+    return m_compartistId;
 }
 
 int MusicMetadata::getAlbumId()
@@ -668,11 +677,16 @@ QString MusicMetadata::Url(uint index)
 
 void MusicMetadata::dumpToDatabase()
 {
+    checkEmptyFields();
+
     if (m_directoryId < 0)
         getDirectoryId();
 
     if (m_artistId < 0)
         getArtistId();
+
+    if (m_compartistId < 0)
+        getCompilationArtistId();
 
     if (m_albumId < 0)
         getAlbumId();
@@ -765,10 +779,14 @@ void MusicMetadata::dumpToDatabase()
     if (m_albumArt)
         m_albumArt->dumpToDatabase();
 
-    // make sure the compilation flag is updated
-    query.prepare("UPDATE music_albums SET compilation = :COMPILATION, year = :YEAR "
+    // update the album
+    query.prepare("UPDATE music_albums SET album_name = :ALBUM_NAME, "
+                  "artist_id = :COMP_ARTIST_ID, compilation = :COMPILATION, "
+                  "year = :YEAR "
                   "WHERE music_albums.album_id = :ALBUMID");
     query.bindValue(":ALBUMID", m_albumId);
+    query.bindValue(":ALBUM_NAME", m_album);
+    query.bindValue(":COMP_ARTIST_ID", m_compartistId);
     query.bindValue(":COMPILATION", m_compilation);
     query.bindValue(":YEAR", m_year);
 
@@ -850,16 +868,28 @@ inline QString MusicMetadata::formatReplaceSymbols(const QString &format)
 void MusicMetadata::checkEmptyFields()
 {
     if (m_artist.isEmpty())
+    {
         m_artist = tr("Unknown Artist", "Default artist if no artist");
+        m_artistId = -1;
+    }
     // This should be the same as Artist if it's a compilation track or blank
     if (!m_compilation || m_compilationArtist.isEmpty())
+    {
         m_compilationArtist = m_artist;
+        m_compartistId = -1;
+    }
     if (m_album.isEmpty())
+    {
         m_album = tr("Unknown Album", "Default album if no album");
+        m_albumId = -1;
+    }
     if (m_title.isEmpty())
         m_title = m_filename;
     if (m_genre.isEmpty())
+    {
         m_genre = tr("Unknown Genre", "Default genre if no genre");
+        m_genreId = -1;
+    }
     ensureSortFields();
 }
 
@@ -1186,10 +1216,9 @@ void MusicMetadata::setEmbeddedAlbumArt(AlbumArtList &albumart)
     if (!m_albumArt)
         m_albumArt = new AlbumArtImages(this, false);
 
-    foreach (auto art, albumart)
+    for (auto *art : qAsConst(albumart))
     {
-        AlbumArtImage *image = art;
-        image->m_filename = QString("%1-%2").arg(m_id).arg(image->m_filename);
+        art->m_filename = QString("%1-%2").arg(m_id).arg(art->m_filename);
         m_albumArt->addImage(art);
     }
 
@@ -1528,6 +1557,7 @@ void AllMusic::resync()
 
             dbMeta->setDirectoryId(query.value(11).toInt());
             dbMeta->setArtistId(query.value(1).toInt());
+            dbMeta->setCompilationArtistId(query.value(3).toInt());
             dbMeta->setAlbumId(query.value(4).toInt());
             dbMeta->setTrackCount(query.value(19).toInt());
             dbMeta->setFileSize(query.value(20).toULongLong());
@@ -1566,20 +1596,12 @@ void AllMusic::resync()
             {
                 // first song
                 m_playCountMin = m_playCountMax = query.value(13).toInt();
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-                m_lastPlayMin  = m_lastPlayMax  = query.value(14).toDateTime().toTime_t();
-#else
                 m_lastPlayMin  = m_lastPlayMax  = query.value(14).toDateTime().toSecsSinceEpoch();
-#endif
             }
             else
             {
                 int playCount = query.value(13).toInt();
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-                double lastPlay = query.value(14).toDateTime().toTime_t();
-#else
                 qint64 lastPlay = query.value(14).toDateTime().toSecsSinceEpoch();
-#endif
 
                 m_playCountMin = min(playCount, m_playCountMin);
                 m_playCountMax = max(playCount, m_playCountMax);
@@ -1596,7 +1618,7 @@ void AllMusic::resync()
 
     // get a list of tracks in our cache that's now not in the database
     QList<MusicMetadata::IdType> deleteList;
-    foreach (auto track, m_allMusic)
+    for (const auto *track : qAsConst(m_allMusic))
     {
         if (!idList.contains(track->ID()))
         {
@@ -1652,7 +1674,7 @@ bool AllMusic::updateMetadata(int an_id, MusicMetadata *the_track)
 /// \brief Check each MusicMetadata entry and save those that have changed (ratings, etc.)
 void AllMusic::save(void)
 {
-    foreach (auto & item, m_allMusic)
+    for (auto *item : qAsConst(m_allMusic))
     {
         if (item->hasChanged())
             item->persist();
@@ -1694,7 +1716,7 @@ bool AllMusic::checkCDTrack(MusicMetadata *the_track)
 
 MusicMetadata* AllMusic::getCDMetadata(int the_track)
 {
-    foreach (auto & anit, m_cdData)
+    for (auto *anit : qAsConst(m_cdData))
     {
         if (anit->Track() == the_track)
         {
@@ -2098,7 +2120,7 @@ void AlbumArtImages::scanForImages()
 
 AlbumArtImage *AlbumArtImages::getImage(ImageType type)
 {
-    foreach (auto & item, m_imageList)
+    for (auto *item : qAsConst(m_imageList))
     {
         if (item->m_imageType == type)
             return item;
@@ -2109,7 +2131,7 @@ AlbumArtImage *AlbumArtImages::getImage(ImageType type)
 
 AlbumArtImage *AlbumArtImages::getImageByID(int imageID)
 {
-    foreach (auto & item, m_imageList)
+    for (auto *item : qAsConst(m_imageList))
     {
         if (item->m_id == imageID)
             return item;
@@ -2122,7 +2144,7 @@ QStringList AlbumArtImages::getImageFilenames(void) const
 {
     QStringList paths;
 
-    foreach (auto item, m_imageList)
+    for (const auto *item : qAsConst(m_imageList))
         paths += item->m_filename;
 
     return paths;
@@ -2140,7 +2162,7 @@ AlbumArtImage *AlbumArtImages::getImageAt(uint index)
 QString AlbumArtImages::getTypeName(ImageType type)
 {
     // these const's should match the ImageType enum's
-    static const char* s_typeStrings[] = {
+    static const std::array<const std::string,6> s_typeStrings {
         QT_TR_NOOP("Unknown"),            // IT_UNKNOWN
         QT_TR_NOOP("Front Cover"),        // IT_FRONTCOVER
         QT_TR_NOOP("Back Cover"),         // IT_BACKCOVER
@@ -2150,14 +2172,14 @@ QString AlbumArtImages::getTypeName(ImageType type)
     };
 
     return QCoreApplication::translate("AlbumArtImages",
-                                       s_typeStrings[type]);
+                                       s_typeStrings[type].c_str());
 }
 
 // static method to get a filename from an ImageType
 QString AlbumArtImages::getTypeFilename(ImageType type)
 {
     // these const's should match the ImageType enum's
-    static const char* s_filenameStrings[] = {
+    static const std::array<const std::string,6> s_filenameStrings {
         QT_TR_NOOP("unknown"),      // IT_UNKNOWN
         QT_TR_NOOP("front"),        // IT_FRONTCOVER
         QT_TR_NOOP("back"),         // IT_BACKCOVER
@@ -2167,7 +2189,7 @@ QString AlbumArtImages::getTypeFilename(ImageType type)
     };
 
     return QCoreApplication::translate("AlbumArtImages",
-                                       s_filenameStrings[type]);
+                                       s_filenameStrings[type].c_str());
 }
 
 // static method to guess the image type from the filename
@@ -2214,15 +2236,15 @@ ImageType AlbumArtImages::getImageTypeFromName(const QString &name)
     return type;
 }
 
-void AlbumArtImages::addImage(const AlbumArtImage &newImage)
+void AlbumArtImages::addImage(const AlbumArtImage * const newImage)
 {
     // do we already have an image of this type?
     AlbumArtImage *image = nullptr;
 
-    foreach (auto & item, m_imageList)
+    for (auto *item : qAsConst(m_imageList))
     {
-        if (item->m_imageType == newImage.m_imageType
-            && item->m_embedded == newImage.m_embedded)
+        if (item->m_imageType == newImage->m_imageType
+            && item->m_embedded == newImage->m_embedded)
         {
             image = item;
             break;
@@ -2238,11 +2260,11 @@ void AlbumArtImages::addImage(const AlbumArtImage &newImage)
     else
     {
         // we already have an image of this type so just update it with the new info
-        image->m_filename = newImage.m_filename;
-        image->m_imageType = newImage.m_imageType;
-        image->m_embedded = newImage.m_embedded;
-        image->m_description = newImage.m_description;
-        image->m_hostname = newImage.m_hostname;
+        image->m_filename    = newImage->m_filename;
+        image->m_imageType   = newImage->m_imageType;
+        image->m_embedded    = newImage->m_embedded;
+        image->m_description = newImage->m_description;
+        image->m_hostname    = newImage->m_hostname;
     }
 }
 
@@ -2277,7 +2299,7 @@ void AlbumArtImages::dumpToDatabase(void)
     }
 
     // now add the albumart to the db
-    foreach (auto image, m_imageList)
+    for (auto *image : qAsConst(m_imageList))
     {
         //TODO: for the moment just ignore artist images
         if (image->m_imageType == IT_ARTIST)

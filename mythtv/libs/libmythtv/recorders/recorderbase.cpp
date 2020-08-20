@@ -24,6 +24,8 @@ using namespace std;
 #include "asichannel.h"
 #include "dtvchannel.h"
 #include "dvbchannel.h"
+#include "satipchannel.h"
+#include "satiprecorder.h"
 #include "ExternalChannel.h"
 #include "io/mythmediabuffer.h"
 #include "cardutil.h"
@@ -437,6 +439,10 @@ void RecorderBase::FinishRecording(void)
     {
         if (m_primaryVideoCodec == AV_CODEC_ID_H264)
             m_curRecording->SaveVideoProperties(VID_AVC, VID_AVC);
+        else if (m_primaryVideoCodec == AV_CODEC_ID_H265)
+            m_curRecording->SaveVideoProperties(VID_HEVC, VID_HEVC);
+        else if (m_primaryVideoCodec == AV_CODEC_ID_MPEG2VIDEO)
+            m_curRecording->SaveVideoProperties(VID_MPEG2, VID_MPEG2);
 
         RecordingFile *recFile = m_curRecording->GetRecordingFile();
         if (recFile)
@@ -790,7 +796,7 @@ void RecorderBase::ResolutionChange(uint width, uint height, long long frame)
     }
 }
 
-void RecorderBase::FrameRateChange(uint framerate, long long frame)
+void RecorderBase::FrameRateChange(uint framerate, uint64_t frame)
 {
     if (m_curRecording)
     {
@@ -803,6 +809,12 @@ void RecorderBase::FrameRateChange(uint framerate, long long frame)
         }
         m_curRecording->SaveFrameRate(frame, framerate);
     }
+}
+
+void RecorderBase::VideoScanChange(SCAN_t scan, uint64_t frame)
+{
+    if (m_curRecording)
+        m_curRecording->SaveVideoScanType(frame, scan != SCAN_t::INTERLACED);
 }
 
 void RecorderBase::VideoCodecChange(AVCodecID vCodec)
@@ -919,6 +931,13 @@ RecorderBase *RecorderBase::CreateRecorder(
             recorder = new IPTVRecorder(tvrec, dynamic_cast<IPTVChannel*>(channel));
     }
 #endif // USING_VBOX
+#ifdef USING_SATIP
+    else if (genOpt.m_inputType == "SATIP")
+    {
+        if (dynamic_cast<SatIPChannel*>(channel))
+            recorder = new SatIPRecorder(tvrec, dynamic_cast<SatIPChannel*>(channel));
+    }
+#endif // USING_SATIP
 #ifdef USING_ASI
     else if (genOpt.m_inputType == "ASI")
     {

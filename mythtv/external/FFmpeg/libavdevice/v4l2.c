@@ -547,6 +547,7 @@ static int mmap_read_frame(AVFormatContext *ctx, AVPacket *pkt)
             s->buffers_ignore = 8;
             enqueue_buffer(s, &buf);
             return FFERROR_REDO;
+            //buf.bytesused = 0;
         }
     }
 
@@ -830,7 +831,8 @@ static int device_try_init(AVFormatContext *ctx,
     }
 
     *codec_id = ff_fmt_v4l2codec(*desired_format);
-    av_assert0(*codec_id != AV_CODEC_ID_NONE);
+    if (*codec_id == AV_CODEC_ID_NONE)
+        av_assert0(ret == AVERROR(EINVAL));
     return ret;
 }
 

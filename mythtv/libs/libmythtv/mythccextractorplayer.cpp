@@ -107,7 +107,7 @@ static QString progress_string(
             .arg(m_myFramesPlayed,7);
     }
 
-    static constexpr char kSpinChars[] = "/-\\|";
+    static const std::string kSpinChars { R"(/-\|)" };
     static uint s_spinCnt = 0;
 
     double elapsed = flagTime.elapsed() * 0.001;
@@ -298,7 +298,7 @@ void MythCCExtractorPlayer::IngestSubtitle(
 
 void MythCCExtractorPlayer::Ingest608Captions(void)
 {
-    static constexpr int kCcIndexTbl[7] =
+    static constexpr std::array<int,7> kCcIndexTbl
     {
         0, // CC_CC1
         1, // CC_CC2
@@ -451,10 +451,10 @@ void MythCCExtractorPlayer::Ingest708Caption(
     cc708win[windowIdx].text = winContent;
 
     QMap<uint, QStringList> orderedContent;
-    foreach (const auto & ccIt, cc708win)
+    for (const auto& ccIt : qAsConst(cc708win))
     {
         uint idx = ccIt.row * 1000 + ccIt.column;
-        foreach (const auto & str, ccIt.text)
+        for (const auto& str : qAsConst(ccIt.text))
         {
             orderedContent[idx] += str;
         }

@@ -38,6 +38,7 @@ using namespace std;
 #include "mythmediamonitor.h"
 #include "mediamonitor-unix.h"
 #include "mythconfig.h"
+#include "mythcorecontext.h"
 #include "mythcdrom.h"
 #include "mythhdd.h"
 #include "mythlogging.h"
@@ -119,7 +120,13 @@ MediaMonitorUnix::MediaMonitorUnix(QObject* par,
                 : MediaMonitor(par, interval, allowEject)
 {
     CheckFileSystemTable();
-    CheckMountable();
+    if (!gCoreContext->GetBoolSetting("MonitorDrives", false)) {
+        LOG(VB_GENERAL, LOG_NOTICE, "MediaMonitor disabled by user setting.");
+    }
+    else
+    {
+        CheckMountable();
+    }
 
     LOG(VB_MEDIA, LOG_INFO, "Initial device list...\n" + listDevices());
 }
@@ -158,7 +165,7 @@ bool MediaMonitorUnix::CheckFileSystemTable(void)
 
     endfsent();
 
-    return !m_Devices.isEmpty();
+    return !m_devices.isEmpty();
 #else
     return false;
 #endif
@@ -237,7 +244,7 @@ bool MediaMonitorUnix::CheckMountable(void)
 
         // Parse the returned device array
         const QDBusObjectPathList& list(reply.value());
-        foreach (const auto & entry, list)
+        for (const auto& entry : qAsConst(list))
         {
             if (!DeviceProperty(entry, "DeviceIsSystemInternal").toBool() &&
                 !DeviceProperty(entry, "DeviceIsPartitionTable").toBool() )
@@ -250,7 +257,7 @@ bool MediaMonitorUnix::CheckMountable(void)
 
                 MythMediaDevice* pDevice = nullptr;
                 if (DeviceProperty(entry, "DeviceIsRemovable").toBool())
-                    pDevice = MythCDROM::get(this, dev.toLatin1(), false, m_AllowEject);
+                    pDevice = MythCDROM::get(this, dev.toLatin1(), false, m_allowEject);
                 else
                     pDevice = MythHDD::Get(this, dev.toLatin1(), false, false);
 
@@ -274,8 +281,7 @@ bool MediaMonitorUnix::CheckMountable(void)
     QDir sysfs("/sys/block");
     sysfs.setFilter(QDir::Dirs | QDir::NoDotAndDotDot);
 
-    QStringList devices = sysfs.entryList();
-    foreach (auto & device, devices)
+    for (const auto& device : sysfs.entryList())
     {
         // ignore floppies, too slow
         if (device.startsWith("fd"))
@@ -438,7 +444,7 @@ QStringList MediaMonitorUnix::GetCDROMBlockDevices(void)
         if (reply.isValid())
         {
             const QDBusObjectPathList& list(reply.value());
-            foreach (const auto & entry, list)
+            for (const auto& entry : qAsConst(list))
             {
                 if (DeviceProperty(entry, "DeviceIsRemovable").toBool())
                 {
@@ -462,7 +468,11 @@ QStringList MediaMonitorUnix::GetCDROMBlockDevices(void)
             line = stream.readLine();
             if (line.startsWith("drive name:"))
             {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
                 l = line.split('\t', QString::SkipEmptyParts);
+#else
+                l = line.split('\t', Qt::SkipEmptyParts);
+#endif
                 l.pop_front();   // Remove 'drive name:' field
                 break;           // file should only contain one drive table?
             }
@@ -584,7 +594,7 @@ bool MediaMonitorUnix::AddDevice(MythMediaDevice* pDevice)
     //
     // Check if this is a duplicate of a device we have already added
     //
-    foreach (auto & device, m_Devices)
+    for (const auto *device : qAsConst(m_devices))
     {
         if (stat(device->getDevicePath().toLocal8Bit().constData(), &sb) < 0)
         {
@@ -605,12 +615,12 @@ bool MediaMonitorUnix::AddDevice(MythMediaDevice* pDevice)
 
     LookupModel(pDevice);
 
-    QMutexLocker locker(&m_DevicesLock);
+    QMutexLocker locker(&m_devicesLock);
 
     connect(pDevice, SIGNAL(statusChanged(MythMediaStatus, MythMediaDevice*)),
             this, SLOT(mediaStatusChanged(MythMediaStatus, MythMediaDevice*)));
-    m_Devices.push_back( pDevice );
-    m_UseCount[pDevice] = 0;
+    m_devices.push_back( pDevice );
+    m_useCount[pDevice] = 0;
     LOG(VB_MEDIA, LOG_INFO, LOC + ":AddDevice() - Added " + path);
 
     return true;
@@ -670,7 +680,7 @@ bool MediaMonitorUnix::AddDevice(struct fstab * mep)
     {
         if (is_cdrom)
             pDevice = MythCDROM::get(this, mep->fs_spec,
-                                     is_supermount, m_AllowEject);
+                                     is_supermount, m_allowEject);
     }
     else
     {
@@ -691,7 +701,7 @@ bool MediaMonitorUnix::AddDevice(struct fstab * mep)
             devstr[len] = 0;
             if (is_cdrom)
                 pDevice = MythCDROM::get(this, devstr,
-                                         is_supermount, m_AllowEject);
+                                         is_supermount, m_allowEject);
         }
         else
             return false;
@@ -727,7 +737,7 @@ void MediaMonitorUnix::deviceAdded( const QDBusObjectPath& o)
 
         MythMediaDevice* pDevice = nullptr;
         if (DeviceProperty(o, "DeviceIsRemovable").toBool())
-            pDevice = MythCDROM::get(this, dev.toLatin1(), false, m_AllowEject);
+            pDevice = MythCDROM::get(this, dev.toLatin1(), false, m_allowEject);
         else
             pDevice = MythHDD::Get(this, dev.toLatin1(), false, false);
 
@@ -786,7 +796,7 @@ bool MediaMonitorUnix::FindPartitions(const QString &dev, bool checkPartitions)
 
         bool found_partitions = false;
         QStringList parts = sysfs.entryList();
-        foreach (auto & part, parts)
+        for (const auto& part : qAsConst(parts))
         {
             // skip some sysfs dirs that are _not_ sub-partitions
             if (part == "device" || part == "holders" || part == "queue"
@@ -816,7 +826,7 @@ bool MediaMonitorUnix::FindPartitions(const QString &dev, bool checkPartitions)
     {
         // found cdrom device
             pDevice = MythCDROM::get(
-                this, device_file.toLatin1().constData(), false, m_AllowEject);
+                this, device_file.toLatin1().constData(), false, m_allowEject);
     }
     else
     {
@@ -855,8 +865,12 @@ void MediaMonitorUnix::CheckDeviceNotifications(void)
         qBuffer.append(buffer);
         size = read(m_fifo, buffer, 255);
     }
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     const QStringList list = qBuffer.split('\n', QString::SkipEmptyParts);
-    foreach (const auto & notif, list)
+#else
+    const QStringList list = qBuffer.split('\n', Qt::SkipEmptyParts);
+#endif
+    for (const auto& notif : qAsConst(list))
     {
         if (notif.startsWith("add"))
         {

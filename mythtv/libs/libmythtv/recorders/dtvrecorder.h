@@ -18,7 +18,7 @@ using namespace std;
 
 #include "streamlisteners.h"
 #include "recorderbase.h"
-#include "H264Parser.h"
+#include "H2645Parser.h"
 
 class MPEGStreamData;
 class TSPacket;
@@ -111,8 +111,8 @@ class DTVRecorder :
     bool FindMPEG2Keyframes(const TSPacket* tspacket);
 
     // MPEG4 AVC / H.264 TS support
-    bool FindH264Keyframes(const TSPacket* tspacket);
-    void HandleH264Keyframe(void);
+    bool FindH2645Keyframes(const TSPacket* tspacket);
+    void HandleH2645Keyframe(void);
 
     // MPEG2 PS support (Hauppauge PVR-x50/PVR-500)
     void FindPSKeyFrames(const uint8_t *buffer, uint len) override; // PSStreamListener
@@ -149,7 +149,7 @@ class DTVRecorder :
     // H.264 support
     bool                     m_pesSynced                  {false};
     bool                     m_seenSps                    {false};
-    H264Parser               m_h264Parser;
+    H2645Parser             *m_h2645Parser                {nullptr};
 
     /// Wait for the a GOP/SEQ-start before sending data
     bool                     m_waitForKeyframeOption      {true};
@@ -177,18 +177,18 @@ class DTVRecorder :
     // TS recorder stuff
     bool                     m_recordMpts                 {false};
     bool                     m_recordMptsOnly             {false};
-    unsigned char            m_streamId[0x1fff + 1]       {0};
-    unsigned char            m_pidStatus[0x1fff + 1]      {0};
-    unsigned char            m_continuityCounter[0x1fff + 1] {0};
+    std::array<uint8_t,0x1fff + 1> m_streamId             {0};
+    std::array<uint8_t,0x1fff + 1> m_pidStatus            {0};
+    std::array<uint8_t,0x1fff + 1> m_continuityCounter    {0};
     vector<TSPacket>         m_scratch;
 
     // Statistics
     int                      m_minimumRecordingQuality    {95};
-    bool                     m_use_pts                    {false}; // vs use dts
-    uint64_t                 m_tsCount[256]               {0};
-    int64_t                  m_tsLast[256]                {};
-    int64_t                  m_tsFirst[256]               {};
-    QDateTime                m_tsFirstDt[256];
+    bool                     m_usePts                     {false}; // vs use dts
+    std::array<uint64_t,256> m_tsCount                    {0};
+    std::array<int64_t,256>  m_tsLast                     {};
+    std::array<int64_t,256>  m_tsFirst                    {};
+    std::array<QDateTime,256>m_tsFirstDt                  {};
     mutable QAtomicInt       m_packetCount                {0};
     mutable QAtomicInt       m_continuityErrorCount       {0};
     unsigned long long       m_framesSeenCount            {0};
@@ -199,10 +199,13 @@ class DTVRecorder :
     double                   m_tdBase                     {0.0};
     uint64_t                 m_tdTickCount                {0};
     FrameRate                m_tdTickFramerate            {0};
+    SCAN_t                   m_scanType                   {SCAN_t::UNKNOWN_SCAN};
 
     // Music Choice
     // Comcast Music Choice uses 3 frames every 6 seconds and no key frames
     bool                     m_musicChoice                {false};
+
+    bool                     m_useIForKeyframe            {true};
 
     // constants
     /// If the number of regular frames detected since the last

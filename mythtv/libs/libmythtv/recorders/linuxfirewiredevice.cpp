@@ -52,7 +52,7 @@ class LFDPriv
 
     ~LFDPriv()
     {
-        foreach (auto & device, m_devices)
+        for (const auto & device : qAsConst(m_devices))
             delete device;
         m_devices.clear();
 
@@ -243,7 +243,7 @@ bool LinuxFirewireDevice::OpenPort(void)
 
     if (GetInfoPtr()->IsPortOpen())
     {
-        m_open_port_cnt++;
+        m_openPortCnt++;
         return true;
     }
 
@@ -281,7 +281,7 @@ bool LinuxFirewireDevice::OpenPort(void)
 
     LOG(VB_RECORD, LOG_INFO, LOC + "Port handler thread started");
 
-    m_open_port_cnt++;
+    m_openPortCnt++;
 
     return true;
 }
@@ -296,12 +296,12 @@ bool LinuxFirewireDevice::ClosePort(void)
 
     LOG(VB_RECORD, LOG_INFO, LOC + "ClosePort()");
 
-    if (m_open_port_cnt < 1)
+    if (m_openPortCnt < 1)
         return false;
 
-    m_open_port_cnt--;
+    m_openPortCnt--;
 
-    if (m_open_port_cnt != 0)
+    if (m_openPortCnt != 0)
         return true;
 
     if (!GetInfoPtr())
@@ -821,7 +821,7 @@ vector<AVCInfo> LinuxFirewireDevice::GetSTBListPrivate(void)
 
     vector<AVCInfo> list;
 
-    foreach (auto & device, m_priv->m_devices)
+    for (const auto & device : qAsConst(m_priv->m_devices))
     {
         if (device->IsSubunitType(kAVCSubunitTypeTuner) &&
             device->IsSubunitType(kAVCSubunitTypePanel))

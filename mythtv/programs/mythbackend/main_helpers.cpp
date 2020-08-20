@@ -157,6 +157,7 @@ bool setupTVs(bool ismaster, bool &error)
 
     QWriteLocker tvlocker(&TVRec::s_inputsLock);
 
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
     for (size_t i = 0; i < cardids.size(); i++)
     {
         if (hosts[i] == localhostname) {
@@ -630,7 +631,10 @@ int run_backend(MythBackendCommandLineParser &cmdline)
             sched = new Scheduler(true, &tvList);
             int err = sched->GetError();
             if (err)
+            {
+                delete sched;
                 return err;
+            }
 
             if (cmdline.toBool("nosched"))
                 sched->DisableScheduling();

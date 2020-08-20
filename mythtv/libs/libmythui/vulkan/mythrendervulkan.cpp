@@ -4,14 +4,13 @@
 // MythTV
 #include "mythlogging.h"
 #include "mythimage.h"
+#include "mythmainwindow.h"
 #include "vulkan/mythwindowvulkan.h"
 #include "vulkan/mythshadervulkan.h"
 #include "vulkan/mythtexturevulkan.h"
 #include "vulkan/mythrendervulkan.h"
 
 #define LOC QString("VulkanRender: ")
-
-const std::vector<uint16_t> MythRenderVulkan::s_VertexIndices = { 0, 1, 2, 2, 3, 0 };
 
 MythVulkanObject::MythVulkanObject(MythRenderVulkan *Render, VkDevice Device, QVulkanDeviceFunctions* Functions)
   : m_render(Render),
@@ -20,6 +19,20 @@ MythVulkanObject::MythVulkanObject(MythRenderVulkan *Render, VkDevice Device, QV
 {
     if (!(Render && Device && Functions))
         LOG(VB_GENERAL, LOG_ERR, "VulkanBase: Invalid Myth vulkan object");
+}
+
+MythRenderVulkan* MythRenderVulkan::GetVulkanRender(void)
+{
+    MythRenderVulkan* result = nullptr;
+
+    // Don't try and create the window
+    if (!HasMythMainWindow())
+        return result;
+
+    MythMainWindow* window = MythMainWindow::getMainWindow();
+    if (window)
+        result = dynamic_cast<MythRenderVulkan*>(window->GetRenderDevice());
+    return result;
 }
 
 MythRenderVulkan::MythRenderVulkan()
@@ -49,6 +62,11 @@ bool MythRenderVulkan::Init(void)
 void MythRenderVulkan::SetVulkanWindow(MythWindowVulkan *VulkanWindow)
 {
     m_window = VulkanWindow;
+}
+
+MythWindowVulkan* MythRenderVulkan::GetVulkanWindow(void)
+{
+    return m_window;
 }
 
 void MythRenderVulkan::preInitResources(void)
@@ -106,10 +124,10 @@ void MythRenderVulkan::DebugVulkan(void)
                                   .arg(VK_VERSION_PATCH(Version));
     };
 
-    auto * props = reinterpret_cast<const VkPhysicalDeviceProperties*>(m_window->physicalDeviceProperties());
+    const auto * props = reinterpret_cast<const VkPhysicalDeviceProperties*>(m_window->physicalDeviceProperties());
     if (!props)
         return;
-    auto & limits = props->limits;
+    const auto & limits = props->limits;
     auto devextensions = m_window->supportedDeviceExtensions();
     auto instextensions = m_window->vulkanInstance()->supportedExtensions();
 
@@ -155,16 +173,16 @@ void MythRenderVulkan::DebugVulkan(void)
     if (VERBOSE_LEVEL_CHECK(VB_GENERAL, LOG_DEBUG))
     {
         LOG(VB_GENERAL, LOG_INFO, QString("%1 device extensions supported:").arg(devextensions.size()));
-        for (auto extension : devextensions)
+        for (const auto& extension : devextensions)
             LOG(VB_GENERAL, LOG_INFO, LOC + QString("%1 Version: %2").arg(extension.name.constData()).arg(extension.version));
 
         LOG(VB_GENERAL, LOG_INFO, QString("%1 instance extensions supported:").arg(instextensions.size()));
-        for (auto extension : instextensions)
+        for (const auto& extension : instextensions)
             LOG(VB_GENERAL, LOG_INFO, LOC + QString("%1 Version: %2").arg(extension.name.constData()).arg(extension.version));
 
         auto layers = m_window->vulkanInstance()->supportedLayers();
         LOG(VB_GENERAL, LOG_INFO, QString("%1 layer types supported:").arg(layers.size()));
-        for (auto layer : layers)
+        for (const auto& layer : layers)
             LOG(VB_GENERAL, LOG_INFO, QString("%1 Version: %2").arg(layer.name.constData()).arg(layer.version));
     }
 }
@@ -209,12 +227,12 @@ void MythRenderVulkan::SetFrameExpected(void)
     m_frameExpected = true;
 }
 
-bool MythRenderVulkan::GetFrameExpected(void)
+bool MythRenderVulkan::GetFrameExpected(void) const
 {
     return m_frameExpected;
 }
 
-bool MythRenderVulkan::GetFrameStarted(void)
+bool MythRenderVulkan::GetFrameStarted(void) const
 {
     return m_frameStarted;
 }
@@ -238,8 +256,8 @@ void MythRenderVulkan::BeginFrame(void)
     m_frameStarted = true;
 
     // clear the framebuffer
-    VkClearColorValue clearColor = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
-    VkClearDepthStencilValue clearDS = { 1.0f, 0 };
+    VkClearColorValue clearColor = {{ 0.0F, 0.0F, 0.0F, 1.0F }};
+    VkClearDepthStencilValue clearDS = { 1.0F, 0 };
     VkClearValue clearValues[2];
     memset(clearValues, 0, sizeof(clearValues));
     clearValues[0].color        = clearColor;
@@ -272,9 +290,11 @@ void MythRenderVulkan::EndFrame(void)
 
 void MythRenderVulkan::TransitionImageLayout(VkImage &Image,
                                              VkImageLayout OldLayout,
-                                             VkImageLayout NewLayout)
+                                             VkImageLayout NewLayout,
+                                             VkCommandBuffer CommandBuffer)
 {
-    VkCommandBuffer commandbuffer = CreateSingleUseCommandBuffer();
+
+    VkCommandBuffer commandbuffer = CommandBuffer ? CommandBuffer : CreateSingleUseCommandBuffer();
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -312,14 +332,17 @@ void MythRenderVulkan::TransitionImageLayout(VkImage &Image,
 
     m_devFuncs->vkCmdPipelineBarrier(commandbuffer, sourceStage, destinationStage,
                                      0, 0, nullptr, 0, nullptr, 1, &barrier);
-    FinishSingleUseCommandBuffer(commandbuffer);
+    if (!CommandBuffer)
+        FinishSingleUseCommandBuffer(commandbuffer);
 }
 
-void MythRenderVulkan::CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+void MythRenderVulkan::CopyBufferToImage(VkBuffer Buffer, VkImage Image,
+                                         uint32_t Width, uint32_t Height,
+                                         VkCommandBuffer CommandBuffer)
 {
-    VkCommandBuffer commandbuffer = CreateSingleUseCommandBuffer();
+    VkCommandBuffer commandbuffer = CommandBuffer ? CommandBuffer : CreateSingleUseCommandBuffer();
     VkBufferImageCopy region { };
-    region.bufferOffset     = 0;
+    region.bufferOffset      = 0;
     region.bufferRowLength   = 0;
     region.bufferImageHeight = 0;
     region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -327,9 +350,10 @@ void MythRenderVulkan::CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_
     region.imageSubresource.baseArrayLayer = 0;
     region.imageSubresource.layerCount = 1;
     region.imageOffset = { 0, 0, 0 };
-    region.imageExtent = { width, height, 1 };
-    m_devFuncs->vkCmdCopyBufferToImage(commandbuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    FinishSingleUseCommandBuffer(commandbuffer);
+    region.imageExtent = { Width, Height, 1 };
+    m_devFuncs->vkCmdCopyBufferToImage(commandbuffer, Buffer, Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    if (!CommandBuffer)
+        FinishSingleUseCommandBuffer(commandbuffer);
 }
 
 void MythRenderVulkan::CopyBuffer(VkBuffer Src, VkBuffer Dst, VkDeviceSize Size, VkCommandBuffer CommandBuffer)
@@ -391,6 +415,30 @@ bool MythRenderVulkan::CreateBuffer(VkDeviceSize          Size,
     m_devFuncs->vkDestroyBuffer(m_device, Buffer, nullptr);
     return false;
 }
+
+VkSampler MythRenderVulkan::CreateSampler(VkFilter Min, VkFilter Mag)
+{
+    VkSampler result = nullptr;
+    VkSamplerCreateInfo samplerinfo { };
+    memset(&samplerinfo, 0, sizeof(samplerinfo));
+    samplerinfo.sType            = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerinfo.minFilter        = Min;
+    samplerinfo.magFilter        = Mag;
+    samplerinfo.addressModeU     = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerinfo.addressModeV     = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerinfo.addressModeW     = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerinfo.anisotropyEnable = VK_FALSE;
+    samplerinfo.maxAnisotropy    = 1;
+    samplerinfo.borderColor      = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
+    samplerinfo.unnormalizedCoordinates = VK_FALSE;
+    samplerinfo.compareEnable    = VK_FALSE;
+    samplerinfo.compareOp        = VK_COMPARE_OP_ALWAYS;
+    samplerinfo.mipmapMode       = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    if (m_devFuncs->vkCreateSampler(m_device, &samplerinfo, nullptr, &result) != VK_SUCCESS)
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create image sampler");
+    return result;
+}
+
 
 bool MythRenderVulkan::CreateImage(QSize             Size,
                                    VkFormat          Format,
@@ -471,7 +519,7 @@ VkCommandBuffer MythRenderVulkan::CreateSingleUseCommandBuffer(void)
     allocinfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocinfo.commandPool = m_window->graphicsCommandPool();
     allocinfo.commandBufferCount = 1;
-    VkCommandBuffer commandbuffer;
+    VkCommandBuffer commandbuffer = nullptr;
     m_devFuncs->vkAllocateCommandBuffers(m_device, &allocinfo, &commandbuffer);
     VkCommandBufferBeginInfo begininfo { };
     begininfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -500,10 +548,10 @@ VkPipeline MythRenderVulkan::CreatePipeline(MythShaderVulkan *Shader, VkPipeline
     // shaders
     const auto & shaderstages = Shader->Stages();
 
-    // primitives - triangle list as for OpenGL
+    // primitives - triangle strip as for OpenGL
     VkPipelineInputAssemblyStateCreateInfo inputassembly { };
     inputassembly.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputassembly.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputassembly.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
     inputassembly.primitiveRestartEnable = VK_FALSE;
 
     // viewport - N.B. static
@@ -512,8 +560,8 @@ VkPipeline MythRenderVulkan::CreatePipeline(MythShaderVulkan *Shader, VkPipeline
     viewport.y        = static_cast<float>(Viewport.left());
     viewport.width    = static_cast<float>(Viewport.width());
     viewport.height   = static_cast<float>(Viewport.height());
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
+    viewport.minDepth = 0.0F;
+    viewport.maxDepth = 1.0F;
 
     VkRect2D scissor { };
     scissor.offset = { Viewport.left(), Viewport.top() };
@@ -527,13 +575,20 @@ VkPipeline MythRenderVulkan::CreatePipeline(MythShaderVulkan *Shader, VkPipeline
     viewportstate.pScissors     = &scissor;
 
     // Vertex input - from the shader
-    const auto & vertexattribs = Shader->GetVertexAttributes();
+    //const auto & vertexattribs = Shader->GetVertexAttributes();
+    //VkPipelineVertexInputStateCreateInfo vertexinput { };
+    //vertexinput.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    //vertexinput.vertexBindingDescriptionCount   = 1;
+    //vertexinput.pVertexBindingDescriptions      = &Shader->GetVertexBindingDesc();
+    //vertexinput.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexattribs.size());
+    //vertexinput.pVertexAttributeDescriptions    = vertexattribs.data();
+
     VkPipelineVertexInputStateCreateInfo vertexinput { };
     vertexinput.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexinput.vertexBindingDescriptionCount   = 1;
-    vertexinput.pVertexBindingDescriptions      = &Shader->GetVertexBindingDesc();
-    vertexinput.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexattribs.size());
-    vertexinput.pVertexAttributeDescriptions    = vertexattribs.data();
+    vertexinput.vertexBindingDescriptionCount   = 0;
+    vertexinput.pVertexBindingDescriptions      = nullptr;
+    vertexinput.vertexAttributeDescriptionCount = 0;
+    vertexinput.pVertexAttributeDescriptions    = nullptr;
 
     // multisampling - no thanks
     VkPipelineMultisampleStateCreateInfo multisampling { };
@@ -547,8 +602,8 @@ VkPipeline MythRenderVulkan::CreatePipeline(MythShaderVulkan *Shader, VkPipeline
     colorblendattachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
     colorblendattachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     colorblendattachment.colorBlendOp        = VK_BLEND_OP_ADD;
-    colorblendattachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorblendattachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorblendattachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorblendattachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     colorblendattachment.alphaBlendOp        = VK_BLEND_OP_ADD;
     colorblendattachment.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                                                VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -559,10 +614,10 @@ VkPipeline MythRenderVulkan::CreatePipeline(MythShaderVulkan *Shader, VkPipeline
     colorBlending.logicOp           = VK_LOGIC_OP_COPY;
     colorBlending.attachmentCount   = 1;
     colorBlending.pAttachments      = &colorblendattachment;
-    colorBlending.blendConstants[0] = 0.0f;
-    colorBlending.blendConstants[1] = 0.0f;
-    colorBlending.blendConstants[2] = 0.0f;
-    colorBlending.blendConstants[3] = 0.0f;
+    colorBlending.blendConstants[0] = 0.0F;
+    colorBlending.blendConstants[1] = 0.0F;
+    colorBlending.blendConstants[2] = 0.0F;
+    colorBlending.blendConstants[3] = 0.0F;
 
     // rasterizer
     VkPipelineRasterizationStateCreateInfo rasterizer { };
@@ -570,7 +625,7 @@ VkPipeline MythRenderVulkan::CreatePipeline(MythShaderVulkan *Shader, VkPipeline
     rasterizer.depthClampEnable        = VK_FALSE;
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode             = VK_POLYGON_MODE_FILL;
-    rasterizer.lineWidth               = 1.0f;
+    rasterizer.lineWidth               = 1.0F;
     rasterizer.cullMode                = VK_CULL_MODE_NONE;
     rasterizer.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable         = VK_FALSE;
@@ -587,8 +642,8 @@ VkPipeline MythRenderVulkan::CreatePipeline(MythShaderVulkan *Shader, VkPipeline
     depthstencil.stencilTestEnable     = VK_FALSE;
     depthstencil.front                 = { };
     depthstencil.back                  = { };
-    depthstencil.minDepthBounds        = 0.0f;
-    depthstencil.maxDepthBounds        = 1.0f;
+    depthstencil.minDepthBounds        = 0.0F;
+    depthstencil.maxDepthBounds        = 1.0F;
 
     // and breathe
     VkGraphicsPipelineCreateInfo pipelinecreate { };

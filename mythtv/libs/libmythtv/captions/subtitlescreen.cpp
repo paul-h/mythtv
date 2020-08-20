@@ -50,7 +50,7 @@ public:
                   MythUIType *parent, const QString &name,
                   int whichImageCache, long long expireTime) :
         MythUISimpleText(text, font, rect, align, parent, name),
-        SubWrapper(rect, expireTime, whichImageCache) {}
+        SubWrapper(MythRect(rect), expireTime, whichImageCache) {}
 };
 
 class SubShape : public MythUIShape, public SubWrapper
@@ -69,7 +69,7 @@ public:
              long long expireTime) :
         MythUIImage(parent, name),
         SubWrapper(area, expireTime) {}
-    MythImage *GetImage(void) { return m_Images[0]; }
+    MythImage *GetImage(void) { return m_images[0]; }
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -380,7 +380,7 @@ void SubtitleFormat::CreateProviderDefault(const QString &family,
     }
     else if (family == kSubFamily708)
     {
-        static const char *s_cc708Fonts[] = {
+        static const std::array<const std::string,8> s_cc708Fonts {
             "FreeMono",        // default
             "FreeMono",        // mono serif
             "Droid Serif",     // prop serif
@@ -390,7 +390,7 @@ void SubtitleFormat::CreateProviderDefault(const QString &family,
             "TeX Gyre Chorus", // cursive
             "Droid Serif"      // small caps, QFont::SmallCaps will be applied
         };
-        font->GetFace()->setFamily(s_cc708Fonts[attr.m_fontTag & 0x7]);
+        font->GetFace()->setFamily(QString::fromStdString(s_cc708Fonts[attr.m_fontTag & 0x7]));
     }
     else if (family == kSubFamilyText)
     {
@@ -488,6 +488,7 @@ void SubtitleFormat::Load(const QString &family,
     // to a list of children in its base class constructor.
     if (!resultBG)
         resultBG = providerBaseShape;
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
     MythFontProperties *testFont = negParent->GetFont(prefix);
     if (!testFont)
         testFont = negFont;
@@ -785,7 +786,7 @@ void FormattedTextSubtitle::Layout(void)
     // Calculate dimensions of bounding rectangle
     int anchor_width = 0;
     int anchor_height = 0;
-    foreach (auto & line, m_lines)
+    for (const auto & line : qAsConst(m_lines))
     {
         QSize sz = line.CalcSize(LINE_SPACING);
         anchor_width = max(anchor_width, sz.width());
@@ -925,7 +926,7 @@ void FormattedTextSubtitle::Draw(void)
 QStringList FormattedTextSubtitle::ToSRT(void) const
 {
     QStringList result;
-    foreach (const auto & ftl, m_lines)
+    for (const auto & ftl : qAsConst(m_lines))
     {
         QString line;
         if (ftl.m_origX > 0)
@@ -1001,7 +1002,7 @@ void FormattedTextSubtitleSRT::Init(const QStringList &subs)
     QString htmlPrefix("<font color=\"");
     QString htmlSuffix("\">");
     htmlTag.setMinimal(true);
-    foreach (QString subtitle, subs)
+    for (const QString& subtitle : qAsConst(subs))
     {
         FormattedTextLine line;
         QString text(subtitle);
@@ -1222,7 +1223,7 @@ void FormattedTextSubtitle608::Layout(void)
 
 void FormattedTextSubtitle608::Init(const vector<CC608Text*> &buffers)
 {
-    static const QColor kClr[8] =
+    static const std::array<const QColor,8> kClr
     {
         Qt::white,   Qt::green,   Qt::blue,    Qt::cyan,
         Qt::red,     Qt::yellow,  Qt::magenta, Qt::white,
@@ -1384,51 +1385,60 @@ SubtitleScreen::~SubtitleScreen(void)
 
 void SubtitleScreen::EnableSubtitles(int type, bool forced_only)
 {
+    int prevType = m_subtitleType;
     m_subtitleType = type;
 
     if (forced_only)
     {
-        SetElementDeleted();
-        SetVisible(true);
+        if (prevType == kDisplayNone)
+        {
+            SetElementDeleted();
+            SetVisible(true);
+            SetArea(MythRect());
+        }
+    }
+    else
+    {
+        if (m_subreader)
+        {
+            m_subreader->EnableAVSubtitles(kDisplayAVSubtitle == m_subtitleType);
+            m_subreader->EnableTextSubtitles(kDisplayTextSubtitle == m_subtitleType);
+            m_subreader->EnableRawTextSubtitles(kDisplayRawTextSubtitle == m_subtitleType);
+        }
+        if (m_cc608reader)
+            m_cc608reader->SetEnabled(kDisplayCC608 == m_subtitleType);
+        if (m_cc708reader)
+            m_cc708reader->SetEnabled(kDisplayCC708 == m_subtitleType);
+        ClearAllSubtitles();
+        SetVisible(m_subtitleType != kDisplayNone);
         SetArea(MythRect());
-        return;
     }
-
-    if (m_subreader)
-    {
-        m_subreader->EnableAVSubtitles(kDisplayAVSubtitle == m_subtitleType);
-        m_subreader->EnableTextSubtitles(kDisplayTextSubtitle == m_subtitleType);
-        m_subreader->EnableRawTextSubtitles(kDisplayRawTextSubtitle == m_subtitleType);
-    }
-    if (m_cc608reader)
-        m_cc608reader->SetEnabled(kDisplayCC608 == m_subtitleType);
-    if (m_cc708reader)
-        m_cc708reader->SetEnabled(kDisplayCC708 == m_subtitleType);
-    ClearAllSubtitles();
-    SetVisible(m_subtitleType != kDisplayNone);
-    SetArea(MythRect());
-    switch (m_subtitleType)
-    {
-    case kDisplayTextSubtitle:
-    case kDisplayRawTextSubtitle:
-        m_family = kSubFamilyText;
-        m_textFontZoom  = gCoreContext->GetNumSetting("OSDCC708TextZoom", 100);
-        break;
-    case kDisplayCC608:
-        m_family = kSubFamily608;
-        m_textFontZoom  = gCoreContext->GetNumSetting("OSDCC708TextZoom", 100);
-        break;
-    case kDisplayCC708:
-        m_family = kSubFamily708;
-        m_textFontZoom  = gCoreContext->GetNumSetting("OSDCC708TextZoom", 100);
-        break;
-    case kDisplayAVSubtitle:
-        m_family = kSubFamilyAV;
-        m_textFontZoom = gCoreContext->GetNumSetting("OSDAVSubZoom", 100);
-        break;
+    if (!forced_only || m_family.isEmpty()) {
+        switch (m_subtitleType)
+        {
+        case kDisplayTextSubtitle:
+        case kDisplayRawTextSubtitle:
+            m_family = kSubFamilyText;
+            m_textFontZoom  = gCoreContext->GetNumSetting("OSDCC708TextZoom", 100);
+            break;
+        case kDisplayCC608:
+            m_family = kSubFamily608;
+            m_textFontZoom  = gCoreContext->GetNumSetting("OSDCC708TextZoom", 100);
+            break;
+        case kDisplayCC708:
+            m_family = kSubFamily708;
+            m_textFontZoom  = gCoreContext->GetNumSetting("OSDCC708TextZoom", 100);
+            break;
+        case kDisplayAVSubtitle:
+            m_family = kSubFamilyAV;
+            m_textFontZoom = gCoreContext->GetNumSetting("OSDAVSubZoom", 100);
+            break;
+        }
     }
     m_textFontZoomPrev = m_textFontZoom;
     m_textFontDelayMsPrev = m_textFontDelayMs;
+    m_textFontMinDurationMsPrev = m_textFontMinDurationMs;
+    m_textFontDurationExtensionMsPrev = m_textFontDurationExtensionMs;
 }
 
 void SubtitleScreen::DisableForcedSubtitles(void)
@@ -1553,7 +1563,7 @@ int SubtitleScreen::GetDelay(void) const
 
 void SubtitleScreen::Clear708Cache(uint64_t mask)
 {
-    QList<MythUIType *> list = m_ChildrenList;
+    QList<MythUIType *> list = m_childrenList;
     QList<MythUIType *>::iterator it;
     for (it = list.begin(); it != list.end(); ++it)
     {
@@ -1712,7 +1722,7 @@ void SubtitleScreen::Pulse(void)
     long long now = currentFrame ? currentFrame->timecode : LLONG_MAX;
     bool needRescale = (m_textFontZoom != m_textFontZoomPrev);
 
-    for (it = m_ChildrenList.begin(); it != m_ChildrenList.end(); it = itNext)
+    for (it = m_childrenList.begin(); it != m_childrenList.end(); it = itNext)
     {
         itNext = it + 1;
         MythUIType *child = *it;
@@ -1769,6 +1779,8 @@ void SubtitleScreen::Pulse(void)
     MythScreenType::Pulse();
     m_textFontZoomPrev = m_textFontZoom;
     m_textFontDelayMsPrev = m_textFontDelayMs;
+    m_textFontMinDurationMsPrev = m_textFontMinDurationMs;
+    m_textFontDurationExtensionMsPrev = m_textFontDurationExtensionMs;
     ResetElementState();
 }
 
@@ -1784,7 +1796,7 @@ void SubtitleScreen::OptimiseDisplayedArea(void)
         return;
 
     QRegion visible;
-    QListIterator<MythUIType *> i(m_ChildrenList);
+    QListIterator<MythUIType *> i(m_childrenList);
     while (i.hasNext())
     {
         MythUIType *img = i.next();
@@ -1809,7 +1821,7 @@ void SubtitleScreen::OptimiseDisplayedArea(void)
         MythUIType *img = i.next();
         auto *wrapper = dynamic_cast<SubWrapper *>(img);
         if (wrapper && img->IsVisible())
-            img->SetArea(wrapper->GetOrigArea().translated(left, top));
+            img->SetArea(MythRect(wrapper->GetOrigArea().translated(left, top)));
     }
 }
 
@@ -2108,6 +2120,8 @@ void SubtitleScreen::DisplayTextSubtitles(void)
 
     bool changed = (m_textFontZoom != m_textFontZoomPrev);
     changed |= (m_textFontDelayMs != m_textFontDelayMsPrev);
+    changed |= (m_textFontMinDurationMsPrev != m_textFontMinDurationMs);
+    changed |= (m_textFontDurationExtensionMsPrev != m_textFontDurationExtensionMs);
     MythVideoOutput *vo = m_player->GetVideoOutput();
     if (!vo)
         return;
@@ -2354,17 +2368,7 @@ static void myth_libass_log(int level, const char *fmt, va_list vl, void */*ctx*
     static QMutex s_stringLock;
     s_stringLock.lock();
 
-    char str[1024];
-    int bytes = vsnprintf(str, sizeof str, fmt, vl);
-    // check for truncated messages and fix them
-    int truncated = bytes - ((sizeof str)-1);
-    if (truncated > 0)
-    {
-        LOG(VB_GENERAL, LOG_ERR,
-            QString("libASS log output truncated %1 of %2 bytes written")
-            .arg(truncated).arg(bytes));
-    }
-
+    QString str = QString::vasprintf(fmt, vl);
     LOG(verbose_mask, verbose_level, QString("libass: %1").arg(str));
     s_stringLock.unlock();
 }

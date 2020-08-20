@@ -1,5 +1,6 @@
 // Qt
 #include <QLoggingCategory>
+#include <QResizeEvent>
 
 // MythTV
 #include "mythlogging.h"
@@ -17,7 +18,8 @@ MythPainterWindowVulkan::MythPainterWindowVulkan(MythMainWindow *MainWindow)
     // Create the Vulkan instance. This must outlive the Vulkan window
     m_vulkan = new QVulkanInstance();
     m_vulkan->setApiVersion(QVersionNumber(1, 1));
-    m_vulkan->setExtensions(QByteArrayList() << VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+    m_vulkan->setExtensions(QByteArrayList() << VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME <<
+                                                VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
     // As for OpenGL - VB_GPU enables debug output - but this also requires the
     // validation layers to be installed
     if (VERBOSE_LEVEL_CHECK(VB_GPU, LOG_INFO))
@@ -42,7 +44,7 @@ MythPainterWindowVulkan::MythPainterWindowVulkan(MythMainWindow *MainWindow)
     }
 
     // Create the Vulkan renderer
-    MythRenderVulkan* render = new MythRenderVulkan();
+    auto* render = new MythRenderVulkan();
     m_render = render;
 
     // Create the the Vulkan window
@@ -76,11 +78,6 @@ bool MythPainterWindowVulkan::IsValid(void) const
 MythWindowVulkan* MythPainterWindowVulkan::GetVulkanWindow(void)
 {
     return m_window;
-}
-
-QPaintEngine* MythPainterWindowVulkan::paintEngine(void) const
-{
-    return testAttribute(Qt::WA_PaintOnScreen) ? nullptr : m_parent->paintEngine();
 }
 
 void MythPainterWindowVulkan::paintEvent(QPaintEvent* /*PaintEvent*/)

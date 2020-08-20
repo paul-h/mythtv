@@ -76,7 +76,11 @@ bool XMLParseBase::parseBool(QDomElement &element)
 MythPoint XMLParseBase::parsePoint(const QString &text, bool normalize)
 {
     MythPoint retval;
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList values = text.split(',', QString::SkipEmptyParts);
+#else
+    QStringList values = text.split(',', Qt::SkipEmptyParts);
+#endif
     if (values.size() == 2)
         retval = MythPoint(values[0], values[1]);
 
@@ -133,7 +137,11 @@ QSize XMLParseBase::parseSize(QDomElement &element, bool normalize)
 MythRect XMLParseBase::parseRect(const QString &text, bool normalize)
 {
     MythRect retval;
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList values = text.split(',', QString::SkipEmptyParts);
+#else
+    QStringList values = text.split(',', Qt::SkipEmptyParts);
+#endif
     if (values.size() == 4)
         retval = MythRect(values[0], values[1], values[2], values[3]);
     if (values.size() == 5)
@@ -634,7 +642,7 @@ bool XMLParseBase::WindowExists(const QString &xmlfile,
                                 const QString &windowname)
 {
     const QStringList searchpath = GetMythUI()->GetThemeSearchPath();
-    foreach (const auto & dir, searchpath)
+    for (const auto & dir : qAsConst(searchpath))
     {
         QString themefile = dir + xmlfile;
         QFile f(themefile);
@@ -689,7 +697,7 @@ bool XMLParseBase::LoadWindowFromXML(const QString &xmlfile,
     bool showWarnings = true;
 
     const QStringList searchpath = GetMythUI()->GetThemeSearchPath();
-    foreach (const auto & dir, searchpath)
+    for (const auto & dir : qAsConst(searchpath))
     {
         QString themefile = dir + xmlfile;
         LOG(VB_GUI, LOG_INFO, LOC + QString("Loading window %1 from %2").arg(windowname).arg(themefile));
@@ -840,7 +848,7 @@ bool XMLParseBase::LoadBaseTheme(void)
 
     const QStringList searchpath = GetMythUI()->GetThemeSearchPath();
     QMap<QString, QString> dependsMap;
-    foreach (const auto & dir, searchpath)
+    for (const auto & dir : qAsConst(searchpath))
     {
         QString themefile = dir + "base.xml";
         if (doLoad(QString(), GetGlobalObjectStore(), themefile,
@@ -880,7 +888,7 @@ bool XMLParseBase::LoadBaseTheme(const QString &baseTheme)
     bool showWarnings = true;
 
     const QStringList searchpath = GetMythUI()->GetThemeSearchPath();
-    foreach (const auto & dir, searchpath)
+    for (const auto & dir : qAsConst(searchpath))
     {
         QString themefile = dir + baseTheme;
         if (doLoad(QString(), GetGlobalObjectStore(), themefile,

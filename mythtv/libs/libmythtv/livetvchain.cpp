@@ -11,11 +11,7 @@
 static inline void clear(LiveTVChainEntry &entry)
 {
     entry.chanid = 0;
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-    entry.starttime.setTime_t(0);
-#else
     entry.starttime.setSecsSinceEpoch(0);
-#endif
     entry.endtime = QDateTime();
     entry.discontinuity = true;
     entry.hostprefix = QString();
@@ -757,7 +753,7 @@ QStringList LiveTVChain::entriesToStringList() const
     QMutexLocker lock(&m_lock);
     QStringList ret;
     ret << QString::number(m_maxPos);
-    foreach (const auto & entry, m_chain)
+    for (const auto & entry : qAsConst(m_chain))
     {
         ret << QString::number(entry.chanid);
         ret << entry.starttime.toString(Qt::ISODate);

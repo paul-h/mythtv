@@ -809,11 +809,7 @@ static int shutdown()
             {
                 QString time_ts;
                 nvramCommand.replace(
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-                    "$time", time_ts.setNum(dtWakeupTime.toTime_t())
-#else
                     "$time", time_ts.setNum(dtWakeupTime.toSecsSinceEpoch())
-#endif
                     );
             }
             else

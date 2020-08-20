@@ -11,6 +11,9 @@ INSTALLS = target
 
 POSTINC =
 
+# Needed for FFmpeg 4.3
+DEFINES += __STDC_CONSTANT_MACROS
+
 contains(INCLUDEPATH, /usr/include) {
   POSTINC += /usr/include
   INCLUDEPATH -= /usr/include
@@ -220,7 +223,7 @@ HEADERS += mpeg/atsc_huffman.h
 HEADERS += mpeg/freesat_huffman.h
 HEADERS += mpeg/iso6937tables.h
 HEADERS += mpeg/tsstats.h           mpeg/streamlisteners.h
-HEADERS += mpeg/H264Parser.h
+HEADERS += mpeg/H2645Parser.h mpeg/AVCParser.h mpeg/HEVCParser.h
 HEADERS += mpeg/tablestatus.h
 HEADERS += mpeg/tsstreamdata.h
 
@@ -237,7 +240,7 @@ SOURCES += mpeg/dishdescriptors.cpp mpeg/premieredescriptors.cpp
 SOURCES += mpeg/atsc_huffman.cpp    mpeg/freesat_tables.cpp
 SOURCES += mpeg/freesat_huffman.cpp
 SOURCES += mpeg/iso6937tables.cpp
-SOURCES += mpeg/H264Parser.cpp
+SOURCES += mpeg/H2645Parser.cpp mpeg/AVCParser.cpp mpeg/HEVCParser.cpp
 SOURCES += mpeg/tablestatus.cpp
 SOURCES += mpeg/tsstreamdata.cpp
 
@@ -461,7 +464,7 @@ using_frontend {
         DEFINES += USING_V4L2PRIME
     }
 
-    using_vdpau {
+    using_vdpau:using_x11 {
         DEFINES += USING_VDPAU
         HEADERS += decoders/mythvdpaucontext.h   decoders/mythvdpauhelper.h
         SOURCES += decoders/mythvdpaucontext.cpp decoders/mythvdpauhelper.cpp
@@ -494,8 +497,6 @@ using_frontend {
         SOURCES += visualisations/videovisualspectrum.cpp
     }
 
-    using_x11:DEFINES += USING_X11
-
     HEADERS += decoders/mythdrmprimecontext.h
     SOURCES += decoders/mythdrmprimecontext.cpp
 
@@ -519,7 +520,7 @@ using_frontend {
             SOURCES += opengl/mythvaapiinterop.cpp opengl/mythvaapiglxinterop.cpp
         }
 
-        using_vdpau {
+        using_vdpau:using_x11 {
             HEADERS += opengl/mythvdpauinterop.h
             SOURCES += opengl/mythvdpauinterop.cpp
         }
@@ -872,6 +873,27 @@ using_backend {
         DEFINES += HDHOMERUN_HEADERFILE=\\\"$${HDHOMERUN_PREFIX}hdhomerun.h\\\"
         contains(HDHOMERUN_V2, yes): DEFINES += HDHOMERUN_V2
         contains(HDHOMERUN_DEVICE_SELECTOR_LOAD_FROM_STR, yes): DEFINES += NEED_HDHOMERUN_DEVICE_SELECTOR_LOAD_FROM_STR
+    }
+
+    # Support for Sat>IP
+    using_satip {
+        HEADERS += recorders/satiputils.h
+        HEADERS += recorders/satipchannel.h
+        HEADERS += recorders/satipstreamhandler.h
+        HEADERS += recorders/satipsignalmonitor.h
+        HEADERS += recorders/satiprtsp.h
+        HEADERS += recorders/satiprecorder.h
+        HEADERS += recorders/satiprtcppacket.h
+
+        SOURCES += recorders/satiputils.cpp
+        SOURCES += recorders/satipchannel.cpp
+        SOURCES += recorders/satipstreamhandler.cpp
+        SOURCES += recorders/satipsignalmonitor.cpp
+        SOURCES += recorders/satiprtsp.cpp
+        SOURCES += recorders/satiprecorder.cpp
+        SOURCES += recorders/satiprtcppacket.cpp
+
+        DEFINES += USING_SATIP
     }
 
     # Support for VBox

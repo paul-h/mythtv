@@ -285,15 +285,18 @@ void BackendSelection::RemoveItem(const QString& USN)
     m_mutex.unlock();
 }
 
-bool BackendSelection::TryDBfromURL(const QString &error, QString URL)
+bool BackendSelection::TryDBfromURL(const QString &error, const QString& URL)
 {
     if (ShowOkPopup(error + tr("Shall I attempt to connect to this"
                     " host with default database parameters?")))
     {
-        URL.remove("http://");
-        URL.remove(QRegExp("[:/].*"));
-        m_dbParams->m_dbHostName = URL;
-        return true;
+        QRegularExpression re {"http[s]?://([^:/]+)", QRegularExpression::CaseInsensitiveOption};
+        QRegularExpressionMatch match = re.match(URL);
+        if (match.hasMatch())
+        {
+            m_dbParams->m_dbHostName = match.captured(1);
+            return true;
+        }
     }
 
     return false;

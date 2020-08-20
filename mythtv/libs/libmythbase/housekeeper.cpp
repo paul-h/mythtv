@@ -98,15 +98,9 @@ HouseKeeperTask::HouseKeeperTask(const QString &dbTag, HouseKeeperScope scope,
                                  HouseKeeperStartup startup):
     ReferenceCounter(dbTag), m_dbTag(dbTag), m_scope(scope),
     m_startup(startup),
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-    m_lastRun(MythDate::fromTime_t(0)),
-    m_lastSuccess(MythDate::fromTime_t(0)),
-    m_lastUpdate(MythDate::fromTime_t(0))
-#else
     m_lastRun(MythDate::fromSecsSinceEpoch(0)),
     m_lastSuccess(MythDate::fromSecsSinceEpoch(0)),
     m_lastUpdate(MythDate::fromSecsSinceEpoch(0))
-#endif
 {
 }
 
@@ -190,13 +184,8 @@ void HouseKeeperTask::QueryLast(void)
 
         MSqlQuery query(MSqlQuery::InitCon());
 
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-        m_lastRun = MythDate::fromTime_t(0);
-        m_lastSuccess = MythDate::fromTime_t(0);
-#else
         m_lastRun = MythDate::fromSecsSinceEpoch(0);
         m_lastSuccess = MythDate::fromSecsSinceEpoch(0);
-#endif
 
         if (m_scope == kHKGlobal)
         {
@@ -237,11 +226,7 @@ QDateTime HouseKeeperTask::UpdateLastRun(const QDateTime& last, bool successful)
         if (!query.isConnected())
             return last;
 
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-        if (m_lastRun == MythDate::fromTime_t(0))
-#else
         if (m_lastRun == MythDate::fromSecsSinceEpoch(0))
-#endif
         {
             // not previously set, perform insert
 
@@ -616,7 +601,7 @@ HouseKeeper::~HouseKeeper(void)
         // issue a terminate call to any long-running tasks
         // this is just a noop unless overwritten by a subclass
         QMutexLocker mapLock(&m_mapLock);
-        foreach (auto & it, m_taskMap)
+        for (auto *it : qAsConst(m_taskMap))
             it->Terminate();
     }
 
@@ -853,8 +838,13 @@ void HouseKeeper::customEvent(QEvent *e)
         if ((me->Message().left(20) == "HOUSE_KEEPER_RUNNING") ||
             (me->Message().left(23) == "HOUSE_KEEPER_SUCCESSFUL"))
         {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList tokens = me->Message()
                                     .split(" ", QString::SkipEmptyParts);
+#else
+            QStringList tokens = me->Message()
+                                    .split(" ", Qt::SkipEmptyParts);
+#endif
             if (tokens.size() != 4)
                 return;
 

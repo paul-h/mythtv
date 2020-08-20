@@ -2,6 +2,7 @@
 #define MYTHMISCUTIL_H_
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <ctime>
 
@@ -17,6 +18,8 @@ class QFile;
 MBASE_PUBLIC bool getUptime(time_t &uptime);
 MBASE_PUBLIC bool getMemStats(
     int &totalMB, int &freeMB, int &totalVM, int &freeVM);
+using loadArray = std::array<double,3>;
+MBASE_PUBLIC loadArray getLoadAvgs(void);
 
 MBASE_PUBLIC bool hasUtf8(const char *str);
 #define M_QSTRING_UNICODE(str) hasUtf8(str) ? QString::fromUtf8(str) : str
@@ -105,7 +108,7 @@ MBASE_PUBLIC int naturalCompare(const QString &_a, const QString &_b,
  *     See QTime::toString for the a definition fo valid formatting
  *     characters.
  */
-MBASE_PUBLIC QString MythFormatTimeMs(int msecs, QString fmt);
+MBASE_PUBLIC QString MythFormatTimeMs(int msecs, const QString& fmt);
 
 /**
  * \brief Format a seconds time value
@@ -118,7 +121,7 @@ MBASE_PUBLIC QString MythFormatTimeMs(int msecs, QString fmt);
  *     See QTime::toString for the a definition fo valid formatting
  *     characters.
  */
-MBASE_PUBLIC QString MythFormatTime(int secs, QString fmt);
+MBASE_PUBLIC QString MythFormatTime(int secs, const QString& fmt);
 
 // CPU Tick timing function
 #ifdef MMX
@@ -148,5 +151,7 @@ inline void rdtsc(uint64_t &x)
 #else // if !MMX
 inline void rdtsc(uint64_t &x) { x = 0ULL; }
 #endif // !MMX
+
+MBASE_PUBLIC QStringList MythSplitCommandString(const QString &line);
 
 #endif // MYTHMISCUTIL_H_

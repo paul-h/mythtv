@@ -16,7 +16,6 @@
 
 // Qt headers
 #include <QApplication>
-#include <QRegExp>
 #include <QTextStream>
 #include <QTextCodec>
 #include <QByteArray>
@@ -253,7 +252,6 @@ void LCD::ReadyRead(void)
 
     QString lineFromServer;
     QStringList aList;
-    QStringList::Iterator it;
 
     // This gets activated automatically by the MythSocket class whenever
     // there's something to read.
@@ -267,8 +265,6 @@ void LCD::ReadyRead(void)
     m_socket->read(data.data(), dataSize);
 
     lineFromServer = data;
-    lineFromServer = lineFromServer.replace( QRegExp("\n"), " " );
-    lineFromServer = lineFromServer.replace( QRegExp("\r"), " " );
     lineFromServer = lineFromServer.simplified();
 
     // Make debugging be less noisy
@@ -726,7 +722,7 @@ LCD::~LCD()
 QString LCD::quotedString(const QString &string)
 {
     QString sRes = string;
-    sRes.replace(QRegExp("\""), QString("\"\""));
+    sRes.replace(QString("\""), QString("\"\""));
     sRes = "\"" + sRes + "\"";
 
     return(sRes);

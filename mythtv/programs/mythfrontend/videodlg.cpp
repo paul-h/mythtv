@@ -1,6 +1,8 @@
+#include <memory>
+
 #include <set>
 #include <map>
-#include <functional>   //not2
+#include <functional>   //binary_negate
 #include <memory>
 
 #include <QApplication>
@@ -405,7 +407,7 @@ namespace
                 else
                 {
                     if (fanartLoader == nullptr)
-                        fanartLoader.reset(new FanartLoader);
+                        fanartLoader = std::make_unique<FanartLoader>();
                     fanartLoader->LoadImage(filename, image);
                 }
             }
@@ -626,7 +628,7 @@ class ItemDetailPopup : public MythScreenType
     bool OnKeyAction(const QStringList &actions)
     {
         bool handled = false;
-        foreach (const auto & action, actions)
+        for (const auto & action : qAsConst(actions))
         {
             handled = true;
             if (action == "SELECT" || action == "PLAYBACK")
@@ -698,8 +700,13 @@ class VideoDialogPrivate
                 QString ratingstring =
                         gCoreContext->GetSetting(QString("mythvideo.AutoR2PL%1")
                                 .arg(sl.GetLevel()));
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
                 QStringList ratings =
                         ratingstring.split(':', QString::SkipEmptyParts);
+#else
+                QStringList ratings =
+                        ratingstring.split(':', Qt::SkipEmptyParts);
+#endif
 
                 for (QStringList::const_iterator p = ratings.begin();
                     p != ratings.end(); ++p)
@@ -708,7 +715,7 @@ class VideoDialogPrivate
                         parental_level_map::value_type(*p, sl.GetLevel()));
                 }
             }
-            m_ratingToPl.sort(std::not2(rating_to_pl_less()));
+            m_ratingToPl.sort(std::binary_negate(rating_to_pl_less()));
         }
 
         m_rememberPosition =
@@ -744,7 +751,7 @@ class VideoDialogPrivate
         if (metadata && !m_ratingToPl.empty())
         {
             QString rating = metadata->GetRating();
-            for (parental_level_map::const_iterator p = m_ratingToPl.begin();
+            for (auto p = m_ratingToPl.begin();
                     !rating.isEmpty() && p != m_ratingToPl.end(); ++p)
             {
                 if (rating.indexOf(p->first) != -1)
@@ -867,7 +874,7 @@ VideoDialog::VideoDialog(MythScreenStack *lparent, const QString& lname,
 VideoDialog::~VideoDialog()
 {
     if (!m_d->m_switchingLayout)
-        m_d->DelayVideoListDestruction(m_d->m_videoList);
+        VideoDialogPrivate::DelayVideoListDestruction(m_d->m_videoList);
 
     SavePosition();
 
@@ -2226,7 +2233,7 @@ void VideoDialog::searchComplete(const QString& string)
     else
         children = m_d->m_currentNode->getAllChildren();
 
-    foreach (auto child, *children)
+    for (auto * child : qAsConst(*children))
     {
         QString title = child->GetText();
         int id = child->getPosition();
@@ -2262,7 +2269,7 @@ void VideoDialog::searchStart(void)
     else
         children = m_d->m_currentNode->getAllChildren();
 
-    foreach (auto child, *children)
+    for (auto * child : qAsConst(*children))
     {
         childList << child->GetText();
     }
@@ -3429,7 +3436,7 @@ MythUIButtonListItem *VideoDialog::GetItemByMetadata(VideoMetadata *metadata)
 
     QList<MythGenericTree*> *children = m_d->m_currentNode->getAllChildren();
 
-    foreach (auto child, *children)
+    for (auto * child : qAsConst(*children))
     {
         int nodeInt = child->getInt();
         if (nodeInt != kSubFolder && nodeInt != kUpFolder)

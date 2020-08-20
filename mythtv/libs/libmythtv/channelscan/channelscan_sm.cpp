@@ -257,7 +257,11 @@ void ChannelScanSM::HandleAllGood(void)
     QMutexLocker locker(&m_lock);
 
     QString cur_chan = (*m_current).m_friendlyName;
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList list = cur_chan.split(" ", QString::SkipEmptyParts);
+#else
+    QStringList list = cur_chan.split(" ", Qt::SkipEmptyParts);
+#endif
     QString freqid = (list.size() >= 2) ? list[1] : cur_chan;
 
     QString msg = QObject::tr("Updated Channel %1").arg(cur_chan);
@@ -388,6 +392,16 @@ void ChannelScanSM::HandlePAT(const ProgramAssociationTable *pat)
     }
 }
 
+void ChannelScanSM::HandleCAT(const ConditionalAccessTable *cat)
+{
+    QMutexLocker locker(&m_lock);
+
+    LOG(VB_CHANSCAN, LOG_INFO, LOC +
+        QString("Got a Conditional Access Table for %1")
+            .arg((*m_current).m_friendlyName));
+    LogLines(cat->toString());
+}
+
 void ChannelScanSM::HandlePMT(uint /*program_num*/, const ProgramMapTable *pmt)
 {
     QMutexLocker locker(&m_lock);
@@ -400,6 +414,8 @@ void ChannelScanSM::HandlePMT(uint /*program_num*/, const ProgramMapTable *pmt)
     if (!m_currentTestingDecryption &&
         pmt->IsEncrypted(GetDTVChannel()->GetSIStandard()))
         m_currentEncryptionStatus[pmt->ProgramNumber()] = kEncUnknown;
+
+    UpdateChannelInfo(true);
 }
 
 void ChannelScanSM::HandleVCT(uint /*pid*/, const VirtualChannelTable *vct)
@@ -735,10 +751,10 @@ void ChannelScanSM::UpdateScanTransports(uint nit_frequency, const NetworkInform
             MPEGDescriptor::Parse(nit->TransportDescriptors(i),
                                   nit->TransportDescriptorsLength(i));
 
-        for (size_t j = 0; j < list.size(); ++j)
+        for (const auto * const item : list)
         {
             uint64_t frequency = 0;
-            const MPEGDescriptor desc(list[j]);
+            const MPEGDescriptor desc(item);
             uint tag = desc.DescriptorTag();
             QString tagString = desc.DescriptorTagString();
 
@@ -1054,7 +1070,7 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
             }
 
             LOG(VB_CHANSCAN, LOG_INFO, LOC +
-                QString("Adding %1 offset %2 ss %3 to m_channelList.")
+                QString("Adding %1 offset:%2 ss:%3")
                     .arg(item.m_tuning.toString()).arg(m_current.offset())
                     .arg(item.m_signalStrength));
 
@@ -1268,6 +1284,29 @@ static void update_info(ChannelInsertInfo &info,
         info.m_sdtTsId << 16 | info.m_serviceId;
     if (defAuthorities.contains(index))
         info.m_defaultAuthority = defAuthorities[index];
+
+    // Is this service relocated from somewhere else?
+    ServiceRelocatedDescriptor *srdesc = sdt->GetServiceRelocatedDescriptor(i);
+    if (srdesc)
+    {
+        info.m_oldOrigNetId = srdesc->OldOriginalNetworkID();
+        info.m_oldTsId      = srdesc->OldTransportID();
+        info.m_oldServiceId = srdesc->OldServiceID();
+
+        LOG(VB_CHANSCAN, LOG_DEBUG, "ChannelScanSM: " +
+            QString("Service '%1' onid:%2 tid:%3 sid:%4 ")
+                .arg(info.m_serviceName)
+                .arg(info.m_origNetId)
+                .arg(info.m_sdtTsId)
+                .arg(info.m_serviceId) +
+            QString(" relocated from onid:%1 tid:%2 sid:%3")
+                .arg(info.m_oldOrigNetId)
+                .arg(info.m_oldTsId)
+                .arg(info.m_oldServiceId));
+
+        delete srdesc;
+    }
+
 }
 
 uint ChannelScanSM::GetCurrentTransportInfo(
@@ -1284,7 +1323,7 @@ uint ChannelScanSM::GetCurrentTransportInfo(
 
     QMap<uint,ChannelInsertInfo> list = GetChannelList(m_current, m_currentInfo);
     {
-        foreach (auto & info, list)
+        for (const auto & info : qAsConst(list))
         {
             max_chan_cnt +=
                 (info.m_inPat || info.m_inPmt ||
@@ -1327,7 +1366,7 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
     }
 
     // PATs
-    foreach (auto pat_list, scan_info->m_pats)
+    for (const auto& pat_list : qAsConst(scan_info->m_pats))
     {
         for (const auto *pat : pat_list)
         {
@@ -1356,7 +1395,7 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
     }
 
     // PMTs
-    foreach (auto pmt, scan_info->m_pmts)
+    for (const auto *pmt : scan_info->m_pmts)
     {
         uint pnum = pmt->ProgramNumber();
         PCM_INFO_INIT("mpeg");
@@ -1416,7 +1455,7 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
 
     // SDTs
     QString siStandard = (scan_info->m_mgt == nullptr) ? "dvb" : "atsc";
-    foreach (auto sdt_list, scan_info->m_sdts)
+    for (const auto& sdt_list : qAsConst(scan_info->m_sdts))
     {
         for (const auto *sdt_it : sdt_list)
         {
@@ -1773,7 +1812,7 @@ ScanDTVTransportList ChannelScanSM::GetChannelList(bool addFullTS) const
     DTVTunerType tuner_type(DTVTunerType::kTunerTypeATSC);
     tuner_type = GuessDTVTunerType(tuner_type);
 
-    foreach (const auto & it, m_channelList)
+    for (const auto & it : qAsConst(m_channelList))
     {
         QMap<uint,ChannelInsertInfo> pnum_to_dbchan =
             GetChannelList(it.first, it.second);
@@ -2466,7 +2505,7 @@ bool ChannelScanSM::AddToList(uint mplexid)
 {
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
-        "SELECT sourceid, sistandard, transportid, frequency, modulation "
+        "SELECT sourceid, sistandard, transportid, frequency, modulation, mod_sys "
         "FROM dtv_multiplex "
         "WHERE mplexid = :MPLEXID");
     query.bindValue(":MPLEXID", mplexid);
@@ -2486,23 +2525,25 @@ bool ChannelScanSM::AddToList(uint mplexid)
     uint    sourceid   = query.value(0).toUInt();
     QString sistandard = query.value(1).toString();
     uint    tsid       = query.value(2).toUInt();
-    DTVTunerType tt(DTVTunerType::kTunerTypeUnknown);
-
+    uint    frequency  = query.value(3).toUInt();
+    QString modulation = query.value(4).toString();
+    QString mod_sys    = query.value(5).toString();
+    DTVModulationSystem delsys;
+    delsys.Parse(mod_sys);
+    DTVTunerType tt = CardUtil::ConvertToTunerType(delsys);
     QString fn = (tsid) ? QString("Transport ID %1").arg(tsid) :
         QString("Multiplex #%1").arg(mplexid);
 
-    if (query.value(4).toString() == "8vsb")
+    if (modulation == "8vsb")
     {
-        QString chan = QString("%1 Hz").arg(query.value(3).toInt());
-        struct CHANLIST *curList = gChanLists[0].list;
-        int totalChannels = gChanLists[0].count;
+        QString chan = QString("%1 Hz").arg(frequency);
         int findFrequency = (query.value(3).toInt() / 1000) - 1750;
-        for (int x = 0 ; x < totalChannels ; ++x)
+        for (const auto & list : gChanLists[0].list)
         {
-            if ((curList[x].freq <= findFrequency + 200) &&
-                (curList[x].freq >= findFrequency - 200))
+            if ((list.freq <= findFrequency + 200) &&
+                (list.freq >= findFrequency - 200))
             {
-                chan = QString("%1").arg(curList[x].name);
+                chan = QString("%1").arg(list.name);
             }
         }
         fn = QObject::tr("ATSC Channel %1").arg(chan);

@@ -415,7 +415,7 @@ void MainServer::Stop()
         ft->DecrRef();
     m_fileTransferList.clear();
 
-    foreach (auto cs, m_controlSocketList)
+    for (auto *cs : qAsConst(m_controlSocketList))
         cs->DecrRef();
     m_controlSocketList.clear();
 
@@ -494,7 +494,11 @@ void MainServer::ProcessRequestWork(MythSocket *sock)
     QString line = listline[0];
 
     line = line.simplified();
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList tokens = line.split(' ', QString::SkipEmptyParts);
+#else
+    QStringList tokens = line.split(' ', Qt::SkipEmptyParts);
+#endif
     QString command = tokens[0];
 
     if (command == "MYTH_PROTO_VERSION")
@@ -1240,8 +1244,12 @@ void MainServer::customEvent(QEvent *e)
 
         if (me->Message().startsWith("AUTO_EXPIRE"))
         {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList tokens = me->Message()
                 .split(" ", QString::SkipEmptyParts);
+#else
+            QStringList tokens = me->Message().split(" ", Qt::SkipEmptyParts);
+#endif
 
             if (tokens.size() != 3)
             {
@@ -1280,8 +1288,12 @@ void MainServer::customEvent(QEvent *e)
 
         if (me->Message().startsWith("QUERY_NEXT_LIVETV_DIR") && m_sched)
         {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList tokens = me->Message()
                 .split(" ", QString::SkipEmptyParts);
+#else
+            QStringList tokens = me->Message().split(" ", Qt::SkipEmptyParts);
+#endif
 
             if (tokens.size() != 2)
             {
@@ -1296,8 +1308,12 @@ void MainServer::customEvent(QEvent *e)
 
         if (me->Message().startsWith("STOP_RECORDING"))
         {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList tokens = me->Message().split(" ",
                                                      QString::SkipEmptyParts);
+#else
+            QStringList tokens = me->Message().split(" ", Qt::SkipEmptyParts);
+#endif
 
 
             if (tokens.size() < 3 || tokens.size() > 3)
@@ -1328,8 +1344,12 @@ void MainServer::customEvent(QEvent *e)
         if ((me->Message().startsWith("DELETE_RECORDING")) ||
             (me->Message().startsWith("FORCE_DELETE_RECORDING")))
         {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList tokens = me->Message()
                 .split(" ", QString::SkipEmptyParts);
+#else
+            QStringList tokens = me->Message().split(" ", Qt::SkipEmptyParts);
+#endif
 
 
             if (tokens.size() < 3 || tokens.size() > 5)
@@ -1364,8 +1384,12 @@ void MainServer::customEvent(QEvent *e)
 
         if (me->Message().startsWith("UNDELETE_RECORDING"))
         {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList tokens = me->Message().split(" ",
                                                      QString::SkipEmptyParts);
+#else
+            QStringList tokens = me->Message().split(" ", Qt::SkipEmptyParts);
+#endif
 
 
             if (tokens.size() < 3 || tokens.size() > 3)
@@ -1395,8 +1419,12 @@ void MainServer::customEvent(QEvent *e)
 
         if (me->Message().startsWith("ADD_CHILD_INPUT"))
         {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList tokens = me->Message()
                 .split(" ", QString::SkipEmptyParts);
+#else
+            QStringList tokens = me->Message().split(" ", Qt::SkipEmptyParts);
+#endif
             if (!m_ismaster)
             {
                 LOG(VB_GENERAL, LOG_ERR, LOC +
@@ -1436,8 +1464,12 @@ void MainServer::customEvent(QEvent *e)
 
         if (me->Message().startsWith("UPDATE_RECORDING_STATUS") && m_sched)
         {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList tokens = me->Message()
                 .split(" ", QString::SkipEmptyParts);
+#else
+            QStringList tokens = me->Message().split(" ", Qt::SkipEmptyParts);
+#endif
 
             if (tokens.size() != 6)
             {
@@ -2476,7 +2508,7 @@ void MainServer::DoDeleteThread(DeleteStruct *ds)
     QDir dir (fInfo.path());
     QFileInfoList miscFiles = dir.entryInfoList(nameFilters);
 
-    foreach (const auto & file, miscFiles)
+    for (const auto & file : qAsConst(miscFiles))
     {
         QString sFileName = file.absoluteFilePath();
         delete_file_immediately( sFileName, followLinks, true);
@@ -3470,11 +3502,11 @@ void MainServer::HandleQueryLoad(PlaybackSock *pbs)
 
     QStringList strlist;
 
-#ifdef Q_OS_ANDROID
+#if defined(_WIN32) || defined(Q_OS_ANDROID)
     strlist << "0" << "0" << "0";
 #else
-    double loads[3];
-    if (getloadavg(loads,3) == -1)
+    loadArray loads = getLoadAvgs();
+    if (loads[0] == -1)
     {
         strlist << "ERROR";
         strlist << "getloadavg() failed";
@@ -4979,11 +5011,7 @@ void MainServer::HandleRemoteEncoder(QStringList &slist, QStringList &commands,
 
         retlist << QString::number(enc->StartRecording(&pginfo));
         retlist << QString::number(pginfo.GetRecordingID());
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-        retlist << QString::number(pginfo.GetRecordingStartTime().toTime_t());
-#else
         retlist << QString::number(pginfo.GetRecordingStartTime().toSecsSinceEpoch());
-#endif
     }
     else if (command == "GET_RECORDING_STATUS")
     {
@@ -5313,7 +5341,7 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
     // Passed the cleaned list back
     totalKB = 0;
     usedKB  = 0;
-    foreach (auto & fsInfo, fsInfos)
+    for (const auto & fsInfo : qAsConst(fsInfos))
     {
         strlist << fsInfo.getHostname();
         strlist << fsInfo.getPath();
@@ -5609,11 +5637,7 @@ void MainServer::HandleCutMapQuery(const QString &chanid,
 
     frm_dir_map_t markMap;
     frm_dir_map_t::const_iterator it;
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-    QDateTime recstartdt = MythDate::fromTime_t(starttime.toULongLong());
-#else
     QDateTime recstartdt = MythDate::fromSecsSinceEpoch(starttime.toLongLong());
-#endif
     QStringList retlist;
     int rowcnt = 0;
 
@@ -5689,12 +5713,7 @@ void MainServer::HandleBookmarkQuery(const QString &chanid,
     if (pbs)
         pbssock = pbs->getSocket();
 
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-    QDateTime recstartts = MythDate::fromTime_t(starttime.toULongLong());
-#else
     QDateTime recstartts = MythDate::fromSecsSinceEpoch(starttime.toLongLong());
-#endif
-
     uint64_t bookmark = ProgramInfo::QueryBookmark(
         chanid.toUInt(), recstartts);
 
@@ -5724,11 +5743,7 @@ void MainServer::HandleSetBookmark(QStringList &tokens,
     QString starttime = tokens[2];
     long long bookmark = tokens[3].toLongLong();
 
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-    QDateTime recstartts = MythDate::fromTime_t(starttime.toULongLong());
-#else
     QDateTime recstartts = MythDate::fromSecsSinceEpoch(starttime.toLongLong());
-#endif
     QStringList retlist;
 
     ProgramInfo pginfo(chanid.toUInt(), recstartts);
@@ -7222,8 +7237,9 @@ void MainServer::HandleMusicGetLyricGrabbers(const QStringList &/*slist*/, Playb
     // query the grabbers to get their name
     for (int x = 0; x < scripts.count(); x++)
     {
+        QStringList args { scripts.at(x), "-v" };
         QProcess p;
-        p.start(QString("%1 %2 -v").arg(PYTHON_EXE).arg(scripts.at(x)));
+        p.start(PYTHON_EXE, args);
         p.waitForFinished(-1);
         QString result = p.readAllStandardOutput();
 
@@ -7794,11 +7810,7 @@ void MainServer::HandlePixmapLastModified(QStringList &slist, PlaybackSock *pbs)
              slave->DecrRef();
 
              strlist = (slavetime.isValid()) ?
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-                 QStringList(QString::number(slavetime.toTime_t())) :
-#else
                  QStringList(QString::number(slavetime.toSecsSinceEpoch())) :
-#endif
                  QStringList("BAD");
 
              SendResponse(pbssock, strlist);
@@ -7828,14 +7840,10 @@ void MainServer::HandlePixmapLastModified(QStringList &slist, PlaybackSock *pbs)
     if (finfo.exists())
     {
         QDateTime lastmodified = finfo.lastModified();
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-        strlist = QStringList(QString::number(lastmodified.toTime_t()));
-#else
         if (lastmodified.isValid())
             strlist = QStringList(QString::number(lastmodified.toSecsSinceEpoch()));
         else
             strlist = QStringList(QString::number(UINT_MAX));
-#endif
     }
     else
         strlist = QStringList( "BAD" );
@@ -7860,11 +7868,7 @@ void MainServer::HandlePixmapGetIfModified(
     QDateTime cachemodified;
     if (!slist[1].isEmpty() && (slist[1].toInt() != -1))
     {
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-        cachemodified = MythDate::fromTime_t(slist[1].toInt());
-#else
         cachemodified = MythDate::fromSecsSinceEpoch(slist[1].toLongLong());
-#endif
     }
 
     int max_file_size = slist[2].toInt();
@@ -7904,14 +7908,10 @@ void MainServer::HandlePixmapGetIfModified(
                     LOG(VB_FILE, LOG_INFO, LOC +
                         QString("Read preview file '%1'")
                             .arg(pginfo.GetPathname()));
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-                    strlist += QString::number(lastmodified.toTime_t());
-#else
                     if (lastmodified.isValid())
                         strlist += QString::number(lastmodified.toSecsSinceEpoch());
                     else
                         strlist += QString::number(UINT_MAX);
-#endif
                     strlist += QString::number(data.size());
                     strlist += QString::number(qChecksum(data.constData(),
                                                data.size()));
@@ -7946,14 +7946,10 @@ void MainServer::HandlePixmapGetIfModified(
             }
             else
             {
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-                strlist += QString::number(lastmodified.toTime_t());
-#else
                 if (lastmodified.isValid())
                     strlist += QString::number(lastmodified.toSecsSinceEpoch());
                 else
                     strlist += QString::number(UINT_MAX);
-#endif
             }
 
             SendResponse(pbssock, strlist);
