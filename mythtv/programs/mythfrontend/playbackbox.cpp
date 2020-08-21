@@ -2907,7 +2907,7 @@ class SendChangeSGroupMessage : public QRunnable
         {
             ProgramInfo pginfo = m_pginfoList.at(x);
             strlist << QString::number(pginfo.GetChanID());
-            strlist << QString::number(pginfo.GetRecordingStartTime().toTime_t());
+            strlist << QString::number(pginfo.GetRecordingStartTime().toSecsSinceEpoch());
         }
 
         gCoreContext->SendReceiveStringList(strlist);
