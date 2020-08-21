@@ -217,8 +217,9 @@ bool MythV4L2M2MContext::GetBuffer(AVCodecContext *Context, VideoFrame *Frame, A
 
 const V4L2Profiles& MythV4L2M2MContext::GetProfiles(void)
 {
-    static const QPair<uint32_t, MythCodecContext::CodecProfile> s_map[] =
-    {
+    using V4L2Mapping = QPair<const uint32_t, const MythCodecContext::CodecProfile>;
+    static const std::array<const V4L2Mapping,9> s_map
+    {{
         { V4L2_PIX_FMT_MPEG1,       MythCodecContext::MPEG1 },
         { V4L2_PIX_FMT_MPEG2,       MythCodecContext::MPEG2 },
         { V4L2_PIX_FMT_MPEG4,       MythCodecContext::MPEG4 },
@@ -228,7 +229,7 @@ const V4L2Profiles& MythV4L2M2MContext::GetProfiles(void)
         { V4L2_PIX_FMT_VP8,         MythCodecContext::VP8   },
         { V4L2_PIX_FMT_VP9,         MythCodecContext::VP9   },
         { V4L2_PIX_FMT_HEVC,        MythCodecContext::HEVC  }
-    };
+    }};
 
     static QMutex lock(QMutex::Recursive);
     static bool s_initialised = false;
@@ -252,7 +253,7 @@ const V4L2Profiles& MythV4L2M2MContext::GetProfiles(void)
     QStringList namefilters;
     namefilters.append("video*");
     QStringList devices = dir.entryList(namefilters, QDir::Files |QDir::System);
-    foreach (QString device, devices)
+    for (const QString& device : qAsConst(devices))
     {
         V4L2util v4l2dev(root + device);
         uint32_t caps = v4l2dev.GetCapabilities();
@@ -382,7 +383,7 @@ bool MythV4L2M2MContext::HaveV4L2Codecs(void)
     LOG(VB_GENERAL, LOG_INFO, LOC + "Supported/available V4L2 decoders:");
     s_available = true;
     QSize size{0, 0};
-    foreach (auto profile, profiles)
+    for (auto profile : qAsConst(profiles))
         LOG(VB_GENERAL, LOG_INFO, LOC + MythCodecContext::GetProfileDescription(profile, size));
     return s_available;
 }

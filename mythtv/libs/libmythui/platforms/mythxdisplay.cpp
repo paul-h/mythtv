@@ -1,25 +1,19 @@
+// MythTV
+#include "config.h"
+#include "mythlogging.h"
+#include "mythuihelper.h"
+#include "mythxdisplay.h"
+
 // Std
 #include <map>
 #include <vector>
 
-// MythTV
-#include "config.h" // for CONFIG_DARWIN
-#include "mythlogging.h"
-#include "mythuihelper.h"
-
-#ifdef USING_X11
-#include "mythxdisplay.h"
-#ifndef V_INTERLACE
-#define V_INTERLACE (0x010)
-#endif
-extern "C" {
-#include <X11/extensions/Xinerama.h>
-#include <X11/extensions/xf86vmode.h>
-}
 using XErrorCallbackType = int (*)(Display *, XErrorEvent *);
 using XErrorVectorType = std::vector<XErrorEvent>;
 static std::map<Display*, XErrorVectorType>   xerrors;
 static std::map<Display*, XErrorCallbackType> xerror_handlers;
+
+QString MythXDisplay::s_QtX11Display;
 
 static int ErrorHandler(Display *d, XErrorEvent *xeev)
 {
@@ -59,6 +53,40 @@ MythXDisplay* MythXDisplay::OpenMythXDisplay(bool Warn /*= true*/)
     return nullptr;
 }
 
+void MythXDisplay::SetQtX11Display(const QString &_Display)
+{
+    s_QtX11Display = _Display;
+}
+
+/// \brief Determine if we are running a remote X11 session
+bool MythXDisplay::DisplayIsRemote(void)
+{
+    bool result = false;
+    auto * display = MythXDisplay::OpenMythXDisplay(false);
+
+    if (display)
+    {
+        QString displayname(DisplayString(display->GetDisplay()));
+
+        // DISPLAY=:x or DISPLAY=unix:x are local
+        // DISPLAY=hostname:x is remote
+        // DISPLAY=/xxx/xxx/.../org.macosforge.xquartz:x is local OS X
+        // x can be numbers n or n.n
+        // Anything else including DISPLAY not set is assumed local,
+        // in that case we are probably not running under X11
+        if (!displayname.isEmpty() && !displayname.startsWith(":") &&
+            !displayname.startsWith("unix:") && !displayname.startsWith("/") &&
+             displayname.contains(':'))
+        {
+            result = true;
+        }
+
+        delete display;
+    }
+
+    return result;
+}
+
 MythXDisplay::~MythXDisplay()
 {
     MythXLocker locker(this);
@@ -70,11 +98,23 @@ MythXDisplay::~MythXDisplay()
     }
 }
 
+/*! \brief Open the display
+ *
+ * \note If the '-display' command line argument is not set both this function
+ * and Qt's xcb platform plugin will pass a null string to XOpenDisplay - which
+ * will in turn use the DISPLAY environment variable to determince which X11
+ * connection to open. If the '-display' command line argument is used, we set
+ * s_QtX11Display and the argument is also passed through to the xcb platform
+ * plugin by Qt (via the QApplication constructor).
+ * So in all cases, the following code should open the same display that is in use by Qt
+ * (and avoids linking to QX11Extras or including private Qt platform headers).
+ *
+*/
 bool MythXDisplay::Open(void)
 {
     MythXLocker locker(this);
 
-    m_displayName = MythUIHelper::GetX11Display();
+    m_displayName = s_QtX11Display;
     const char *dispCStr = nullptr;
     if (!m_displayName.isEmpty())
         dispCStr = m_displayName.toLatin1().constData();
@@ -92,28 +132,6 @@ bool MythXDisplay::Open(void)
 }
 
 /**
- * Return the size of the X Display in pixels.  This corresponds to
- * the size of the desktop, not necessarily to the size of single
- * screen.
- */
-QSize MythXDisplay::GetDisplaySize(void)
-{
-    XF86VidModeModeLine mode;
-    int dummy = 0;
-    MythXLocker locker(this);
-
-    if (!XF86VidModeGetModeLine(m_disp, m_screenNum, &dummy, &mode))
-    {
-        LOG(VB_GENERAL, LOG_ERR, "X11 ModeLine query failed");
-        // Fallback to old display size code - which is not updated for mode switches
-        return {DisplayWidth(m_disp, m_screenNum),
-                DisplayHeight(m_disp, m_screenNum)};
-    }
-
-    return { mode.hdisplay, mode.vdisplay };
-}
-
-/**
  * Return the size of the X Display in millimeters.  This corresponds
  * to the size of the desktop, not necessarily to the size of single
  * screen.
@@ -124,39 +142,6 @@ QSize MythXDisplay::GetDisplayDimensions(void)
     int displayWidthMM  = DisplayWidthMM( m_disp, m_screenNum);
     int displayHeightMM = DisplayHeightMM(m_disp, m_screenNum);
     return { displayWidthMM, displayHeightMM };
-}
-
-double MythXDisplay::GetRefreshRate(void)
-{
-    XF86VidModeModeLine mode_line;
-    int dot_clock = 0;
-    MythXLocker locker(this);
-
-    if (!XF86VidModeGetModeLine(m_disp, m_screenNum, &dot_clock, &mode_line))
-    {
-        LOG(VB_GENERAL, LOG_ERR, "X11 ModeLine query failed");
-        return -1;
-    }
-
-    double rate = mode_line.htotal * mode_line.vtotal;
-
-    // Catch bad data from video drivers (divide by zero causes return of NaN)
-    if (rate == 0.0 || dot_clock == 0)
-    {
-        LOG(VB_GENERAL, LOG_ERR, "X11 ModeLine query returned zeroes");
-        return -1;
-    }
-
-    rate = (dot_clock * 1000.0) / rate;
-
-    if (((mode_line.flags & V_INTERLACE) != 0) && rate > 24.5 && rate < 30.5)
-    {
-        LOG(VB_PLAYBACK, LOG_INFO,
-                "Doubling refresh rate for interlaced display.");
-        rate *= 2.0;
-    }
-
-    return rate;
 }
 
 void MythXDisplay::Sync(bool Flush)
@@ -229,5 +214,3 @@ void MythXDisplay::CheckOrphanedErrors(void)
         if (!xerror_handlers.count(xerror.first))
             CheckErrors(xerror.first);
 }
-
-#endif // USING_X11

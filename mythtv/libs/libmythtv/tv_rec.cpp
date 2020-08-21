@@ -643,7 +643,7 @@ RecStatus::Type TVRec::StartRecording(ProgramInfo *pginfo)
         LOG(VB_GENERAL, LOG_INFO, LOC + msg);
     }
 
-    foreach (auto & pend, m_pendingRecordings)
+    for (const auto & pend : qAsConst(m_pendingRecordings))
         delete pend.m_info;
     m_pendingRecordings.clear();
 
@@ -899,9 +899,14 @@ void TVRec::FinishedRecording(RecordingInfo *curRec, RecordingQuality *recq)
     // Get the width and set the videoprops
     MarkTypes aspectRatio = curRec->QueryAverageAspectRatio();
     uint avg_height = curRec->QueryAverageHeight();
-    curRec->SaveVideoProperties(
-        VID_1080 | VID_720 | VID_DAMAGED | VID_WIDESCREEN,
-        ((avg_height > 1000) ? VID_1080 : ((avg_height > 700) ? VID_720 : 0)) |
+    bool progressive = curRec->QueryAverageScanProgressive();
+    curRec->SaveVideoProperties
+        (VID_4K | VID_1080 | VID_720 | VID_DAMAGED |
+         VID_WIDESCREEN | VID_PROGRESSIVE,
+        ((avg_height > 2000) ? VID_4K :
+         ((avg_height > 1000) ? VID_1080 :
+          ((avg_height > 700) ? VID_720 : 0))) |
+         (progressive ? VID_PROGRESSIVE : 0) |
         ((is_good) ? 0 : VID_DAMAGED) |
         (((aspectRatio == MARK_ASPECT_16_9) ||
           (aspectRatio == MARK_ASPECT_2_21_1)) ? VID_WIDESCREEN : 0));
@@ -2319,8 +2324,7 @@ bool TVRec::CheckChannelPrefix(const QString &prefix,
     LOG(VB_GENERAL, LOG_DEBUG, QString("CheckChannelPrefix(%1)").arg(prefix));
 #endif
 
-    static const uint kSpacerListSize = 5;
-    static const char* s_spacers[kSpacerListSize] = { "", "_", "-", "#", "." };
+    static const std::array<const QString,5> s_spacers = { "", "_", "-", "#", "." };
 
     MSqlQuery query(MSqlQuery::InitCon());
     QString basequery = QString(
@@ -2330,7 +2334,7 @@ bool TVRec::CheckChannelPrefix(const QString &prefix,
         "      channel.channum LIKE '%1%'            AND "
         "      channel.sourceid = capturecard.sourceid");
 
-    QString inputquery[2] =
+    const std::array<const QString,2> inputquery
     {
         QString(" AND capturecard.cardid  = '%1'").arg(m_inputId),
         QString(" AND capturecard.cardid != '%1'").arg(m_inputId),
@@ -2343,10 +2347,10 @@ bool TVRec::CheckChannelPrefix(const QString &prefix,
 
     for (const auto & str : inputquery)
     {
-        for (auto & spacer : s_spacers)
+        for (const auto & spacer : s_spacers)
         {
             QString qprefix = add_spacer(
-                prefix, (QString(spacer) == "_") ? "\\_" : spacer);
+                prefix, (spacer == "_") ? "\\_" : spacer);
             query.prepare(basequery.arg(qprefix) + str);
 
             if (!query.exec() || !query.isActive())

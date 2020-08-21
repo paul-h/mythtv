@@ -143,7 +143,7 @@ void ThemeChooser::Load(void)
 
     m_infoList = themes.entryInfoList();
 
-    foreach (auto & theme, m_infoList)
+    for (const auto & theme : qAsConst(m_infoList))
     {
         if (loadThemeInfo(theme))
         {
@@ -154,7 +154,7 @@ void ThemeChooser::Load(void)
 
     themes.setPath(GetThemesParentDir());
     QFileInfoList sharedThemes = themes.entryInfoList();
-    foreach (auto & sharedTheme, sharedThemes)
+    for (const auto & sharedTheme : qAsConst(sharedThemes))
     {
         if ((!themesSeen.contains(sharedTheme.fileName())) &&
             (loadThemeInfo(sharedTheme)))
@@ -166,7 +166,7 @@ void ThemeChooser::Load(void)
     }
 
     // MYTH_SOURCE_VERSION - examples v29-pre-574-g92517f5, v29-Pre, v29.1-21-ge26a33c
-    QString MythVersion(MYTH_SOURCE_VERSION);
+    QString MythVersion(GetMythSourceVersion());
     QRegExp trunkver("v[0-9]+-pre.*",Qt::CaseInsensitive);
     QRegExp validver("v[0-9]+.*",Qt::CaseInsensitive);
 
@@ -196,7 +196,7 @@ void ThemeChooser::Load(void)
         // MYTH_SOURCE_VERSION - examples v29-pre-574-g92517f5, v29-Pre, v29.1-21-ge26a33c
         QRegExp subexp("v[0-9]+\\.([0-9]+)-*");
         // This captures the subversion, i.e. the number after a dot
-        int pos = subexp.indexIn(MYTH_SOURCE_VERSION);
+        int pos = subexp.indexIn(GetMythSourceVersion());
         if (pos > -1)
         {
             QString subversion;
@@ -329,7 +329,7 @@ void ThemeChooser::LoadVersion(const QString &version,
         themes.setPath(themesPath);
 
         QFileInfoList downloadableThemes = themes.entryInfoList();
-        foreach (auto & dtheme, downloadableThemes)
+        for (const auto & dtheme : qAsConst(downloadableThemes))
         {
             QString dirName = dtheme.fileName();
             QString themeName = dirName;
@@ -418,7 +418,7 @@ void ThemeChooser::Init(void)
     MythUIButtonListItem *item = nullptr;
 
     m_themes->Reset();
-    foreach (auto & theme, m_infoList)
+    for (const auto & theme : qAsConst(m_infoList))
     {
         if (!m_themeFileNameInfos.contains(theme.filePath()))
             continue;
@@ -702,9 +702,15 @@ void ThemeChooser::saveAndReload(MythUIButtonListItem *item)
 
         if (!gCoreContext->GetSetting("ThemeDownloadURL").isEmpty())
         {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList tokens =
                 gCoreContext->GetSetting("ThemeDownloadURL")
                     .split(";", QString::SkipEmptyParts);
+#else
+            QStringList tokens =
+                gCoreContext->GetSetting("ThemeDownloadURL")
+                    .split(";", Qt::SkipEmptyParts);
+#endif
             QString origURL = downloadURL;
             downloadURL.replace(tokens[0], tokens[1]);
             LOG(VB_FILE, LOG_WARNING, LOC +
@@ -807,7 +813,11 @@ void ThemeChooser::customEvent(QEvent *e)
         if (me == nullptr)
             return;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
         QStringList tokens = me->Message().split(" ", QString::SkipEmptyParts);
+#else
+        QStringList tokens = me->Message().split(" ", Qt::SkipEmptyParts);
+#endif
 
         if (tokens.isEmpty())
             return;
@@ -991,7 +1001,7 @@ bool ThemeChooser::removeThemeDir(const QString &dirname)
 ThemeUpdateChecker::ThemeUpdateChecker(void) :
     m_updateTimer(new QTimer(this))
 {
-    QString version = MYTH_SOURCE_PATH;
+    QString version = GetMythSourcePath();
 
     if (!version.isEmpty() && !version.startsWith("fixes/"))
     {
@@ -1005,7 +1015,7 @@ ThemeUpdateChecker::ThemeUpdateChecker(void) :
 
         // If a version of the theme for this tag exists, use it...
         QRegExp subexp("v[0-9]+.[0-9]+.([0-9]+)-*");
-        int pos = subexp.indexIn(MYTH_SOURCE_VERSION);
+        int pos = subexp.indexIn(GetMythSourceVersion());
         if (pos > -1)
         {
             QString subversion;

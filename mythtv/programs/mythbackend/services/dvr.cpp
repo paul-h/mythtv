@@ -424,6 +424,25 @@ bool Dvr::RescheduleRecordings(void)
 //
 /////////////////////////////////////////////////////////////////////////////
 
+bool Dvr::AllowReRecord ( int RecordedId )
+{
+    if (RecordedId <= 0)
+        throw QString("RecordedId param is invalid.");
+
+    RecordingInfo ri = RecordingInfo(RecordedId);
+
+    if (!ri.GetChanID())
+        throw QString("RecordedId %1 not found").arg(RecordedId);
+
+    ri.ForgetHistory();
+
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
 bool Dvr::UpdateRecordedWatchedStatus ( int RecordedId,
                                         int   chanid,
                                         const QDateTime &recstarttsRaw,
@@ -680,7 +699,7 @@ DTC::EncoderList* Dvr::GetEncoderList()
 
     QReadLocker tvlocker(&TVRec::s_inputsLock);
     QList<InputInfo> inputInfoList = CardUtil::GetAllInputInfo();
-    foreach (auto elink, tvList)
+    for (auto * elink : qAsConst(tvList))
     {
         if (elink != nullptr)
         {
@@ -698,7 +717,7 @@ DTC::EncoderList* Dvr::GetEncoderList()
             else
                 pEncoder->setHostName( elink->GetHostName() );
 
-            foreach (auto inputInfo, inputInfoList)
+            for (const auto & inputInfo : qAsConst(inputInfoList))
             {
                 if (inputInfo.m_inputId == static_cast<uint>(elink->GetInputID()))
                 {
@@ -744,7 +763,7 @@ DTC::InputList* Dvr::GetInputList()
     auto *pList = new DTC::InputList();
 
     QList<InputInfo> inputInfoList = CardUtil::GetAllInputInfo();
-    foreach (auto inputInfo, inputInfoList)
+    for (const auto & inputInfo : qAsConst(inputInfoList))
     {
         DTC::Input *input = pList->AddNewInput();
         FillInputInfo(input, inputInfo);
@@ -1141,7 +1160,10 @@ uint Dvr::AddRecordSchedule   (
 
     rule.m_type = recTypeFromString(sType);
     rule.m_searchType = searchTypeFromString(sSearchType);
-    rule.m_dupMethod = dupMethodFromString(sDupMethod);
+    if (rule.m_searchType == kManualSearch)
+        rule.m_dupMethod = kDupCheckNone;
+    else
+        rule.m_dupMethod = dupMethodFromString(sDupMethod);
     rule.m_dupIn = dupInFromString(sDupIn);
 
     if (sRecProfile.isEmpty())
@@ -1284,7 +1306,10 @@ bool Dvr::UpdateRecordSchedule ( uint      nRecordId,
 
     pRule.m_type = recTypeFromString(sType);
     pRule.m_searchType = searchTypeFromString(sSearchType);
-    pRule.m_dupMethod = dupMethodFromString(sDupMethod);
+    if (pRule.m_searchType == kManualSearch)
+        pRule.m_dupMethod = kDupCheckNone;
+    else
+        pRule.m_dupMethod = dupMethodFromString(sDupMethod);
     pRule.m_dupIn = dupInFromString(sDupIn);
 
     if (sRecProfile.isEmpty())

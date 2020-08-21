@@ -7,11 +7,19 @@
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
 #include <QOpenGLExtraFunctions>
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
 #include <QOpenGLShaderProgram>
 #include <QOpenGLFramebufferObject>
 #include <QOpenGLTexture>
 #include <QOpenGLBuffer>
 #include <QOpenGLDebugLogger>
+#else
+#include <QtOpenGL/QOpenGLTexture>
+#include <QtOpenGL/QOpenGLShaderProgram>
+#include <QtOpenGL/QOpenGLFramebufferObject>
+#include <QtOpenGL/QOpenGLBuffer>
+#include <QtOpenGL/QOpenGLDebugLogger>
+#endif
 #include <QHash>
 #include <QMutex>
 #include <QMatrix4x4>
@@ -113,7 +121,7 @@ class MUI_PUBLIC MythRenderOpenGL : public QOpenGLContext, public QOpenGLFunctio
     void  PopTransformation(void);
     void  Flush(void);
     void  SetBlend(bool Enable);
-    void  SetBackground(int Red, int Green, int Blue, int Alpha);
+    void  SetBackground(uint8_t Red, uint8_t Green, uint8_t Blue, uint8_t Alpha);
     QFunctionPointer GetProcAddress(const QString &Proc) const;
 
     static const GLuint kVertexSize;
@@ -143,7 +151,7 @@ class MUI_PUBLIC MythRenderOpenGL : public QOpenGLContext, public QOpenGLFunctio
 
     void  DrawBitmap(MythGLTexture *Texture, QOpenGLFramebufferObject *Target,
                      const QRect &Source, const QRect &Destination,
-                     QOpenGLShaderProgram *Program, int Alpha = 255);
+                     QOpenGLShaderProgram *Program, int Alpha = 255, qreal Scale = 1.0);
     void  DrawBitmap(MythGLTexture **Textures, uint TextureCount,
                      QOpenGLFramebufferObject *Target,
                      const QRect &Source, const QRect &Destination,
@@ -171,7 +179,7 @@ class MUI_PUBLIC MythRenderOpenGL : public QOpenGLContext, public QOpenGLFunctio
     void  SetMatrixView(void);
     void  DeleteFramebuffers(void);
     static bool UpdateTextureVertices(MythGLTexture *Texture, const QRect &Source,
-                                      const QRect &Destination, int Rotation);
+                                      const QRect &Destination, int Rotation, qreal Scale = 1.0);
     GLfloat* GetCachedVertices(GLuint Type, const QRect &Area);
     void  ExpireVertices(int Max = 0);
     void  GetCachedVBO(GLuint Type, const QRect &Area);

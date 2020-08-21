@@ -12,11 +12,10 @@ CONFIG += thread dll
 target.path = $${LIBDIR}
 INSTALLS = target
 
-DEPENDPATH  += ./opengl ./platforms ./devices
+DEPENDPATH  += ./opengl ./platforms ./devices ./vulkan
 INCLUDEPATH += $$DEPENDPATH
 INCLUDEPATH += ../libmythbase
 INCLUDEPATH += ../.. ../
-INCLUDEPATH += ../.. ../../external/FFmpeg
 
 LIBS += -L../libmythbase -lmythbase-$$LIBVERSION
 
@@ -34,7 +33,7 @@ HEADERS += mythuiclock.h mythuitextedit.h mythprogressdialog.h mythuispinbox.h
 HEADERS += mythuicheckbox.h mythuibuttonlist.h mythuigroup.h
 HEADERS += mythuiprogressbar.h mythuifilebrowser.h
 HEADERS += screensaver.h screensaver-null.h x11colors.h
-HEADERS += themeinfo.h platforms/mythxdisplay.h mythdisplaymode.h
+HEADERS += themeinfo.h mythdisplaymode.h
 HEADERS += mythgenerictree.h mythuibuttontree.h mythuiutils.h
 HEADERS += mythvirtualkeyboard.h mythuishape.h mythuiguidegrid.h
 HEADERS += mythrender_base.h mythfontmanager.h mythuieditbar.h
@@ -58,7 +57,7 @@ SOURCES += mythuiclock.cpp mythuitextedit.cpp mythprogressdialog.cpp
 SOURCES += mythuispinbox.cpp mythuicheckbox.cpp mythuibuttonlist.cpp
 SOURCES += mythuigroup.cpp mythuiprogressbar.cpp
 SOURCES += screensaver.cpp screensaver-null.cpp x11colors.cpp
-SOURCES += themeinfo.cpp platforms/mythxdisplay.cpp mythdisplaymode.cpp
+SOURCES += themeinfo.cpp mythdisplaymode.cpp
 SOURCES += mythgenerictree.cpp mythuibuttontree.cpp mythuiutils.cpp
 SOURCES += mythvirtualkeyboard.cpp mythuishape.cpp mythuiguidegrid.cpp
 SOURCES += mythfontmanager.cpp mythuieditbar.cpp
@@ -102,10 +101,13 @@ INSTALLS += inc
 
 using_x11 {
     DEFINES += USING_X11
-    HEADERS += screensaver-x11.h
-    SOURCES += screensaver-x11.cpp
+    HEADERS += platforms/mythxdisplay.h
     HEADERS += platforms/mythdisplayx11.h
+    HEADERS += screensaver-x11.h
+    SOURCES += platforms/mythxdisplay.cpp
     SOURCES += platforms/mythdisplayx11.cpp
+    SOURCES += screensaver-x11.cpp
+    freebsd:LIBS += -lXext -lXxf86vm
 }
 
 using_drm {
@@ -175,10 +177,6 @@ using_libcec {
     SOURCES += devices/mythcecadapter.cpp
 }
 
-using_xrandr {
-    DEFINES += USING_XRANDR
-}
-
 cygwin:DEFINES += _WIN32
 mingw :DEFINES += USING_MINGW
 
@@ -191,6 +189,30 @@ mingw | win32-msvc*{
     LIBS    += -lGdi32 -lUser32
 
     using_dxva2: DEFINES += USING_DXVA2
+}
+
+using_vulkan {
+    DEFINES += USING_VULKAN
+    HEADERS += vulkan/mythpainterwindowvulkan.h
+    HEADERS += vulkan/mythpaintervulkan.h
+    HEADERS += vulkan/mythrendervulkan.h
+    HEADERS += vulkan/mythwindowvulkan.h
+    HEADERS += vulkan/mythtexturevulkan.h
+    HEADERS += vulkan/mythshadervulkan.h
+    HEADERS += vulkan/mythshadersvulkan.h
+    HEADERS += vulkan/mythuniformbuffervulkan.h
+    HEADERS += vulkan/mythcombobuffervulkan.h
+    HEADERS += vulkan/mythdebugvulkan.h
+    SOURCES += vulkan/mythpainterwindowvulkan.cpp
+    SOURCES += vulkan/mythpaintervulkan.cpp
+    SOURCES += vulkan/mythrendervulkan.cpp
+    SOURCES += vulkan/mythwindowvulkan.cpp
+    SOURCES += vulkan/mythtexturevulkan.cpp
+    SOURCES += vulkan/mythshadervulkan.cpp
+    SOURCES += vulkan/mythuniformbuffervulkan.cpp
+    SOURCES += vulkan/mythcombobuffervulkan.cpp
+    SOURCES += vulkan/mythdebugvulkan.cpp
+    using_libglslang: DEFINES += USING_GLSLANG
 }
 
 using_opengl {

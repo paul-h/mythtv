@@ -17,7 +17,10 @@ using std::min;
 #include "mythrenderopenglshaders.h"
 #include "mythlogging.h"
 #include "mythuitype.h"
+#ifdef USING_X11
 #include "mythxdisplay.h"
+#endif
+
 #define LOC QString("OpenGL: ")
 
 #ifdef Q_OS_ANDROID
@@ -81,23 +84,13 @@ MythRenderOpenGL* MythRenderOpenGL::Create(QWidget *Widget)
     if (!Widget)
         return nullptr;
 
-    QString display = getenv("DISPLAY");
-    // Determine if we are running a remote X11 session
-    // DISPLAY=:x or DISPLAY=unix:x are local
-    // DISPLAY=hostname:x is remote
-    // DISPLAY=/xxx/xxx/.../org.macosforge.xquartz:x is local OS X
-    // x can be numbers n or n.n
-    // Anything else including DISPLAY not set is assumed local,
-    // in that case we are probably not running under X11
-    if (!display.isEmpty()
-     && !display.startsWith(":")
-     && !display.startsWith("unix:")
-     && !display.startsWith("/")
-     &&  display.contains(':'))
+#ifdef USING_X11
+    if (MythXDisplay::DisplayIsRemote())
     {
         LOG(VB_GENERAL, LOG_WARNING, LOC + "OpenGL is disabled for Remote X Session");
         return nullptr;
     }
+#endif
 
     // N.B the core profiles below are designed to target compute shader availability
     bool opengles = !qgetenv("MYTHTV_OPENGL_ES").isEmpty();
@@ -362,7 +355,7 @@ bool MythRenderOpenGL::Init(void)
     // For now this just includes Broadcom VideoCoreIV.
     // Other Tile Based Deferred Rendering GPUS - PowerVR5/6/7, Apple (PowerVR as well?)
     // Other Tile Based Immediate Mode Rendering GPUS - ARM Mali, Qualcomm Adreno
-    static const QByteArray kTiled[3] = { "videocore", "vc4", "v3d" };
+    static const std::array<const QByteArray,3> kTiled { "videocore", "vc4", "v3d" };
     auto renderer = QByteArray(reinterpret_cast<const char*>(glGetString(GL_RENDERER))).toLower();
     for (const auto & name : kTiled)
     {
@@ -419,7 +412,7 @@ void MythRenderOpenGL::DebugFeatures(void)
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("OpenGL vendor        : %1").arg(reinterpret_cast<const char*>(glGetString(GL_VENDOR))));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("OpenGL renderer      : %1").arg(reinterpret_cast<const char*>(glGetString(GL_RENDERER))));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("OpenGL version       : %1").arg(reinterpret_cast<const char*>(glGetString(GL_VERSION))));
-    LOG(VB_GENERAL, LOG_INFO, LOC + QString("Qt platform          : %1").arg(QGuiApplication::platformName()));    
+    LOG(VB_GENERAL, LOG_INFO, LOC + QString("Qt platform          : %1").arg(QGuiApplication::platformName()));
 #ifdef USING_EGL
     bool eglfuncs = IsEGL();
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("EGL display          : %1").arg(GLYesNo(GetEGLDisplay() != nullptr)));
@@ -607,7 +600,7 @@ void MythRenderOpenGL::SetBlend(bool Enable)
     doneCurrent();
 }
 
-void MythRenderOpenGL::SetBackground(int Red, int Green, int Blue, int Alpha)
+void MythRenderOpenGL::SetBackground(uint8_t Red, uint8_t Green, uint8_t Blue, uint8_t Alpha)
 {
     int32_t tmp = (Red << 24) + (Green << 16) + (Blue << 8) + Alpha;
     if (tmp == m_background)
@@ -802,7 +795,7 @@ void MythRenderOpenGL::ClearFramebuffer(void)
 
 void MythRenderOpenGL::DrawBitmap(MythGLTexture *Texture, QOpenGLFramebufferObject *Target,
                                   const QRect &Source, const QRect &Destination,
-                                  QOpenGLShaderProgram *Program, int Alpha)
+                                  QOpenGLShaderProgram *Program, int Alpha, qreal Scale)
 {
     makeCurrent();
 
@@ -825,7 +818,7 @@ void MythRenderOpenGL::DrawBitmap(MythGLTexture *Texture, QOpenGLFramebufferObje
 
     QOpenGLBuffer* buffer = Texture->m_vbo;
     buffer->bind();
-    if (UpdateTextureVertices(Texture, Source, Destination, 0))
+    if (UpdateTextureVertices(Texture, Source, Destination, 0, Scale))
     {
         if (m_extraFeaturesUsed & kGLBufferMap)
         {
@@ -1191,7 +1184,7 @@ void MythRenderOpenGL::Init2DState(void)
 
 QFunctionPointer MythRenderOpenGL::GetProcAddress(const QString &Proc) const
 {
-    static const QString kExts[4] = { "", "ARB", "EXT", "OES" };
+    static const std::array<const QString,4> kExts { "", "ARB", "EXT", "OES" };
     QFunctionPointer result = nullptr;
     for (const auto & ext : kExts)
     {
@@ -1260,7 +1253,7 @@ QStringList MythRenderOpenGL::GetDescription(void)
 }
 
 bool MythRenderOpenGL::UpdateTextureVertices(MythGLTexture *Texture, const QRect &Source,
-                                             const QRect &Destination, int Rotation)
+                                             const QRect &Destination, int Rotation, qreal Scale)
 {
     if (!Texture || (Texture && Texture->m_size.isEmpty()))
         return false;
@@ -1299,8 +1292,8 @@ bool MythRenderOpenGL::UpdateTextureVertices(MythGLTexture *Texture, const QRect
     data[4 + TEX_OFFSET] = data[6 + TEX_OFFSET];
     data[5 + TEX_OFFSET] = data[1 + TEX_OFFSET];
 
-    width  = Texture->m_crop ? min(width, Destination.width())   : Destination.width();
-    height = Texture->m_crop ? min(height, Destination.height()) : Destination.height();
+    width  = Texture->m_crop ? min(static_cast<int>(width * Scale), Destination.width())   : Destination.width();
+    height = Texture->m_crop ? min(static_cast<int>(height * Scale), Destination.height()) : Destination.height();
 
     data[2] = data[0] = Destination.left();
     data[5] = data[1] = Destination.top();
@@ -1535,7 +1528,7 @@ QOpenGLShaderProgram *MythRenderOpenGL::CreateShaderProgram(const QString &Verte
     if (VERBOSE_LEVEL_CHECK(VB_GENERAL, LOG_DEBUG))
     {
         QList<QOpenGLShader*> shaders = program->shaders();
-        foreach (QOpenGLShader* shader, shaders)
+        for (QOpenGLShader* shader : qAsConst(shaders))
             LOG(VB_GENERAL, LOG_DEBUG, "\n" + shader->sourceCode());
     }
     program->bindAttributeLocation("a_position",  VERTEX_INDEX);
@@ -1559,7 +1552,7 @@ QOpenGLShaderProgram* MythRenderOpenGL::CreateComputeShader(const QString &Sourc
     if (VERBOSE_LEVEL_CHECK(VB_GENERAL, LOG_DEBUG))
     {
         QList<QOpenGLShader*> shaders = program->shaders();
-        foreach (QOpenGLShader* shader, shaders)
+        for (QOpenGLShader* shader : qAsConst(shaders))
             LOG(VB_GENERAL, LOG_DEBUG, "\n" + shader->sourceCode());
     }
 

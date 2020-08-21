@@ -66,7 +66,11 @@ static void fromXMLTVDate(QString &timestr, QDateTime &dt)
         return;
     }
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList split = timestr.split(" ", QString::SkipEmptyParts);
+#else
+    QStringList split = timestr.split(" ", Qt::SkipEmptyParts);
+#endif
     QString ts = split[0];
     QDate tmpDate;
     QTime tmpTime;
@@ -205,8 +209,6 @@ bool XMLTVParser::parseFile(
     QString aggregatedTitle;
     QString aggregatedDesc;
     bool haveReadTV = false;
-    QString last_channel = ""; //xmltvId of the last program element we read
-    QDateTime last_starttime; //starttime of the last program element we read
     while (!xml.atEnd() && !xml.hasError() && (! (xml.isEndElement() && xml.name() == "tv")))
     {
         if (xml.readNextStartElement())
@@ -465,7 +467,7 @@ bool XMLTVParser::parseFile(
                     {
                         pginfo->m_previouslyshown = true;
                         QString prevdate = xml.attributes().value( "start").toString();
-                        if (!prevdate.isEmpty())
+                        if ((!prevdate.isEmpty()) && (pginfo->m_originalairdate.isNull()))
                         {
                             QDateTime date;
                             fromXMLTVDate(prevdate, date);
@@ -634,6 +636,29 @@ bool XMLTVParser::parseFile(
                                 // ProgInfo does not have a collectionref, so we don't set any
                             }
                         }
+                        else if (system == "schedulesdirect.org")
+                        {
+                            QString details(xml.readElementText(QXmlStreamReader::SkipChildElements));
+                            if (details.startsWith(QString("originalAirDate/")))
+                            {
+                                QString value(details.section('/', 1, 1).trimmed());
+                                QDateTime datetime;
+                                fromXMLTVDate(value, datetime);
+                                pginfo->m_originalairdate = datetime.date();
+                            }
+                            else if (details.startsWith(QString("newEpisode/")))
+                            {
+                                QString value(details.section('/', 1, 1).trimmed());
+                                if (value == QString("true"))
+                                {
+                                    pginfo->m_previouslyshown = false;
+                                }
+                                else if (value == QString("false"))
+                                {
+                                    pginfo->m_previouslyshown = true;
+                                }
+                            }
+                        }
                     }//episode-num
                 }
                 while (! (xml.isEndElement() && xml.name() == "programme"));
@@ -709,23 +734,6 @@ bool XMLTVParser::parseFile(
                 else
                 {
                     // so we have a (relatively) clean program element now, which is good enough to process or to store
-                    if (pginfo->m_channel != last_channel) {
-                        //we have a channel change here
-                        last_channel = pginfo->m_channel;
-                        last_starttime = QDateTime(QDate(1970, 1, 1), QTime(0, 0, 0)); //initialize it to a time far, far away ...
-                    }
-                    else {
-                        //we are still on the same channel
-                        if (pginfo->m_starttime >= last_starttime) {
-                            last_starttime = pginfo->m_starttime;
-                        }
-                        else {
-                            LOG(VB_GENERAL, LOG_ERR, QString("Malformed XML file, program out of order at line %1, %2").arg(xml.lineNumber()).arg(xml.errorString()));
-                            delete pginfo;
-                            return false;
-                        }
-                    }
-
                     if (pginfo->m_clumpidx.isEmpty())
                         (*proglist)[pginfo->m_channel].push_back(*pginfo);
                     else

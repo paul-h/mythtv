@@ -15,6 +15,7 @@
 #include "referencecounter.h"
 
 class MythCommandLineParser;
+class TestCommandLineParser;
 
 class MBASE_PUBLIC CommandLineArg : public ReferenceCounter
 {
@@ -114,6 +115,19 @@ class MBASE_PUBLIC CommandLineArg : public ReferenceCounter
 class MBASE_PUBLIC MythCommandLineParser
 {
   public:
+    friend TestCommandLineParser;
+
+    enum class Result {
+        kEnd          = 0,
+        kEmpty        = 1,
+        kOptOnly      = 2,
+        kOptVal       = 3,
+        kCombOptVal   = 4,
+        kArg          = 5,
+        kPassthrough  = 6,
+        kInvalid      = 7
+    };
+
     explicit MythCommandLineParser(QString appname);
    ~MythCommandLineParser();
 
@@ -123,6 +137,7 @@ class MBASE_PUBLIC MythCommandLineParser
     QString GetHelpString(void) const;
     virtual QString GetHelpHeader(void) const { return ""; }
 
+    static const char* NamedOptType(Result type);
     virtual bool Parse(int argc, const char * const * argv);
 
 // overloaded add constructors for single string options
@@ -284,9 +299,10 @@ class MBASE_PUBLIC MythCommandLineParser
     void addPIDFile(void);
     void addJob(void);
     void addInFile(bool addOutFile = false);
+    void addPlatform(void);
 
   private:
-    int getOpt(int argc, const char * const * argv, int &argpos,
+    Result getOpt(int argc, const char * const * argv, int &argpos,
                QString &opt, QByteArray &val);
     bool ReconcileLinks(void);
 
@@ -297,3 +313,5 @@ class MBASE_PUBLIC MythCommandLineParser
     bool                            m_overridesImported {false};
     bool                            m_verbose           {false};
 };
+
+Q_DECLARE_METATYPE(MythCommandLineParser::Result)

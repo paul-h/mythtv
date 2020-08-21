@@ -369,7 +369,7 @@ AudioOutput::AudioDeviceConfig* AudioOutput::GetAudioDeviceConfig(
                 (static_cast<int>(aosettings.canAC3())  << 1) |
                 (static_cast<int>(aosettings.canDTS())  << 2);
             // cppcheck-suppress variableScope
-            static const char *s_typeNames[] = { "LPCM", "AC3", "DTS" };
+            static const std::array<const std::string,3> s_typeNames { "LPCM", "AC3", "DTS" };
 
             if (mask != 0)
             {
@@ -381,7 +381,7 @@ AudioOutput::AudioDeviceConfig* AudioOutput::GetAudioDeviceConfig(
                     {
                         if (found_one)
                             capabilities += ", ";
-                        capabilities += s_typeNames[i];
+                        capabilities += QString::fromStdString(s_typeNames[i]);
                         found_one = true;
                     }
                 }
@@ -400,7 +400,7 @@ AudioOutput::AudioDeviceConfig* AudioOutput::GetAudioDeviceConfig(
 static void fillSelectionsFromDir(const QDir &dir,
                                   AudioOutput::ADCVect *list)
 {
-    foreach (auto & fi, dir.entryInfoList())
+    for (const auto& fi : dir.entryInfoList())
     {
         QString name = fi.absoluteFilePath();
         QString desc = AudioOutput::tr("OSS device");
@@ -599,7 +599,6 @@ int AudioOutput::DecodeAudio(AVCodecContext *ctx,
                              const AVPacket *pkt)
 {
     bool got_frame = false;
-    char error[AV_ERROR_MAX_STRING_SIZE];
 
     data_size = 0;
     if (!m_frame)
@@ -631,9 +630,10 @@ int AudioOutput::DecodeAudio(AVCodecContext *ctx,
         ret = 0;
     else if (ret < 0)
     {
+        std::string error;
         LOG(VB_AUDIO, LOG_ERR, LOC +
             QString("audio decode error: %1 (%2)")
-            .arg(av_make_error_string(error, sizeof(error), ret))
+            .arg(av_make_error_stdstring(error, ret))
             .arg(got_frame));
         return ret;
     }

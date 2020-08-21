@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <iostream>
+#include <memory>
 using namespace std;
 
 #include <QFile>
@@ -312,8 +313,6 @@ namespace
         gContext = nullptr;
 
         ReferenceCounter::PrintDebug();
-
-        delete QCoreApplication::instance();
 
         SignalHandler::Done();
     }
@@ -860,9 +859,9 @@ static void handleGalleryMedia(MythMediaDevice *dev)
     GetMythMainWindow()->GetMainStack()->GetScreenList(screens);
 
 
-    foreach (auto screen, screens)
+    for (const auto *screen : qAsConst(screens))
     {
-        if (dynamic_cast<GalleryThumbView*>(screen))
+        if (dynamic_cast<const GalleryThumbView*>(screen))
         {
             // Running gallery will receive this event later
             LOG(VB_MEDIA, LOG_INFO, "Main: Ignoring new gallery media - already running");
@@ -1859,18 +1858,18 @@ int main(int argc, char **argv)
         return GENERIC_EXIT_OK;
     }
 
-    CleanupGuard callCleanup(cleanup);
-    MythDisplay::ConfigureQtGUI();
+    MythDisplay::ConfigureQtGUI(1, cmdline.toString("display"));
     QApplication::setSetuidAllowed(true);
-    new QApplication(argc, argv);
+    QApplication a(argc, argv);
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHFRONTEND);
-
+    CleanupGuard callCleanup(cleanup);
 
 #ifdef Q_OS_MAC
     QString path = QCoreApplication::applicationDirPath();
     setenv("PYTHONPATH",
-           QString("%1/../Resources/lib/python2.6/site-packages:%2")
+           QString("%1/../Resources/lib/%2/site-packages:%3")
            .arg(path)
+           .arg(QFileInfo(PYTHON_EXE).fileName())
            .arg(QProcessEnvironment::systemEnvironment().value("PYTHONPATH"))
            .toUtf8().constData(), 1);
 #endif
@@ -1902,15 +1901,8 @@ int main(int argc, char **argv)
     if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
         cerr << "Unable to ignore SIGPIPE\n";
 
-    if (!cmdline.toString("display").isEmpty())
-    {
-        MythUIHelper::SetX11Display(cmdline.toString("display"));
-    }
-
     if (!cmdline.toString("geometry").isEmpty())
-    {
         MythUIHelper::ParseGeometryOverride(cmdline.toString("geometry"));
-    }
 
     fe_sd_notify("STATUS=Connecting to database.");
     gContext = new MythContext(MYTH_BINARY_VERSION, true);
@@ -2114,11 +2106,11 @@ int main(int argc, char **argv)
         return GENERIC_EXIT_NO_THEME;
     }
     fe_sd_notify("STATUS=Loading theme updates");
-    ThemeUpdateChecker *themeUpdateChecker = nullptr;
+    std::unique_ptr<ThemeUpdateChecker> themeUpdateChecker;
     if (gCoreContext->GetBoolSetting("ThemeUpdateNofications", true))
-        themeUpdateChecker = new ThemeUpdateChecker();
+        themeUpdateChecker = make_unique<ThemeUpdateChecker>();
 
-    auto *sysEventHandler = new MythSystemEventHandler();
+    MythSystemEventHandler sysEventHandler {};
 
     BackendConnectionManager bcm;
 
@@ -2194,8 +2186,6 @@ int main(int argc, char **argv)
     PreviewGeneratorQueue::TeardownPreviewGeneratorQueue();
 
     delete housekeeping;
-    delete themeUpdateChecker;
-    delete sysEventHandler;
 
     g_pmanager->DestroyAllPlugins();
 

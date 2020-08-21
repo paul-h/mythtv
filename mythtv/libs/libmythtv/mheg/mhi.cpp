@@ -158,7 +158,7 @@ void MHIContext::StopEngine(void)
 
     m_stop = true;
     m_runLock.lock();
-    m_engine_wait.wakeAll();
+    m_engineWait.wakeAll();
     m_runLock.unlock();
 
     m_engineThread->wait();
@@ -265,7 +265,7 @@ void MHIContext::run(void)
         toWait = (toWait > 1000 || toWait <= 0) ? 1000 : toWait;
 
         if (!m_stop && (toWait > 0))
-            m_engine_wait.wait(locker.mutex(), toWait);
+            m_engineWait.wait(locker.mutex(), toWait);
     }
 }
 
@@ -305,7 +305,7 @@ void MHIContext::QueueDSMCCPacket(
                                              componentTag, carouselId,
                                              dataBroadcastId));
     }
-    m_engine_wait.wakeAll();
+    m_engineWait.wakeAll();
 }
 
 // A NetworkBootInfo sub-descriptor is present in the PMT.
@@ -330,7 +330,7 @@ void MHIContext::SetNetBootInfo(const unsigned char *data, uint length)
     if (m_lastNbiVersion == NBI_VERSION_UNSET)
         m_lastNbiVersion = data[0];
     else
-        m_engine_wait.wakeAll();
+        m_engineWait.wakeAll();
 }
 
 // Called only by m_engineThread
@@ -375,7 +375,11 @@ bool MHIContext::CheckCarouselObject(QString objectPath)
         return m_ic.CheckFile(objectPath, cert);
     }
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList path = objectPath.split(QChar('/'), QString::SkipEmptyParts);
+#else
+    QStringList path = objectPath.split(QChar('/'), Qt::SkipEmptyParts);
+#endif
     QByteArray result; // Unused
     QMutexLocker locker(&m_dsmccLock);
     int res = m_dsmcc->GetDSMCCObject(path, result);
@@ -384,7 +388,11 @@ bool MHIContext::CheckCarouselObject(QString objectPath)
 
 bool MHIContext::GetDSMCCObject(const QString &objectPath, QByteArray &result)
 {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList path = objectPath.split(QChar('/'), QString::SkipEmptyParts);
+#else
+    QStringList path = objectPath.split(QChar('/'), Qt::SkipEmptyParts);
+#endif
     QMutexLocker locker(&m_dsmccLock);
     int res = m_dsmcc->GetDSMCCObject(path, result);
     return (res == 0);
@@ -443,7 +451,11 @@ bool MHIContext::GetCarouselData(QString objectPath, QByteArray &result)
 
     // Get the path components.  The string will normally begin with "//"
     // since this is an absolute path but that will be removed by split.
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList path = objectPath.split(QChar('/'), QString::SkipEmptyParts);
+#else
+    QStringList path = objectPath.split(QChar('/'), Qt::SkipEmptyParts);
+#endif
     // Since the DSMCC carousel and the MHEG engine are currently on the
     // same thread this is safe.  Otherwise we need to make a deep copy of
     // the result.
@@ -498,7 +510,7 @@ bool MHIContext::GetCarouselData(QString objectPath, QByteArray &result)
         // some more packets.  We should eventually find out if this item is
         // present.
         ProcessDSMCCQueue();
-        m_engine_wait.wait(&m_runLock, 300);
+        m_engineWait.wait(&m_runLock, 300);
     }
     return false; // Stop has been set.  Say the object isn't present.
 }
@@ -613,7 +625,7 @@ bool MHIContext::OfferKey(const QString& key)
         .arg(key).arg(action).arg(m_keyQueue.size()) );
     { QMutexLocker locker(&m_keyLock);
     m_keyQueue.enqueue(action);}
-    m_engine_wait.wakeAll();
+    m_engineWait.wakeAll();
     return true;
 }
 
@@ -686,16 +698,8 @@ void MHIContext::UpdateOSD(InteractiveScreen *osdWindow,
         // Replace this item with a set of cut-outs.
         it = m_display.erase(it);
 
-#if QT_VERSION < QT_VERSION_CHECK(5, 8, 0)
-        QVector<QRect> rects =
-            (QRegion(imageRect) - QRegion(m_videoDisplayRect)).rects();
-        for (uint j = 0; j < (uint)rects.size(); j++)
-        {
-            const QRect &rect = rects[j];
-#else
         for (const QRect& rect : QRegion(imageRect)-QRegion(m_videoDisplayRect))
         {
-#endif
             QImage image =
                 data->m_image.copy(rect.x()-data->m_x, rect.y()-data->m_y,
                                    rect.width(), rect.height());
@@ -1908,10 +1912,10 @@ void MHIBitmap::CreateFromMPEG(const unsigned char *data, int length)
             len = 0;
         if (len < 0) // Error
         {
-            char error[AV_ERROR_MAX_STRING_SIZE];
+            std::string error;
             LOG(VB_GENERAL, LOG_ERR,
                 QString("[mhi] video decode error: %1 (%2)")
-                .arg(av_make_error_string(error, sizeof(error), len))
+                .arg(av_make_error_stdstring(error, len))
                 .arg(gotPicture));
             goto Close;
         }

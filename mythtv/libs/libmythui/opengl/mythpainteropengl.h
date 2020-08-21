@@ -6,6 +6,7 @@
 #include <QQueue>
 
 // MythTV
+#include "mythdisplay.h"
 #include "mythpainter.h"
 #include "mythimage.h"
 
@@ -22,11 +23,12 @@ class QOpenGLFramebufferObject;
 
 class MUI_PUBLIC MythOpenGLPainter : public MythPainter
 {
+    Q_OBJECT
+
   public:
     explicit MythOpenGLPainter(MythRenderOpenGL *Render = nullptr, QWidget *Parent = nullptr);
    ~MythOpenGLPainter() override;
 
-    void SetTarget(QOpenGLFramebufferObject* NewTarget) { m_target = NewTarget; }
     void SetSwapControl(bool Swap) { m_swapControl = Swap; }
     void DeleteTextures(void);
 
@@ -46,6 +48,9 @@ class MUI_PUBLIC MythOpenGLPainter : public MythPainter
     void PushTransformation(const UIEffects &Fx, QPointF Center = QPointF()) override;
     void PopTransformation(void) override;
 
+  public slots:
+    void CurrentDPIChanged(qreal DPI);
+
   protected:
     void  ClearCache(void);
     MythGLTexture* GetTextureFromCache(MythImage *Image);
@@ -55,14 +60,16 @@ class MUI_PUBLIC MythOpenGLPainter : public MythPainter
     void  DeleteFormatImagePriv(MythImage *Image) override;
 
   protected:
-    QWidget          *m_parent { nullptr };
+    QWidget          *m_widget { nullptr };
     MythRenderOpenGL *m_render { nullptr };
-    QOpenGLFramebufferObject* m_target { nullptr };
     bool              m_swapControl { true };
     QSize             m_lastSize { };
+    qreal             m_pixelRatio   { 1.0     };
+    MythDisplay*      m_display      { nullptr };
+    bool              m_usingHighDPI { false   };
 
     QMap<MythImage *, MythGLTexture*> m_imageToTextureMap;
-    std::list<MythImage *>     m_ImageExpireList;
+    std::list<MythImage *>     m_imageExpireList;
     std::list<MythGLTexture*>  m_textureDeleteList;
     QMutex                     m_textureDeleteLock;
 

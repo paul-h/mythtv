@@ -146,7 +146,7 @@ OSD::~OSD()
 
 void OSD::TearDown(void)
 {
-    foreach(MythScreenType* screen, m_children)
+    for (MythScreenType* screen : qAsConst(m_children))
         delete screen;
     m_children.clear();
     m_dialog = nullptr;
@@ -251,7 +251,7 @@ bool OSD::IsVisible(void)
     if (GetNotificationCenter()->DisplayedNotifications() > 0)
         return true;
 
-    foreach(MythScreenType* child, m_children)
+    for (MythScreenType* child : qAsConst(m_children))
     {
         if (child->IsVisible() &&
             child->objectName() != OSD_WIN_SUBTITLE &&
@@ -291,11 +291,11 @@ void OSD::HideAll(bool KeepSubs, MythScreenType* Except, bool DropNotification)
 
 void OSD::LoadWindows(void)
 {
-    static const char* s_defaultWindows[7] = {
+    static const std::array<const QString,7> s_defaultWindows {
         "osd_message", "osd_input", "program_info", "browse_info", "osd_status",
         "osd_program_editor", "osd_debug"};
 
-    for (const auto *window : s_defaultWindows)
+    for (const auto & window : s_defaultWindows)
     {
         auto *win = new MythOSDWindow(nullptr, window, true);
 
@@ -499,15 +499,9 @@ void OSD::SetText(const QString &Window, const InfoMap &Map, OSDTimeout Timeout)
         dynamic_cast<MythUIProgressBar *>(win->GetChild("elapsedpercent"));
     if (bar)
     {
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-        int startts = Map["startts"].toInt();
-        int endts   = Map["endts"].toInt();
-        int nowts   = MythDate::current().toTime_t();
-#else
         qint64 startts = Map["startts"].toLongLong();
         qint64 endts   = Map["endts"].toLongLong();
         qint64 nowts   = MythDate::current().toSecsSinceEpoch();
-#endif
         if (startts > nowts)
         {
             bar->SetUsed(0);
@@ -518,11 +512,7 @@ void OSD::SetText(const QString &Window, const InfoMap &Map, OSDTimeout Timeout)
         }
         else
         {
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-            int duration = endts - startts;
-#else
             qint64 duration = endts - startts;
-#endif
             if (duration > 0)
                 bar->SetUsed(static_cast<int>(1000 * (nowts - startts) / duration));
             else

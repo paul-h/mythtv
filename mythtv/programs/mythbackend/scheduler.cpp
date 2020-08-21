@@ -2307,7 +2307,13 @@ bool Scheduler::HandleReschedule(void)
         QStringList request = m_reschedQueue.dequeue();
         QStringList tokens;
         if (!request.empty())
+        {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             tokens = request[0].split(' ', QString::SkipEmptyParts);
+#else
+            tokens = request[0].split(' ', Qt::SkipEmptyParts);
+#endif
+        }
 
         if (request.empty() || tokens.empty())
         {
@@ -2524,7 +2530,7 @@ void Scheduler::HandleWakeSlave(RecordingInfo &ri, int prerollseconds)
     QReadLocker tvlocker(&TVRec::s_inputsLock);
 
     QMap<int, EncoderLink*>::const_iterator tvit = m_tvList->constFind(ri.GetInputID());
-    if (tvit == m_tvList->end())
+    if (tvit == m_tvList->constEnd())
         return;
 
     QString sysEventKey = ri.MakeUniqueKey();
@@ -2607,7 +2613,7 @@ void Scheduler::HandleWakeSlave(RecordingInfo &ri, int prerollseconds)
                     "to reschedule around its tuners.")
                 .arg(nexttv->GetHostName()));
 
-        foreach (auto & enc, *m_tvList)
+        for (auto * enc : qAsConst(*m_tvList))
         {
             if (enc->GetHostName() == nexttv->GetHostName())
                 enc->SetSleepStatus(sStatus_Undefined);
@@ -2682,7 +2688,7 @@ bool Scheduler::HandleRecording(
     QReadLocker tvlocker(&TVRec::s_inputsLock);
 
     QMap<int, EncoderLink*>::const_iterator tvit = m_tvList->constFind(ri.GetInputID());
-    if (tvit == m_tvList->end())
+    if (tvit == m_tvList->constEnd())
     {
         QString msg = QString("Invalid cardid [%1] for %2")
             .arg(ri.GetInputID()).arg(ri.GetTitle());
@@ -2764,7 +2770,7 @@ bool Scheduler::HandleRecording(
                         "to reschedule around its tuners.")
                     .arg(nexttv->GetHostName()));
 
-            foreach (auto enc, *m_tvList)
+            for (auto * enc : qAsConst(*m_tvList))
             {
                 if (enc->GetHostName() == nexttv->GetHostName())
                     enc->SetSleepStatus(sStatus_Undefined);
@@ -3384,11 +3390,7 @@ void Scheduler::ShutdownServer(int prerollseconds, QDateTime &idleSince)
         {
             QString time_ts;
             setwakeup_cmd.replace("$time",
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-                                  time_ts.setNum(restarttime.toTime_t())
-#else
                                   time_ts.setNum(restarttime.toSecsSinceEpoch())
-#endif
                 );
         }
         else
@@ -3452,7 +3454,7 @@ void Scheduler::PutInactiveSlavesToSleep(void)
     QReadLocker tvlocker(&TVRec::s_inputsLock);
 
     bool someSlavesCanSleep = false;
-    foreach (auto enc, *m_tvList)
+    for (auto * enc : qAsConst(*m_tvList))
     {
         if (enc->CanSleep())
             someSlavesCanSleep = true;
@@ -3534,7 +3536,7 @@ void Scheduler::PutInactiveSlavesToSleep(void)
         "be inactive for the next %1 minutes and can be put to sleep.")
             .arg(sleepThreshold / 60));
 
-    foreach (auto enc, *m_tvList)
+    for (auto * enc : qAsConst(*m_tvList))
     {
         if ((!enc->IsLocal()) &&
             (enc->IsAwake()) &&
@@ -3558,7 +3560,7 @@ void Scheduler::PutInactiveSlavesToSleep(void)
 
                 if (enc->GoToSleep())
                 {
-                    foreach (auto slv, *m_tvList)
+                    for (auto * slv : qAsConst(*m_tvList))
                     {
                         if (slv->GetHostName() == thisHost)
                         {
@@ -3576,7 +3578,7 @@ void Scheduler::PutInactiveSlavesToSleep(void)
                     LOG(VB_GENERAL, LOG_ERR, LOC +
                         QString("Unable to shutdown %1 slave backend, setting "
                                 "sleep status to undefined.").arg(thisHost));
-                    foreach (auto slv, *m_tvList)
+                    for (auto * slv : qAsConst(*m_tvList))
                     {
                         if (slv->GetHostName() == thisHost)
                             slv->SetSleepStatus(sStatus_Undefined);
@@ -3606,7 +3608,7 @@ bool Scheduler::WakeUpSlave(const QString& slaveHostname, bool setWakingStatus)
             QString("Trying to Wake Up %1, but this slave "
                     "does not have a WakeUpCommand set.").arg(slaveHostname));
 
-        foreach (auto enc, *m_tvList)
+        for (auto * enc : qAsConst(*m_tvList))
         {
             if (enc->GetHostName() == slaveHostname)
                 enc->SetSleepStatus(sStatus_Undefined);
@@ -3616,7 +3618,7 @@ bool Scheduler::WakeUpSlave(const QString& slaveHostname, bool setWakingStatus)
     }
 
     QDateTime curtime = MythDate::current();
-    foreach (auto enc, *m_tvList)
+    for (auto * enc : qAsConst(*m_tvList))
     {
         if (setWakingStatus && (enc->GetHostName() == slaveHostname))
             enc->SetSleepStatus(sStatus_Waking);
@@ -3640,7 +3642,7 @@ void Scheduler::WakeUpSlaves(void)
 
     QStringList SlavesThatCanWake;
     QString thisSlave;
-    foreach (auto enc, *m_tvList)
+    for (auto * enc : qAsConst(*m_tvList))
     {
         if (enc->IsLocal())
             continue;
@@ -4314,7 +4316,7 @@ void Scheduler::AddNewRecords(void)
     RecList tmpList;
 
     QMap<int, bool> cardMap;
-    foreach (auto enc, *m_tvList)
+    for (auto * enc : qAsConst(*m_tvList))
     {
         if (enc->IsConnected() || enc->IsAsleep())
             cardMap[enc->GetInputID()] = true;
@@ -5448,7 +5450,7 @@ int Scheduler::FillRecordingDir(
                         ProgramInfo *programinfo = expire;
                         bool foundSlave = false;
 
-                        foreach (auto & enc, *m_tvList)
+                        for (auto * enc : qAsConst(*m_tvList))
                         {
                             if (enc->GetHostName() ==
                                 programinfo->GetHostname())
@@ -5606,7 +5608,7 @@ void Scheduler::SchedLiveTV(void)
         return;
 
     // Build a list of active livetv programs
-    foreach (auto enc, *m_tvList)
+    for (auto * enc : qAsConst(*m_tvList))
     {
         if (kState_WatchingLiveTV != enc->GetState())
             continue;

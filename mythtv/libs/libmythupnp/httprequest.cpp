@@ -60,8 +60,8 @@
 
 using namespace std;
 
-static MIMETypes g_MIMETypes[] =
-{
+static std::array<const MIMETypes,63> g_MIMETypes
+{{
     // Image Mime Types
     { "gif" , "image/gif"                  },
     { "ico" , "image/x-icon"               },
@@ -130,7 +130,7 @@ static MIMETypes g_MIMETypes[] =
     { "ts"  , "video/mp2t"                 }, // RFC 3555
     { "vob" , "video/mpeg"                 }, // Also video/dvd
     { "wmv" , "video/x-ms-wmv"             }
-};
+}};
 
 // NOTE 1
 // This formerly was video/x-matroska, but got changed due to #8643
@@ -785,13 +785,13 @@ void HTTPRequest::FormatActionResponse(const NameValues &args)
     else
         stream << "<" << m_sMethod << "Response>\r\n";
 
-    foreach (const auto & arg, args)
+    for (const auto & arg : qAsConst(args))
     {
         stream << "<" << arg.m_sName;
 
         if (arg.m_pAttributes)
         {
-            foreach (const auto & attr, *arg.m_pAttributes)
+            for (const auto & attr : qAsConst(*arg.m_pAttributes))
             {
                 stream << " " << attr.m_sName << "='"
                        << Encode( attr.m_sValue ) << "'";
@@ -1028,7 +1028,7 @@ QString HTTPRequest::GetMimeType( const QString &sFileExtension )
 {
     QString ext;
 
-    for (auto & type : g_MIMETypes)
+    for (const auto & type : g_MIMETypes)
     {
         ext = type.pszExtension;
 
@@ -1047,7 +1047,7 @@ QStringList HTTPRequest::GetSupportedMimeTypes()
 {
     QStringList mimeTypes;
 
-    for (auto & type : g_MIMETypes)
+    for (const auto & type : g_MIMETypes)
     {
         if (!mimeTypes.contains( type.pszType ))
             mimeTypes.append( type.pszType );
@@ -1124,9 +1124,13 @@ long HTTPRequest::GetParameters( QString sParams, QStringMap &mapParams  )
 
     if (!sParams.isEmpty())
     {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
         QStringList params = sParams.split('&', QString::SkipEmptyParts);
+#else
+        QStringList params = sParams.split('&', Qt::SkipEmptyParts);
+#endif
 
-        foreach (auto & param, params)
+        for (const auto & param : qAsConst(params))
         {
             QString sName  = param.section( '=', 0, 0 );
             QString sValue = param.section( '=', 1 );
@@ -1434,7 +1438,11 @@ void HTTPRequest::ProcessRequestLine( const QString &sLine )
     m_sRawRequest = sLine;
 
     QString     sToken;
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList tokens = sLine.split(m_procReqLineExp, QString::SkipEmptyParts);
+#else
+    QStringList tokens = sLine.split(m_procReqLineExp, Qt::SkipEmptyParts);
+#endif
     int         nCount = tokens.count();
 
     // ----------------------------------------------------------------------
@@ -1525,7 +1533,11 @@ bool HTTPRequest::ParseRange( QString sRange,
     // Split multiple ranges
     // ----------------------------------------------------------------------
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList ranges = sRange.split(',', QString::SkipEmptyParts);
+#else
+    QStringList ranges = sRange.split(',', Qt::SkipEmptyParts);
+#endif
 
     if (ranges.count() == 0)
         return false;
@@ -1602,11 +1614,14 @@ void HTTPRequest::ExtractMethodFromURL()
     // Strip out leading http://192.168.1.1:6544/ -> /
     // Should fix #8678
     // FIXME what about https?
-    QRegExp sRegex("^http://.*/");
-    sRegex.setMinimal(true);
-    m_sBaseUrl.replace(sRegex, "/");
+    QRegularExpression re {"^http[s]?://.*?/"};
+    m_sBaseUrl.replace(re, "/");
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList sList = m_sBaseUrl.split('/', QString::SkipEmptyParts);
+#else
+    QStringList sList = m_sBaseUrl.split('/', Qt::SkipEmptyParts);
+#endif
 
     m_sMethod = "";
 

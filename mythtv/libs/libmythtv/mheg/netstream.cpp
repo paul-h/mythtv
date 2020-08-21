@@ -8,6 +8,7 @@
 using std::getenv;
 #include <cstddef>
 #include <cstdio>
+#include <inttypes.h>
 #include <utility>
 
 // Qt
@@ -327,7 +328,8 @@ static qlonglong inline ContentRange(const QNetworkReply *reply,
 
     // See RFC 2616 14.16: 'bytes begin-end/size'
     qulonglong len = 0;
-    if (3 != std::sscanf(range.constData(), " bytes %20lld - %20lld / %20lld", &first, &last, &len))
+    const char *fmt = " bytes %20" SCNd64 " - %20" SCNd64 " / %20" SCNd64;
+    if (3 != std::sscanf(range.constData(), fmt, &first, &last, &len))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + QString("Invalid Content-Range:'%1'")
             .arg(range.constData()) );
@@ -479,7 +481,7 @@ void NetStream::slotSslErrors(const QList<QSslError> &errors)
     if (m_reply)
     {
         bool bIgnore = true;
-        Q_FOREACH(const QSslError &e, errors)
+        for (const auto& e : qAsConst(errors))
         {
             LOG(VB_FILE, LOG_INFO, LOC + QString("(%1) SSL error %2: ")
                 .arg(m_id).arg(e.error()) + e.errorString() );
@@ -961,10 +963,10 @@ QDateTime NAMThread::GetLastModified(const QUrl &url)
     QDateTime lastMod = meta.lastModified();
 
     QNetworkCacheMetaData::RawHeaderList headers = meta.rawHeaders();
-    Q_FOREACH(const QNetworkCacheMetaData::RawHeader &h, headers)
+    for (const auto& h : qAsConst(headers))
     {
         // RFC 1123 date format: Thu, 01 Dec 1994 16:00:00 GMT
-        static constexpr char kSzFormat[] = "ddd, dd MMM yyyy HH:mm:ss 'GMT'";
+        static const QString kSzFormat { "ddd, dd MMM yyyy HH:mm:ss 'GMT'" };
 
         QString const first(h.first.toLower());
         if (first == "cache-control")

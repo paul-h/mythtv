@@ -56,8 +56,6 @@ namespace
 
         ReferenceCounter::PrintDebug();
 
-        delete QCoreApplication::instance();
-
         SignalHandler::Done();
     }
 }
@@ -121,8 +119,8 @@ int main(int argc, char **argv)
         return GENERIC_EXIT_OK;
     }
 
-    MythDisplay::ConfigureQtGUI();
-    new QApplication(argc, argv);
+    MythDisplay::ConfigureQtGUI(1, cmdline.toString("display"));
+    QApplication a(argc, argv);
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHSCREENWIZARD);
 
     QString mask("general");
@@ -146,11 +144,6 @@ int main(int argc, char **argv)
 
     if ((retval = cmdline.ConfigureLogging()) != GENERIC_EXIT_OK)
         return retval;
-
-    if (!cmdline.toString("display").isEmpty())
-    {
-        MythUIHelper::SetX11Display(cmdline.toString("display"));
-    }
 
     gContext = new MythContext(MYTH_BINARY_VERSION);
     if (!gContext->Init(true, false, true))

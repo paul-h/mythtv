@@ -41,7 +41,7 @@ QString DTVMultiplex::toString() const
         .arg(m_bandwidth.toString()).arg(m_transMode.toString())
         .arg(m_guardInterval.toString()).arg(m_hierarchy.toString())
         .arg(m_polarity.toString());
-    ret += QString(" fec:%1 msys:%2 rolloff:%3")
+    ret += QString(" fec:%1 msys:%2 ro:%3")
         .arg(m_fec.toString(),-4).arg(m_modSys.toString(),-6).arg(m_rolloff.toString());
 
     return ret;
@@ -509,9 +509,10 @@ bool DTVMultiplex::FillFromDeliverySystemDesc(DTVTunerType type,
                     return false;
                 }
 
-                return ParseDVB_S_and_C(
+                return ParseDVB_S(
                     QString::number(cd.FrequencykHz()),  "a",
-                    QString::number(cd.SymbolRateHz()), cd.FECInnerString(),
+                    QString::number(cd.SymbolRateHz()),
+                    cd.FECInnerString(),
                     cd.ModulationString(),
                     cd.PolarizationString());
             }
@@ -520,10 +521,12 @@ bool DTVMultiplex::FillFromDeliverySystemDesc(DTVTunerType type,
             {
                 return ParseDVB_S2(
                     QString::number(cd.FrequencykHz()),  "a",
-                    QString::number(cd.SymbolRateHz()), cd.FECInnerString(),
+                    QString::number(cd.SymbolRateHz()),
+                    cd.FECInnerString(),
                     cd.ModulationString(),
                     cd.PolarizationString(),
-                    cd.ModulationSystemString(),         cd.RollOffString());
+                    cd.ModulationSystemString(),
+                    cd.RollOffString());
             }
 
             break;
@@ -543,7 +546,7 @@ bool DTVMultiplex::FillFromDeliverySystemDesc(DTVTunerType type,
         }
         default:
             LOG(VB_CHANSCAN, LOG_ERR, LOC +
-                "unknown delivery system descriptor");
+                QString("Unknown delivery system descriptor 0x%1").arg(tag,0,16));
             return false;
     }
 

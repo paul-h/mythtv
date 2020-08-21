@@ -20,6 +20,7 @@ using namespace std;
 #include <QFile>
 #include <QKeyEvent>
 #include <QRegExp>
+#include <QRegularExpression>
 #include <QRunnable>
 #include <QTimerEvent>
 #include <utility>
@@ -206,21 +207,8 @@ int TV::ConfiguredTunerCards(void)
     return count;
 }
 
-static void multi_lock(QMutex *mutex0, ...)
+static void multi_lock(std::vector<QMutex *> mutex)
 {
-    vector<QMutex*> mutex;
-    mutex.push_back(mutex0);
-
-    va_list argp;
-    va_start(argp, mutex0);
-    QMutex *cur = va_arg(argp, QMutex*);
-    while (cur)
-    {
-        mutex.push_back(cur);
-        cur = va_arg(argp, QMutex*);
-    }
-    va_end(argp);
-
     for (bool success = false; !success;)
     {
         success = true;
@@ -1076,8 +1064,8 @@ void TV::InitFromDB(void)
     kv["PlaybackScreenPressKeyMap"]     = "P,Up,Z,],Left,Return,Return,Right,A,Down,Q,[";
     kv["LiveTVScreenPressKeyMap"]     = "P,Up,Z,S,Left,Return,Return,Right,A,Down,Q,F";
 
-    int ff_rew_def[8] = { 3, 5, 10, 20, 30, 60, 120, 180 };
-    for (size_t i = 0; i < sizeof(ff_rew_def)/sizeof(ff_rew_def[0]); i++)
+    constexpr std::array<const int,8> ff_rew_def { 3, 5, 10, 20, 30, 60, 120, 180 };
+    for (size_t i = 0; i < ff_rew_def.size(); i++)
         kv[QString("FFRewSpeed%1").arg(i)] = QString::number(ff_rew_def[i]);
 
     MythDB::getMythDB()->GetSettings(kv);
@@ -1452,7 +1440,7 @@ void TV::GetStatus(void)
             QList<long long> chapters;
             ctx->m_player->GetChapterTimes(chapters);
             QVariantList var;
-            foreach (long long chapter, chapters)
+            for (long long chapter : qAsConst(chapters))
                 var << QVariant(chapter);
             status.insert("chaptertimes", var);
         }
@@ -2007,7 +1995,7 @@ void TV::HandleOSDAskAllow(PlayerContext *ctx, const QString& action)
     }
     else if (action == "CANCELCONFLICTING")
     {
-        foreach (auto & pgm, m_askAllowPrograms)
+        for (const auto& pgm : qAsConst(m_askAllowPrograms))
         {
             if (pgm.m_isConflicting)
                 RemoteCancelNextRecording(pgm.m_info->GetInputID(), true);
@@ -4112,7 +4100,7 @@ bool TV::BrowseHandleAction(PlayerContext *ctx, const QStringList &actions)
     else
     {
         handled = false;
-        foreach (const auto & action, actions)
+        for (const auto& action : qAsConst(actions))
         {
             if (action.length() == 1 && action[0].isDigit())
             {
@@ -4973,7 +4961,11 @@ void TV::ProcessNetworkControlCommand(PlayerContext *ctx,
         return;
     }
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList tokens = command.split(" ", QString::SkipEmptyParts);
+#else
+    QStringList tokens = command.split(" ", Qt::SkipEmptyParts);
+#endif
     if (tokens.size() < 2)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Not enough tokens"
@@ -5013,7 +5005,7 @@ void TV::ProcessNetworkControlCommand(PlayerContext *ctx,
                 ChangeChannel(ctx, CHANNEL_DIRECTION_UP);
             else if (tokens[2] == "DOWN")
                 ChangeChannel(ctx, CHANNEL_DIRECTION_DOWN);
-            else if (tokens[2].contains(QRegExp("^[-\\.\\d_#]+$")))
+            else if (tokens[2].contains(QRegularExpression(R"(^[-\.\d_#]+$)")))
                 ChangeChannel(ctx, 0, tokens[2]);
         }
     }
@@ -5041,22 +5033,18 @@ void TV::ProcessNetworkControlCommand(PlayerContext *ctx,
             float tmpSpeed = 1.0F;
             bool ok = false;
 
-            if (tokens[2].contains(QRegExp("^\\-*\\d+x$")))
+            if (tokens[2].contains(QRegularExpression(R"(^\-*(\d*\.)?\d+x$)")))
             {
                 QString speed = tokens[2].left(tokens[2].length()-1);
                 tmpSpeed = speed.toFloat(&ok);
             }
-            else if (tokens[2].contains(QRegExp(R"(^\-*\d*\.\d+x$)")))
-            {
-                QString speed = tokens[2].left(tokens[2].length() - 1);
-                tmpSpeed = speed.toFloat(&ok);
-            }
             else
             {
-                QRegExp re = QRegExp(R"(^(\-*\d+)\/(\d+)x$)");
-                if (tokens[2].contains(re))
+                QRegularExpression re { R"(^(\-*\d+)\/(\d+)x$)" };
+                auto match = re.match(tokens[2]);
+                if (match.hasMatch())
                 {
-                    QStringList matches = re.capturedTexts();
+                    QStringList matches = match.capturedTexts();
                     int numerator = matches[1].toInt(&ok);
                     int denominator = matches[2].toInt(&ok);
 
@@ -5173,7 +5161,7 @@ void TV::ProcessNetworkControlCommand(PlayerContext *ctx,
         else if ((tokens[2] == "POSITION" ||
                   tokens[2] == "POSITIONWITHCUTLIST") &&
                  (tokens.size() == 4) &&
-                 (tokens[3].contains(QRegExp("^\\d+$"))))
+                 (tokens[3].contains(QRegularExpression("^\\d+$"))))
         {
             DoSeekAbsolute(ctx, tokens[3].toInt(),
                            tokens[2] == "POSITIONWITHCUTLIST");
@@ -5256,10 +5244,11 @@ void TV::ProcessNetworkControlCommand(PlayerContext *ctx,
     }
     else if (tokens.size() >= 3 && tokens[1] == "VOLUME")
     {
-        QRegExp re = QRegExp("(\\d+)%");
-        if (tokens[2].contains(re))
+        QRegularExpression re { "(\\d+)%" };
+        auto match = re.match(tokens[2]);
+        if (match.hasMatch())
         {
-            QStringList matches = re.capturedTexts();
+            QStringList matches = match.capturedTexts();
 
             LOG(VB_GENERAL, LOG_INFO, QString("Set Volume to %1%")
                     .arg(matches[1]));
@@ -5313,10 +5302,11 @@ void TV::ProcessNetworkControlCommand(PlayerContext *ctx,
             }
             else
             {
-                QRegExp re = QRegExp("Play (.*)x");
-                if (ctx->GetPlayMessage().contains(re))
+                QRegularExpression re { "Play (.*)x" };
+                auto match = re.match(ctx->GetPlayMessage());
+                if (match.hasMatch())
                 {
-                    QStringList matches = re.capturedTexts();
+                    QStringList matches = match.capturedTexts();
                     speedStr = QString("%1x").arg(matches[1]);
                 }
                 else
@@ -5744,7 +5734,7 @@ bool TV::PIPAddPlayer(PlayerContext *mctx, PlayerContext *pipctx)
         if (is_using_null)
         {
             addCondition = true;
-            multi_lock(&mctx->m_deletePlayerLock, &pipctx->m_deletePlayerLock, nullptr);
+            multi_lock( {&mctx->m_deletePlayerLock, &pipctx->m_deletePlayerLock} );
             if (mctx->m_player && pipctx->m_player)
             {
                 PIPLocation loc = mctx->m_player->GetNextPIPLocation();
@@ -5777,7 +5767,7 @@ bool TV::PIPRemovePlayer(PlayerContext *mctx, PlayerContext *pipctx)
         return false;
 
     bool ok = false;
-    multi_lock(&mctx->m_deletePlayerLock, &pipctx->m_deletePlayerLock, nullptr);
+    multi_lock( {&mctx->m_deletePlayerLock, &pipctx->m_deletePlayerLock} );
     if (mctx->m_player && pipctx->m_player)
         ok = mctx->m_player->RemovePIPPlayer(pipctx->m_player);
     mctx->m_deletePlayerLock.unlock();
@@ -5980,7 +5970,7 @@ bool TV::ResizePIPWindow(PlayerContext *ctx)
     {
         QRect rect;
 
-        multi_lock(&mctx->m_deletePlayerLock, &ctx->m_deletePlayerLock, (QMutex*)nullptr);
+        multi_lock( {&mctx->m_deletePlayerLock, &ctx->m_deletePlayerLock} );
         if (mctx->m_player && ctx->m_player)
         {
             PIPLocation loc = mctx->m_player->GetNextPIPLocation();
@@ -6194,7 +6184,7 @@ void TV::PxPSwap(PlayerContext *mctx, PlayerContext *pipctx)
 
     m_lockTimerOn = false;
 
-    multi_lock(&mctx->m_deletePlayerLock, &pipctx->m_deletePlayerLock, nullptr);
+    multi_lock( {&mctx->m_deletePlayerLock, &pipctx->m_deletePlayerLock} );
     if (!mctx->m_player   || !mctx->m_player->IsPlaying() ||
         !pipctx->m_player || !pipctx->m_player->IsPlaying())
     {
@@ -7719,7 +7709,7 @@ void TV::ChangeChannel(PlayerContext *ctx, uint chanid, const QString &chan)
                     chanid = get_chanid(ctx, ctx->GetCardID(), chan);
                 tunable_on = IsTunableOn(ctx, chanid);
             }
-            foreach (const auto & rec, tmp)
+            for (const auto& rec : qAsConst(tmp))
             {
                 if ((chanid == 0U) || tunable_on.contains(rec.toUInt()))
                     reclist.push_back(rec);
@@ -8403,7 +8393,7 @@ bool TV::IsTunable(uint chanid)
 static QString toCommaList(const QSet<uint> &list)
 {
     QString ret = "";
-    foreach (uint i, list)
+    for (uint i : qAsConst(list))
         ret += QString("%1,").arg(i);
 
     if (ret.length())
@@ -9335,7 +9325,11 @@ void TV::customEvent(QEvent *e)
     QString message = me->Message();
 
     // TODO Go through these and make sure they make sense...
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList tokens = message.split(" ", QString::SkipEmptyParts);
+#else
+    QStringList tokens = message.split(" ", Qt::SkipEmptyParts);
+#endif
 
     if (me->ExtraDataCount() == 1)
     {
@@ -9652,7 +9646,11 @@ void TV::customEvent(QEvent *e)
         if ((tokens.size() >= 2) &&
             (tokens[1] != "ANSWER") && (tokens[1] != "RESPONSE"))
         {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QStringList tokens2 = message.split(" ", QString::SkipEmptyParts);
+#else
+            QStringList tokens2 = message.split(" ", Qt::SkipEmptyParts);
+#endif
             if ((tokens2.size() >= 2) &&
                 (tokens2[1] != "ANSWER") && (tokens2[1] != "RESPONSE"))
             {
@@ -9769,11 +9767,19 @@ void TV::customEvent(QEvent *e)
             {
                 frm_dir_map_t newMap;
                 QStringList mark;
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
                 QStringList marks =
                     tokens[2].split(",", QString::SkipEmptyParts);
+#else
+                QStringList marks = tokens[2].split(",", Qt::SkipEmptyParts);
+#endif
                 for (uint j = 0; j < (uint)marks.size(); j++)
                 {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
                     mark = marks[j].split(":", QString::SkipEmptyParts);
+#else
+                    mark = marks[j].split(":", Qt::SkipEmptyParts);
+#endif
                     if (marks.size() >= 2)
                     {
                         newMap[mark[0].toLongLong()] =
@@ -10362,7 +10368,7 @@ void TV::ChannelEditXDSFill(const PlayerContext *ctx, InfoMap &infoMap)
     }
     modifiable["channame"] = infoMap["channame"].isEmpty();
 
-    const QString xds_keys[2] = { "callsign", "channame", };
+    const std::array<const QString,2> xds_keys { "callsign", "channame", };
     for (const auto & key : xds_keys)
     {
         if (!modifiable[key])
@@ -11351,11 +11357,12 @@ bool TV::MenuItemDisplayPlayback(const MenuItemContext &c)
     }
     else if (matchesGroup(actionName, "ADJUSTSTRETCH", category, prefix))
     {
-        static struct {
+        struct speed {
             int     m_speedX100;
             QString m_suffix;
             QString m_trans;
-        } s_speeds[] = {
+        };
+        static const std::array<const speed,9> s_speeds {{
             {  0, "",    tr("Adjust")},
             { 50, "0.5", tr("0.5x")},
             { 90, "0.9", tr("0.9x")},
@@ -11365,8 +11372,8 @@ bool TV::MenuItemDisplayPlayback(const MenuItemContext &c)
             {130, "1.3", tr("1.3x")},
             {140, "1.4", tr("1.4x")},
             {150, "1.5", tr("1.5x")},
-        };
-        for (auto & speed : s_speeds)
+        }};
+        for (const auto & speed : s_speeds)
         {
             QString action = prefix + speed.m_suffix;
             active = (m_tvmSpeedX100 == speed.m_speedX100);
@@ -11403,7 +11410,7 @@ bool TV::MenuItemDisplayPlayback(const MenuItemContext &c)
     {
         if (m_tvmIsRecording || m_tvmIsRecorded)
         {
-            static constexpr uint kCasOrd[] = { 0, 2, 1 };
+            static constexpr std::array<const uint,3> kCasOrd { 0, 2, 1 };
             for (uint csm : kCasOrd)
             {
                 const auto mode = (CommSkipMode) csm;
@@ -12344,7 +12351,7 @@ bool TV::HandleJumpToProgramAction(
         return true;
     }
 
-    foreach (const auto & action, actions)
+    for (const auto& action : qAsConst(actions))
     {
         if (!action.startsWith("JUMPPROG"))
             continue;

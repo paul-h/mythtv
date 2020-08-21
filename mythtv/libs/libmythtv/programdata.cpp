@@ -19,7 +19,7 @@ using namespace std;
 
 #define LOC      QString("ProgramData: ")
 
-static const char *roles[] =
+static const std::array<const std::string,DBPerson::kGuest+1> roles
 {
     "",
     "actor",     "director",    "producer", "executive_producer",
@@ -64,6 +64,16 @@ DBPerson::DBPerson(const DBPerson &other) :
     m_name.squeeze();
 }
 
+DBPerson& DBPerson::operator=(const DBPerson &rhs)
+{
+    if (this == &rhs)
+        return *this;
+    m_role = rhs.m_role;
+    m_name = rhs.m_name;
+    m_name.squeeze();
+    return *this;
+}
+
 DBPerson::DBPerson(Role role, QString name) :
     m_role(role), m_name(std::move(name))
 {
@@ -75,9 +85,10 @@ DBPerson::DBPerson(const QString &role, QString name) :
 {
     if (!role.isEmpty())
     {
-        for (size_t i = 0; i < sizeof(roles) / sizeof(char *); i++)
+        std::string rolestr = role.toStdString();
+        for (size_t i = 0; i < roles.size(); i++)
         {
-            if (role == QString(roles[i]))
+            if (rolestr == roles[i])
                 m_role = (Role) i;
         }
     }
@@ -88,7 +99,7 @@ QString DBPerson::GetRole(void) const
 {
     if ((m_role < kActor) || (m_role > kGuest))
         return "guest";
-    return roles[m_role];
+    return QString::fromStdString(roles[m_role]);
 }
 
 uint DBPerson::InsertDB(MSqlQuery &query, uint chanid,
@@ -467,11 +478,19 @@ static int score_match(const QString &a, const QString &b)
     if (A == B)
         return 1000;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList al = A.split(" ", QString::SkipEmptyParts);
+#else
+    QStringList al = A.split(" ", Qt::SkipEmptyParts);
+#endif
     if (al.isEmpty())
         return 0;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList bl = B.split(" ", QString::SkipEmptyParts);
+#else
+    QStringList bl = B.split(" ", Qt::SkipEmptyParts);
+#endif
     if (bl.isEmpty())
         return 0;
 
@@ -532,7 +551,7 @@ int DBEvent::GetMatch(const vector<DBEvent> &programs, int &bestmatch) const
             LOG(VB_GENERAL, LOG_ERR,
                 QString("Unexpected result: shows don't "
                         "overlap\n\t%1: %2 - %3\n\t%4: %5 - %6")
-                    .arg(m_title.left(35))
+                    .arg(m_title.left(35), 35)
                     .arg(m_starttime.toString(Qt::ISODate))
                     .arg(m_endtime.toString(Qt::ISODate))
                     .arg(programs[i].m_title.left(35), 35)
@@ -816,7 +835,7 @@ uint DBEvent::UpdateDB(
             credit.InsertDB(query, chanid, m_starttime);
     }
 
-    foreach (const auto & rating, m_ratings)
+    for (const auto & rating : qAsConst(m_ratings))
     {
         query.prepare(
             "INSERT IGNORE INTO programrating "
@@ -1118,7 +1137,7 @@ uint DBEvent::InsertDB(MSqlQuery &query, uint chanid) const
         return 0;
     }
 
-    foreach (const auto & rating, m_ratings)
+    for (const auto & rating : qAsConst(m_ratings))
     {
         query.prepare(
             "INSERT IGNORE INTO programrating "
@@ -1205,7 +1224,7 @@ void ProgInfo::Squeeze(void)
  */
 uint ProgInfo::InsertDB(MSqlQuery &query, uint chanid) const
 {
-    LOG(VB_XMLTV, LOG_INFO,
+    LOG(VB_XMLTV, LOG_DEBUG,
         QString("Inserting new program    : %1 - %2 %3 %4")
             .arg(m_starttime.toString(Qt::ISODate))
             .arg(m_endtime.toString(Qt::ISODate))
@@ -1426,14 +1445,14 @@ void ProgramData::FixProgramList(QList<ProgInfo*> &fixlist)
                 tokeep = it, todelete = cur;
 
 
-            LOG(VB_XMLTV, LOG_INFO,
+            LOG(VB_XMLTV, LOG_DEBUG,
                 QString("Removing conflicting program: %1 - %2 %3 %4")
                     .arg((*todelete)->m_starttime.toString(Qt::ISODate))
                     .arg((*todelete)->m_endtime.toString(Qt::ISODate))
                     .arg((*todelete)->m_channel)
                     .arg((*todelete)->m_title));
 
-            LOG(VB_XMLTV, LOG_INFO,
+            LOG(VB_XMLTV, LOG_DEBUG,
                 QString("Conflicted with            : %1 - %2 %3 %4")
                     .arg((*tokeep)->m_starttime.toString(Qt::ISODate))
                     .arg((*tokeep)->m_endtime.toString(Qt::ISODate))
@@ -1531,7 +1550,7 @@ void ProgramData::HandlePrograms(MSqlQuery             &query,
                                  uint &unchanged,
                                  uint &updated)
 {
-    foreach (auto pinfo, sortlist)
+    for (auto *pinfo : qAsConst(sortlist))
     {
         if (IsUnchanged(query, chanid, *pinfo))
         {
@@ -1684,7 +1703,7 @@ bool ProgramData::IsUnchanged(
 bool ProgramData::DeleteOverlaps(
     MSqlQuery &query, uint chanid, const ProgInfo &pi)
 {
-    if (VERBOSE_LEVEL_CHECK(VB_XMLTV, LOG_INFO))
+    if (VERBOSE_LEVEL_CHECK(VB_XMLTV, LOG_DEBUG))
     {
         // Get overlaps..
         query.prepare(
@@ -1705,7 +1724,7 @@ bool ProgramData::DeleteOverlaps(
 
         do
         {
-            LOG(VB_XMLTV, LOG_INFO,
+            LOG(VB_XMLTV, LOG_DEBUG,
                 QString("Removing existing program: %1 - %2 %3 %4")
                 .arg(MythDate::as_utc(query.value(1).toDateTime()).toString(Qt::ISODate))
                 .arg(MythDate::as_utc(query.value(2).toDateTime()).toString(Qt::ISODate))

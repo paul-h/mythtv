@@ -181,7 +181,7 @@ class UPNP_PUBLIC StateVariables
         StateVariables() = default;
         virtual ~StateVariables()
         {
-            foreach (auto & it, m_map)
+            for (const auto *it : qAsConst(m_map))
                 delete it;
             m_map.clear();
         }
@@ -258,7 +258,7 @@ class UPNP_PUBLIC  Eventing : public HttpServerExtension,
         QMutex              m_mutex;
 
         QString             m_sEventMethodName;
-        Subscribers         m_Subscribers;
+        Subscribers         m_subscribers;
 
         int                 m_nSubscriptionDuration {1800};
 

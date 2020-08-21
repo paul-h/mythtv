@@ -123,6 +123,7 @@ void CustomEdit::loadData(void)
 
     if (result.exec())
     {
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         while (result.next())
         {
             QString trimTitle = result.value(1).toString();
@@ -204,11 +205,19 @@ QString CustomEdit::evaluate(QString clause)
             repl = m_pginfo->GetScheduledEndTime().toString("hh:mm");
         } else if (mid.compare("STARTSEC") == 0) {
             QDateTime date = m_pginfo->GetScheduledStartTime();
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QDateTime midnight = QDateTime(date.date());
+#else
+            QDateTime midnight = date.date().startOfDay();
+#endif
             repl = QString("%1").arg(midnight.secsTo(date));
         } else if (mid.compare("ENDSEC") == 0) {
             QDateTime date = m_pginfo->GetScheduledEndTime();
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             QDateTime midnight = QDateTime(date.date());
+#else
+            QDateTime midnight = date.date().startOfDay();
+#endif
             repl = QString("%1").arg(midnight.secsTo(date));
         }
         // unknown tags are simply removed

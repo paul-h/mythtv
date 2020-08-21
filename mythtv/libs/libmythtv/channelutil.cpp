@@ -100,7 +100,7 @@ static uint insert_dtv_multiplex(
         QString("dbid:%1 std:'%2' ").arg(db_source_id).arg(sistandard) +
         QString("freq:%1 mod:%2 ").arg(frequency).arg(modulation) +
         QString("tid:%1 nid:%2 ").arg(transport_id).arg(network_id) +
-        QString("pol:%1 mod_sys:%2 ...)").arg(QChar(polarity)).arg(mod_sys) +
+        QString("pol:%1 msys:%2 ...)").arg(QChar(polarity)).arg(mod_sys) +
         QString("mplexid:%1").arg(mplex));
 
     bool isDVB = (sistandard.toLower() == "dvb");
@@ -665,7 +665,7 @@ int ChannelUtil::GetBetterMplexID(int current_mplexid,
     }
 
     // We have a partial match, so we try to do better...
-    QString theQueries[2] =
+    std::array<QString,2> theQueries
     {
         QString("SELECT a.mplexid "
                 "FROM dtv_multiplex a, dtv_multiplex b "
@@ -1447,7 +1447,7 @@ int ChannelUtil::CreateChanID(uint sourceid, const QString &chan_num)
 {
     // first try to base it on the channel number for human readability
     uint chanid = 0;
-    int chansep = chan_num.indexOf(QRegExp("\\D"));
+    int chansep = chan_num.indexOf(QRegularExpression(R"(\D)"));
     if (chansep > 0)
     {
         chanid =
@@ -1997,7 +1997,7 @@ IPTVTuningData ChannelUtil::GetIPTVTuningData(uint chanid)
     QString fec_url0;
     QString fec_url1;
     IPTVTuningData::FECType fec_type = IPTVTuningData::kNone;
-    uint bitrate[3] = { 0, 0, 0, };
+    std::array<uint,3> bitrate { 0, 0, 0, };
     while (query.next())
     {
         IPTVTuningData::IPTVType type = (IPTVTuningData::IPTVType)
@@ -2170,7 +2170,7 @@ inline bool lt_callsign(const ChannelInfo &a, const ChannelInfo &b)
 inline bool lt_smart(const ChannelInfo &a, const ChannelInfo &b)
 {
     static QMutex s_sepExprLock;
-    static const QRegExp kSepExpr(ChannelUtil::kATSCSeparators);
+    static const QRegularExpression kSepExpr(ChannelUtil::kATSCSeparators);
 
     bool isIntA = false;
     bool isIntB = false;

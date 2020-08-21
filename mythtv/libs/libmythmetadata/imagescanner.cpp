@@ -261,8 +261,7 @@ void ImageScanThread<DBFS>::SyncSubTree(const QFileInfo &dirInfo, int parentId,
     int id = SyncDirectory(dirInfo, devId, base, parentId);
 
     // Sync its contents
-    QFileInfoList list = dir.entryInfoList();
-    foreach(const QFileInfo &fileInfo, list)
+    for (const auto& fileInfo : dir.entryInfoList())
     {
         if (!IsScanning())
         {
@@ -400,11 +399,7 @@ template <class DBFS>
 template <class DBFS>
 void ImageScanThread<DBFS>::PopulateMetadata(
     const QString &path, int type, QString &comment,
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-    uint &time,
-#else
     qint64 &time,
-#endif
     int &orientation)
 {
     // Set orientation, date, comment from file meta data
@@ -415,11 +410,7 @@ void ImageScanThread<DBFS>::PopulateMetadata(
     orientation  = metadata->GetOrientation();
     comment      = metadata->GetComment().simplified();
     QDateTime dt = metadata->GetOriginalDateTime();
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-    time         = (dt.isValid()) ? dt.toTime_t() : 0;
-#else
     time         = (dt.isValid()) ? dt.toSecsSinceEpoch() : 0;
-#endif
 
     delete metadata;
 }
@@ -538,9 +529,7 @@ void ImageScanThread<DBFS>::SyncFile(const QFileInfo &fileInfo, int devId,
 template <class DBFS>
 void ImageScanThread<DBFS>::CountTree(QDir &dir)
 {
-    QFileInfoList files = dir.entryInfoList();
-
-    foreach(const QFileInfo &fileInfo, files)
+    for (const auto& fileInfo : dir.entryInfoList())
     {
         // Ignore excluded dirs/files
         if (MATCHES(m_exclusions, fileInfo.fileName()))
@@ -588,7 +577,7 @@ void ImageScanThread<DBFS>::CountFiles(const QStringList &paths)
 
     // Use global image filters
     QDir dir = m_dir;
-    foreach(const QString &sgDir, paths)
+    for (const auto& sgDir : qAsConst(paths))
     {
         // Ignore missing dirs
         if (dir.cd(sgDir))

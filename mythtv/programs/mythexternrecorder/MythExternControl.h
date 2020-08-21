@@ -66,6 +66,7 @@ class Buffer : QObject
     std::thread      m_thread;
 
     stack_t  m_data;
+    bool     m_dataSeen {false};
 
     std::chrono::time_point<std::chrono::system_clock> m_heartbeat;
 };
@@ -152,6 +153,7 @@ class MythExternControl : public QObject
     void FirstChannel(const QString & serial);
     void NextChannel(const QString & serial);
     void Cleanup(void);
+    void DataStarted(void);
 
   public slots:
     void SetDescription(const QString & desc) { m_desc = desc; }
@@ -169,17 +171,17 @@ class MythExternControl : public QObject
     QString      m_desc;
 
     std::atomic<bool> m_run              {true};
-    std::atomic<bool> m_commands_running {true};
-    std::atomic<bool> m_buffer_running   {true};
-    std::mutex   m_run_mutex;
-    std::condition_variable m_run_cond;
-    std::mutex   m_msg_mutex;
+    std::atomic<bool> m_commandsRunning  {true};
+    std::atomic<bool> m_bufferRunning    {true};
+    std::mutex   m_runMutex;
+    std::condition_variable m_runCond;
+    std::mutex   m_msgMutex;
 
     bool         m_fatal                 {false};
     QString      m_errmsg;
 
-    std::mutex        m_flow_mutex;
-    std::condition_variable m_flow_cond;
+    std::mutex        m_flowMutex;
+    std::condition_variable m_flowCond;
     std::atomic<bool> m_streaming        {false};
     std::atomic<bool> m_xon              {false};
     std::atomic<bool> m_ready            {false};

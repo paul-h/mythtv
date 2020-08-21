@@ -87,7 +87,10 @@ int main(int argc, char *argv[])
         process = new MythExternRecApp(command, "", logfile, logging);
     }
     if (process == nullptr)
+    {
+        delete control;
         return GENERIC_EXIT_NOT_OK;
+    }
 
     QObject::connect(process, &MythExternRecApp::Opened,
                      control, &MythExternControl::Opened);
@@ -116,6 +119,8 @@ int main(int argc, char *argv[])
                      process, &MythExternRecApp::HasTuner);
     QObject::connect(control, &MythExternControl::Cleanup,
                      process, &MythExternRecApp::Cleanup);
+    QObject::connect(control, &MythExternControl::DataStarted,
+                     process, &MythExternRecApp::DataStarted);
     QObject::connect(control, &MythExternControl::LoadChannels,
                      process, &MythExternRecApp::LoadChannels);
     QObject::connect(control, &MythExternControl::FirstChannel,

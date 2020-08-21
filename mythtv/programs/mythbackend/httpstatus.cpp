@@ -34,6 +34,7 @@
 #include "scheduler.h"
 #include "mainserver.h"
 #include "cardutil.h"
+#include "mythmiscutil.h"
 #include "mythsystemlegacy.h"
 #include "exitcodes.h"
 #include "jobqueue.h"
@@ -197,7 +198,7 @@ void HttpStatus::FillStatusXML( QDomDocument *pDoc )
 
     TVRec::s_inputsLock.lockForRead();
 
-    foreach (auto elink, *m_pEncoders)
+    for (auto * elink : qAsConst(*m_pEncoders))
     {
         if (elink != nullptr)
         {
@@ -301,7 +302,7 @@ void HttpStatus::FillStatusXML( QDomDocument *pDoc )
         fes = nullptr;
 
         frontends.setAttribute( "count", map.size() );
-        foreach (auto & entry, map)
+        for (const auto & entry : qAsConst(map))
         {
             QDomElement fe = pDoc->createElement("Frontend");
             frontends.appendChild(fe);
@@ -346,7 +347,7 @@ void HttpStatus::FillStatusXML( QDomDocument *pDoc )
         sbes->DecrRef();
         sbes = nullptr;
 
-        foreach (auto & entry, map)
+        for (const auto & entry : qAsConst(map))
         {
             QUrl url(entry->m_sLocation);
             if (url.host() != ipaddress)
@@ -520,9 +521,8 @@ void HttpStatus::FillStatusXML( QDomDocument *pDoc )
     load.setAttribute("avg2", 1);
     load.setAttribute("avg3", 2);
 #else
-    double rgdAverages[3];
-
-    if (getloadavg(rgdAverages, 3) != -1)
+    loadArray rgdAverages = getLoadAvgs();
+    if (rgdAverages[0] != -1)
     {
         load.setAttribute("avg1", rgdAverages[0]);
         load.setAttribute("avg2", rgdAverages[1]);
@@ -582,10 +582,15 @@ void HttpStatus::FillStatusXML( QDomDocument *pDoc )
 
         QByteArray input = ms.ReadAll();
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
         QStringList output = QString(input).split('\n',
                                                   QString::SkipEmptyParts);
+#else
+        QStringList output = QString(input).split('\n',
+                                                  Qt::SkipEmptyParts);
+#endif
 
-        foreach (auto & line, output)
+        for (const auto & line : qAsConst(output))
         {
             QDomElement info = pDoc->createElement("Information");
 

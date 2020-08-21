@@ -91,12 +91,9 @@ MythDisplay* MythDisplay::AcquireRelease(bool Acquire)
                 s_display = new MythDisplayRPI();
 #endif
 #ifdef USING_DRM
-#if QT_VERSION >= QT_VERSION_CHECK(5,9,0)
             // this will only work by validating the screen's serial number
-            // - which is only available with Qt 5.9
             if (!s_display)
                 s_display = new MythDisplayDRM();
-#endif
 #endif
 #if defined(Q_OS_MAC)
             if (!s_display)
@@ -143,16 +140,12 @@ QStringList MythDisplay::GetDescription(void)
     QScreen *current = display->GetCurrentScreen();
     QList<QScreen*> screens = QGuiApplication::screens();
     bool first = true;
-    foreach (auto screen, screens)
+    for (auto *screen : qAsConst(screens))
     {
         if (!first)
             result.append("");
         first = false;
-#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
         QString id = QString("(%1)").arg(screen->manufacturer());
-#else
-        QString id;
-#endif
         if (screen == current && !spanall)
             result.append(tr("Current screen %1 %2:").arg(screen->name()).arg(id));
         else
@@ -183,7 +176,10 @@ MythDisplay::MythDisplay()
     m_screen = GetDesiredScreen();
     DebugScreen(m_screen, "Using");
     if (m_screen)
+    {
         connect(m_screen, &QScreen::geometryChanged, this, &MythDisplay::GeometryChanged);
+        connect(m_screen, &QScreen::physicalDotsPerInchChanged, this, &MythDisplay::PhysicalDPIChanged);
+    }
 
     auto *guiapp = qobject_cast<QGuiApplication *>(QCoreApplication::instance());
     if (guiapp == nullptr)
@@ -191,9 +187,7 @@ MythDisplay::MythDisplay()
 
     connect(guiapp, &QGuiApplication::screenRemoved, this, &MythDisplay::ScreenRemoved);
     connect(guiapp, &QGuiApplication::screenAdded, this, &MythDisplay::ScreenAdded);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)
     connect(guiapp, &QGuiApplication::primaryScreenChanged, this, &MythDisplay::PrimaryScreenChanged);
-#endif
 }
 
 MythDisplay::~MythDisplay()
@@ -315,7 +309,7 @@ QScreen *MythDisplay::GetDesiredScreen(void)
         // When fullscreen, Qt appears to use the reverse - though this may be
         // the window manager rather than Qt. So could be wrong.
         QPoint point = windowed ? override.topLeft() : override.bottomRight();
-        foreach (QScreen *screen, QGuiApplication::screens())
+        for (QScreen *screen : QGuiApplication::screens())
         {
             if (screen->geometry().contains(point))
             {
@@ -338,7 +332,7 @@ QScreen *MythDisplay::GetDesiredScreen(void)
     // Lookup by name
     if (!newscreen)
     {
-        foreach (QScreen *screen, QGuiApplication::screens())
+        for (QScreen *screen : QGuiApplication::screens())
         {
             if (!name.isEmpty() && name == screen->name())
             {
@@ -393,8 +387,16 @@ void MythDisplay::ScreenChanged(QScreen *qScreen)
     DebugScreen(qScreen, "Changed to");
     m_screen = qScreen;
     connect(m_screen, &QScreen::geometryChanged, this, &MythDisplay::GeometryChanged);
+    connect(m_screen, &QScreen::physicalDotsPerInchChanged, this, &MythDisplay::PhysicalDPIChanged);
     Initialise();
     emit CurrentScreenChanged(qScreen);
+}
+
+void MythDisplay::PhysicalDPIChanged(qreal DPI)
+{
+    LOG(VB_GENERAL, LOG_INFO, LOC + QString("Qt screen pixel ratio changed to %1")
+        .arg(DPI, 2, 'f', 2, '0'));
+    emit CurrentDPIChanged(DPI);
 }
 
 void MythDisplay::PrimaryScreenChanged(QScreen* qScreen)
@@ -455,7 +457,6 @@ bool MythDisplay::SpanAllScreens(void)
 
 QString MythDisplay::GetExtraScreenInfo(QScreen *qScreen)
 {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
     QString mfg = qScreen->manufacturer();
     if (mfg.isEmpty())
         mfg = "Unknown";
@@ -463,10 +464,6 @@ QString MythDisplay::GetExtraScreenInfo(QScreen *qScreen)
     if (model.isEmpty())
         model = "Unknown";
     return QString("(Make: %1 Model: %2)").arg(mfg).arg(model);
-#else
-    Q_UNUSED(qScreen);
-    return QString();
-#endif
 }
 
 void MythDisplay::DebugScreen(QScreen *qScreen, const QString &Message)
@@ -479,7 +476,8 @@ void MythDisplay::DebugScreen(QScreen *qScreen, const QString &Message)
 
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("%1 screen '%2' %3")
         .arg(Message).arg(qScreen->name()).arg(extra));
-
+    LOG(VB_GENERAL, LOG_INFO, LOC + QString("Qt screen pixel ratio: %1")
+        .arg(qScreen->devicePixelRatio(), 2, 'f', 2, '0'));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Geometry: %1x%2+%3+%4 Size(Qt): %5mmx%6mm")
         .arg(geom.width()).arg(geom.height()).arg(geom.left()).arg(geom.top())
         .arg(qScreen->physicalSize().width()).arg(qScreen->physicalSize().height()));
@@ -796,9 +794,10 @@ double MythDisplay::GetAspectRatio(QString &Source, bool IgnoreModeOverride)
     }
 
     // General override for invalid/misleading EDIDs or multiscreen setups
+    // New default of -1.0 equates to square pixels for modern displays
     bool multiscreen = MythDisplay::SpanAllScreens() && GetScreenCount() > 1;
     double override = gCoreContext->GetFloatSettingOnHost("XineramaMonitorAspectRatio",
-                                                          gCoreContext->GetHostName(), 0.0);
+                                                          gCoreContext->GetHostName(), -1.0);
 
     // Zero (not valid) indicates auto
     if (valid(override))
@@ -818,26 +817,26 @@ double MythDisplay::GetAspectRatio(QString &Source, bool IgnoreModeOverride)
         }
     }
 
-    // Based on actual physical size if available
-    if (!m_physicalSize.isEmpty())
+    double calculated = m_resolution.isEmpty() ? 0.0 :
+                        static_cast<double>(m_resolution.width()) / m_resolution.height();
+    double detected   = m_physicalSize.isEmpty() ? 0.0 :
+                        static_cast<double>(m_physicalSize.width()) / m_physicalSize.height();
+
+    // Assume pixel aspect ratio is 1 (square pixels)
+    if (valid(calculated))
     {
-        double aspect = static_cast<double>(m_physicalSize.width()) / m_physicalSize.height();
-        if (valid(aspect))
+        if ((override < 0.0) || !valid(detected))
         {
-            Source = tr("Detected");
-            return aspect;
+            Source = tr("Square pixels");
+            return calculated;
         }
     }
 
-    // Assume pixel aspect ratio is 1 (square pixels)
-    if (!m_resolution.isEmpty())
+    // Based on actual physical size if available
+    if (valid(detected))
     {
-        double aspect = static_cast<double>(m_resolution.width()) / m_resolution.height();
-        if (valid(aspect))
-        {
-            Source = tr("Fallback");
-            return aspect;
-        }
+        Source = tr("Detected");
+        return detected;
     }
 
     // the aspect ratio of last resort
@@ -1048,10 +1047,11 @@ void MythDisplay::DebugModes(void) const
  * \note This function must be called before Qt/QPA is initialised i.e. before
  * any call to QApplication.
 */
-void MythDisplay::ConfigureQtGUI(int SwapInterval)
+void MythDisplay::ConfigureQtGUI(int SwapInterval, const QString& _Display)
 {
     // Set the default surface format. Explicitly required on some platforms.
     QSurfaceFormat format;
+    format.setAlphaBufferSize(0);
     format.setDepthBufferSize(0);
     format.setStencilBufferSize(0);
     format.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
@@ -1064,7 +1064,21 @@ void MythDisplay::ConfigureQtGUI(int SwapInterval)
     // of the MythPushButton widgets, and they don't use the themed background.
     QApplication::setDesktopSettingsAware(false);
 #endif
-#if defined (Q_OS_LINUX) && defined (USING_EGL)
+
+    // If Wayland decorations are enabled, the default framebuffer format is forced
+    // to use alpha. This framebuffer is rendered with alpha blending by the wayland
+    // compositor - so any translucent areas of our UI will allow the underlying
+    // window to bleed through.
+    // N.B. this is probably not the most performant solution as compositors MAY
+    // still render hidden windows. A better solution is probably to call
+    // wl_surface_set_opaque_region on the wayland surface. This is confirmed to work
+    // and should allow the compositor to optimise rendering for opaque areas. It does
+    // however require linking to libwayland-client AND including private Qt headers
+    // to retrieve the surface and compositor structures (the latter being a significant issue).
+    // see also setAlphaBufferSize above
+    setenv("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1", 0);
+
+#if defined (Q_OS_LINUX) && defined (USING_EGL) && defined (USING_X11)
     // We want to use EGL for VAAPI/MMAL/DRMPRIME rendering to ensure we
     // can use zero copy video buffers for the best performance (N.B. not tested
     // on AMD desktops). To force Qt to use EGL we must set 'QT_XCB_GL_INTEGRATION'
@@ -1080,7 +1094,7 @@ void MythDisplay::ConfigureQtGUI(int SwapInterval)
     bool ignore = soft == "1" || soft.compare("true", Qt::CaseInsensitive) == 0;
     bool allow = qgetenv("MYTHTV_NO_EGL").isEmpty() && !ignore;
     bool force = !qgetenv("MYTHTV_FORCE_EGL").isEmpty();
-    if (force || allow)
+    if ((force || allow) && MythDisplayX11::IsAvailable())
     {
         // N.B. By default, ignore EGL if vendor string is not returned
         QString vendor = MythEGL::GetEGLVendor();
@@ -1094,17 +1108,17 @@ void MythDisplay::ConfigureQtGUI(int SwapInterval)
             setenv("QT_XCB_GL_INTEGRATION", "xcb_egl", 0);
         }
     }
-
-    // This makes Xlib calls thread-safe which seems to be required for hardware
-    // accelerated Flash playback to work without causing mythfrontend to abort.
-    QApplication::setAttribute(Qt::AA_X11InitThreads);
 #endif
 #ifdef Q_OS_ANDROID
     //QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
 #endif
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)
     // Ignore desktop scaling
     QApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
+
+#ifdef USING_X11
+    MythXDisplay::SetQtX11Display(_Display);
+#else
+    (void)_Display;
 #endif
 }

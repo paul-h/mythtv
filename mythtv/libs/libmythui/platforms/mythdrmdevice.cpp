@@ -121,12 +121,12 @@ static QString GetConnectorName(drmModeConnector *Connector)
 {
     if (!Connector)
         return "Unknown";
-    static const QString connectorNames[DRM_MODE_CONNECTOR_DPI + 1] =
+    static const std::array<const std::string,DRM_MODE_CONNECTOR_DPI + 1> connectorNames
         { "None", "VGA", "DVI", "DVI",  "DVI",  "Composite", "TV", "LVDS",
           "CTV",  "DIN", "DP",  "HDMI", "HDMI", "TV", "eDP", "Virtual", "DSI", "DPI"
     };
     uint32_t type = qMin(Connector->connector_type, static_cast<uint32_t>(DRM_MODE_CONNECTOR_DPI));
-    return QString("%1%2").arg(connectorNames[type]).arg(Connector->connector_type_id);
+    return QString("%1%2").arg(QString::fromStdString(connectorNames[type])).arg(Connector->connector_type_id);
 }
 
 void MythDRMDevice::Authenticate(void)
@@ -150,10 +150,7 @@ bool MythDRMDevice::Initialise(void)
         return false;
 
     // Find the serial number of the display we are connected to
-    auto serial = QString();
-#if QT_VERSION >= QT_VERSION_CHECK(5,9,0)
-    serial = m_screen->serialNumber();
-#endif
+    auto serial = m_screen->serialNumber();
     if (serial.isEmpty())
     {
         // No serial number either means an older version of Qt or the EDID
@@ -320,17 +317,14 @@ QString MythDRMDevice::FindBestDevice(void)
         return root + devices.first();
 
     // Use the serial number from the current QScreen to select a suitable device
-    auto serial = QString();
-#if QT_VERSION >= QT_VERSION_CHECK(5,9,0)
-    serial = m_screen->serialNumber();
-#endif
+    auto serial = m_screen->serialNumber();
     if (serial.isEmpty())
     {
         LOG(VB_GENERAL, m_verbose, LOC + "No serial number to search for");
         return QString();
     }
 
-    foreach (const auto & dev, devices)
+    for (const auto& dev : qAsConst(devices))
     {
         QString device = root + dev;
         if (!ConfirmDevice(device))

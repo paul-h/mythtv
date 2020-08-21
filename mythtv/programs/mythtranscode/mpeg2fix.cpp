@@ -67,16 +67,14 @@ static void my_av_print(void *ptr, int level, const char* fmt, va_list vl)
     (void) ptr;
 
     static QString s_fullLine("");
-    char str[256];
 
     if (level > AV_LOG_INFO)
         return;
-    vsprintf(str, fmt, vl);
 
-    s_fullLine += QString(str);
+    s_fullLine += QString::asprintf(fmt, vl);
     if (s_fullLine.endsWith("\n"))
     {
-        s_fullLine.truncate(s_fullLine.length() - 1);
+        s_fullLine.chop(1);
         LOG(VB_GENERAL, LOG_INFO, s_fullLine);
         s_fullLine = QString("");
     }
@@ -129,7 +127,7 @@ void MPEG2frame::set_pkt(AVPacket *newpkt)
 {
     // TODO: Don't free + copy, attempt to re-use existing buffer
     av_packet_unref(&m_pkt);
-    av_copy_packet(&m_pkt, newpkt);
+    av_packet_ref(&m_pkt, newpkt);
 }
 
 PTSOffsetQueue::PTSOffsetQueue(int vidid, QList<int> keys, int64_t initPTS)
@@ -144,7 +142,7 @@ PTSOffsetQueue::PTSOffsetQueue(int vidid, QList<int> keys, int64_t initPTS)
     idx.framenum = 0;
     idx.type = false;
 
-    foreach (const int & key, m_keyList)
+    for (const int key : qAsConst(m_keyList))
         m_offset[key].push_back(idx);
 }
 
@@ -185,7 +183,7 @@ void PTSOffsetQueue::SetNextPTS(int64_t newPTS, int64_t atPTS)
     idx.type = false;
     idx.framenum = 0;
 
-    foreach (const int & key, m_keyList)
+    for (const int key : qAsConst(m_keyList))
         m_offset[key].push_back(idx);
 }
 
@@ -201,7 +199,7 @@ void PTSOffsetQueue::SetNextPos(int64_t newPTS, AVPacket *pkt)
     LOG(VB_FRAME, LOG_INFO, QString("Offset %1 -> %2 (%3) at %4")
             .arg(PtsTime(m_offset[m_vidId].last().newPTS))
             .arg(PtsTime(newPTS)).arg(PtsTime(delta)).arg(pkt->pos));
-    foreach (const int & key, m_keyList)
+    for (const int key : qAsConst(m_keyList))
     {
         idx.newPTS = newPTS;
         m_offset[key].push_back(idx);
@@ -330,7 +328,7 @@ MPEG2fixup::~MPEG2fixup()
         delete tmpFrame;
     }
 
-    foreach (auto af, m_aFrame)
+    for (auto *af : qAsConst(m_aFrame))
     {
         while (af->count())
         {
@@ -1035,7 +1033,7 @@ void MPEG2fixup::WriteFrame(const QString& filename, MPEG2frame *f)
         return;
     if (!tmpFrame->m_isSequence)
     {
-        foreach (auto & vf, m_vFrame)
+        for (const auto & vf : qAsConst(m_vFrame))
         {
             if (vf->m_isSequence)
             {
@@ -1518,7 +1516,7 @@ bool MPEG2fixup::FindStart()
                     //Check all video sequence packets against current
                     //audio packet
                     MPEG2frame *foundframe = nullptr;
-                    foreach (auto currFrame, m_vFrame)
+                    for (auto *currFrame : qAsConst(m_vFrame))
                     {
                         if (currFrame->m_isSequence)
                         {
@@ -1625,7 +1623,7 @@ void MPEG2fixup::SetRepeat(uint8_t *ptr, int size, int fields, bool topff)
 
 MPEG2frame *MPEG2fixup::FindFrameNum(int frameNum)
 {
-    foreach (auto & vf, m_vFrame)
+    for (const auto & vf : qAsConst(m_vFrame))
     {
         if (GetFrameNum(vf) == frameNum)
             return vf;
@@ -1666,7 +1664,7 @@ int MPEG2fixup::PlaybackSecondary()
 {
     int frame_num = 0;
     mpeg2_reset(m_imgDecoder, 1);
-    foreach (auto & vs, m_vSecondary)
+    for (const auto & vs : qAsConst(m_vSecondary))
     {
         SetFrameNum(vs->m_framePos, frame_num++);
         if (ProcessVideo(vs, m_imgDecoder) < 0)
@@ -1766,7 +1764,7 @@ int MPEG2fixup::ConvertToI(FrameList *orderedFrames, int headPos)
         if (PlaybackSecondary())
             return 1;
 
-    foreach (auto & of, *orderedFrames)
+    for (const auto & of : qAsConst(*orderedFrames))
     {
         int i = GetFrameNum(of);
         if ((spare = DecodeToFrame(i, static_cast<int>(headPos == 0))) == nullptr)
@@ -1780,7 +1778,7 @@ int MPEG2fixup::ConvertToI(FrameList *orderedFrames, int headPos)
             continue;
         
         //pkt = spare->m_pkt;
-        av_copy_packet(&pkt, &(spare->m_pkt));
+        av_packet_ref(&pkt, &(spare->m_pkt));
         //pkt.data is a newly malloced area
 
         QString fname;
@@ -1820,7 +1818,7 @@ int MPEG2fixup::InsertFrame(int frameNum, int64_t deltaPTS,
     if ((spare = DecodeToFrame(frameNum, 0)) == nullptr)
         return -1;
 
-    av_copy_packet(&pkt, &spare->m_pkt);
+    av_packet_ref(&pkt, &spare->m_pkt);
     //pkt.data is a newly malloced area
 
     {
@@ -1887,7 +1885,7 @@ void MPEG2fixup::AddRangeList(const QStringList& rangelist, int type)
 
     mapPtr->clear();
 
-    foreach (auto & range, rangelist)
+    for (const auto & range : qAsConst(rangelist))
     {
         QStringList tmp = range.split(" - ");
         if (tmp.size() < 2)
@@ -1997,7 +1995,7 @@ void MPEG2fixup::dumpList(FrameList *list)
     LOG(VB_GENERAL, LOG_INFO, QString("List contains %1 items")
             .arg(list->count()));
 
-    foreach (auto curFrame, *list)
+    for (auto *curFrame : qAsConst(*list))
     {
         LOG(VB_GENERAL, LOG_INFO,
             QString("VID: %1 #:%2 nb: %3 pts: %4 dts: %5 pos: %6")
@@ -2153,7 +2151,7 @@ int MPEG2fixup::Start()
                 Lreorder = ReorderDTStoPTS(&m_vFrame, frame_pos);
 
                 //First pass at fixing PTS values (fixes gross errors only)
-                foreach (auto curFrame, Lreorder)
+                for (auto *curFrame : qAsConst(Lreorder))
                 {
                     poq.UpdateOrigPTS(m_vidId, origvPTS, &curFrame->m_pkt);
                     InitialPTSFixup(curFrame, origvPTS, PTSdiscrep, 
@@ -2183,7 +2181,7 @@ int MPEG2fixup::Start()
                             FrameList tmpReorder;
                             tmpReorder = ReorderDTStoPTS(&m_vFrame,
                                                          frame_pos + count);
-                            foreach (auto curFrame, tmpReorder)
+                            for (auto *curFrame : qAsConst(tmpReorder))
                             {
                                 int64_t tmpPTSdiscrep = 0;
                                 InitialPTSFixup(curFrame, tmp_origvPTS,
@@ -2301,14 +2299,14 @@ int MPEG2fixup::Start()
                 if (!Lreorder.isEmpty())
                 {
                     av_packet_unref(&lastRealvPkt);
-                    av_copy_packet(&lastRealvPkt, &Lreorder.last()->m_pkt);
+                    av_packet_ref(&lastRealvPkt, &Lreorder.last()->m_pkt);
                 }
 
                 if (markedFrame || !m_discard)
                 {
                     int64_t dtsExtra = 0;
                     //check for PTS discontinuity
-                    foreach (auto curFrame, Lreorder)
+                    for (auto *curFrame : qAsConst(Lreorder))
                     {
                         if (markedFrameP && m_discard)
                         {

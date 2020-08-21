@@ -20,6 +20,12 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 */
 
+#if defined ANDROID && __ANDROID_API__ < 24
+// ftello and fseeko do not exist in android before api level 24
+#define ftello ftell
+#define fseeko fseek
+#endif
+
 // C++ headers
 #include <algorithm>
 #include <csignal>
@@ -47,6 +53,7 @@ using namespace std;
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QSize>
 #include <QString>
 #include <QTextStream>
@@ -67,19 +74,10 @@ using namespace std;
 
 #define TERMWIDTH 79
 
-const int kEnd          = 0,
-          kEmpty        = 1,
-          kOptOnly      = 2,
-          kOptVal       = 3,
-          kCombOptVal   = 4,
-          kArg          = 5,
-          kPassthrough  = 6,
-          kInvalid      = 7;
-
-const char* NamedOptType(int type);
 bool openPidfile(ofstream &pidfs, const QString &pidfile);
 bool setUser(const QString &username);
 int GetTermWidth(void);
+QByteArray strip_quotes (QByteArray val);
 
 /** \fn GetTermWidth(void)
  *  \brief returns terminal width, or 79 on error
@@ -98,35 +96,44 @@ int GetTermWidth(void)
 #endif
 }
 
+QByteArray strip_quotes (QByteArray val)
+{
+    if (val.startsWith('"') && val.endsWith('"'))
+        return val.mid(1,val.size()-2);
+    if (val.startsWith('\'') && val.endsWith('\''))
+        return val.mid(1,val.size()-2);
+    return val;
+}
+
 /** \fn NamedOptType
  *  \brief Return character string describing type of result from parser pass
  */
-const char* NamedOptType(int type)
+const char* MythCommandLineParser::NamedOptType(Result type)
 {
     switch (type)
     {
-      case kEnd:
+      case Result::kEnd:
         return "kEnd";
 
-      case kEmpty:
+      case Result::kEmpty:
         return "kEmpty";
 
-      case kOptOnly:
+      case Result::kOptOnly:
         return "kOptOnly";
 
-      case kOptVal:
+      case Result::kOptVal:
         return "kOptVal";
 
-      case kCombOptVal:
+      case Result::kCombOptVal:
         return "kCombOptVal";
 
-      case kArg:
+      case Result::kArg:
         return "kArg";
 
-      case kPassthrough:
+      case Result::kPassthrough:
         return "kPassthrough";
 
-      case kInvalid:
+      case Result::kInvalid:
         return "kInvalid";
 
       default:
@@ -519,7 +526,7 @@ bool CommandLineArg::Set(const QString& opt, const QByteArray& val)
 
         if (!m_stored.isNull())
             vmap = m_stored.toMap();
-        vmap[QString(blist[0])] = QVariant(blist[1]);
+        vmap[QString(strip_quotes(blist[0]))] = QVariant(strip_quotes(blist[1]));
         m_stored = QVariant(vmap);
         break;
 
@@ -555,7 +562,7 @@ CommandLineArg* CommandLineArg::SetParentOf(const QString &opt)
  */
 CommandLineArg* CommandLineArg::SetParentOf(const QStringList& opts)
 {
-    foreach (const auto opt, opts)
+    for (const auto& opt : qAsConst(opts))
         m_children << new CommandLineArg(opt);
     return this;
 }
@@ -572,7 +579,7 @@ CommandLineArg* CommandLineArg::SetParent(const QString &opt)
  */
 CommandLineArg* CommandLineArg::SetParent(const QStringList& opts)
 {
-    foreach (const auto opt, opts)
+    for (const auto& opt : qAsConst(opts))
         m_parents << new CommandLineArg(opt);
     return this;
 }
@@ -589,7 +596,7 @@ CommandLineArg* CommandLineArg::SetChildOf(const QString &opt)
  */
 CommandLineArg* CommandLineArg::SetChildOf(const QStringList& opts)
 {
-    foreach (const auto opt, opts)
+    for (const auto& opt : qAsConst(opts))
         m_parents << new CommandLineArg(opt);
     return this;
 }
@@ -606,7 +613,7 @@ CommandLineArg* CommandLineArg::SetChild(const QString& opt)
  */
 CommandLineArg* CommandLineArg::SetChild(const QStringList& opts)
 {
-    foreach (const auto opt, opts)
+    for (const auto& opt : qAsConst(opts))
         m_children << new CommandLineArg(opt);
     return this;
 }
@@ -624,7 +631,7 @@ CommandLineArg* CommandLineArg::SetRequiredChild(const QString& opt)
  */
 CommandLineArg* CommandLineArg::SetRequiredChild(const QStringList& opts)
 {
-    foreach (const auto opt, opts)
+    for (const auto& opt : qAsConst(opts))
     {
         m_children << new CommandLineArg(opt);
         m_requires << new CommandLineArg(opt);
@@ -645,7 +652,7 @@ CommandLineArg* CommandLineArg::SetRequiredChildOf(const QString& opt)
  */
 CommandLineArg* CommandLineArg::SetRequiredChildOf(const QStringList& opts)
 {
-    foreach (const auto opt, opts)
+    for (const auto& opt : qAsConst(opts))
     {
         m_parents << new CommandLineArg(opt);
         m_requiredby << new CommandLineArg(opt);
@@ -665,7 +672,7 @@ CommandLineArg* CommandLineArg::SetRequires(const QString& opt)
  */
 CommandLineArg* CommandLineArg::SetRequires(const QStringList& opts)
 {
-    foreach (const auto opt, opts)
+    for (const auto& opt : qAsConst(opts))
         m_requires << new CommandLineArg(opt);
     return this;
 }
@@ -682,7 +689,7 @@ CommandLineArg* CommandLineArg::SetBlocks(const QString &opt)
  */
 CommandLineArg* CommandLineArg::SetBlocks(const QStringList& opts)
 {
-    foreach (const auto opt, opts)
+    for (const auto& opt : qAsConst(opts))
         m_blocks << new CommandLineArg(opt);
     return this;
 }
@@ -1261,8 +1268,8 @@ CommandLineArg* MythCommandLineParser::add(QStringList arglist,
 void MythCommandLineParser::PrintVersion(void)
 {
     cout << "Please attach all output as a file in bug reports." << endl;
-    cout << "MythTV Version : " << MYTH_SOURCE_VERSION << endl;
-    cout << "MythTV Branch : " << MYTH_SOURCE_PATH << endl;
+    cout << "MythTV Version : " << GetMythSourceVersion() << endl;
+    cout << "MythTV Branch : " << GetMythSourcePath() << endl;
     cout << "Network Protocol : " << MYTH_PROTO_VERSION << endl;
     cout << "Library API : " << MYTH_BINARY_VERSION << endl;
     cout << "QT Version : " << QT_VERSION_STR << endl;
@@ -1291,7 +1298,7 @@ QString MythCommandLineParser::GetHelpString(void) const
     QTextStream msg(&helpstr, QIODevice::WriteOnly);
 
     QString versionStr = QString("%1 version: %2 [%3] www.mythtv.org")
-        .arg(m_appname).arg(MYTH_SOURCE_PATH).arg(MYTH_SOURCE_VERSION);
+        .arg(m_appname).arg(GetMythSourcePath()).arg(GetMythSourceVersion());
     msg << versionStr << endl;
 
     if (toString("showhelp").isEmpty())
@@ -1350,7 +1357,7 @@ QString MythCommandLineParser::GetHelpString(void) const
 
 /** \brief Internal use. Pull next key/value pair from argv.
  */
-int MythCommandLineParser::getOpt(int argc, const char * const * argv,
+MythCommandLineParser::Result MythCommandLineParser::getOpt(int argc, const char * const * argv,
                                   int &argpos, QString &opt, QByteArray &val)
 {
     opt.clear();
@@ -1358,18 +1365,18 @@ int MythCommandLineParser::getOpt(int argc, const char * const * argv,
 
     if (argpos >= argc)
         // this shouldnt happen, return and exit
-        return kEnd;
+        return Result::kEnd;
 
     QByteArray tmp(argv[argpos]);
     if (tmp.isEmpty())
         // string is empty, return and loop
-        return kEmpty;
+        return Result::kEmpty;
 
     if (m_passthroughActive)
     {
         // pass through has been activated
         val = tmp;
-        return kArg;
+        return Result::kArg;
     }
 
     if (tmp.startsWith('-') && tmp.size() > 1)
@@ -1378,7 +1385,7 @@ int MythCommandLineParser::getOpt(int argc, const char * const * argv,
         {
             // all options beyond this will be passed as a single string
             m_passthroughActive = true;
-            return kPassthrough;
+            return Result::kPassthrough;
         }
 
         if (tmp.contains('='))
@@ -1390,39 +1397,39 @@ int MythCommandLineParser::getOpt(int argc, const char * const * argv,
             {
                 // more than one '=' in option, this is not handled
                 opt = QString(tmp);
-                return kInvalid;
+                return Result::kInvalid;
             }
 
-            opt = QString(blist[0]);
-            val = blist[1];
-            return kCombOptVal;
+            opt = QString(strip_quotes(blist[0]));
+            val = strip_quotes(blist[1]);
+            return Result::kCombOptVal;
         }
 
         opt = QString(tmp);
 
         if (argpos+1 >= argc)
             // end of input, option only
-            return kOptOnly;
+            return Result::kOptOnly;
 
         tmp = QByteArray(argv[++argpos]);
         if (tmp.isEmpty())
             // empty string, option only
-            return kOptOnly;
+            return Result::kOptOnly;
 
         if (tmp.startsWith("-") && tmp.size() > 1)
         {
             // no value found for option, backtrack
             argpos--;
-            return kOptOnly;
+            return Result::kOptOnly;
         }
 
         val = tmp;
-        return kOptVal;
+        return Result::kOptVal;
     }
 
     // input is not an option string, return as arg
     val = tmp;
-    return kArg;
+    return Result::kArg;
 }
 
 /** \brief Loop through argv and populate arguments with values
@@ -1433,7 +1440,7 @@ int MythCommandLineParser::getOpt(int argc, const char * const * argv,
  */
 bool MythCommandLineParser::Parse(int argc, const char * const * argv)
 {
-    int res = kEnd;
+    Result res = Result::kEnd;
     QString opt;
     QByteArray val;
     CommandLineArg *argdef = nullptr;
@@ -1457,7 +1464,7 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
         }
 
         // '--' found on command line, enable passthrough mode
-        if (res == kPassthrough && !m_namedArgs.contains("_passthrough"))
+        if (res == Result::kPassthrough && !m_namedArgs.contains("_passthrough"))
         {
             cerr << "Received '--' but passthrough has not been enabled" << endl;
             SetValue("showhelp", "");
@@ -1465,16 +1472,16 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
         }
 
         // end of options found, terminate loop
-        if (res == kEnd)
+        if (res == Result::kEnd)
             break;
 
         // GetOpt pulled an empty option, this shouldnt happen by ignore
         // it and continue
-        if (res == kEmpty)
+        if (res == Result::kEmpty)
             continue;
 
         // more than one equal found in key/value pair, fault out
-        if (res == kInvalid)
+        if (res == Result::kInvalid)
         {
             cerr << "Invalid option received:" << endl << "    "
                  << opt.toLocal8Bit().constData();
@@ -1490,7 +1497,7 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
         }
 
         // argument with no preceeding '-' encountered, add to stringlist
-        if (res == kArg)
+        if (res == Result::kArg)
         {
             if (!m_namedArgs.contains("_args"))
             {
@@ -1535,7 +1542,7 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
                 tmp += '=';
                 tmp += val;
                 val = tmp;
-                res = kOptVal;
+                res = Result::kOptVal;
             }
             else
             {
@@ -1566,7 +1573,7 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
                  << endl;
 
         // argument is keyword only, no value
-        if (res == kOptOnly)
+        if (res == Result::kOptOnly)
         {
             if (!argdef->Set(opt))
             {
@@ -1575,13 +1582,13 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
             }
         }
         // argument has keyword and value
-        else if ((res == kOptVal) || (res == kCombOptVal))
+        else if ((res == Result::kOptVal) || (res == Result::kCombOptVal))
         {
             if (!argdef->Set(opt, val))
             {
                 // if option and value were combined with a '=', abort directly
                 // otherwise, attempt processing them independenly
-                if ((res == kCombOptVal) || !argdef->Set(opt))
+                if ((res == Result::kCombOptVal) || !argdef->Set(opt))
                 {
                     SetValue("showhelp", "");
                     return false;
@@ -1614,7 +1621,7 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
         {
             cerr << endl << "Extra argument list:" << endl;
             QStringList slist = toStringList("_args");
-            foreach (auto lopt, slist)
+            for (const auto& lopt : qAsConst(slist))
                 cerr << "  " << (lopt).toLocal8Bit().constData() << endl;
         }
 
@@ -1876,14 +1883,19 @@ QMap<QString,QString> MythCommandLineParser::GetSettingsOverride(void)
                         if (len >= 1 && buf[len-1]=='\n')
                             buf[len-1] = 0;
                         QString line(buf);
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
                         QStringList tokens = line.split("=",
                                 QString::SkipEmptyParts);
+#else
+                        QStringList tokens = line.split("=",
+                                Qt::SkipEmptyParts);
+#endif
                         if (tokens.size() == 2)
                         {
-                            tokens[0].replace(QRegExp("^[\"']"), "");
-                            tokens[0].replace(QRegExp("[\"']$"), "");
-                            tokens[1].replace(QRegExp("^[\"']"), "");
-                            tokens[1].replace(QRegExp("[\"']$"), "");
+                            tokens[0].remove(QRegularExpression("^[\"']"));
+                            tokens[0].remove(QRegularExpression("[\"']$"));
+                            tokens[1].remove(QRegularExpression("^[\"']"));
+                            tokens[1].remove(QRegularExpression("[\"']$"));
                             if (!tokens[0].isEmpty())
                                 smap[tokens[0]] = tokens[1];
                         }
@@ -2355,16 +2367,6 @@ void MythCommandLineParser::addGeometry(void)
         ->SetGroup("User Interface");
 }
 
-/** \brief Canned argument definition for -display. Only works on X11 systems.
- */
-void MythCommandLineParser::addDisplay(void)
-{
-#ifdef USING_X11
-    add("-display", "display", "", "Specify X server to use.", "")
-        ->SetGroup("User Interface");
-#endif
-}
-
 /** \brief Canned argument definition for --noupnp
  */
 void MythCommandLineParser::addUPnP(void)
@@ -2468,6 +2470,26 @@ void MythCommandLineParser::addInFile(bool addOutFile)
     add("--infile", "infile", "", "Input file URI", "");
     if (addOutFile)
         add("--outfile", "outfile", "", "Output file URI", "");
+}
+
+/** \brief Canned argument definition for -display. Only works on X11 systems.
+ */
+void MythCommandLineParser::addDisplay(void)
+{
+#ifdef USING_X11
+    add(QStringList{"-display", "--display"}, "display", "",
+        "Qt (QPA) X11 connection name when using xcb (X11) platform plugin", "")
+        ->SetGroup("Qt");
+#endif
+}
+
+/** \brief Pass through the platform argument to Qt for GUI applications
+ */
+void MythCommandLineParser::addPlatform(void)
+{
+    add(QStringList{"-platform", "--platform"}, "platform", "", "Qt (QPA) platform argument",
+        "Qt platform argument that is passed through to Qt")
+        ->SetGroup("Qt");;
 }
 
 /** \brief Helper utility for logging interface to pull path from --logpath
@@ -2602,7 +2624,7 @@ int MythCommandLineParser::ConfigureLogging(const QString& mask, bool progress)
     LOG(VB_GENERAL, LOG_CRIT,
         QString("%1 version: %2 [%3] www.mythtv.org")
         .arg(QCoreApplication::applicationName())
-        .arg(MYTH_SOURCE_PATH).arg(MYTH_SOURCE_VERSION));
+        .arg(GetMythSourcePath()).arg(GetMythSourceVersion()));
     LOG(VB_GENERAL, LOG_CRIT, QString("Qt version: compile: %1, runtime: %2")
         .arg(QT_VERSION_STR).arg(qVersion()));
     LOG(VB_GENERAL, LOG_INFO, QString("%1 (%2)")
@@ -2617,6 +2639,8 @@ int MythCommandLineParser::ConfigureLogging(const QString& mask, bool progress)
         quiet = max(quiet, 1);
 
     logStart(logfile, progress, quiet, facility, level, dblog, propagate);
+    qInstallMessageHandler([](QtMsgType /*unused*/, const QMessageLogContext& /*unused*/, const QString &Msg)
+        { LOG(VB_GENERAL, LOG_INFO, "Qt: " + Msg); });
 
     return GENERIC_EXIT_OK;
 }

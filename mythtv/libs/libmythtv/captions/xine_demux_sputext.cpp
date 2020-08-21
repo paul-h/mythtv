@@ -56,22 +56,6 @@
  * Demuxer code start
  */
 
-#define FORMAT_UNKNOWN   (-1)
-#define FORMAT_MICRODVD   0
-#define FORMAT_SUBRIP     1
-#define FORMAT_SUBVIEWER  2
-#define FORMAT_SAMI       3
-#define FORMAT_VPLAYER    4
-#define FORMAT_RT         5
-#define FORMAT_SSA        6 /* Sub Station Alpha */
-#define FORMAT_PJS        7
-#define FORMAT_MPSUB      8
-#define FORMAT_AQTITLE    9
-#define FORMAT_JACOBSUB   10
-#define FORMAT_SUBVIEWER2 11
-#define FORMAT_SUBRIP09   12
-#define FORMAT_MPL2       13 /*Mplayer sub 2 ?*/
-
 static bool eol(char p) {
   return (p=='\r' || p=='\n' || p=='\0');
 }
@@ -101,14 +85,9 @@ static inline void trail_space(char *s) {
 static char *read_line_from_input(demux_sputext_t *demuxstr, char *line, off_t len) {
   off_t nread = 0;
 
-  // Since our RemoteFile code sleeps 200ms whenever we get back less data
-  // than requested, but this code just keeps trying to read until it gets
-  // an error back, we check for empty reads so that we can stop reading
-  // when there is no more data to read
-  if (demuxstr->emptyReads == 0 && (len - demuxstr->buflen) > 512) {
+  if ((len - demuxstr->buflen) > 512) {
     nread = len - demuxstr->buflen;
-    if (nread > demuxstr->rbuffer_len - demuxstr->rbuffer_cur)
-        nread = demuxstr->rbuffer_len - demuxstr->rbuffer_cur;
+    nread = std::min(nread, demuxstr->rbuffer_len - demuxstr->rbuffer_cur);
     if (nread < 0) {
       printf("read failed.\n");
       return nullptr;
@@ -117,13 +96,9 @@ static char *read_line_from_input(demux_sputext_t *demuxstr, char *line, off_t l
            &demuxstr->rbuffer_text[demuxstr->rbuffer_cur],
            nread);
     demuxstr->rbuffer_cur += nread;
+    demuxstr->buflen += nread;
+    demuxstr->buf[demuxstr->buflen] = '\0';
   }
-
-  if (!nread)
-    demuxstr->emptyReads++;
-
-  demuxstr->buflen += nread;
-  demuxstr->buf[demuxstr->buflen] = '\0';
 
   char *s = strchr(demuxstr->buf, '\n');
 
@@ -163,7 +138,7 @@ static subtitle_t *sub_read_line_sami(demux_sputext_t *demuxstr, subtitle_t *cur
     switch (state) {
 
     case 0: /* find "START=" */
-      s_s = strstr (s_s, "Start=");
+      s_s = strcasestr (s_s, "Start=");
       if (s_s) {
         current->start = strtol (s_s + 6, &s_s, 0) / 10;
         state = 1; continue;
@@ -171,7 +146,7 @@ static subtitle_t *sub_read_line_sami(demux_sputext_t *demuxstr, subtitle_t *cur
       break;
 
     case 1: /* find "<P" */
-      if ((s_s = strstr (s_s, "<P"))) { s_s += 2; state = 2; continue; }
+      if ((s_s = strcasestr (s_s, "<P"))) { s_s += 2; state = 2; continue; }
       break;
 
     case 2: /* find ">" */
@@ -180,7 +155,6 @@ static subtitle_t *sub_read_line_sami(demux_sputext_t *demuxstr, subtitle_t *cur
 
     case 3: /* get all text until '<' appears */
       if (*s_s == '\0') { break; }
-      else if (*s_s == '<') { state = 4; }
       else if (strncasecmp (s_s, "&nbsp;", 6) == 0) { *p++ = ' '; s_s += 6; }
       else if (*s_s == '\r') { s_s++; }
       else if (strncasecmp (s_s, "<br>", 4) == 0 || *s_s == '\n') {
@@ -189,11 +163,12 @@ static subtitle_t *sub_read_line_sami(demux_sputext_t *demuxstr, subtitle_t *cur
           current->text[current->lines++] = strdup (text);
         if (*s_s == '\n') s_s++; else s_s += 4;
       }
+      else if (*s_s == '<') { state = 4; }
       else *p++ = *s_s++;
       continue;
 
     case 4: /* get current->end or skip <TAG> */
-      char *q = strstr (s_s, "Start=");
+      char *q = strcasestr (s_s, "start=");
       if (q) {
         current->end = strtol (q + 6, &q, 0) / 10 - 1;
         *p = '\0'; trail_space (text);
@@ -656,7 +631,7 @@ static subtitle_t *sub_read_line_mpsub (demux_sputext_t *demuxstr, subtitle_t *c
 
   while (num < SUB_MAX_TEXT) {
     if (!read_line_from_input(demuxstr, line, LINE_LEN))
-      return nullptr;
+      return (num > 0) ? current : nullptr;
 
     char *p=line;
     while (isspace(*p))
@@ -673,7 +648,7 @@ static subtitle_t *sub_read_line_mpsub (demux_sputext_t *demuxstr, subtitle_t *c
     *q='\0';
     if (strlen(p)) {
       current->text[num]=strdup(p);
-      printf(">%s<\n",p);
+      /* printf(">%s<\n",p); */
       current->lines = ++num;
     } else {
       if (num)
@@ -736,6 +711,19 @@ static subtitle_t *sub_read_line_jacobsub(demux_sputext_t *demuxstr, subtitle_t 
     while (!current->text[0]) {
         if (!read_line_from_input(demuxstr, line1, LINE_LEN)) {
             return nullptr;
+        }
+        // Support continuation lines
+        if (strlen(line1) >= 2) {
+            while ((line1[strlen(line1)-2] == '\\') && (line1[strlen(line1)-1] == '\n')) {
+                int newlen = strlen(line1)-2;
+                if (!read_line_from_input(demuxstr, line2, LINE_LEN - newlen))
+                    return nullptr;
+                p = line2;
+                while ((*p == ' ') || (*p == '\t')) {
+                    ++p;
+                }
+                strcpy(line1+newlen, p);
+            }
         }
         if (sscanf
             (line1, "%u:%u:%u.%u %u:%u:%u.%u %" LINE_LEN_QUOT "[^\n\r]", &a1, &a2, &a3, &a4,
@@ -1031,6 +1019,7 @@ static subtitle_t *sub_read_line_mpl2(demux_sputext_t *demuxstr, subtitle_t *cur
 static int sub_autodetect (demux_sputext_t *demuxstr) {
 
   char line[LINE_LEN + 1];
+  char line2[LINE_LEN + 1];
   int  i = 0;
   int  j = 0;
   char p = 0;
@@ -1065,7 +1054,13 @@ static int sub_autodetect (demux_sputext_t *demuxstr) {
       demuxstr->uses_time=1;
       return FORMAT_SAMI;
     }
-    if (sscanf (line, "%d:%d:%d:",     &i, &i, &i )==3) {
+    // Sscanf stops looking at the format string once it populates the
+    // last argument, so it never validates the colon after the
+    // seconds.  Add a final "the rest of the line" argument to get
+    // that validation, so that JACO subtitles can be distinguished
+    // from this format.
+    if (sscanf (line, "%d:%d:%d:%" LINE_LEN_QUOT "[^\n\r]",
+                &i, &i, &i, line2 )==4) {
       demuxstr->uses_time=1;
       return FORMAT_VPLAYER;
     }
@@ -1073,7 +1068,7 @@ static int sub_autodetect (demux_sputext_t *demuxstr) {
      * A RealText format is a markup language, starts with <window> tag,
      * options (behaviour modifiers) are possible.
      */
-    if ( strcasecmp(line, "<window") == 0 ) {
+    if ( strncasecmp(line, "<window", 7) == 0 ) {
       demuxstr->uses_time=1;
       return FORMAT_RT;
     }
@@ -1144,7 +1139,6 @@ subtitle_t *sub_read_file (demux_sputext_t *demuxstr) {
   /* Rewind (sub_autodetect() needs to read input from the beginning) */
   demuxstr->rbuffer_cur = 0;
   demuxstr->buflen = 0;
-  demuxstr->emptyReads = 0;
 
   demuxstr->format=sub_autodetect (demuxstr);
   if (demuxstr->format==FORMAT_UNKNOWN) {
@@ -1156,7 +1150,6 @@ subtitle_t *sub_read_file (demux_sputext_t *demuxstr) {
   /* Rewind */
   demuxstr->rbuffer_cur = 0;
   demuxstr->buflen = 0;
-  demuxstr->emptyReads = 0;
 
   demuxstr->num=0;
   int n_max=32;
@@ -1188,7 +1181,6 @@ subtitle_t *sub_read_file (demux_sputext_t *demuxstr) {
     if (!sub) {
       break;   /* EOF */
     }
-    demuxstr->emptyReads = 0;
 
     if (sub==ERR)
       ++demuxstr->errs;
@@ -1217,7 +1209,7 @@ subtitle_t *sub_read_file (demux_sputext_t *demuxstr) {
     }
   }
 
-#ifdef DEBUG_XINE_DEMUX_SPUTEXT
+#if DEBUG_XINE_DEMUX_SPUTEXT
   {
     char buffer[1024];
 
@@ -1232,6 +1224,7 @@ subtitle_t *sub_read_file (demux_sputext_t *demuxstr) {
   }
 #endif
 
+  demuxstr->subtitles = first;
   // No memory leak of 'sub' here.  'Sub' always points to an element in 'first'.
   // NOLINT(clang-analyzer-unix.Malloc)
   return first;

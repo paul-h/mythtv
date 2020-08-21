@@ -234,9 +234,8 @@ MythMainWindow::~MythMainWindow()
 
     delete m_deviceHandler;
     delete d->m_nc;
-    delete m_painter;
-    delete m_painterWin;
 
+    MythPainterWindow::DestroyPainters(m_painterWin, m_painter);
     MythDisplay::AcquireRelease(false);
 
     delete d;
@@ -309,7 +308,7 @@ MythScreenStack *MythMainWindow::GetMainStack(void)
 
 MythScreenStack *MythMainWindow::GetStack(const QString &stackname)
 {
-    foreach (auto & widget, d->m_stackList)
+    for (auto *widget : qAsConst(d->m_stackList))
     {
         if (widget->objectName() == stackname)
             return widget;
@@ -337,12 +336,14 @@ void MythMainWindow::animate(void)
     if (!m_repaintRegion.isEmpty())
         redraw = true;
 
-    foreach (auto & widget, d->m_stackList)
+    // The call to GetDrawOrder can apparently alter m_stackList.
+    // NOLINTNEXTLINE(modernize-loop-convert)
+    for (auto * it = d->m_stackList.begin(); it != d->m_stackList.end(); ++it)
     {
         QVector<MythScreenType *> drawList;
-        widget->GetDrawOrder(drawList);
+        (*it)->GetDrawOrder(drawList);
 
-        foreach (auto & screen, drawList)
+        for (auto *screen : qAsConst(drawList))
         {
             screen->Pulse();
 
@@ -359,7 +360,7 @@ void MythMainWindow::animate(void)
     if (redraw && !m_painterWin->RenderIsShared())
         m_painterWin->update(m_repaintRegion);
 
-    foreach (auto & widget, d->m_stackList)
+    for (auto *widget : qAsConst(d->m_stackList))
         widget->ScheduleInitIfNeeded();
 
     d->m_drawTimer->blockSignals(false);
@@ -385,38 +386,17 @@ void MythMainWindow::drawScreen(QPaintEvent* Event)
 
         // Check for any widgets that have been updated since we built
         // the dirty region list in ::animate()
-        foreach (auto & widget, d->m_stackList)
+        // The call to GetDrawOrder can apparently alter m_stackList.
+        // NOLINTNEXTLINE(modernize-loop-convert)
+        for (auto * it = d->m_stackList.begin(); it != d->m_stackList.end(); ++it)
         {
             QVector<MythScreenType *> redrawList;
-            widget->GetDrawOrder(redrawList);
+            (*it)->GetDrawOrder(redrawList);
 
-            foreach (auto & screen, redrawList)
+            for (const auto *screen : qAsConst(redrawList))
             {
                 if (screen->NeedsRedraw())
                 {
-#if QT_VERSION < QT_VERSION_CHECK(5, 8, 0)
-                    QRegion topDirty = screen->GetDirtyArea();
-                    QVector<QRect> wrects = topDirty.rects();
-                    for (int i = 0; i < wrects.size(); i++)
-                    {
-                        bool foundThisRect = false;
-                        QVector<QRect> drects = m_repaintRegion.rects();
-                        for (int j = 0; j < drects.size(); j++)
-                        {
-                            // Can't use QRegion::contains because it only
-                            // checks for overlap.  QRect::contains checks
-                            // if fully contained.
-                            if (drects[j].contains(wrects[i]))
-                            {
-                                foundThisRect = true;
-                                break;
-                            }
-                        }
-
-                        if (!foundThisRect)
-                            return;
-                    }
-#else
                     for (const QRect& wrect: screen->GetDirtyArea())
                     {
                         bool foundThisRect = false;
@@ -435,7 +415,6 @@ void MythMainWindow::drawScreen(QPaintEvent* Event)
                         if (!foundThisRect)
                             return;
                     }
-#endif
                 }
             }
         }
@@ -459,26 +438,21 @@ void MythMainWindow::Draw(MythPainter *Painter /* = nullptr */)
     if (!Painter->SupportsClipping())
         m_repaintRegion = QRegion(d->m_uiScreenRect);
 
-#if QT_VERSION < QT_VERSION_CHECK(5, 8, 0)
-    QVector<QRect> rects = m_repaintRegion.rects();
-    for (int i = 0; i < rects.size(); i++)
-    {
-        const QRect& rect = rects[i];
-#else
     for (const QRect& rect : m_repaintRegion)
     {
-#endif
         if (rect.width() == 0 || rect.height() == 0)
             continue;
 
         if (rect != d->m_uiScreenRect)
             Painter->SetClipRect(rect);
 
-        foreach (auto & widget, d->m_stackList)
+        // The call to GetDrawOrder can apparently alter m_stackList.
+        // NOLINTNEXTLINE(modernize-loop-convert)
+        for (auto * it = d->m_stackList.begin(); it != d->m_stackList.end(); ++it)
         {
             QVector<MythScreenType *> redrawList;
-            widget->GetDrawOrder(redrawList);
-            foreach (auto & screen, redrawList)
+            (*it)->GetDrawOrder(redrawList);
+            for (auto *screen : qAsConst(redrawList))
                 screen->Draw(Painter, 0, 0, 255, rect);
         }
     }
@@ -955,11 +929,7 @@ void MythMainWindow::ReloadKeys()
 
 void MythMainWindow::ReinitDone(void)
 {
-    delete m_oldPainter;
-    m_oldPainter = nullptr;
-    delete m_oldPainterWin;
-    m_oldPainterWin = nullptr;
-
+    MythPainterWindow::DestroyPainters(m_oldPainterWin, m_oldPainter);
 
     ShowPainterWindow();
     MoveResize(d->m_screenRect);
@@ -1052,7 +1022,7 @@ void MythMainWindow::SetDrawEnabled(bool enable)
 
 void MythMainWindow::SetEffectsEnabled(bool enable)
 {
-    foreach (auto & widget, d->m_stackList)
+    for (auto *widget : qAsConst(d->m_stackList))
     {
         if (enable)
             widget->EnableEffects();
@@ -1166,7 +1136,7 @@ bool MythMainWindow::TranslateKeyPress(const QString &context,
         return false;
     }
 
-    int keynum = d->TranslateKeyNum(e);
+    int keynum = MythMainWindowPrivate::TranslateKeyNum(e);
 
     QStringList localActions;
     if (allowJumps && (d->m_jumpMap.count(keynum) > 0) &&
@@ -1909,7 +1879,7 @@ bool MythMainWindow::eventFilter(QObject * /*watched*/, QEvent *e)
             auto* qmw = dynamic_cast<QWheelEvent*>(e);
             if (qmw == nullptr)
                 return false;
-            int delta = qmw->delta();
+            int delta = qmw->angleDelta().y();
             if (delta>0)
             {
                 qmw->accept();
@@ -1996,11 +1966,11 @@ void MythMainWindow::customEvent(QEvent *ce)
         // actions which would not be appropriate when the screen doesn't have
         // focus. It is the programmers responsibility to ignore events when
         // necessary.
-        foreach (auto & widget, d->m_stackList)
+        for (auto *widget : qAsConst(d->m_stackList))
         {
             QVector<MythScreenType *> screenList;
             widget->GetScreenList(screenList);
-            foreach (auto screen, screenList)
+            for (auto *screen : qAsConst(screenList))
             {
                 if (screen)
                     screen->mediaEvent(me);

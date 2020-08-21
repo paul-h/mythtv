@@ -3,6 +3,7 @@ using namespace std;
 
 #include <QFile>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QUrl>
 
 // POSIX C headers
@@ -190,7 +191,7 @@ MythSocket *RemoteFile::openSocket(bool control)
         strlist << QString("%1").arg(dir);
         strlist << sgroup;
 
-        foreach (auto fname, m_possibleAuxFiles)
+        for (const auto& fname : qAsConst(m_possibleAuxFiles))
             strlist << fname;
 
         if (!lsock->SendReceiveStringList(strlist))
@@ -1256,14 +1257,10 @@ QDateTime RemoteFile::LastModified(const QString &url)
     gCoreContext->SendReceiveStringList(strlist);
 
     if (strlist.size() > 1) {
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-        result = MythDate::fromTime_t(strlist[1].toUInt());
-#else
         if (!strlist[1].isEmpty() && (strlist[1].toInt() != -1))
             result = MythDate::fromSecsSinceEpoch(strlist[1].toLongLong());
         else
             result = QDateTime();;
-#endif
     }
 
     return result;
@@ -1297,7 +1294,7 @@ QString RemoteFile::FindFile(const QString& filename, const QString& host,
 
 /**
  *  \brief Search all BE's for files in the give storage group
- *  \param filename the partial path and filename to look for or regex
+ *  \param filename the partial path and filename to look for or regular espression (QRegularExpression)
  *  \param host search this host first if given or default to the master BE if empty
  *  \param storageGroup the name of the storage group to search
  *  \param useRegex if true filename is assumed to be a regex expression of files to find
@@ -1344,7 +1341,7 @@ QStringList RemoteFile::FindFileList(const QString& filename, const QString& hos
                                                .arg(x).arg(files[x]));
             }
 
-            QStringList filteredFiles = files.filter(QRegExp(fi.fileName()));
+            QStringList filteredFiles = files.filter(QRegularExpression(fi.fileName()));
             for (int x = 0; x < filteredFiles.size(); x++)
             {
                 strList << MythCoreContext::GenMythURL(gCoreContext->GetHostName(),

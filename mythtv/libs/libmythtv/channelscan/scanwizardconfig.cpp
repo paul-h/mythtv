@@ -21,6 +21,10 @@
 #include "panedvbutilsimport.h"
 #include "paneexistingscanimport.h"
 
+#ifdef USING_SATIP
+#include "satiputils.h"
+#endif
+
 void ScanWizard::SetupConfig(
     uint    default_sourceid,  uint default_cardid,
     const QString& default_inputname)
@@ -205,12 +209,20 @@ void ScanTypeSetting::SetInput(const QString &cardids_inputname)
     // Only refresh if we really have to. If we do it too often
     // Then we end up fighting the scan routine when we want to
     // check the type of dvb card :/
-    if (cardid == m_hw_cardid)
+    if (cardid == m_hwCardId)
         return;
 
-    m_hw_cardid     = cardid;
-    QString subtype = CardUtil::ProbeSubTypeName(m_hw_cardid);
+    m_hwCardId     = cardid;
+    QString subtype = CardUtil::ProbeSubTypeName(m_hwCardId);
     int nCardType   = CardUtil::toInputType(subtype);
+
+#ifdef USING_SATIP
+    if (nCardType == CardUtil::SATIP)
+    {
+        nCardType = SatIP::toDVBInputType(CardUtil::GetVideoDevice(cardid));
+    }
+#endif
+
     clearSelections();
 
     switch (nCardType)
@@ -535,7 +547,7 @@ QMap<QString,QString> ScanOptionalConfig::GetStartChan(void) const
         startChan["trans_mode"]     = pane->trans_mode();
         startChan["guard_interval"] = pane->guard_interval();
         startChan["hierarchy"]      = pane->hierarchy();
-        startChan["mod_sys"]        = pane->mod_sys();
+        startChan["mod_sys"]        = pane->modsys();
     }
     else if (ScanTypeSetting::NITAddScan_DVBS == st)
     {
@@ -557,10 +569,11 @@ QMap<QString,QString> ScanOptionalConfig::GetStartChan(void) const
         startChan["std"]        = "dvb";
         startChan["type"]       = "QAM";
         startChan["frequency"]  = pane->frequency();
-        startChan["inversion"]  = pane->inversion();
         startChan["symbolrate"] = pane->symbolrate();
-        startChan["fec"]        = pane->fec();
         startChan["modulation"] = pane->modulation();
+        startChan["mod_sys"]    = pane->modsys();
+        startChan["inversion"]  = pane->inversion();
+        startChan["fec"]        = pane->fec();
     }
     else if (ScanTypeSetting::NITAddScan_DVBS2 == st)
     {
@@ -574,7 +587,7 @@ QMap<QString,QString> ScanOptionalConfig::GetStartChan(void) const
         startChan["fec"]        = pane->fec();
         startChan["modulation"] = pane->modulation();
         startChan["polarity"]   = pane->polarity();
-        startChan["mod_sys"]    = pane->mod_sys();
+        startChan["mod_sys"]    = pane->modsys();
         startChan["rolloff"]    = pane->rolloff();
     }
 
@@ -634,6 +647,7 @@ void ScanOptionalConfig::SetTuningPaneValues(uint frequency, const DTVMultiplex 
             pane->setSymbolrate(QString("%1").arg(mpx.m_symbolRate));
             pane->setFec(mpx.m_fec.toString());
             pane->setModulation(mpx.m_modulation.toString());
+            pane->setModsys(mpx.m_modSys.toString());
         }
     }
     else if (st == ScanTypeSetting::NITAddScan_DVBS)
@@ -661,7 +675,7 @@ void ScanOptionalConfig::SetTuningPaneValues(uint frequency, const DTVMultiplex 
             pane->setFec(mpx.m_fec.toString());
             pane->setPolarity(mpx.m_polarity.toString());
             pane->setModulation(mpx.m_modulation.toString());
-            pane->setModsys(mpx.m_modSys.toString());
+            pane->setModSys(mpx.m_modSys.toString());
             pane->setRolloff(mpx.m_rolloff.toString());
         }
     }

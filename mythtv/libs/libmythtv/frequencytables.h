@@ -27,13 +27,13 @@ using freq_table_list_t = vector<const FrequencyTable*>;
 
 bool teardown_frequency_tables(void);
 
-freq_table_list_t get_matching_freq_tables(
+MTV_PUBLIC freq_table_list_t get_matching_freq_tables(
     const QString &format, const QString &modulation, const QString &country);
 
 MTV_PUBLIC long long get_center_frequency(
     const QString& format, const QString& modulation, const QString& country, int freqid);
 
-int get_closest_freqid(
+MTV_PUBLIC int get_closest_freqid(
     const QString& format, QString modulation, const QString& country, long long centerfreq);
 
 class FrequencyTable
@@ -177,7 +177,7 @@ class TransportScanItem
                                               lock for getting PAT */
 
     bool               m_scanning    {false}; ///< Probably Unnecessary
-    int                m_freqOffsets[3] {0,0,0}; ///< Frequency offsets
+    std::array<int,3>  m_freqOffsets {0,0,0}; ///< Frequency offsets
     unsigned           m_timeoutTune {1000};  ///< Timeout to tune to a frequency
 
     DTVMultiplex       m_tuning;              ///< Tuning info

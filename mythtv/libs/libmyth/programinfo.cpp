@@ -123,26 +123,21 @@ static QString determineURLType(const QString& url)
     return result;
 }
 
+static const std::array<const QString,ProgramInfo::kNumCatTypes> s_cattype
+{ "", "movie", "series", "sports", "tvshow" };
+
 QString myth_category_type_to_string(ProgramInfo::CategoryType category_type)
 {
-    static constexpr int kNumCatTypes = 5;
-    static const char *s_cattype[] =
-        { "", "movie", "series", "sports", "tvshow", };
-
     if ((category_type > ProgramInfo::kCategoryNone) &&
-        ((int)category_type < kNumCatTypes))
-        return QString(s_cattype[category_type]);
+        (category_type < s_cattype.size()))
+        return s_cattype[category_type];
 
     return "";
 }
 
 ProgramInfo::CategoryType string_to_myth_category_type(const QString &category_type)
 {
-    static constexpr int kNumCatTypes = 5;
-    static const char *s_cattype[] =
-        { "", "movie", "series", "sports", "tvshow", };
-
-    for (int i = 1; i < kNumCatTypes; i++)
+    for (size_t i = 1; i < s_cattype.size(); i++)
         if (category_type == s_cattype[i])
             return (ProgramInfo::CategoryType) i;
     return ProgramInfo::kCategoryNone;
@@ -1251,9 +1246,6 @@ bool ProgramInfo::QueryRecordedIdFromPathname(const QString &pathname,
 
 #define INT_TO_LIST(x)       do { list << QString::number(x); } while (false)
 
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-#define DATETIME_TO_LIST(x)  INT_TO_LIST((x).toTime_t())
-#else
 #define DATETIME_TO_LIST(x)  do {                                         \
                                  if ((x).isValid()) {                     \
                                      INT_TO_LIST((x).toSecsSinceEpoch()); \
@@ -1261,7 +1253,6 @@ bool ProgramInfo::QueryRecordedIdFromPathname(const QString &pathname,
                                      INT_TO_LIST(kInvalidDateTime);       \
                                  }                                        \
                              } while (false)
-#endif
 
 #define LONGLONG_TO_LIST(x)  do { list << QString::number(x); } while (false)
 
@@ -1351,13 +1342,6 @@ void ProgramInfo::ToStringList(QStringList &list) const
 #define INT_FROM_LIST(x)     do { NEXT_STR(); (x) = ts.toLongLong(); } while (false)
 #define ENUM_FROM_LIST(x, y) do { NEXT_STR(); (x) = ((y)ts.toInt()); } while (false)
 
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-#define DATETIME_FROM_LIST(x) \
-    do { NEXT_STR();                                                    \
-         x = (ts.toUInt() == kInvalidDateTime ?                         \
-              QDateTime() : MythDate::fromTime_t(ts.toUInt()));         \
-    } while (false)
-#else
 #define DATETIME_FROM_LIST(x) \
     do { NEXT_STR();                                                    \
          if (ts.isEmpty() or (ts.toUInt() == kInvalidDateTime)) {       \
@@ -1366,7 +1350,6 @@ void ProgramInfo::ToStringList(QStringList &list) const
               (x) = MythDate::fromSecsSinceEpoch(ts.toLongLong());      \
          }                                                              \
     } while (false)
-#endif
 #define DATE_FROM_LIST(x) \
     do { NEXT_STR(); (x) = ((ts.isEmpty()) || (ts == "0000-00-00")) ? \
                          QDate() : QDate::fromString(ts, Qt::ISODate); \
@@ -1574,13 +1557,8 @@ void ProgramInfo::ToMap(InfoMap &progMap,
         progMap["recstartdate"] = MythDate::toString(m_recStartTs, kDateShort);
         progMap["recendtime"] = MythDate::toString(m_recEndTs, kTime);
         progMap["recenddate"] = MythDate::toString(m_recEndTs, kDateShort);
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-        progMap["startts"] = QString::number(m_startTs.toTime_t());
-        progMap["endts"]   = QString::number(m_endTs.toTime_t());
-#else
         progMap["startts"] = QString::number(m_startTs.toSecsSinceEpoch());
         progMap["endts"]   = QString::number(m_endTs.toSecsSinceEpoch());
-#endif
         if (timeNow.toLocalTime().date().year() !=
             m_startTs.toLocalTime().date().year())
             progMap["startyear"] = m_startTs.toLocalTime().toString("yyyy");
@@ -2482,11 +2460,19 @@ QString ProgramInfo::GetPlaybackURL(
         QUrl    url  = QUrl(fullpath);
         QString path = url.path();
         QString host = url.toString(QUrl::RemovePath).mid(7);
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
         QStringList list = host.split(":", QString::SkipEmptyParts);
+#else
+        QStringList list = host.split(":", Qt::SkipEmptyParts);
+#endif
         if (!list.empty())
         {
             host = list[0];
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
             list = host.split("@", QString::SkipEmptyParts);
+#else
+            list = host.split("@", Qt::SkipEmptyParts);
+#endif
             QString group;
             if (!list.empty() && list.size() < 3)
             {
@@ -4120,6 +4106,31 @@ void ProgramInfo::SaveFrameRate(uint64_t frame, uint framerate)
 }
 
 
+/// \brief Store the Progressive/Interlaced state in the recordedmarkup table
+/// \note  All frames until the next one with a stored Scan type
+///        are assumed to have the same scan type
+void ProgramInfo::SaveVideoScanType(uint64_t frame, bool progressive)
+{
+    if (!IsRecording())
+        return;
+
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare("INSERT INTO recordedmarkup"
+                  "    (chanid, starttime, mark, type, data)"
+                  "    VALUES"
+                  " ( :CHANID, :STARTTIME, :MARK, :TYPE, :DATA);");
+    query.bindValue(":CHANID", m_chanId);
+    query.bindValue(":STARTTIME", m_recStartTs);
+    query.bindValue(":MARK", (quint64)frame);
+    query.bindValue(":TYPE", MARK_SCAN_PROGRESSIVE);
+    query.bindValue(":DATA", progressive);
+
+    if (!query.exec())
+        MythDB::DBError("Video scan type insert", query);
+}
+
+
 /// \brief Store the Total Duration at frame 0 in the recordedmarkup table
 void ProgramInfo::SaveTotalDuration(int64_t duration)
 {
@@ -4329,6 +4340,17 @@ MarkTypes ProgramInfo::QueryAverageAspectRatio(void ) const
     return static_cast<MarkTypes>(query.value(0).toInt());
 }
 
+/** \brief If present in recording this loads average video scan type of the
+ *         main video stream from database's stream markup table.
+ *  \note Saves loaded value for future reference by
+ *        QueryAverageScanProgressive().
+ */
+bool ProgramInfo::QueryAverageScanProgressive(void) const
+{
+    return static_cast<bool>(load_markup_datum(MARK_SCAN_PROGRESSIVE,
+                                               m_chanId, m_recStartTs));
+}
+
 /** \brief If present this loads the total duration in milliseconds
  *         of the main video stream from recordedmarkup table in the database
  *
@@ -4467,7 +4489,7 @@ void ProgramInfo::SaveMarkup(const QVector<MarkupEntry> &mapMark,
                 MythDB::DBError("SaveMarkup seektable data", query);
                 return;
             }
-            foreach (const auto & entry, mapMark)
+            for (const auto& entry : qAsConst(mapMark))
             {
                 if (entry.type == MARK_DURATION_MS)
                     continue;
@@ -4557,7 +4579,7 @@ void ProgramInfo::SaveMarkup(const QVector<MarkupEntry> &mapMark,
                 MythDB::DBError("SaveMarkup seektable data", query);
                 return;
             }
-            foreach (const auto & entry, mapMark)
+            for (const auto& entry : qAsConst(mapMark))
             {
                 if (entry.isDataNull)
                 {
@@ -5222,11 +5244,11 @@ void ProgramInfo::SubstituteMatches(QString &str)
     str.replace(QString("%PARTTOTAL%"), QString::number(m_partTotal));
     str.replace(QString("%ORIGINALAIRDATE%"),
                 m_originalAirDate.toString(Qt::ISODate));
-    static const char *s_timeStr[] =
+    static const std::array<const QString,4> s_timeStr
         { "STARTTIME", "ENDTIME", "PROGSTART", "PROGEND", };
-    const QDateTime *time_dtr[] =
+    const std::array<const QDateTime *,4> time_dtr
         { &m_recStartTs, &m_recEndTs, &m_startTs, &m_endTs, };
-    for (size_t i = 0; i < sizeof(s_timeStr)/sizeof(char*); i++)
+    for (size_t i = 0; i < s_timeStr.size(); i++)
     {
         str.replace(QString("%%1%").arg(s_timeStr[i]),
                     (time_dtr[i]->toLocalTime()).toString("yyyyMMddhhmmss"));

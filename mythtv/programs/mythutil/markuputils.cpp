@@ -81,14 +81,22 @@ static int SetMarkupList(const MythUtilCommandLineParser &cmdline,
 
     newList.replace(QRegExp(" "), "");
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList tokens = newList.split(",", QString::SkipEmptyParts);
+#else
+    QStringList tokens = newList.split(",", Qt::SkipEmptyParts);
+#endif
 
     if (newList.isEmpty())
         newList = "(EMPTY)";
 
     for (int i = 0; i < tokens.size(); i++)
     {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
         QStringList cutpair = tokens[i].split("-", QString::SkipEmptyParts);
+#else
+        QStringList cutpair = tokens[i].split("-", Qt::SkipEmptyParts);
+#endif
         if (isCutlist)
         {
             markuplist[cutpair[0].toInt()] = MARK_CUT_START;
@@ -251,7 +259,7 @@ static int GetMarkup(const MythUtilCommandLineParser &cmdline)
     root.appendChild(item);
     QDomElement markup = xml.createElement("markup");
     item.appendChild(markup);
-    foreach (auto & entry, mapMark)
+    for (const auto & entry : qAsConst(mapMark))
     {
         QDomElement child = xml.createElement("mark");
         child.setAttribute("type", entry.type);
@@ -260,7 +268,7 @@ static int GetMarkup(const MythUtilCommandLineParser &cmdline)
             child.setAttribute("data", (qulonglong)entry.data);
         markup.appendChild(child);
     }
-    foreach (auto & entry, mapSeek)
+    for (const auto & entry : qAsConst(mapSeek))
     {
         QDomElement child = xml.createElement("seek");
         child.setAttribute("type", entry.type);

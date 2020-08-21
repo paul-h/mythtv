@@ -22,6 +22,7 @@ using namespace std;
 #include "cardutil.h"
 #include "recordinginfo.h"
 
+#include "mythmiscutil.h"
 #include "mythuihelper.h"
 #include "mythuibuttonlist.h"
 #include "mythuitext.h"
@@ -545,8 +546,8 @@ void StatusBox::doListingsStatus()
 
     mfdLastRunStatus = gCoreContext->GetSetting("mythfilldatabaseLastRunStatus");
 
-    AddLogLine(tr("Mythfrontend version: %1 (%2)").arg(MYTH_SOURCE_PATH)
-               .arg(MYTH_SOURCE_VERSION), helpmsg);
+    AddLogLine(tr("Mythfrontend version: %1 (%2)").arg(GetMythSourcePath())
+               .arg(GetMythSourceVersion()), helpmsg);
     AddLogLine(tr("Last mythfilldatabase guide update:"), helpmsg);
     tmp = tr("Started:   %1").arg(
         MythDate::toString(
@@ -913,7 +914,7 @@ void StatusBox::doTunerStatus()
         }
     }
 
-    foreach (int inputid, inputids)
+    for (int inputid : qAsConst(inputids))
     {
         QStringList statuslist;
         if (info[inputid].m_errored)
@@ -1175,26 +1176,19 @@ static QString uptimeStr(time_t uptime)
     if (uptime == 0)
         return str + StatusBox::tr("unknown", "unknown uptime");
 
-    int days = uptime/(60*60*24);
-    uptime -= days*60*60*24;
-    int hours = uptime/(60*60);
-    uptime -= hours*60*60;
-    int min  = uptime/60;
-    int secs = uptime%60;
+    int days = uptime/ONEDAYINSEC;
+    int secs = uptime - days*ONEDAYINSEC;
 
+    QString astext;
     if (days > 0)
     {
-        char    buff[6];
-        QString dayLabel = StatusBox::tr("%n day(s)", "", days);
-
-        sprintf(buff, "%d:%02d", hours, min);
-
-        return str + QString("%1, %2").arg(dayLabel).arg(buff);
+        astext = QString("%1, %2")
+            .arg(StatusBox::tr("%n day(s)", "", days))
+            .arg(MythFormatTime(secs, "H:mm"));
+    } else {
+        astext = MythFormatTime(secs, "H:mm:ss");
     }
-
-    char  buff[9];
-    sprintf(buff, "%d:%02d:%02d", hours, min, secs);
-    return str + QString( buff );
+    return str + astext;
 }
 
 /** \fn StatusBox::getActualRecordedBPS(QString hostnames)
@@ -1293,7 +1287,7 @@ void StatusBox::doMachineStatus()
                                                       .arg(QSysInfo::currentCpuArchitecture()));
     AddLogLine("   " + tr("Qt version") + QString(": %1").arg(qVersion()));
 
-    foreach(QNetworkInterface iface, QNetworkInterface::allInterfaces())
+    for (const QNetworkInterface & iface : QNetworkInterface::allInterfaces())
     {
         QNetworkInterface::InterfaceFlags f = iface.flags();
         if (!(f & QNetworkInterface::IsUp))
@@ -1311,7 +1305,7 @@ void StatusBox::doMachineStatus()
 #endif
         AddLogLine("   " + name + QString(" (%1): ").arg(iface.humanReadableName()));
         AddLogLine("        " + tr("MAC Address") + ": " + iface.hardwareAddress());
-        foreach(QNetworkAddressEntry addr, iface.addressEntries())
+        for (const QNetworkAddressEntry & addr : iface.addressEntries())
         {
             if (addr.ip().protocol() == QAbstractSocket::IPv4Protocol ||
                 addr.ip().protocol() == QAbstractSocket::IPv6Protocol)
@@ -1341,8 +1335,7 @@ void StatusBox::doMachineStatus()
 #if !defined(_WIN32) && !defined(Q_OS_ANDROID)
     auto UpdateLoad = [](StatusBoxItem* Item)
     {
-        double loads[3] = { 0.0 };
-        getloadavg(loads, 3);
+        loadArray loads = getLoadAvgs();
         Item->SetText(QString("   %1: %2 %3 %4").arg(tr("Load")).arg(loads[0], 1, 'f', 2)
                 .arg(loads[1], 1, 'f', 2).arg(loads[2], 1, 'f', 2));
     };
@@ -1541,7 +1534,7 @@ void StatusBox::doDecoderStatus()
     }
     else
     {
-        foreach (QString decoder, decoders)
+        for (const QString & decoder : qAsConst(decoders))
             AddLogLine(decoder);
     }
 }
@@ -1558,7 +1551,7 @@ void StatusBox::doDisplayStatus()
         m_justHelpText->SetText(displayhelp);
 
     QStringList desc = MythDisplay::GetDescription();
-    foreach (const auto & line, desc)
+    for (const auto & line : qAsConst(desc))
         AddLogLine(line);
     AddLogLine("");
 
@@ -1589,7 +1582,7 @@ void StatusBox::doDisplayStatus()
         }
 
         desc = render->GetDescription();
-        foreach (const auto & line, desc)
+        for (const auto & line : qAsConst(desc))
             AddLogLine(line);
     }
 }

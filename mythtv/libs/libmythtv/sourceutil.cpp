@@ -6,6 +6,7 @@
 // MythTV headers
 #include "sourceutil.h"
 #include "cardutil.h"
+#include "scaninfo.h"
 #include "mythdb.h"
 #include "mythdirs.h"
 #include "mythlogging.h"
@@ -65,6 +66,29 @@ QString SourceUtil::GetSourceName(uint sourceid)
     return query.value(0).toString();
 }
 
+uint SourceUtil::GetSourceID(const QString &name)
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare(
+        "SELECT sourceid "
+        "FROM videosource "
+        "WHERE name = :NAME");
+    query.bindValue(":NAME", name);
+
+    if (!query.exec())
+    {
+        MythDB::DBError("SourceUtil::GetSourceID()", query);
+        return 0;
+    }
+    if (!query.next())
+    {
+        return 0;
+    }
+
+    return query.value(0).toUInt();
+}
+
 QString SourceUtil::GetChannelSeparator(uint sourceid)
 {
     MSqlQuery query(MSqlQuery::InitCon());
@@ -77,7 +101,7 @@ QString SourceUtil::GetChannelSeparator(uint sourceid)
     if (query.exec() && query.isActive() && query.size() > 0)
     {
         QMap<QString,uint> counts;
-        const QRegExp sepExpr("(_|-|#|\\.)");
+        const QRegularExpression sepExpr(R"((_|-|#|\.))");
         while (query.next())
         {
             const QString channum = query.value(0).toString();
@@ -212,7 +236,7 @@ bool SourceUtil::IsProperlyConnected(uint sourceid, bool strict)
 {
     QStringList types = get_inputtypes(sourceid);
     QMap<QString,uint> counts;
-    foreach (const auto & type, types)
+    for (const auto & type : qAsConst(types))
     {
         counts[type]++;
 
@@ -285,7 +309,7 @@ bool SourceUtil::IsEncoder(uint sourceid, bool strict)
     bool encoder = true;
 
     QStringList types = get_inputtypes(sourceid);
-    foreach (const auto & type, types)
+    for (const auto & type : qAsConst(types))
         encoder &= CardUtil::IsEncoder(type);
 
     // Source is connected, go by input types for type determination
@@ -320,7 +344,7 @@ bool SourceUtil::IsUnscanable(uint sourceid)
 {
     bool unscanable = true;
     QStringList types = get_inputtypes(sourceid);
-    foreach (const auto & type, types)
+    for (const auto & type : qAsConst(types))
         unscanable &= CardUtil::IsUnscanable(type);
 
     return types.empty() || unscanable;
@@ -532,6 +556,9 @@ bool SourceUtil::DeleteSource(uint sourceid)
         MythDB::DBError("Deleting inputs", query);
         return false;
     }
+
+    // Delete all the saved channel scans for this source
+    ScanInfo::DeleteScansFromSource(sourceid);
 
     // Delete the source itself
     query.prepare("DELETE FROM videosource "

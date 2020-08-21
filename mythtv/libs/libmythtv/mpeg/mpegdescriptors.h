@@ -68,7 +68,7 @@ class DescriptorID
         flex_mux_timing             = 0x2C,
         hevc_video                  = 0x38,
 
-        // DVB
+        // DVB Bluebook A038 (Feb 2019) p 36-38, Table 12
         network_name                = 0x40, /* implemented */
         service_list                = 0x41, /* implemented */
         dvb_stuffing                = 0x42, /* implemented */
@@ -135,7 +135,26 @@ class DescriptorID
         aac                            = 0x7C,
         xait_location                  = 0x7D,
         fta_content_management         = 0x7E,
-        t2_terrestrial_delivery_system = 0x7F,
+        extension                      = 0x7F,
+
+        // DVB Bluebook A038 (Feb 2019) p 94, Table 109
+        //
+        // Extension descriptors
+        image_icon                     = 0x00,
+        t2_delivery_system             = 0x04,
+        sh_delivery_system             = 0x05,
+        supplementary_audio            = 0x06,
+        network_change_notify          = 0x07,
+        message                        = 0x08,
+        target_region                  = 0x09,
+        target_region_name             = 0x0A,
+        service_relocated              = 0x0B,
+        xait_pid                       = 0x0C,
+        c2_delivery_system             = 0x0D,
+        uri_linkage                    = 0x13,
+        ci_ancillary_data              = 0x14,
+        c2_bundle_delivery_system      = 0x16,
+        s2x_satellite_delivery_system  = 0x17,
 
         // ATSC
         atsc_stuffing               = 0x80,
@@ -199,6 +218,9 @@ class PrivateDescriptorID
         dish_event_vchip               = 0x95, /* implemented */
         dish_event_tags                = 0x96, /* implemented */
 
+        // Private -- SES
+        nordig_content_protection      = 0xA0,
+
         // Private -- CH UPC Cablecom
         upc_event_episode_title        = 0xA7,
 
@@ -240,13 +262,17 @@ class PrivateDataSpecifierID
   public:
     enum
     {
+        SES    = 0x00000001,    // Société Européenne des Satellites
         BSB1   = 0x00000002,    // UK Sky (Astra 28.2E), Sky New Zealand (Optus D1 160E0)
         CASEMA = 0x00000016,    // NL Casema
         EACEM  = 0x00000028,    // NL Ziggo
         NORDIG = 0x00000029,    // EU Nordig
+        ORS    = 0x000001B0,    // ORS comm GmbH & Co KG
         UPC1   = 0x00000600,    // UPC Cablecom
         ITC    = 0x0000233A,    // Independent Television Commission
+        IRDETO = 0x00362275,    // Irdeto
         FSAT   = 0x46534154,    // UK BBC FreeSat on Astra 28.2E
+        OTV    = 0x4f545600,    // OpenTV
     };
 };
 
@@ -297,8 +323,9 @@ class MTV_PUBLIC MPEGDescriptor
     uint size(void) const { return DescriptorLength() + 2; }
 
     uint DescriptorTag(void) const { return m_data[0]; }
-    QString DescriptorTagString(void) const;
     uint DescriptorLength(void) const { return m_data[1]; }
+    uint DescriptorTagExtension(void) const { return m_data[2]; }
+    QString DescriptorTagString(void) const;
 
     virtual QString toString(void) const;
     virtual QString toStringPD(uint priv_dsid) const;
@@ -311,6 +338,7 @@ class MTV_PUBLIC MPEGDescriptor
                                         int excluded_descid);
 
     static const unsigned char *Find(const desc_list_t &parsed, uint desc_tag);
+    static const unsigned char *FindExtension(const desc_list_t &parsed, uint desc_tag);
     static desc_list_t FindAll(const desc_list_t &parsed, uint desc_tag);
 
     static const unsigned char *FindBestMatch(

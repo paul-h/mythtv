@@ -29,7 +29,7 @@ class MUI_PUBLIC MythDisplay : public QObject, public ReferenceCounter
     virtual bool  UsingVideoModes(void) { return false; }
     virtual const vector<MythDisplayMode>& GetVideoModes(void);
 
-    static void  ConfigureQtGUI        (int SwapInterval = 1);
+    static void  ConfigureQtGUI        (int SwapInterval = 1, const QString& Display = QString());
     static bool  SpanAllScreens        (void);
     static QString GetExtraScreenInfo  (QScreen *qScreen);
 
@@ -56,11 +56,13 @@ class MUI_PUBLIC MythDisplay : public QObject, public ReferenceCounter
     static void  PrimaryScreenChanged  (QScreen *qScreen);
     void         ScreenAdded           (QScreen *qScreen);
     void         ScreenRemoved         (QScreen *qScreen);
+    void         PhysicalDPIChanged    (qreal    DPI);
     static void  GeometryChanged       (const QRect &Geometry);
 
   signals:
     void         CurrentScreenChanged  (QScreen *qScreen);
-    void         ScreenCountChanged    (int Screens);
+    void         ScreenCountChanged    (int      Screens);
+    void         CurrentDPIChanged     (qreal    DPI);
 
   protected:
     MythDisplay();

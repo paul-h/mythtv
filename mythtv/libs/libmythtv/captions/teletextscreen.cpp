@@ -62,7 +62,7 @@ bool TeletextScreen::Create(void)
 void TeletextScreen::ClearScreen(void)
 {
     DeleteAllChildren();
-    foreach (auto & img, m_rowImages)
+    for (const auto & img : qAsConst(m_rowImages))
         delete img;
     m_rowImages.clear();
     SetRedraw();
@@ -117,7 +117,7 @@ void TeletextScreen::OptimiseDisplayedArea(void)
     }
 
     QRegion visible;
-    QListIterator<MythUIType *> i(m_ChildrenList);
+    QListIterator<MythUIType *> i(m_childrenList);
     while (i.hasNext())
     {
         MythUIType *img = i.next();
@@ -138,7 +138,7 @@ void TeletextScreen::OptimiseDisplayedArea(void)
     while (i.hasNext())
     {
         MythUIType *img = i.next();
-        img->SetArea(img->GetArea().translated(left, top));
+        img->SetArea(MythRect(img->GetArea().translated(left, top)));
     }
 }
 

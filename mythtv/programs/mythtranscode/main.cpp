@@ -245,10 +245,14 @@ int main(int argc, char *argv[])
 
             uint64_t last = 0;
             QStringList cutlist = cmdline.toStringList("usecutlist", " ");
-            foreach (auto & cut, cutlist)
+            for (const auto & cut : qAsConst(cutlist))
             {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
                 QStringList startend =
                     cut.split("-", QString::SkipEmptyParts);
+#else
+                QStringList startend = cut.split("-", Qt::SkipEmptyParts);
+#endif
                 if (startend.size() == 2)
                 {
                     uint64_t start = startend.first().toULongLong();
@@ -1009,7 +1013,7 @@ static void CompleteJob(int jobID, ProgramInfo *pginfo, bool useCutlist,
         QDir dir (fInfo.path());
         QFileInfoList previewFiles = dir.entryInfoList(nameFilters);
 
-        foreach (const auto & previewFile, previewFiles)
+        for (const auto & previewFile : qAsConst(previewFiles))
         {
             QString oldFileName = previewFile.absoluteFilePath();
 

@@ -45,6 +45,8 @@ using namespace std;
 #include <QUrl>
 #include <QHostAddress>
 #include <QDataStream>
+#include <QRegularExpression>
+#include <QRegularExpressionMatchIterator>
 
 // Myth headers
 #include "mythcorecontext.h"
@@ -164,6 +166,22 @@ bool getMemStats(int &totalMB, int &freeMB, int &totalVM, int &freeVM)
     Q_UNUSED(freeVM);
     return false;
 #endif
+}
+
+/** \fn getLoadAvgs()
+ *  \brief Returns the system load averages.
+ *  \return A std::array<double,3> containing the system load
+ *          averages.  If the system call fails or is unsupported,
+ *          returns array containing all -1.
+ */
+loadArray getLoadAvgs (void)
+{
+#if !defined(_WIN32) && !defined(Q_OS_ANDROID)
+    loadArray loads;
+    if (getloadavg(loads.data(), loads.size()) != -1)
+        return loads;
+#endif
+    return {-1, -1, -1};
 }
 
 /**
@@ -833,8 +851,6 @@ bool MythRemoveDirectory(QDir &aDir)
 void setHttpProxy(void)
 {
     QString       LOC = "setHttpProxy() - ";
-    QNetworkProxy p;
-
 
     // Set http proxy for the application if specified in environment variable
     QString var(getenv("http_proxy"));
@@ -882,7 +898,8 @@ void setHttpProxy(void)
                 .arg(url.userName()).arg(url.password())
                 .arg(host).arg(port));
 #endif
-        p = QNetworkProxy(QNetworkProxy::HttpCachingProxy,
+        QNetworkProxy p =
+            QNetworkProxy(QNetworkProxy::HttpCachingProxy,
                           host, port, url.userName(), url.password());
         QNetworkProxy::setApplicationProxy(p);
         return;
@@ -897,7 +914,7 @@ void setHttpProxy(void)
 
     proxies = QNetworkProxyFactory::systemProxyForQuery(query);
 
-    Q_FOREACH (p, proxies)
+    for (const auto& p : qAsConst(proxies))
     {
         QString host = p.hostName();
         int     port = p.port();
@@ -1212,14 +1229,79 @@ int naturalCompare(const QString &_a, const QString &_b, Qt::CaseSensitivity cas
     return currA->isNull() ? -1 : + 1;
 }
 
-QString MythFormatTimeMs(int msecs, QString fmt)
+QString MythFormatTimeMs(int msecs, const QString& fmt)
 {
     return QTime::fromMSecsSinceStartOfDay(msecs).toString(fmt);
 }
 
-QString MythFormatTime(int secs, QString fmt)
+QString MythFormatTime(int secs, const QString& fmt)
 {
     return QTime::fromMSecsSinceStartOfDay(secs*1000).toString(fmt);
+}
+
+/*
+ * States for the command line parser.
+ */
+enum states {
+    START,     // No current token.
+    INTEXT,    // Collecting token text.
+    INSQUOTE,  // Collecting token, inside single quotes.
+    INDQUOTE,  // Collecting token, inside double quotes.
+    ESCTEXT,   // Saw backslash. Returns to generic text.
+    ESCSQUOTE, // Saw backslash. Returns to single quotes.
+    ESCDQUOTE, // Saw backslash. Returns to double quotes.
+};
+
+/*
+ * Parse a string into separate tokens. This function understands
+ * quoting and the escape character.
+ */
+QStringList MythSplitCommandString(const QString &line)
+{
+    QStringList fields;
+    states state = START;
+    int tokenStart = -1;
+
+    for (int i = 0; i < line.size(); i++)
+    {
+        const QChar c = line.at(i);
+
+        switch (state) {
+          case START:
+            tokenStart = i;
+            if      (c.isSpace()) break;
+            if      (c == '\'') state = INSQUOTE;
+            else if (c == '\"') state = INDQUOTE;
+            else if (c == '\\') state = ESCTEXT;
+            else                state = INTEXT;
+            break;
+          case INTEXT:
+            if (c.isSpace()) {
+                fields += line.mid(tokenStart, i - tokenStart);
+                state = START;
+                break;
+            }
+            else if (c == '\'') state = INSQUOTE;
+            else if (c == '\"') state = INDQUOTE;
+            else if (c == '\\') state = ESCTEXT;
+            break;
+          case INSQUOTE:
+            if      (c == '\'') state = INTEXT;
+            else if (c == '\\') state = ESCSQUOTE;
+            break;
+          case INDQUOTE:
+            if      (c == '\"') state = INTEXT;
+            else if (c == '\\') state = ESCDQUOTE;
+            break;
+          case ESCTEXT:   state = INTEXT;   break;
+          case ESCSQUOTE: state = INSQUOTE; break;
+          case ESCDQUOTE: state = INDQUOTE; break;
+        }
+    }
+
+    if (state != START)
+        fields += line.mid(tokenStart);
+    return fields;
 }
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */

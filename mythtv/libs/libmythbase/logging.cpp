@@ -8,7 +8,7 @@
 #include <QFileInfo>
 #include <QStringList>
 #include <QMap>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QVariantMap>
 #include <iostream>
 
@@ -113,6 +113,18 @@ void verboseAdd(uint64_t mask, QString name, bool additive, QString helptext);
 void loglevelAdd(int value, QString name, char shortname);
 void verboseInit(void);
 void verboseHelp(void);
+
+/// \brief Intended for use only by the test harness.
+void resetLogging(void)
+{
+    verboseMask = verboseDefaultInt;
+    verboseString = QString(verboseDefaultStr);
+    userDefaultValueInt = verboseDefaultInt;
+    userDefaultValueStr = QString(verboseDefaultStr);
+    haveUserDefaultValues = false;
+
+    verboseInit();
+}
 
 void loggingGetTimeStamp(qlonglong *epoch, uint *usec)
 {
@@ -224,11 +236,7 @@ void LoggingItem::setThreadTid(void)
 /// \brief Convert numerical timestamp to a readable date and time.
 QString LoggingItem::getTimestamp (void) const
 {
-#if QT_VERSION < QT_VERSION_CHECK(5,8,0)
-    QDateTime epoch = QDateTime::fromTime_t(m_epoch).toUTC();
-#else
     QDateTime epoch = QDateTime::fromSecsSinceEpoch(m_epoch);
-#endif
     QString timestamp = epoch.toString("yyyy-MM-dd HH:mm:ss");
     return timestamp;
 }
@@ -604,7 +612,7 @@ void LogPrintLine( uint64_t mask, LogLevel_t level, const char *file, int line,
     if (!item)
         return;
 
-    item->m_message = message;
+    item->m_message = std::move(message);
 
     QMutexLocker qLock(&logQueueMutex);
 
@@ -641,9 +649,7 @@ void logPropagateCalc(void)
 {
     logPropagateArgList.clear();
 
-    QString mask = verboseString.trimmed();
-    mask.replace(QRegExp(" "), ",");
-    mask.remove(QRegExp("^,"));
+    QString mask = verboseString.simplified().replace(' ', ',');
     logPropagateArgs = " --verbose " + mask;
     logPropagateArgList << "--verbose" << mask;
 
@@ -709,8 +715,10 @@ bool logPropagateQuiet(void)
 /// \param  dblog       true if database logging is requested
 /// \param  propagate   true if the logfile path needs to be propagated to child
 ///                     processes.
+/// \param  testHarness Should always be false. Set to true when
+///                     invoked by the testing code.
 void logStart(const QString& logfile, bool progress, int quiet, int facility,
-              LogLevel_t level, bool dblog, bool propagate)
+              LogLevel_t level, bool dblog, bool propagate, bool testHarness)
 {
     if (logThread && logThread->isRunning())
         return;
@@ -732,6 +740,8 @@ void logStart(const QString& logfile, bool progress, int quiet, int facility,
     }
 
     logPropagateCalc();
+    if (testHarness)
+        return;
 
     QString table = dblog ? QString("logging") : QString("");
 
@@ -832,7 +842,7 @@ LogLevel_t logLevelGet(const QString& level)
         locker.relock();
     }
 
-    foreach (auto item, loglevelMap)
+    for (auto *item : qAsConst(loglevelMap))
     {
         if ( item->name == level.toLower() )
             return (LogLevel_t)item->value;
@@ -929,9 +939,7 @@ void verboseInit(void)
 ///        (for --verbose help)
 void verboseHelp(void)
 {
-    QString m_verbose = userDefaultValueStr.trimmed();
-    m_verbose.replace(QRegExp(" "), ",");
-    m_verbose.remove(QRegExp("^,"));
+    QString m_verbose = userDefaultValueStr.simplified().replace(' ', ',');
 
     cerr << "Verbose debug levels.\n"
             "Accepts any combination (separated by comma) of:\n\n";
@@ -989,10 +997,14 @@ int verboseArgParse(const QString& arg)
         return GENERIC_EXIT_INVALID_CMDLINE;
     }
 
-    QStringList verboseOpts = arg.split(QRegExp("[^\\w:]+",
-                                                Qt::CaseInsensitive,
-                                                QRegExp::RegExp2));
-    foreach (auto & opt, verboseOpts)
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
+    QStringList verboseOpts = arg.split(QRegularExpression("[^\\w:]+"),
+                                        QString::SkipEmptyParts);
+#else
+    QStringList verboseOpts = arg.split(QRegularExpression("[^\\w:]+"),
+                                        Qt::SkipEmptyParts);
+#endif
+    for (const auto& opt : qAsConst(verboseOpts))
     {
         option = opt.toLower();
         bool reverseOption = false;
