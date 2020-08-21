@@ -1397,7 +1397,7 @@ bool NativeArchive::importMagewellFile(const ImportItem &importItem)
         .arg(formatTime(importItem.actualDuration)).arg(QDateTime::currentDateTime().addSecs(importItem.actualDuration).toString()));
 
     //FIXME the frames per second should be a setting?
-    QString time = QDateTime::fromTime_t(importItem.actualDuration).toUTC().toString("hh:mm:ss");
+    QString time = QDateTime::fromSecsSinceEpoch(importItem.actualDuration).toUTC().toString("hh:mm:ss");
     QString videoFile = getTempDirectory() + "work/video.nut";
     QString mxmlFile = getTempDirectory() + "work/video.mxml";
 
