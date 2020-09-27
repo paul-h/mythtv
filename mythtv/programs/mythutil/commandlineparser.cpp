@@ -88,11 +88,6 @@ void MythUtilCommandLineParser::LoadArguments(void)
                 ->SetGroup("Recording Markup")
                 ->SetParentOf(ChanidStartimeVideo)
 
-        // recordingutils.cpp
-        << add("--checkrecordings", "checkrecordings", false,
-                "Check all recordings exist and have a seektable etc.", "")
-                ->SetGroup("Recording Utils")
-
         // backendutils.cpp
         << add("--resched", "resched", false,
                 "Trigger a run of the recording scheduler on the existing "
