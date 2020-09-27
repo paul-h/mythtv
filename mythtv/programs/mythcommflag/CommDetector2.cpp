@@ -18,7 +18,7 @@ using namespace std;
 #include "mythdb.h"
 #include "mythlogging.h"
 #include "mythmiscutil.h"
-#include "mythplayer.h"
+#include "mythcommflagplayer.h"
 #include "programinfo.h"
 #include "channelutil.h"
 
@@ -282,7 +282,7 @@ CommDetector2::CommDetector2(
     SkipType           commDetectMethod_in,
     bool               showProgress_in,
     bool               fullSpeed_in,
-    MythPlayer        *player_in,
+    MythCommFlagPlayer *player_in,
     int                chanid,
     QDateTime          startts_in,
     QDateTime          endts_in,
@@ -645,7 +645,7 @@ bool CommDetector2::go(void)
                     ++ii;
                     ++jj;
                 }
-                bool same = ii == breakMap.end() && jj == lastBreakMap.end();
+                bool same = ii == breakMap.cend() && jj == lastBreakMap.cend();
                 lastBreakMap = breakMap;
 
                 if (m_breakMapUpdateRequested || !same)
@@ -733,14 +733,12 @@ void CommDetector2::GetCommercialBreakList(frm_dir_map_t &marks)
 
     /* Report results. */
     const float fps = m_player->GetFrameRate();
-    for (frm_dir_map_t::const_iterator iimark = marks.begin();
-            iimark != marks.end();
-            ++iimark)
+    for (auto iimark = marks.cbegin(); iimark != marks.cend(); ++iimark)
     {
         /* Display as 1-based frame numbers. */
         long long markstart = iimark.key() + 1;   /* MARK_COMM_BEGIN */
         ++iimark;                       /* MARK_COMM_END */
-        if (iimark == marks.end())
+        if (iimark == marks.cend())
             break;
         long long markend = iimark.key() + 1;
 

@@ -17,6 +17,7 @@
 #include <thread> // for sleep_for
 
 #include "upnp.h"
+#include "mythmiscutil.h"
 #include "mythlogging.h"
 
 #include "upnptasksearch.h"
@@ -28,7 +29,7 @@
 #include <QRegExp>
 #include <QStringList>
 
-#ifdef ANDROID
+#ifdef Q_OS_ANDROID
 #include <sys/select.h>
 #endif
 
@@ -230,7 +231,7 @@ void SSDP::PerformSearch(const QString &sST, uint timeout_secs)
         LOG(VB_GENERAL, LOG_INFO,
             "SSDP::PerformSearch - did not write entire buffer.");
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(random() % 250));
+    std::this_thread::sleep_for(std::chrono::milliseconds(MythRandom() % 250));
 
     if ( pSocket->writeBlock( sRequest.data(),
                               sRequest.size(), address, SSDP_PORT ) != nSize)
@@ -542,7 +543,7 @@ bool SSDP::ProcessSearchRequest( const QStringMap &sHeaders,
 
     nMX = (nMX > 120) ? 120 : nMX;
 
-    int nNewMX = (0 + ((unsigned short)random() % nMX)) * 1000;
+    int nNewMX = (0 + (static_cast<int>(MythRandom()) % nMX)) * 1000;
 
     // ----------------------------------------------------------------------
     // See what they are looking for...
@@ -620,7 +621,7 @@ bool SSDP::ProcessSearchResponse( const QStringMap &headers )
     if ((nPos = sCache.indexOf("=", nPos)) < 0)
         return false;
 
-    int nSecs = sCache.mid( nPos+1 ).toInt();
+    int nSecs = sCache.midRef( nPos+1 ).toInt();
 
     SSDPCache::Instance()->Add( sST, sUSN, sDescURL, nSecs );
 
@@ -658,7 +659,7 @@ bool SSDP::ProcessNotify( const QStringMap &headers )
         if ((nPos = sCache.indexOf("=", nPos)) < 0)
             return false;
 
-        int nSecs = sCache.mid( nPos+1 ).toInt();
+        int nSecs = sCache.midRef( nPos+1 ).toInt();
 
         SSDPCache::Instance()->Add( sNT, sUSN, sDescURL, nSecs );
 

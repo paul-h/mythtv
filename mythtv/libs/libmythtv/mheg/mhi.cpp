@@ -886,7 +886,7 @@ bool MHIContext::LoadChannelCache()
         int sid = query.value(1).toInt();
         int tid = query.value(2).toInt();
         int cid = query.value(3).toInt();
-        m_channelCache.insertMulti( Key_t(nid, sid), Val_t(tid, cid) );
+        m_channelCache.insert( Key_t(nid, sid), Val_t(tid, cid) );
     }
     return true;
 }
@@ -925,9 +925,9 @@ int MHIContext::GetChannelIndex(const QString &str)
             if (m_channelCache.isEmpty())
                 LoadChannelCache();
 
-            ChannelCache_t::const_iterator it = m_channelCache.find(
+            ChannelCache_t::const_iterator it = m_channelCache.constFind(
                 Key_t(netID,serviceID) );
-            if (it == m_channelCache.end())
+            if (it == m_channelCache.constEnd())
                 break;
             if (transportID < 0)
                 nResult = Cid(it);
@@ -941,14 +941,14 @@ int MHIContext::GetChannelIndex(const QString &str)
                         break;
                     }
                 }
-                while (++it != m_channelCache.end());
+                while (++it != m_channelCache.constEnd());
             }
         }
         else if (str.startsWith("rec://svc/lcn/"))
         {
             // I haven't seen this yet so this is untested.
             bool ok = false;
-            int channelNo = str.mid(14).toInt(&ok); // Decimal integer
+            int channelNo = str.midRef(14).toInt(&ok); // Decimal integer
             if (!ok)
                 break;
             MSqlQuery query(MSqlQuery::InitCon());
@@ -989,8 +989,7 @@ bool MHIContext::GetServiceInfo(int channelId, int &netId, int &origNetId,
     if (m_channelCache.isEmpty())
         LoadChannelCache();
 
-    for ( ChannelCache_t::const_iterator it = m_channelCache.begin();
-        it != m_channelCache.end(); ++it)
+    for (auto it = m_channelCache.cbegin(); it != m_channelCache.cend(); ++it)
     {
         if (Cid(it) == channelId)
         {
@@ -1701,8 +1700,9 @@ void MHIDLA::DrawArcSector(int /*x*/, int /*y*/, int /*width*/, int /*height*/,
 // a result of rounding when drawing ellipses.
 struct lineSeg { int m_yBottom, m_yTop, m_xBottom; float m_slope; };
 
-void MHIDLA::DrawPoly(bool isFilled, int nPoints, const int *xArray, const int *yArray)
+void MHIDLA::DrawPoly(bool isFilled, const MHPointVec& xArray, const MHPointVec& yArray)
 {
+    int nPoints = xArray.size();
     if (nPoints < 2)
         return;
 

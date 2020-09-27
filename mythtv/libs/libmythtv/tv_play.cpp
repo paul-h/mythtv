@@ -940,13 +940,11 @@ void TV::InitKeys(void)
 
     /* 3D/Frame compatible/Stereoscopic TV */
     REG_KEY("TV Playback", ACTION_3DNONE,
-            QT_TRANSLATE_NOOP("MythControls", "No 3D"), "");
-    REG_KEY("TV Playback", ACTION_3DSIDEBYSIDE,
-            QT_TRANSLATE_NOOP("MythControls", "3D Side by Side"), "");
+            QT_TRANSLATE_NOOP("MythControls", "Auto 3D"), "");
+    REG_KEY("TV Playback", ACTION_3DIGNORE,
+            QT_TRANSLATE_NOOP("MythControls", "Ignore 3D"), "");
     REG_KEY("TV Playback", ACTION_3DSIDEBYSIDEDISCARD,
             QT_TRANSLATE_NOOP("MythControls", "Discard 3D Side by Side"), "");
-    REG_KEY("TV Playback", ACTION_3DTOPANDBOTTOM,
-            QT_TRANSLATE_NOOP("MythControls", "3D Top and Bottom"), "");
     REG_KEY("TV Playback", ACTION_3DTOPANDBOTTOMDISCARD,
             QT_TRANSLATE_NOOP("MythControls", "Discard 3D Top and Bottom"), "");
 
@@ -2550,6 +2548,9 @@ void TV::StopStuff(PlayerContext *mctx, PlayerContext *ctx,
         LOC + QString("For player ctx %1 -- begin")
             .arg(find_player_index(ctx)));
 
+    emit PlaybackExiting(this);
+    m_isEmbedded = false;
+
     SetActive(mctx, 0, false);
 
     if (ctx->m_buffer)
@@ -3727,10 +3728,9 @@ QList<QKeyEvent> TV::ConvertScreenPressKeyMap(const QString &keyList)
     QList<QKeyEvent> keyPressList;
     int i = 0;
     QStringList stringKeyList = keyList.split(',');
-    QStringList::const_iterator it;
-    for (it = stringKeyList.begin(); it != stringKeyList.end(); ++it)
+    for (const auto & str : qAsConst(stringKeyList))
     {
-        QKeySequence keySequence(*it);
+        QKeySequence keySequence(str);
         for(i = 0; i < keySequence.count(); i++)
         {
             unsigned int keynum = keySequence[i];
@@ -3761,8 +3761,8 @@ bool TV::TranslateGesture(const QString &context, MythGestureEvent *e,
         //      TranslateKeyPress
         // possibly with configurable hot zones of various sizes in a theme
         // TODO enhance gestures to support other non Click types too
-        if ((e->gesture() == MythGestureEvent::Click) &&
-            (e->GetButton() == MythGestureEvent::LeftButton))
+        if ((e->GetGesture() == MythGestureEvent::Click) &&
+            (e->GetButton() == Qt::LeftButton))
         {
             // divide screen into 12 regions
             QSize size = GetMythMainWindow()->size();
@@ -4373,15 +4373,13 @@ bool TV::Handle3D(PlayerContext *ctx, const QString &action)
     if (ctx->m_player && ctx->m_player->GetVideoOutput() &&
         ctx->m_player->GetVideoOutput()->StereoscopicModesAllowed())
     {
-        StereoscopicMode mode = kStereoscopicModeNone;
-        if (ACTION_3DSIDEBYSIDE == action)
-            mode = kStereoscopicModeSideBySide;
-        else if (ACTION_3DSIDEBYSIDEDISCARD == action)
+        StereoscopicMode mode = kStereoscopicModeAuto;
+        if (ACTION_3DSIDEBYSIDEDISCARD == action)
             mode = kStereoscopicModeSideBySideDiscard;
-        else if (ACTION_3DTOPANDBOTTOM == action)
-            mode = kStereoscopicModeTopAndBottom;
         else if (ACTION_3DTOPANDBOTTOMDISCARD == action)
             mode = kStereoscopicModeTopAndBottomDiscard;
+        else if (ACTION_3DIGNORE == action)
+            mode = kStereoscopicModeIgnore3D;
         ctx->m_player->GetVideoOutput()->SetStereoscopicMode(mode);
         SetOSDMessage(ctx, StereoscopictoString(mode));
     }
@@ -7087,10 +7085,10 @@ void TV::SwitchSource(PlayerContext *ctx, uint source_direction)
     }
 
     // Source switching
-    QMap<uint,InputInfo>::const_iterator beg = sources.find(sourceid);
+    QMap<uint,InputInfo>::const_iterator beg = sources.constFind(sourceid);
     QMap<uint,InputInfo>::const_iterator sit = beg;
 
-    if (sit == sources.end())
+    if (sit == sources.constEnd())
     {
         return;
     }
@@ -7098,18 +7096,18 @@ void TV::SwitchSource(PlayerContext *ctx, uint source_direction)
     if (kNextSource == source_direction)
     {
         ++sit;
-        if (sit == sources.end())
-            sit = sources.begin();
+        if (sit == sources.constEnd())
+            sit = sources.constBegin();
     }
 
     if (kPreviousSource == source_direction)
     {
-        if (sit != sources.begin())
+        if (sit != sources.constBegin())
             --sit;
         else
         {
-            QMap<uint,InputInfo>::const_iterator tmp = sources.begin();
-            while (tmp != sources.end())
+            QMap<uint,InputInfo>::const_iterator tmp = sources.constBegin();
+            while (tmp != sources.constEnd())
             {
                 sit = tmp;
                 ++tmp;
@@ -7421,10 +7419,11 @@ bool TV::ProcessSmartChannel(const PlayerContext *ctx, QString &inputStr)
         return false;
 
     // Check for and remove duplicate separator characters
-    if ((chan.length() > 2) && (chan.right(1) == chan.right(2).left(1)))
+    size_t size = chan.size();
+    if ((size > 2) && (chan.at(size-1) == chan.at(size-2)))
     {
         bool ok = false;
-        chan.right(1).toUInt(&ok);
+        chan.rightRef(1).toUInt(&ok);
         if (!ok)
         {
             chan = chan.left(chan.length()-1);
@@ -7510,7 +7509,6 @@ bool TV::CommitQueuedInput(PlayerContext *ctx)
     else if (StateIsLiveTV(GetState(ctx)))
     {
         QString channum = GetQueuedChanNum();
-        QString chaninput = GetQueuedInput();
         if (m_browseHelper->IsBrowsing())
         {
             uint sourceid = 0;
@@ -8396,7 +8394,7 @@ static QString toCommaList(const QSet<uint> &list)
     for (uint i : qAsConst(list))
         ret += QString("%1,").arg(i);
 
-    if (ret.length())
+    if (!ret.isEmpty())
         return ret.left(ret.length()-1);
 
     return "";
@@ -8815,7 +8813,6 @@ void TV::EnableUpmix(PlayerContext *ctx, bool enable, bool toggle)
 {
     if (!ctx->m_player || !ctx->m_player->HasAudioOut())
         return;
-    QString text;
 
     bool enabled = false;
 
@@ -10503,7 +10500,7 @@ void TV::OSDDialogEvent(int result, const QString& text, QString action)
     else if (action.startsWith("ADJUSTSTRETCH"))
     {
         bool floatRead = false;
-        float stretch = action.right(action.length() - 13).toFloat(&floatRead);
+        float stretch = action.rightRef(action.length() - 13).toFloat(&floatRead);
         if (floatRead &&
             stretch <= 2.0F &&
             stretch >= 0.48F)
@@ -10519,7 +10516,7 @@ void TV::OSDDialogEvent(int result, const QString& text, QString action)
         ChangeTimeStretch(actx, 0, !floatRead);   // just display
     }
     else if (action.startsWith("SELECTSCAN_"))
-        OverrideScan(actx, static_cast<FrameScanType>(action.right(1).toInt()));
+        OverrideScan(actx, static_cast<FrameScanType>(action.rightRef(1).toInt()));
     else if (action.startsWith(ACTION_TOGGELAUDIOSYNC))
         ChangeAudioSync(actx, 0);
     else if (action == ACTION_TOGGLESUBTITLEZOOM)
@@ -10539,7 +10536,7 @@ void TV::OSDDialogEvent(int result, const QString& text, QString action)
     else if (action.startsWith("TOGGLEPICCONTROLS"))
     {
         m_adjustingPictureAttribute = (PictureAttribute)
-            (action.right(1).toInt() - 1);
+            (action.rightRef(1).toInt() - 1);
         DoTogglePictureAttribute(actx, kAdjustingPicture_Playback);
     }
     else if (action == ACTION_TOGGLENIGHTMODE)
@@ -10551,13 +10548,13 @@ void TV::OSDDialogEvent(int result, const QString& text, QString action)
     else if (action.startsWith("TOGGLEASPECT"))
     {
         ToggleAspectOverride(actx,
-                             (AspectOverrideMode) action.right(1).toInt());
+                             (AspectOverrideMode) action.rightRef(1).toInt());
     }
     else if (action == "TOGGLEFILL")
         ToggleAdjustFill(actx);
     else if (action.startsWith("TOGGLEFILL"))
     {
-        ToggleAdjustFill(actx, (AdjustFillMode) action.right(1).toInt());
+        ToggleAdjustFill(actx, (AdjustFillMode) action.rightRef(1).toInt());
     }
     else if (action == "MENU")
          ShowOSDMenu();
@@ -10659,7 +10656,7 @@ void TV::OSDDialogEvent(int result, const QString& text, QString action)
             PopPreviousChannel(actx, true);
         else if (action.startsWith("SWITCHTOINPUT_"))
         {
-            m_switchToInputId = action.mid(14).toUInt();
+            m_switchToInputId = action.midRef(14).toUInt();
             QMutexLocker locker(&m_timerIdLock);
             if (!m_switchToInputTimerId)
                 m_switchToInputTimerId = StartTimer(1, __LINE__);
@@ -10696,17 +10693,17 @@ void TV::OSDDialogEvent(int result, const QString& text, QString action)
         }
         else if (action.startsWith(ACTION_JUMPCHAPTER))
         {
-            int chapter = action.right(3).toInt();
+            int chapter = action.rightRef(3).toInt();
             DoJumpChapter(actx, chapter);
         }
         else if (action.startsWith(ACTION_SWITCHTITLE))
         {
-            int title = action.right(3).toInt();
+            int title = action.rightRef(3).toInt();
             DoSwitchTitle(actx, title);
         }
         else if (action.startsWith(ACTION_SWITCHANGLE))
         {
-            int angle = action.right(3).toInt();
+            int angle = action.rightRef(3).toInt();
             DoSwitchAngle(actx, angle);
         }
         else if (action == "EDIT")
@@ -10719,7 +10716,7 @@ void TV::OSDDialogEvent(int result, const QString& text, QString action)
         else if (action.startsWith("TOGGLECOMMSKIP"))
         {
             SetAutoCommercialSkip(
-                actx, (CommSkipMode)(action.right(1).toInt()));
+                actx, (CommSkipMode)(action.rightRef(1).toInt()));
         }
         else if (action == "QUEUETRANSCODE")
         {
@@ -11298,14 +11295,12 @@ bool TV::MenuItemDisplayPlayback(const MenuItemContext &c)
     {
         if (m_tvmStereoAllowed)
         {
-            active = (m_tvmStereoMode == kStereoscopicModeNone);
-            BUTTON(ACTION_3DNONE, tr("None"));
-            active = (m_tvmStereoMode == kStereoscopicModeSideBySide);
-            BUTTON(ACTION_3DSIDEBYSIDE, tr("Side by Side"));
+            active = (m_tvmStereoMode == kStereoscopicModeAuto);
+            BUTTON(ACTION_3DNONE, tr("Auto"));
+            active = (m_tvmStereoMode == kStereoscopicModeIgnore3D);
+            BUTTON(ACTION_3DIGNORE, tr("Ignore"));
             active = (m_tvmStereoMode == kStereoscopicModeSideBySideDiscard);
             BUTTON(ACTION_3DSIDEBYSIDEDISCARD, tr("Discard Side by Side"));
-            active = (m_tvmStereoMode == kStereoscopicModeTopAndBottom);
-            BUTTON(ACTION_3DTOPANDBOTTOM, tr("Top and Bottom"));
             active = (m_tvmStereoMode == kStereoscopicModeTopAndBottomDiscard);
             BUTTON(ACTION_3DTOPANDBOTTOMDISCARD, tr("Discard Top and Bottom"));
         }
@@ -11314,13 +11309,13 @@ bool TV::MenuItemDisplayPlayback(const MenuItemContext &c)
     {
         FrameScanType scan = ctx->m_player->GetScanType();
         active = (scan == kScan_Detect);
-        BUTTON("SELECTSCAN_0", ScanTypeToString(kScan_Detect));
+        BUTTON("SELECTSCAN_0", ScanTypeToUserString(kScan_Detect));
         active = (scan == kScan_Progressive);
-        BUTTON("SELECTSCAN_3", ScanTypeToString(kScan_Progressive));
+        BUTTON("SELECTSCAN_3", ScanTypeToUserString(kScan_Progressive));
         active = (scan == kScan_Interlaced);
-        BUTTON("SELECTSCAN_1", ScanTypeToString(kScan_Interlaced));
+        BUTTON("SELECTSCAN_1", ScanTypeToUserString(kScan_Interlaced));
         active = (scan == kScan_Intr2ndField);
-        BUTTON("SELECTSCAN_2", ScanTypeToString(kScan_Intr2ndField));
+        BUTTON("SELECTSCAN_2", ScanTypeToUserString(kScan_Intr2ndField));
     }
     else if (matchesGroup(actionName, "SELECTSUBTITLE_", category, prefix) ||
              matchesGroup(actionName, "SELECTRAWTEXT_",  category, prefix) ||
@@ -11903,8 +11898,7 @@ void TV::PlaybackMenuInit(const MenuBase &menu)
     m_tvmFillAutoDetect    = false;
     m_tvmSup               = kPictureAttributeSupported_None;
     m_tvmStereoAllowed     = false;
-    m_tvmStereoMode        = kStereoscopicModeNone;
-    m_tvmDoubleRate        = false;
+    m_tvmStereoMode        = kStereoscopicModeAuto;
 
     m_tvmSpeedX100         = (int)(round(ctx->m_tsNormal * 100));
     m_tvmState             = ctx->GetState();
@@ -11980,7 +11974,6 @@ void TV::PlaybackMenuInit(const MenuBase &menu)
         m_tvmCanUpmix         = ctx->m_player->GetAudio()->CanUpmix();
         m_tvmAspectOverride   = ctx->m_player->GetAspectOverride();
         m_tvmAdjustFill       = ctx->m_player->GetAdjustFill();
-        m_tvmDoubleRate       = ctx->m_player->CanSupportDoubleRate();
         m_tvmCurSkip          = ctx->m_player->GetAutoCommercialSkip();
         m_tvmIsPaused         = ctx->m_player->IsPaused();
         m_tvmSubsCapMode      = ctx->m_player->GetCaptionMode();
@@ -12172,7 +12165,7 @@ void TV::FillOSDMenuJumpRec(PlayerContext* ctx, const QString &category,
 
             ProgramInfo *lastprog = GetLastProgram();
             QMap<QString,ProgramList>::const_iterator Iprog;
-            for (Iprog = m_progLists.begin(); Iprog != m_progLists.end(); ++Iprog)
+            for (Iprog = m_progLists.cbegin(); Iprog != m_progLists.cend(); ++Iprog)
             {
                 const ProgramList &plist = *Iprog;
                 uint progIndex = (uint) plist.size();
@@ -12253,7 +12246,6 @@ void TV::HandleDeinterlacer(PlayerContext *ctx, const QString &action)
     if (!action.startsWith("DEINTERLACER"))
         return;
 
-    QString deint = action.mid(13);
     ctx->LockDeletePlayer(__FILE__, __LINE__);
     //if (ctx->m_player)
     //    ctx->m_player->ForceDeinterlacer(deint);
@@ -12267,7 +12259,7 @@ void TV::OverrideScan(PlayerContext *Context, FrameScanType Scan)
     if (Context->m_player)
     {
         Context->m_player->SetScanOverride(Scan);
-        message = ScanTypeToString(Scan == kScan_Detect ? kScan_Detect :
+        message = ScanTypeToUserString(Scan == kScan_Detect ? kScan_Detect :
                     Context->m_player->GetScanType(), Scan > kScan_Detect);
     }
     Context->UnlockDeletePlayer(__FILE__, __LINE__);
@@ -12477,7 +12469,7 @@ void TV::ToggleSleepTimer(const PlayerContext *ctx, const QString &time)
         if (time.length() > 11)
         {
             bool intRead = false;
-            mins = time.right(time.length() - 11).toInt(&intRead);
+            mins = time.rightRef(time.length() - 11).toInt(&intRead);
 
             if (intRead)
             {
@@ -12828,7 +12820,6 @@ void TV::ShowOSDStopWatchingRecording(PlayerContext *ctx)
     if (!ContextIsPaused(ctx, __FILE__, __LINE__))
         DoTogglePause(ctx, false);
 
-    QString message;
     QString videotype;
 
     if (StateIsLiveTV(GetState(ctx)))
@@ -12905,7 +12896,7 @@ void TV::ShowOSDPromptDeleteRecording(PlayerContext *ctx, const QString& title,
     {
         LOG(VB_GENERAL, LOG_ERR,
             "This program cannot be deleted at this time.");
-        ProgramInfo pginfo(*ctx->m_playingInfo);
+        ProgramInfo pginfo(*ctx->m_playingInfo); // cppcheck-suppress variableScope
         ctx->UnlockPlayingInfo(__FILE__, __LINE__);
 
         OSD *osd = GetOSDLock(ctx);

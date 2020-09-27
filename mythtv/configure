@@ -575,6 +575,10 @@ add_cflags_headers(){
 }
 
 add_cxxflags(){
+    append CXXFLAGS "$@"
+}
+
+add_ecxxflags(){
     append ECXXFLAGS "$@"
 }
 
@@ -2010,7 +2014,6 @@ MYTHTV_HAVE_LIST='
     gettimeofday
     posix_fadvise
     libudev
-    libuuid
     stdint_h
     sync_file_range
     sys_endian_h
@@ -2053,6 +2056,7 @@ USING_LIST='
     mmal
     vulkan
     libglslang
+    videotoolbox
 '
 
 CMDLINE_SELECT="
@@ -2988,7 +2992,7 @@ for opt do
         ;;
         --libdir-name=*) libdir_name=$optval
         ;;
-        --extra-cxxflags=*) add_cxxflags $optval
+        --extra-cxxflags=*) add_ecxxflags $optval
         ;;
         --firewire-sdk=*) firewiresdk_path="${optval}"
         ;;
@@ -3316,10 +3320,13 @@ case "$toolchain" in
         add_ldflags  --coverage
     ;;
     hardened)
-        add_cppflags -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
+        add_cppflags -O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
+        add_cxxflags -O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
         add_cflags   -fno-strict-overflow -fstack-protector-all
+        add_cxxflags -fno-strict-overflow -fstack-protector-all
         add_ldflags  -Wl,-z,relro -Wl,-z,now
         add_cflags   -fPIE
+        add_cxxflags -fPIE
         add_ldexeflags -fPIE -pie
     ;;
     ?*)
@@ -4742,6 +4749,7 @@ case $target_os in
         enable  appleremote
         enable  backend
         enable  darwin
+        enable  videotoolbox
         disable dvb
         disable v4l1
         disable v4l2
@@ -4799,7 +4807,6 @@ case $target_os in
         enable  windows
         disable x11
         disable qtdbus
-        disable libuuid
         disable ffserver
         ###### Standard ffmpeg configure stuff follows:
         if test $target_os = "mingw32ce"; then
@@ -4910,7 +4917,6 @@ case $target_os in
         enable backend
         ! disabled joystick_menu && enable joystick_menu
         enable libudev
-        enable libuuid
         enable pic
         enable drm
 	if [ x`uname -m` = x"armv7l" ]; then
@@ -5866,22 +5872,28 @@ fi
 
 enabled ffmpeg_pthreads && enable pthreads
 
-# Check for taglib for libmythmetadata
+# Check for taglib for libmythmetadata. MSYS2 uses taglib-config.cmd
+TAGLIB_CONFIG=""
 if enabled taglib; then
-    taglib_minor="0"
     if test x`which taglib-config` != x"" ; then
-        taglib_minor=`taglib-config --version | cut -d. -f2`
+        TAGLIB_CONFIG="taglib-config"
+    elif test $target_os = mingw32 ; then
+        TAGLIB_CONFIG="taglib-config.cmd"
+    fi
+    taglib_minor="0"
+    if test $TAGLIB_CONFIG ; then
+        taglib_minor=`$TAGLIB_CONFIG --version | cut -d. -f2`
         if test x"$taglib_minor" = x"" ; then
             echo "Can't find taglib-config. Assuming 1.7 or later."
             taglib_minor="7"
         fi
         if test $target_os = android ; then
-            tagprefix=`taglib-config --prefix`
+            tagprefix=`$TAGLIB_CONFIG --prefix`
         else
-            tagprefix=${sysroot}`taglib-config --prefix`
+            tagprefix=${sysroot}`$TAGLIB_CONFIG --prefix`
         fi
         tagincludes="-I${tagprefix}/include"
-        taglibs=`taglib-config --libs`
+        taglibs=`$TAGLIB_CONFIG --libs`
         if test $target_os = android ; then
             taglibs="$taglibs -lz -lm"
         fi
@@ -6688,26 +6700,14 @@ int main(void) {
 EOF
 
 if enabled taglib; then
-    taglib_include=`taglib-config --prefix`/include/taglib
-    taglib_libs=`taglib-config --libs`
+    taglib_include=`$TAGLIB_CONFIG --prefix`/include/taglib
+    taglib_libs=`$TAGLIB_CONFIG --libs`
 fi
 
 enabled x11 && check_lib X11 "X11/Xdefs.h X11/Xlib.h" XQueryExtension  -lX11 || disable x11
 
 if enabled x11; then
     require libXrandr "X11/Xdefs.h X11/Xlib.h X11/extensions/Xrandr.h" XRRSelectInput -lXrandr
-fi
-
-# CoreVideo in only available on Mac OS 10.4, or on 10.3 with QuickTime 7.
-# This checks for it, and some other calls that the module needs
-if test $target_os = darwin; then
-    cat > $TMPC << EOF
-#include <AGL/agl.h>
-int main( void ) { return aglGetCGLContext(0,0L); }
-EOF
-    if $cc -o $TMPE $TMPC -framework AGL > /dev/null 2>&1; then
-        mac_corevideo="yes"
-    fi
 fi
 
 if test $target_os = darwin; then
@@ -7284,6 +7284,13 @@ if ! grep "^CONFIG_NVDEC=yes$" external/FFmpeg/ffbuild/config.mak ; then
     disable nvdec
 fi
 
+# If ffmpeg disabled videotoolbox then disable it
+if test x"$target_os" = x"darwin" ; then
+    if ! grep "^CONFIG_VIDEOTOOLBOX=yes$" external/FFmpeg/ffbuild/config.mak ; then
+        disable videotoolbox
+    fi
+fi
+
 if test "$quiet" != "yes"; then
 
 echo
@@ -7447,6 +7454,9 @@ if enabled frontend; then
 if enabled x11 ; then
   echo "VDPAU support             ${vdpau-no}"
   echo "NVDEC support             ${nvdec-no}"
+fi
+if test x"$target_os" = x"darwin" ; then
+  echo "VideoToolBox support      ${videotoolbox-no}"
 fi
   echo "VAAPI support             ${vaapi-no}"
   echo "DRM support               ${drm-no}"
@@ -7757,10 +7767,6 @@ test -n "$assert_level" &&
 
 test -n "$malloc_prefix" &&
     echo "#define MALLOC_PREFIX $malloc_prefix" >>$TMPH
-
-if enabled mac_corevideo; then
-  append CCONFIG "using_corevideo"
-fi
 
 if enabled cygwin ; then
   echo "#ifndef llrint" >> $TMPH

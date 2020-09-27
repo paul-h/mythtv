@@ -338,10 +338,8 @@ void NetworkControl::deleteClient(void)
 
     gCoreContext->SendSystemEvent("NET_CTRL_DISCONNECTED");
 
-    QList<NetworkControlClient *>::const_iterator it;
-    for (it = m_clients.begin(); it != m_clients.end(); ++it)
+    for (auto * ncc : qAsConst(m_clients))
     {
-        NetworkControlClient *ncc = *it;
         if (ncc->getSocket()->state() == QTcpSocket::UnconnectedState)
         {
             deleteClient(ncc);
@@ -439,7 +437,7 @@ void NetworkControl::receiveCommand(QString &command)
 {
     LOG(VB_NETWORK, LOG_INFO, LOC +
         QString("NetworkControl::receiveCommand(%1)").arg(command));
-    auto *ncc = dynamic_cast<NetworkControlClient *>(sender());
+    auto *ncc = qobject_cast<NetworkControlClient *>(sender());
     if (!ncc)
          return;
 
@@ -514,7 +512,7 @@ QString NetworkControl::processKey(NetworkCommand *nc)
             QCoreApplication::postEvent(keyDest, event);
         }
         else if (((tokenLen == 1) &&
-                  (nc->getArg(curToken)[0].isLetterOrNumber())) ||
+                  (nc->getArg(curToken).at(0).isLetterOrNumber())) ||
                  ((tokenLen >= 1) &&
                   (nc->getArg(curToken).contains("+"))))
         {
@@ -836,9 +834,9 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
             message = "NETWORK_CONTROL SEEK BACKWARD";
         else if (nc->getArg(2).contains(QRegExp(R"(^\d\d:\d\d:\d\d$)")))
         {
-            int hours   = nc->getArg(2).mid(0, 2).toInt();
-            int minutes = nc->getArg(2).mid(3, 2).toInt();
-            int seconds = nc->getArg(2).mid(6, 2).toInt();
+            int hours   = nc->getArg(2).midRef(0, 2).toInt();
+            int minutes = nc->getArg(2).midRef(3, 2).toInt();
+            int seconds = nc->getArg(2).midRef(6, 2).toInt();
             message = QString("NETWORK_CONTROL SEEK POSITION %1")
                               .arg((hours * 3600) + (minutes * 60) + seconds);
         }
@@ -1203,7 +1201,7 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
         if (!topScreen)
             return QString("ERROR: no top screen found!");
 
-        auto *currType = dynamic_cast<MythUIType*>(topScreen);
+        MythUIType *currType = topScreen;
         if (currType == nullptr)
             return QString("ERROR: cannot cast top screen!");
 
@@ -1248,9 +1246,7 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
         if (!topScreen)
             return QString("ERROR: no top screen found!");
 
-        auto *currType = dynamic_cast<MythUIType*>(topScreen);
-        if (currType == nullptr)
-            return QString("ERROR: cannot cast top screen!");
+        MythUIType *currType = topScreen;
 
         while (path.count() > 1)
         {
@@ -1295,7 +1291,7 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
             topScreen = stack->GetTopScreen();
         }
 
-        auto *currType = dynamic_cast<MythUIType*>(topScreen);
+        MythUIType *currType = topScreen;
         if (!topScreen)
             return QString("ERROR: no top screen found!");
 
@@ -1633,10 +1629,8 @@ void NetworkControl::customEvent(QEvent *e)
             }
             else //send to all clients
             {
-                QList<NetworkControlClient *>::const_iterator it;
-                for (it = m_clients.begin(); it != m_clients.end(); ++it)
+                for (auto * ncc2 : qAsConst(m_clients))
                 {
-                    NetworkControlClient *ncc2 = *it;
                     if (ncc2)
                         sendReplyToClient(ncc2, reply);
                 }

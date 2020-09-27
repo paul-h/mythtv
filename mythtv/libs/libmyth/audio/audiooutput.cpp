@@ -302,7 +302,7 @@ void AudioOutput::ClearWarning(void)
 }
 
 AudioOutput::AudioDeviceConfig* AudioOutput::GetAudioDeviceConfig(
-    QString &name, QString &desc, bool willsuspendpa)
+    QString &name, const QString &desc, bool willsuspendpa)
 {
     AudioOutputSettings aosettings(true);
 
@@ -400,7 +400,8 @@ AudioOutput::AudioDeviceConfig* AudioOutput::GetAudioDeviceConfig(
 static void fillSelectionsFromDir(const QDir &dir,
                                   AudioOutput::ADCVect *list)
 {
-    for (const auto& fi : dir.entryInfoList())
+    QFileInfoList entries = dir.entryInfoList();
+    for (const auto& fi : qAsConst(entries))
     {
         QString name = fi.absoluteFilePath();
         QString desc = AudioOutput::tr("OSS device");
@@ -427,11 +428,10 @@ AudioOutput::ADCVect* AudioOutput::GetOutputList(void)
 
     if (!alsadevs->empty())
     {
-        for (QMap<QString, QString>::const_iterator i = alsadevs->begin();
-             i != alsadevs->end(); ++i)
+        for (auto i = alsadevs->cbegin(); i != alsadevs->cend(); ++i)
         {
             const QString& key = i.key();
-            QString desc = i.value();
+            const QString& desc = i.value();
             QString devname = QString("ALSA:%1").arg(key);
 
             auto *adc = GetAudioDeviceConfig(devname, desc);
@@ -553,7 +553,7 @@ AudioOutput::ADCVect* AudioOutput::GetOutputList(void)
     }
 #endif
 
-#ifdef ANDROID
+#ifdef Q_OS_ANDROID
     {
         QString name = "OpenSLES:";
         QString desc =  tr("OpenSLES default output. Stereo support only.");

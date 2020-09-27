@@ -76,12 +76,6 @@ Checks: '-*,
        -cert-str34-c,
 
     clang-analyzer-*,
-        # One instance in mpegdescriptors.h ,
-       -clang-analyzer-core.NullDereference,
-
-        # One instance in cc708window.h. ,
-       -clang-analyzer-cplusplus.NewDelete,
-
         # The "safe" versions functions were optional in the standard
         # and were never implemented by GCC or Clang.  There has been
         # a move to have these functions removed from the standard as
@@ -157,9 +151,6 @@ Checks: '-*,
        -misc-no-recursion,
 
     modernize-*,
-
-        # Lots of changes to be done. ,
-       -modernize-avoid-c-arrays,
 
         # Noisy!!!  foo(void) => foo()  ,
        -modernize-redundant-void-arg,

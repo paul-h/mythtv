@@ -319,8 +319,7 @@ private:
     QVector<ProgramList*> m_proglists;
     ProgInfoGuideArray m_programInfos {};
     int m_progPast {0};
-    //QVector<GuideUIElement> m_result;
-    QLinkedList<GuideUIElement> m_result;
+    std::list<GuideUIElement> m_result;
 };
 
 class GuideUpdateChannels : public GuideUpdaterBase
@@ -404,13 +403,13 @@ private:
     GuideGrid        *m_guide   {nullptr};
     GuideUpdaterBase *m_updater {nullptr};
 
-    static QMutex                s_lock;
-    static QWaitCondition        s_wait;
-    static QMap<GuideGrid*,uint> s_loading;
+    static QMutex                 s_lock;
+    static QWaitCondition         s_wait;
+    static QHash<GuideGrid*,uint> s_loading;
 };
-QMutex                GuideHelper::s_lock;
-QWaitCondition        GuideHelper::s_wait;
-QMap<GuideGrid*,uint> GuideHelper::s_loading;
+QMutex                 GuideHelper::s_lock;
+QWaitCondition         GuideHelper::s_wait;
+QHash<GuideGrid*,uint> GuideHelper::s_loading;
 
 void GuideGrid::RunProgramGuide(uint chanid, const QString &channum,
                                 const QDateTime &startTime,
@@ -518,6 +517,19 @@ GuideGrid::GuideGrid(MythScreenStack *parent,
                         m_originalStartTime.time().second());
     m_currentStartTime = m_originalStartTime.addSecs(secsoffset);
     m_threadPool.setMaxThreadCount(1);
+
+    if (m_player)
+        connect(m_player, &TV::PlaybackExiting, this, &GuideGrid::PlayerExiting);
+}
+
+void GuideGrid::PlayerExiting(TV* Player)
+{
+    if (Player && (Player == m_player))
+    {
+        m_player->StopEmbedding();
+        HideTVWindow();
+        m_player = nullptr;
+    }
 }
 
 bool GuideGrid::Create()
@@ -857,8 +869,8 @@ bool GuideGrid::gestureEvent(MythGestureEvent *event)
     }
 
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Guide Gesture event %1")
-        .arg((QString)event->gesture()));
-    switch (event->gesture())
+        .arg((QString)event->GetGesture()));
+    switch (event->GetGesture())
     {
         case MythGestureEvent::Click:
             {
@@ -883,7 +895,7 @@ bool GuideGrid::gestureEvent(MythGestureEvent *event)
 
                     if (name.startsWith("channellist"))
                     {
-                        auto* channelList = dynamic_cast<MythUIButtonList*>(object);
+                        auto* channelList = qobject_cast<MythUIButtonList*>(object);
 
                         if (channelList)
                         {
@@ -893,7 +905,7 @@ bool GuideGrid::gestureEvent(MythGestureEvent *event)
                     }
                     else if (name.startsWith("guidegrid"))
                     {
-                        auto* guidegrid = dynamic_cast<MythUIGuideGrid*>(object);
+                        auto* guidegrid = qobject_cast<MythUIGuideGrid*>(object);
 
                         if (guidegrid)
                         {
@@ -1422,9 +1434,6 @@ void GuideGrid::fillChannelInfos(bool gotostartchannel)
 int GuideGrid::FindChannel(uint chanid, const QString &channum,
                            bool exact) const
 {
-    static QMutex s_chanSepRegExpLock;
-    static QRegExp s_chanSepRegExp(ChannelUtil::kATSCSeparators);
-
     // first check chanid
     uint i = (chanid) ? 0 : GetChannelCount();
     for (; i < GetChannelCount(); ++i)
@@ -1832,10 +1841,10 @@ void GuideUpdateProgramRow::fillProgramRowInfosWith(int row,
             QString title = (pginfo->GetTitle() == kUnknownTitle) ?
                 GuideGrid::tr("Unknown", "Unknown program title") :
                                 pginfo->GetTitle();
-            m_result.push_back(GuideUIElement(
+            m_result.emplace_back(
                 row, cnt, tempRect, title,
                 pginfo->GetCategory(), arrow, recFlag,
-                recStat, isCurrent));
+                recStat, isCurrent);
 
             cnt++;
         }
@@ -2032,7 +2041,7 @@ void GuideGrid::updateProgramsUI(unsigned int firstRow, unsigned int numRows,
                                  int progPast,
                                  const QVector<ProgramList*> &proglists,
                                  const ProgInfoGuideArray &programInfos,
-                                 const QLinkedList<GuideUIElement> &elements)
+                                 const std::list<GuideUIElement> &elements)
 {
     for (unsigned int i = 0; i < numRows; ++i)
     {
@@ -2045,7 +2054,7 @@ void GuideGrid::updateProgramsUI(unsigned int firstRow, unsigned int numRows,
         }
     }
     m_guideGrid->SetProgPast(progPast);
-    for (const auto & r : qAsConst(elements))
+    for (const auto & r : elements)
     {
         m_guideGrid->SetProgramInfo(r.m_row, r.m_col, r.m_area, r.m_title,
                                     r.m_category, r.m_arrow, r.m_recType,

@@ -35,7 +35,6 @@ struct Source
     bool    xmltvgrabber_manualconfig {false};
     bool    xmltvgrabber_cache        {false};
     QString xmltvgrabber_prefmethod;
-    vector<int> dd_dups;
 };
 using SourceList = vector<Source>;
 
@@ -49,7 +48,7 @@ class FillData
 
     void SetRefresh(int day, bool set);
 
-    bool GrabDataFromFile(int id, QString &filename);
+    bool GrabDataFromFile(int id, const QString &filename);
     bool GrabData(const Source& source, int offset);
     bool Run(SourceList &sourcelist);
 

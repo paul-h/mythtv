@@ -537,7 +537,7 @@ bool ProgLister::PowerStringToSQL(
         return false;
     };
 
-    static const QString kBindingList[6] =
+    static const std::array<QString,6> kBindingList
     {
         ":POWERTITLE",
         ":POWERSUB",
@@ -547,7 +547,7 @@ bool ProgLister::PowerStringToSQL(
         ":POWERCALLSIGN",
     };
 
-    static const QString kOutputList[6] =
+    static const std::array<QString,6> kOutputList
     {
         "program.title LIKE :POWERTITLE ",
         "program.subtitle LIKE :POWERSUB ",
@@ -1602,7 +1602,7 @@ void ProgLister::customEvent(QEvent *event)
         auto *dce = (DialogCompletionEvent*)(event);
 
         QString resultid   = dce->GetId();
-        QString resulttext = dce->GetResultText();
+//      QString resulttext = dce->GetResultText();
         int     buttonnum  = dce->GetResult();
 
         if (resultid == "sortmenu")

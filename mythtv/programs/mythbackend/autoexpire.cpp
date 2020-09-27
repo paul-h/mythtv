@@ -158,8 +158,8 @@ void AutoExpire::CalcParams()
     // that every encoder writes only to one fs.
     // Copying the data minimizes the time the lock is held.
     m_instanceLock.lock();
-    QMap<int, int>::const_iterator ueit = m_usedEncoders.begin();
-    while (ueit != m_usedEncoders.end())
+    QMap<int, int>::const_iterator ueit = m_usedEncoders.cbegin();
+    while (ueit != m_usedEncoders.cend())
     {
         fsEncoderMap[*ueit].push_back(ueit.key());
         ++ueit;
@@ -652,8 +652,6 @@ void AutoExpire::ExpireEpisodesOverMax(void)
     QMap<QString, int>::Iterator maxIter;
     QMap<QString, int> episodeParts;
     QString episodeKey;
-
-    QString fileprefix = gCoreContext->GetFilePrefix();
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare("SELECT recordid, maxepisodes, title "

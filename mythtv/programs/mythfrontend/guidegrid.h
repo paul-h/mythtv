@@ -3,6 +3,7 @@
 #define GUIDEGRID_H_
 
 // c++
+#include <list>
 #include <utility>
 #include <vector>
 using namespace std;
@@ -34,7 +35,7 @@ class MythUIGuideGrid;
 
 using db_chan_list_t = vector<ChannelInfo>  ;
 using db_chan_list_list_t = vector<db_chan_list_t>;
-using ProgInfoGuideArray = ProgramInfo *[MAX_DISPLAY_CHANS][MAX_DISPLAY_TIMES];
+using ProgInfoGuideArray = array<array<ProgramInfo *,MAX_DISPLAY_TIMES>,MAX_DISPLAY_CHANS>;
 
 class JumpToChannel;
 class JumpToChannelListener
@@ -134,6 +135,9 @@ class GuideGrid : public ScheduleCommon, public JumpToChannelListener
     uint GetCurrentStartChannel(void) const { return m_currentStartChannel; }
     QDateTime GetCurrentStartTime(void) const { return m_currentStartTime; }
 
+  public slots:
+    void PlayerExiting(TV* Player);
+
   protected slots:
     void cursorLeft();
     void cursorRight();
@@ -216,7 +220,7 @@ public:
                           int progPast,
                           const QVector<ProgramList*> &proglists,
                           const ProgInfoGuideArray &programInfos,
-                          const QLinkedList<GuideUIElement> &elements);
+                          const std::list<GuideUIElement> &elements);
     void updateChannelsNonUI(QVector<ChannelInfo *> &chinfos,
                              QVector<bool> &unavailables);
     void updateChannelsUI(const QVector<ChannelInfo *> &chinfos,

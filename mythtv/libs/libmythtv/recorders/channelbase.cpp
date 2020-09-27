@@ -310,7 +310,8 @@ void ChannelBase::HandleScript(const QString &freqid)
     if (m_system)
         GetScriptStatus(true);
 
-    // If it's still running, try killing it
+    // If it's still running, try killing it. GetScriptStatus() may
+    // update m_system. (cppcheck-suppress duplicateCondition)
     if (m_system)
         ok = KillScript();
 
@@ -737,7 +738,7 @@ ChannelBase *ChannelBase::CreateChannel(
     else if ((genOpt.m_inputType == "IMPORT") ||
              (genOpt.m_inputType == "DEMO") ||
              (genOpt.m_inputType == "MPEG" &&
-              genOpt.m_videoDev.toLower().startsWith("file:")))
+              genOpt.m_videoDev.startsWith("file:", Qt::CaseInsensitive)))
     {
         channel = new DummyChannel(tvrec);
         rbFileExt = "mpg";

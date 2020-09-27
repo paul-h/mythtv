@@ -185,7 +185,6 @@ void BackendSelection::AddItem(DeviceLocation *dev)
  */
 bool BackendSelection::ConnectBackend(DeviceLocation *dev)
 {
-    QString          error;
     QString          message;
 
     m_usn   = dev->m_sUSN;
@@ -255,11 +254,10 @@ void BackendSelection::Init(void)
         pEntries->GetEntryMap(ourMap);
         pEntries->DecrRef();
 
-        EntryMap::const_iterator it;
-        for (it = ourMap.begin(); it != ourMap.end(); ++it)
+        for (auto * devLoc : qAsConst(ourMap))
         {
-            AddItem(*it);
-            (*it)->DecrRef();
+            AddItem(devLoc);
+            devLoc->DecrRef();
         }
     }
 }

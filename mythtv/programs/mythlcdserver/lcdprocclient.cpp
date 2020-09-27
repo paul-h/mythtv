@@ -1134,8 +1134,6 @@ void LCDProcClient::startGeneric(QList<LCDTextItem> *textItems)
     QList<LCDTextItem>::iterator it = textItems->begin();
     LCDTextItem *curItem = &(*it);
 
-    QString aString;
-
     if ( m_lcdShowGeneric )
         setPriority("Generic", TOP);
 
@@ -1501,7 +1499,7 @@ void LCDProcClient::scrollMenuText()
                 // Indent this item if nessicary
                 aString += bString.fill(' ', curItem->getIndent());
 
-                aString += curItem->ItemName().mid(curItem->getScrollPos(),
+                aString += curItem->ItemName().midRef(curItem->getScrollPos(),
                                                    ( m_lcdWidth - lcdStartCol));
                 aString += "\"";
                 sendToServer(aString);
@@ -1607,7 +1605,7 @@ void LCDProcClient::scrollMenuText()
             curItem->incrementScrollPos();
 
             if ((int)curItem->getScrollPos() <= longest_line)
-                aString += curItem->ItemName().mid(curItem->getScrollPos(),
+                aString += curItem->ItemName().midRef(curItem->getScrollPos(),
                                                    ( m_lcdWidth-lcdStartCol));
 
             aString += "\"";

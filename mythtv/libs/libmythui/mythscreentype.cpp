@@ -456,11 +456,11 @@ bool MythScreenType::keyPressEvent(QKeyEvent *event)
 bool MythScreenType::gestureEvent(MythGestureEvent *event)
 {
     bool handled = false;
-    if (event->gesture() == MythGestureEvent::Click)
+    if (event->GetGesture() == MythGestureEvent::Click)
     {
         switch (event->GetButton())
         {
-            case MythGestureEvent::RightButton :
+            case Qt::RightButton:
                 ShowMenu();
                 handled = true;
                 break;

@@ -72,9 +72,7 @@ MusicMetadata::MusicMetadata(int lid, QString lbroadcaster, QString lchannel, QS
             m_country(std::move(lcountry)),
             m_language(std::move(llanguage))
 {
-    for (int x = 0; x < STREAMURLCOUNT; x++)
-        m_urls[x] = lurls[x];
-
+    m_urls = lurls;
     setRepo(RT_Radio);
     ensureSortFields();
 }
@@ -142,8 +140,7 @@ MusicMetadata& MusicMetadata::operator=(const MusicMetadata &rhs)
     m_channel = rhs.m_channel;
     m_description = rhs.m_description;
 
-    for (int x = 0; x < 5; x++)
-        m_urls[x] = rhs.m_urls[x];
+    m_urls = rhs.m_urls;
     m_logoUrl = rhs.m_logoUrl;
     m_metaFormat = rhs.m_metaFormat;
     m_country = rhs.m_country;
@@ -462,7 +459,6 @@ int MusicMetadata::getDirectoryId()
     if (m_directoryId < 0)
     {
         QString sqldir = m_filename.section('/', 0, -2);
-        QString sqlfilename = m_filename.section('/', -1);
 
         checkEmptyFields();
 
@@ -736,7 +732,6 @@ void MusicMetadata::dumpToDatabase()
                    "WHERE song_id= :ID ;";
     }
 
-    QString sqldir = m_filename.section('/', 0, -2);
     QString sqlfilename = m_filename.section('/', -1);
 
     MSqlQuery query(MSqlQuery::InitCon());
@@ -1514,12 +1509,6 @@ void AllMusic::resync()
                      "LEFT JOIN music_artists AS music_comp_artists ON music_albums.artist_id=music_comp_artists.artist_id "
                      "LEFT JOIN music_genres ON music_songs.genre_id=music_genres.genre_id "
                      "ORDER BY music_songs.song_id;";
-
-    QString filename;
-    QString artist;
-    QString album;
-    QString title;
-    QString compartist;
 
     MSqlQuery query(MSqlQuery::InitCon());
     if (!query.exec(aquery))

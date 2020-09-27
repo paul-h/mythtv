@@ -25,7 +25,8 @@ static QString decode_iso6937(const unsigned char *buf, uint length)
         if (ch == 0xFFFF)
         {
             // Process second byte of two byte character
-            ch = iso6937table_secondary[buf[i-1]][buf[i]];
+            const iso6937table * foo = iso6937table_secondary[buf[i-1]];
+            ch = (*foo)[buf[i]];
             if (ch == 0xFFFF)
             {
                 // If no valid code found in secondary table,
@@ -53,8 +54,7 @@ static QString decode_text(const unsigned char *buf, uint length);
 
 // Decode a text string according to ETSI EN 300 468 Annex A
 QString dvb_decode_text(const unsigned char *src, uint raw_length,
-                        const unsigned char *encoding_override,
-                        uint encoding_override_length)
+                        const enc_override &encoding_override)
 {
     if (!raw_length)
         return "";
@@ -85,12 +85,12 @@ QString dvb_decode_text(const unsigned char *src, uint raw_length,
 
     // if a override encoding is specified and the default ISO 6937 encoding
     // would be used copy the override encoding in front of the text
-    auto *dst = new unsigned char[raw_length + encoding_override_length];
+    auto *dst = new unsigned char[raw_length + encoding_override.size()];
 
     uint length = 0;
-    if (encoding_override && src[0] >= 0x20) {
-        memcpy(dst, encoding_override, encoding_override_length);
-        length = encoding_override_length;
+    if (!encoding_override.empty() && (src[0] >= 0x20)) {
+        std::copy(encoding_override.cbegin(), encoding_override.cend(), dst);
+        length = encoding_override.size();
     }
 
     // Strip formatting characters
@@ -283,13 +283,13 @@ QString ContentDescriptor::GetDescription(uint i) const
     QMutexLocker locker(&s_categoryLock);
 
     // Try to get detailed description
-    QMap<uint,QString>::const_iterator it = s_categoryDesc.find(Nibble(i));
-    if (it != s_categoryDesc.end())
+    QMap<uint,QString>::const_iterator it = s_categoryDesc.constFind(Nibble(i));
+    if (it != s_categoryDesc.constEnd())
         return *it;
 
     // Fall back to category description
-    it = s_categoryDesc.find(Nibble1(i)<<4);
-    if (it != s_categoryDesc.end())
+    it = s_categoryDesc.constFind(Nibble1(i)<<4);
+    if (it != s_categoryDesc.constEnd())
         return *it;
 
     // Found nothing? Just return empty string.
@@ -1010,9 +1010,9 @@ QString AC3Descriptor::toString(void) const
     return ret;
 }
 
-QMap<QString,QString> ExtendedEventDescriptor::Items(void) const
+QMultiMap<QString,QString> ExtendedEventDescriptor::Items(void) const
 {
-    QMap<QString, QString> ret;
+    QMultiMap<QString, QString> ret;
 
     uint index = 0;
 
@@ -1025,7 +1025,7 @@ QMap<QString,QString> ExtendedEventDescriptor::Items(void) const
         index += 1 + m_data[7 + index];
         QString item = dvb_decode_text (&m_data[8 + index], m_data[7 + index]);
         index += 1 + m_data[7 + index];
-        ret.insertMulti (item_description, item);
+        ret.insert (item_description, item);
     }
 
     return ret;

@@ -861,7 +861,7 @@ static void handleGalleryMedia(MythMediaDevice *dev)
 
     for (const auto *screen : qAsConst(screens))
     {
-        if (dynamic_cast<const GalleryThumbView*>(screen))
+        if (qobject_cast<const GalleryThumbView*>(screen))
         {
             // Running gallery will receive this event later
             LOG(VB_MEDIA, LOG_INFO, "Main: Ignoring new gallery media - already running");
@@ -1380,7 +1380,7 @@ static int internal_play_media(const QString &mrl, const QString &plot,
 static void gotoMainMenu(void)
 {
     // Reset the selected button to the first item.
-    auto *lmenu = dynamic_cast<MythThemedMenuState *>
+    auto *lmenu = qobject_cast<MythThemedMenuState *>
         (GetMythMainWindow()->GetMainStack()->GetTopScreen());
     if (lmenu)
         lmenu->m_buttonList->SetItemCurrent(0);
@@ -1736,7 +1736,7 @@ static bool WasAutomaticStart(void)
         if( gCoreContext->IsMasterHost() )
         {
             QString s = gCoreContext->GetSetting("MythShutdownWakeupTime", "");
-            if (s.length())
+            if (!s.isEmpty())
                 startupTime = MythDate::fromString(s);
 
             // if we don't have a valid startup time assume we were started manually

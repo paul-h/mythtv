@@ -156,8 +156,6 @@ bool MythCCExtractorPlayer::run(void)
 
     m_curTime = 0;
 
-    QString currDir = QFileInfo(m_fileName).path();
-
     if (DecoderGetFrame(kDecodeVideo))
         OnGotNewFrame();
 
@@ -461,11 +459,8 @@ void MythCCExtractorPlayer::Ingest708Caption(
     }
 
     QStringList screenContent;
-    for (QMap<uint, QStringList>::const_iterator oit = orderedContent.begin();
-         oit != orderedContent.end(); ++oit)
-    {
-        screenContent += *oit;
-    }
+    for (const auto & ordered : qAsConst(orderedContent))
+        screenContent += ordered;
     IngestSubtitle(m_cc708Info[streamId].m_subs[serviceIdx], screenContent);
 }
 
@@ -500,8 +495,6 @@ void MythCCExtractorPlayer::Process708Captions(uint flags)
 
                 QString service_key = QString("service-%1")
                     .arg(idx, 2, 10, QChar('0'));
-                QString id = iso639_is_key_undefined(langCode) ?
-                    service_key : lang;
                 QString filename = QString("%1.%2%3-%4.%5.srt")
                     .arg(m_baseName).arg(stream_id_str).arg("708")
                     .arg(service_key).arg(lang);
@@ -535,7 +528,7 @@ static QStringList to_string_list(const TeletextSubPage &subPage)
 {
     QStringList content;
     // Skip the page header (line 0)
-    for (int i = 1; i < 25; ++i)
+    for (size_t i = 1; i < subPage.data.size(); ++i)
     {
         QString str = decode_teletext(subPage.lang, subPage.data[i]).trimmed();
         if (!str.isEmpty())

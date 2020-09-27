@@ -60,7 +60,7 @@ static void UpdatePositionMap(frm_pos_map_t &posMap, frm_pos_map_t &durMap, cons
         }
         frm_pos_map_t::const_iterator it;
         fprintf (mapfh, "Type: %d\n", keyType);
-        for (it = posMap.begin(); it != posMap.end(); ++it)
+        for (it = posMap.cbegin(); it != posMap.cend(); ++it)
         {
             QString str = QString("%1 %2\n").arg(it.key()).arg(*it);
             fprintf(mapfh, "%s", qPrintable(str));
@@ -69,7 +69,7 @@ static void UpdatePositionMap(frm_pos_map_t &posMap, frm_pos_map_t &durMap, cons
     }
 }
 
-static int BuildKeyframeIndex(MPEG2fixup *m2f, QString &infile,
+static int BuildKeyframeIndex(MPEG2fixup *m2f, const QString &infile,
                        frm_pos_map_t &posMap, frm_pos_map_t &durMap, int jobID)
 {
     if (!m2f)
@@ -110,9 +110,11 @@ static int CheckJobQueue()
 static int QueueTranscodeJob(ProgramInfo *pginfo, const QString& profile,
                             const QString& hostname, bool usecutlist)
 {
-    RecordingInfo recinfo(*pginfo);
     if (!profile.isEmpty())
+    {
+        RecordingInfo recinfo(*pginfo);
         recinfo.ApplyTranscoderProfileChange(profile);
+    }
 
     if (JobQueue::QueueJob(JOB_TRANSCODE, pginfo->GetChanID(),
                            pginfo->GetRecordingStartTime(),
@@ -160,7 +162,6 @@ int main(int argc, char *argv[])
     bool mpeg2 = false;
     bool fifo_info = false;
     bool cleanCut = false;
-    QMap<QString, QString> settingsOverride;
     frm_dir_map_t deleteMap;
     frm_pos_map_t posMap; ///< position of keyframes
     frm_pos_map_t durMap; ///< duration from beginning of keyframes

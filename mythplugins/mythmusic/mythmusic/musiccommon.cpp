@@ -466,7 +466,7 @@ void MusicCommon::switchView(MusicView view)
             // if we are switching playlist editor views save and restore
             // the current position in the tree
             bool restorePos = (m_currentView == MV_PLAYLISTEDITORGALLERY);
-            auto *oldView = dynamic_cast<PlaylistEditorView *>(this);
+            auto *oldView = qobject_cast<PlaylistEditorView *>(this);
             if (oldView)
                 oldView->saveTreePosition();
 
@@ -496,7 +496,7 @@ void MusicCommon::switchView(MusicView view)
             // if we are switching playlist editor views save and restore
             // the current position in the tree
             bool restorePos = (m_currentView == MV_PLAYLISTEDITORTREE);
-            auto *oldView = dynamic_cast<PlaylistEditorView *>(this);
+            auto *oldView = qobject_cast<PlaylistEditorView *>(this);
             if (oldView)
                 oldView->saveTreePosition();
 
@@ -1117,10 +1117,11 @@ void MusicCommon::seek(int pos)
 {
     if (gPlayer->getOutput())
     {
-        if (gPlayer->getDecoder() && gPlayer->getDecoder()->isRunning())
+        Decoder *decoder = gPlayer->getDecoder();
+        if (decoder && decoder->isRunning())
         {
-            gPlayer->getDecoder()->lock();
-            gPlayer->getDecoder()->seek(pos);
+            decoder->lock();
+            decoder->seek(pos);
 
             if (m_mainvisual)
             {
@@ -1129,7 +1130,7 @@ void MusicCommon::seek(int pos)
                 m_mainvisual->mutex()->unlock();
             }
 
-            gPlayer->getDecoder()->unlock();
+            decoder->unlock();
         }
 
         gPlayer->getOutput()->SetTimecode(pos*1000);
@@ -2193,7 +2194,7 @@ MythMenu* MusicCommon::createMainMenu(void)
     while (screen)
     {
         screenList.append(screen->objectName());
-        screen = dynamic_cast<MusicCommon*>(screen)->m_parentScreen;
+        screen = qobject_cast<MusicCommon*>(screen)->m_parentScreen;
     }
 
     if (!screenList.contains("searchview") && !screenList.contains("streamview"))

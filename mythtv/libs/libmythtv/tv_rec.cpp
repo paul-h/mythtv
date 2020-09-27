@@ -405,7 +405,6 @@ RecStatus::Type TVRec::StartRecording(ProgramInfo *pginfo)
             .arg(rcinfo->toString(ProgramInfo::kTitleSubtitle)));
 
     QMutexLocker lock(&m_stateChangeLock);
-    QString msg("");
 
     if (m_recStatus != RecStatus::Failing)
         SetRecordingStatus(RecStatus::Aborted, __LINE__);
@@ -430,7 +429,7 @@ RecStatus::Type TVRec::StartRecording(ProgramInfo *pginfo)
         m_recordEndTime = m_curRecording->GetRecordingEndTime()
             .addSecs(post_roll_seconds);
 
-        msg = QString("updating recording: %1 %2 %3 %4")
+        QString msg = QString("updating recording: %1 %2 %3 %4")
             .arg(m_curRecording->GetTitle()).arg(m_curRecording->GetChanID())
             .arg(m_curRecording->GetRecordingStartTime(MythDate::ISODate))
             .arg(m_curRecording->GetRecordingEndTime(MythDate::ISODate));
@@ -615,7 +614,7 @@ RecStatus::Type TVRec::StartRecording(ProgramInfo *pginfo)
     }
     else if (!did_switch)
     {
-        msg = QString("Wanted to record: %1 %2 %3 %4\n\t\t\t")
+        QString msg = QString("Wanted to record: %1 %2 %3 %4\n\t\t\t")
             .arg(rcinfo->GetTitle()).arg(rcinfo->GetChanID())
             .arg(rcinfo->GetRecordingStartTime(MythDate::ISODate))
             .arg(rcinfo->GetRecordingEndTime(MythDate::ISODate));
@@ -675,7 +674,7 @@ RecStatus::Type TVRec::GetRecordingStatus(void) const
 void TVRec::SetRecordingStatus(
     RecStatus::Type new_status, int line, bool have_lock)
 {
-    RecStatus::Type old_status = RecStatus::Unknown;
+    RecStatus::Type old_status { RecStatus::Unknown };
     if (have_lock)
     {
         old_status = m_recStatus;
@@ -1255,7 +1254,7 @@ static int num_inputs(void)
 static int eit_start_rand(int eitTransportTimeout)
 {
     // randomize start time a bit
-    int timeout = random() % (eitTransportTimeout / 3);
+    int timeout = static_cast<int>(MythRandom()) % (eitTransportTimeout / 3);
     // get the number of inputs and the position of the current input
     // to distribute the the scan start evenly over eitTransportTimeout
     int no_inputs = num_inputs();
@@ -3436,7 +3435,7 @@ QString TVRec::TuningGetChanNum(const TuningRequest &request,
     if (m_channel && !channum.isEmpty() && (channum.indexOf("NextChannel") >= 0))
     {
         // FIXME This is just horrible
-        int dir     = channum.right(channum.length() - 12).toInt();
+        int dir     = channum.rightRef(channum.length() - 12).toInt();
         uint chanid = m_channel->GetNextChannel(0, static_cast<ChannelChangeDirection>(dir));
         channum     = ChannelUtil::GetChanNum(chanid);
     }
@@ -3572,9 +3571,6 @@ void TVRec::TuningShutdowns(const TuningRequest &request)
 {
     LOG(VB_RECORD, LOG_INFO, LOC + QString("TuningShutdowns(%1)")
         .arg(request.toString()));
-
-    QString channum;
-    QString inputname;
 
     if (m_scanner && !(request.m_flags & kFlagEITScan) &&
         HasFlags(kFlagEITScannerRunning))
@@ -4645,7 +4641,6 @@ bool TVRec::CreateLiveTVRingBuffer(const QString & channum)
 
     RecordingInfo *pginfo = nullptr;
     MythMediaBuffer *buffer = nullptr;
-    QString        inputName;
 
     if (!m_channel ||
         !m_channel->CheckChannel(channum))
@@ -4701,7 +4696,6 @@ bool TVRec::SwitchLiveTVRingBuffer(const QString & channum,
 
     RecordingInfo *pginfo = nullptr;
     MythMediaBuffer *buffer = nullptr;
-    QString        inputName;
 
     if (!m_channel ||
         !m_channel->CheckChannel(channum))
@@ -4830,8 +4824,8 @@ RecordingInfo *TVRec::SwitchRecordingRingBuffer(const RecordingInfo &rcinfo)
 
 TVRec* TVRec::GetTVRec(uint inputid)
 {
-    QMap<uint,TVRec*>::const_iterator it = s_inputs.find(inputid);
-    if (it == s_inputs.end())
+    QMap<uint,TVRec*>::const_iterator it = s_inputs.constFind(inputid);
+    if (it == s_inputs.constEnd())
         return nullptr;
     return *it;
 }

@@ -44,7 +44,7 @@ struct MimeType
     bool    m_isVideo;
 };
 
-static MimeType SupportedMimeTypes[] =
+static const std::vector<MimeType> SupportedMimeTypes
 {
     { "audio/mpeg3",                 "mp3",   false },
     { "audio/x-mpeg-3",              "mp3",   false },
@@ -75,9 +75,6 @@ static MimeType SupportedMimeTypes[] =
     { "video/msvideo",               "avi",   true },
     { "video/x-msvideo",             "avi",   true }
 };
-
-static int SupportedMimeTypesCount = sizeof(SupportedMimeTypes) /
-                                        sizeof(SupportedMimeTypes[0]);
 
 QNetworkReply* MythNetworkAccessManager::createRequest(Operation op, const QNetworkRequest& req, QIODevice* outgoingData)
 {
@@ -619,7 +616,6 @@ void MythWebView::customEvent(QEvent *event)
             if (resulttext == tr("Play the file"))
             {
                 QFileInfo fi(m_downloadRequest.url().path());
-                QString basename(fi.baseName());
                 QString extension = fi.suffix();
                 QString mimeType = getReplyMimetype();
 
@@ -699,7 +695,6 @@ void MythWebView::customEvent(QEvent *event)
 void MythWebView::showDownloadMenu(void)
 {
     QFileInfo fi(m_downloadRequest.url().path());
-    QString basename(fi.baseName());
     QString extension = fi.suffix();
     QString mimeType = getReplyMimetype();
 
@@ -731,29 +726,31 @@ void MythWebView::showDownloadMenu(void)
 
 QString MythWebView::getExtensionForMimetype(const QString &mimetype)
 {
-    for (int x = 0; x < SupportedMimeTypesCount; x++)
-    {
-        if (!mimetype.isEmpty() && mimetype == SupportedMimeTypes[x].m_mimeType)
-            return SupportedMimeTypes[x].m_extension;
-    }
+    if (mimetype.isEmpty())
+        return QString("");
 
+    auto it = std::find_if(SupportedMimeTypes.cbegin(), SupportedMimeTypes.cend(),
+                           [mimetype] (const MimeType& entry) -> bool
+                               { return mimetype == entry.m_mimeType; });
+    if (it != SupportedMimeTypes.cend())
+        return it->m_extension;
     return QString("");
 }
 
 bool MythWebView::isMusicFile(const QString &extension, const QString &mimetype)
 {
-    for (int x = 0; x < SupportedMimeTypesCount; x++)
+    for (const auto &entry : SupportedMimeTypes)
     {
-        if (!SupportedMimeTypes[x].m_isVideo)
-        {
-            if (!mimetype.isEmpty() &&
-                mimetype == SupportedMimeTypes[x].m_mimeType)
-                return true;
+        if (entry.m_isVideo)
+            continue;
 
-            if (!extension.isEmpty() &&
-                extension.toLower() == SupportedMimeTypes[x].m_extension)
-                return true;
-        }
+        if (!mimetype.isEmpty() &&
+            mimetype == entry.m_mimeType)
+            return true;
+
+        if (!extension.isEmpty() &&
+            extension.toLower() == entry.m_extension)
+            return true;
     }
 
     return false;
@@ -761,18 +758,18 @@ bool MythWebView::isMusicFile(const QString &extension, const QString &mimetype)
 
 bool MythWebView::isVideoFile(const QString &extension, const QString &mimetype)
 {
-    for (int x = 0; x < SupportedMimeTypesCount; x++)
+    for (const auto &entry : SupportedMimeTypes)
     {
-        if (SupportedMimeTypes[x].m_isVideo)
-        {
-            if (!mimetype.isEmpty() &&
-                mimetype == SupportedMimeTypes[x].m_mimeType)
-                return true;
+        if (!entry.m_isVideo)
+            continue;
 
-            if (!extension.isEmpty() &&
-                extension.toLower() == SupportedMimeTypes[x].m_extension)
-                return true;
-        }
+        if (!mimetype.isEmpty() &&
+            mimetype == entry.m_mimeType)
+            return true;
+
+        if (!extension.isEmpty() &&
+            extension.toLower() == entry.m_extension)
+            return true;
     }
 
     return false;
@@ -965,7 +962,7 @@ void MythUIWebBrowser::Init(void)
 
     while (parentObject)
     {
-        m_parentScreen = dynamic_cast<MythScreenType *>(parentObject);
+        m_parentScreen = qobject_cast<MythScreenType *>(parentObject);
 
         if (m_parentScreen)
             break;

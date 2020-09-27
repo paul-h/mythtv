@@ -18,7 +18,6 @@ void MythVideoOutputNull::GetRenderOptions(RenderOptions& Options)
 {
     Options.renderers->append("null");
     (*Options.safe_renderers)["dummy"].append("null");
-    (*Options.safe_renderers)["nuppel"].append("null");
     if (Options.decoders->contains("ffmpeg"))
         (*Options.safe_renderers)["ffmpeg"].append("null");
 #ifdef USING_VTB
@@ -94,7 +93,6 @@ bool MythVideoOutputNull::InputChanged(const QSize& VideoDim,
                                        float        Aspect,
                                        MythCodecID  CodecID,
                                        bool&        AspectOnly,
-                                       MythMultiLocker* Locks,
                                        int          ReferenceFrames,
                                        bool         ForceChange)
 {
@@ -111,7 +109,7 @@ bool MythVideoOutputNull::InputChanged(const QSize& VideoDim,
 
     QMutexLocker locker(&m_globalLock);
 
-    if (VideoDispDim == m_window.GetVideoDim())
+    if (VideoDispDim == GetVideoDim())
     {
         m_videoBuffers.Clear();
         MoveResize();
@@ -119,13 +117,13 @@ bool MythVideoOutputNull::InputChanged(const QSize& VideoDim,
     }
 
     MythVideoOutput::InputChanged(VideoDim, VideoDispDim,
-                                  Aspect, CodecID, AspectOnly, Locks,
+                                  Aspect, CodecID, AspectOnly,
                                   ReferenceFrames, ForceChange);
     m_videoBuffers.DeleteBuffers();
 
     MoveResize();
 
-    const QSize video_dim = m_window.GetVideoDim();
+    const QSize video_dim = GetVideoDim();
 
     bool ok = m_videoBuffers.CreateBuffers(FMT_YV12, video_dim.width(), video_dim.height());
     if (!ok)
@@ -146,8 +144,7 @@ bool MythVideoOutputNull::InputChanged(const QSize& VideoDim,
 }
 
 bool MythVideoOutputNull::Init(const QSize& VideoDim, const QSize& VideoDispDim,
-                               float Aspect, MythDisplay* Display,
-                               const QRect& DisplayVisibleRect, MythCodecID CodecID)
+                               float Aspect, const QRect& DisplayVisibleRect, MythCodecID CodecID)
 {
     if (VideoDispDim.isEmpty())
         return false;
@@ -161,11 +158,11 @@ bool MythVideoOutputNull::Init(const QSize& VideoDim, const QSize& VideoDispDim,
 
     QMutexLocker locker(&m_globalLock);
 
-    MythVideoOutput::Init(VideoDim, VideoDispDim, Aspect, Display, DisplayVisibleRect, CodecID);
+    MythVideoOutput::Init(VideoDim, VideoDispDim, Aspect, DisplayVisibleRect, CodecID);
     m_videoBuffers.Init(VideoBuffers::GetNumBuffers(FMT_YV12), true, kNeedFreeFrames,
                         kPrebufferFramesNormal, kPrebufferFramesSmall);
 
-    const QSize videodim = m_window.GetVideoDim();
+    const QSize videodim = GetVideoDim();
 
     if (!m_videoBuffers.CreateBuffers(FMT_YV12, videodim.width(), videodim.height()))
         return false;
@@ -182,16 +179,16 @@ bool MythVideoOutputNull::Init(const QSize& VideoDim, const QSize& VideoDispDim,
 
 void MythVideoOutputNull::EmbedInWidget(const QRect& EmbedRect)
 {
+    // TODO is this locking required (and associated override of EmbedInWidget)
     QMutexLocker locker(&m_globalLock);
-    if (!m_window.IsEmbedding())
-        MythVideoOutput::EmbedInWidget(EmbedRect);
+    MythVideoOutput::EmbedInWidget(EmbedRect);
 }
 
 void MythVideoOutputNull::StopEmbedding(void)
 {
+    // TODO is this locking required (and associated override of StopEmbedding)
     QMutexLocker locker(&m_globalLock);
-    if (m_window.IsEmbedding())
-        MythVideoOutput::StopEmbedding();
+    MythVideoOutput::StopEmbedding();
 }
 
 void MythVideoOutputNull::SetDeinterlacing(bool Enable, bool DoubleRate, MythDeintType Force /*=DEINT_NONE*/)
@@ -201,10 +198,14 @@ void MythVideoOutputNull::SetDeinterlacing(bool Enable, bool DoubleRate, MythDei
         MythVideoOutput::SetDeinterlacing(Enable, DoubleRate, Force);
         return;
     }
+
+    m_deinterlacing   = false;
+    m_deinterlacing2X = false;
+    m_forcedDeinterlacer = DEINT_NONE;
     m_videoBuffers.SetDeinterlacing(DEINT_NONE, DEINT_NONE, m_videoCodecID);
 }
 
-void MythVideoOutputNull::PrepareFrame(VideoFrame* Frame, FrameScanType /*Scan*/, OSD* /*Osd*/)
+void MythVideoOutputNull::RenderFrame(VideoFrame* Frame, FrameScanType /*Scan*/, OSD* /*Osd*/)
 {
     if (!Frame)
         Frame = m_videoBuffers.GetScratchFrame();
@@ -214,7 +215,7 @@ void MythVideoOutputNull::PrepareFrame(VideoFrame* Frame, FrameScanType /*Scan*/
         LOG(VB_GENERAL, LOG_ERR, LOC + "No frame in PrepareFrame!");
 }
 
-void MythVideoOutputNull::Show(FrameScanType /*Scan*/)
+void MythVideoOutputNull::EndFrame()
 {
 }
 
@@ -241,9 +242,7 @@ void MythVideoOutputNull::UpdatePauseFrame(int64_t& DisplayTimecode, FrameScanTy
     DisplayTimecode = m_avPauseFrame.disp_timecode;
 }
 
-void MythVideoOutputNull::ProcessFrame(VideoFrame* Frame, OSD* /*Osd*/,
-                                       const PIPMap& /*PiPPlayers*/,
-                                       FrameScanType Scan)
+void MythVideoOutputNull::PrepareFrame(VideoFrame* Frame, const PIPMap& /*PiPPlayers*/, FrameScanType Scan)
 {
     if (Frame && !Frame->dummy)
         m_deinterlacer.Filter(Frame, Scan, nullptr);

@@ -42,8 +42,6 @@ ExternalSignalMonitor::ExternalSignalMonitor(int db_cardnum,
                                              uint64_t _flags)
     : DTVSignalMonitor(db_cardnum, _channel, _release_stream, _flags)
 {
-    QString result;
-
     LOG(VB_CHANNEL, LOG_INFO, LOC + "ctor");
     m_streamHandler = ExternalStreamHandler::Get(m_channel->GetDevice(),
                                                   m_channel->GetInputID(),
@@ -53,7 +51,8 @@ ExternalSignalMonitor::ExternalSignalMonitor(int db_cardnum,
     else
         m_lockTimeout = GetLockTimeout() * 1000;
 
-    if (GetExternalChannel()->IsBackgroundTuning())
+    ExternalChannel *channel = GetExternalChannel();
+    if (channel && channel->IsBackgroundTuning())
         m_scriptStatus.SetValue(1);
 }
 
@@ -72,8 +71,6 @@ ExternalSignalMonitor::~ExternalSignalMonitor()
  */
 void ExternalSignalMonitor::Stop(void)
 {
-    QString result;
-
     LOG(VB_CHANNEL, LOG_INFO, LOC + "Stop() -- begin");
 
     SignalMonitor::Stop();
@@ -98,7 +95,11 @@ void ExternalSignalMonitor::UpdateValues(void)
     if (!m_running || m_exit)
         return;
 
-    if (GetExternalChannel()->IsExternalChannelChangeInUse())
+    ExternalChannel *channel = GetExternalChannel();
+    if (channel == nullptr)
+        return;
+
+    if (channel->IsExternalChannelChangeInUse())
     {
         SignalMonitor::UpdateValues();
 
@@ -107,11 +108,11 @@ void ExternalSignalMonitor::UpdateValues(void)
             return;
     }
 
-    if (GetExternalChannel()->IsBackgroundTuning())
+    if (channel->IsBackgroundTuning())
     {
         QMutexLocker locker(&m_statusLock);
         if (m_scriptStatus.GetValue() < 2)
-            m_scriptStatus.SetValue(GetExternalChannel()->GetTuneStatus());
+            m_scriptStatus.SetValue(channel->GetTuneStatus());
 
         if (!m_scriptStatus.IsGood())
             return;
@@ -193,7 +194,7 @@ int ExternalSignalMonitor::GetSignalStrengthPercent(void)
     if (result.startsWith("OK:"))
     {
         bool ok = false;
-        int percent = result.mid(3).toInt(&ok);
+        int percent = result.midRef(3).toInt(&ok);
         if (!ok)
         {
             LOG(VB_CHANNEL, LOG_ERR, LOC + QString
@@ -219,7 +220,7 @@ int ExternalSignalMonitor::GetLockTimeout(void)
     if (result.startsWith("OK:"))
     {
         bool ok = false;
-        int timeout = result.mid(3).toInt(&ok);
+        int timeout = result.midRef(3).toInt(&ok);
         if (!ok)
         {
             LOG(VB_CHANNEL, LOG_ERR, LOC + QString

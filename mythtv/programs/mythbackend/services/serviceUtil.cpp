@@ -299,6 +299,7 @@ void FillRecRuleInfo( DTC::RecRule  *pRecRule,
     pRecRule->setEndOffset      (  pRule->m_endOffset              );
     pRecRule->setDupMethod      (  toRawString(pRule->m_dupMethod) );
     pRecRule->setDupIn          (  toRawString(pRule->m_dupIn)     );
+    pRecRule->setNewEpisOnly    (  newEpifromDupIn(pRule->m_dupIn) );
     pRecRule->setFilter         (  pRule->m_filter                 );
     pRecRule->setRecProfile     (  pRule->m_recProfile             );
     pRecRule->setRecGroup       (  RecordingInfo::GetRecgroupString(pRule->m_recGroupID) );
@@ -331,8 +332,7 @@ void FillArtworkInfoList( DTC::ArtworkInfoList *pArtworkInfoList,
 {
     ArtworkMap map = GetArtwork(sInetref, nSeason);
 
-    for (ArtworkMap::const_iterator i = map.begin();
-         i != map.end(); ++i)
+    for (auto i = map.cbegin(); i != map.cend(); ++i)
     {
         DTC::ArtworkInfo *pArtInfo = pArtworkInfoList->AddNewArtworkInfo();
         pArtInfo->setFileName(i.value().url);
@@ -623,7 +623,7 @@ void FillCutList(DTC::CutList* pCutList, RecordingInfo* rInfo, int marktype)
     {
         rInfo->QueryCutList(markMap);
 
-        for (it = markMap.begin(); it != markMap.end(); ++it)
+        for (it = markMap.cbegin(); it != markMap.cend(); ++it)
         {
             bool isend = (*it) == MARK_CUT_END || (*it) == MARK_COMM_END;
             if (marktype == 0)
@@ -669,7 +669,7 @@ void FillCommBreak(DTC::CutList* pCutList, RecordingInfo* rInfo, int marktype)
     {
         rInfo->QueryCommBreakList(markMap);
 
-        for (it = markMap.begin(); it != markMap.end(); ++it)
+        for (it = markMap.cbegin(); it != markMap.cend(); ++it)
         {
             bool isend = (*it) == MARK_CUT_END || (*it) == MARK_COMM_END;
             if (marktype == 0)
@@ -715,11 +715,31 @@ void FillSeek(DTC::CutList* pCutList, RecordingInfo* rInfo, MarkTypes marktype)
     {
         rInfo->QueryPositionMap(markMap, marktype);
 
-        for (it = markMap.begin(); it != markMap.end(); ++it)
+        for (it = markMap.cbegin(); it != markMap.cend(); ++it)
         {
             DTC::Cutting *pCutting = pCutList->AddNewCutting();
             pCutting->setMark(it.key());
             pCutting->setOffset(it.value());
         }
     }
+}
+
+int CreateRecordingGroup(const QString& groupName)
+{
+    int groupID = -1;
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare("INSERT INTO recgroups SET recgroup = :NAME, "
+                  "displayname = :DISPLAYNAME");
+    query.bindValue(":NAME", groupName);
+    query.bindValue(":DISPLAYNAME", groupName);
+
+    if (query.exec())
+        groupID = query.lastInsertId().toInt();
+
+    if (groupID <= 0)
+        LOG(VB_GENERAL, LOG_ERR, QString("Could not create recording group (%1). "
+                                         "Does it already exist?").arg(groupName));
+
+    return groupID;
 }

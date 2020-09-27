@@ -183,6 +183,8 @@ void ChannelRecPriority::changeRecPriority(int howMuch)
         return;
 
     auto *chanInfo = item->GetData().value<ChannelInfo *>();
+    if (chanInfo == nullptr)
+        return;
 
     // inc/dec recording priority
     int tempRecPriority = chanInfo->m_recPriority + howMuch;
@@ -398,7 +400,6 @@ void ChannelRecPriority::updateInfo(MythUIButtonListItem *item)
     auto *channelItem = item->GetData().value<ChannelInfo *>();
     if (!m_channelData.isEmpty() && channelItem)
     {
-        QString rectype;
         if (m_iconImage)
         {
             QString iconUrl = gCoreContext->GetMasterHostPrefix("ChannelIcons", channelItem->m_icon);

@@ -303,11 +303,11 @@ static void handle_transport_desc(vector<uint> &muxes,
             freq,                  QString(),
             // DVB specific
             (int)tsid,            (int)netid,
-            -1,                   cd.BandwidthString()[0].toLatin1(),
+            -1,                   cd.BandwidthString().at(0).toLatin1(),
             -1,                   'a',
-            cd.TransmissionModeString()[0].toLatin1(),
+            cd.TransmissionModeString().at(0).toLatin1(),
             QString(),                         cd.ConstellationString(),
-            cd.HierarchyString()[0].toLatin1(), cd.CodeRateHPString(),
+            cd.HierarchyString().at(0).toLatin1(), cd.CodeRateHPString(),
             cd.CodeRateLPString(),             cd.GuardIntervalString(),
             QString(),                         QString());
 
@@ -332,7 +332,7 @@ static void handle_transport_desc(vector<uint> &muxes,
             // DVB specific
             tsid,                 netid,
             cd.SymbolRateHz(),    -1,
-            cd.PolarizationString()[0].toLatin1(), 'a',
+            cd.PolarizationString().at(0).toLatin1(), 'a',
             -1,
             cd.FECInnerString(),  QString(),
             -1,                   QString(),
@@ -1452,8 +1452,8 @@ int ChannelUtil::CreateChanID(uint sourceid, const QString &chan_num)
     {
         chanid =
             sourceid * 10000 +
-            chan_num.left(chansep).toInt() * 100 +
-            chan_num.right(chan_num.length() - chansep - 1).toInt();
+            chan_num.leftRef(chansep).toInt() * 100 +
+            chan_num.rightRef(chan_num.length() - chansep - 1).toInt();
     }
     else
     {
@@ -2118,12 +2118,10 @@ ChannelInfoList ChannelUtil::GetChannelsInternal(
         chan.m_xmltvId = query.value(12).toString();      /* xmltvid    */
 
         QStringList inputIDs = query.value(11).toString().split(",");
-        QString inputid;
         while (!inputIDs.isEmpty())
                 chan.AddInputId(inputIDs.takeFirst().toUInt());
 
         QStringList groupIDs = query.value(10).toString().split(",");
-        QString groupid;
         while (!groupIDs.isEmpty())
                 chan.AddGroupId(groupIDs.takeFirst().toUInt());
 
@@ -2193,8 +2191,8 @@ inline bool lt_smart(const ChannelInfo &a, const ChannelInfo &b)
     {
         bool tmp1 = false;
         bool tmp2 = false;
-        int major = a.m_chanNum.left(idxA).toUInt(&tmp1);
-        int minor = a.m_chanNum.mid(idxA+1).toUInt(&tmp2);
+        int major = a.m_chanNum.leftRef(idxA).toUInt(&tmp1);
+        int minor = a.m_chanNum.midRef(idxA+1).toUInt(&tmp2);
         if (tmp1 && tmp2)
             (a_major = major), (a_minor = minor), (isIntA = false);
     }
@@ -2203,8 +2201,8 @@ inline bool lt_smart(const ChannelInfo &a, const ChannelInfo &b)
     {
         bool tmp1 = false;
         bool tmp2 = false;
-        int major = b.m_chanNum.left(idxB).toUInt(&tmp1);
-        int minor = b.m_chanNum.mid(idxB+1).toUInt(&tmp2);
+        int major = b.m_chanNum.leftRef(idxB).toUInt(&tmp1);
+        int minor = b.m_chanNum.midRef(idxB+1).toUInt(&tmp2);
         if (tmp1 && tmp2)
             (b_major = major), (b_minor = minor), (isIntB = false);
     }
@@ -2546,12 +2544,10 @@ ChannelInfoList ChannelUtil::LoadChannels(uint startIndex, uint count,
         channelInfo.m_chanId            = query.value(27).toUInt();
 
         QStringList groupIDs = query.value(28).toString().split(",");
-        QString groupid;
         while (!groupIDs.isEmpty())
                 channelInfo.AddGroupId(groupIDs.takeFirst().toUInt());
 
         QStringList inputIDs = query.value(29).toString().split(",");
-        QString inputid;
         while (!inputIDs.isEmpty())
                 channelInfo.AddInputId(inputIDs.takeFirst().toUInt());
 

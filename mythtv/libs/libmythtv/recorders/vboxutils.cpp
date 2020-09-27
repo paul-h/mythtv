@@ -36,7 +36,7 @@ QStringList VBox::probeDevices(void)
     // see if we have already found one or more vboxes
     QStringList result = VBox::doUPNPSearch();
 
-    if (result.count())
+    if (!result.isEmpty())
         return result;
 
     // non found so start a new search
@@ -241,7 +241,8 @@ bool VBox::checkVersion(QString &version)
         sList = version.split('.');
 
         // sanity check this looks like a VBox version string
-        if (sList.count() < 3 || !(version.startsWith("VB.") || version.startsWith("VJ.")))
+        if (sList.count() < 3 || !(version.startsWith("VB.") || version.startsWith("VJ.")
+            || version.startsWith("VT.")))
         {
             LOG(VB_GENERAL, LOG_INFO, LOC + QString("Failed to parse version from %1").arg(version));
             delete xmlDoc;
@@ -317,12 +318,12 @@ vbox_chan_map_t *VBox::getChannels(void)
         QString triplet = getStrValue(chanElem, "display-name", 2);
         bool    fta = (getStrValue(chanElem, "display-name", 3) == "Free");
         QString lcn = getStrValue(chanElem, "display-name", 4);
-        uint serviceID = triplet.right(4).toUInt(nullptr, 16);
+        uint serviceID = triplet.rightRef(4).toUInt(nullptr, 16);
 
         QString transType = "UNKNOWN";
         QStringList slist = triplet.split('-');
-        uint networkID = slist[2].left(4).toUInt(nullptr, 16);
-        uint transportID = slist[2].mid(4, 4).toUInt(nullptr, 16);
+        uint networkID = slist[2].leftRef(4).toUInt(nullptr, 16);
+        uint transportID = slist[2].midRef(4, 4).toUInt(nullptr, 16);
         LOG(VB_GENERAL, LOG_DEBUG, LOC + QString("NIT/TID/SID %1 %2 %3)").arg(networkID).arg(transportID).arg(serviceID));
 
         //sanity check - the triplet should look something like this: T-GER-111100020001

@@ -13,6 +13,7 @@
 
 // Mythbase headers
 #include "mythlogging.h"
+#include "mythmiscutil.h"
 #include "mythmedia.h"
 
 // MythUI headers
@@ -45,7 +46,7 @@ MythUIType::MythUIType(QObject *parent, const QString &name)
 
     if (parent)
     {
-        m_parent = dynamic_cast<MythUIType *>(parent);
+        m_parent = qobject_cast<MythUIType *>(parent);
 
         if (m_parent)
             m_parent->AddChild(this);
@@ -53,7 +54,7 @@ MythUIType::MythUIType(QObject *parent, const QString &name)
 
     m_fonts = new FontMap();
 
-    m_borderColor = QColor(random() % 255, random()  % 255, random()  % 255);
+    m_borderColor = QColor(MythRandom() % 255, MythRandom()  % 255, MythRandom()  % 255);
 }
 
 MythUIType::~MythUIType()
@@ -111,7 +112,7 @@ static QObject *qChildHelper(const char *objName, const char *inheritsClass,
                  && (!objName || obj->objectName() == oName))
             return obj;
 
-        if (recursiveSearch && (dynamic_cast<MythUIGroup *>(obj) != nullptr)
+        if (recursiveSearch && (qobject_cast<MythUIGroup *>(obj) != nullptr)
             && (obj = qChildHelper(objName, inheritsClass,
                                    recursiveSearch,
                                    obj->children())))
@@ -132,7 +133,7 @@ MythUIType *MythUIType::GetChild(const QString &name) const
     QObject *ret = qChildHelper(name.toLatin1().constData(), nullptr, true, children());
 
     if (ret)
-        return dynamic_cast<MythUIType *>(ret);
+        return qobject_cast<MythUIType *>(ret);
 
     return nullptr;
 }
@@ -1077,7 +1078,7 @@ void MythUIType::UpdateDependState(MythUIType *dependee, bool isDefault)
 
 void MythUIType::UpdateDependState(bool isDefault)
 {
-    auto *dependee = dynamic_cast<MythUIType*>(sender());
+    auto *dependee = qobject_cast<MythUIType*>(sender());
 
     UpdateDependState(dependee, isDefault);
 }
@@ -1125,14 +1126,12 @@ void MythUIType::Show(void)
     SetVisible(true);
 }
 
-void MythUIType::AddFocusableChildrenToList(QMap<int, MythUIType *> &focusList)
+void MythUIType::AddFocusableChildrenToList(FocusInfoType &focusList)
 {
     if (m_canHaveFocus)
-        focusList.insertMulti(m_focusOrder, this);
+        focusList.insert(m_focusOrder, this);
 
-    QList<MythUIType *>::Iterator it;
-
-    for (it = m_childrenList.end() - 1; it != m_childrenList.begin() - 1; --it)
+    for (auto it = m_childrenList.crbegin(); it != m_childrenList.crend(); ++it)
         (*it)->AddFocusableChildrenToList(focusList);
 }
 

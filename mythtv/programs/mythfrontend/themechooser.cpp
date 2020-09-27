@@ -450,7 +450,6 @@ void ThemeChooser::Init(void)
             item->SetData(QVariant::fromValue(themeinfo));
 
             QString thumbnail = themeinfo->GetPreviewPath();
-            QFileInfo fInfo(thumbnail);
             // Downloadable themeinfos have thumbnail copies of their preview images
             if (!themeinfo->GetDownloadURL().isEmpty())
                 thumbnail = thumbnail.append(".thumb.jpg");
@@ -976,19 +975,17 @@ bool ThemeChooser::removeThemeDir(const QString &dirname)
 
     dir.setFilter(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     QFileInfoList list = dir.entryInfoList();
-    QFileInfoList::const_iterator it = list.begin();
 
-    while (it != list.end())
+    for (const auto & fi : qAsConst(list))
     {
-        const QFileInfo *fi = &(*it++);
-        if (fi->isFile() && !fi->isSymLink())
+        if (fi.isFile() && !fi.isSymLink())
         {
-            if (!QFile::remove(fi->absoluteFilePath()))
+            if (!QFile::remove(fi.absoluteFilePath()))
                 return false;
         }
-        else if (fi->isDir() && !fi->isSymLink())
+        else if (fi.isDir() && !fi.isSymLink())
         {
-            if (!removeThemeDir(fi->absoluteFilePath()))
+            if (!removeThemeDir(fi.absoluteFilePath()))
                 return false;
         }
     }
@@ -1018,7 +1015,6 @@ ThemeUpdateChecker::ThemeUpdateChecker(void) :
         int pos = subexp.indexIn(GetMythSourceVersion());
         if (pos > -1)
         {
-            QString subversion;
             for (int idx = subexp.cap(1).toInt(); idx > 0; --idx)
                 m_mythVersions << version + "." + QString::number(idx);
         }

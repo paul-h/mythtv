@@ -1100,7 +1100,6 @@ uint DBEvent::InsertDB(MSqlQuery &query, uint chanid) const
         " :INETREF ) ");
 
     QString cattype = myth_category_type_to_string(m_categoryType);
-    QString empty("");
     query.bindValue(":CHANID",      chanid);
     query.bindValue(":TITLE",       denullify(m_title));
     query.bindValue(":SUBTITLE",    denullify(m_subtitle));
@@ -1484,7 +1483,7 @@ void ProgramData::HandlePrograms(
     MSqlQuery query(MSqlQuery::InitCon());
 
     QMap<QString, QList<ProgInfo> >::const_iterator mapiter;
-    for (mapiter = proglist.begin(); mapiter != proglist.end(); ++mapiter)
+    for (mapiter = proglist.cbegin(); mapiter != proglist.cend(); ++mapiter)
     {
         if (mapiter.key().isEmpty())
             continue;

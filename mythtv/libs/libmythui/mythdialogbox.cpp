@@ -216,7 +216,8 @@ void MythDialogBox::Select(MythUIButtonListItem* item)
     if (m_currentMenu)
     {
         auto *menuItem = item->GetData().value< MythMenuItem * >();
-
+        if (menuItem == nullptr)
+            return;
         if (menuItem->m_subMenu)
         {
             m_currentMenu->m_selectedItem = m_buttonList->GetCurrentPos();
@@ -389,11 +390,11 @@ bool MythDialogBox::keyPressEvent(QKeyEvent *event)
 bool MythDialogBox::gestureEvent(MythGestureEvent *event)
 {
     bool handled = false;
-    if (event->gesture() == MythGestureEvent::Click)
+    if (event->GetGesture() == MythGestureEvent::Click)
     {
         switch (event->GetButton())
         {
-            case MythGestureEvent::RightButton :
+            case Qt::RightButton:
                 SendEvent(-2);
                 Close();
                 handled = true;

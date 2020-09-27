@@ -387,8 +387,7 @@ void ChannelScanSM::HandlePAT(const ProgramAssociationTable *pat)
     ScanStreamData *sd = GetDTVSignalMonitor()->GetScanStreamData();
     for (uint i = 0; i < pat->ProgramCount(); ++i)
     {
-        if (pat->ProgramPID(i)) // don't add NIT "program", MPEG/ATSC safe.
-            sd->AddListeningPID(pat->ProgramPID(i));
+        sd->AddListeningPID(pat->ProgramPID(i));
     }
 }
 
@@ -636,13 +635,13 @@ bool ChannelScanSM::TestNextProgramEncryption(void)
     do
     {
         uint pnum = 0;
-        QMap<uint, uint>::const_iterator it = m_currentEncryptionStatus.begin();
+        QMap<uint, uint>::const_iterator it = m_currentEncryptionStatus.cbegin();
 #if 0
         LOG(VB_GENERAL, LOG_DEBUG, LOC + QString("%1/%2 checked")
             .arg(currentEncryptionStatusChecked.size())
             .arg(currentEncryptionStatus.size()));
 #endif
-        while (it != m_currentEncryptionStatus.end())
+        while (it != m_currentEncryptionStatus.cend())
         {
             if (!m_currentEncryptionStatusChecked[it.key()])
             {
@@ -677,8 +676,8 @@ bool ChannelScanSM::TestNextProgramEncryption(void)
             GetCurrentTransportInfo(cur_chan, cur_chan_tr);
 
             QString msg_tr =
-                QObject::tr("%1 -- Testing decryption of program %2")
-                .arg(cur_chan_tr).arg(pnum);
+                QObject::tr("Program %1 Testing Decryption")
+                .arg(pnum);
             QString msg =
                 QString("%1 -- Testing decryption of program %2")
                 .arg(cur_chan).arg(pnum);
@@ -691,6 +690,7 @@ bool ChannelScanSM::TestNextProgramEncryption(void)
                 GetDVBChannel()->SetPMT(pmt);
 #endif // USING_DVB
 
+            GetDTVSignalMonitor()->GetStreamData()->ResetDecryptionMonitoringState();
             GetDTVSignalMonitor()->GetStreamData()->TestDecryption(pmt);
 
             m_currentTestingDecryption = true;
@@ -756,7 +756,7 @@ void ChannelScanSM::UpdateScanTransports(uint nit_frequency, const NetworkInform
             uint64_t frequency = 0;
             const MPEGDescriptor desc(item);
             uint tag = desc.DescriptorTag();
-            QString tagString = desc.DescriptorTagString();
+//          QString tagString = desc.DescriptorTagString();
 
             DTVTunerType tt(DTVTunerType::kTunerTypeUnknown);
             switch (tag)
@@ -764,7 +764,8 @@ void ChannelScanSM::UpdateScanTransports(uint nit_frequency, const NetworkInform
                 case DescriptorID::terrestrial_delivery_system:
                 {
                     const TerrestrialDeliverySystemDescriptor cd(desc);
-                    frequency = cd.FrequencyHz();
+                    if (cd.IsValid())
+                        frequency = cd.FrequencyHz();
                     tt = DTVTunerType::kTunerTypeDVBT;
                     break;
                 }
@@ -784,7 +785,8 @@ void ChannelScanSM::UpdateScanTransports(uint nit_frequency, const NetworkInform
                 case DescriptorID::satellite_delivery_system:
                 {
                     const SatelliteDeliverySystemDescriptor cd(desc);
-                    frequency = cd.FrequencykHz();
+                    if (cd.IsValid())
+                        frequency = cd.FrequencykHz();
                     tt = DTVTunerType::kTunerTypeDVBS1;
                     break;
                 }
@@ -796,7 +798,8 @@ void ChannelScanSM::UpdateScanTransports(uint nit_frequency, const NetworkInform
                 case DescriptorID::cable_delivery_system:
                 {
                     const CableDeliverySystemDescriptor cd(desc);
-                    frequency = cd.FrequencyHz();
+                    if (cd.IsValid())
+                        frequency = cd.FrequencyHz();
                     tt = DTVTunerType::kTunerTypeDVBC;
                     break;
                 }
@@ -995,8 +998,8 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
         if (TestNextProgramEncryption())
             return false;
 
-        QMap<uint, uint>::const_iterator it = m_currentEncryptionStatus.begin();
-        for (; it != m_currentEncryptionStatus.end(); ++it)
+        QMap<uint, uint>::const_iterator it = m_currentEncryptionStatus.cbegin();
+        for (; it != m_currentEncryptionStatus.cend(); ++it)
         {
             m_currentInfo->m_programEncryptionStatus[it.key()] = *it;
 
@@ -1008,7 +1011,7 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
                     msg_tr2 = QObject::tr("Encrypted");
                 else if (kEncDecrypted == *it)
                     msg_tr2 = QObject::tr("Decrypted");
-                QString msg_tr =QString("%1, %2").arg(msg_tr1).arg(msg_tr2);
+                QString msg_tr =QString("%1 %2").arg(msg_tr1).arg(msg_tr2);
                 m_scanMonitor->ScanAppendTextToLog(msg_tr);
             }
 
@@ -1725,9 +1728,9 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
         if (info.m_chanNum.isEmpty())
         {
             qlonglong key = ((qlonglong)info.m_origNetId<<32) | info.m_serviceId;
-            QMap<qlonglong, uint>::const_iterator it = scnChanNums.find(key);
+            QMap<qlonglong, uint>::const_iterator it = scnChanNums.constFind(key);
 
-            if (it != scnChanNums.end())
+            if (it != scnChanNums.constEnd())
             {
                 info.m_chanNum = QString::number(*it);
             }
@@ -1737,9 +1740,9 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
         if (info.m_chanNum.isEmpty())
         {
             qlonglong key = ((qlonglong)info.m_origNetId<<32) | info.m_serviceId;
-            QMap<qlonglong, uint>::const_iterator it = ukChanNums.find(key);
+            QMap<qlonglong, uint>::const_iterator it = ukChanNums.constFind(key);
 
-            if (it != ukChanNums.end())
+            if (it != ukChanNums.constEnd())
             {
                 info.m_chanNum = QString::number(*it);
             }
@@ -1749,9 +1752,9 @@ ChannelScanSM::GetChannelList(transport_scan_items_it_t trans_info,
         if (info.m_chanNum.isEmpty())
         {
             qlonglong key = ((qlonglong)info.m_origNetId<<32) | info.m_serviceId;
-            QMap<qlonglong, uint>::const_iterator it = sid_lcn.find(key);
+            QMap<qlonglong, uint>::const_iterator it = sid_lcn.constFind(key);
 
-            if (it != sid_lcn.end())
+            if (it != sid_lcn.constEnd())
             {
                 info.m_chanNum = QString::number(*it);
             }
@@ -2153,22 +2156,24 @@ bool ChannelScanSM::Tune(const transport_scan_items_it_t &transport)
     const TransportScanItem &item = *transport;
 
 #ifdef USING_DVB
-    if (GetDVBSignalMonitor())
+    DVBSignalMonitor *monitor = GetDVBSignalMonitor();
+    if (monitor)
     {
         // always wait for rotor to finish
-        GetDVBSignalMonitor()->AddFlags(SignalMonitor::kDVBSigMon_WaitForPos);
-        GetDVBSignalMonitor()->SetRotorTarget(1.0F);
+        monitor->AddFlags(SignalMonitor::kDVBSigMon_WaitForPos);
+        monitor->SetRotorTarget(1.0F);
     }
 #endif // USING_DVB
 
-    if (!GetDTVChannel())
+    DTVChannel *channel = GetDTVChannel();
+    if (!channel)
         return false;
 
     if (item.m_mplexid > 0 && transport.offset() == 0)
-        return GetDTVChannel()->TuneMultiplex(item.m_mplexid, m_inputName);
+        return channel->TuneMultiplex(item.m_mplexid, m_inputName);
 
     if (item.m_tuning.m_sistandard == "MPEG")
-        return GetDTVChannel()->Tune(item.m_iptvTuning, true);
+        return channel->Tune(item.m_iptvTuning, true);
 
     const uint64_t freq = item.freq_offset(transport.offset());
     DTVMultiplex tuning = item.m_tuning;
@@ -2186,7 +2191,7 @@ bool ChannelScanSM::Tune(const transport_scan_items_it_t &transport)
             tuning.m_modSys = DTVModulationSystem::kModulationSystem_DVBT;
     }
 
-    return GetDTVChannel()->Tune(tuning);
+    return channel->Tune(tuning);
 }
 
 void ChannelScanSM::ScanTransport(const transport_scan_items_it_t &transport)

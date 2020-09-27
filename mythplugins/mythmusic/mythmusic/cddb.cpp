@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdlib>
+#include <string>
 
 #include <QFile>
 #include <QFileInfo>
@@ -25,8 +26,7 @@ const int CDROM_LEADOUT_TRACK = 0xaa;
 const int CD_FRAMES_PER_SEC = 75;
 const int SECS_PER_MIN = 60;
 
-//static const char URL[] = "http://freedb.freedb.org/~cddb/cddb.cgi?cmd=";
-static const char URL[] = "http://freedb.musicbrainz.org/~cddb/cddb.cgi?cmd=";
+static const std::string URL = "http://freedb.musicbrainz.org/~cddb/cddb.cgi?cmd=";
 static const QString& helloID();
 
 /*
@@ -47,12 +47,12 @@ private:
     static void CachePut(const Cddb::Album& album);
 
     // DiscID to album info cache
-    using cache_t = QMap< Cddb::discid_t, Cddb::Album >;
+    using cache_t = QMultiMap< Cddb::discid_t, Cddb::Album >;
     static cache_t s_cache;
 
     static const QString& GetDB();
 };
-QMap< Cddb::discid_t, Cddb::Album > Dbase::s_cache;
+QMultiMap< Cddb::discid_t, Cddb::Album > Dbase::s_cache;
 
 
 /*
@@ -104,7 +104,7 @@ bool Cddb::Query(Matches& res, const Toc& toc)
     const unsigned totalTracks = toc.size() - 1;
 
     unsigned secs = 0;
-    const discid_t discID = Discid(secs, toc.data(), totalTracks);
+    const discid_t discID = Discid(secs, toc, totalTracks);
 
     // Is it cached?
     if (Dbase::Search(res, discID))
@@ -112,7 +112,8 @@ bool Cddb::Query(Matches& res, const Toc& toc)
 
     // Construct query
     // cddb query discid ntrks off1 off2 ... nsecs
-    QString URL2 = URL + QString("cddb+query+%1+%2+").arg(discID,0,16).arg(totalTracks);
+    QString URL2 = QString::fromStdString(URL) +
+        QString("cddb+query+%1+%2+").arg(discID,0,16).arg(totalTracks);
 
     for (unsigned t = 0; t < totalTracks; ++t)
         URL2 += QString("%1+").arg(msf2lsn(toc[t]));
@@ -130,7 +131,7 @@ bool Cddb::Query(Matches& res, const Toc& toc)
     cddb = data;
 
     // Check returned status
-    const uint stat = cddb.left(3).toUInt(); // Extract 3 digit status:
+    const uint stat = cddb.leftRef(3).toUInt(); // Extract 3 digit status:
     cddb = cddb.mid(4);
     switch (stat)
     {
@@ -200,7 +201,8 @@ bool Cddb::Read(Album& album, const QString& genre, discid_t discID)
         return true;
 
     // Lookup the details...
-    QString URL2 = URL + QString("cddb+read+") + genre.toLower() +
+    QString URL2 = QString::fromStdString(URL) +
+        QString("cddb+read+") + genre.toLower() +
         QString("+%1").arg(discID,0,16) + "&hello=" + helloID() + "&proto=5";
     LOG(VB_MEDIA, LOG_INFO, "CDDB read: " + URL2);
 
@@ -211,7 +213,7 @@ bool Cddb::Read(Album& album, const QString& genre, discid_t discID)
     cddb = data;
 
     // Check returned status
-    const uint stat = cddb.left(3).toUInt(); // Get 3 digit status:
+    const uint stat = cddb.leftRef(3).toUInt(); // Get 3 digit status:
     cddb = cddb.mid(4);
     switch (stat)
     {
@@ -262,14 +264,14 @@ static inline int cddb_sum(int i)
  * discID calculation. See appendix A of freedb_howto1.07.zip
  */
 // static
-Cddb::discid_t Cddb::Discid(unsigned& secs, const Msf v[], unsigned tracks)
+Cddb::discid_t Cddb::Discid(unsigned& secs, const Toc &toc, unsigned tracks)
 {
     int checkSum = 0;
     for (unsigned t = 0; t < tracks; ++t)
-        checkSum += cddb_sum(v[t].min * SECS_PER_MIN + v[t].sec);
+        checkSum += cddb_sum(toc[t].min * SECS_PER_MIN + toc[t].sec);
 
-    secs = v[tracks].min * SECS_PER_MIN + v[tracks].sec -
-        (v[0].min * SECS_PER_MIN + v[0].sec);
+    secs = toc[tracks].min * SECS_PER_MIN + toc[tracks].sec -
+        (toc[0].min * SECS_PER_MIN + toc[0].sec);
 
     const discid_t discID = ((discid_t)(checkSum % 255) << 24) |
         ((discid_t)secs << 8) | tracks;
@@ -400,7 +402,7 @@ Cddb::Album& Cddb::Album::operator =(const QString& rhs)
                     track.title += value;
                     track.artist += art;
 
-                    if (art.length())
+                    if (!art.isEmpty())
                         isCompilation = true;
                 }
             }
@@ -478,16 +480,16 @@ bool Dbase::Search(Cddb::Matches& res, const Cddb::discid_t discID)
         return true;
 
     QFileInfoList list = QDir(GetDB()).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
-    for (QFileInfoList::const_iterator it = list.begin(); it != list.end(); ++it)
+    for (const auto & fi1 : qAsConst(list))
     {
-        QString genre = it->baseName();
+        QString genre = fi1.baseName();
 
-        QFileInfoList ids = QDir(it->canonicalFilePath()).entryInfoList(QDir::Files);
-        for (QFileInfoList::const_iterator it2 = ids.begin(); it2 != ids.end(); ++it2)
+        QFileInfoList ids = QDir(fi1.canonicalFilePath()).entryInfoList(QDir::Files);
+        for (const auto & fi2 : qAsConst(ids))
         {
-            if (it2->baseName().toUInt(nullptr,16) == discID)
+            if (fi2.baseName().toUInt(nullptr,16) == discID)
             {
-                QFile file(it2->canonicalFilePath());
+                QFile file(fi2.canonicalFilePath());
                 if (file.open(QIODevice::ReadOnly | QIODevice::Text))
                 {
                     Cddb::Album a(QTextStream(&file).readAll());
@@ -580,14 +582,14 @@ void Dbase::CachePut(const Cddb::Album& album)
     LOG(VB_MEDIA, LOG_DEBUG, QString("Cddb CachePut %1 ")
         .arg(album.discID,0,16)
         + album.genre + " " + album.artist + " / " + album.title);
-    s_cache.insertMulti(album.discID, album);
+    s_cache.insert(album.discID, album);
 }
 
 // static
 bool Dbase::CacheGet(Cddb::Matches& res, const Cddb::discid_t discID)
 {
     bool ret = false;
-    for (cache_t::const_iterator it = s_cache.find(discID); it != s_cache.end(); ++it)
+    for (auto it = s_cache.constFind(discID); it != s_cache.constEnd(); ++it)
     {
         if (it->discID == discID)
         {
@@ -608,11 +610,14 @@ bool Dbase::CacheGet(Cddb::Matches& res, const Cddb::discid_t discID)
 // static
 bool Dbase::CacheGet(Cddb::Album& album, const QString& genre, const Cddb::discid_t discID)
 {
-    const Cddb::Album& a = s_cache[ discID];
-    if (a.discID && a.discGenre == genre)
+    QList<Cddb::Album> albums = s_cache.values(discID);
+    for (const auto & a : qAsConst(albums))
     {
-        album = a;
-        return true;
+        if (a.discID && a.discGenre == genre)
+        {
+            album = a;
+            return true;
+        }
     }
     return false;
 }

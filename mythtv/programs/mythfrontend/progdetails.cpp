@@ -82,7 +82,7 @@ QString ProgDetails::getRatings(bool recorded, uint chanid, const QDateTime& sta
 
     QString ratings;
     QMap<QString,QString>::const_iterator it;
-    for (it = main_ratings.begin(); it != main_ratings.end(); ++it)
+    for (it = main_ratings.cbegin(); it != main_ratings.cend(); ++it)
     {
         ratings += it.key() + ": " + *it + ", ";
     }
@@ -159,8 +159,7 @@ void ProgDetails::PowerPriorities(const QString & ptable)
         return;
 
     using string_pair = QPair<QString, QString>;
-    QList<string_pair > tests;
-    QList<string_pair >::iterator Itest;
+    QVector<string_pair> tests;
     QString  recmatch;
     QString  pwrpri;
     QString  desc;
@@ -277,9 +276,10 @@ void ProgDetails::PowerPriorities(const QString & ptable)
                    .arg(recordid);
     }
 
-    for (Itest = tests.begin(); Itest != tests.end(); ++Itest)
+    for (const auto & [label, csqlStart] : qAsConst(tests))
     {
-        query.prepare("SELECT " + (*Itest).second.replace("program.", "p.")
+        QString sqlStart = csqlStart;
+        query.prepare("SELECT " + sqlStart.replace("program.", "p.")
                       + QString
                       (" FROM %1 as p "
                        "INNER JOIN channel "
@@ -295,7 +295,7 @@ void ProgDetails::PowerPriorities(const QString & ptable)
         query.bindValue(":CHANID",    m_progInfo.GetChanID());
         query.bindValue(":STARTTIME", m_progInfo.GetScheduledStartTime());
 
-        adjustmsg = QString("%1 : ").arg((*Itest).first);
+        adjustmsg = QString("%1 : ").arg(label);
         if (query.exec() && query.next())
         {
             int adj = query.value(0).toInt();

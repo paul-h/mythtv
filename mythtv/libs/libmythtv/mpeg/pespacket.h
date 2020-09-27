@@ -39,6 +39,13 @@ class MTV_PUBLIC PESPacket
         m_badPacket = !VerifyCRC();
         m_pesDataSize = max(((int)Length())-1 + (PESPacket::HasCRC() ? 4 : 0), 0);
     }
+    explicit PESPacket(const std::vector<uint8_t> &pesdata)
+      : m_pesData(const_cast<unsigned char*>(pesdata.data())),
+        m_fullBuffer(const_cast<unsigned char*>(pesdata.data()))
+    {
+        m_badPacket = !VerifyCRC();
+        m_pesDataSize = max(((int)Length())-1 + (PESPacket::HasCRC() ? 4 : 0), 0);
+    }
 
     // Deleted functions should be public.
     //const PESPacket& operator=(const PESPacket& pkt);
@@ -238,7 +245,7 @@ class SequenceHeader
     SequenceHeader() {;} // only used via reinterpret cast
     ~SequenceHeader() {;}
 
-    unsigned char m_data[11] {};
+    std::array<unsigned char,11> m_data {};
     static const AspectArray kMpeg1Aspect;
     static const AspectArray kMpeg2Aspect;
     static const AspectArray kMpeg2Fps;

@@ -354,18 +354,18 @@ bool PlayerContext::CreatePlayer(TV *tv, QWidget *widget,
         return false;
     }
 
-    uint playerflags = kDecodeAllowEXT; // allow VDA etc for normal playback
+    uint playerflags = kNoFlags;
     playerflags |= muted                ? kAudioMuted : kNoFlags;
     playerflags |= m_useNullVideo       ? kVideoIsNull : kNoFlags;
     playerflags |= m_nohardwaredecoders ? kNoFlags : kDecodeAllowGPU;
 
     MythPlayer *player = nullptr;
     if (kState_WatchingBD  == desiredState)
-        player = new MythBDPlayer((PlayerFlags)playerflags);
+        player = new MythBDPlayer(static_cast<PlayerFlags>(playerflags));
     else if (kState_WatchingDVD == desiredState)
-        player = new MythDVDPlayer((PlayerFlags)playerflags);
+        player = new MythDVDPlayer(static_cast<PlayerFlags>(playerflags));
     else
-        player = new MythPlayer((PlayerFlags)playerflags);
+        player = new MythPlayer(static_cast<PlayerFlags>(playerflags));
 
     QString passthru_device =
         gCoreContext->GetBoolSetting("PassThruDeviceOverride", false) ?
@@ -405,8 +405,7 @@ bool PlayerContext::CreatePlayer(TV *tv, QWidget *widget,
     {
         if (IsAudioNeeded())
         {
-            // cppcheck-suppress unreadVariable
-            QString errMsg = audio->ReinitAudio();
+            static_cast<void>(audio->ReinitAudio());
         }
     }
     else if (m_pipState == kPBPRight)
@@ -736,7 +735,7 @@ QString PlayerContext::GetFilters(const QString &baseFilters) const
             if (!filters.isEmpty() && (!filters.endsWith(",")))
                 filters += ",";
 
-            filters += chanFilters.mid(1);
+            filters += chanFilters.midRef(1);
         }
     }
 

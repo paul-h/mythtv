@@ -127,7 +127,7 @@ bool setupTVs(bool ismaster, bool &error)
     }
 
     if (!query.exec(
-            "SELECT cardid, hostname "
+            "SELECT cardid, parentid, videodevice, hostname, sourceid "
             "FROM capturecard "
             "ORDER BY cardid"))
     {
@@ -139,11 +139,14 @@ bool setupTVs(bool ismaster, bool &error)
     vector<QString> hosts;
     while (query.next())
     {
-        uint    cardid = query.value(0).toUInt();
-        QString host   = query.value(1).toString();
-        QString cidmsg = QString("Card %1").arg(cardid);
+        uint    cardid      = query.value(0).toUInt();
+        uint    parentid    = query.value(1).toUInt();
+        QString videodevice = query.value(2).toString();
+        QString hostname    = query.value(3).toString();
+        uint    sourceid    = query.value(4).toUInt();
+        QString cidmsg      = QString("Card[%1](%2)").arg(cardid).arg(videodevice);
 
-        if (host.isEmpty())
+        if (hostname.isEmpty())
         {
             LOG(VB_GENERAL, LOG_ERR, cidmsg +
                 " does not have a hostname defined.\n"
@@ -151,8 +154,19 @@ bool setupTVs(bool ismaster, bool &error)
             continue;
         }
 
+        // Skip all cards that do not have a video source
+        if (sourceid == 0)
+        {
+            if (parentid == 0)
+            {
+                LOG(VB_GENERAL, LOG_WARNING, cidmsg +
+                    " does not have a video source");
+            }
+            continue;
+        }
+
         cardids.push_back(cardid);
-        hosts.push_back(host);
+        hosts.push_back(hostname);
     }
 
     QWriteLocker tvlocker(&TVRec::s_inputsLock);
@@ -288,7 +302,7 @@ void cleanup(void)
      delete gBackendContext;
      gBackendContext = nullptr;
 
-    if (pidfile.size())
+    if (!pidfile.isEmpty())
     {
         unlink(pidfile.toLatin1().constData());
         pidfile.clear();

@@ -87,7 +87,7 @@ void FillData::SetRefresh(int day, bool set)
 }
 
 // XMLTV stuff
-bool FillData::GrabDataFromFile(int id, QString &filename)
+bool FillData::GrabDataFromFile(int id, const QString &filename)
 {
     ChannelInfoList chanlist;
     QMap<QString, QList<ProgInfo> > proglist;
@@ -467,7 +467,6 @@ bool FillData::Run(SourceList &sourcelist)
                     qCurrentDate = newDate;
                 }
 
-                QString prevDate(qCurrentDate.addDays(i-1).toString());
                 QString currDate(qCurrentDate.addDays(i).toString());
 
                 LOG(VB_GENERAL, LOG_INFO, ""); // add a space between days

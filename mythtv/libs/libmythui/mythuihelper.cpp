@@ -604,7 +604,7 @@ bool MythUIHelper::IsImageInCache(const QString &url)
     if (d->m_imageCache.contains(url))
         return true;
 
-    if (QFileInfo(url).exists())
+    if (QFileInfo::exists(url))
         return true;
 
     return false;
@@ -655,19 +655,16 @@ void MythUIHelper::ClearOldImageCache(void)
     dir.setFilter(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     QFileInfoList list = dir.entryInfoList();
 
-    QFileInfoList::const_iterator it = list.begin();
     QMap<QDateTime, QString> dirtimes;
 
-    while (it != list.end())
+    for (const auto & fi : qAsConst(list))
     {
-        const QFileInfo *fi = &(*it++);
-
-        if (fi->isDir() && !fi->isSymLink())
+        if (fi.isDir() && !fi.isSymLink())
         {
-            if (fi->absoluteFilePath() == themecachedir)
+            if (fi.absoluteFilePath() == themecachedir)
                 continue;
 
-            dirtimes[fi->lastModified()] = fi->absoluteFilePath();
+            dirtimes[fi.lastModified()] = fi.absoluteFilePath();
         }
     }
 
@@ -708,20 +705,16 @@ void MythUIHelper::RemoveCacheDir(const QString &dirname)
 
     dir.setFilter(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     QFileInfoList list = dir.entryInfoList();
-    QFileInfoList::const_iterator it = list.begin();
-
-    while (it != list.end())
+    for (const auto & fi : qAsConst(list))
     {
-        const QFileInfo *fi = &(*it++);
-
-        if (fi->isFile() && !fi->isSymLink())
+        if (fi.isFile() && !fi.isSymLink())
         {
-            QFile file(fi->absoluteFilePath());
+            QFile file(fi.absoluteFilePath());
             file.remove();
         }
-        else if (fi->isDir() && !fi->isSymLink())
+        else if (fi.isDir() && !fi.isSymLink())
         {
-            RemoveCacheDir(fi->absoluteFilePath());
+            RemoveCacheDir(fi.absoluteFilePath());
         }
     }
 
@@ -766,7 +759,8 @@ void MythUIHelper::PruneCacheDir(const QString& dirname)
     // use fi.filePath() method here and then add the directory if
     // needed.  Using dir.entryList() and adding the dirname each time
     // is also slower just using dir.entryInfoList().
-    for (const QFileInfo & fi : dir.entryInfoList())
+    QFileInfoList entries = dir.entryInfoList();
+    for (const QFileInfo & fi : qAsConst(entries))
     {
         struct stat buf {};
         QString fullname = fi.filePath();

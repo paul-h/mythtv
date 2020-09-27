@@ -523,7 +523,7 @@ void EITFixUp::FixBellExpressVu(DBEventEIT &event) const
     {
         // Parse out the year
         bool ok = false;
-        uint y = event.m_description.mid(position + 1, 4).toUInt(&ok);
+        uint y = event.m_description.midRef(position + 1, 4).toUInt(&ok);
         if (ok)
         {
             event.m_originalairdate = QDate(y, 1, 1);
@@ -1112,10 +1112,9 @@ void EITFixUp::FixUK(DBEventEIT &event)
         !event.m_title.startsWith("The X-Files"))
     {
         int position1 = -1;
-        int position2 = -1;
         if ((position1=event.m_description.indexOf(kUKTime)) != -1)
         {
-            position2 = event.m_description.indexOf(kUKColonPeriod);
+            int position2 = event.m_description.indexOf(kUKColonPeriod);
             if ((position2>=0) && (position2 < (position1-2)))
                 SetUKSubtitle(event);
         }
@@ -3149,7 +3148,7 @@ void EITFixUp::FixUnitymedia(DBEventEIT &event)
 
     // handle cast and crew in items in the DVB Extended Event Descriptor
     // remove handled items from the map, so the left overs can be reported
-    QMap<QString,QString>::iterator i = event.m_items.begin();
+    auto i = event.m_items.begin();
     while (i != event.m_items.end())
     {
         if ((QString::compare (i.key(), "Role Player") == 0) ||

@@ -26,7 +26,7 @@ extern "C" {
 
 #define LOC QString("V4L2_M2M: ")
 
-static bool s_useV4L2Request = !qgetenv("MYTHTV_V4L2_REQUEST").isEmpty();
+static bool s_useV4L2Request = !qEnvironmentVariableIsEmpty("MYTHTV_V4L2_REQUEST");
 
 /*! \class MythV4L2M2MContext
  * \brief A handler for V4L2 Memory2Memory codecs.
@@ -185,20 +185,10 @@ bool MythV4L2M2MContext::GetBuffer(AVCodecContext *Context, VideoFrame *Frame, A
     // Ensure we can render this format
     auto *decoder = static_cast<AvFormatDecoder*>(Context->opaque);
     VideoFrameType type = PixelFormatToFrameType(static_cast<AVPixelFormat>(AvFrame->format));
-    VideoFrameType* supported = decoder->GetPlayer()->DirectRenderFormats();
-    bool found = false;
-    while (*supported != FMT_NONE)
-    {
-        if (*supported == type)
-        {
-            found = true;
-            break;
-        }
-        supported++;
-    }
-
+    const VideoFrameTypeVec* supported = decoder->GetPlayer()->DirectRenderFormats();
+    auto foundIt = std::find(supported->cbegin(), supported->cend(), type);
     // No fallback currently (unlikely)
-    if (!found)
+    if (foundIt == supported->end())
         return false;
 
     // Re-allocate if necessary

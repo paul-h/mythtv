@@ -243,9 +243,9 @@ static meta_dir_node *AddMetadataToDir(VideoMetadata *metadata,
         path.clear();
     }
 
-    for (QStringList::const_iterator p = path.begin(); p != path.end(); ++p)
+    for (const auto & part : qAsConst(path))
     {
-        smart_dir_node sdn = start->addSubDir(*p, "" , host, prefix);
+        smart_dir_node sdn = start->addSubDir(part, "" , host, prefix);
         start = sdn.get();
     }
 
@@ -1003,12 +1003,10 @@ void VideoListImp::buildFsysList()
     QStringList dirs = GetVideoDirs();
     if (dirs.size() > 1)
     {
-        for (QStringList::const_iterator iter = dirs.begin();
-             iter != dirs.end(); ++iter)
+        for (const auto & dir : qAsConst(dirs))
         {
             node_paths.push_back(
-                node_to_path_list::value_type(path_to_node_name(*iter),
-                                              *iter));
+                node_to_path_list::value_type(path_to_node_name(dir), dir));
         }
     }
     else
@@ -1068,11 +1066,15 @@ static void copy_filtered_tree(meta_dir_node &dst, meta_dir_node &src,
     copy_entries(dst, src, filter);
     for (auto dir = src.dirs_begin(); dir != src.dirs_end(); ++dir)
     {
-        smart_dir_node sdn = dst.addSubDir((*dir)->getPath(),
-                                           (*dir)->getName(),
-                                           (*dir)->GetHost(),
-                                           (*dir)->GetPrefix(),
-                                           (*dir)->GetData());
+        simple_ref_ptr<meta_dir_node> node = *dir;
+        if (node == nullptr)
+            continue;
+
+        smart_dir_node sdn = dst.addSubDir(node->getPath(),
+                                           node->getName(),
+                                           node->GetHost(),
+                                           node->GetPrefix(),
+                                           node->GetData());
         copy_filtered_tree(*sdn, *(dir->get()), filter);
     }
 }
@@ -1186,7 +1188,7 @@ class dirhandler : public DirectoryHandler
         if (m_inferTitle)
         {
             QString tmptitle(VideoMetadata::FilenameToMeta(file_string, 1));
-            if (tmptitle.length())
+            if (!tmptitle.isEmpty())
                 title = tmptitle;
         }
         myData->SetTitle(title);

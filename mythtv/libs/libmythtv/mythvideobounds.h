@@ -2,38 +2,33 @@
 /*
  *  Copyright (C) Daniel Kristjansson, Jens Rehaag 2008
  *
- *  Copyright notice is in videooutwindow.cpp of the MythTV project.
+ *  Copyright notice is in mythvideobounds.cpp of the MythTV project.
  */
 
-#ifndef VIDEOOUTWINDOW_H_
-#define VIDEOOUTWINDOW_H_
+#ifndef MYTHVIDEOBOUNDS_H_
+#define MYTHVIDEOBOUNDS_H_
 
-// Qt headers
-#include <QSize>
-#include <QRect>
-#include <QPoint>
+// Qt
 #include <QRegion>
 #include <QCoreApplication>
 
-// MythTV headers
+// MythTV
 #include "videoouttypes.h"
 
 class QScreen;
 class MythDisplay;
 class MythPlayer;
 
-class VideoOutWindow : public QObject
+class MythVideoBounds : public QObject
 {
     Q_OBJECT
 
   public:
-    VideoOutWindow();
-   ~VideoOutWindow() override = default;
+    explicit MythVideoBounds(bool CreateDisplay);
+   ~MythVideoBounds() override;
 
-    bool Init(const QSize &VideoDim, const QSize &VideoDispDim,
-              float Aspect, const QRect &WindowRect,
-              AspectOverrideMode AspectOverride, AdjustFillMode AdjustFill,
-              MythDisplay* Display);
+    bool InitBounds(const QSize &VideoDim, const QSize &VideoDispDim,
+                    float Aspect, const QRect &WindowRect);
 
   signals:
     // Note These are emitted from MoveResize - which must be called after any call
@@ -48,10 +43,10 @@ class VideoOutWindow : public QObject
     void PhysicalDPIChanged     (qreal  /*DPI*/);
 
     // Sets
-    void InputChanged           (const QSize &VideoDim, const QSize &VideoDispDim, float Aspect);
+    void SourceChanged          (const QSize &VideoDim, const QSize &VideoDispDim, float Aspect);
     void VideoAspectRatioChanged(float Aspect);
-    void EmbedInWidget          (const QRect &Rect);
-    void StopEmbedding          (void);
+    virtual void EmbedInWidget  (const QRect &Rect);
+    virtual void StopEmbedding  (void);
     void ToggleAdjustFill       (AdjustFillMode AdjustFillMode = kAdjustFill_Toggle);
     void ToggleAspectOverride   (AspectOverrideMode AspectMode = kAspect_Toggle);
     void ResizeDisplayWindow    (const QRect &Rect, bool SaveVisibleRect);
@@ -65,36 +60,33 @@ class VideoOutWindow : public QObject
     void SetWindowSize          (QSize Size);
     void SetITVResize           (QRect Rect);
     void SetRotation            (int Rotation);
+    void SetStereoscopicMode    (StereoscopicMode Mode);
 
+  public:
     // Gets
     bool     IsEmbedding(void)             const { return m_embedding; }
+    bool     IsEmbeddingAndHidden()        const { return m_embeddingHidden; }
     QSize    GetVideoDim(void)             const { return m_videoDim; }
     QSize    GetVideoDispDim(void)         const { return m_videoDispDim; }
-    int      GetPIPSize(void)              const { return m_dbPipSize; }
     PIPState GetPIPState(void)             const { return m_pipState; }
     float    GetOverridenVideoAspect(void) const { return m_videoAspectOverride;}
     QRect    GetDisplayVisibleRect(void)   const { return m_displayVisibleRect; }
     QRect    GetWindowRect(void)           const { return m_windowRect; }
     QRect    GetRawWindowRect(void)        const { return m_rawWindowRect; }
-    QRect    GetScreenGeometry(void)       const { return m_screenGeometry; }
     QRect    GetVideoRect(void)            const { return m_videoRect; }
     QRect    GetDisplayVideoRect(void)     const { return m_displayVideoRect; }
-    QRect    GetEmbeddingRect(void)        const { return m_embeddingRect; }
+    QRect    GetEmbeddingRect(void)        const { return m_rawEmbeddingRect; }
     bool     UsingGuiSize(void)            const { return m_dbUseGUISize; }
-    bool     GetITVResizing(void)          const { return m_itvResizing; }
-    QRect    GetITVDisplayRect(void)       const { return m_itvDisplayVideoRect; }
     QString  GetZoomString(void)           const;
     AspectOverrideMode GetAspectOverride(void) const { return m_videoAspectOverrideMode; }
     AdjustFillMode GetAdjustFill(void)     const { return m_adjustFill;      }
     float    GetVideoAspect(void)          const { return m_videoAspect; }
     float    GetDisplayAspect(void)        const { return m_displayAspect;  }
-    QRect    GetTmpDisplayVisibleRect(void) const { return m_tmpDisplayVisibleRect; }
-    QRect    GetVisibleOSDBounds(float &VisibleAspect, float &FontScaling, float ThemeAspect) const;
-    QRect    GetTotalOSDBounds(void) const;
     QRect    GetPIPRect(PIPLocation  Location, MythPlayer *PiPPlayer  = nullptr,
                         bool DoPixelAdjustment = true) const;
     bool     VideoIsFullScreen(void) const;
     QRegion  GetBoundingRegion(void) const;
+    StereoscopicMode GetStereoscopicMode() const;
 
   private:
     void PopulateGeometry        (void);
@@ -106,15 +98,18 @@ class VideoOutWindow : public QObject
     static QSize Fix1088         (QSize Dimensions);
     void Rotate                  (void);
 
-  private:
+  protected:
     MythDisplay* m_display     {nullptr};
+
+  private:
     QPoint  m_dbMove           {0,0};   ///< Percentage move from database
     float   m_dbHorizScale     {0.0F};  ///< Horizontal Overscan/Underscan percentage
     float   m_dbVertScale      {0.0F};  ///< Vertical Overscan/Underscan percentage
     int     m_dbPipSize        {26};    ///< percentage of full window to use for PiP
     bool    m_dbScalingAllowed {true};  ///< disable this to prevent overscan/underscan
     bool    m_dbUseGUISize     {false}; ///< Use the gui size for video window
-    QRect   m_screenGeometry   {0,0,1024,768}; ///< Full screen geometry
+    AspectOverrideMode m_dbAspectOverride { kAspect_Off };
+    AdjustFillMode m_dbAdjustFill { kAdjustFill_Off };
     qreal   m_devicePixelRatio {1.0};
 
     // Manual Zoom
@@ -138,6 +133,7 @@ class VideoOutWindow : public QObject
     /// Zoom mode
     AdjustFillMode m_adjustFill {kAdjustFill_Off};
     int     m_rotation {0};
+    StereoscopicMode m_stereo { kStereoscopicModeAuto };
 
     /// Pixel rectangle in video frame to display
     QRect   m_videoRect {0,0,0,0};
@@ -155,13 +151,16 @@ class VideoOutWindow : public QObject
     QRect   m_tmpDisplayVisibleRect {0,0,0,0};
     /// Embedded video rectangle
     QRect   m_embeddingRect;
+    QRect   m_rawEmbeddingRect;
 
     // Interactive TV (MHEG) video embedding
     bool    m_itvResizing {false};
     QRect   m_itvDisplayVideoRect;
+    QRect   m_rawItvDisplayVideoRect;
 
     /// State variables
     bool    m_embedding  {false};
+    bool    m_embeddingHidden { false };
     bool    m_bottomLine {false};
     PIPState m_pipState  {kPIPOff};
 
@@ -173,4 +172,4 @@ class VideoOutWindow : public QObject
     static const int   kManualZoomMaxMove;
 };
 
-#endif /* VIDEOOUTWINDOW_H_ */
+#endif

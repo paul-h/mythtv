@@ -587,7 +587,7 @@ void Scheduler::FillRecordListFromMaster(void)
         m_recList.push_back(it);
 }
 
-void Scheduler::PrintList(RecList &list, bool onlyFutureRecordings)
+void Scheduler::PrintList(const RecList &list, bool onlyFutureRecordings)
 {
     if (!VERBOSE_LEVEL_CHECK(VB_SCHEDULE, LOG_DEBUG))
         return;
@@ -811,7 +811,6 @@ bool Scheduler::ChangeRecordingEnd(RecordingInfo *oldp, RecordingInfo *newp)
             RecordingInfo *recp = *j;
             if (recp->GetRecordingStatus() == RecStatus::Pending)
             {
-                QString schedid = recp->MakeUniqueSchedulerKey();
                 recp->SetRecordingStatus(RecStatus::Conflict);
                 recp->AddHistory(false, false, true);
                 m_recListChanged = true;
@@ -823,7 +822,7 @@ bool Scheduler::ChangeRecordingEnd(RecordingInfo *oldp, RecordingInfo *newp)
     return rs == RecStatus::Recording;
 }
 
-void Scheduler::SlaveConnected(RecordingList &slavelist)
+void Scheduler::SlaveConnected(const RecordingList &slavelist)
 {
     QMutexLocker lockit(&m_schedLock);
     QReadLocker tvlocker(&TVRec::s_inputsLock);
@@ -912,7 +911,6 @@ void Scheduler::SlaveDisconnected(uint cardid)
         {
             if (rp->GetRecordingStatus() == RecStatus::Pending)
             {
-                QString schedid = rp->MakeUniqueSchedulerKey();
                 rp->SetRecordingStatus(RecStatus::Missed);
                 rp->AddHistory(false, false, true);
             }
@@ -1058,13 +1056,13 @@ bool Scheduler::IsSameProgram(
     const RecordingInfo *a, const RecordingInfo *b) const
 {
     IsSameKey X(a,b);
-    IsSameCacheType::const_iterator it = m_cacheIsSameProgram.find(X);
-    if (it != m_cacheIsSameProgram.end())
+    IsSameCacheType::const_iterator it = m_cacheIsSameProgram.constFind(X);
+    if (it != m_cacheIsSameProgram.constEnd())
         return *it;
 
     IsSameKey Y(b,a);
-    it = m_cacheIsSameProgram.find(Y);
-    if (it != m_cacheIsSameProgram.end())
+    it = m_cacheIsSameProgram.constFind(Y);
+    if (it != m_cacheIsSameProgram.constEnd())
         return *it;
 
     return m_cacheIsSameProgram[X] = a->IsDuplicateProgram(*b);
@@ -1209,7 +1207,7 @@ void Scheduler::MarkOtherShowings(RecordingInfo *p)
     }
 }
 
-void Scheduler::MarkShowingsList(RecList &showinglist, RecordingInfo *p)
+void Scheduler::MarkShowingsList(const RecList &showinglist, RecordingInfo *p)
 {
     for (auto *q : showinglist)
     {
@@ -1918,7 +1916,7 @@ bool Scheduler::IsBusyRecording(const RecordingInfo *rcinfo)
 
     // now check other inputs in the same input group as the recording.
     uint inputid = rcinfo->GetInputID();
-    vector<uint> &inputids = m_sinputInfoMap[inputid].m_conflictingInputs;
+    const vector<uint> &inputids = m_sinputInfoMap[inputid].m_conflictingInputs;
     vector<uint> &group_inputs = m_sinputInfoMap[inputid].m_groupInputs;
     for (uint id : inputids)
     {
@@ -2270,7 +2268,7 @@ void Scheduler::ResetDuplicates(uint recordid, uint findid,
                   .arg(kDontRecord)
                   + filterClause);
     MSqlBindings::const_iterator it;
-    for (it = bindings.begin(); it != bindings.end(); ++it)
+    for (it = bindings.cbegin(); it != bindings.cend(); ++it)
         query.bindValue(it.key(), it.value());
     if (!query.exec())
         MythDB::DBError("ResetDuplicates1", query);
@@ -2521,7 +2519,7 @@ bool Scheduler::HandleRunSchedulerStartup(
 // If a recording is about to start on a backend in a few minutes, wake it...
 void Scheduler::HandleWakeSlave(RecordingInfo &ri, int prerollseconds)
 {
-    static constexpr int kSysEventSecs[5] = { 120, 90, 60, 30, 0 };
+    static constexpr std::array<const int,4> kSysEventSecs = { 120, 90, 60, 30 };
 
     QDateTime curtime = MythDate::current();
     QDateTime nextrectime = ri.GetRecordingStartTime();
@@ -2535,9 +2533,8 @@ void Scheduler::HandleWakeSlave(RecordingInfo &ri, int prerollseconds)
 
     QString sysEventKey = ri.MakeUniqueKey();
 
-    int i = 0;
     bool pendingEventSent = false;
-    while (kSysEventSecs[i] != 0)
+    for (size_t i = 0; i < kSysEventSecs.size(); i++)
     {
         if ((secsleft <= kSysEventSecs[i]) &&
             (!m_sysEvents[i].contains(sysEventKey)))
@@ -2551,12 +2548,11 @@ void Scheduler::HandleWakeSlave(RecordingInfo &ri, int prerollseconds)
             m_sysEvents[i].insert(sysEventKey);
             pendingEventSent = true;
         }
-        i++;
     }
 
     // cleanup old sysEvents once in a while
     QSet<QString> keys;
-    for (i = 0; kSysEventSecs[i] != 0; i++)
+    for (size_t i = 0; i < kSysEventSecs.size(); i++)
     {
         if (m_sysEvents[i].size() < 20)
             continue;
@@ -2665,8 +2661,6 @@ bool Scheduler::HandleRecording(
                             nextrectime.addSecs(-prerollseconds - 60));
         return true;
     }
-
-    QString schedid = ri.MakeUniqueSchedulerKey();
 
     if (ri.GetRecordingStartTime() > m_lastPrepareTime)
     {
@@ -3053,7 +3047,7 @@ void Scheduler::DelayShutdown()
 void Scheduler::HandleIdleShutdown(
     bool &blockShutdown, QDateTime &idleSince,
     int prerollseconds, int idleTimeoutSecs, int idleWaitForRecordingTime,
-    bool &statuschanged)
+    const bool &statuschanged)
 {
     // To ensure that one idle message is logged per 15 minutes
     uint logmask = VB_IDLE;
@@ -3999,7 +3993,7 @@ void Scheduler::UpdateMatches(uint recordid, uint sourceid, uint mplexid,
                           "WHERE recordmatch.chanid = channel.chanid")
                   + deleteClause);
     MSqlBindings::const_iterator it;
-    for (it = bindings.begin(); it != bindings.end(); ++it)
+    for (it = bindings.cbegin(); it != bindings.cend(); ++it)
         query.bindValue(it.key(), it.value());
     if (!query.exec())
     {
@@ -4107,7 +4101,7 @@ void Scheduler::UpdateMatches(uint recordid, uint sourceid, uint mplexid,
         MSqlQuery result(m_dbConn);
         result.prepare(query2);
 
-        for (it = bindings.begin(); it != bindings.end(); ++it)
+        for (it = bindings.cbegin(); it != bindings.cend(); ++it)
         {
             if (query2.contains(it.key()))
                 result.bindValue(it.key(), it.value());
@@ -4779,8 +4773,6 @@ void Scheduler::AddNotListed(void) {
             .arg(result.size())
             .arg(((dbend.tv_sec  - dbstart.tv_sec) * 1000000 +
                   (dbend.tv_usec - dbstart.tv_usec)) / 1000000.0));
-
-    QDateTime now = MythDate::current();
 
     while (result.next())
     {
@@ -5654,7 +5646,7 @@ bool Scheduler::WasStartedAutomatically()
 
     QDateTime startupTime = QDateTime();
     QString s = gCoreContext->GetSetting("MythShutdownWakeupTime", "");
-    if (s.length())
+    if (!s.isEmpty())
         startupTime = MythDate::fromString(s);
 
     // if we don't have a valid startup time assume we were started manually
@@ -5739,20 +5731,20 @@ bool Scheduler::CreateConflictLists(void)
         while (checkset != fullset)
         {
             checkset = fullset;
-            for (sit = checkset.begin(); sit != checkset.end(); ++sit)
-                fullset += inputSets[*sit];
+            for (int item : qAsConst(checkset))
+                fullset += inputSets[item];
         }
 
         // Create a new conflict list for the resulting set of inputs
         // and point each inputs list at it.
         auto *conflictlist = new RecList();
         m_conflictLists.push_back(conflictlist);
-        for (sit = checkset.begin(); sit != checkset.end(); ++sit)
+        for (int item : qAsConst(checkset))
         {
             LOG(VB_SCHEDULE, LOG_INFO,
                 QString("Assigning input %1 to conflict set %2")
-                .arg(*sit).arg(m_conflictLists.size()));
-            m_sinputInfoMap[*sit].m_conflictList = conflictlist;
+                .arg(item).arg(m_conflictLists.size()));
+            m_sinputInfoMap[item].m_conflictList = conflictlist;
         }
     }
 

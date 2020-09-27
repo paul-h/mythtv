@@ -59,9 +59,8 @@ class VideoPerformanceTest
     void Test(void)
     {
         PIPMap dummy;
-        MythMediaBuffer *rb  = MythMediaBuffer::Create(m_file, false, true, 2000);
-        auto       *mp  = new MythPlayer(
-            (PlayerFlags)(kAudioMuted | (m_allowGpu ? (kDecodeAllowGPU | kDecodeAllowEXT): kNoFlags)));
+        MythMediaBuffer *rb = MythMediaBuffer::Create(m_file, false, true, 2000);
+        auto *mp  = new MythPlayer(static_cast<PlayerFlags>(kAudioMuted | (m_allowGpu ? kDecodeAllowGPU: kNoFlags)));
         mp->GetAudio()->SetAudioInfo("NULL", "NULL", 0, 0);
         mp->GetAudio()->SetNoAudio();
         m_ctx = new PlayerContext("VideoPerformanceTest");
@@ -142,18 +141,18 @@ class VideoPerformanceTest
             if (!m_decodeOnly)
             {
                 MythDeintType doubledeint = GetDoubleRateOption(frame, DEINT_CPU | DEINT_SHADER | DEINT_DRIVER);
-                vo->ProcessFrame(frame, nullptr, dummy, scan);
-                vo->PrepareFrame(frame, scan, nullptr);
-                vo->Show(scan);
+                vo->PrepareFrame(frame, dummy, scan);
+                vo->RenderFrame(frame, scan, nullptr);
+                vo->EndFrame();
 
                 if (doubledeint && m_deinterlace)
                 {
                     doubledeint = GetDoubleRateOption(frame, DEINT_CPU);
                     MythDeintType other = GetDoubleRateOption(frame, DEINT_SHADER | DEINT_DRIVER);
                     if (doubledeint && !other)
-                        vo->ProcessFrame(frame, nullptr, dummy, kScan_Intr2ndField);
-                    vo->PrepareFrame(frame, kScan_Intr2ndField, nullptr);
-                    vo->Show(scan);
+                        vo->PrepareFrame(frame, dummy, kScan_Intr2ndField);
+                    vo->RenderFrame(frame, kScan_Intr2ndField, nullptr);
+                    vo->EndFrame();
                 }
             }
             if (!m_noDecode)
@@ -224,7 +223,7 @@ int main(int argc, char *argv[])
     if (!cmdline.toString("infile").isEmpty())
         filename = cmdline.toString("infile");
     else if (!cmdline.GetArgs().empty())
-        filename = cmdline.GetArgs()[0];
+        filename = cmdline.GetArgs().at(0);
 
     gContext = new MythContext(MYTH_BINARY_VERSION, true);
     if (!gContext->Init())

@@ -35,6 +35,8 @@ class MythUISpinBox;
 class MythUITextEdit;
 class MythUIProgressBar;
 
+using FocusInfoType = QMultiMap<int, MythUIType *>;
+
 /**
  * \defgroup MythUI MythTV User Interface Library
  *
@@ -193,7 +195,6 @@ class MUI_PUBLIC MythUIType : public QObject, public XMLParseBase
 
   signals:
     void RequestUpdate();
-    void RequestUpdate(const QRect &);
     void RequestRegionUpdate(const QRect &);
     void TakingFocus();
     void LosingFocus();
@@ -209,7 +210,7 @@ class MUI_PUBLIC MythUIType : public QObject, public XMLParseBase
     virtual void DrawSelf(MythPainter *p, int xoffset, int yoffset,
                           int alphaMod, QRect clipRect);
 
-    void AddFocusableChildrenToList(QMap<int, MythUIType *> &focusList);
+    void AddFocusableChildrenToList(FocusInfoType &focusList);
     void HandleAlphaPulse();
     void HandleMovementPulse();
 

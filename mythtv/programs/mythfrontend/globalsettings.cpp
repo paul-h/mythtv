@@ -49,6 +49,7 @@
 #include "decoders/mythvaapicontext.h"
 #endif
 #include "mythpower.h"
+#include "mythpainterwindow.h"
 
 //Use for playBackGroup, to be remove at one point
 #include "playgroup.h"
@@ -903,11 +904,11 @@ void PlaybackProfileItemConfig::Load(void)
     QString     dech = VideoDisplayProfile::GetDecoderHelp();
     QStringList decr = VideoDisplayProfile::GetDecoders();
     QStringList decn = VideoDisplayProfile::GetDecoderNames();
-    QStringList::const_iterator itr = decr.begin();
-    QStringList::const_iterator itn = decn.begin();
+    QStringList::const_iterator itr = decr.cbegin();
+    QStringList::const_iterator itn = decn.cbegin();
     m_decoder->clearSelections();
     m_decoder->setHelpText(dech);
-    for (; (itr != decr.end()) && (itn != decn.end()); ++itr, ++itn)
+    for (; (itr != decr.cend()) && (itn != decn.cend()); ++itr, ++itn)
     {
         m_decoder->addSelection(*itn, *itr, (*itr == pdecoder));
         found |= (*itr == pdecoder);
@@ -992,20 +993,19 @@ void PlaybackProfileItemConfig::decoderChanged(const QString &dec)
 {
     QString     vrenderer = m_vidRend->getValue();
     QStringList renderers = VideoDisplayProfile::GetVideoRenderers(dec);
-    QStringList::const_iterator it;
 
     QString prenderer;
-    for (it = renderers.begin(); it != renderers.end(); ++it)
-        prenderer = (*it == vrenderer) ? vrenderer : prenderer;
+    for (const auto & rend : qAsConst(renderers))
+        prenderer = (rend == vrenderer) ? vrenderer : prenderer;
     if (prenderer.isEmpty())
         prenderer = VideoDisplayProfile::GetPreferredVideoRenderer(dec);
 
     m_vidRend->clearSelections();
-    for (it = renderers.begin(); it != renderers.end(); ++it)
+    for (const auto & rend : qAsConst(renderers))
     {
-        if ((!(*it).contains("null")))
-            m_vidRend->addSelection(VideoDisplayProfile::GetVideoRendererName(*it),
-                                    *it, (*it == prenderer));
+        if ((!rend.contains("null")))
+            m_vidRend->addSelection(VideoDisplayProfile::GetVideoRendererName(rend),
+                                    rend, (rend == prenderer));
     }
     QString vrenderer2 = m_vidRend->getValue();
     vrenderChanged(vrenderer2);
@@ -1327,12 +1327,11 @@ static HostComboBoxSetting * CurrentPlaybackProfile()
         VideoDisplayProfile::SetDefaultProfileName(profile, host);
     }
 
-    QStringList::const_iterator it;
-    for (it = profiles.begin(); it != profiles.end(); ++it)
+    for (const auto & prof : qAsConst(profiles))
     {
-        grouptrigger->addSelection(ProgramInfo::i18n(*it), *it);
-        grouptrigger->addTargetedChild(*it,
-            new PlaybackProfileConfig(*it, grouptrigger));
+        grouptrigger->addSelection(ProgramInfo::i18n(prof), prof);
+        grouptrigger->addTargetedChild(prof,
+            new PlaybackProfileConfig(prof, grouptrigger));
     }
 
     return grouptrigger;
@@ -1383,7 +1382,7 @@ void PlaybackSettings::CreateNewPlaybackProfileSlot(const QString &name)
 
 static HostComboBoxSetting *PlayBoxOrdering()
 {
-    QString str[4] =
+    std::array<QString,4> str
     {
         PlaybackSettings::tr("Sort all sub-titles/multi-titles Ascending"),
         PlaybackSettings::tr("Sort all sub-titles/multi-titles Descending"),
@@ -1404,7 +1403,7 @@ static HostComboBoxSetting *PlayBoxOrdering()
 
     gc->setLabel(PlaybackSettings::tr("Episode sort orderings"));
 
-    for (int i = 0; i < 4; ++i)
+    for (size_t i = 0; i < str.size(); ++i)
         gc->addSelection(str[i], QString::number(i));
 
     gc->setValue(3);
@@ -1466,6 +1465,28 @@ static HostCheckBoxSetting *FFRewReverse()
                                          "switch to play mode if the speed "
                                          "can't be decreased further."));
     return gc;
+}
+
+static void AddPaintEngine(GroupSetting* Group)
+{
+    if (!Group)
+        return;
+
+    const QStringList options = MythPainterWindow::GetPainters();
+
+    // Don't show an option if there is no choice. Do not offer Qt painter (but
+    // MythPainterWindow will accept 'Qt' if overriden from the command line)
+    if (options.size() <= 1)
+        return;
+
+    QString pref = GetMythDB()->GetSetting("PaintEngine", MythPainterWindow::GetDefaultPainter());
+    auto* paint = new HostComboBoxSetting("PaintEngine");
+    paint->setLabel(AppearanceSettings::tr("Paint engine"));
+    for (const auto & option : options)
+        paint->addSelection(option, option, option == pref);
+
+    paint->setHelpText(AppearanceSettings::tr("This selects what MythTV uses to draw. "));
+    Group->addChild(paint);
 }
 
 static HostComboBoxSetting *MenuTheme()
@@ -2144,6 +2165,17 @@ static HostComboBoxSetting *LetterboxingColour()
                                          "screens may prefer gray to minimize "
                                          "burn-in."));
     return gc;
+}
+
+static HostCheckBoxSetting* StereoDiscard()
+{
+    auto * cb = new HostCheckBoxSetting("DiscardStereo3D");
+    cb->setValue(true);
+    cb->setLabel("Discard 3D stereoscopic fields");
+    cb->setHelpText(PlaybackSettings::tr(
+        "If 'Side by Side' or 'Top and Bottom' 3D material is detected, "
+        "enabling this setting will discard one field (enabled by default)."));
+    return cb;
 }
 
 static HostComboBoxSetting *AspectOverride()
@@ -4292,7 +4324,7 @@ void PlaybackSettings::Load(void)
 #endif
 
     general->addChild(new PlayBackScaling());
-
+    general->addChild(StereoDiscard());
     general->addChild(AspectOverride());
     general->addChild(AdjustFill());
 
@@ -4584,7 +4616,8 @@ void AppearanceSettings::applyChange()
 void AppearanceSettings::PopulateScreens(int Screens)
 {
     m_screen->clearSelections();
-    for (QScreen *qscreen : QGuiApplication::screens())
+    QList screens = QGuiApplication::screens();
+    for (QScreen *qscreen : qAsConst(screens))
     {
         QString extra = MythDisplay::GetExtraScreenInfo(qscreen);
         m_screen->addSelection(qscreen->name() + extra, qscreen->name());
@@ -4599,6 +4632,7 @@ AppearanceSettings::AppearanceSettings()
     screen->setLabel(tr("Theme / Screen Settings"));
     addChild(screen);
 
+    AddPaintEngine(screen);
     screen->addChild(MenuTheme());
     screen->addChild(GUIRGBLevels());
 

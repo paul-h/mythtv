@@ -89,7 +89,7 @@ DVBChannel::DVBChannel(QString aDevice, TVRec *parent)
         m_dvbCam = new DVBCam(m_device);
         m_hasCrcBug = CardUtil::HasDVBCRCBug(m_device);
     }
-    else
+    else if (master != nullptr)
     {
         m_dvbCam    = master->m_dvbCam;
         m_hasCrcBug = master->m_hasCrcBug;
@@ -1206,13 +1206,13 @@ double DVBChannel::GetSNR(bool *ok) const
 // documented in dvbchannel.h
 double DVBChannel::GetBitErrorRateDVBv5(bool *ok) const
 {
-    struct dtv_property prop[2] = {};
+    std::array<struct dtv_property,2> prop {};
     struct dtv_properties cmd = {};
 
     prop[0].cmd = DTV_STAT_POST_ERROR_BIT_COUNT;
     prop[1].cmd = DTV_STAT_POST_TOTAL_BIT_COUNT;
-    cmd.num = 2;
-    cmd.props = prop;
+    cmd.num   = prop.size();
+    cmd.props = prop.data();
     int ret = ioctl(m_fdFrontend, FE_GET_PROPERTY, &cmd);
     LOG(VB_RECORD, LOG_DEBUG, LOC +
         QString("FE DTV bit error rate ret=%1 res=%2 len=%3 scale=%4 val=%5 res=%6 len=%7 scale=%8 val=%9")
@@ -1348,7 +1348,7 @@ double DVBChannel::GetUncorrectedBlockCount(bool *ok) const
 
 void DVBChannel::ReturnMasterLock(DVBChannel* &dvbm)
 {
-    auto *chan = static_cast<DTVChannel*>(dvbm);
+    DTVChannel *chan = dvbm;
     DTVChannel::ReturnMasterLock(chan);
     dvbm = nullptr;
 }

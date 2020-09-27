@@ -43,7 +43,7 @@ using namespace std;
 #define kNoDataTimeout            50   /* msec */
 #define kResetTimeout             1000 /* msec */
 
-using handle_to_lfd_t = QMap<raw1394handle_t,LinuxFirewireDevice*>;
+using handle_to_lfd_t = QHash<raw1394handle_t,LinuxFirewireDevice*>;
 
 class LFDPriv
 {
@@ -855,8 +855,9 @@ bool LinuxFirewireDevice::UpdateDeviceList(void)
         return false;
     }
 
-    struct raw1394_portinfo port_info[16];
-    int numcards = raw1394_get_port_info(item.m_handle, port_info, 16);
+    std::array<raw1394_portinfo,16> port_info {};
+    int numcards = raw1394_get_port_info(item.m_handle, port_info.data(),
+                                         port_info.size());
     if (numcards < 1)
     {
         raw1394_destroy_handle(item.m_handle);
@@ -896,7 +897,8 @@ bool LinuxFirewireDevice::UpdateDeviceList(void)
             break;
         }
 
-        numcards = raw1394_get_port_info(item.m_handle, port_info, 16);
+        numcards = raw1394_get_port_info(item.m_handle, port_info.data(),
+                                         port_info.size());
     }
 
     if (item.m_handle)
@@ -998,7 +1000,7 @@ static QString speed_to_string(uint speed)
     if (speed > 3)
         return QString("Invalid Speed (%1)").arg(speed);
 
-    static constexpr uint kSpeeds[] = { 100, 200, 400, 800 };
+    static constexpr std::array<const uint,4> kSpeeds { 100, 200, 400, 800 };
     return QString("%1Mbps").arg(kSpeeds[speed]);
 }
 

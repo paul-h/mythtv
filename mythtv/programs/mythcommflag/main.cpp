@@ -201,7 +201,7 @@ static int CopySkipListToCutList(uint chanid, const QDateTime& starttime)
     }
 
     pginfo.QueryCommBreakList(cutlist);
-    for (it = cutlist.begin(); it != cutlist.end(); ++it)
+    for (it = cutlist.cbegin(); it != cutlist.cend(); ++it)
     {
         if (*it == MARK_COMM_START)
             cutlist[it.key()] = MARK_CUT_START;
@@ -298,7 +298,7 @@ static int GetMarkupList(const QString& list, uint chanid, const QDateTime& star
         pginfo.QueryCommBreakList(cutlist);
 
     uint64_t lastStart = 0;
-    for (it = cutlist.begin(); it != cutlist.end(); ++it)
+    for (it = cutlist.cbegin(); it != cutlist.cend(); ++it)
     {
         if ((*it == MARK_COMM_START) ||
             (*it == MARK_CUT_START))
@@ -461,11 +461,10 @@ static void commDetectorGotNewCommercialBreakList(void)
     frm_dir_map_t newCommercialMap;
     commDetector->GetCommercialBreakList(newCommercialMap);
 
-    frm_dir_map_t::Iterator it = newCommercialMap.begin();
     QString message = "COMMFLAG_UPDATE ";
     message += global_program_info->MakeUniqueKey();
 
-    for (it = newCommercialMap.begin();
+    for (auto it = newCommercialMap.begin();
             it != newCommercialMap.end(); ++it)
     {
         if (it != newCommercialMap.begin())
@@ -842,7 +841,6 @@ static int FlagCommercials(ProgramInfo *program_info, int jobid,
     if (commDetectMethod == COMM_DETECT_OFF)
         return GENERIC_EXIT_OK;
 
-    frm_dir_map_t blanks;
     recorder = nullptr;
 
 /*

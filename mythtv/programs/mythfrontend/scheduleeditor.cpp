@@ -1657,7 +1657,7 @@ void MetadataOptions::HandleDownloadedImages(MetadataLookup *lookup)
     if (map.isEmpty())
         return;
 
-    for (DownloadMap::const_iterator i = map.begin(); i != map.end(); ++i)
+    for (DownloadMap::const_iterator i = map.cbegin(); i != map.cend(); ++i)
     {
         VideoArtworkType type = i.key();
         const ArtworkInfo& info = i.value();
@@ -2147,9 +2147,11 @@ void SchedOptMixin::RuleChanged(void)
     if (m_endoffsetSpin)
         m_endoffsetSpin->SetEnabled(isScheduled);
     if (m_dupmethodList)
+    {
         m_dupmethodList->SetEnabled(
             isScheduled && !isSingle &&
             (!isManual || m_rule->m_dupMethod != kDupCheckNone));
+    }
     if (m_dupscopeList)
         m_dupscopeList->SetEnabled(isScheduled && !isSingle &&
                                    m_rule->m_dupMethod != kDupCheckNone);

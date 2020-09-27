@@ -62,6 +62,12 @@ using namespace std;
 #include <QVariantMap>
 #include <utility>
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
+  #define QT_ENDL endl
+#else
+  #define QT_ENDL Qt::endl
+#endif
+
 #include "mythcommandlineparser.h"
 #include "mythcorecontext.h"
 #include "exitcodes.h"
@@ -306,17 +312,15 @@ QString CommandLineArg::GetHelpString(int off, const QString& group, bool force)
     if (!m_parents.isEmpty())
         msg << "  ";
     msg << GetKeywordString().leftJustified(off, ' ')
-        << hlist[0] << endl;
+        << hlist.takeFirst() << QT_ENDL;
 
     // print remaining lines with necessary padding
-    QStringList::const_iterator i1;
-    for (i1 = hlist.begin() + 1; i1 != hlist.end(); ++i1)
-        msg << pad << *i1 << endl;
+    for (const auto & line : qAsConst(hlist))
+        msg << pad << line << QT_ENDL;
 
     // loop through any child arguments to print underneath
-    QList<CommandLineArg*>::const_iterator i2;
-    for (i2 = m_children.begin(); i2 != m_children.end(); ++i2)
-        msg << (*i2)->GetHelpString(off, group, true);
+    for (auto * arg : qAsConst(m_children))
+        msg << arg->GetHelpString(off, group, true);
 
     msg.flush();
     return helpstr;
@@ -350,30 +354,29 @@ QString CommandLineArg::GetLongHelpString(QString keyword) const
         PrintDeprecatedWarning(keyword);
     }
 
-    msg << "Option:      " << keyword << endl << endl;
+    msg << "Option:      " << keyword << QT_ENDL << QT_ENDL;
 
     bool first = true;
 
     // print all related keywords, padding for multiples
-    QStringList::const_iterator i1;
-    for (i1 = m_keywords.begin(); i1 != m_keywords.end(); ++i1)
+    for (const auto & word : qAsConst(m_keywords))
     {
-        if (*i1 != keyword)
+        if (word != keyword)
         {
             if (first)
             {
-                msg << "Aliases:     " << *i1 << endl;
+                msg << "Aliases:     " << word << QT_ENDL;
                 first = false;
             }
             else
-                msg << "             " << *i1 << endl;
+                msg << "             " << word << QT_ENDL;
         }
     }
 
     // print type and default for the stored value
-    msg << "Type:        " << QVariant::typeToName(m_type) << endl;
+    msg << "Type:        " << QVariant::typeToName(m_type) << QT_ENDL;
     if (m_default.canConvert(QVariant::String))
-        msg << "Default:     " << m_default.toString() << endl;
+        msg << "Default:     " << m_default.toString() << QT_ENDL;
 
     QStringList help;
     if (m_longhelp.isEmpty())
@@ -383,47 +386,47 @@ QString CommandLineArg::GetLongHelpString(QString keyword) const
     wrapList(help, termwidth-13);
 
     // print description, wrapping and padding as necessary
-    msg << "Description: " << help[0] << endl;
-    for (i1 = help.begin() + 1; i1 != help.end(); ++i1)
-        msg << "             " << *i1 << endl;
+    msg << "Description: " << help.takeFirst() << QT_ENDL;
+    for (const auto & line : qAsConst(help))
+        msg << "             " << line << QT_ENDL;
 
     QList<CommandLineArg*>::const_iterator i2;
 
     // loop through the four relation types and print
     if (!m_parents.isEmpty())
     {
-        msg << endl << "Can be used in combination with:" << endl;
-        for (i2 = m_parents.constBegin(); i2 != m_parents.constEnd(); ++i2)
-            msg << " " << (*i2)->GetPreferredKeyword()
+        msg << QT_ENDL << "Can be used in combination with:" << QT_ENDL;
+        for (auto * parent : qAsConst(m_parents))
+            msg << " " << parent->GetPreferredKeyword()
                                     .toLocal8Bit().constData();
-        msg << endl;
+        msg << QT_ENDL;
     }
 
     if (!m_children.isEmpty())
     {
-        msg << endl << "Allows the use of:" << endl;
+        msg << QT_ENDL << "Allows the use of:" << QT_ENDL;
         for (i2 = m_children.constBegin(); i2 != m_children.constEnd(); ++i2)
             msg << " " << (*i2)->GetPreferredKeyword()
                                     .toLocal8Bit().constData();
-        msg << endl;
+        msg << QT_ENDL;
     }
 
     if (!m_requires.isEmpty())
     {
-        msg << endl << "Requires the use of:" << endl;
+        msg << QT_ENDL << "Requires the use of:" << QT_ENDL;
         for (i2 = m_requires.constBegin(); i2 != m_requires.constEnd(); ++i2)
             msg << " " << (*i2)->GetPreferredKeyword()
                                     .toLocal8Bit().constData();
-        msg << endl;
+        msg << QT_ENDL;
     }
 
     if (!m_blocks.isEmpty())
     {
-        msg << endl << "Prevents the use of:" << endl;
+        msg << QT_ENDL << "Prevents the use of:" << QT_ENDL;
         for (i2 = m_blocks.constBegin(); i2 != m_blocks.constEnd(); ++i2)
             msg << " " << (*i2)->GetPreferredKeyword()
                                     .toLocal8Bit().constData();
-        msg << endl;
+        msg << QT_ENDL;
     }
 
     msg.flush();
@@ -890,10 +893,9 @@ void CommandLineArg::Convert(void)
         if (m_stored.type() == QVariant::List)
         {
             QVariantList vlist = m_stored.toList();
-            QVariantList::const_iterator iter = vlist.begin();
             QStringList slist;
-            for (; iter != vlist.end(); ++iter)
-                slist << QString::fromLocal8Bit(iter->toByteArray());
+            for (const auto& item : qAsConst(vlist))
+                slist << QString::fromLocal8Bit(item.toByteArray());
             m_stored = QVariant(slist);
         }
     }
@@ -1042,7 +1044,6 @@ void CommandLineArg::PrintVerbose(void) const
     QMap<QString, QVariant> tmpmap;
     QMap<QString, QVariant>::const_iterator it;
     QVariantList vlist;
-    QVariantList::const_iterator it2;
     bool first = true;
 
     switch (m_type)
@@ -1081,13 +1082,11 @@ void CommandLineArg::PrintVerbose(void) const
 
       case QVariant::StringList:
         vlist = m_stored.toList();
-        it2 = vlist.begin();
-        cerr << '"' << it2->toByteArray().constData() << '"';
-        ++it2;
-        for (; it2 != vlist.end(); ++it2)
+        cerr << '"' << vlist.takeFirst().toByteArray().constData() << '"';
+        for (const auto& str : qAsConst(vlist))
         {
             cerr << ", \""
-                 << it2->constData()
+                 << str.constData()
                  << '"';
         }
         cerr << endl;
@@ -1095,7 +1094,7 @@ void CommandLineArg::PrintVerbose(void) const
 
       case QVariant::Map:
         tmpmap = m_stored.toMap();
-        for (it = tmpmap.begin(); it != tmpmap.end(); ++it)
+        for (it = tmpmap.cbegin(); it != tmpmap.cend(); ++it)
         {
             if (first)
                 first = false;
@@ -1243,20 +1242,19 @@ CommandLineArg* MythCommandLineParser::add(QStringList arglist,
         m_namedArgs.insert(name, arg);
     }
 
-    QStringList::const_iterator i;
-    for (i = arglist.begin(); i != arglist.end(); ++i)
+    for (const auto & str : qAsConst(arglist))
     {
-        if (!m_optionedArgs.contains(*i))
+        if (!m_optionedArgs.contains(str))
         {
-            arg->AddKeyword(*i);
+            arg->AddKeyword(str);
             if (m_verbose)
             {
-                cerr << "Adding " << (*i).toLocal8Bit().constData()
+                cerr << "Adding " << str.toLocal8Bit().constData()
                      << " as taking type '" << QVariant::typeToName(type)
                      << "'" << endl;
             }
             arg->IncrRef();
-            m_optionedArgs.insert(*i, arg);
+            m_optionedArgs.insert(str, arg);
         }
     }
 
@@ -1299,7 +1297,7 @@ QString MythCommandLineParser::GetHelpString(void) const
 
     QString versionStr = QString("%1 version: %2 [%3] www.mythtv.org")
         .arg(m_appname).arg(GetMythSourcePath()).arg(GetMythSourceVersion());
-    msg << versionStr << endl;
+    msg << versionStr << QT_ENDL;
 
     if (toString("showhelp").isEmpty())
     {
@@ -1307,33 +1305,31 @@ QString MythCommandLineParser::GetHelpString(void) const
 
         QString descr = GetHelpHeader();
         if (descr.size() > 0)
-            msg << endl << descr << endl << endl;
+            msg << QT_ENDL << descr << QT_ENDL << QT_ENDL;
 
         // loop through registered arguments to populate list of groups
         QStringList groups("");
         int maxlen = 0;
-        QMap<QString, CommandLineArg*>::const_iterator i1;
-        for (i1 = m_namedArgs.begin(); i1 != m_namedArgs.end(); ++i1)
+        for (auto * cmdarg : qAsConst(m_namedArgs))
         {
-            maxlen = max((*i1)->GetKeywordLength(), maxlen);
-            if (!groups.contains((*i1)->m_group))
-                groups << (*i1)->m_group;
+            maxlen = max(cmdarg->GetKeywordLength(), maxlen);
+            if (!groups.contains(cmdarg->m_group))
+                groups << cmdarg->m_group;
         }
 
         // loop through list of groups and print help string for each
         // arguments will filter themselves if they are not in the group
         maxlen += 4;
-        QStringList::const_iterator i2;
-        for (i2 = groups.begin(); i2 != groups.end(); ++i2)
+        for (const auto & group : qAsConst(groups))
         {
-            if ((*i2).isEmpty())
-                msg << "Misc. Options:" << endl;
+            if (group.isEmpty())
+                msg << "Misc. Options:" << QT_ENDL;
             else
-                msg << (*i2).toLocal8Bit().constData() << " Options:" << endl;
+                msg << group.toLocal8Bit().constData() << " Options:" << QT_ENDL;
 
-            for (i1 = m_namedArgs.begin(); i1 != m_namedArgs.end(); ++i1)
-                msg << (*i1)->GetHelpString(maxlen, *i2);
-            msg << endl;
+            for (auto * cmdarg : qAsConst(m_namedArgs))
+                msg << cmdarg->GetHelpString(maxlen, group);
+            msg << QT_ENDL;
         }
     }
     else
@@ -1348,7 +1344,8 @@ QString MythCommandLineParser::GetHelpString(void) const
                             .arg(toString("showhelp"));
         }
 
-        msg << m_optionedArgs[optstr]->GetLongHelpString(optstr);
+        if (m_optionedArgs[optstr] != nullptr)
+            msg << m_optionedArgs[optstr]->GetLongHelpString(optstr);
     }
 
     msg.flush();
@@ -1609,13 +1606,11 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
                  << endl;
     }
 
-    QMap<QString, CommandLineArg*>::const_iterator it;
-
     if (m_verbose)
     {
         cerr << "Processed option list:" << endl;
-        for (it = m_namedArgs.begin(); it != m_namedArgs.end(); ++it)
-            (*it)->PrintVerbose();
+        for (auto * cmdarg : qAsConst(m_namedArgs))
+            cmdarg->PrintVerbose();
 
         if (m_namedArgs.contains("_args"))
         {
@@ -1635,11 +1630,11 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
     }
 
     // make sure all interdependencies are fulfilled
-    for (it = m_namedArgs.begin(); it != m_namedArgs.end(); ++it)
+    for (auto * cmdarg : qAsConst(m_namedArgs))
     {
-        if (!(*it)->TestLinks())
+        if (!cmdarg->TestLinks())
         {
-            QString keyword = (*it)->m_usedKeyword;
+            QString keyword = cmdarg->m_usedKeyword;
             if (keyword.startsWith('-'))
             {
                 if (keyword.startsWith("--"))
@@ -1876,13 +1871,9 @@ QMap<QString,QString> MythCommandLineParser::GetSettingsOverride(void)
                 QFile f(filename);
                 if (f.open(QIODevice::ReadOnly))
                 {
-                    char buf[1024];
-                    int64_t len = f.readLine(buf, sizeof(buf) - 1);
-                    while (len != -1)
-                    {
-                        if (len >= 1 && buf[len-1]=='\n')
-                            buf[len-1] = 0;
-                        QString line(buf);
+                    QTextStream in(&f);
+                    while (!in.atEnd()) {
+                        QString line = in.readLine().trimmed();
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
                         QStringList tokens = line.split("=",
                                 QString::SkipEmptyParts);
@@ -1899,7 +1890,6 @@ QMap<QString,QString> MythCommandLineParser::GetSettingsOverride(void)
                             if (!tokens[0].isEmpty())
                                 smap[tokens[0]] = tokens[1];
                         }
-                        len = f.readLine(buf, sizeof(buf) - 1);
                     }
                 }
                 else
@@ -1926,8 +1916,7 @@ QMap<QString,QString> MythCommandLineParser::GetSettingsOverride(void)
         if (!smap.isEmpty())
         {
             QVariantMap vmap;
-            QMap<QString, QString>::const_iterator it;
-            for (it = smap.begin(); it != smap.end(); ++it)
+            for (auto it = smap.cbegin(); it != smap.cend(); ++it)
                 vmap[it.key()] = QVariant(it.value());
 
             m_namedArgs["overridesettings"]->Set(QVariant(vmap));
@@ -1958,6 +1947,8 @@ bool MythCommandLineParser::toBool(const QString& key) const
         return false;
 
     CommandLineArg *arg = m_namedArgs[key];
+    if (arg == nullptr)
+        return false;
 
     if (arg->m_type == QVariant::Bool)
     {
@@ -1979,6 +1970,8 @@ int MythCommandLineParser::toInt(const QString& key) const
         return val;
 
     CommandLineArg *arg = m_namedArgs[key];
+    if (arg == nullptr)
+        return val;
 
     if (arg->m_given)
     {
@@ -2004,6 +1997,8 @@ uint MythCommandLineParser::toUInt(const QString& key) const
         return val;
 
     CommandLineArg *arg = m_namedArgs[key];
+    if (arg == nullptr)
+        return val;
 
     if (arg->m_given)
     {
@@ -2029,6 +2024,8 @@ long long MythCommandLineParser::toLongLong(const QString& key) const
         return val;
 
     CommandLineArg *arg = m_namedArgs[key];
+    if (arg == nullptr)
+        return val;
 
     if (arg->m_given)
     {
@@ -2054,6 +2051,8 @@ double MythCommandLineParser::toDouble(const QString& key) const
         return val;
 
     CommandLineArg *arg = m_namedArgs[key];
+    if (arg == nullptr)
+        return val;
 
     if (arg->m_given)
     {
@@ -2079,6 +2078,8 @@ QSize MythCommandLineParser::toSize(const QString& key) const
         return val;
 
     CommandLineArg *arg = m_namedArgs[key];
+    if (arg == nullptr)
+        return val;
 
     if (arg->m_given)
     {
@@ -2104,6 +2105,8 @@ QString MythCommandLineParser::toString(const QString& key) const
         return val;
 
     CommandLineArg *arg = m_namedArgs[key];
+    if (arg == nullptr)
+        return val;
 
     if (arg->m_given)
     {
@@ -2134,6 +2137,8 @@ QStringList MythCommandLineParser::toStringList(const QString& key, const QStrin
         return val;
 
     CommandLineArg *arg = m_namedArgs[key];
+    if (arg == nullptr)
+        return val;
 
     if (arg->m_given)
     {
@@ -2164,6 +2169,8 @@ QMap<QString,QString> MythCommandLineParser::toMap(const QString& key) const
         return val;
 
     CommandLineArg *arg = m_namedArgs[key];
+    if (arg == nullptr)
+        return val;
 
     if (arg->m_given)
     {
@@ -2179,8 +2186,7 @@ QMap<QString,QString> MythCommandLineParser::toMap(const QString& key) const
             tmp = arg->m_default.toMap();
     }
 
-    QMap<QString, QVariant>::const_iterator i;
-    for (i = tmp.begin(); i != tmp.end(); ++i)
+    for (auto i = tmp.cbegin(); i != tmp.cend(); ++i)
         val[i.key()] = i.value().toString();
 
     return val;
@@ -2196,6 +2202,8 @@ QDateTime MythCommandLineParser::toDateTime(const QString& key) const
         return val;
 
     CommandLineArg *arg = m_namedArgs[key];
+    if (arg == nullptr)
+        return val;
 
     if (arg->m_given)
     {
@@ -2502,9 +2510,6 @@ QString MythCommandLineParser::GetLogFilePath(void)
     if (logfile.isEmpty())
         return logfile;
 
-    QString logdir;
-    QString filepath;
-
     QFileInfo finfo(logfile);
     if (!finfo.isDir())
     {
@@ -2514,7 +2519,7 @@ QString MythCommandLineParser::GetLogFilePath(void)
         return QString();
     }
 
-    logdir  = finfo.filePath();
+    QString logdir  = finfo.filePath();
     logfile = QCoreApplication::applicationName() + "." +
         MythDate::toString(MythDate::current(), MythDate::kFilename) +
         QString(".%1").arg(pid) + ".log";

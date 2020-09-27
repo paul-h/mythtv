@@ -127,7 +127,7 @@ QString AirPlayHardwareId()
     {
         QByteArray ba;
         for (int i = 0; i < AIRPLAY_HARDWARE_ID_SIZE; i++)
-            ba.append((random() % 80) + 33);
+            ba.append((MythRandom() % 80) + 33);
         id = ba.toHex();
     }
     id = id.toUpper();
@@ -138,23 +138,18 @@ QString AirPlayHardwareId()
 
 QString GenerateNonce(void)
 {
-    int nonceParts[4];
-    QString nonce;
 #if QT_VERSION >= QT_VERSION_CHECK(5,10,0)
     auto *randgen = QRandomGenerator::global();
-    nonceParts[0] = randgen->generate();
-    nonceParts[1] = randgen->generate();
-    nonceParts[2] = randgen->generate();
-    nonceParts[3] = randgen->generate();
+    std::array<uint32_t,4> nonceParts {
+        randgen->generate(), randgen->generate(),
+        randgen->generate(), randgen->generate() };
 #else
-    QTime time = QTime::currentTime();
-    qsrand((uint)time.msec());
-    nonceParts[0] = qrand();
-    nonceParts[1] = qrand();
-    nonceParts[2] = qrand();
-    nonceParts[3] = qrand();
+    std::srand(std::time(nullptr));
+    std::array<int32_t,4> nonceParts {
+        std::rand(), std::rand(), std::rand(), std::rand() };
 #endif
 
+    QString nonce;
     nonce =  QString::number(nonceParts[0], 16).toUpper();
     nonce += QString::number(nonceParts[1], 16).toUpper();
     nonce += QString::number(nonceParts[2], 16).toUpper();
@@ -273,7 +268,7 @@ class APHTTPRequest
 
     void Process(void)
     {
-        if (!m_data.size())
+        if (m_data.isEmpty())
             return;
 
         // request line
@@ -539,7 +534,7 @@ void MythAirplayServer::newConnection(QTcpSocket *client)
 void MythAirplayServer::deleteConnection(void)
 {
     QMutexLocker locker(m_lock);
-    auto *socket = dynamic_cast<QTcpSocket *>(sender());
+    auto *socket = qobject_cast<QTcpSocket *>(sender());
     if (!socket)
         return;
 
@@ -603,7 +598,7 @@ void MythAirplayServer::deleteConnection(QTcpSocket *socket)
 void MythAirplayServer::read(void)
 {
     QMutexLocker locker(m_lock);
-    auto *socket = dynamic_cast<QTcpSocket *>(sender());
+    auto *socket = qobject_cast<QTcpSocket *>(sender());
     if (!socket)
         return;
 
@@ -996,10 +991,10 @@ void MythAirplayServer::SendResponse(QTcpSocket *socket,
     reply.append("DATE: ");
     reply.append(MythDate::current().toString("ddd, d MMM yyyy hh:mm:ss"));
     reply.append(" GMT\r\n");
-    if (header.size())
+    if (!header.isEmpty())
         reply.append(header);
 
-    if (body.size())
+    if (!body.isEmpty())
     {
         reply.append("Content-Type: ");
         reply.append(content_type);
@@ -1012,7 +1007,7 @@ void MythAirplayServer::SendResponse(QTcpSocket *socket,
     }
     reply.append("\r\n\r\n");
 
-    if (body.size())
+    if (!body.isEmpty())
         reply.append(body);
 
     response << reply;
@@ -1054,7 +1049,7 @@ bool MythAirplayServer::SendReverseEvent(QByteArray &session,
     reply.append("x-apple-session-id: ");
     reply.append(session);
     reply.append("\r\n\r\n");
-    if (body.size())
+    if (!body.isEmpty())
         reply.append(body);
 
     response << reply;

@@ -133,7 +133,7 @@ MythScreenType *MythNotificationScreenStack::GetTopScreen(void) const
     // loop from last to 2nd
     for (; it != m_children.begin(); --it)
     {
-        auto *s = dynamic_cast<MythNotificationScreen *>(*it);
+        auto *s = qobject_cast<MythNotificationScreen *>(*it);
         if (!s)
         {
             // if for whatever reason it's not a notification on our screen
@@ -789,7 +789,7 @@ NCPrivate::~NCPrivate()
  */
 void NCPrivate::ScreenDeleted(void)
 {
-    auto *screen = dynamic_cast<MythNotificationScreen*>(sender());
+    auto *screen = qobject_cast<MythNotificationScreen*>(sender());
     if (screen == nullptr)
         return;
 
@@ -1236,7 +1236,7 @@ void NCPrivate::GetNotificationScreens(QList<MythScreenType*> &_screens)
     int position = 0;
     for (auto *item : qAsConst(screens))
     {
-        auto *screen = dynamic_cast<MythNotificationScreen*>(item);
+        auto *screen = qobject_cast<MythNotificationScreen*>(item);
         if (screen)
         {
             if ((screen->m_visibility & MythNotification::kPlayback) == 0)
@@ -1293,10 +1293,10 @@ bool NCPrivate::RemoveFirst(void)
     // The top screen is the only currently displayed first, if there's a
     // fullscreen notification displayed, it's the last one
     MythNotificationScreen *top = m_screens.front();
-    QList<MythNotificationScreen *>::const_iterator it = m_screens.end() - 1;
+    QList<MythNotificationScreen *>::const_iterator it = m_screens.cend() - 1;
 
     // loop from last to 2nd
-    for (; it != m_screens.begin(); --it)
+    for (; it != m_screens.cbegin(); --it)
     {
         MythNotificationScreen *s = *it;
 
@@ -1379,7 +1379,7 @@ void MythNotificationCenter::UnRegister(void *from, int id, bool closeimemdiatel
 
 QDateTime MythNotificationCenter::ScreenExpiryTime(const MythScreenType *screen)
 {
-    const auto *s = dynamic_cast<const MythNotificationScreen*>(screen);
+    const auto *s = qobject_cast<const MythNotificationScreen*>(screen);
     if (!s)
         return QDateTime();
     return s->m_expiry;
@@ -1387,7 +1387,7 @@ QDateTime MythNotificationCenter::ScreenExpiryTime(const MythScreenType *screen)
 
 bool MythNotificationCenter::ScreenCreated(const MythScreenType *screen)
 {
-    const auto *s = dynamic_cast<const MythNotificationScreen*>(screen);
+    const auto *s = qobject_cast<const MythNotificationScreen*>(screen);
     if (!s)
         return true;
     return s->m_created;
@@ -1400,7 +1400,7 @@ void MythNotificationCenter::GetNotificationScreens(QList<MythScreenType*> &_scr
 
 void MythNotificationCenter::UpdateScreen(MythScreenType *screen)
 {
-    auto *s = dynamic_cast<MythNotificationScreen*>(screen);
+    auto *s = qobject_cast<MythNotificationScreen*>(screen);
     if (!s)
         return;
 

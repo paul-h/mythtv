@@ -457,6 +457,12 @@ class MTV_PUBLIC PSIPTable : public PESPacket
         // fixup wrong assumption about length for sections without CRC
         m_pesDataSize = SectionLength();
     }
+    explicit PSIPTable(const std::vector<uint8_t> &pesdata)
+        : PESPacket(pesdata)
+    {
+        // fixup wrong assumption about length for sections without CRC
+        m_pesDataSize = SectionLength();
+    }
   public:
     PSIPTable(const PSIPTable&) = default;
         // section_syntax_ind   1       1.0       8   should always be 1
@@ -487,9 +493,6 @@ class MTV_PUBLIC PSIPTable : public PESPacket
 
 
     static PSIPTable View(const TSPacket& tspacket)
-        { return PSIPTable(tspacket, false); }
-
-    static PSIPTable View(TSPacket& tspacket)
         { return PSIPTable(tspacket, false); }
 
     static PSIPTable ViewData(const unsigned char* pesdata)

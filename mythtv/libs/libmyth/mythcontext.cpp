@@ -2,6 +2,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QDebug>
+#include <QHostInfo>
 #include <QMutex>
 #include <QDateTime>
 #include <QTcpSocket>
@@ -11,6 +12,7 @@
 #include <QtAndroidExtras>
 #endif
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <queue>
@@ -174,7 +176,6 @@ static void exec_program_tv_cb(const QString &cmd)
 
         strlist = QStringList(QString("FREE_TUNER %1").arg(cardid));
         gCoreContext->SendReceiveStringList(strlist);
-        QString ret = strlist[0];
     }
     else
     {
@@ -433,7 +434,7 @@ bool MythContextPrivate::FindDatabase(bool prompt, bool noAutodetect)
         if (DefaultUPnP(failure))                // Probably a valid backend,
             autoSelect = manualSelect = false;   // so disable any further UPnP
         else
-            if (failure.length())
+            if (!failure.isEmpty())
                 LOG(VB_GENERAL, LOG_ALERT, failure);
 
         failure = TestDBconnection(loaded);
@@ -579,12 +580,11 @@ bool MythContextPrivate::LoadDatabaseSettings(void)
     if (hostname.isEmpty() ||
         hostname == "my-unique-identifier-goes-here")
     {
-        char localhostname[1024];
-        if (gethostname(localhostname, 1024))
+        QString localhostname = QHostInfo::localHostName();
+        if (localhostname.isEmpty())
         {
             LOG(VB_GENERAL, LOG_ALERT,
                     "MCP: Error, could not determine host name." + ENO);
-            localhostname[0] = '\0';
         }
 #ifdef Q_OS_ANDROID
 #define ANDROID_EXCEPTION_CHECK \
@@ -592,8 +592,8 @@ bool MythContextPrivate::LoadDatabaseSettings(void)
     env->ExceptionClear(); \
     exception=true; \
   }
-        if (strcmp(localhostname, "localhost") == 0
-            || localhostname[0] == '\0')
+
+        if ((localhostname == "localhost") || localhostname.isEmpty())
         {
             hostname = "android";
             bool exception=false;
@@ -720,7 +720,7 @@ bool MythContextPrivate::PromptForDatabaseParams(const QString &error)
         TempMainWindow();
 
         // Tell the user what went wrong:
-        if (error.length())
+        if (!error.isEmpty())
             ShowOkPopup(error);
 
         // ask user for database parameters
@@ -839,7 +839,7 @@ QString MythContextPrivate::TestDBconnection(bool prompt)
     {
         QElapsedTimer timer;
         timer.start();
-        if (m_dbParams.m_dbHostName.isNull() && m_dbHostCp.length())
+        if (m_dbParams.m_dbHostName.isNull() && !m_dbHostCp.isEmpty())
             host = m_dbHostCp;
         else
             host = m_dbParams.m_dbHostName;
@@ -1097,7 +1097,7 @@ void MythContextPrivate::SilenceDBerrors(void)
 
     // Save the configured hostname, so that we can
     // still display it in the DatabaseSettings screens
-    if (m_dbParams.m_dbHostName.length())
+    if (!m_dbParams.m_dbHostName.isEmpty())
         m_dbHostCp = m_dbParams.m_dbHostName;
 
     m_dbParams.m_dbHostName.clear();
@@ -1107,7 +1107,7 @@ void MythContextPrivate::SilenceDBerrors(void)
 void MythContextPrivate::EnableDBerrors(void)
 {
     // Restore (possibly) blanked hostname
-    if (m_dbParams.m_dbHostName.isNull() && m_dbHostCp.length())
+    if (m_dbParams.m_dbHostName.isNull() && !m_dbHostCp.isEmpty())
     {
         m_dbParams.m_dbHostName = m_dbHostCp;
         gCoreContext->GetDB()->SetDatabaseParams(m_dbParams);
@@ -1514,7 +1514,6 @@ void MythContextPrivate::loadSettingsCacheOverride(void) const
     // Prevent power off TV after temporary window
     gCoreContext->OverrideSettingForSession("PowerOffTVAllowed", nullptr);
 
-    QString language = gCoreContext->GetSetting("Language",QString());
     MythTranslation::load("mythfrontend");
 }
 

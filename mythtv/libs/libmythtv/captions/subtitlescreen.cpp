@@ -1124,7 +1124,6 @@ static QString extract_cc608(QString &text, int &color,
                              bool &isItalic, bool &isUnderline)
 {
     QString result;
-    QString orig(text);
 
     // Handle an initial control sequence.
     if (text.length() >= 1 && text[0] >= 0x7000)
@@ -2474,7 +2473,7 @@ void SubtitleScreen::InitialiseAssTrack(int tracknum)
     if (!header.isNull())
         ass_process_codec_private(m_assTrack, header.data(), header.size());
 
-    m_safeArea = m_player->GetVideoOutput()->GetMHEGBounds();
+    m_safeArea = m_player->GetVideoOutput()->GetDisplayVideoRect();
     ResizeAssRenderer();
 }
 
@@ -2509,7 +2508,7 @@ void SubtitleScreen::RenderAssTrack(uint64_t timecode)
         return;
 
     QRect oldscreen = m_safeArea;
-    m_safeArea = vo->GetMHEGBounds();
+    m_safeArea = vo->GetDisplayVideoRect();
     if (oldscreen != m_safeArea)
         ResizeAssRenderer();
 

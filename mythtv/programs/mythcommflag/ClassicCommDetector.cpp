@@ -20,7 +20,7 @@ using namespace std;
 #include "mythmiscutil.h"
 #include "mythcontext.h"
 #include "programinfo.h"
-#include "mythplayer.h"
+#include "mythcommflagplayer.h"
 
 // Commercial Flagging headers
 #include "ClassicCommDetector.h"
@@ -61,7 +61,7 @@ static QString toStringFrameMaskValues(int mask, bool verbose)
         if (COMM_FRAME_RATING_SYMBOL & mask)
             msg += "rating,";
 
-        if (msg.length())
+        if (!msg.isEmpty())
             msg = msg.left(msg.length() - 1);
         else
             msg = "noflags";
@@ -127,7 +127,7 @@ QString FrameInfoEntry::toString(uint64_t frame, bool verbose) const
 ClassicCommDetector::ClassicCommDetector(SkipType commDetectMethod_in,
                                          bool showProgress_in,
                                          bool fullSpeed_in,
-                                         MythPlayer* player_in,
+                                         MythCommFlagPlayer *player_in,
                                          QDateTime startedAt_in,
                                          QDateTime stopsAt_in,
                                          QDateTime recordingStartedAt_in,
@@ -405,7 +405,6 @@ bool ClassicCommDetector::go()
 
 
     float flagFPS = 0.0;
-    long long  currentFrameNumber = 0LL;
     float aspect = m_player->GetVideoAspect();
     int prevpercent = -1;
 
@@ -422,7 +421,7 @@ bool ClassicCommDetector::go()
             gettimeofday(&startTime, nullptr);
 
         VideoFrame* currentFrame = m_player->GetRawVideoFrame();
-        currentFrameNumber = currentFrame->frameNumber;
+        long long currentFrameNumber = currentFrame->frameNumber;
 
         //Lucas: maybe we should make the nuppelvideoplayer send out a signal
         //when the aspect ratio changes.
@@ -1201,7 +1200,7 @@ void ClassicCommDetector::BuildAllMethodsCommList(void)
     int aspect = COMM_ASPECT_NORMAL;
     QString msgformat("%1 %2:%3 %4 %5 %6 %7 %8 %9 %10 %11 %12 %13 %14 %15");
     QString msg;
-    uint64_t formatCounts[COMM_FORMAT_MAX];
+    std::array<uint64_t,COMM_FORMAT_MAX> formatCounts {};
     frm_dir_map_t tmpCommMap;
     frm_dir_map_t::iterator it;
 
@@ -1244,7 +1243,7 @@ void ClassicCommDetector::BuildAllMethodsCommList(void)
     }
     else
     {
-        memset(&formatCounts, 0, sizeof(formatCounts));
+        formatCounts.fill(0);
 
         for(int64_t i = m_preRoll;
             i < ((int64_t)m_framesProcessed - (int64_t)m_postRoll); i++ )
@@ -2412,7 +2411,7 @@ void ClassicCommDetector::CleanupFrameInfo(void)
     if ((m_framesProcessed > (m_fps * 60)) &&
         (m_blankFrameCount < (m_framesProcessed * 0.0004)))
     {
-        int avgHistogram[256];
+        std::array<int,256> avgHistogram {};
         int minAvg = -1;
         int newThreshold = -1;
 
@@ -2425,7 +2424,7 @@ void ClassicCommDetector::CleanupFrameInfo(void)
         m_blankFrameMap.clear();
         m_blankFrameCount = 0;
 
-        memset(avgHistogram, 0, sizeof(avgHistogram));
+        avgHistogram.fill(0);
 
         for (uint64_t i = 1; i <= m_framesProcessed; i++)
             avgHistogram[clamp(m_frameInfo[i].avgBrightness, 0, 255)] += 1;

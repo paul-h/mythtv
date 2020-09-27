@@ -478,7 +478,8 @@ QStringList CardUtil::ProbeVideoDevices(const QString &rawtype)
     if (rawtype.toUpper() == "DVB")
     {
         QDir dir("/dev/dvb", "adapter*", QDir::Name, QDir::Dirs);
-        for (const auto & it : dir.entryInfoList())
+        QFileInfoList entries = dir.entryInfoList();
+        for (const auto & it : qAsConst(entries))
         {
             QDir subdir(it.filePath(), "frontend*", QDir::Name, QDir::Files | QDir::System);
             const QFileInfoList subil = subdir.entryInfoList();
@@ -492,7 +493,8 @@ QStringList CardUtil::ProbeVideoDevices(const QString &rawtype)
     else if (rawtype.toUpper() == "ASI")
     {
         QDir dir("/dev/", "asirx*", QDir::Name, QDir::System);
-        for (const auto & it : dir.entryInfoList())
+        QFileInfoList entries = dir.entryInfoList();
+        for (const auto & it : qAsConst(entries))
         {
             if (GetASIDeviceNumber(it.filePath()) >= 0)
             {
@@ -509,14 +511,14 @@ QStringList CardUtil::ProbeVideoDevices(const QString &rawtype)
         uint32_t  device_type = HDHOMERUN_DEVICE_TYPE_TUNER;
         uint32_t  device_id   = HDHOMERUN_DEVICE_ID_WILDCARD;
         const int max_count   = 50;
-        hdhomerun_discover_device_t result_list[max_count];
+        std::array<hdhomerun_discover_device_t,max_count> result_list {};
 
 #ifdef HDHOMERUN_V2
         int result = hdhomerun_discover_find_devices_custom_v2(
-            target_ip, device_type, device_id, result_list, max_count);
+            target_ip, device_type, device_id, result_list.data(), result_list.size());
 #else
         int result = hdhomerun_discover_find_devices_custom(
-            target_ip, device_type, device_id, result_list, max_count);
+            target_ip, device_type, device_id, result_list.data(), result_list.size());
 #endif
 
         if (result == -1)
@@ -789,6 +791,9 @@ DTVTunerType CardUtil::ConvertToTunerType(DTVModulationSystem delsys)
         case DTVModulationSystem::kModulationSystem_DVBT2:
             tunertype = DTVTunerType::kTunerTypeDVBT2;
             break;
+        case DTVModulationSystem::kModulationSystem_DTMB:
+            tunertype = DTVTunerType::kTunerTypeDVBT;
+            break;
         case DTVModulationSystem::kModulationSystem_ATSC:
             tunertype = DTVTunerType::kTunerTypeATSC;
             break;
@@ -948,8 +953,6 @@ QString CardUtil::ProbeSubTypeName(uint inputid)
     QString type = GetRawInputType(inputid);
     if ("DVB" != type)
         return type;
-
-    QString device = GetVideoDevice(inputid);
 
     DTVTunerType tunertype;
     int fd_frontend = OpenVideoDevice(inputid);
@@ -2452,7 +2455,6 @@ QString CardUtil::GetDeviceLabel(const QString &inputtype,
 
 QString CardUtil::GetDeviceLabel(uint inputid)
 {
-    QString devlabel;
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare("SELECT cardtype, videodevice "
                   "FROM capturecard WHERE cardid = :INPUTID ");

@@ -5,7 +5,6 @@
 #include <QByteArray>
 #include <QFile>
 #include <QDir>
-#include <QNetworkCookieJar>
 #include <QNetworkCookie>
 #include <QAuthenticator>
 #include <QTextStream>
@@ -97,19 +96,6 @@ class MythDownloadInfo
     QMutex           m_lock;
 };
 
-
-/** \brief A subclassed QNetworkCookieJar that allows for reading and writing
- *         cookie files that contain raw formatted cookies and copying the
- *         cookie jar to share between threads.
- */
-class MythCookieJar : public QNetworkCookieJar
-{
-  public:
-    MythCookieJar() = default;
-    void copyAllCookies(MythCookieJar &old);
-    void load(const QString &filename);
-    void save(const QString &filename);
-};
 
 /**
 * \class RemoteFileDownloadThread
@@ -1151,7 +1137,7 @@ void MythDownloadManager::removeListener(QObject *caller)
  */
 void MythDownloadManager::downloadError(QNetworkReply::NetworkError errorCode)
 {
-    auto *reply = dynamic_cast<QNetworkReply *>(sender());
+    auto *reply = qobject_cast<QNetworkReply *>(sender());
     if (reply == nullptr)
         return;
 
@@ -1441,7 +1427,7 @@ void MythDownloadManager::downloadFinished(MythDownloadInfo *dlInfo)
 void MythDownloadManager::downloadProgress(qint64 bytesReceived,
                                            qint64 bytesTotal)
 {
-    auto *reply = dynamic_cast<QNetworkReply *>(sender());
+    auto *reply = qobject_cast<QNetworkReply *>(sender());
     if (reply == nullptr)
         return;
 
@@ -1504,7 +1490,7 @@ bool MythDownloadManager::saveFile(const QString &outFile,
                                    const QByteArray &data,
                                    const bool append)
 {
-    if (outFile.isEmpty() || !data.size())
+    if (outFile.isEmpty() || data.isEmpty())
         return false;
 
     QFile file(outFile);
@@ -1666,7 +1652,7 @@ void MythDownloadManager::saveCookieJar(const QString &filename)
     if (!m_manager->cookieJar())
         return;
 
-    auto *jar = dynamic_cast<MythCookieJar *>(m_manager->cookieJar());
+    auto *jar = qobject_cast<MythCookieJar *>(m_manager->cookieJar());
     if (jar == nullptr)
         return;
     jar->save(filename);
@@ -1688,13 +1674,13 @@ QNetworkCookieJar *MythDownloadManager::copyCookieJar(void)
     if (!m_manager->cookieJar())
         return nullptr;
 
-    auto *inJar = dynamic_cast<MythCookieJar *>(m_manager->cookieJar());
+    auto *inJar = qobject_cast<MythCookieJar *>(m_manager->cookieJar());
     if (inJar == nullptr)
         return nullptr;
     auto *outJar = new MythCookieJar;
     outJar->copyAllCookies(*inJar);
 
-    return static_cast<QNetworkCookieJar *>(outJar);
+    return outJar;
 }
 
 /** \brief Refresh the temporary cookie jar from another cookie jar
@@ -1705,13 +1691,13 @@ void MythDownloadManager::refreshCookieJar(QNetworkCookieJar *jar)
     QMutexLocker locker(&m_cookieLock);
     delete m_inCookieJar;
 
-    auto *inJar = dynamic_cast<MythCookieJar *>(jar);
+    auto *inJar = qobject_cast<MythCookieJar *>(jar);
     if (inJar == nullptr)
         return;
 
     auto *outJar = new MythCookieJar;
     outJar->copyAllCookies(*inJar);
-    m_inCookieJar = static_cast<QNetworkCookieJar *>(outJar);
+    m_inCookieJar = outJar;
 
     QMutexLocker locker2(&m_queueWaitLock);
     m_queueWaitCond.wakeAll();
@@ -1723,12 +1709,12 @@ void MythDownloadManager::updateCookieJar(void)
 {
     QMutexLocker locker(&m_cookieLock);
 
-    auto *inJar = dynamic_cast<MythCookieJar *>(m_inCookieJar);
+    auto *inJar = qobject_cast<MythCookieJar *>(m_inCookieJar);
     if (inJar != nullptr)
     {
         auto *outJar = new MythCookieJar;
         outJar->copyAllCookies(*inJar);
-        m_manager->setCookieJar(static_cast<QNetworkCookieJar *>(outJar));
+        m_manager->setCookieJar(outJar);
     }
 
     delete m_inCookieJar;
@@ -1755,7 +1741,8 @@ QString MythDownloadManager::getHeader(const QUrl& url, const QString& header)
 QString MythDownloadManager::getHeader(const QNetworkCacheMetaData &cacheData,
                                        const QString& header)
 {
-    for (const auto& rh : cacheData.rawHeaders())
+    auto headers = cacheData.rawHeaders();
+    for (const auto& rh : qAsConst(headers))
         if (QString(rh.first) == header)
             return QString(rh.second);
     return QString();
@@ -1813,8 +1800,13 @@ void MythCookieJar::save(const QString &filename)
     QList<QNetworkCookie> cookieList = allCookies();
     QTextStream stream(&f);
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     for (const auto& cookie : qAsConst(cookieList))
         stream << cookie.toRawForm() << endl;
+#else
+    for (const auto& cookie : qAsConst(cookieList))
+        stream << cookie.toRawForm() << Qt::endl;
+#endif
 }
 
 

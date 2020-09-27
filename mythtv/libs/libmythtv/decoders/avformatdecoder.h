@@ -41,6 +41,8 @@ struct SwsContext;
 
 extern "C" void HandleStreamChange(void *data);
 
+using CC608Parity = std::array<int,256>;
+
 class AudioInfo
 {
   public:
@@ -81,10 +83,7 @@ class AudioInfo
     }
 };
 
-/// A decoder for video files.
-
-/// The AvFormatDecoder is used to decode non-NuppleVideo files.
-/// It's used as a decoder of last resort after trying the NuppelDecoder
+/// A decoder for media files.
 class AvFormatDecoder : public DecoderBase
 {
     friend void HandleStreamChange(void *data);
@@ -108,14 +107,12 @@ class AvFormatDecoder : public DecoderBase
 
     /// Perform an av_probe_input_format on the passed data to see if we
     /// can decode it with this class.
-    static bool CanHandle(char testbuf[kDecoderProbeBufferSize],
-                          const QString &filename,
-                          int testbufsize = kDecoderProbeBufferSize);
+    static bool CanHandle(TestBufferVec & testbuf,
+                          const QString &filename);
 
     /// Open our file and set up or audio and video parameters.
     int OpenFile(MythMediaBuffer *Buffer, bool novideo,
-                 char testbuf[kDecoderProbeBufferSize],
-                 int testbufsize = kDecoderProbeBufferSize) override; // DecoderBase
+                 TestBufferVec & testbuf) override; // DecoderBase
 
     bool GetFrame(DecodeType Type, bool &Retry) override; // DecoderBase
 
@@ -248,7 +245,7 @@ class AvFormatDecoder : public DecoderBase
     bool HasVideo(const AVFormatContext *ic);
     float GetVideoFrameRate(AVStream *Stream, AVCodecContext *Context, bool Sanitise = false);
     static void av_update_stream_timings_video(AVFormatContext *ic);
-    static bool OpenAVCodec(AVCodecContext *avctx, const AVCodec *codec);
+    bool OpenAVCodec(AVCodecContext *avctx, const AVCodec *codec);
 
     void UpdateFramesPlayed(void) override; // DecoderBase
     bool DoRewindSeek(long long desiredFrame) override; // DecoderBase
@@ -336,15 +333,15 @@ class AvFormatDecoder : public DecoderBase
     CC608Decoder      *m_ccd608                       {nullptr};
     CC708Decoder      *m_ccd708                       {nullptr};
     TeletextDecoder   *m_ttd                          {nullptr};
-    int                m_cc608ParityTable[256]        {0};
+    CC608Parity        m_cc608ParityTable             {0};
     /// Lookup table for whether a stream was seen in the PMT
     /// entries 0-3 correspond to CEA-608 CC1 through CC4, while
     /// entries 4-67 corresport to CEA-708 streams 0 through 64
-    bool               m_ccX08InPmt[64+4]             {};
+    std::array<bool,68> m_ccX08InPmt                  {};
     /// Lookup table for whether a stream is represented in the UI
     /// entries 0-3 correspond to CEA-608 CC1 through CC4, while
     /// entries 4-67 corresport to CEA-708 streams 0 through 64
-    bool               m_ccX08InTracks[64+4]          {};
+    std::array<bool,68> m_ccX08InTracks               {};
     /// StreamInfo for 608 and 708 Captions seen in the PMT descriptor
     QList<StreamInfo>  m_pmtTracks;
     /// TrackType (608 or 708) for Captions seen in the PMT descriptor
@@ -374,6 +371,8 @@ class AvFormatDecoder : public DecoderBase
 
     // Value in milliseconds, from setting AudioReadAhead
     int                m_audioReadAhead               {100};
+
+    QMutex             m_avCodecLock                  { QMutex::Recursive };
 };
 
 #endif

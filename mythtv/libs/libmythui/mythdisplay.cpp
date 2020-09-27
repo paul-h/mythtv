@@ -14,23 +14,26 @@
 #include "mythegl.h"
 #include "mythmainwindow.h"
 
+#ifdef USING_DBUS
+#include "platforms/mythdisplaymutter.h"
+#endif
 #ifdef Q_OS_ANDROID
-#include "mythdisplayandroid.h"
+#include "platforms/mythdisplayandroid.h"
 #endif
 #if defined(Q_OS_MAC)
-#include "mythdisplayosx.h"
+#include "platforms/mythdisplayosx.h"
 #endif
 #ifdef USING_X11
-#include "mythdisplayx11.h"
+#include "platforms/mythdisplayx11.h"
 #endif
 #ifdef USING_DRM
-#include "mythdisplaydrm.h"
+#include "platforms/mythdisplaydrm.h"
 #endif
 #if defined(Q_OS_WIN)
-#include "mythdisplaywindows.h"
+#include "platforms/mythdisplaywindows.h"
 #endif
 #ifdef USING_MMAL
-#include "mythdisplayrpi.h"
+#include "platforms/mythdisplayrpi.h"
 #endif
 
 #define LOC QString("Display: ")
@@ -85,6 +88,12 @@ MythDisplay* MythDisplay::AcquireRelease(bool Acquire)
 #ifdef USING_X11
             if (MythDisplayX11::IsAvailable())
                 s_display = new MythDisplayX11();
+#endif
+#ifdef USING_DBUS
+            /* disabled until testing can be completed (add docs on subclass choice when done)
+            if (!s_display)
+                s_display = MythDisplayMutter::Create();
+            */
 #endif
 #ifdef USING_MMAL
             if (!s_display)
@@ -309,7 +318,8 @@ QScreen *MythDisplay::GetDesiredScreen(void)
         // When fullscreen, Qt appears to use the reverse - though this may be
         // the window manager rather than Qt. So could be wrong.
         QPoint point = windowed ? override.topLeft() : override.bottomRight();
-        for (QScreen *screen : QGuiApplication::screens())
+        QList screens = QGuiApplication::screens();
+        for (QScreen *screen : qAsConst(screens))
         {
             if (screen->geometry().contains(point))
             {
@@ -332,7 +342,8 @@ QScreen *MythDisplay::GetDesiredScreen(void)
     // Lookup by name
     if (!newscreen)
     {
-        for (QScreen *screen : QGuiApplication::screens())
+        QList screens = QGuiApplication::screens();
+        for (QScreen *screen : qAsConst(screens))
         {
             if (!name.isEmpty() && name == screen->name())
             {
@@ -1092,8 +1103,8 @@ void MythDisplay::ConfigureQtGUI(int SwapInterval, const QString& _Display)
     // NOTE We have no Qt platform information, window/surface or logging when this is called.
     QString soft = qgetenv("LIBGL_ALWAYS_SOFTWARE");
     bool ignore = soft == "1" || soft.compare("true", Qt::CaseInsensitive) == 0;
-    bool allow = qgetenv("MYTHTV_NO_EGL").isEmpty() && !ignore;
-    bool force = !qgetenv("MYTHTV_FORCE_EGL").isEmpty();
+    bool allow = qEnvironmentVariableIsEmpty("MYTHTV_NO_EGL") && !ignore;
+    bool force = !qEnvironmentVariableIsEmpty("MYTHTV_FORCE_EGL");
     if ((force || allow) && MythDisplayX11::IsAvailable())
     {
         // N.B. By default, ignore EGL if vendor string is not returned

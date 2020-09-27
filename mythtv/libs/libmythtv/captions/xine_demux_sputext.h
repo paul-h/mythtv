@@ -1,10 +1,11 @@
 #ifndef XINE_DEMUX_SPUTEXT_H
 #define XINE_DEMUX_SPUTEXT_H
 
+#include <vector>
+
 #include "io/mythmediabuffer.h"
 
 #define SUB_BUFSIZE   1024
-#define SUB_MAX_TEXT  5
 #define MAX_TIMEOUT 4
 
 #define DEBUG_XINE_DEMUX_SPUTEXT 0
@@ -27,12 +28,10 @@
 
 struct subtitle_t {
 
-    int lines; ///< Count of text lines in this subtitle set.
+    int64_t start; ///< Starting time in msec or starting frame
+    int64_t end;   ///< Ending time in msec or starting frame
 
-    long start; ///< Starting time in msec or starting frame
-    long end;   ///< Ending time in msec or starting frame
-
-    char *text[SUB_MAX_TEXT]; ///< The subtitle text lines.
+    std::vector<std::string> text; ///< The subtitle text lines.
 };
 
 struct demux_sputext_t {
@@ -43,22 +42,22 @@ struct demux_sputext_t {
 
   int                status;
 
-  char               buf[SUB_BUFSIZE];
+  std::string        buf;
   off_t              buflen;
 
   float              mpsub_position;
 
   int                uses_time;
   int                errs;
-  subtitle_t        *subtitles;
+  std::vector<subtitle_t> subtitles;
   int                num;            /* number of subtitle structs */
   int                cur;            /* current subtitle           */
   int                format;         /* constants see below        */
-  char               next_line[SUB_BUFSIZE]; /* a buffer for next line read from file */
-
+  std::string        next_line;      /* a buffer for next line read from file */
+                                     /* only used by vplayer */
 };
 
 
-subtitle_t *sub_read_file (demux_sputext_t *demuxstr);
+bool sub_read_file (demux_sputext_t *demuxstr);
 
 #endif

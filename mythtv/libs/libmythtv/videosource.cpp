@@ -290,7 +290,6 @@ class XMLTVGrabber : public MythUIComboBoxSetting
 #else
 
         QString loc = "XMLTVGrabber::Load: ";
-        QString loc_err = "XMLTVGrabber::Load, Error: ";
 
         QStringList name_list;
         QStringList prog_list;
@@ -805,7 +804,8 @@ class VideoDevice : public CaptureCardComboBoxSetting
         if (!driver.isEmpty())
             driverExp = new QRegExp(driver);
 
-        for (const auto & fi : dir.entryInfoList())
+        QFileInfoList entries = dir.entryInfoList();
+        for (const auto & fi : qAsConst(entries))
         {
             struct stat st {};
             QString filepath = fi.absoluteFilePath();
@@ -911,7 +911,8 @@ class VBIDevice : public CaptureCardComboBoxSetting
                                const QString &driver)
     {
         QStringList devices;
-        for (const auto & fi : dir.entryInfoList())
+        QFileInfoList entries = dir.entryInfoList();
+        for (const auto & fi : qAsConst(entries))
         {
             QString    device = fi.absoluteFilePath();
             QByteArray adevice = device.toLatin1();
@@ -1450,11 +1451,8 @@ void HDHomeRunConfigurationGroup::FillDeviceList(void)
     // ProbeVideoDevices returns "deviceid ip" pairs
     QStringList devs = CardUtil::ProbeVideoDevices("HDHOMERUN");
 
-    QStringList::const_iterator it;
-
-    for (it = devs.begin(); it != devs.end(); ++it)
+    for (const auto & dev : qAsConst(devs))
     {
-        QString dev = *it;
         QStringList devinfo = dev.split(" ");
         const QString& devid = devinfo.at(0);
         const QString& devip = devinfo.at(1);
@@ -1918,7 +1916,7 @@ void ImportConfigurationGroup::probeCard(const QString &device)
     QFileInfo fileInfo(device);
 
     // For convenience, ImportRecorder allows both formats:
-    if (device.toLower().startsWith("file:"))
+    if (device.startsWith("file:", Qt::CaseInsensitive))
         fileInfo.setFile(device.mid(5));
 
     if (fileInfo.exists())
@@ -1991,11 +1989,8 @@ void VBoxConfigurationGroup::FillDeviceList(void)
     // ProbeVideoDevices returns "deviceid ip tunerno tunertype"
     QStringList devs = CardUtil::ProbeVideoDevices("VBOX");
 
-    QStringList::const_iterator it;
-
-    for (it = devs.begin(); it != devs.end(); ++it)
+    for (const auto & dev : qAsConst(devs))
     {
-        QString dev = *it;
         QStringList devinfo = dev.split(" ");
         const QString& id = devinfo.at(0);
         const QString& ip = devinfo.at(1);
@@ -2019,10 +2014,10 @@ void VBoxConfigurationGroup::FillDeviceList(void)
     // returns "ip.ip.ip.ip-n-type" or deviceid-n-type values
     QStringList db = CardUtil::GetVideoDevices("VBOX");
 
-    for (it = db.begin(); it != db.end(); ++it)
+    for (const auto & dev : qAsConst(db))
     {
         QMap<QString, VBoxDevice>::iterator dit;
-        dit = m_deviceList.find(*it);
+        dit = m_deviceList.find(dev);
 
         if (dit != m_deviceList.end())
             (*dit).m_inUse = true;
@@ -2297,11 +2292,10 @@ ExternalConfigurationGroup::ExternalConfigurationGroup(CaptureCard &a_parent,
 
 void ExternalConfigurationGroup::probeApp(const QString & path)
 {
-    int idx1 = path.toLower().startsWith("file:") ? 5 : 0;
+    int idx1 = path.startsWith("file:", Qt::CaseInsensitive) ? 5 : 0;
     int idx2 = path.indexOf(' ', idx1);
 
     QString   ci;
-    QString   cs;
     QFileInfo fileInfo(path.mid(idx1, idx2 - idx1));
 
     if (fileInfo.exists())
@@ -4023,11 +4017,8 @@ void SatIPConfigurationGroup::FillDeviceList(void)
     // Returns each devices as "deviceid friendlyname ip tunerno tunertype"
     QStringList devs = CardUtil::ProbeVideoDevices("SATIP");
 
-    QStringList::const_iterator it;
-
-    for (it = devs.begin(); it != devs.end(); ++it)
+    for (const auto & dev : qAsConst(devs))
     {
-        QString dev = *it;
         QStringList devparts = dev.split(" ");
         const QString& id = devparts.at(0);
         const QString& name = devparts.at(1);

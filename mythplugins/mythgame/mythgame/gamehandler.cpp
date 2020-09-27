@@ -148,7 +148,6 @@ void GameHandler::GetMetadata(GameHandler *handler, const QString& rom, QString*
                               QString* Fanart, QString* Boxart)
 {
     QString key;
-    QString tmpcrc;
 
     *CRC32 = crcinfo(rom, handler->GameType(), &key, &m_romDB);
 
@@ -406,8 +405,6 @@ void GameHandler::UpdateGameDB(GameHandler *handler)
     QString Fanart;
     QString Boxart;
     QString ScreenShot;
-    QString thequery;
-    QString queryvalues;
 
     int removalprompt = gCoreContext->GetSetting("GameRemovalPrompt").toInt();
     int indepth = gCoreContext->GetSetting("GameDeepScan").toInt();
@@ -578,12 +575,8 @@ int GameHandler::buildFileCount(const QString& directory, GameHandler *handler)
 
     RomDir.setFilter(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     QFileInfoList List = RomDir.entryInfoList();
-    for (QFileInfoList::const_iterator it = List.begin();
-         it != List.end(); ++it)
+    for (const auto & Info : qAsConst(List))
     {
-        QFileInfo Info = *it;
-        QString RomName = Info.fileName();
-
         if (Info.isDir())
         {
             filecount += buildFileCount(Info.filePath(), handler);
@@ -643,10 +636,8 @@ void GameHandler::buildFileList(const QString& directory, GameHandler *handler,
     RomDir.setSorting( QDir:: DirsFirst | QDir::Name );
     RomDir.setFilter(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     QFileInfoList List = RomDir.entryInfoList();
-    for (QFileInfoList::const_iterator it = List.begin();
-         it != List.end(); ++it)
+    for (const auto & Info : qAsConst(List))
     {
-        QFileInfo Info = *it;
         QString RomName = Info.fileName();
         QString GameName = Info.completeBaseName();
 
@@ -688,7 +679,6 @@ void GameHandler::buildFileList(const QString& directory, GameHandler *handler,
 
 void GameHandler::processGames(GameHandler *handler)
 {
-    QString thequery;
     int maxcount = 0;
     MSqlQuery query(MSqlQuery::InitCon());
 
@@ -871,7 +861,7 @@ void GameHandler::Launchgame(RomInfo *romdata, const QString& systemname)
                         QString basename = romdata->Romname().left(romdata->Romname().length() - (romdata->getExtension().length() + 2));
                         QString extension = romdata->getExtension();
                         QString rom;
-                        QString diskid[] = { "%d0", "%d1", "%d2", "%d3", "%d4", "%d5", "%d6" };
+                        std::array<QString,7> diskid { "%d0", "%d1", "%d2", "%d3", "%d4", "%d5", "%d6" };
 
                         for (int disk = 1; disk <= romdata->DiskCount(); disk++)
                         {
@@ -953,7 +943,7 @@ void GameHandler::customEvent(QEvent *event)
     if (auto *dce = dynamic_cast<DialogCompletionEvent*>(event))
     {
         QString resultid   = dce->GetId();
-        QString resulttext = dce->GetResultText();
+//      QString resulttext = dce->GetResultText();
 
         if (resultid == "removalPopup")
         {

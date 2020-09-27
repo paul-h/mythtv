@@ -26,6 +26,7 @@ HEADERS  = mythmainwindowprivate.h mythmainwindow.h mythpainter.h mythimage.h my
 HEADERS += mythpainterwindow.h mythpainterwindowqt.h
 HEADERS += myththemebase.h
 HEADERS += mythpainter_qt.h mythuihelper.h
+HEADERS += mythpaintergpu.h
 HEADERS += mythscreenstack.h mythgesture.h mythuitype.h mythscreentype.h
 HEADERS += mythuiimage.h mythuitext.h mythuistatetype.h  xmlparsebase.h
 HEADERS += mythuibutton.h myththemedmenu.h mythdialogbox.h
@@ -48,7 +49,9 @@ HEADERS += devices/mythinputdevicehandler.h
 SOURCES  = mythmainwindowprivate.cpp mythmainwindow.cpp mythpainter.cpp mythimage.cpp mythrect.cpp
 SOURCES += mythpainterwindow.cpp mythpainterwindowqt.cpp
 SOURCES += myththemebase.cpp
+SOURCES += mythrender.cpp
 SOURCES += mythpainter_qt.cpp xmlparsebase.cpp mythuihelper.cpp
+SOURCES += mythpaintergpu.cpp
 SOURCES += mythscreenstack.cpp mythgesture.cpp mythuitype.cpp mythscreentype.cpp
 SOURCES += mythuiimage.cpp mythuitext.cpp mythuifilebrowser.cpp
 SOURCES += mythuistatetype.cpp mythfontproperties.cpp
@@ -133,6 +136,8 @@ using_qtdbus {
     DEFINES += USING_DBUS
     HEADERS += screensaver-dbus.h
     SOURCES += screensaver-dbus.cpp
+    HEADERS += platforms/mythdisplaymutter.h
+    SOURCES += platforms/mythdisplaymutter.cpp
 }
 
 macx {
@@ -203,6 +208,7 @@ using_vulkan {
     HEADERS += vulkan/mythuniformbuffervulkan.h
     HEADERS += vulkan/mythcombobuffervulkan.h
     HEADERS += vulkan/mythdebugvulkan.h
+    HEADERS += vulkan/mythvertexbuffervulkan.h
     SOURCES += vulkan/mythpainterwindowvulkan.cpp
     SOURCES += vulkan/mythpaintervulkan.cpp
     SOURCES += vulkan/mythrendervulkan.cpp
@@ -212,6 +218,7 @@ using_vulkan {
     SOURCES += vulkan/mythuniformbuffervulkan.cpp
     SOURCES += vulkan/mythcombobuffervulkan.cpp
     SOURCES += vulkan/mythdebugvulkan.cpp
+    SOURCES += vulkan/mythvertexbuffervulkan.cpp
     using_libglslang: DEFINES += USING_GLSLANG
 }
 

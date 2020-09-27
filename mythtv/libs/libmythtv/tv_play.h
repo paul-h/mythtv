@@ -331,6 +331,9 @@ class MTV_PUBLIC TV : public QObject, public MenuItemDisplayer
     void timerEvent(QTimerEvent *te) override; // QObject
     void StopPlayback(void);
 
+  signals:
+    void PlaybackExiting(TV* Player);
+
   protected:
     // Protected event handling
     void customEvent(QEvent *e) override; // QObject
@@ -997,10 +1000,9 @@ class MTV_PUBLIC TV : public QObject, public MenuItemDisplayer
     bool             m_tvmFillAutoDetect      {false};
     uint             m_tvmSup                 {kPictureAttributeSupported_None};
     bool             m_tvmStereoAllowed       {false};
-    StereoscopicMode m_tvmStereoMode          {kStereoscopicModeNone};
+    StereoscopicMode m_tvmStereoMode          {kStereoscopicModeAuto};
     QStringList      m_tvmDeinterlacers       {};
     QString          m_tvmCurrentDeinterlacer {};
-    bool             m_tvmDoubleRate          {false};
 
     // Playback
     int          m_tvmSpeedX100         {100};

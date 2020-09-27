@@ -34,7 +34,7 @@ extern "C" {
 const unsigned kSamplesPerSec = 44100;
 
 // Handle cdio log output
-static void logger(cdio_log_level_t level, const char message[])
+static void logger(cdio_log_level_t level, const char *message)
 {
     switch (level)
     {
@@ -694,14 +694,14 @@ MusicMetadata *CdDecoder::getMetadata()
         Cddb::Matches r;
         if (Cddb::Query(r, GetToc(cdio, toc)))
         {
-            Cddb::Matches::match_t::const_iterator select = r.matches.begin();
+            Cddb::Matches::match_t::const_iterator select = r.matches.cbegin();
 
             if (r.matches.size() > 1)
             {
                 // TODO prompt user to select one
                 // In the meantime, select the first non-generic genre
                 for (Cddb::Matches::match_t::const_iterator it = select;
-                    it != r.matches.end(); ++it)
+                    it != r.matches.cend(); ++it)
                 {
                     QString g = it->discGenre.toLower();
                     if (g != "misc" && g != "data")
