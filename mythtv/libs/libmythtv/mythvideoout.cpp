@@ -32,7 +32,7 @@
 
 #define LOC QString("VideoOutput: ")
 
-VideoFrameTypeVec MythVideoOutput::s_defaultFrameTypes = { FMT_YV12 };
+VideoFrameTypes MythVideoOutput::s_defaultFrameTypes = { FMT_YV12 };
 
 void MythVideoOutput::GetRenderOptions(RenderOptions& Options)
 {
@@ -49,188 +49,6 @@ void MythVideoOutput::GetRenderOptions(RenderOptions& Options)
 #ifdef USING_VULKAN
     MythVideoOutputVulkan::GetRenderOptions(Options);
 #endif
-}
-
-/**
- * \brief  Depending on compile-time configure settings and run-time
- *         renderer settings, create a relevant VideoOutput subclass.
- * \return instance of VideoOutput if successful, nullptr otherwise.
- */
-MythVideoOutput *MythVideoOutput::Create(const QString& Decoder,    MythCodecID CodecID,
-                                         PIPState PiPState,         const QSize& VideoDim,
-                                         const QSize& VideoDispDim, float VideoAspect,
-                                         QWidget *ParentWidget,     const QRect& EmbedRect,
-                                         float FrameRate,           uint  PlayerFlags,
-                                         const QString& Codec,      int ReferenceFrames)
-{
-    QStringList renderers;
-
-    // select the best available output
-    if (PlayerFlags & kVideoIsNull)
-    {
-        // plain null output
-        renderers += "null";
-    }
-    else
-    {
-#ifdef _WIN32
-        renderers += VideoOutputD3D::GetAllowedRenderers(CodecID, VideoDispDim);
-#endif
-
-#ifdef USING_OPENGL
-       renderers += MythVideoOutputOpenGL::GetAllowedRenderers(CodecID, VideoDispDim);
-#endif
-
-#ifdef USING_VULKAN
-       renderers += MythVideoOutputVulkan::GetAllowedRenderers(CodecID);
-#endif
-    }
-
-    LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Allowed renderers for %1 %2 (Decoder: %3): '%4'")
-        .arg(get_encoding_type(CodecID)).arg(get_decoder_name(CodecID))
-        .arg(Decoder).arg(renderers.join(",")));
-    renderers = VideoDisplayProfile::GetFilteredRenderers(Decoder, renderers);
-    LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Allowed renderers (filt: %1): %2")
-        .arg(Decoder).arg(renderers.join(",")));
-
-    QString renderer;
-
-    auto *vprof = new VideoDisplayProfile();
-
-    if (!renderers.empty())
-    {
-        vprof->SetInput(VideoDispDim, FrameRate, Codec);
-        QString tmp = vprof->GetVideoRenderer();
-        if (vprof->IsDecoderCompatible(Decoder) && renderers.contains(tmp))
-        {
-            renderer = tmp;
-            LOG(VB_PLAYBACK, LOG_INFO, LOC + "Preferred renderer: " + renderer);
-        }
-        else
-        {
-            LOG(VB_PLAYBACK, LOG_INFO, LOC +
-                QString("No preferred renderer for decoder '%1' - profile renderer: '%2'")
-                .arg(Decoder).arg(tmp));
-        }
-    }
-
-    if (renderer.isEmpty())
-        renderer = VideoDisplayProfile::GetBestVideoRenderer(renderers);
-
-    if (renderer.isEmpty() && !(PlayerFlags & kVideoIsNull))
-    {
-        QString fallback;
-#ifdef USING_OPENGL
-        if (MythRenderOpenGL::GetOpenGLRender())
-            fallback = "opengl";
-#endif
-#ifdef USING_VULKAN
-        if (MythRenderVulkan::GetVulkanRender())
-            fallback = VULKAN_RENDERER;
-#endif
-        LOG(VB_GENERAL, LOG_WARNING, LOC + "No renderer found. This should not happen!.");
-        LOG(VB_GENERAL, LOG_WARNING, LOC + QString("Falling back to '%1'").arg(fallback));
-        renderer = fallback;
-    }
-
-    while (!renderers.empty())
-    {
-        LOG(VB_PLAYBACK, LOG_INFO, LOC +
-            QString("Trying video renderer: '%1'").arg(renderer));
-        int index = renderers.indexOf(renderer);
-        if (index >= 0)
-            renderers.removeAt(index);
-        else
-            break;
-
-        MythVideoOutput* vo = nullptr;
-
-        /* these cases are mutually exlusive */
-        if (renderer == "null")
-        {
-            vo = new MythVideoOutputNull();
-        }
-#ifdef _WIN32
-        else if (renderer == "direct3d")
-        {
-            vo = new VideoOutputD3D();
-        }
-#endif
-#ifdef USING_OPENGL
-        else if (renderer.contains("opengl"))
-        {
-            vo = new MythVideoOutputOpenGL(renderer);
-        }
-#endif
-#ifdef USING_VULKAN
-        else if (renderer.contains(VULKAN_RENDERER))
-        {
-            vo = new MythVideoOutputVulkan(renderer);
-        }
-#endif
-
-        if (vo)
-            vo->m_dbDisplayProfile = vprof;
-
-        if (vo && !(PlayerFlags & kVideoIsNull))
-        {
-            // ensure we have a window to display into
-            QWidget* widget = ParentWidget;
-            MythMainWindow* window = GetMythMainWindow();
-            if (!widget && window)
-                widget = window->findChild<QWidget*>("video playback window");
-
-            if (!widget)
-            {
-                LOG(VB_GENERAL, LOG_ERR, LOC + "No window for video output.");
-                delete vo;
-                vo = nullptr;
-                return nullptr;
-            }
-
-            if (!widget->winId())
-            {
-                LOG(VB_GENERAL, LOG_ERR, LOC + "No window for video output.");
-                delete vo;
-                vo = nullptr;
-                return nullptr;
-            }
-
-            // determine the display rectangle
-            QRect display_rect = QRect(0, 0, widget->width(), widget->height());
-            if (PiPState == kPIPStandAlone)
-                display_rect = EmbedRect;
-
-            vo->SetPIPState(PiPState);
-            vo->SetVideoFrameRate(FrameRate);
-            vo->SetReferenceFrames(ReferenceFrames);
-            if (vo->Init(VideoDim, VideoDispDim, VideoAspect, display_rect, CodecID))
-            {
-                vo->SetVideoScalingAllowed(true);
-                return vo;
-            }
-
-            vo->m_dbDisplayProfile = nullptr;
-            delete vo;
-            vo = nullptr;
-        }
-        else if (vo && (PlayerFlags & kVideoIsNull))
-        {
-            if (vo->Init(VideoDim, VideoDispDim, VideoAspect, QRect(), CodecID))
-                return vo;
-
-            vo->m_dbDisplayProfile = nullptr;
-            delete vo;
-            vo = nullptr;
-        }
-
-        renderer = VideoDisplayProfile::GetBestVideoRenderer(renderers);
-    }
-
-    LOG(VB_GENERAL, LOG_ERR, LOC +
-        "Not compiled with any useable video output method.");
-    delete vprof;
-    return nullptr;
 }
 
 /**
@@ -302,8 +120,7 @@ MythVideoOutput *MythVideoOutput::Create(const QString& Decoder,    MythCodecID 
  * \brief This constructor for VideoOutput must be followed by an
  *        Init(int,int,float,WId,int,int,int,int,WId) call.
  */
-MythVideoOutput::MythVideoOutput(bool CreateDisplay)
-  : MythVideoBounds(CreateDisplay)
+MythVideoOutput::MythVideoOutput()
 {
     m_dbLetterboxColour = static_cast<LetterBoxColour>(gCoreContext->GetNumSetting("LetterboxColour", 0));
 }
@@ -322,8 +139,8 @@ MythVideoOutput::~MythVideoOutput()
  * \brief Performs most of the initialization for VideoOutput.
  * \return true if successful, false otherwise.
  */
-bool MythVideoOutput::Init(const QSize& VideoDim, const QSize& VideoDispDim,
-                           float VideoAspect, const QRect& WindowRect, MythCodecID CodecID)
+bool MythVideoOutput::Init(const QSize VideoDim, const QSize VideoDispDim,
+                           float VideoAspect, const QRect WindowRect, MythCodecID CodecID)
 {
     m_videoCodecID = CodecID;
     bool wasembedding = IsEmbedding();
@@ -331,7 +148,7 @@ bool MythVideoOutput::Init(const QSize& VideoDim, const QSize& VideoDispDim,
     if (wasembedding)
     {
         oldrect = GetEmbeddingRect();
-        StopEmbedding();
+        EmbedPlayback(false, {});
     }
 
     bool mainSuccess = InitBounds(VideoDim, VideoDispDim, VideoAspect, WindowRect);
@@ -340,7 +157,7 @@ bool MythVideoOutput::Init(const QSize& VideoDim, const QSize& VideoDispDim,
         m_dbDisplayProfile->SetInput(GetVideoDispDim());
 
     if (wasembedding)
-        EmbedInWidget(oldrect);
+        EmbedPlayback(true, oldrect);
 
     VideoAspectRatioChanged(VideoAspect); // apply aspect ratio and letterbox mode
 
@@ -351,34 +168,6 @@ void MythVideoOutput::SetVideoFrameRate(float playback_fps)
 {
     if (m_dbDisplayProfile)
         m_dbDisplayProfile->SetOutput(playback_fps);
-}
-
-void MythVideoOutput::SetReferenceFrames(int ReferenceFrames)
-{
-    m_maxReferenceFrames = ReferenceFrames;
-}
-
-MythDeintType MythVideoOutput::ParseDeinterlacer(const QString& Deinterlacer)
-{
-    MythDeintType result = DEINT_NONE;
-
-    if (Deinterlacer.contains(DEINT_QUALITY_HIGH))
-        result = DEINT_HIGH;
-    else if (Deinterlacer.contains(DEINT_QUALITY_MEDIUM))
-        result = DEINT_MEDIUM;
-    else if (Deinterlacer.contains(DEINT_QUALITY_LOW))
-        result = DEINT_BASIC;
-
-    if (result != DEINT_NONE)
-    {
-        result = result | DEINT_CPU; // NB always assumed
-        if (Deinterlacer.contains(DEINT_QUALITY_SHADER))
-            result = result | DEINT_SHADER;
-        if (Deinterlacer.contains(DEINT_QUALITY_DRIVER))
-            result = result | DEINT_DRIVER;
-    }
-
-    return result;
 }
 
 void MythVideoOutput::SetDeinterlacing(bool Enable, bool DoubleRate, MythDeintType Force /*=DEINT_NONE*/)
@@ -410,13 +199,13 @@ void MythVideoOutput::SetDeinterlacing(bool Enable, bool DoubleRate, MythDeintTy
     }
     else if (m_dbDisplayProfile)
     {
-        singlerate = ParseDeinterlacer(m_dbDisplayProfile->GetSingleRatePreferences());
+        singlerate = MythVideoFrame::ParseDeinterlacer(m_dbDisplayProfile->GetSingleRatePreferences());
         if (DoubleRate)
-            doublerate = ParseDeinterlacer(m_dbDisplayProfile->GetDoubleRatePreferences());
+            doublerate = MythVideoFrame::ParseDeinterlacer(m_dbDisplayProfile->GetDoubleRatePreferences());
     }
 
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("SetDeinterlacing (Doublerate %1): Single %2 Double %3")
-        .arg(DoubleRate).arg(DeinterlacerPref(singlerate)).arg(DeinterlacerPref(doublerate)));
+        .arg(DoubleRate).arg(MythVideoFrame::DeinterlacerPref(singlerate)).arg(MythVideoFrame::DeinterlacerPref(doublerate)));
     m_videoBuffers.SetDeinterlacing(singlerate, doublerate, m_videoCodecID);
 }
 
@@ -425,7 +214,7 @@ void MythVideoOutput::SetDeinterlacing(bool Enable, bool DoubleRate, MythDeintTy
  * \bug We set the new width height and aspect ratio here, but we should
  *      do this based on the new video frames in Show().
  */
-bool MythVideoOutput::InputChanged(const QSize& VideoDim, const QSize& VideoDispDim,
+bool MythVideoOutput::InputChanged(const QSize VideoDim, const QSize VideoDispDim,
                                    float VideoAspect, MythCodecID  CodecID,
                                    bool& /*AspectOnly*/, int ReferenceFrames, bool /*ForceChange*/)
 {
@@ -450,7 +239,7 @@ void MythVideoOutput::GetOSDBounds(QRect& Total, QRect& Visible,
                                    float& FontScaling,
                                    float ThemeAspect) const
 {
-    Total = GetTotalOSDBounds();
+    Total   = GetDisplayVisibleRect();
     Visible = GetVisibleOSDBounds(VisibleAspect, FontScaling, ThemeAspect);
 }
 
@@ -478,35 +267,9 @@ QRect MythVideoOutput::GetVisibleOSDBounds(float& VisibleAspect,
     return { QPoint(0,0), dvr.size() };
 }
 
-/**
- * \fn VideoOutput::GetTotalOSDBounds() const
- * \brief Returns total OSD bounds
- */
-QRect MythVideoOutput::GetTotalOSDBounds() const
-{
-    return GetDisplayVisibleRect();
-}
-
 PictureAttributeSupported MythVideoOutput::GetSupportedPictureAttributes()
 {
     return m_videoColourSpace.SupportedAttributes();
-}
-
-int MythVideoOutput::ChangePictureAttribute(PictureAttribute AttributeType, bool Direction)
-{
-    return m_videoColourSpace.ChangePictureAttribute(AttributeType, Direction);
-}
-
-/**
- * \fn VideoOutput::SetPictureAttribute(PictureAttribute, int)
- * \brief Sets a specified picture attribute.
- * \param attribute Picture attribute to set.
- * \param newValue  Value to set attribute to.
- * \return Set value if it succeeds, -1 if it does not.
- */
-int MythVideoOutput::SetPictureAttribute(PictureAttribute Attribute, int NewValue)
-{
-    return m_videoColourSpace.SetPictureAttribute(Attribute, NewValue);
 }
 
 int MythVideoOutput::GetPictureAttribute(PictureAttribute AttributeType)
@@ -572,7 +335,7 @@ bool MythVideoOutput::EnoughDecodedFrames()
 }
 
 /// \bug not implemented correctly. vpos is not updated.
-VideoFrame* MythVideoOutput::GetLastDecodedFrame()
+MythVideoFrame* MythVideoOutput::GetLastDecodedFrame()
 {
     return m_videoBuffers.GetLastDecodedFrame();
 }
@@ -585,33 +348,13 @@ QString MythVideoOutput::GetFrameStatus() const
 
 /// \brief Returns frame from the head of the ready to be displayed queue,
 ///        if StartDisplayingFrame has been called.
-VideoFrame* MythVideoOutput::GetLastShownFrame()
+MythVideoFrame* MythVideoOutput::GetLastShownFrame()
 {
     return m_videoBuffers.GetLastShownFrame();
 }
 
-/**
- * \fn VideoOutput::CopyFrame(VideoFrame*, const VideoFrame*)
- * \brief Copies frame data from one VideoFrame to another.
- *
- *  Note: The frames must have the same width, height, and format.
- * \param To   The destination frame.
- * \param From The source frame
- */
-void MythVideoOutput::CopyFrame(VideoFrame* To, const VideoFrame* From)
-{
-    if (To == nullptr || From == nullptr)
-        return;
-
-    To->frameNumber = From->frameNumber;
-    To->disp_timecode = From->disp_timecode;
-    To->frameCounter = From->frameCounter;
-
-    copy(To, From);
-}
-
 /// \brief translates caption/dvd button rectangle into 'screen' space
-QRect MythVideoOutput::GetImageRect(const QRect& Rect, QRect* DisplayRect)
+QRect MythVideoOutput::GetImageRect(const QRect Rect, QRect* DisplayRect)
 {
     qreal hscale = 0.0;
     QSize video_size   = GetVideoDispDim();
@@ -676,7 +419,7 @@ QRect MythVideoOutput::GetSafeRect()
              result.width() - (2 * safex), result.height() - (2 * safey) };
 }
 
-const VideoFrameTypeVec *MythVideoOutput::DirectRenderFormats() const
+const VideoFrameTypes *MythVideoOutput::DirectRenderFormats() const
 {
     return m_renderFrameTypes;
 }
@@ -684,20 +427,20 @@ const VideoFrameTypeVec *MythVideoOutput::DirectRenderFormats() const
 /**
  * \brief Blocks until it is possible to return a frame for decoding onto.
  */
-VideoFrame* MythVideoOutput::GetNextFreeFrame()
+MythVideoFrame* MythVideoOutput::GetNextFreeFrame()
 {
     return m_videoBuffers.GetNextFreeFrame();
 }
 
 /// \brief Releases a frame from the ready for decoding queue onto the
 ///        queue of frames ready for display.
-void MythVideoOutput::ReleaseFrame(VideoFrame* Frame)
+void MythVideoOutput::ReleaseFrame(MythVideoFrame* Frame)
 {
     m_videoBuffers.ReleaseFrame(Frame);
 }
 
 /// \brief Releases a frame for reuse if it is in limbo.
-void MythVideoOutput::DeLimboFrame(VideoFrame* Frame)
+void MythVideoOutput::DeLimboFrame(MythVideoFrame* Frame)
 {
     m_videoBuffers.DeLimboFrame(Frame);
 }
@@ -711,14 +454,14 @@ void MythVideoOutput::StartDisplayingFrame()
 
 /// \brief Releases frame returned from GetLastShownFrame() onto the
 ///        queue of frames ready for decoding onto.
-void MythVideoOutput::DoneDisplayingFrame(VideoFrame* Frame)
+void MythVideoOutput::DoneDisplayingFrame(MythVideoFrame* Frame)
 {
     m_videoBuffers.DoneDisplayingFrame(Frame);
 }
 
 /// \brief Releases frame from any queue onto the
 ///        queue of frames ready for decoding onto.
-void MythVideoOutput::DiscardFrame(VideoFrame* Frame)
+void MythVideoOutput::DiscardFrame(MythVideoFrame* Frame)
 {
     m_videoBuffers.DiscardFrame(Frame);
 }

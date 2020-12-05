@@ -55,11 +55,11 @@ bool MythRAOPDevice::Create(void)
     {
         gMythRAOPDevice->moveToThread(gMythRAOPDeviceThread->qthread());
         QObject::connect(
-            gMythRAOPDeviceThread->qthread(), SIGNAL(started()),
-            gMythRAOPDevice,                  SLOT(Start()));
+            gMythRAOPDeviceThread->qthread(), &QThread::started,
+            gMythRAOPDevice,                  &MythRAOPDevice::Start);
         QObject::connect(
-            gMythRAOPDeviceThread->qthread(), SIGNAL(finished()),
-            gMythRAOPDevice,                  SLOT(Stop()));
+            gMythRAOPDeviceThread->qthread(), &QThread::finished,
+            gMythRAOPDevice,                  &MythRAOPDevice::Stop);
         gMythRAOPDeviceThread->start(QThread::LowestPriority);
     }
 
@@ -120,8 +120,8 @@ void MythRAOPDevice::Start(void)
         return;
 
     // join the dots
-    connect(this, SIGNAL(newConnection(QTcpSocket *)),
-            this, SLOT(newConnection(QTcpSocket *)));
+    connect(this, &ServerPool::newConnection,
+            this, &MythRAOPDevice::newRaopConnection);
 
     m_basePort = m_setupPort;
     m_setupPort = tryListeningPort(m_setupPort, RAOP_PORT_RANGE);
@@ -203,7 +203,7 @@ void MythRAOPDevice::TVPlaybackStarting(void)
     DeleteAllClients(nullptr);
 }
 
-void MythRAOPDevice::newConnection(QTcpSocket *client)
+void MythRAOPDevice::newRaopConnection(QTcpSocket *client)
 {
     QMutexLocker locker(m_lock);
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("New connection from %1:%2")
@@ -221,8 +221,8 @@ void MythRAOPDevice::newConnection(QTcpSocket *client)
     if (obj->Init())
     {
         m_clients.append(obj);
-        connect(client, SIGNAL(disconnected()), this, SLOT(deleteClient()));
-        gCoreContext->RegisterForPlayback(this, SLOT(TVPlaybackStarting()));
+        connect(client, &QAbstractSocket::disconnected, this, &MythRAOPDevice::deleteClient);
+        gCoreContext->RegisterForPlayback(this, &MythRAOPDevice::TVPlaybackStarting);
         return;
     }
 

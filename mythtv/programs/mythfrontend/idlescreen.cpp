@@ -1,6 +1,8 @@
 
 #include "idlescreen.h"
 
+#include <chrono>
+
 #include <QTimer>
 
 #include <mythcontext.h>
@@ -15,6 +17,10 @@
 
 #include <tvremoteutil.h>
 
+using namespace std::chrono_literals;
+
+static constexpr std::chrono::milliseconds UPDATE_INTERVAL { 15s };
+
 IdleScreen::IdleScreen(MythScreenStack *parent)
               :MythScreenType(parent, "standbymode"),
               m_updateScreenTimer(new QTimer(this))
@@ -22,7 +28,7 @@ IdleScreen::IdleScreen(MythScreenStack *parent)
     gCoreContext->addListener(this);
     GetMythMainWindow()->EnterStandby();
 
-    connect(m_updateScreenTimer, SIGNAL(timeout()), this, SLOT(UpdateScreen()));
+    connect(m_updateScreenTimer, &QTimer::timeout, this, &IdleScreen::UpdateScreen);
     m_updateScreenTimer->start(1000);
 
     // if this is a frontend only machine and the user has set a time to wait before shutting down
@@ -95,7 +101,10 @@ bool IdleScreen::CheckConnectionToServer(void)
             bRes = true;
     }
 
-    m_updateScreenTimer->start(1000);
+    if (bRes)
+        m_updateScreenTimer->start(UPDATE_INTERVAL);
+    else
+        m_updateScreenTimer->start(5s);
 
     return bRes;
 }
@@ -417,7 +426,7 @@ void IdleScreen::customEvent(QEvent* event)
 
             if (!PendingSchedUpdate())
             {
-                QTimer::singleShot(50, this, SLOT(UpdateScheduledList()));
+                QTimer::singleShot(50ms, this, &IdleScreen::UpdateScheduledList);
                 SetPendingSchedUpdate(true);
             }
         }

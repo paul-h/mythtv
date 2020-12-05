@@ -12,8 +12,6 @@
 #include <QVariantMap>
 #include <iostream>
 
-using namespace std;
-
 #include "mythlogging.h"
 #include "logging.h"
 #include "loggingserver.h"
@@ -69,7 +67,7 @@ static QRegExp                 logRegExp = QRegExp("[%]{1,2}");
 
 static LoggerThread           *logThread = nullptr;
 static QMutex                  logThreadMutex;
-static QHash<uint64_t, char *> logThreadHash;
+static QHash<uint64_t, QString> logThreadHash;
 
 static QMutex                   logThreadTidMutex;
 static QHash<uint64_t, int64_t> logThreadTidHash;
@@ -99,14 +97,14 @@ LoglevelMap loglevelMap;
 QMutex loglevelMapMutex;
 
 const uint64_t verboseDefaultInt = VB_GENERAL;
-const char    *verboseDefaultStr = " general";
+const QString verboseDefaultStr { QStringLiteral(" general") };
 
 uint64_t verboseMask = verboseDefaultInt;
-QString verboseString = QString(verboseDefaultStr);
+QString verboseString = verboseDefaultStr;
 ComponentLogLevelMap componentLogLevel;
 
 uint64_t     userDefaultValueInt = verboseDefaultInt;
-QString      userDefaultValueStr = QString(verboseDefaultStr);
+QString      userDefaultValueStr = verboseDefaultStr;
 bool         haveUserDefaultValues = false;
 
 void verboseAdd(uint64_t mask, QString name, bool additive, QString helptext);
@@ -118,9 +116,9 @@ void verboseHelp(void);
 void resetLogging(void)
 {
     verboseMask = verboseDefaultInt;
-    verboseString = QString(verboseDefaultStr);
+    verboseString = verboseDefaultStr;
     userDefaultValueInt = verboseDefaultInt;
-    userDefaultValueStr = QString(verboseDefaultStr);
+    userDefaultValueStr = verboseDefaultStr;
     haveUserDefaultValues = false;
 
     verboseInit();
@@ -151,20 +149,10 @@ LoggingItem::LoggingItem(const char *_file, const char *_function,
         ReferenceCounter("LoggingItem", false),
         m_threadId((uint64_t)(QThread::currentThreadId())),
         m_line(_line), m_type(_type), m_level(_level),
-        m_file(strdup(_file)), m_function(strdup(_function))
+        m_file(_file), m_function(_function)
 {
     loggingGetTimeStamp(&m_epoch, &m_usec);
     setThreadTid();
-}
-
-LoggingItem::~LoggingItem()
-{
-    free(m_file);
-    free(m_function);
-    free(m_threadName);
-    free(m_appName);
-    free(m_table);
-    free(m_logFile);
 }
 
 QByteArray LoggingItem::toByteArray(void)
@@ -179,15 +167,15 @@ QByteArray LoggingItem::toByteArray(void)
 
 /// \brief Get the name of the thread that produced the LoggingItem
 /// \return C-string of the thread name
-char *LoggingItem::getThreadName(void)
+QString LoggingItem::getThreadName(void)
 {
     static constexpr char const *kSUnknown = "thread_unknown";
 
-    if( m_threadName )
+    if( !m_threadName.isEmpty() )
         return m_threadName;
 
     QMutexLocker locker(&logThreadMutex);
-    return logThreadHash.value(m_threadId, (char *)kSUnknown);
+    return logThreadHash.value(m_threadId, kSUnknown);
 }
 
 /// \brief Get the thread ID of the thread that produced the LoggingItem
@@ -269,8 +257,7 @@ LoggerThread::LoggerThread(QString filename, bool progress, bool quiet,
     m_filename(std::move(filename)), m_progress(progress), m_quiet(quiet),
     m_tablename(std::move(table)), m_facility(facility), m_pid(getpid())
 {
-    char *debug = getenv("VERBOSE_THREADS");
-    if (debug != nullptr)
+    if (qEnvironmentVariableIsSet("VERBOSE_THREADS"))
     {
         LOG(VB_GENERAL, LOG_NOTICE,
             "Logging thread registration/deregistration enabled!");
@@ -364,12 +351,7 @@ void LoggerThread::handleItem(LoggingItem *item)
         item->m_tid = item->getThreadTid();
 
         QMutexLocker locker(&logThreadMutex);
-        if (logThreadHash.contains(item->m_threadId))
-        {
-            char *threadName = logThreadHash.take(item->m_threadId);
-            free(threadName);
-        }
-        logThreadHash[item->m_threadId] = strdup(item->m_threadName);
+        logThreadHash[item->m_threadId] = item->m_threadName;
 
         if (debugRegistration)
         {
@@ -402,8 +384,7 @@ void LoggerThread::handleItem(LoggingItem *item)
                          QString::number(tid),
                          logThreadHash[item->m_threadId]);
             }
-            char *threadName = logThreadHash.take(item->m_threadId);
-            free(threadName);
+            logThreadHash.remove(item->m_threadId);
         }
     }
 
@@ -454,7 +435,7 @@ bool LoggerThread::logConsole(LoggingItem *item) const
                 .arg(timestamp, QString(shortname),
                      QString::number(item->pid()),
                      QString::number(item->tid()),
-                     item->rawThreadName(),
+                     item->threadName(),
                      item->m_file,
                      QString::number(item->m_line),
                      item->m_function,
@@ -465,7 +446,7 @@ bool LoggerThread::logConsole(LoggingItem *item) const
             line = qPrintable(QString("%1 %2 [%3] %4 %5:%6:%7  %8\n")
                 .arg(timestamp, QString(shortname),
                      QString::number(item->pid()),
-                     item->rawThreadName(),
+                     item->threadName(),
                      item->m_file,
                      QString::number(item->m_line),
                      item->m_function,
@@ -509,8 +490,9 @@ bool LoggerThread::logConsole(LoggingItem *item) const
         break;
     }
 #if CONFIG_DEBUGTYPE
-    __android_log_print(aprio, "mfe", "%s:%d:%s  %s", item->m_file,
-                        item->m_line, item->m_function, qPrintable(item->m_message));
+    __android_log_print(aprio, "mfe", "%s:%d:%s  %s", qPrintable(item->m_file),
+                        item->m_line, qPrintable(item->m_function),
+                        qPrintable(item->m_message));
 #else
     __android_log_print(aprio, "mfe", "%s", qPrintable(item->m_message));
 #endif
@@ -941,7 +923,7 @@ void verboseHelp(void)
 {
     QString m_verbose = userDefaultValueStr.simplified().replace(' ', ',');
 
-    cerr << "Verbose debug levels.\n"
+    std::cerr << "Verbose debug levels.\n"
             "Accepts any combination (separated by comma) of:\n\n";
 
     for (VerboseMap::Iterator vit = verboseMap.begin();
@@ -951,11 +933,11 @@ void verboseHelp(void)
         QString name = QString("  %1").arg(item->name, -15, ' ');
         if (item->helpText.isEmpty())
             continue;
-        cerr << name.toLocal8Bit().constData() << " - " <<
-                item->helpText.toLocal8Bit().constData() << endl;
+        std::cerr << name.toLocal8Bit().constData() << " - "
+                  << item->helpText.toLocal8Bit().constData() << std::endl;
     }
 
-    cerr << endl <<
+    std::cerr << std::endl <<
       "The default for this program appears to be: '-v " <<
       m_verbose.toLocal8Bit().constData() << "'\n\n"
       "Most options are additive except for 'none' and 'all'.\n"
@@ -967,13 +949,14 @@ void verboseHelp(void)
       "prefixing them with 'no', so you may use '-v all,nodatabase'\n"
       "to view all but database debug messages.\n\n";
 
-    cerr << "The 'global' loglevel is specified with --loglevel, but can be\n"
+    std::cerr
+         << "The 'global' loglevel is specified with --loglevel, but can be\n"
          << "overridden on a component by component basis by appending "
          << "':level'\n"
          << "to the component.\n"
          << "    For example: -v gui:debug,channel:notice,record\n\n";
 
-    cerr << "Some debug levels may not apply to this program.\n" << endl;
+    std::cerr << "Some debug levels may not apply to this program.\n" << std::endl;
 }
 
 /// \brief  Parse the --verbose commandline argument and set the verbose level
@@ -989,11 +972,11 @@ int verboseArgParse(const QString& arg)
     QMutexLocker locker(&verboseMapMutex);
 
     verboseMask = verboseDefaultInt;
-    verboseString = QString(verboseDefaultStr);
+    verboseString = verboseDefaultStr;
 
     if (arg.startsWith('-'))
     {
-        cerr << "Invalid or missing argument to -v/--verbose option\n";
+        std::cerr << "Invalid or missing argument to -v/--verbose option\n";
         return GENERIC_EXIT_INVALID_CMDLINE;
     }
 
@@ -1023,11 +1006,11 @@ int verboseArgParse(const QString& arg)
         }
         if (option == "important")
         {
-            cerr << "The \"important\" log mask is no longer valid.\n";
+            std::cerr << "The \"important\" log mask is no longer valid.\n";
         }
         else if (option == "extra")
         {
-            cerr << "The \"extra\" log mask is no longer valid.  Please try "
+            std::cerr << "The \"extra\" log mask is no longer valid.  Please try "
                     "--loglevel debug instead.\n";
         }
         else if (option == "default")
@@ -1040,7 +1023,7 @@ int verboseArgParse(const QString& arg)
             else
             {
                 verboseMask = verboseDefaultInt;
-                verboseString = QString(verboseDefaultStr);
+                verboseString = verboseDefaultStr;
             }
         }
         else
@@ -1088,8 +1071,8 @@ int verboseArgParse(const QString& arg)
             }
             else
             {
-                cerr << "Unknown argument for -v/--verbose: " <<
-                        option.toLocal8Bit().constData() << endl;;
+                std::cerr << "Unknown argument for -v/--verbose: " <<
+                        option.toLocal8Bit().constData() << std::endl;;
                 return GENERIC_EXIT_INVALID_CMDLINE;
             }
         }

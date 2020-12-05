@@ -18,6 +18,9 @@
         - ?/7/2010 - Add streaming support
 */
 
+// C++ headers
+#include <chrono>
+
 // QT headers
 #include <QObject>
 #include <QIODevice>
@@ -32,8 +35,6 @@
 #include <mythlogging.h>
 #include <decoderhandler.h>
 #include <mythavutil.h>
-
-using namespace std;
 
 // Mythmusic Headers
 #include "avfdecoder.h"
@@ -51,6 +52,8 @@ extern "C" {
 #include "libavformat/avio.h"
 #include "libavutil/opt.h"
 }
+
+using namespace std::chrono_literals;
 
 /****************************************************************************/
 
@@ -294,9 +297,9 @@ bool avfDecoder::initialize()
     {
         m_mdataTimer = new QTimer;
         m_mdataTimer->setSingleShot(false);
-        connect(m_mdataTimer, SIGNAL(timeout()), this, SLOT(checkMetatdata()));
+        connect(m_mdataTimer, &QTimer::timeout, this, &avfDecoder::checkMetatdata);
 
-        m_mdataTimer->start(500);
+        m_mdataTimer->start(500ms);
 
         // we don't get metadata updates for MMS streams so grab the metadata from the headers
         if (getURL().startsWith("mmsh://"))
@@ -341,7 +344,7 @@ bool avfDecoder::initialize()
     }
 
     // Store the audio codec of the stream
-    m_audioDec = m_codecMap.getCodecContext
+    m_audioDec = m_codecMap.GetCodecContext
         (m_inputContext->getContext()->streams[selTrack]);
 
     // Store the input format of the context
@@ -411,7 +414,7 @@ void avfDecoder::deinit()
         for (uint i = 0; i < m_inputContext->getContext()->nb_streams; i++)
         {
             AVStream *st = m_inputContext->getContext()->streams[i];
-            m_codecMap.freeCodecContext(st);
+            m_codecMap.FreeCodecContext(st);
         }
     }
 
@@ -509,7 +512,8 @@ void avfDecoder::run()
                 if (buffered < 1000)
                     break;
                 // wait
-                usleep((buffered - 1000) * 1000);
+                const struct timespec ns {0, (buffered - 1000) * 1000000};
+                nanosleep(&ns, nullptr);
             }
         }
     }
@@ -586,13 +590,9 @@ bool avfDecoderFactory::supports(const QString &source) const
 #else
     QStringList list = extension().split("|", Qt::SkipEmptyParts);
 #endif
-    for (const auto& str : qAsConst(list))
-    {
-        if (str == source.right(str.length()).toLower())
-            return true;
-    }
-
-    return false;
+    return std::any_of(list.cbegin(), list.cend(),
+                       [source](const auto& str)
+                           { return str == source.right(str.length()).toLower(); } );
 }
 
 const QString &avfDecoderFactory::extension() const

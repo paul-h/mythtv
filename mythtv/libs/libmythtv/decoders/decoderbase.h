@@ -4,7 +4,6 @@
 #include <array>
 #include <cstdint>
 #include <vector>
-using namespace std;
 
 #include "io/mythmediabuffer.h"
 #include "remoteencoder.h"
@@ -109,7 +108,7 @@ class StreamInfo
         return (this->m_stream_id < b.m_stream_id);
     }
 };
-using sinfo_vec_t = vector<StreamInfo>;
+using sinfo_vec_t = std::vector<StreamInfo>;
 
 inline AVRational AVRationalInit(int num, int den = 1) {
     AVRational result;
@@ -122,7 +121,6 @@ class DecoderBase
 {
   public:
     DecoderBase(MythPlayer *parent, const ProgramInfo &pginfo);
-    DecoderBase(const DecoderBase& rhs);
     virtual ~DecoderBase();
 
     virtual void Reset(bool reset_video_data, bool seek_reset, bool reset_file);
@@ -300,7 +298,7 @@ class DecoderBase
 
     long long            m_framesPlayed            {0};
     long long            m_framesRead              {0};
-    unsigned long long   m_frameCounter            {0};
+    uint64_t             m_frameCounter            {0};
     AVRational           m_totalDuration;
     int                  m_keyframeDist            {-1};
     long long            m_lastKey                 {0};
@@ -324,7 +322,7 @@ class DecoderBase
     MarkTypes            m_positionMapType         {MARK_UNSET};
 
     mutable QMutex       m_positionMapLock         {QMutex::Recursive};
-    vector<PosMapEntry>  m_positionMap;
+    std::vector<PosMapEntry>  m_positionMap;
     frm_pos_map_t        m_frameToDurMap; // guarded by m_positionMapLock
     frm_pos_map_t        m_durToFrameMap; // guarded by m_positionMapLock
     mutable QDateTime    m_lastPositionMapUpdate; // guarded by m_positionMapLock
@@ -356,8 +354,11 @@ class DecoderBase
     std::array<StreamInfo, kTrackTypeCount> m_selectedTrack;
 
     /// language preferences for auto-selection of streams
-    vector<int>          m_languagePreference;
+    std::vector<int>     m_languagePreference;
     MythCodecContext    *m_mythCodecCtx         { nullptr };
     VideoDisplayProfile  m_videoDisplayProfile;
+
+  private:
+    Q_DISABLE_COPY(DecoderBase)
 };
 #endif

@@ -1,8 +1,6 @@
 #include <algorithm>
 #include <utility>
 
-using namespace std;
-
 #include "signalmonitorvalue.h"
 #include "mythlogging.h"
 
@@ -180,9 +178,8 @@ SignalMonitorList SignalMonitorValue::Parse(const QStringList& slist)
  */
 bool SignalMonitorValue::AllGood(const SignalMonitorList& slist)
 {
-    bool good = true;
-    for (const auto & smv : slist)
-        good &= smv.IsGood();
+    auto isgood = [](const auto & smv){ return smv.IsGood(); };
+    bool good = std::all_of(slist.cbegin(), slist.cend(), isgood);
 #if DEBUG_SIGNAL_MONITOR_VALUE
     if (!good)
     {
@@ -214,8 +211,8 @@ int SignalMonitorValue::MaxWait(const SignalMonitorList& slist)
     int minWait = 0;
     for (const auto & smv : slist)
     {
-        wait = max(wait, smv.GetTimeout());
-        minWait = min(minWait, smv.GetTimeout());
+        wait = std::max(wait, smv.GetTimeout());
+        minWait = std::min(minWait, smv.GetTimeout());
     }
     return (minWait<0) ? -1 : wait;
 }

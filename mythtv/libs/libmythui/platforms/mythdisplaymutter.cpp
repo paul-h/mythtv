@@ -4,7 +4,9 @@
 #include "platforms/mythdisplaymutter.h"
 
 #ifdef USING_DRM
-#include "platforms/mythdrmdevice.h"
+extern "C" {
+#include <xf86drmMode.h>
+}
 #else
 #ifndef DRM_MODE_FLAG_INTERLACE
 #define DRM_MODE_FLAG_INTERLACE (1<<4)
@@ -231,7 +233,11 @@ MythDisplayMutter* MythDisplayMutter::Create()
             }
 
             if (!s_available)
-                LOG(VB_GENERAL, LOG_INFO, LOC + "Mutter.DisplayConfig not useable");
+                LOG(VB_GENERAL, LOG_INFO, LOC + DISP_CONFIG_SERVICE + " not useable");
+        }
+        else
+        {
+            LOG(VB_GENERAL, LOG_INFO, LOC + QString("Failed to find '%1'").arg(DISP_CONFIG_SERVICE));
         }
     }
 
@@ -290,7 +296,7 @@ bool MythDisplayMutter::UsingVideoModes()
     return false;
 }
 
-const vector<MythDisplayMode>& MythDisplayMutter::GetVideoModes()
+const std::vector<MythDisplayMode>& MythDisplayMutter::GetVideoModes()
 {
     if (!m_interface || m_outputIdx < 0 || !m_videoModes.empty())
         return m_videoModes;

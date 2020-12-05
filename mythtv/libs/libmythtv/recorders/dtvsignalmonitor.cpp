@@ -1,7 +1,6 @@
 #include <unistd.h>
 
 #include <algorithm> // for lower_bound
-using namespace std;
 
 #include "dtvchannel.h"
 #include "dtvsignalmonitor.h"
@@ -13,11 +12,9 @@ using namespace std;
 
 #undef DBG_SM
 #define DBG_SM(FUNC, MSG) LOG(VB_CHANNEL, LOG_INFO, \
-    QString("DTVSigMon[%1](%2): %3 %4").arg(m_inputid) \
-    .arg(m_channel->GetDevice()).arg(FUNC).arg(MSG))
+    QString("DTVSigMon[%1]: %2 %3").arg(m_inputid).arg(FUNC).arg(MSG))
 
-#define LOC QString("DTVSigMon[%1](%2): ") \
-            .arg(m_inputid).arg(m_channel->GetDevice())
+#define LOC QString("DTVSigMon[%1]: ").arg(m_inputid)
 
 // inserts tid&crc value into an ordered list
 // returns true if item is inserted
@@ -26,7 +23,7 @@ static bool insert_crc(QList<uint64_t> &seen_crc, const PSIPTable &psip)
     uint64_t key = (((uint64_t)psip.TableID()) << 32) | psip.CRC();
 
     QList<uint64_t>::iterator it =
-        lower_bound(seen_crc.begin(), seen_crc.end(), key);
+        std::lower_bound(seen_crc.begin(), seen_crc.end(), key);
 
     if ((it == seen_crc.end()) || (*it != key))
     {
@@ -173,8 +170,8 @@ void DTVSignalMonitor::UpdateMonitorValues(void)
 
 void DTVSignalMonitor::UpdateListeningForEIT(void)
 {
-    vector<uint> add_eit;
-    vector<uint> del_eit;
+    std::vector<uint> add_eit;
+    std::vector<uint> del_eit;
 
     if (GetStreamData()->HasEITPIDChanges(m_eitPids) &&
         GetStreamData()->GetEITPIDChanges(m_eitPids, add_eit, del_eit))

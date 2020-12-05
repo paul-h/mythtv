@@ -28,6 +28,7 @@
 #include "mythmiscutil.h"
 #include "mythplayer.h"
 #include "mythcorecontext.h"
+#include "mythmainwindow.h"
 #include "mythvideobounds.h"
 
 // Std
@@ -49,30 +50,39 @@ const float MythVideoBounds::kManualZoomMinHorizontalZoom = 0.25F;
 const float MythVideoBounds::kManualZoomMinVerticalZoom   = 0.25F;
 const int   MythVideoBounds::kManualZoomMaxMove           = 50;
 
-MythVideoBounds::MythVideoBounds(bool CreateDisplay)
+MythVideoBounds::MythVideoBounds()
+  : m_dbMove( { gCoreContext->GetNumSetting("xScanDisplacement", 0),
+                gCoreContext->GetNumSetting("yScanDisplacement", 0) }),
+    m_dbUseGUISize(gCoreContext->GetBoolSetting("GuiSizeForTV", false)),
+    m_dbAspectOverride(static_cast<AspectOverrideMode>(gCoreContext->GetNumSetting("AspectOverride", 0))),
+    m_dbAdjustFill(static_cast<AdjustFillMode>(gCoreContext->GetNumSetting("AdjustFill", 0)))
 {
-    m_dbPipSize = gCoreContext->GetNumSetting("PIPSize", 26);
-
-    m_dbMove = QPoint(gCoreContext->GetNumSetting("xScanDisplacement", 0),
-                     gCoreContext->GetNumSetting("yScanDisplacement", 0));
-    m_dbUseGUISize = gCoreContext->GetBoolSetting("GuiSizeForTV", false);
-    m_dbAspectOverride = static_cast<AspectOverrideMode>(gCoreContext->GetNumSetting("AspectOverride", 0));
-    m_dbAdjustFill = static_cast<AdjustFillMode>(gCoreContext->GetNumSetting("AdjustFill", 0));
-
-    if (CreateDisplay)
-    {
-        m_display = MythDisplay::AcquireRelease();
-        connect(m_display, &MythDisplay::CurrentScreenChanged, this, &MythVideoBounds::ScreenChanged);
-#ifdef Q_OS_MACOS
-        connect(m_display, &MythDisplay::PhysicalDPIChanged,   this, &MythVideoBounds::PhysicalDPIChanged);
-#endif
-    }
 }
 
-MythVideoBounds::~MythVideoBounds()
+/*! \brief Send out latest state to listeners.
+ *
+ * \note This should be used sparingly when first connecting to MythVideoBounds
+ * to retrieve the initial state.
+*/
+void MythVideoBounds::RefreshVideoBoundsState()
+{
+    emit VideoBoundsStateChanged({ m_adjustFill, m_videoAspectOverrideMode, m_manualHorizScale,
+                                   m_manualVertScale, m_manualMove });
+}
+
+void MythVideoBounds::SetDisplay(MythDisplay *mDisplay)
 {
     if (m_display)
-        MythDisplay::AcquireRelease(false);
+    {
+        LOG(VB_GENERAL, LOG_WARNING, LOC + "Already have a display");
+        return;
+    }
+
+    m_display = mDisplay;
+    connect(m_display, &MythDisplay::CurrentScreenChanged, this, &MythVideoBounds::ScreenChanged);
+#ifdef Q_OS_MACOS
+    connect(m_display, &MythDisplay::PhysicalDPIChanged,   this, &MythVideoBounds::PhysicalDPIChanged);
+#endif
 }
 
 void MythVideoBounds::ScreenChanged(QScreen */*screen*/)
@@ -157,6 +167,8 @@ void MythVideoBounds::MoveResize(void)
     emit VideoRectsChanged(m_displayVideoRect, m_videoRect);
     emit VisibleRectChanged(m_displayVisibleRect);
     emit WindowRectChanged(m_windowRect);
+
+    RefreshVideoBoundsState();
 }
 
 /*! \brief Adjust various settings to facilitate portrait mode calculations.
@@ -218,7 +230,7 @@ void MythVideoBounds::ApplyDBScaleAndMove(void)
         {
             // To move the image down, move the start point up.
             // Don't offset the image more than we have overscanned.
-            yoff = min(m_videoRect.top(), yoff);
+            yoff = std::min(m_videoRect.top(), yoff);
             m_videoRect.moveTop(m_videoRect.top() - yoff);
         }
         else if (yoff < 0)
@@ -247,7 +259,7 @@ void MythVideoBounds::ApplyDBScaleAndMove(void)
         if (yoff > 0)
         {
             // Don't offset more than we have underscanned.
-            yoff = min(m_displayVideoRect.top(), yoff);
+            yoff = std::min(m_displayVideoRect.top(), yoff);
             m_displayVideoRect.moveTop(m_displayVideoRect.top() + yoff);
         }
         else if (yoff < 0)
@@ -269,7 +281,7 @@ void MythVideoBounds::ApplyDBScaleAndMove(void)
         int xoff = m_dbMove.x();
         if (xoff > 0)
         {
-            xoff = min(m_videoRect.left(), xoff);
+            xoff = std::min(m_videoRect.left(), xoff);
             m_videoRect.moveLeft(m_videoRect.left() - xoff);
         }
         else if (xoff < 0)
@@ -290,7 +302,7 @@ void MythVideoBounds::ApplyDBScaleAndMove(void)
         int xoff = m_dbMove.x();
         if (xoff > 0)
         {
-            xoff = min(m_displayVideoRect.left(), xoff);
+            xoff = std::min(m_displayVideoRect.left(), xoff);
             m_displayVideoRect.moveLeft(m_displayVideoRect.left() + xoff);
         }
         else if (xoff < 0)
@@ -436,8 +448,8 @@ void MythVideoBounds::ApplyLetterboxing(void)
     }
 }
 
-bool MythVideoBounds::InitBounds(const QSize &VideoDim, const QSize &VideoDispDim,
-                                 float Aspect, const QRect &WindowRect)
+bool MythVideoBounds::InitBounds(QSize VideoDim, QSize VideoDispDim,
+                                 float Aspect, QRect WindowRect)
 {
     if (m_display)
     {
@@ -452,28 +464,12 @@ bool MythVideoBounds::InitBounds(const QSize &VideoDim, const QSize &VideoDispDi
     // displayVisibleRect
     m_rawWindowRect = WindowRect;
     m_windowRect = m_displayVisibleRect = SCALED_RECT(WindowRect, m_devicePixelRatio);
-
-    int pbp_width = m_displayVisibleRect.width() / 2;
-    if (m_pipState == kPBPLeft || m_pipState == kPBPRight)
-        m_displayVisibleRect.setWidth(pbp_width);
-
-    if (m_pipState == kPBPRight)
-            m_displayVisibleRect.moveLeft(pbp_width);
-
     m_videoDispDim = Fix1088(VideoDispDim);
     m_videoDim = VideoDim;
     m_videoRect = QRect(m_displayVisibleRect.topLeft(), m_videoDispDim);
 
-    if (m_pipState > kPIPOff)
-    {
-        m_videoAspectOverrideMode = kAspect_Off;
-        m_adjustFill = kAdjustFill_Off;
-    }
-    else
-    {
-        m_videoAspectOverrideMode = m_dbAspectOverride;
-        m_adjustFill = m_dbAdjustFill;
-    }
+    m_videoAspectOverrideMode = m_dbAspectOverride;
+    m_adjustFill = m_dbAdjustFill;
     m_embedding = false;
     SetVideoAspectRatio(Aspect);
     MoveResize();
@@ -525,7 +521,7 @@ void MythVideoBounds::VideoAspectRatioChanged(float Aspect)
 }
 
 /// \brief Update for new source video dimensions and aspect ratio
-void MythVideoBounds::SourceChanged(const QSize &VideoDim, const QSize &VideoDispDim, float Aspect)
+void MythVideoBounds::SourceChanged(QSize VideoDim, QSize VideoDispDim, float Aspect)
 {
     if (Aspect < 0.0F)
         Aspect = m_videoAspect;
@@ -561,10 +557,9 @@ QSize MythVideoBounds::Fix1088(QSize Dimensions)
     return result;
 }
 
-/**
- * \brief Sets up letterboxing for various standard video frame and
- *        monitor dimensions, then calls MoveResize()
- *        to apply them.
+/*! \brief Sets up letterboxing for various standard video frame and
+ * monitor dimensions, then calls MoveResize() to apply them.
+ *
  * \sa Zoom(ZoomDirection), ToggleAspectOverride(AspectOverrideMode)
  */
 void MythVideoBounds::ToggleAdjustFill(AdjustFillMode AdjustFill)
@@ -650,7 +645,7 @@ void MythVideoBounds::SetITVResize(QRect Rect)
     }
     if (m_rawItvDisplayVideoRect != oldrect)
     {
-        LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("New ITV display rect: %1x%2+%3+%4 (Scale: %1)")
+        LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("New ITV display rect: %1x%2+%3+%4 (Scale: %5)")
             .arg(m_itvDisplayVideoRect.width()).arg(m_itvDisplayVideoRect.height())
             .arg(m_itvDisplayVideoRect.left()).arg(m_itvDisplayVideoRect.right())
             .arg(m_devicePixelRatio));
@@ -677,7 +672,7 @@ void MythVideoBounds::SetRotation(int Rotation)
 /**
  * \brief Resize Display Window
  */
-void MythVideoBounds::ResizeDisplayWindow(const QRect &Rect, bool SaveVisibleRect)
+void MythVideoBounds::ResizeDisplayWindow(QRect Rect, bool SaveVisibleRect)
 {
     if (SaveVisibleRect)
         m_tmpDisplayVisibleRect = m_displayVisibleRect;
@@ -685,35 +680,27 @@ void MythVideoBounds::ResizeDisplayWindow(const QRect &Rect, bool SaveVisibleRec
     MoveResize();
 }
 
-/**
- * \brief Tells video output to embed video in an existing window.
- * \param Rect new display_video_rect
- * \sa StopEmbedding()
- */
-void MythVideoBounds::EmbedInWidget(const QRect &Rect)
+void MythVideoBounds::EmbedPlayback(bool Embed, QRect Rect)
 {
-    if (m_embedding && (Rect == m_rawEmbeddingRect))
+    if (Embed)
+    {
+        if (m_embedding && (Rect == m_rawEmbeddingRect))
+            return;
+
+        m_rawEmbeddingRect = Rect;
+        m_embeddingRect = SCALED_RECT(Rect, m_devicePixelRatio);
+        bool savevisiblerect = !m_embedding;
+        m_embedding = true;
+        m_embeddingHidden = Rect.isEmpty();
+        m_displayVideoRect = m_embeddingRect;
+        LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("New embedding rect: %1x%2+%3+%4 (Scale: %5)")
+            .arg(m_embeddingRect.width()).arg(m_embeddingRect.height())
+            .arg(m_embeddingRect.left()).arg(m_embeddingRect.top())
+            .arg(m_devicePixelRatio));
+        ResizeDisplayWindow(m_displayVideoRect, savevisiblerect);
         return;
+    }
 
-    m_rawEmbeddingRect = Rect;
-    m_embeddingRect = SCALED_RECT(Rect, m_devicePixelRatio);
-    bool savevisiblerect = !m_embedding;
-    m_embedding = true;
-    m_embeddingHidden = Rect.isEmpty();
-    m_displayVideoRect = m_embeddingRect;
-    LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("New embedding rect: %1x%2+%3+%4 (Scale: %1)")
-        .arg(m_embeddingRect.width()).arg(m_embeddingRect.height())
-        .arg(m_embeddingRect.left()).arg(m_embeddingRect.top())
-        .arg(m_devicePixelRatio));
-    ResizeDisplayWindow(m_displayVideoRect, savevisiblerect);
-}
-
-/**
- * \brief Tells video output to stop embedding video in an existing window.
- * \sa EmbedInWidget(WId, int, int, int, int)
- */
-void MythVideoBounds::StopEmbedding(void)
-{
     if (!m_embedding)
         return;
     LOG(VB_PLAYBACK, LOG_INFO, LOC + "Stopped embedding");
@@ -733,9 +720,6 @@ void MythVideoBounds::StopEmbedding(void)
  */
 void MythVideoBounds::ToggleAspectOverride(AspectOverrideMode AspectMode)
 {
-    if (m_pipState > kPIPOff)
-        return;
-
     if (AspectMode == kAspect_Toggle)
         AspectMode = static_cast<AspectOverrideMode>(((m_videoAspectOverrideMode + 1) % kAspect_END));
 
@@ -747,6 +731,8 @@ void MythVideoBounds::ToggleAspectOverride(AspectOverrideMode AspectMode)
         SetVideoAspectRatio(m_videoAspect);
         MoveResize();
     }
+
+    emit UpdateOSDMessage(toString(m_videoAspectOverrideMode));
 }
 
 /*! \brief Check whether the video display rect covers the entire window/framebuffer
@@ -770,47 +756,6 @@ QRegion MythVideoBounds::GetBoundingRegion(void) const
     QRegion visible(m_windowRect);
     QRegion video(m_displayVideoRect);
     return visible.subtracted(video);
-}
-
-/*
- * \brief Determines PIP Window size and Position.
- */
-QRect MythVideoBounds::GetPIPRect(
-    PIPLocation Location, MythPlayer *PiPPlayer, bool DoPixelAdjustment) const
-{
-    QRect position;
-
-    float pipVideoAspect = PiPPlayer ? PiPPlayer->GetVideoAspect() : (4.0F / 3.0F);
-    int tmph = (m_displayVisibleRect.height() * m_dbPipSize) / 100;
-    float pixel_adj = 1.0F;
-    if (DoPixelAdjustment)
-    {
-        pixel_adj = (static_cast<float>(m_displayVisibleRect.width()) /
-                     static_cast<float>(m_displayVisibleRect.height())) / m_displayAspect;
-    }
-    position.setHeight(tmph);
-    position.setWidth(qRound((tmph * pipVideoAspect * pixel_adj)));
-
-    int xoff = qRound(m_displayVisibleRect.width()  * 0.06);
-    int yoff = qRound(m_displayVisibleRect.height() * 0.06);
-    switch (Location)
-    {
-        case kPIP_END:
-        case kPIPTopLeft:
-            break;
-        case kPIPBottomLeft:
-            yoff = m_displayVisibleRect.height() - position.height() - yoff;
-            break;
-        case kPIPTopRight:
-            xoff = m_displayVisibleRect.width() - position.width() - xoff;
-            break;
-        case kPIPBottomRight:
-            xoff = m_displayVisibleRect.width() - position.width() - xoff;
-            yoff = m_displayVisibleRect.height() - position.height() - yoff;
-            break;
-    }
-    position.translate(xoff, yoff);
-    return position;
 }
 
 /**
@@ -944,6 +889,8 @@ void MythVideoBounds::ToggleMoveBottomLine(void)
             .arg(static_cast<double>(m_manualVertScale)));
         MoveResize();
     }
+
+    emit UpdateOSDMessage(GetZoomString(m_manualHorizScale, m_manualVertScale, m_manualMove));
 }
 
 void MythVideoBounds::SaveBottomLine(void)
@@ -952,14 +899,8 @@ void MythVideoBounds::SaveBottomLine(void)
     gCoreContext->SaveSetting("OSDMoveYBottomLine", m_manualMove.y());
     gCoreContext->SaveSetting("OSDScaleHBottomLine", static_cast<int>(m_manualHorizScale * 100.0F));
     gCoreContext->SaveSetting("OSDScaleVBottomLine", static_cast<int>(m_manualVertScale * 100.0F));
-}
 
-QString MythVideoBounds::GetZoomString(void) const
-{
-    return tr("Zoom %1x%2 @ (%3,%4)")
-            .arg(static_cast<double>(m_manualHorizScale), 0, 'f', 2)
-            .arg(static_cast<double>(m_manualVertScale), 0, 'f', 2)
-            .arg(m_manualMove.x()).arg(m_manualMove.y());
+    emit UpdateOSDMessage("Current 'Manual Zoom' saved for 'BottomLine'.");
 }
 
 /// Correct for rounding errors
@@ -976,15 +917,6 @@ static float fix_aspect(float raw)
     return raw;
 }
 
-void MythVideoBounds::SetPIPState(PIPState Setting)
-{
-    if (m_pipState != Setting)
-    {
-        LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("SetPIPState: %1").arg(toString(Setting)));
-        m_pipState = Setting;
-    }
-}
-
 static float snap(float value, float snapto, float diff)
 {
     if ((value + diff > snapto) && (value - diff < snapto))
@@ -992,12 +924,11 @@ static float snap(float value, float snapto, float diff)
     return value;
 }
 
-void MythVideoBounds::SetStereoscopicMode(StereoscopicMode Mode)
+void MythVideoBounds::SetStereoOverride(StereoscopicMode Mode)
 {
-    m_stereo = Mode;
-}
-
-StereoscopicMode MythVideoBounds::GetStereoscopicMode() const
-{
-    return m_stereo;
+    if (Mode != m_stereoOverride)
+    {
+        m_stereoOverride = Mode;
+        emit UpdateOSDMessage(StereoscopictoString(Mode));
+    }
 }

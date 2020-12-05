@@ -198,7 +198,7 @@ MythVisualMonoScopeVulkan::~MythVisualMonoScopeVulkan()
     MythVisualMonoScopeVulkan::TearDownVulkan();
 }
 
-void MythVisualMonoScopeVulkan::Prepare(const QRect &Area)
+void MythVisualMonoScopeVulkan::Prepare(const QRect Area)
 {
     if (!InitialiseVulkan(Area))
         return;
@@ -229,21 +229,25 @@ void MythVisualMonoScopeVulkan::Prepare(const QRect &Area)
     vertex.second[1] = 1.0;
     vertex.second[2] = 1.0;
     auto * buffer = vertex.first->GetMappedMemory();
-    UpdateVertices(static_cast<float*>(buffer));
+    if (!UpdateVertices(static_cast<float*>(buffer)))
+        return;
     vertex.first->Update(nullptr);
 }
 
-void MythVisualMonoScopeVulkan::Draw(const QRect& Area, MythPainter* /*Painter*/, QPaintDevice* /*Device*/)
+void MythVisualMonoScopeVulkan::Draw(const QRect Area, MythPainter* /*Painter*/, QPaintDevice* /*Device*/)
 {
     if (!InitialiseVulkan(Area))
         return;
 
+    if (Area.isEmpty())
+        return;
+
     // Retrieve current command buffer
-    auto currentcmdbuf = m_vulkanWindow->currentCommandBuffer();
+    auto *currentcmdbuf = m_vulkanWindow->currentCommandBuffer();
 
     // Bind our pipeline and retrieve layout
     m_vulkanFuncs->vkCmdBindPipeline(currentcmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-    auto layout = m_vulkanShader->GetPipelineLayout();
+    VkPipelineLayout layout = m_vulkanShader->GetPipelineLayout();
 
     // Bind projection descriptor set
     m_vulkanFuncs->vkCmdBindDescriptorSets(currentcmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -291,7 +295,7 @@ void MythVisualMonoScopeVulkan::Draw(const QRect& Area, MythPainter* /*Painter*/
     }
 }
 
-MythRenderVulkan* MythVisualMonoScopeVulkan::InitialiseVulkan(const QRect& Area)
+MythRenderVulkan* MythVisualMonoScopeVulkan::InitialiseVulkan(const QRect Area)
 {
     if (m_disabled)
         return nullptr;

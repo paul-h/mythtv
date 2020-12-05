@@ -75,11 +75,11 @@ bool GameUI::Create()
         return false;
     }
 
-    connect(m_gameUITree, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            this, SLOT(itemClicked(MythUIButtonListItem*)));
+    connect(m_gameUITree, &MythUIButtonTree::itemClicked,
+            this, &GameUI::itemClicked);
 
-    connect(m_gameUITree, SIGNAL(nodeChanged(MythGenericTree*)),
-            this, SLOT(nodeChanged(MythGenericTree*)));
+    connect(m_gameUITree, &MythUIButtonTree::nodeChanged,
+            this, &GameUI::nodeChanged);
 
     m_gameShowFileName = gCoreContext->GetBoolSetting("GameShowFileNames");
 
@@ -470,8 +470,8 @@ void GameUI::searchStart(void)
 
         if (searchDialog->Create())
         {
-            connect(searchDialog, SIGNAL(haveResult(QString)),
-                    SLOT(searchComplete(QString)));
+            connect(searchDialog, &MythUISearchDialog::haveResult,
+                    this, &GameUI::searchComplete);
 
             popupStack->AddScreen(searchDialog);
         }
@@ -578,8 +578,8 @@ void GameUI::customEvent(QEvent *event)
             auto *resultsdialog =
                   new MetadataResultsDialog(m_popupStack, lul);
 
-            connect(resultsdialog, SIGNAL(haveResult(RefCountHandler<MetadataLookup>)),
-                    SLOT(OnGameSearchListSelection(RefCountHandler<MetadataLookup>)),
+            connect(resultsdialog, &MetadataResultsDialog::haveResult,
+                    this, &GameUI::OnGameSearchListSelection,
                     Qt::QueuedConnection);
 
             if (resultsdialog->Create())
@@ -1079,7 +1079,7 @@ void GameUI::doScan()
 {
     if (!m_scanner)
         m_scanner = new GameScanner();
-    connect(m_scanner, SIGNAL(finished(bool)), SLOT(reloadAllData(bool)));
+    connect(m_scanner, &GameScanner::finished, this, &GameUI::reloadAllData);
     m_scanner->doScanAll();
 }
 

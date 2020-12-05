@@ -9,6 +9,7 @@
 
 // C++ headers
 #include <cerrno>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <fcntl.h>
@@ -33,6 +34,8 @@
 #include "mythsystemlegacy.h"
 #include "exitcodes.h"
 
+using namespace std::chrono_literals;
+
 
 #define LOC QString("LCDdevice: ")
 
@@ -52,8 +55,8 @@ LCD::LCD()
     LOG(VB_GENERAL, LOG_DEBUG, LOC +
         "An LCD object now exists (LCD() was called)");
 
-    connect(m_retryTimer, SIGNAL(timeout()),   this, SLOT(restartConnection()));
-    connect(m_ledTimer,   SIGNAL(timeout()),   this, SLOT(outputLEDs()));
+    connect(m_retryTimer, &QTimer::timeout,   this, &LCD::restartConnection);
+    connect(m_ledTimer,   &QTimer::timeout,   this, &LCD::outputLEDs);
     connect(this, &LCD::sendToServer, this, &LCD::sendToServerSlot, Qt::QueuedConnection);
 }
 
@@ -150,10 +153,10 @@ bool LCD::connectToHost(const QString &lhostname, unsigned int lport)
             delete m_socket;
             m_socket = new QTcpSocket();
 
-            QObject::connect(m_socket, SIGNAL(readyRead()),
-                             this, SLOT(ReadyRead()));
-            QObject::connect(m_socket, SIGNAL(disconnected()),
-                             this, SLOT(Disconnected()));
+            QObject::connect(m_socket, &QIODevice::readyRead,
+                             this, &LCD::ReadyRead);
+            QObject::connect(m_socket, &QAbstractSocket::disconnected,
+                             this, &LCD::Disconnected);
 
             m_socket->connectToHost(m_hostname, m_port);
             if (m_socket->waitForConnected())
@@ -201,7 +204,7 @@ void LCD::sendToServerSlot(const QString &someText)
         // Ack, connection to server has been severed try to re-establish the
         // connection
         m_retryTimer->setSingleShot(false);
-        m_retryTimer->start(10000);
+        m_retryTimer->start(10s);
         LOG(VB_GENERAL, LOG_ERR,
             "Connection to LCDServer died unexpectedly. "
             "Trying to reconnect every 10 seconds...");
@@ -518,8 +521,8 @@ void LCD::setVolumeLevel(float value)
     else if (value > 1.0F)
         value = 1.0F;
 
-    emit
-    sendToServer("SET_VOLUME_LEVEL " + QString().setNum(value));
+    // NOLINTNEXTLINE(readability-misleading-indentation)
+    emit sendToServer("SET_VOLUME_LEVEL " + QString().setNum(value));
 }
 
 void LCD::setupLEDs(int(*LedMaskFunc)(void))
@@ -527,7 +530,7 @@ void LCD::setupLEDs(int(*LedMaskFunc)(void))
     m_getLEDMask = LedMaskFunc;
     // update LED status every 10 seconds
     m_ledTimer->setSingleShot(false);
-    m_ledTimer->start(10000);
+    m_ledTimer->start(10s);
 }
 
 void LCD::outputLEDs()

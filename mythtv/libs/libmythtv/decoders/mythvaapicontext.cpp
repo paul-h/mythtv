@@ -10,6 +10,7 @@
 #include "opengl/mythrenderopengl.h"
 #include "videobuffers.h"
 #include "mythvaapiinterop.h"
+#include "mythplayerui.h"
 #include "mythvaapicontext.h"
 
 extern "C" {
@@ -136,7 +137,7 @@ MythCodecID MythVAAPIContext::GetSupportedCodec(AVCodecContext **Context,
     auto success = static_cast<MythCodecID>((decodeonly ? kCodec_MPEG1_VAAPI_DEC : kCodec_MPEG1_VAAPI) + (StreamType - 1));
     auto failure = static_cast<MythCodecID>(kCodec_MPEG1 + (StreamType - 1));
     QString vendor = HaveVAAPI();
-    if (!Decoder.startsWith("vaapi") || vendor.isEmpty() || getenv("NO_VAAPI"))
+    if (!Decoder.startsWith("vaapi") || vendor.isEmpty() || qEnvironmentVariableIsSet("NO_VAAPI"))
         return failure;
 
     QString codec   = ff_codec_id_string((*Context)->codec_id);
@@ -164,18 +165,8 @@ MythCodecID MythVAAPIContext::GetSupportedCodec(AVCodecContext **Context,
     }
     else
     {
-        // If called from outside of the main thread, we need a MythPlayer instance to
-        // process the interop check callback - which may fail otherwise (depending
-        // on whether the result is cached).
-        MythPlayer* player = nullptr;
-        if (!gCoreContext->IsUIThread())
-        {
-            auto *decoder = reinterpret_cast<AvFormatDecoder*>((*Context)->opaque);
-            if (decoder)
-                player = decoder->GetPlayer();
-        }
-
         // Direct rendering needs interop support
+        MythPlayerUI* player = GetPlayerUI(*Context);
         if (MythOpenGLInterop::GetInteropType(FMT_VAAPI, player) == MythOpenGLInterop::Unsupported)
             return failure;
     }
@@ -187,18 +178,13 @@ MythCodecID MythVAAPIContext::GetSupportedCodec(AVCodecContext **Context,
             MythCodecContext::FFmpegToMythProfile((*Context)->codec_id, (*Context)->profile);
     auto haveprofile = [=](MythCodecContext::CodecProfile Profile, QSize Size)
     {
-        for (auto vaprofile : qAsConst(profiles))
-        {
-            if (vaprofile.first == Profile &&
-                vaprofile.second.first.width() <= Size.width() &&
-                vaprofile.second.first.height() <= Size.height() &&
-                vaprofile.second.second.width() >= Size.width() &&
-                vaprofile.second.second.height() >= Size.height())
-            {
-                return true;
-            }
-        }
-        return false;
+        return std::any_of(profiles.cbegin(), profiles.cend(),
+                           [&Profile,Size](auto vaprofile)
+                               { return vaprofile.first == Profile &&
+                                        vaprofile.second.first.width() <= Size.width() &&
+                                        vaprofile.second.first.height() <= Size.height() &&
+                                        vaprofile.second.second.width() >= Size.width() &&
+                                        vaprofile.second.second.height() >= Size.height(); } );
     };
 
     ok = haveprofile(mythprofile, QSize((*Context)->width, (*Context)->height));
@@ -259,12 +245,9 @@ int MythVAAPIContext::InitialiseContext(AVCodecContext *Context)
     if (!render)
         return -1;
 
-    // The interop must have a reference to the player so it can be deleted
+    // The interop must have a reference to the ui player so it can be deleted
     // from the main thread.
-    MythPlayer *player = nullptr;
-    auto *decoder = reinterpret_cast<AvFormatDecoder*>(Context->opaque);
-    if (decoder)
-        player = decoder->GetPlayer();
+    MythPlayerUI* player = GetPlayerUI(Context);
     if (!player)
         return -1;
 
@@ -288,14 +271,14 @@ int MythVAAPIContext::InitialiseContext(AVCodecContext *Context)
 
     // Create hardware device context
     AVBufferRef* hwdeviceref = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VAAPI);
-    if (!hwdeviceref || (hwdeviceref && !hwdeviceref->data))
+    if (!hwdeviceref || !hwdeviceref->data)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create VAAPI hardware device context");
         return -1;
     }
 
     auto* hwdevicecontext  = reinterpret_cast<AVHWDeviceContext*>(hwdeviceref->data);
-    if (!hwdevicecontext || (hwdevicecontext && !hwdevicecontext->hwctx))
+    if (!hwdevicecontext || !hwdevicecontext->hwctx)
         return -1;
     auto *vaapidevicectx = reinterpret_cast<AVVAAPIDeviceContext*>(hwdevicecontext->hwctx);
     if (!vaapidevicectx)
@@ -654,7 +637,7 @@ void MythVAAPIContext::InitVideoCodec(AVCodecContext *Context, bool SelectedStre
     MythCodecContext::InitVideoCodec(Context, SelectedStream, DirectRendering);
 }
 
-bool MythVAAPIContext::RetrieveFrame(AVCodecContext* /*unused*/, VideoFrame *Frame, AVFrame *AvFrame)
+bool MythVAAPIContext::RetrieveFrame(AVCodecContext* /*unused*/, MythVideoFrame *Frame, AVFrame *AvFrame)
 {
     if (AvFrame->format != AV_PIX_FMT_VAAPI)
         return false;
@@ -736,7 +719,7 @@ int MythVAAPIContext::FilteredReceiveFrame(AVCodecContext *Context, AVFrame *Fra
     return ret;
 }
 
-void MythVAAPIContext::PostProcessFrame(AVCodecContext* Context, VideoFrame *Frame)
+void MythVAAPIContext::PostProcessFrame(AVCodecContext* Context, MythVideoFrame *Frame)
 {
     if (!Frame || !codec_is_vaapi_dec(m_codecID) || !Context->hw_frames_ctx)
         return;
@@ -745,7 +728,7 @@ void MythVAAPIContext::PostProcessFrame(AVCodecContext* Context, VideoFrame *Fra
     // allow CPU/GLSL
     if (m_filterError)
     {
-        Frame->deinterlace_allowed = Frame->deinterlace_allowed & ~DEINT_DRIVER;
+        Frame->m_deinterlaceAllowed = Frame->m_deinterlaceAllowed & ~DEINT_DRIVER;
         return;
     }
     if (kCodec_HEVC_VAAPI_DEC == m_codecID || kCodec_VP9_VAAPI_DEC == m_codecID ||
@@ -767,26 +750,26 @@ void MythVAAPIContext::PostProcessFrame(AVCodecContext* Context, VideoFrame *Fra
     // interlaced flags to ensure auto deinterlacing continues to work
     if (m_deinterlacer)
     {
-        Frame->interlaced_frame = m_lastInterlaced;
-        Frame->top_field_first = m_lastTopFieldFirst;
-        Frame->deinterlace_inuse = m_deinterlacer | DEINT_DRIVER;
-        Frame->deinterlace_inuse2x = m_deinterlacer2x;
-        Frame->already_deinterlaced = true;
+        Frame->m_interlaced = m_lastInterlaced;
+        Frame->m_topFieldFirst = m_lastTopFieldFirst;
+        Frame->m_deinterlaceInuse = m_deinterlacer | DEINT_DRIVER;
+        Frame->m_deinterlaceInuse2x = m_deinterlacer2x;
+        Frame->m_alreadyDeinterlaced = true;
     }
 
     // N.B. this picks up the scan tracking in MythPlayer. So we can
     // auto enable deinterlacing etc and override Progressive/Interlaced - but
     // no reversed interlaced.
     MythDeintType vaapideint = DEINT_NONE;
-    MythDeintType singlepref = GetSingleRateOption(Frame, DEINT_DRIVER);
-    MythDeintType doublepref = GetDoubleRateOption(Frame, DEINT_DRIVER);
+    MythDeintType singlepref = Frame->GetSingleRateOption(DEINT_DRIVER);
+    MythDeintType doublepref = Frame->GetDoubleRateOption(DEINT_DRIVER);
     bool doublerate = true;
     bool other = false;
 
     // For decode only, a CPU or shader deint may also be used/preferred
     if (doublepref)
         vaapideint = doublepref;
-    else if (GetDoubleRateOption(Frame, DEINT_CPU | DEINT_SHADER))
+    else if (Frame->GetDoubleRateOption(DEINT_CPU | DEINT_SHADER))
         other = true;
 
     if (!vaapideint && !other && singlepref)
@@ -815,7 +798,7 @@ void MythVAAPIContext::PostProcessFrame(AVCodecContext* Context, VideoFrame *Fra
                                              m_filterGraph, m_filterSource, m_filterSink))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + QString("Failed to create deinterlacer %1 - disabling")
-            .arg(DeinterlacerName(vaapideint | DEINT_DRIVER, doublerate, FMT_VAAPI)));
+            .arg(MythVideoFrame::DeinterlacerName(vaapideint | DEINT_DRIVER, doublerate, FMT_VAAPI)));
         DestroyDeinterlacer();
         m_filterError = true;
     }

@@ -236,8 +236,8 @@ NetworkControl::NetworkControl() :
 
     gCoreContext->addListener(this);
 
-    connect(this, SIGNAL(newConnection(QTcpSocket*)),
-            this, SLOT(newConnection(QTcpSocket*)));
+    connect(this, &ServerPool::newConnection,
+            this, &NetworkControl::newControlConnection);
 }
 
 NetworkControl::~NetworkControl(void)
@@ -362,7 +362,7 @@ void NetworkControl::deleteClient(NetworkControlClient *ncc)
                 "locate specified NetworkControlClient").arg((long long)ncc));
 }
 
-void NetworkControl::newConnection(QTcpSocket *client)
+void NetworkControl::newControlConnection(QTcpSocket *client)
 {
     QString welcomeStr;
 
@@ -375,9 +375,10 @@ void NetworkControl::newConnection(QTcpSocket *client)
     QMutexLocker locker(&m_clientLock);
     m_clients.push_back(ncc);
 
-    connect(ncc, SIGNAL(commandReceived(QString&)), this,
-            SLOT(receiveCommand(QString&)));
-    connect(client, SIGNAL(disconnected()), this, SLOT(deleteClient()));
+    connect(ncc, &NetworkControlClient::commandReceived,
+            this, &NetworkControl::receiveCommand);
+    connect(client, &QAbstractSocket::disconnected,
+            this, qOverload<>(&NetworkControl::deleteClient));
 
     welcomeStr = "MythFrontend Network Control\r\n";
     welcomeStr += "Type 'help' for usage information\r\n"
@@ -394,7 +395,7 @@ NetworkControlClient::NetworkControlClient(QTcpSocket *s)
     m_socket = s;
     m_textStream = new QTextStream(s);
     m_textStream->setCodec("UTF-8");
-    connect(m_socket, SIGNAL(readyRead()), this, SLOT(readClient()));
+    connect(m_socket, &QIODevice::readyRead, this, &NetworkControlClient::readClient);
 }
 
 NetworkControlClient::~NetworkControlClient()
@@ -501,7 +502,7 @@ QString NetworkControl::processKey(NetworkCommand *nc)
             if (m_keyTextMap.contains(keyCode))
                 keyText = m_keyTextMap[keyCode];
 
-            MythUIHelper::ResetScreensaver();
+            MythMainWindow::ResetScreensaver();
 
             event = new QKeyEvent(QEvent::KeyPress, keyCode, Qt::NoModifier,
                                   keyText);
@@ -545,7 +546,7 @@ QString NetworkControl::processKey(NetworkCommand *nc)
                     modifiers = Qt::ShiftModifier;
             }
 
-            MythUIHelper::ResetScreensaver();
+            MythMainWindow::ResetScreensaver();
 
             event = new QKeyEvent(QEvent::KeyPress, keyCode, modifiers,
                                   nc->getArg(curToken));
@@ -631,8 +632,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
             timer.start();
-            while (!timer.hasExpired(10000) &&
-                   (!MythUIHelper::IsTopScreenInitialized()))
+            while (!timer.hasExpired(10000) && (!MythMainWindow::IsTopScreenInitialized()))
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
@@ -1202,8 +1202,6 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
             return QString("ERROR: no top screen found!");
 
         MythUIType *currType = topScreen;
-        if (currType == nullptr)
-            return QString("ERROR: cannot cast top screen!");
 
         while (!path.isEmpty())
         {

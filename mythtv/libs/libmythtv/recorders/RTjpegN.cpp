@@ -519,7 +519,7 @@ void RTjpeg::QuantInit(void)
  for (int i = 0; i < 64; i++)
      qtbl.m_int16[i] = static_cast<int16_t>(m_lqt[i]);
 
- // cppcheck-suppress unreadVariable
+ // cppcheck-suppress [unreadVariable,redundantAssignment]
  qtbl.m_int32 = m_cqt.data();
  for (int i = 0; i < 64; i++)
     qtbl.m_int16[i] = static_cast<int16_t>(m_cqt[i]);
@@ -3269,7 +3269,7 @@ void RTjpeg::SetNextKey(void)
 
 int RTjpeg::Compress(int8_t *sp, uint8_t **planes)
 {
- auto * fh = (RTjpeg_frameheader *)sp;
+ auto * fh = reinterpret_cast<RTjpeg_frameheader *>(sp);
  int ds = 0;
 
  if (m_keyRate == 0)
@@ -3306,7 +3306,7 @@ int RTjpeg::Compress(int8_t *sp, uint8_t **planes)
 
 void RTjpeg::Decompress(int8_t *sp, uint8_t **planes)
 {
- auto * fh = (RTjpeg_frameheader *)sp;
+ auto * fh = reinterpret_cast<RTjpeg_frameheader *>(sp);
 
  if ((RTJPEG_SWAP_HALFWORD(fh->width) != m_width)||
     (RTJPEG_SWAP_HALFWORD(fh->height) != m_height))

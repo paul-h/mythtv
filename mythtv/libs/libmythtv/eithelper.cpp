@@ -2,7 +2,6 @@
 
 // Std C++ headers
 #include <algorithm>
-using namespace std;
 
 // MythTV includes
 #include "eithelper.h"
@@ -77,7 +76,7 @@ uint EITHelper::ProcessEvents(void)
         m_eitFixup->Fix(*event);
 
         insertCount += event->UpdateDB(query, 1000);
-        m_maxStarttime = max (m_maxStarttime, event->m_starttime);
+        m_maxStarttime = std::max (m_maxStarttime, event->m_starttime);
 
         delete event;
         m_eitListLock.lock();
@@ -266,7 +265,7 @@ static void parse_dvb_event_descriptors(const desc_list_t& list, FixupValue fix,
         }
     }
 
-    vector<const unsigned char*> bestExtendedEvents =
+    std::vector<const unsigned char*> bestExtendedEvents =
         MPEGDescriptor::FindBestMatches(
             list, DescriptorID::extended_event, languagePreferences);
 
@@ -1064,7 +1063,6 @@ static void init_fixup(FixupMap &fix)
     fix[40999U << 16 | 1069] = EITFixUp::kFixSubtitle;
 
     // Australia
-    fix[ 4096U  << 16] = EITFixUp::kFixAUStar;
     fix[ 4096U  << 16] = EITFixUp::kFixAUStar;
     fix[ 4112U << 16]  = EITFixUp::kFixAUDescription | EITFixUp::kFixAUFreeview; // ABC Brisbane
     fix[ 4114U << 16]  = EITFixUp::kFixAUDescription | EITFixUp::kFixAUFreeview | EITFixUp::kFixAUNine;; // Nine Brisbane

@@ -2,20 +2,19 @@
 #define MYTHDVDPLAYER_H
 
 // MythTV
-#include "mythplayer.h"
+#include "mythplayerui.h"
 
 // Std
 #include <cstdint>
 
-class MythDVDPlayer : public MythPlayer
+class MythDVDPlayer : public MythPlayerUI
 {
-    Q_DECLARE_TR_FUNCTIONS(MythDVDPlayer)
+    Q_OBJECT
 
   public:
-    explicit MythDVDPlayer(PlayerFlags flags = kNoFlags)
-        : MythPlayer(flags) {}
+    MythDVDPlayer(MythMainWindow* MainWindow, TV* Tv, PlayerContext* Context,PlayerFlags Flags = kNoFlags);
 
-    void     ReleaseNextVideoFrame(VideoFrame *Buffer, int64_t Timecode, bool Wrap = true) override;
+    void     ReleaseNextVideoFrame(MythVideoFrame *Buffer, int64_t Timecode, bool Wrap = true) override;
     bool     HasReachedEof(void) const override;
     bool     PrepareAudioSample(int64_t &Timecode) override;
     uint64_t GetBookmark(void) override;
@@ -32,12 +31,10 @@ class MythDVDPlayer : public MythPlayer
     int      GetCurrentChapter(void) override;
     void     GetChapterTimes(QList<long long> &Times) override;
 
-    void     ResetStillFrameTimer(void);
     void     SetStillFrameTimeout(int Length);
     void     StillFrameCheck(void);
 
   protected:
-    void     SetBookmark(bool Clear = false) override;
     void     ResetPlaying(bool ResetFrames = true) override;
     bool     PrebufferEnoughFrames(int MinBuffers = 0) override;
     void     DecoderPauseCheck(void) override;
@@ -51,23 +48,23 @@ class MythDVDPlayer : public MythPlayer
     void     EventStart(void) override;
     virtual void EventEnd(void);
     void     InitialSeek(void) override;
-    void     SeekForScreenGrab(uint64_t &Number, uint64_t FrameNum,
-                               bool Absolute) override;
-    void     AutoDeint(VideoFrame* Frame, bool AllowLock = true) override;
+    void     AutoDeint(MythVideoFrame* Frame, MythVideoOutput* VideoOutput,
+                       int FrameInterval, bool AllowLock = true) override;
     long long CalcMaxFFTime(long long FastFwd, bool Setjump = true) const override;
     bool     FastForward(float Seconds) override;
     bool     Rewind(float Seconds) override;
     bool     JumpToFrame(uint64_t Frame) override;
-    void     DisableCaptions(uint Mode, bool OSDMsg = true) override;
-    void     EnableCaptions(uint Mode, bool OSDMsg = true) override;
-    int      SetTrack(uint Type, int TrackNo) override;
     void     CreateDecoder(TestBufferVec & Testbuf) override;
     bool     DoJumpChapter(int Chapter) override;
 
+  protected slots:
+    void     SetBookmark(bool Clear = false) override;
+    void     DisableCaptions(uint Mode, bool OSDMsg = true) override;
+    void     EnableCaptions(uint Mode, bool OSDMsg = true) override;
+    void     SetTrack(uint Type, uint TrackNo) override;
+
   private:
-    void     DoChangeDVDTrack(void);
     void     DisplayDVDButton(void);
-    void     DisplayLastFrame(void);
 
     int      m_buttonVersion          { 0 };
     bool     m_dvdStillFrameShowing   { false };

@@ -135,13 +135,13 @@ bool ThumbFinder::Create(void)
         return false;
     }
 
-    connect(m_imageGrid, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            this, SLOT(gridItemChanged(MythUIButtonListItem *)));
+    connect(m_imageGrid, &MythUIButtonList::itemSelected,
+            this, &ThumbFinder::gridItemChanged);
 
-    connect(m_saveButton, SIGNAL(Clicked()), this, SLOT(savePressed()));
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(cancelPressed()));
+    connect(m_saveButton, &MythUIButton::Clicked, this, &ThumbFinder::savePressed);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &ThumbFinder::cancelPressed);
 
-    connect(m_frameButton, SIGNAL(Clicked()), this, SLOT(updateThumb()));
+    connect(m_frameButton, &MythUIButton::Clicked, this, &ThumbFinder::updateThumb);
 
     m_seekAmountText->SetText(kSeekAmounts[m_currentSeek].name);
 
@@ -581,7 +581,7 @@ bool ThumbFinder::initAVCodec(const QString &inFile)
     }
 
     // get the codec context for the video stream
-    m_codecCtx = m_codecMap.getCodecContext(m_inputFC->streams[m_videostream]);
+    m_codecCtx = m_codecMap.GetCodecContext(m_inputFC->streams[m_videostream]);
     m_codecCtx->debug_mv = 0;
     m_codecCtx->debug = 0;
     m_codecCtx->workaround_bugs = 1;
@@ -614,11 +614,7 @@ bool ThumbFinder::initAVCodec(const QString &inFile)
     // allocate temp buffer
     int bufflen = m_frameWidth * m_frameHeight * 4;
     m_outputbuf = new unsigned char[bufflen];
-
     m_frameFile = getTempDirectory() + "work/frame.jpg";
-
-    m_deinterlacer.reset(new MythPictureDeinterlacer(m_codecCtx->pix_fmt,
-                                                     m_frameWidth, m_frameHeight));
     return true;
 }
 
@@ -809,9 +805,7 @@ bool ThumbFinder::getFrameImage(bool needKeyFrame, int64_t requiredPTS)
         av_image_fill_arrays(retbuf.data, retbuf.linesize, m_outputbuf,
             AV_PIX_FMT_RGB32, m_frameWidth, m_frameHeight, IMAGE_ALIGN);
         AVFrame *tmp = m_frame;
-
-        m_deinterlacer->DeinterlaceSingle(tmp, tmp);
-
+        MythAVUtil::DeinterlaceAVFrame(m_frame);
         m_copy.Copy(&retbuf, AV_PIX_FMT_RGB32, tmp, m_codecCtx->pix_fmt,
                     m_frameWidth, m_frameHeight);
 
@@ -827,7 +821,7 @@ bool ThumbFinder::getFrameImage(bool needKeyFrame, int64_t requiredPTS)
         if (m_updateFrame)
         {
             MythImage *mimage =
-                GetMythMainWindow()->GetCurrentPainter()->GetFormatImage();
+                GetMythMainWindow()->GetPainter()->GetFormatImage();
             mimage->Assign(img);
             m_frameImage->SetImage(mimage);
             mimage->DecrRef();
@@ -844,7 +838,8 @@ void ThumbFinder::closeAVCodec()
     delete[] m_outputbuf;
 
     // close the codec
-    m_codecMap.freeCodecContext(m_inputFC->streams[m_videostream]);
+    if (m_inputFC.isOpen() && m_inputFC->streams)
+        m_codecMap.FreeCodecContext(m_inputFC->streams[m_videostream]);
 
     // close the video file
     m_inputFC.Close();
@@ -860,8 +855,8 @@ void ThumbFinder::ShowMenu()
 
     menuPopup->SetReturnEvent(this, "action");
 
-    menuPopup->AddButton(tr("Exit, Save Thumbnails"), SLOT(savePressed()));
-    menuPopup->AddButton(tr("Exit, Don't Save Thumbnails"), SLOT(cancelPressed()));
+    menuPopup->AddButton(tr("Exit, Save Thumbnails"), &ThumbFinder::savePressed);
+    menuPopup->AddButton(tr("Exit, Don't Save Thumbnails"), &ThumbFinder::cancelPressed);
 }
 
 void ThumbFinder::updatePositionBar(int64_t frame)
@@ -911,7 +906,7 @@ void ThumbFinder::updatePositionBar(int64_t frame)
     int pos = (int) (size.width() / ((m_archiveItem->duration * m_fps) / frame));
     p.fillRect(pos, 0, 3, size.height(), brush);
 
-    MythImage *image = GetMythMainWindow()->GetCurrentPainter()->GetFormatImage();
+    MythImage *image = GetMythMainWindow()->GetPainter()->GetFormatImage();
     image->Assign(*pixmap);
     m_positionImage->SetImage(image);
 

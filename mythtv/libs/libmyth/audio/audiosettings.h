@@ -29,6 +29,7 @@ class MPUBLIC AudioSettings
 {
   public:
     AudioSettings() = default;
+    AudioSettings &operator=(const AudioSettings &) = delete;
     AudioSettings(const AudioSettings &other);
     AudioSettings(
         QString                 main_device,

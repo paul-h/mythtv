@@ -2,6 +2,9 @@
 // Theme Chooser headers
 #include "themechooser.h"
 
+// C++ headers
+#include <chrono>
+
 // Qt headers
 #include <QCoreApplication>
 #include <QRegExp>
@@ -21,16 +24,18 @@
 #include "storagegroup.h"
 
 // LibMythUI headers
-#include "mythmainwindow.h"
-#include "mythuihelper.h"
-#include "mythuiprogressbar.h"
 #include "mythdialogbox.h"
-#include "mythuibuttonlist.h"
+#include "mythmainwindow.h"
 #include "mythscreenstack.h"
-#include "mythuistatetype.h"
+#include "mythuibuttonlist.h"
 #include "mythuigroup.h"
+#include "mythuihelper.h"
 #include "mythuiimage.h"
+#include "mythuiprogressbar.h"
+#include "mythuistatetype.h"
 #include "mythuitext.h"
+
+using namespace std::chrono_literals;
 
 #define LOC      QString("ThemeChooser: ")
 #define LOC_WARN QString("ThemeChooser, Warning: ")
@@ -120,10 +125,10 @@ bool ThemeChooser::Create(void)
         return false;
     }
 
-    connect(m_themes, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            this, SLOT(saveAndReload(MythUIButtonListItem*)));
-    connect(m_themes, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(itemChanged(MythUIButtonListItem*)));
+    connect(m_themes, &MythUIButtonList::itemClicked,
+            this, qOverload<MythUIButtonListItem*>(&ThemeChooser::saveAndReload));
+    connect(m_themes, &MythUIButtonList::itemSelected,
+            this, &ThemeChooser::itemChanged);
 
     BuildFocusList();
 
@@ -517,7 +522,7 @@ void ThemeChooser::showPopupMenu(void)
     m_popupMenu =
         new MythDialogBox(label, popupStack, "themechoosermenupopup");
 
-    connect(m_popupMenu, SIGNAL(Closed(QString, int)), SLOT(popupClosed(QString, int)));
+    connect(m_popupMenu, &MythDialogBox::Closed, this, &ThemeChooser::popupClosed);
 
     if (m_popupMenu->Create())
         popupStack->AddScreen(m_popupMenu);
@@ -535,17 +540,17 @@ void ThemeChooser::showPopupMenu(void)
         if (m_fullPreviewShowing)
         {
             m_popupMenu->AddButton(tr("Hide Fullscreen Preview"),
-                                   SLOT(toggleFullscreenPreview()));
+                                   &ThemeChooser::toggleFullscreenPreview);
         }
         else
         {
             m_popupMenu->AddButton(tr("Show Fullscreen Preview"),
-                                   SLOT(toggleFullscreenPreview()));
+                                   &ThemeChooser::toggleFullscreenPreview);
         }
     }
 
     m_popupMenu->AddButton(tr("Refresh Downloadable Themes"),
-                           SLOT(refreshDownloadableThemes()));
+                           &ThemeChooser::refreshDownloadableThemes);
 
     MythUIButtonListItem *current = m_themes->GetItemCurrent();
     if (current)
@@ -555,23 +560,23 @@ void ThemeChooser::showPopupMenu(void)
         if (info)
         {
             m_popupMenu->AddButton(tr("Select Theme"),
-                                   SLOT(saveAndReload()));
+                                   qOverload<>(&ThemeChooser::saveAndReload));
 
             if (info->GetPreviewPath().startsWith(m_userThemeDir))
                 m_popupMenu->AddButton(tr("Delete Theme"),
-                                       SLOT(removeTheme()));
+                                       &ThemeChooser::removeTheme);
         }
     }
 
     if (gCoreContext->GetBoolSetting("ThemeUpdateNofications", true))
     {
         m_popupMenu->AddButton(tr("Disable Theme Update Notifications"),
-                               SLOT(toggleThemeUpdateNotifications()));
+                               &ThemeChooser::toggleThemeUpdateNotifications);
     }
     else
     {
         m_popupMenu->AddButton(tr("Enable Theme Update Notifications"),
-                               SLOT(toggleThemeUpdateNotifications()));
+                               &ThemeChooser::toggleThemeUpdateNotifications);
     }
 }
 
@@ -1028,21 +1033,21 @@ ThemeUpdateChecker::ThemeUpdateChecker(void) :
 
     gCoreContext->SaveSetting("ThemeUpdateStatus", "");
 
-    connect(m_updateTimer, SIGNAL(timeout()), SLOT(checkForUpdate()));
+    connect(m_updateTimer, &QTimer::timeout, this, &ThemeUpdateChecker::checkForUpdate);
 
-    if (getenv("MYTHTV_DEBUGMDM"))
+    if (qEnvironmentVariableIsSet("MYTHTV_DEBUGMDM"))
     {
         LOG(VB_GENERAL, LOG_INFO, "Checking for theme updates every minute");
-        m_updateTimer->start(60 * 1000); // Run once a minute
+        m_updateTimer->start(1min);
     }
     else
     {
         LOG(VB_GENERAL, LOG_INFO, "Checking for theme updates every hour");
-        m_updateTimer->start(60 * 60 * 1000); // Run once an hour
+        m_updateTimer->start(1h);
     }
 
     // Run once 15 seconds from now
-    QTimer::singleShot(15 * 1000, this, SLOT(checkForUpdate()));
+    QTimer::singleShot(15s, this, &ThemeUpdateChecker::checkForUpdate);
 }
 
 ThemeUpdateChecker::~ThemeUpdateChecker()

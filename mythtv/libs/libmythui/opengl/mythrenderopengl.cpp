@@ -143,7 +143,7 @@ MythRenderOpenGL::~MythRenderOpenGL()
         MythRenderOpenGL::ReleaseResources();
 }
 
-void MythRenderOpenGL::messageLogged(const QOpenGLDebugMessage &Message)
+void MythRenderOpenGL::MessageLogged(const QOpenGLDebugMessage &Message)
 {
     // filter unwanted messages
     if ((m_openGLDebuggerFilter & Message.type()) != 0U)
@@ -226,7 +226,7 @@ bool MythRenderOpenGL::Init(void)
         m_openglDebugger = new QOpenGLDebugLogger();
         if (m_openglDebugger->initialize())
         {
-            connect(m_openglDebugger, SIGNAL(messageLogged(QOpenGLDebugMessage)), this, SLOT(messageLogged(QOpenGLDebugMessage)));
+            connect(m_openglDebugger, &QOpenGLDebugLogger::messageLogged, this, &MythRenderOpenGL::MessageLogged);
             QOpenGLDebugLogger::LoggingMode mode = QOpenGLDebugLogger::AsynchronousLogging;
 
             // this will impact performance but can be very useful
@@ -308,7 +308,6 @@ bool MythRenderOpenGL::Init(void)
     m_maxTextureUnits = maxunits;
     m_maxTextureSize  = (maxtexsz) ? maxtexsz : 512;
     QSurfaceFormat fmt = format();
-    m_colorDepth = qMin(fmt.redBufferSize(), qMin(fmt.greenBufferSize(), fmt.blueBufferSize()));
 
     // RGBA16 - available on ES via extension
     m_extraFeatures |= isOpenGLES() ? hasExtension("GL_EXT_texture_norm16") ? kGLExtRGBA16 : kGLFeatNone : kGLExtRGBA16;
@@ -373,9 +372,11 @@ bool MythRenderOpenGL::Init(void)
     // Check 16 bit FBOs
     Check16BitFBO();
 
-    // Check for compute shaders
+    // Check for compute and geometry shaders
     if (QOpenGLShader::hasOpenGLShaders(QOpenGLShader::Compute))
         m_extraFeatures |= kGLComputeShaders;
+    if (QOpenGLShader::hasOpenGLShaders(QOpenGLShader::Geometry))
+        m_extraFeatures |= kGLGeometryShaders;
 
     DebugFeatures();
 
@@ -409,6 +410,15 @@ void MythRenderOpenGL::DebugFeatures(void)
             .arg(fmt.redBufferSize()).arg(fmt.greenBufferSize())
             .arg(fmt.greenBufferSize()).arg(fmt.alphaBufferSize())
             .arg(fmt.depthBufferSize()).arg(fmt.stencilBufferSize());
+    QStringList shaders {"None"};
+    if (m_features & Shaders)
+    {
+        shaders = QStringList { "Vertex", "Fragment" };
+        if (m_extraFeatures & kGLGeometryShaders)
+            shaders << "Geometry";
+        if (m_extraFeatures & kGLComputeShaders)
+            shaders << "Compute";
+    }
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("OpenGL vendor        : %1").arg(reinterpret_cast<const char*>(glGetString(GL_VENDOR))));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("OpenGL renderer      : %1").arg(reinterpret_cast<const char*>(glGetString(GL_RENDERER))));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("OpenGL version       : %1").arg(reinterpret_cast<const char*>(glGetString(GL_VERSION))));
@@ -422,7 +432,7 @@ void MythRenderOpenGL::DebugFeatures(void)
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Qt OpenGL surface    : %1").arg(qtglsurface));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Max texture size     : %1").arg(m_maxTextureSize));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Max texture units    : %1").arg(m_maxTextureUnits));
-    LOG(VB_GENERAL, LOG_INFO, LOC + QString("Shaders              : %1").arg(GLYesNo(m_features & Shaders)));
+    LOG(VB_GENERAL, LOG_INFO, LOC + QString("Shaders              : %1").arg(shaders.join(",")));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("NPOT textures        : %1").arg(GLYesNo(m_features & NPOTTextures)));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Multitexturing       : %1").arg(GLYesNo(m_features & Multitexture)));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Rectangular textures : %1").arg(GLYesNo(m_extraFeatures & kGLExtRects)));
@@ -432,16 +442,10 @@ void MythRenderOpenGL::DebugFeatures(void)
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("16bit framebuffers   : %1").arg(GLYesNo(m_extraFeatures & kGL16BitFBO)));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Unpack Subimage      : %1").arg(GLYesNo(m_extraFeatures & kGLExtSubimage)));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("GL_RED/GL_R8         : %1").arg(GLYesNo(!(m_extraFeatures & kGLLegacyTextures))));
-    //LOG(VB_GENERAL, LOG_INFO, LOC + QString("Compute shaders      : %1").arg(GLYesNo(m_extraFeatures & kGLComputeShaders)));
 
     // warnings
     if (m_maxTextureUnits < 3)
         LOG(VB_GENERAL, LOG_WARNING, LOC + "Warning: Insufficient texture units for some features.");
-}
-
-int MythRenderOpenGL::GetColorDepth(void) const
-{
-    return m_colorDepth;
 }
 
 int MythRenderOpenGL::GetMaxTextureSize(void) const
@@ -542,6 +546,15 @@ void MythRenderOpenGL::SetWidget(QWidget *Widget)
         native->windowHandle()->setSurfaceType(QWindow::OpenGLSurface);
 #endif
 
+#ifdef USING_QTWEBENGINE
+    auto * globalcontext = QOpenGLContext::globalShareContext();
+    if (globalcontext)
+    {
+        LOG(VB_GENERAL, LOG_INFO, LOC + "Using global shared OpenGL context");
+        setShareContext(globalcontext);
+    }
+#endif
+
     if (!create())
         LOG(VB_GENERAL, LOG_CRIT, LOC + "Failed to create OpenGLContext!");
     else
@@ -566,7 +579,7 @@ void MythRenderOpenGL::doneCurrent()
     m_lock.unlock();
 }
 
-void MythRenderOpenGL::SetViewPort(const QRect &Rect, bool ViewportOnly)
+void MythRenderOpenGL::SetViewPort(QRect Rect, bool ViewportOnly)
 {
     if (Rect == m_viewport)
         return;
@@ -640,7 +653,7 @@ MythGLTexture* MythRenderOpenGL::CreateTextureFromQImage(QImage *Image)
     return result;
 }
 
-QSize MythRenderOpenGL::GetTextureSize(const QSize &Size, bool Normalised)
+QSize MythRenderOpenGL::GetTextureSize(const QSize Size, bool Normalised)
 {
     if (((m_features & NPOTTextures) != 0U) || !Normalised)
         return Size;
@@ -663,7 +676,7 @@ int MythRenderOpenGL::GetTextureDataSize(MythGLTexture *Texture)
 
 void MythRenderOpenGL::SetTextureFilters(MythGLTexture *Texture, QOpenGLTexture::Filter Filter, QOpenGLTexture::WrapMode Wrap)
 {
-    if (!Texture || (Texture && !(Texture->m_texture || Texture->m_textureId)))
+    if (!Texture || !(Texture->m_texture || Texture->m_textureId))
         return;
 
     makeCurrent();
@@ -794,12 +807,12 @@ void MythRenderOpenGL::ClearFramebuffer(void)
 }
 
 void MythRenderOpenGL::DrawBitmap(MythGLTexture *Texture, QOpenGLFramebufferObject *Target,
-                                  const QRect &Source, const QRect &Destination,
+                                  const QRect Source, const QRect Destination,
                                   QOpenGLShaderProgram *Program, int Alpha, qreal Scale)
 {
     makeCurrent();
 
-    if (!Texture || (Texture && !((Texture->m_texture || Texture->m_textureId) && Texture->m_vbo)))
+    if (!Texture || !((Texture->m_texture || Texture->m_textureId) && Texture->m_vbo))
         return;
 
     if (Program == nullptr)
@@ -851,7 +864,7 @@ void MythRenderOpenGL::DrawBitmap(MythGLTexture *Texture, QOpenGLFramebufferObje
 
 void MythRenderOpenGL::DrawBitmap(std::vector<MythGLTexture *> &Textures,
                                   QOpenGLFramebufferObject *Target,
-                                  const QRect &Source, const QRect &Destination,
+                                  const QRect Source, const QRect Destination,
                                   QOpenGLShaderProgram *Program,
                                   int Rotation)
 {
@@ -865,7 +878,7 @@ void MythRenderOpenGL::DrawBitmap(std::vector<MythGLTexture *> &Textures,
         Program = m_defaultPrograms[kShaderDefault];
 
     MythGLTexture* first = Textures[0];
-    if (!first || (first && !((first->m_texture || first->m_textureId) && first->m_vbo)))
+    if (!first || !((first->m_texture || first->m_textureId) && first->m_vbo))
         return;
 
     SetShaderProjection(Program);
@@ -919,7 +932,7 @@ static const float kLimitedRangeOffset = (16.0F / 255.0F);
 static const float kLimitedRangeScale  = (219.0F / 255.0F);
 
 /// \brief An optimised method to clear a QRect to the given color
-void MythRenderOpenGL::ClearRect(QOpenGLFramebufferObject *Target, const QRect &Area, int Color)
+void MythRenderOpenGL::ClearRect(QOpenGLFramebufferObject *Target, const QRect Area, int Color)
 {
     makeCurrent();
     BindFramebuffer(Target);
@@ -940,14 +953,14 @@ void MythRenderOpenGL::ClearRect(QOpenGLFramebufferObject *Target, const QRect &
 }
 
 void MythRenderOpenGL::DrawRect(QOpenGLFramebufferObject *Target,
-                                const QRect &Area, const QBrush &FillBrush,
+                                const QRect Area, const QBrush &FillBrush,
                                 const QPen &LinePen, int Alpha)
 {
     DrawRoundRect(Target, Area, 1, FillBrush, LinePen, Alpha);
 }
 
 void MythRenderOpenGL::DrawRoundRect(QOpenGLFramebufferObject *Target,
-                                     const QRect &Area, int CornerRadius,
+                                     const QRect Area, int CornerRadius,
                                      const QBrush &FillBrush,
                                      const QPen &LinePen, int Alpha)
 {
@@ -1256,14 +1269,16 @@ QStringList MythRenderOpenGL::GetDescription(void)
     result.append(tr("OpenGL vendor")   + "\t: " + reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
     result.append(tr("OpenGL renderer") + "\t: " + reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
     result.append(tr("OpenGL version")  + "\t: " + reinterpret_cast<const char*>(glGetString(GL_VERSION)));
-    result.append(tr("Maximum depth")   + "\t: " + QString::number(GetColorDepth()));
+    QSurfaceFormat fmt = format();
+    result.append(tr("Color depth (RGBA)")   + "\t: " + QString("%1%2%3%4")
+                  .arg(fmt.redBufferSize()).arg(fmt.greenBufferSize()).arg(fmt.blueBufferSize()).arg(fmt.alphaBufferSize()));
     return result;
 }
 
-bool MythRenderOpenGL::UpdateTextureVertices(MythGLTexture *Texture, const QRect &Source,
-                                             const QRect &Destination, int Rotation, qreal Scale)
+bool MythRenderOpenGL::UpdateTextureVertices(MythGLTexture *Texture, const QRect Source,
+                                             const QRect Destination, int Rotation, qreal Scale)
 {
-    if (!Texture || (Texture && Texture->m_size.isEmpty()))
+    if (!Texture || Texture->m_size.isEmpty())
         return false;
 
     if ((Texture->m_source == Source) && (Texture->m_destination == Destination) &&
@@ -1344,7 +1359,7 @@ bool MythRenderOpenGL::UpdateTextureVertices(MythGLTexture *Texture, const QRect
     return true;
 }
 
-GLfloat* MythRenderOpenGL::GetCachedVertices(GLuint Type, const QRect &Area)
+GLfloat* MythRenderOpenGL::GetCachedVertices(GLuint Type, const QRect Area)
 {
     uint64_t ref = (static_cast<uint64_t>(Area.left()) & 0xfff) +
                   ((static_cast<uint64_t>(Area.top()) & 0xfff) << 12) +
@@ -1393,7 +1408,7 @@ void MythRenderOpenGL::ExpireVertices(int Max)
     }
 }
 
-void MythRenderOpenGL::GetCachedVBO(GLuint Type, const QRect &Area)
+void MythRenderOpenGL::GetCachedVBO(GLuint Type, const QRect Area)
 {
     uint64_t ref = (static_cast<uint64_t>(Area.left()) & 0xfff) +
                   ((static_cast<uint64_t>(Area.top()) & 0xfff) << 12) +

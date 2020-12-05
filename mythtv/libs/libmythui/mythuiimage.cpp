@@ -318,7 +318,7 @@ class ImageLoader
             {
                 float wmult = NAN; // Width multipler
                 float hmult = NAN; // Height multipler
-                GetMythUI()->GetScreenSettings(wmult, hmult);
+                GetMythMainWindow()->GetScalingFactors(wmult, hmult);
                 if (wmult != 1.0F || hmult != 1.0F)
                 {
                     w = image->size().width() * wmult;
@@ -337,7 +337,7 @@ class ImageLoader
                 {
                     float wmult = NAN; // Width multipler
                     float hmult = NAN; // Height multipler
-                    GetMythUI()->GetScreenSettings(wmult, hmult);
+                    GetMythMainWindow()->GetScalingFactors(wmult, hmult);
                     if (wmult != 1.0F || hmult != 1.0F)
                     {
                         int width = newMaskImage->size().width() * wmult;
@@ -898,7 +898,7 @@ void MythUIImage::SetAnimationFrames(const AnimationFrames& frames)
 /**
  *  \brief Force the dimensions of the widget and image to the given size.
  */
-void MythUIImage::ForceSize(const QSize &size)
+void MythUIImage::ForceSize(const QSize size)
 {
     if (m_imageProperties.m_forceSize == size)
         return;
@@ -935,7 +935,7 @@ void MythUIImage::SetSize(int width, int height)
 /**
  *  \brief Set the size of the widget
  */
-void MythUIImage::SetSize(const QSize &size)
+void MythUIImage::SetSize(const QSize size)
 {
     QWriteLocker updateLocker(&d->m_updateLock);
     MythUIType::SetSize(size);
@@ -986,7 +986,7 @@ bool MythUIImage::Load(bool allowLoadInBackground, bool forceStat)
         return false;
     }
 
-    if (getenv("DISABLETHREADEDMYTHUIIMAGE"))
+    if (qEnvironmentVariableIsSet("DISABLETHREADEDMYTHUIIMAGE"))
         allowLoadInBackground = false;
 
     // Don't clear the widget before we need to, otherwise it causes

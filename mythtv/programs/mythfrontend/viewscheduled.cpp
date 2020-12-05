@@ -43,11 +43,13 @@ void *ViewScheduled::RunViewScheduled(void *player, bool showTV)
 }
 
 ViewScheduled::ViewScheduled(MythScreenStack *parent, TV* player, bool /*showTV*/)
-             : ScheduleCommon(parent, "ViewScheduled"),
-               m_showAll(!gCoreContext->GetBoolSetting("ViewSchedShowLevel", false)),
-               m_player(player)
+  : ScheduleCommon(parent, "ViewScheduled"),
+    m_showAll(!gCoreContext->GetBoolSetting("ViewSchedShowLevel", false)),
+    m_player(player)
 {
     gCoreContext->addListener(this);
+    if (m_player)
+        m_player->IncrRef();
 }
 
 ViewScheduled::~ViewScheduled()
@@ -58,8 +60,8 @@ ViewScheduled::~ViewScheduled()
     // if we have a player, we need to tell we are done
     if (m_player)
     {
-        QString message = QString("VIEWSCHEDULED_EXITING");
-        QCoreApplication::postEvent(m_player, new MythEvent(message));
+        emit m_player->RequestEmbedding(false);
+        m_player->DecrRef();
     }
 }
 
@@ -77,10 +79,10 @@ bool ViewScheduled::Create()
         return false;
     }
 
-    connect(m_schedulesList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(updateInfo(MythUIButtonListItem*)));
-    connect(m_schedulesList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            SLOT(EditRecording()));
+    connect(m_schedulesList, &MythUIButtonList::itemSelected,
+            this, &ViewScheduled::updateInfo);
+    connect(m_schedulesList, &MythUIButtonList::itemClicked,
+            this, qOverload<MythUIButtonListItem*>(&ViewScheduled::EditRecording));
 
     m_schedulesList->SetLCDTitles(tr("Scheduled Recordings"),
                               "shortstarttimedate|channel|titlesubtitle|card");
@@ -88,10 +90,10 @@ bool ViewScheduled::Create()
 
     if (m_groupList)
     {
-        connect(m_groupList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-                SLOT(ChangeGroup(MythUIButtonListItem*)));
-        connect(m_groupList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-                SLOT(SwitchList()));
+        connect(m_groupList, &MythUIButtonList::itemSelected,
+                this, &ViewScheduled::ChangeGroup);
+        connect(m_groupList, &MythUIButtonList::itemClicked,
+                this, &ViewScheduled::SwitchList);
         m_groupList->SetLCDTitles(tr("Group List"), "");
     }
 
@@ -568,7 +570,7 @@ void ViewScheduled::viewInputs()
 void ViewScheduled::EmbedTVWindow(void)
 {
     if (m_player)
-        m_player->StartEmbedding(QRect());
+        emit m_player->RequestEmbedding(true);
 }
 
 void ViewScheduled::customEvent(QEvent *event)

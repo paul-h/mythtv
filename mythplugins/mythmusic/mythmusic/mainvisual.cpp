@@ -11,7 +11,6 @@
 // C++
 #include <algorithm>
 #include <iostream>
-using namespace std;
 
 // Qt
 #include <QPainter>
@@ -51,7 +50,7 @@ MainVisual::MainVisual(MythUIVideo *visualizer)
     m_updateTimer = new QTimer(this);
     m_updateTimer->setInterval(1000 / m_fps);
     m_updateTimer->setSingleShot(true);
-    connect(m_updateTimer, SIGNAL(timeout()), this, SLOT(timeout()));
+    connect(m_updateTimer, &QTimer::timeout, this, &MainVisual::timeout);
 }
 
 MainVisual::~MainVisual()
@@ -244,7 +243,7 @@ void MainVisual::timeout()
         m_updateTimer->start();
 }
 
-void MainVisual::resize(const QSize &size)
+void MainVisual::resize(const QSize size)
 {
     m_pixmap = QPixmap(size);
     m_pixmap.fill(m_visualizerVideo->GetBackgroundColor());

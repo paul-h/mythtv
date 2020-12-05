@@ -1,8 +1,12 @@
+#include <unistd.h> // for usleep()
+
+#include <chrono>
+#include <utility>
+
 #include <QTcpSocket>
 #include <QTextStream>
 #include <QTimer>
 #include <QtEndian>
-#include <utility>
 
 #include "mythlogging.h"
 #include "mythcorecontext.h"
@@ -18,7 +22,7 @@
 
 #include "mythmainwindow.h"
 
-#include <unistd.h> // for usleep()
+using namespace std::chrono_literals;
 
 #define LOC QString("RAOP Conn: ")
 #define MAX_PACKET_SIZE  2048
@@ -36,13 +40,12 @@ QString MythRAOPConnection::g_rsaLastError;
 #define AUDIO_DATA       0x60
 #define FIRSTAUDIO_DATA  (0x60 | 0x80)
 
-
 // Size (in ms) of audio buffered in audio card
 #define AUDIOCARD_BUFFER 500
 // How frequently we may call ProcessAudio (via QTimer)
 // ideally 20ms, but according to documentation
 // anything lower than 50ms on windows, isn't reliable
-#define AUDIO_BUFFER     100
+static constexpr std::chrono::milliseconds AUDIO_BUFFER { 100ms };
 
 class RaopNetStream : public QTextStream
 {
@@ -177,7 +180,7 @@ bool MythRAOPConnection::Init(void)
     // connect up the request socket
     m_textStream = new RaopNetStream(m_socket);
     m_textStream->setCodec("UTF-8");
-    if (!connect(m_socket, SIGNAL(readyRead()), this, SLOT(readClient())))
+    if (!connect(m_socket, &QIODevice::readyRead, this, &MythRAOPConnection::readClient))
     {
         LOG(VB_PLAYBACK, LOG_ERR, LOC + "Failed to connect client socket signal.");
         return false;
@@ -185,8 +188,8 @@ bool MythRAOPConnection::Init(void)
 
     // create the data socket
     m_dataSocket = new ServerPool();
-    if (!connect(m_dataSocket, SIGNAL(newDatagram(QByteArray, QHostAddress, quint16)),
-                 this,         SLOT(udpDataReady(QByteArray, QHostAddress, quint16))))
+    if (!connect(m_dataSocket, &ServerPool::newDatagram,
+                 this,         &MythRAOPConnection::udpDataReady))
     {
         LOG(VB_PLAYBACK, LOG_ERR, LOC + "Failed to connect data socket signal.");
         return false;
@@ -212,11 +215,11 @@ bool MythRAOPConnection::Init(void)
 
     // start the watchdog timer to auto delete the client after a period of inactivity
     m_watchdogTimer = new QTimer();
-    connect(m_watchdogTimer, SIGNAL(timeout()), this, SLOT(timeout()));
-    m_watchdogTimer->start(10000);
+    connect(m_watchdogTimer, &QTimer::timeout, this, &MythRAOPConnection::timeout);
+    m_watchdogTimer->start(10s);
 
     m_dequeueAudioTimer = new QTimer();
-    connect(m_dequeueAudioTimer, SIGNAL(timeout()), this, SLOT(ProcessAudio()));
+    connect(m_dequeueAudioTimer, &QTimer::timeout, this, &MythRAOPConnection::ProcessAudio);
 
     return true;
 }
@@ -230,7 +233,7 @@ void MythRAOPConnection::udpDataReady(QByteArray buf, const QHostAddress& /*peer
 {
     // restart the idle timer
     if (m_watchdogTimer)
-        m_watchdogTimer->start(10000);
+        m_watchdogTimer->start(10s);
 
     if (!m_audio || !m_codec || !m_codecContext)
         return;
@@ -922,7 +925,7 @@ void MythRAOPConnection::ProcessRequest(const QStringList &header,
         if (!tags.contains("Authorization"))
         {
             // 60 seconds to enter password.
-            m_watchdogTimer->start(60000);
+            m_watchdogTimer->start(1min);
             FinishAuthenticationResponse(m_textStream, m_socket, tags["CSeq"]);
             return;
         }
@@ -1156,9 +1159,9 @@ void MythRAOPConnection::ProcessRequest(const QStringList &header,
             }
             m_clientControlPort = control_port;
             connect(m_clientControlSocket,
-                    SIGNAL(newDatagram(QByteArray, QHostAddress, quint16)),
+                    &ServerPool::newDatagram,
                     this,
-                    SLOT(udpDataReady(QByteArray, QHostAddress, quint16)));
+                    &MythRAOPConnection::udpDataReady);
 
             if (m_clientTimingSocket)
             {
@@ -1185,9 +1188,9 @@ void MythRAOPConnection::ProcessRequest(const QStringList &header,
             }
             m_clientTimingPort = timing_port;
             connect(m_clientTimingSocket,
-                    SIGNAL(newDatagram(QByteArray, QHostAddress, quint16)),
+                    &ServerPool::newDatagram,
                     this,
-                    SLOT(udpDataReady(QByteArray, QHostAddress, quint16)));
+                    &MythRAOPConnection::udpDataReady);
 
             if (m_eventServer)
             {
@@ -1219,8 +1222,8 @@ void MythRAOPConnection::ProcessRequest(const QStringList &header,
                 {
                     LOG(VB_PLAYBACK, LOG_INFO, LOC +
                         QString("Listening for RAOP events on port %1").arg(m_eventPort));
-                    connect(m_eventServer, SIGNAL(newConnection(QTcpSocket *)),
-                            this, SLOT(newEventClient(QTcpSocket *)));
+                    connect(m_eventServer, &ServerPool::newConnection,
+                            this, &MythRAOPConnection::newEventClient);
                 }
             }
 
@@ -1703,8 +1706,8 @@ void MythRAOPConnection::StartAudioTimer(void)
         return;
 
     m_audioTimer = new QTimer();
-    connect(m_audioTimer, SIGNAL(timeout()), this, SLOT(audioRetry()));
-    m_audioTimer->start(5000);
+    connect(m_audioTimer, &QTimer::timeout, this, &MythRAOPConnection::audioRetry);
+    m_audioTimer->start(5s);
 }
 
 void MythRAOPConnection::StopAudioTimer(void)
@@ -1747,7 +1750,7 @@ void MythRAOPConnection::newEventClient(QTcpSocket *client)
         .arg(client->peerAddress().toString()).arg(client->peerPort()));
 
     m_eventClients.append(client);
-    connect(client, SIGNAL(disconnected()), this, SLOT(deleteEventClient()));
+    connect(client, &QAbstractSocket::disconnected, this, &MythRAOPConnection::deleteEventClient);
 }
 
 void MythRAOPConnection::deleteEventClient(void)

@@ -10,7 +10,7 @@
 
 #define LOC QString("VidOutVulkan: ")
 
-VideoFrameTypeVec MythVideoOutputVulkan::s_vulkanFrameTypes =
+VideoFrameTypes MythVideoOutputVulkan::s_vulkanFrameTypes =
 {
     FMT_YV12,     FMT_NV12,      FMT_YUV422P,   FMT_YUV444P,
     FMT_YUV420P9, FMT_YUV420P10, FMT_YUV420P12, FMT_YUV420P14, FMT_YUV420P16,
@@ -71,8 +71,8 @@ MythVideoOutputVulkan::MythVideoOutputVulkan(QString &Profile)
         LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to initialise Vulkan video output");
 }
 
-bool MythVideoOutputVulkan::Init(const QSize& VideoDim, const QSize& VideoDispDim,
-                                 float Aspect, const QRect& DisplayVisibleRect, MythCodecID CodecId)
+bool MythVideoOutputVulkan::Init(const QSize VideoDim, const QSize VideoDispDim,
+                                 float Aspect, const QRect DisplayVisibleRect, MythCodecID CodecId)
 {
     if (!(IsValidVulkan() && m_painter && m_video))
     {
@@ -92,12 +92,12 @@ bool MythVideoOutputVulkan::Init(const QSize& VideoDim, const QSize& VideoDispDi
     return true;
 }
 
-void MythVideoOutputVulkan::PrepareFrame(VideoFrame* Frame, const PIPMap& PiPPlayers, FrameScanType Scan)
+void MythVideoOutputVulkan::PrepareFrame(MythVideoFrame* Frame, FrameScanType Scan)
 {
-    MythVideoOutputGPU::PrepareFrame(Frame, PiPPlayers, Scan);
+    MythVideoOutputGPU::PrepareFrame(Frame, Scan);
 }
 
-void MythVideoOutputVulkan::RenderFrame(VideoFrame* Frame, FrameScanType Scan, OSD* Osd)
+void MythVideoOutputVulkan::RenderFrame(MythVideoFrame* Frame, FrameScanType Scan)
 {
     if (!(IsValidVulkan() && m_video))
         return;
@@ -106,49 +106,30 @@ void MythVideoOutputVulkan::RenderFrame(VideoFrame* Frame, FrameScanType Scan, O
     if (m_newCodecId != kCodec_NONE)
         return;
 
-    // Prepare visualisation
-    if (m_visual && m_painter && m_visual->NeedsPrepare() && !IsEmbeddingAndHidden())
-    {
-        const QRect osdbounds = GetTotalOSDBounds();
-        m_visual->Prepare(osdbounds);
-    }
-
     // Start the frame...
     m_video->StartFrame();
 
-    VkCommandBuffer currentcmdbuffer = m_vulkanWindow->currentCommandBuffer();
     if (VERBOSE_LEVEL_CHECK(VB_GPU, LOG_INFO))
-        m_vulkanRender->BeginDebugRegion(currentcmdbuffer, "PREPARE_FRAME", MythDebugVulkan::s_DebugBlue);
+    {
+        m_vulkanRender->BeginDebugRegion(m_vulkanWindow->currentCommandBuffer(),
+                                         "RENDER_FRAME", MythDebugVulkan::s_DebugBlue);
+    }
 
     // Actual render
-    MythVideoOutputGPU::RenderFrame(Frame, Scan, Osd);
+    MythVideoOutputGPU::RenderFrame(Frame, Scan);
+}
+
+void MythVideoOutputVulkan::RenderEnd()
+{
+    if (!(IsValidVulkan()))
+        return;
 
     if (VERBOSE_LEVEL_CHECK(VB_GPU, LOG_INFO))
-        m_vulkanRender->EndDebugRegion(currentcmdbuffer);
+        m_vulkanRender->EndDebugRegion(m_vulkanWindow->currentCommandBuffer());
 }
 
 void MythVideoOutputVulkan::EndFrame()
 {
     if (m_video)
         m_video->EndFrame();
-}
-
-MythVideoGPU* MythVideoOutputVulkan::CreateSecondaryVideo(const QSize& VideoDim,
-                                                          const QSize& VideoDispDim,
-                                                          const QRect& DisplayVisibleRect,
-                                                          const QRect& DisplayVideoRect,
-                                                          const QRect& VideoRect)
-{
-    auto * colourspace = new MythVideoColourSpace(&m_videoColourSpace);
-    auto * result = new MythVideoVulkan(this, colourspace,
-                                        VideoDim, VideoDispDim,
-                                        DisplayVisibleRect, DisplayVideoRect,
-                                        VideoRect, QString{});
-    colourspace->DecrRef();
-    if (result && !(result->IsValidVulkan() && result->IsValid()))
-    {
-        delete result;
-        result = nullptr;
-    }
-    return result;
 }

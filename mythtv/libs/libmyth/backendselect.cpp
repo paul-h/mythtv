@@ -77,15 +77,14 @@ bool BackendSelection::Create(void)
     m_saveButton = dynamic_cast<MythUIButton*>(GetChild("save"));
     m_cancelButton = dynamic_cast<MythUIButton*>(GetChild("cancel"));
     m_manualButton = dynamic_cast<MythUIButton*>(GetChild("manual"));
-    //m_searchButton = dynamic_cast<MythUIButton*>(GetChild("search"));
 
-    connect(m_backendList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            SLOT(Accept(MythUIButtonListItem *)));
+    connect(m_backendList, &MythUIButtonList::itemClicked,
+            this, qOverload<MythUIButtonListItem *>(&BackendSelection::Accept));
 
-    // connect(m_searchButton, SIGNAL(clicked()), SLOT(Search()));
-    connect(m_manualButton, SIGNAL(Clicked()), SLOT(Manual()));
-    connect(m_cancelButton, SIGNAL(Clicked()), SLOT(Cancel()));
-    connect(m_saveButton, SIGNAL(Clicked()), SLOT(Accept()));
+    connect(m_manualButton, &MythUIButton::Clicked, this, &BackendSelection::Manual);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &BackendSelection::Cancel);
+    connect(m_saveButton, &MythUIButton::Clicked,
+            this, qOverload<>(&BackendSelection::Accept));
 
     BuildFocusList();
     LoadInBackground();
@@ -111,7 +110,7 @@ void BackendSelection::Accept(MythUIButtonListItem *item)
     {
         if (m_pConfig)
         {
-            if (m_pinCode.length())
+            if (!m_pinCode.isEmpty())
                 m_pConfig->SetValue(kDefaultPIN, m_pinCode);
             m_pConfig->SetValue(kDefaultUSN, m_usn);
             m_pConfig->Save();

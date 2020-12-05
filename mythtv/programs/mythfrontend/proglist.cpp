@@ -6,7 +6,6 @@
 #include <functional>
 #include <deque>                        // for _Deque_iterator, operator-, etc
 #include <iterator>                     // for reverse_iterator
-using namespace std;
 
 // Qt
 #include <QCoreApplication>
@@ -113,24 +112,24 @@ bool ProgLister::Create()
         return false;
     }
 
-    connect(m_progList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this,       SLOT(  HandleSelected(  MythUIButtonListItem*)));
+    connect(m_progList, &MythUIButtonList::itemSelected,
+            this,       &ProgLister::HandleSelected);
 
-    connect(m_progList, SIGNAL(itemVisible(MythUIButtonListItem*)),
-            this,       SLOT(  HandleVisible(  MythUIButtonListItem*)));
+    connect(m_progList, &MythUIButtonList::itemVisible,
+            this,       &ProgLister::HandleVisible);
 
-    connect(m_progList, SIGNAL(itemLoaded(MythUIButtonListItem*)),
-            this,       SLOT(  HandleVisible(  MythUIButtonListItem*)));
+    connect(m_progList, &MythUIButtonList::itemLoaded,
+            this,       &ProgLister::HandleVisible);
 
     if (m_type == plPreviouslyRecorded)
     {
-        connect(m_progList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-                this,       SLOT(  ShowOldRecordedMenu()));
+        connect(m_progList, &MythUIButtonList::itemClicked,
+                this,       &ProgLister::ShowOldRecordedMenu);
     }
     else
     {
-        connect(m_progList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-                this,       SLOT(  EditRecording()));
+        connect(m_progList, &MythUIButtonList::itemClicked,
+                this,       qOverload<MythUIButtonListItem*>(&ProgLister::EditRecording));
     }
 
     m_progList->SetLCDTitles(tr("Program List"), "title|channel|shortstarttimedate");
@@ -278,35 +277,35 @@ void ProgLister::ShowMenu(void)
 
     if (m_allowViewDialog && m_type != plPreviouslyRecorded)
     {
-        menu->AddItem(tr("Choose Search Phrase..."), SLOT(ShowChooseViewMenu()));
+        menu->AddItem(tr("Choose Search Phrase..."), &ProgLister::ShowChooseViewMenu);
     }
 
     menu->AddItem(tr("Sort"), nullptr, sortMenu);
 
     if (m_type != plPreviouslyRecorded)
-        menu->AddItem(tr("Record"), SLOT(QuickRecord()));
+        menu->AddItem(tr("Record"), &ProgLister::QuickRecord);
 
-    menu->AddItem(tr("Edit Schedule"),   SLOT(EditScheduled()));
-    menu->AddItem(tr("Program Details"), SLOT(ShowDetails()));
-    menu->AddItem(tr("Program Guide"),   SLOT(ShowGuide()));
+    menu->AddItem(tr("Edit Schedule"),   qOverload<>(&ProgLister::EditScheduled));
+    menu->AddItem(tr("Program Details"), &ProgLister::ShowDetails);
+    menu->AddItem(tr("Program Guide"),   &ProgLister::ShowGuide);
     if (m_type != plChannel)
-        menu->AddItem(tr("Channel Search"),    SLOT(ShowChannelSearch()));
+        menu->AddItem(tr("Channel Search"), &ProgLister::ShowChannelSearch);
     if (m_type != plTitle)
-        menu->AddItem(tr("Upcoming"),    SLOT(ShowUpcoming()));
+        menu->AddItem(tr("Upcoming"),    qOverload<>(&ProgLister::ShowUpcoming));
     if (m_type != plPreviouslyRecorded)
-        menu->AddItem(tr("Previously Recorded"),SLOT(ShowPrevious()));
-    menu->AddItem(tr("Custom Edit"),     SLOT(EditCustom()));
+        menu->AddItem(tr("Previously Recorded"), qOverload<>(&ProgLister::ShowPrevious));
+    menu->AddItem(tr("Custom Edit"),     &ProgLister::EditCustom);
 
     ProgramInfo *pi = m_itemList[m_progList->GetCurrentPos()];
     if (m_type != plPreviouslyRecorded)
     {
         if (pi && pi->GetRecordingRuleID())
-            menu->AddItem(tr("Delete Rule"), SLOT(ShowDeleteRuleMenu()));
+            menu->AddItem(tr("Delete Rule"), &ProgLister::ShowDeleteRuleMenu);
     }
     else
     {
         menu->AddItem(
-            tr("Delete Episode"), SLOT(ShowDeleteOldEpisodeMenu()));
+            tr("Delete Episode"), &ProgLister::ShowDeleteOldEpisodeMenu);
     }
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
@@ -415,10 +414,8 @@ void ProgLister::UpdateKeywordInDB(const QString &text, const QString &oldValue)
 
 void ProgLister::ShowChooseViewMenu(void)
 {
-    MythScreenStack *popupStack =
-        GetMythMainWindow()->GetStack("popup stack");
+    MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
     MythScreenType *screen = nullptr;
-    bool connect_string = true;
 
     switch (m_type)
     {
@@ -445,31 +442,53 @@ void ProgLister::ShowChooseViewMenu(void)
                     break;
             }
 
-            screen = new MythUISearchDialog(
+            auto *dialog = new MythUISearchDialog(
                 popupStack, msg, m_viewTextList, true, "");
-
+            if (!dialog)
+                return;
+            connect(dialog, &MythUISearchDialog::haveResult,
+                    this, &ProgLister::SetViewFromList);
+            screen = dialog;
             break;
         }
         case plTitleSearch:
         case plKeywordSearch:
         case plPeopleSearch:
-            screen = new PhrasePopup(
+        {
+            auto *dialog = new PhrasePopup(
                 popupStack, this, m_searchType, m_viewTextList,
                 (m_curView >= 0) ? m_viewList[m_curView] : QString());
+            if (!dialog)
+                return;
+            connect(dialog, &PhrasePopup::haveResult,
+                    this, &ProgLister::SetViewFromList);
+            screen = dialog;
             break;
+        }
         case plPowerSearch:
-            screen = new PowerSearchPopup(
+        {
+            auto *dialog = new PowerSearchPopup(
                 popupStack, this, m_searchType, m_viewTextList,
                 (m_curView >= 0) ? m_viewList[m_curView] : QString());
+            if (!dialog)
+                return;
+            connect(dialog, &PowerSearchPopup::haveResult,
+                    this, &ProgLister::SetViewFromList);
+            screen = dialog;
             break;
+        }
         case plTime:
         {
             QString message =  tr("Start search from date and time");
             int flags = (MythTimeInputDialog::kDay |
                          MythTimeInputDialog::kHours |
                          MythTimeInputDialog::kFutureDates);
-            screen = new MythTimeInputDialog(popupStack, message, flags);
-            connect_string = false;
+            auto *dialog = new MythTimeInputDialog(popupStack, message, flags);
+            if (!dialog)
+                return;
+            connect(dialog, &MythTimeInputDialog::haveResult,
+                    this, &ProgLister::SetViewFromTime);
+            screen = dialog;
             break;
         }
         case plRecordid:
@@ -481,23 +500,15 @@ void ProgLister::ShowChooseViewMenu(void)
     }
 
     if (!screen)
+    {
+        LOG(VB_GENERAL, LOG_WARNING, LOC + "No menu");
         return;
+    }
 
     if (!screen->Create())
     {
         delete screen;
         return;
-    }
-
-    if (connect_string)
-    {
-        connect(screen, SIGNAL(haveResult(     QString)),
-                this,   SLOT(  SetViewFromList(QString)));
-    }
-    else
-    {
-        connect(screen, SIGNAL(haveResult(     QDateTime)),
-                this,   SLOT(  SetViewFromTime(QDateTime)));
     }
 
     popupStack->AddScreen(screen);
@@ -630,7 +641,7 @@ void ProgLister::ShowDeleteOldEpisodeMenu(void)
 
     QString message = tr("Delete this episode of '%1'?").arg(pi->GetTitle());
 
-    ShowOkPopup(message, this, SLOT(DeleteOldEpisode(bool)), true);
+    ShowOkPopup(message, this, &ProgLister::DeleteOldEpisode, true);
 }
 
 void ProgLister::DeleteOldEpisode(bool ok)
@@ -663,7 +674,7 @@ void ProgLister::ShowDeleteOldSeriesMenu(void)
 
     QString message = tr("Delete all episodes of '%1'?").arg(pi->GetTitle());
 
-    ShowOkPopup(message, this, SLOT(DeleteOldSeries(bool)), true);
+    ShowOkPopup(message, this, &ProgLister::DeleteOldSeries, true);
 }
 
 void ProgLister::DeleteOldSeries(bool ok)
@@ -992,7 +1003,7 @@ void ProgLister::FillViewList(const QString &view)
         m_curView = m_viewList.size() - 1;
 }
 
-class plCompare : binary_function<const ProgramInfo*, const ProgramInfo*, bool>
+class plCompare : std::binary_function<const ProgramInfo*, const ProgramInfo*, bool>
 {
   public:
     virtual bool operator()(const ProgramInfo*, const ProgramInfo*) = 0;

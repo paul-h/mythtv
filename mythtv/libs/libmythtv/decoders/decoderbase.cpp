@@ -1,6 +1,5 @@
 
 #include <algorithm>
-using namespace std;
 
 #include "mythconfig.h"
 
@@ -471,8 +470,8 @@ bool DecoderBase::FindPosition(long long desired_value, bool search_adjusted,
             upper++;
     }
     // keep in bounds
-    lower = max(lower, 0LL);
-    upper = min(upper, size - 1LL);
+    lower = std::max(lower, 0LL);
+    upper = std::min(upper, size - 1LL);
 
     upper_bound = upper;
     lower_bound = lower;
@@ -565,7 +564,7 @@ bool DecoderBase::DoRewind(long long desiredFrame, bool discardFrames)
     // And flush pre-seek frame if we are allowed to and need to..
     int normalframes = (uint64_t)(desiredFrame - (m_framesPlayed - 1)) > m_seekSnap
         ? desiredFrame - m_framesPlayed : 0;
-    normalframes = max(normalframes, 0);
+    normalframes = std::max(normalframes, 0);
     SeekReset(m_lastKey, normalframes, true, discardFrames);
 
     if (discardFrames || (m_ringBuffer && m_ringBuffer->IsDisc()))
@@ -728,7 +727,7 @@ bool DecoderBase::DoFastForward(long long desiredFrame, bool discardFrames)
     // that point the decoding is more than one frame ahead of display.
     if (desiredFrame+1 < m_framesPlayed)
         return DoRewind(desiredFrame, discardFrames);
-    desiredFrame = max(desiredFrame, m_framesPlayed);
+    desiredFrame = std::max(desiredFrame, m_framesPlayed);
 
     // Save rawframe state, for later restoration...
     bool oldrawstate = m_getRawFrames;
@@ -796,7 +795,7 @@ bool DecoderBase::DoFastForward(long long desiredFrame, bool discardFrames)
     // And flush pre-seek frame if we are allowed to and need to..
     int normalframes = (uint64_t)(desiredFrame - (m_framesPlayed - 1)) > m_seekSnap
         ? desiredFrame - m_framesPlayed : 0;
-    normalframes = max(normalframes, 0);
+    normalframes = std::max(normalframes, 0);
     SeekReset(m_lastKey, normalframes, needflush, discardFrames);
 
     if (discardFrames || m_transcoding)
@@ -961,7 +960,7 @@ int DecoderBase::SetTrack(uint Type, int TrackNo)
     if (TrackNo >= static_cast<int>(m_tracks[Type].size()))
         return -1;
 
-    m_currentTrack[Type] = max(-1, TrackNo);
+    m_currentTrack[Type] = std::max(-1, TrackNo);
     if (m_currentTrack[Type] < 0)
     {
         m_selectedTrack[Type].m_av_stream_index = -1;
@@ -995,9 +994,9 @@ int DecoderBase::ChangeTrack(uint Type, int Dir)
     if (size)
     {
         if (Dir > 0)
-            next_track = (max(-1, m_currentTrack[Type]) + 1) % size;
+            next_track = (std::max(-1, m_currentTrack[Type]) + 1) % size;
         else
-            next_track = (max(+0, m_currentTrack[Type]) + size - 1) % size;
+            next_track = (std::max(+0, m_currentTrack[Type]) + size - 1) % size;
     }
     return SetTrack(Type, next_track);
 }
@@ -1009,7 +1008,7 @@ int DecoderBase::NextTrack(uint Type)
     int next_track = -1;
     int size = static_cast<int>(m_tracks[Type].size());
     if (size)
-        next_track = (max(0, m_currentTrack[Type]) + 1) % size;
+        next_track = (std::max(0, m_currentTrack[Type]) + 1) % size;
     return next_track;
 }
 
@@ -1017,14 +1016,16 @@ bool DecoderBase::InsertTrack(uint Type, const StreamInfo &Info)
 {
     QMutexLocker locker(&m_trackLock);
 
-    for (auto & i : m_tracks[Type])
-        if (Info.m_stream_id == i.m_stream_id)
-            return false;
+    if (std::any_of(m_tracks[Type].cbegin(), m_tracks[Type].cend(),
+                    [&](const StreamInfo& Si) { return Si.m_stream_id == Info.m_stream_id; } ))
+    {
+        return false;
+    }
 
     m_tracks[Type].push_back(Info);
 
     if (m_parent)
-        m_parent->TracksChanged(Type);
+        emit m_parent->SignalTracksChanged(Type);
 
     return true;
 }
@@ -1130,7 +1131,7 @@ int DecoderBase::AutoSelectTrack(uint Type)
             .arg(m_currentTrack[Type]+1).arg(Type).arg(iso639_key_toName(lang)).arg(lang));
 
     if (m_parent && (oldTrack != m_currentTrack[Type]))
-        m_parent->TracksChanged(Type);
+        emit m_parent->SignalTracksChanged(Type);
 
     return selTrack;
 }
@@ -1144,8 +1145,7 @@ void DecoderBase::AutoSelectTracks(void)
 void DecoderBase::ResetTracks(void)
 {
     QMutexLocker locker(&m_trackLock);
-    for (int & i : m_currentTrack)
-        i = -1;
+    std::fill(m_currentTrack.begin(), m_currentTrack.end(), -1);
 }
 
 QString toString(TrackType type)
@@ -1443,11 +1443,11 @@ AVPixelFormat DecoderBase::GetBestVideoFormat(AVPixelFormat* Formats)
 {
     if (m_parent)
     {
-        const VideoFrameTypeVec* mythfmts = m_parent->DirectRenderFormats();
+        const VideoFrameTypes* mythfmts = m_parent->DirectRenderFormats();
         for (AVPixelFormat *format = Formats; *format != AV_PIX_FMT_NONE; format++)
         {
             for (auto fmt : *mythfmts)
-                if (FrameTypeToPixelFormat(fmt) == *format)
+                if (MythAVUtil::FrameTypeToPixelFormat(fmt) == *format)
                     return *format;
         }
     }

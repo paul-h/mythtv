@@ -219,7 +219,7 @@ void MythUIType::DeleteAllChildren(void)
  *
  *  \return The widget at these coordinates
  */
-MythUIType *MythUIType::GetChildAt(const QPoint &p, bool recursive,
+MythUIType *MythUIType::GetChildAt(const QPoint p, bool recursive,
                                    bool focusable) const
 {
     if (GetArea().contains(p))
@@ -551,7 +551,7 @@ MythPoint MythUIType::GetPosition(void) const
     return m_area.topLeft();
 }
 
-void MythUIType::SetSize(const QSize &size)
+void MythUIType::SetSize(const QSize size)
 {
     if (size == m_area.size())
         return;
@@ -851,7 +851,7 @@ void MythUIType::SetMinArea(const MythRect &rect)
         m_parent->SetMinAreaParent(m_minArea, m_area, this);
 }
 
-void MythUIType::ExpandArea(const QRect &rect)
+void MythUIType::ExpandArea(const QRect rect)
 {
     QSize childSize = rect.size();
     QSize size = m_area.size();
@@ -1098,6 +1098,7 @@ void MythUIType::SetVisible(bool visible)
         emit Showing();
     else
         emit Hiding();
+    emit VisibilityChanged(m_visible);
 }
 
 void MythUIType::SetDependIsDefault(bool isDefault)
@@ -1390,7 +1391,7 @@ void MythUIType::LoadNow(void)
  *
  *  Largely used For correctly handling mouse clicks
  */
-bool MythUIType::ContainsPoint(const QPoint &point) const
+bool MythUIType::ContainsPoint(const QPoint point) const
 {
     return m_area.contains(point);
 }
@@ -1419,13 +1420,15 @@ void MythUIType::SetReverseDependence(MythUIType *dependee, bool reverse)
 void MythUIType::ConnectDependants(bool recurse)
 {
     QMapIterator<QString, QString> it(m_dependsMap);
+    QStringList dependees;
+    QList<int> operators;
     while(it.hasNext())
     {
         it.next();
 
         // build list of operators and dependeees.
-        QStringList dependees;
-        QList<int> operators;
+        dependees.clear();
+        operators.clear();
         QString name = it.value();
         QStringList tmp1 = name.split("&");
         for (int i = 0; i < tmp1.size(); i++)
@@ -1457,8 +1460,8 @@ void MythUIType::ConnectDependants(bool recurse)
 
                 if (dependee)
                 {
-                    QObject::connect(dependee, SIGNAL(DependChanged(bool)),
-                                     dependant, SLOT(UpdateDependState(bool)));
+                    QObject::connect(dependee, &MythUIType::DependChanged,
+                                     dependant, qOverload<bool>(&MythUIType::UpdateDependState));
                     dependant->SetReverseDependence(dependee, reverse);
                     dependant->m_dependsValue.append(QPair<MythUIType *, bool>(dependee, false));
                     dependant->UpdateDependState(dependee, true);

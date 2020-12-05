@@ -24,7 +24,6 @@
 #include <cstdarg>
 #include <queue>
 #include <unistd.h>       // for usleep()
-using namespace std;
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -53,6 +52,10 @@ using namespace std;
 #include "mythpower.h"
 
 #define LOC      QString("MythCoreContext::%1(): ").arg(__func__)
+
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#define qEnvironmentVariable getenv
+#endif
 
 MythCoreContext *gCoreContext = nullptr;
 
@@ -101,7 +104,7 @@ class MythCoreContextPrivate : public QObject
 
     bool m_blockingClient;
 
-    QMap<QObject *, QByteArray> m_playbackClients;
+    QMap<QObject *, MythCoreContext::PlaybackStartCb> m_playbackClients;
     QMutex m_playbackLock;
     bool m_inwanting;
     bool m_intvwanting;
@@ -219,7 +222,7 @@ bool MythCoreContextPrivate::WaitForWOL(int timeout_in_ms)
     {
         LOG(VB_GENERAL, LOG_INFO, LOC + "Wake-On-LAN in progress, waiting...");
 
-        int max_wait = min(1000, timeout_remaining);
+        int max_wait = std::min(1000, timeout_remaining);
         m_wolInProgressWaitCondition.wait(
             &m_wolInProgressLock, max_wait);
         timeout_remaining -= max_wait;
@@ -264,13 +267,13 @@ bool MythCoreContext::Init(void)
     {
         // try fallback to environment variables for non-glibc systems
         // LC_ALL, then LC_CTYPE
-        lc_value = getenv("LC_ALL");
+        lc_value = qEnvironmentVariable("LC_ALL");
         if (lc_value.isEmpty())
-            lc_value = getenv("LC_CTYPE");
+            lc_value = qEnvironmentVariable("LC_CTYPE");
     }
     if (!lc_value.contains("UTF-8", Qt::CaseInsensitive))
         lang_variables.append("LC_ALL or LC_CTYPE");
-    lc_value = getenv("LANG");
+    lc_value = qEnvironmentVariable("LANG");
     if (!lc_value.contains("UTF-8", Qt::CaseInsensitive))
     {
         if (!lang_variables.isEmpty())
@@ -458,15 +461,15 @@ MythSocket *MythCoreContext::ConnectCommandSocket(
         WOLcmd = GetSetting("WOLbackendCommand", "");
 
     if (maxConnTry < 1)
-        maxConnTry = max(GetNumSetting("BackendConnectRetry", 1), 1);
+        maxConnTry = std::max(GetNumSetting("BackendConnectRetry", 1), 1);
 
     int WOLsleepTime = 0;
     int WOLmaxConnTry = 0;
     if (!WOLcmd.isEmpty())
     {
         WOLsleepTime  = GetNumSetting("WOLbackendReconnectWaitTime", 0);
-        WOLmaxConnTry = max(GetNumSetting("WOLbackendConnectRetry", 1), 1);
-        maxConnTry    = max(maxConnTry, WOLmaxConnTry);
+        WOLmaxConnTry = std::max(GetNumSetting("WOLbackendConnectRetry", 1), 1);
+        maxConnTry    = std::max(maxConnTry, WOLmaxConnTry);
     }
 
     bool we_attempted_wol = false;
@@ -1889,30 +1892,30 @@ MythScheduler *MythCoreContext::GetScheduler(void)
  * Wait until any of the provided signals have been received.
  * signals being declared as SIGNAL(SignalName(args,..))
  */
-void MythCoreContext::WaitUntilSignals(std::vector<const char *> & sigs)
+void MythCoreContext::WaitUntilSignals(std::vector<CoreWaitInfo> & sigs) const
 {
     if (sigs.empty())
         return;
 
     QEventLoop eventLoop;
-    for (const auto *s : sigs)
+    for (auto s : sigs)
     {
         LOG(VB_GENERAL, LOG_DEBUG, LOC +
             QString("Waiting for signal %1")
-            .arg(s));
-        connect(this, s, &eventLoop, SLOT(quit()));
+            .arg(s.name));
+        connect(this, s.fn, &eventLoop, &QEventLoop::quit);
     }
 
     eventLoop.exec(QEventLoop::ExcludeUserInputEvents | QEventLoop::ExcludeSocketNotifiers);
 }
 
 /**
- * \fn void MythCoreContext::RegisterForPlayback(QObject *sender, const char *method)
+ * \fn void MythCoreContext::RegisterForPlayback(QObject *sender, void (QObject::*method)(void) )
  * Register sender for TVPlaybackAboutToStart signal. Method will be called upon
  * the signal being emitted.
  * sender must call MythCoreContext::UnregisterForPlayback upon deletion
  */
-void MythCoreContext::RegisterForPlayback(QObject *sender, const char *method)
+void MythCoreContext::RegisterForPlayback(QObject *sender, PlaybackStartCb method)
 {
     if (!sender || !method)
         return;
@@ -1921,8 +1924,8 @@ void MythCoreContext::RegisterForPlayback(QObject *sender, const char *method)
 
     if (!d->m_playbackClients.contains(sender))
     {
-        d->m_playbackClients.insert(sender, QByteArray(method));
-        connect(this, SIGNAL(TVPlaybackAboutToStart()),
+        d->m_playbackClients.insert(sender, method);
+        connect(this, &MythCoreContext::TVPlaybackAboutToStart,
                 sender, method,
                 Qt::BlockingQueuedConnection);
     }
@@ -1939,9 +1942,8 @@ void MythCoreContext::UnregisterForPlayback(QObject *sender)
 
     if (d->m_playbackClients.contains(sender))
     {
-        QByteArray ba = d->m_playbackClients.value(sender);
-        const char *method = ba.constData();
-        disconnect(this, SIGNAL(TVPlaybackAboutToStart()),
+        PlaybackStartCb method = d->m_playbackClients.value(sender);
+        disconnect(this, &MythCoreContext::TVPlaybackAboutToStart,
                    sender, method);
         d->m_playbackClients.remove(sender);
     }
@@ -1956,15 +1958,14 @@ void MythCoreContext::UnregisterForPlayback(QObject *sender)
 void MythCoreContext::WantingPlayback(QObject *sender)
 {
     QMutexLocker lock(&d->m_playbackLock);
-    QByteArray ba;
-    const char *method = nullptr;
+    PlaybackStartCb method { nullptr };
     d->m_inwanting = true;
 
     // If any registered client are in the same thread, they will deadlock, so rebuild
     // connections for any clients in the same thread as non-blocking connection
     QThread *currentThread = QThread::currentThread();
 
-    QMap<QObject *, QByteArray>::iterator it = d->m_playbackClients.begin();
+    QMap<QObject *, PlaybackStartCb>::iterator it = d->m_playbackClients.begin();
     for (; it != d->m_playbackClients.end(); ++it)
     {
         if (it.key() == sender)
@@ -1975,16 +1976,15 @@ void MythCoreContext::WantingPlayback(QObject *sender)
         if (thread != currentThread)
             continue;
 
-        disconnect(this, SIGNAL(TVPlaybackAboutToStart()), it.key(), it.value());
-        connect(this, SIGNAL(TVPlaybackAboutToStart()), it.key(), it.value());
+        disconnect(this, &MythCoreContext::TVPlaybackAboutToStart, it.key(), it.value());
+        connect(this, &MythCoreContext::TVPlaybackAboutToStart, it.key(), it.value());
     }
 
     // disconnect sender so it won't receive the message
     if (d->m_playbackClients.contains(sender))
     {
-        ba = d->m_playbackClients.value(sender);
-        method = ba.constData();
-        disconnect(this, SIGNAL(TVPlaybackAboutToStart()), sender, method);
+        method = d->m_playbackClients.value(sender);
+        disconnect(this, &MythCoreContext::TVPlaybackAboutToStart, sender, method);
     }
 
     // emit signal
@@ -1993,7 +1993,7 @@ void MythCoreContext::WantingPlayback(QObject *sender)
     // reconnect sender
     if (method)
     {
-        connect(this, SIGNAL(TVPlaybackAboutToStart()),
+        connect(this, &MythCoreContext::TVPlaybackAboutToStart,
                 sender, method,
                 Qt::BlockingQueuedConnection);
     }
@@ -2008,8 +2008,9 @@ void MythCoreContext::WantingPlayback(QObject *sender)
         if (thread != currentThread)
             continue;
 
-        disconnect(this, SIGNAL(TVPlaybackAboutToStart()), it.key(), it.value());
-        connect(this, SIGNAL(TVPlaybackAboutToStart()),
+        disconnect(this, &MythCoreContext::TVPlaybackAboutToStart,
+                   it.key(), it.value());
+        connect(this, &MythCoreContext::TVPlaybackAboutToStart,
                 it.key(), it.value(), Qt::BlockingQueuedConnection);
     }
     d->m_inwanting = false;

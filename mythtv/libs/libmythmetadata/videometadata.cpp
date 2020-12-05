@@ -21,8 +21,6 @@
 #include "programinfo.h" // for format_season_and_episode
 #include "mythsorthelper.h"
 
-using namespace std;
-
 class VideoMetadataImp
 {
   public:
@@ -36,12 +34,12 @@ class VideoMetadataImp
              QString coverfile, QString screenshot, QString banner,
              QString fanart, const QString &title, QString sortTitle,
              const QString &subtitle, QString sortSubtitle,
-             QString tagline, int year, const QDate &releasedate,
+             QString tagline, int year, const QDate releasedate,
              QString inetref, int collectionref, QString homepage,
              QString director, QString studio,
              QString plot, float userrating,
              QString rating, int length, int playcount,
-             int season, int episode, const QDate &insertdate,
+             int season, int episode, const QDate insertdate,
              int id, ParentalLevel::Level showlevel, int categoryID,
              int childID, bool browse, bool watched,
              QString playcommand, QString category,
@@ -559,7 +557,7 @@ void VideoMetadataImp::fromDBRow(MSqlQuery &query)
     m_year = query.value(5).toInt();
     m_releasedate = query.value(6).toDate();
     m_userrating = (float)query.value(7).toDouble();
-    if (isnan(m_userrating) || m_userrating < 0)
+    if (std::isnan(m_userrating) || m_userrating < 0)
         m_userrating = 0.0;
     if (m_userrating > 10.0F)
         m_userrating = 10.0F;
@@ -641,7 +639,7 @@ void VideoMetadataImp::saveToDatabase()
         m_trailer = VIDEO_TRAILER_DEFAULT;
     if (m_inetref.isEmpty())
         m_inetref = VIDEO_INETREF_DEFAULT;
-    if (isnan(m_userrating))
+    if (std::isnan(m_userrating))
         m_userrating = 0.0;
     if (m_userrating < -10.0F || m_userrating > 10.0F)
         m_userrating = 0.0;
@@ -1162,10 +1160,10 @@ VideoMetadata::VideoMetadata(const QString &filename, const QString &sortFilenam
              const QString &screenshot, const QString &banner, const QString &fanart,
              const QString &title, const QString &sortTitle,
              const QString &subtitle, const QString &sortSubtitle, const QString &tagline,
-             int year, const QDate &releasedate, const QString &inetref, int collectionref,
+             int year, const QDate releasedate, const QString &inetref, int collectionref,
              const QString &homepage, const QString &director, const QString &studio,
              const QString &plot, float userrating, const QString &rating,
-             int length, int playcount, int season, int episode, const QDate &insertdate,
+             int length, int playcount, int season, int episode, const QDate insertdate,
              int id, ParentalLevel::Level showlevel, int categoryID,
              int childID, bool browse, bool watched,
              const QString &playcommand, const QString &category,
@@ -1623,7 +1621,7 @@ const QString &VideoMetadata::GetHash() const
 
 void VideoMetadata::SetHash(const QString &hash)
 {
-    return m_imp->SetHash(hash);
+    m_imp->SetHash(hash);
 }
 
 const QString &VideoMetadata::GetHost() const

@@ -19,8 +19,6 @@
 #include <thread>
 #include <vector>
 
-using namespace std;
-
 #include "config.h"
 #include "mythcontext.h"
 #include "exitcodes.h"
@@ -58,6 +56,10 @@ using namespace std;
 #endif
 
 #define LOC      QString("MythContext: ")
+
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#define qEnvironmentVariable getenv
+#endif
 
 MythContext *gContext = nullptr;
 
@@ -285,8 +287,6 @@ void MythContextPrivate::TempMainWindow(bool languagePrompt)
     gCoreContext->OverrideSettingForSession("RunFrontendInWindow", "1");
 #endif
     GetMythUI()->Init();
-    GetMythUI()->LoadQtConfig();
-
     MythMainWindow *mainWindow = MythMainWindow::getMainWindow(false);
     mainWindow->Init();
 
@@ -327,7 +327,7 @@ bool MythContextPrivate::checkPort(QString &host, int port, int timeLimit) const
 {
     PortChecker checker;
     if (m_guiStartup)
-        QObject::connect(m_guiStartup,SIGNAL(cancelPortCheck()),&checker,SLOT(cancelPortCheck()));
+        QObject::connect(m_guiStartup,&GUIStartup::cancelPortCheck,&checker,&PortChecker::cancelPortCheck);
     return checker.checkPort(host, port, timeLimit*1000);
 }
 
@@ -750,7 +750,7 @@ bool MythContextPrivate::PromptForDatabaseParams(const QString &error)
         QString        response;
         std::this_thread::sleep_for(std::chrono::seconds(1));
         // give user chance to skip config
-        cout << endl << error.toLocal8Bit().constData() << endl << endl;
+        std::cout << std::endl << error.toLocal8Bit().constData() << std::endl << std::endl;
         response = getResponse("Would you like to configure the database "
                                "connection now?",
                                "no");
@@ -1444,7 +1444,7 @@ void MythContextPrivate::ShowVersionMismatchPopup(uint remote_version)
     if (HasMythMainWindow() && m_ui && m_ui->IsScreenSetup())
     {
         m_mbeVersionPopup = ShowOkPopup(
-            message, m_sh, SLOT(VersionMismatchPopupClosed()));
+            message, m_sh, &MythContextSlotHandler::VersionMismatchPopupClosed);
     }
     else
     {
@@ -1613,7 +1613,7 @@ bool MythContext::Init(const bool gui,
     // If HOME isn't defined, we won't be able to use default confdir of
     // $HOME/.mythtv nor can we rely on a MYTHCONFDIR that references $HOME
     QString homedir = QDir::homePath();
-    QString confdir = getenv("MYTHCONFDIR");
+    QString confdir = qEnvironmentVariable("MYTHCONFDIR");
     if ((homedir.isEmpty() || homedir == "/") &&
         (confdir.isEmpty() || confdir.contains("$HOME")))
     {

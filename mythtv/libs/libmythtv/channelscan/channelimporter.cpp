@@ -15,8 +15,6 @@
 #include <QTextStream>
 #include <QElapsedTimer>
 
-using namespace std;
-
 // MythTV headers
 #include "channelimporter.h"
 #include "mythdialogbox.h"
@@ -65,7 +63,7 @@ void ChannelImporter::Process(const ScanDTVTransportList &_transports,
         }
         else
         {
-            cout << (ChannelUtil::GetChannelCount() ?
+            std::cout << (ChannelUtil::GetChannelCount() ?
                      "No new channels to process" :
                      "No channels to process..");
         }
@@ -170,8 +168,7 @@ void ChannelImporter::Process(const ScanDTVTransportList &_transports,
     if (m_doDelete)
     {
         ScanDTVTransportList trans = transports;
-        for (const auto & tran : db_trans)
-            trans.push_back(tran);
+        std::copy(db_trans.cbegin(), db_trans.cend(), std::back_inserter(trans));
         uint deleted_count = DeleteChannels(trans);
         if (deleted_count)
             transports = trans;
@@ -230,7 +227,7 @@ QString ChannelImporter::toString(ChannelType type)
 uint ChannelImporter::DeleteChannels(
     ScanDTVTransportList &transports)
 {
-    vector<uint> off_air_list;
+    std::vector<uint> off_air_list;
     QMap<uint,bool> deleted;
     ScanDTVTransportList off_air_transports;
 
@@ -258,9 +255,9 @@ uint ChannelImporter::DeleteChannels(
         return 0;
 
     // List of off-air channels (in database but not in the scan)
-    cout << endl << "Off-air channels (" << SimpleCountChannels(off_air_transports) << "):" << endl;
+    std::cout << std::endl << "Off-air channels (" << SimpleCountChannels(off_air_transports) << "):" << std::endl;
     ChannelImporterBasicStats infoA = CollectStats(off_air_transports);
-    cout << FormatChannels(off_air_transports, &infoA).toLatin1().constData() << endl;
+    std::cout << FormatChannels(off_air_transports, &infoA).toLatin1().constData() << std::endl;
 
     // Ask user whether to delete all or some of these stale channels
     // if some is selected ask about each individually
@@ -909,7 +906,7 @@ void ChannelImporter::MergeSameFrequency(ScanDTVTransportList &transports)
 
     uint freq_mult = (is_dvbs) ? 1 : 1000;
 
-    vector<bool> ignore;
+    std::vector<bool> ignore;
     ignore.resize(transports.size());
     for (size_t i = 0; i < transports.size(); ++i)
     {
@@ -965,7 +962,7 @@ void ChannelImporter::RemoveDuplicates(ScanDTVTransportList &transports, ScanDTV
         QString("Number of transports:%1").arg(transports.size()));
 
     ScanDTVTransportList no_dups;
-    vector<bool> ignore;
+    std::vector<bool> ignore;
     ignore.resize(transports.size());
     for (size_t i = 0; i < transports.size(); ++i)
     {
@@ -1368,7 +1365,7 @@ ChannelImporterUniquenessStats ChannelImporter::CollectUniquenessStats(
                                         (chan.m_atscMinorChannel)] == 1) ? 1 : 0;
                 stats.m_uniqueAtscMin +=
                     (info.m_atscMinCnt[(chan.m_atscMinorChannel)] == 1) ? 1 : 0;
-                stats.m_maxAtscMajCnt = max(
+                stats.m_maxAtscMajCnt = std::max(
                     stats.m_maxAtscMajCnt,
                     info.m_atscMajCnt[chan.m_atscMajorChannel]);
             }
@@ -1542,10 +1539,10 @@ QString ChannelImporter::FormatChannels(
 
     for (auto & transport : transports)
     {
-        for (auto & channel : transport.m_channels)
-        {
-            msg += FormatChannel(transport, channel, info) + "\n";
-        }
+        auto fmt_chan = [transport, info](const QString & m, const auto & chan)
+            { return m + FormatChannel(transport, chan, info) + "\n"; };
+        msg = std::accumulate(transport.m_channels.cbegin(), transport.m_channels.cend(),
+                              msg, fmt_chan);
     }
 
     return msg;
@@ -1577,12 +1574,10 @@ QString ChannelImporter::FormatTransports(
     ScanDTVTransportList transports(transports_in);
     std::sort(transports.begin(), transports.end(), less_than_key());
 
-    QString msg;
-
-    for (const auto & transport : transports)
-        msg += FormatTransport(transport) + "\n";
-
-    return msg;
+    auto fmt_trans = [](const QString& msg, const auto & transport)
+        { return msg + FormatTransport(transport) + "\n"; };
+    return std::accumulate(transports.cbegin(), transports.cend(),
+                           QString(), fmt_trans);
 }
 
 QString ChannelImporter::GetSummary(
@@ -1696,10 +1691,10 @@ void ChannelImporter::CountChannels(
 int ChannelImporter::SimpleCountChannels(
     const ScanDTVTransportList &transports)
 {
-    int count = 0;
-    for (const auto & transport : transports)
-        count += transport.m_channels.size();
-    return count;
+    auto add_count = [](int count, const auto & transport)
+        { return count + transport.m_channels.size(); };
+    return std::accumulate(transports.cbegin(), transports.cend(),
+                           0, add_count);
 }
 
 /**
@@ -1756,7 +1751,7 @@ ChannelImporter::QueryUserDelete(const QString &msg)
     DeleteAction action = kDeleteAll;
     if (m_useGui)
     {
-        int ret = -1;
+        m_functorRetval = -1;
         do
         {
             MythScreenStack *popupStack =
@@ -1770,41 +1765,42 @@ ChannelImporter::QueryUserDelete(const QString &msg)
                 deleteDialog->AddButton(tr("Set all invisible"));
 //                  deleteDialog->AddButton(tr("Handle manually"));
                 deleteDialog->AddButton(tr("Ignore All"));
-                QObject::connect(deleteDialog, &MythDialogBox::Closed,
-                                 [&](const QString & /*resultId*/, int result)
+                QObject::connect(deleteDialog, &MythDialogBox::Closed, this,
+                                 [this](const QString & /*resultId*/, int result)
                                  {
-                                     ret = result;
+                                     m_functorRetval = result;
                                      m_eventLoop.quit();
                                  });
                 popupStack->AddScreen(deleteDialog);
 
                 m_eventLoop.exec();
             }
-        } while (ret < 0);
+        } while (m_functorRetval < 0);
 
-        action = (0 == ret) ? kDeleteAll       : action;
-        action = (1 == ret) ? kDeleteInvisibleAll : action;
-        action = (2 == ret) ? kDeleteIgnoreAll   : action;
-//        action = (2 == m_deleteChannelResult) ? kDeleteManual    : action;
-//        action = (3 == m_deleteChannelResult) ? kDeleteIgnoreAll : action;
+        switch (m_functorRetval)
+        {
+          case 0: action = kDeleteAll;          break;
+          case 1: action = kDeleteInvisibleAll; break;
+          case 2: action = kDeleteIgnoreAll;    break;
+        }
     }
     else if (m_isInteractive)
     {
-        cout << msg.toLatin1().constData()
-             << endl
+        std::cout << msg.toLatin1().constData()
+             << std::endl
              << tr("Do you want to:").toLatin1().constData()
-             << endl
+             << std::endl
              << tr("1. Delete All").toLatin1().constData()
-             << endl
+             << std::endl
              << tr("2. Set all invisible").toLatin1().constData()
-             << endl
+             << std::endl
 //        cout << "3. Handle manually" << endl;
              << tr("4. Ignore All").toLatin1().constData()
-             << endl;
+             << std::endl;
         while (true)
         {
-            string ret;
-            cin >> ret;
+            std::string ret;
+            std::cin >> ret;
             bool ok = false;
             uint val = QString(ret.c_str()).toUInt(&ok);
             if (ok && (val == 1 || val == 2 || val == 4))
@@ -1817,8 +1813,8 @@ ChannelImporter::QueryUserDelete(const QString &msg)
             }
 
             //cout << "Please enter either 1, 2, 3 or 4:" << endl;
-            cout << tr("Please enter either 1, 2 or 4:")
-                .toLatin1().constData() << endl;//
+            std::cout << tr("Please enter either 1, 2 or 4:")
+                .toLatin1().constData() << std::endl;
         }
     }
 
@@ -1831,7 +1827,7 @@ ChannelImporter::QueryUserInsert(const QString &msg)
     InsertAction action = kInsertAll;
     if (m_useGui)
     {
-        int ret = -1;
+        m_functorRetval = -1;
         do
         {
             MythScreenStack *popupStack =
@@ -1844,38 +1840,41 @@ ChannelImporter::QueryUserInsert(const QString &msg)
                 insertDialog->AddButton(tr("Insert All"));
                 insertDialog->AddButton(tr("Insert Manually"));
                 insertDialog->AddButton(tr("Ignore All"));
-                QObject::connect(insertDialog, &MythDialogBox::Closed,
-                                 [&](const QString & /*resultId*/, int result)
+                QObject::connect(insertDialog, &MythDialogBox::Closed, this,
+                                 [this](const QString & /*resultId*/, int result)
                                  {
-                                     ret = result;
+                                     m_functorRetval = result;
                                      m_eventLoop.quit();
                                  });
 
                 popupStack->AddScreen(insertDialog);
                 m_eventLoop.exec();
             }
-        } while (ret < 0);
+        } while (m_functorRetval < 0);
 
-        action = (0 == ret) ? kInsertAll       : action;
-        action = (1 == ret) ? kInsertManual    : action;
-        action = (2 == ret) ? kInsertIgnoreAll : action;
+        switch (m_functorRetval)
+        {
+          case 0: action = kInsertAll;       break;
+          case 1: action = kInsertManual;    break;
+          case 2: action = kInsertIgnoreAll; break;
+        }
     }
     else if (m_isInteractive)
     {
-        cout << msg.toLatin1().constData()
-             << endl
+        std::cout << msg.toLatin1().constData()
+             << std::endl
              << tr("Do you want to:").toLatin1().constData()
-             << endl
+             << std::endl
              << tr("1. Insert All").toLatin1().constData()
-             << endl
+             << std::endl
              << tr("2. Insert Manually").toLatin1().constData()
-             << endl
+             << std::endl
              << tr("3. Ignore All").toLatin1().constData()
-             << endl;
+             << std::endl;
         while (true)
         {
-            string ret;
-            cin >> ret;
+            std::string ret;
+            std::cin >> ret;
             bool ok = false;
             uint val = QString(ret.c_str()).toUInt(&ok);
             if (ok && (1 <= val) && (val <= 3))
@@ -1886,8 +1885,8 @@ ChannelImporter::QueryUserInsert(const QString &msg)
                 break;
             }
 
-            cout << tr("Please enter either 1, 2, or 3:")
-                .toLatin1().constData() << endl;
+            std::cout << tr("Please enter either 1, 2, or 3:")
+                .toLatin1().constData() << std::endl;
         }
     }
 
@@ -1901,7 +1900,7 @@ ChannelImporter::QueryUserUpdate(const QString &msg)
 
     if (m_useGui)
     {
-        int ret = -1;
+        m_functorRetval = -1;
         do
         {
             MythScreenStack *popupStack =
@@ -1913,37 +1912,40 @@ ChannelImporter::QueryUserUpdate(const QString &msg)
             {
                 updateDialog->AddButton(tr("Update All"));
                 updateDialog->AddButton(tr("Ignore All"));
-                QObject::connect(updateDialog, &MythDialogBox::Closed,
-                                 [&](const QString& /*resultId*/, int result)
+                QObject::connect(updateDialog, &MythDialogBox::Closed, this,
+                                 [this](const QString& /*resultId*/, int result)
                                  {
-                                     ret = result;
+                                     m_functorRetval = result;
                                      m_eventLoop.quit();
                                  });
 
                 popupStack->AddScreen(updateDialog);
                 m_eventLoop.exec();
             }
-        } while (ret < 0);
+        } while (m_functorRetval < 0);
 
-        action = (0 == ret) ? kUpdateAll       : action;
-        action = (1 == ret) ? kUpdateIgnoreAll : action;
+        switch (m_functorRetval)
+        {
+          case 0: action = kUpdateAll;       break;
+          case 1: action = kUpdateIgnoreAll; break;
+        }
     }
     else if (m_isInteractive)
     {
-        cout << msg.toLatin1().constData()
-             << endl
+        std::cout << msg.toLatin1().constData()
+             << std::endl
              << tr("Do you want to:").toLatin1().constData()
-             << endl
+             << std::endl
              << tr("1. Update All").toLatin1().constData()
-             << endl
+             << std::endl
              << tr("2. Update Manually").toLatin1().constData()
-             << endl
+             << std::endl
              << tr("3. Ignore All").toLatin1().constData()
-             << endl;
+             << std::endl;
         while (true)
         {
-            string ret;
-            cin >> ret;
+            std::string ret;
+            std::cin >> ret;
             bool ok = false;
             uint val = QString(ret.c_str()).toUInt(&ok);
             if (ok && (1 <= val) && (val <= 3))
@@ -1954,8 +1956,8 @@ ChannelImporter::QueryUserUpdate(const QString &msg)
                 break;
             }
 
-            cout << tr("Please enter either 1, 2, or 3:")
-                .toLatin1().constData() << endl;
+            std::cout << tr("Please enter either 1, 2, or 3:")
+                .toLatin1().constData() << std::endl;
         }
     }
 
@@ -1966,7 +1968,7 @@ OkCancelType ChannelImporter::ShowManualChannelPopup(
     MythMainWindow *parent, const QString& title,
     const QString& message, QString &text)
 {
-    int dc = -1;
+    m_functorRetval = -1;
     MythScreenStack *popupStack = parent->GetStack("popup stack");
     auto *popup = new MythDialogBox(title, message, popupStack,
                                     "manualchannelpopup");
@@ -1977,10 +1979,10 @@ OkCancelType ChannelImporter::ShowManualChannelPopup(
         popup->AddButton(tr("Edit"));
         popup->AddButton(QCoreApplication::translate("(Common)", "Cancel"));
         popup->AddButton(QCoreApplication::translate("(Common)", "Cancel All"));
-        QObject::connect(popup, &MythDialogBox::Closed,
-                         [&](const QString & /*resultId*/, int result)
+        QObject::connect(popup, &MythDialogBox::Closed, this,
+                         [this](const QString & /*resultId*/, int result)
                          {
-                             dc = result;
+                             m_functorRetval = result;
                              m_eventLoop.quit();
                          });
         popupStack->AddScreen(popup);
@@ -1993,7 +1995,7 @@ OkCancelType ChannelImporter::ShowManualChannelPopup(
     }
 
     // Choice "Edit"
-    if (1 == dc)
+    if (1 == m_functorRetval)
     {
         auto *textEdit =
             new MythTextInputDialog(popupStack,
@@ -2001,14 +2003,14 @@ OkCancelType ChannelImporter::ShowManualChannelPopup(
                                     FilterNone, false, text);
         if (textEdit->Create())
         {
-            QObject::connect(textEdit, &MythTextInputDialog::haveResult,
-                             [&](QString result)
+            QObject::connect(textEdit, &MythTextInputDialog::haveResult, this,
+                             [this,&text](QString result)
                              {
-                                 dc = 0;
+                                 m_functorRetval = 0;
                                  text = std::move(result);
                              });
-            QObject::connect(textEdit, &MythTextInputDialog::Exiting,
-                             [&]()
+            QObject::connect(textEdit, &MythTextInputDialog::Exiting, this,
+                             [this]()
                              {
                                  m_eventLoop.quit();
                              });
@@ -2021,7 +2023,7 @@ OkCancelType ChannelImporter::ShowManualChannelPopup(
     }
 
     OkCancelType rval = kOCTCancel;
-    switch (dc) {
+    switch (m_functorRetval) {
         case 0: rval = kOCTOk;        break;
         // NOLINTNEXTLINE(bugprone-branch-clone)
         case 1: rval = kOCTCancel;    break;    // "Edit" is done already
@@ -2035,7 +2037,7 @@ OkCancelType ChannelImporter::ShowResolveChannelPopup(
     MythMainWindow *parent, const QString& title,
     const QString& message, QString &text)
 {
-    int dc = -1;
+    m_functorRetval = -1;
     MythScreenStack *popupStack = parent->GetStack("popup stack");
     auto *popup = new MythDialogBox(title, message, popupStack,
                                     "resolvechannelpopup");
@@ -2047,10 +2049,10 @@ OkCancelType ChannelImporter::ShowResolveChannelPopup(
         popup->AddButton(tr("Edit"));
         popup->AddButton(QCoreApplication::translate("(Common)", "Cancel"));
         popup->AddButton(QCoreApplication::translate("(Common)", "Cancel All"));
-        QObject::connect(popup, &MythDialogBox::Closed,
-                         [&](const QString & /*resultId*/, int result)
+        QObject::connect(popup, &MythDialogBox::Closed, this,
+                         [this](const QString & /*resultId*/, int result)
                          {
-                             dc = result;
+                             m_functorRetval = result;
                              m_eventLoop.quit();
                          });
         popupStack->AddScreen(popup);
@@ -2063,7 +2065,7 @@ OkCancelType ChannelImporter::ShowResolveChannelPopup(
     }
 
     // Choice "Edit"
-    if (2 == dc)
+    if (2 == m_functorRetval)
     {
         auto *textEdit =
             new MythTextInputDialog(popupStack,
@@ -2071,14 +2073,14 @@ OkCancelType ChannelImporter::ShowResolveChannelPopup(
                                     FilterNone, false, text);
         if (textEdit->Create())
         {
-            QObject::connect(textEdit, &MythTextInputDialog::haveResult,
-                             [&](QString result)
+            QObject::connect(textEdit, &MythTextInputDialog::haveResult, this,
+                             [this,&text](QString result)
                              {
-                                 dc = 0;
+                                 m_functorRetval = 0;
                                  text = std::move(result);
                              });
-            QObject::connect(textEdit, &MythTextInputDialog::Exiting,
-                             [&]()
+            QObject::connect(textEdit, &MythTextInputDialog::Exiting, this,
+                             [this]()
                              {
                                  m_eventLoop.quit();
                              });
@@ -2091,7 +2093,7 @@ OkCancelType ChannelImporter::ShowResolveChannelPopup(
     }
 
     OkCancelType rval = kOCTCancel;
-    switch (dc) {
+    switch (m_functorRetval) {
         case 0: rval = kOCTOk;        break;
         case 1: rval = kOCTOkAll;     break;
         // NOLINTNEXTLINE(bugprone-branch-clone)
@@ -2140,7 +2142,7 @@ OkCancelType ChannelImporter::QueryUserResolve(
     }
     else if (m_isInteractive)
     {
-        cout << msg.toLatin1().constData() << endl;
+        std::cout << msg.toLatin1().constData() << std::endl;
 
         QString cancelStr = QCoreApplication::translate("(Common)",
                                                         "Cancel").toLower();
@@ -2152,9 +2154,9 @@ OkCancelType ChannelImporter::QueryUserResolve(
 
         while (true)
         {
-            cout << msg2.toLatin1().constData() << endl;
-            string sret;
-            cin >> sret;
+            std::cout << msg2.toLatin1().constData() << std::endl;
+            std::string sret;
+            std::cin >> sret;
             QString val = QString(sret.c_str());
             if (val.toLower() == cancelStr)
             {
@@ -2218,7 +2220,7 @@ OkCancelType ChannelImporter::QueryUserInsert(
     }
     else if (m_isInteractive)
     {
-        cout << msg.toLatin1().constData() << endl;
+        std::cout << msg.toLatin1().constData() << std::endl;
 
         QString cancelStr    = QCoreApplication::translate("(Common)", "Cancel").toLower();
         QString cancelAllStr = QCoreApplication::translate("(Common)", "Cancel All").toLower();
@@ -2230,9 +2232,9 @@ OkCancelType ChannelImporter::QueryUserInsert(
 
         while (true)
         {
-            cout << msg2.toLatin1().constData() << endl;
-            string sret;
-            cin >> sret;
+            std::cout << msg2.toLatin1().constData() << std::endl;
+            std::string sret;
+            std::cin >> sret;
             QString val = QString(sret.c_str());
             if (val.toLower() == cancelStr)
             {

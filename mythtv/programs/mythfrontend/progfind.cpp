@@ -52,6 +52,17 @@ void RunProgramFinder(TV *player, bool embedVideo, bool allowEPG)
         delete programFind;
 }
 
+ProgFinder::ProgFinder(MythScreenStack *parentStack, bool allowEPG ,
+                       TV *player, bool embedVideo)
+  : ScheduleCommon(parentStack, "ProgFinder"),
+    m_player(player),
+    m_embedVideo(embedVideo),
+    m_allowEPG(allowEPG)
+{
+    if (m_player)
+        m_player->IncrRef();
+}
+
 bool ProgFinder::Create()
 {
     if (!LoadWindowFromXML("schedule-ui.xml", "programfind", this))
@@ -80,7 +91,7 @@ bool ProgFinder::Create()
     LoadInBackground();
 
     if (m_player)
-        m_player->StartEmbedding(QRect());
+        emit m_player->RequestEmbedding(true);
 
     return true;
 }
@@ -93,21 +104,21 @@ void ProgFinder::Init(void)
 
     gCoreContext->addListener(this);
 
-    connect(m_timesList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(updateInfo()));
-    connect(m_timesList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            SLOT(select()));
-    connect(m_timesList, SIGNAL(LosingFocus()), SLOT(timesListLosingFocus()));
-    connect(m_timesList, SIGNAL(TakingFocus()), SLOT(timesListTakeFocus()));
+    connect(m_timesList, &MythUIButtonList::itemSelected,
+            this, &ProgFinder::updateInfo);
+    connect(m_timesList, &MythUIButtonList::itemClicked,
+            this, &ProgFinder::select);
+    connect(m_timesList, &MythUIType::LosingFocus, this, &ProgFinder::timesListLosingFocus);
+    connect(m_timesList, &MythUIType::TakingFocus, this, &ProgFinder::timesListTakeFocus);
 
-    connect(m_alphabetList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(alphabetListItemSelected(MythUIButtonListItem*)));
-    connect(m_alphabetList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            SLOT(select()));
+    connect(m_alphabetList, &MythUIButtonList::itemSelected,
+            this, &ProgFinder::alphabetListItemSelected);
+    connect(m_alphabetList, &MythUIButtonList::itemClicked,
+            this, &ProgFinder::select);
 
-    connect(m_showList, SIGNAL(TakingFocus()), SLOT(showListTakeFocus()));
-    connect(m_showList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            SLOT(select()));
+    connect(m_showList, &MythUIType::TakingFocus, this, &ProgFinder::showListTakeFocus);
+    connect(m_showList, &MythUIButtonList::itemClicked,
+            this, &ProgFinder::select);
 
     m_alphabetList->MoveToNamedPosition("A");
 }
@@ -118,10 +129,11 @@ ProgFinder::~ProgFinder()
 
     // if we have a player and we are returning to it we need
     // to tell it to stop embedding and return to fullscreen
-    if (m_player && m_allowEPG)
+    if (m_player)
     {
-        QString message = QString("PROGFINDER_EXITING");
-        QCoreApplication::postEvent(m_player, new MythEvent(message));
+        if (m_allowEPG)
+            emit m_player->RequestEmbedding(false);
+        m_player->DecrRef();
     }
 }
 
@@ -1053,13 +1065,13 @@ bool SearchInputDialog::Create(void)
     }
 
     if (cancelButton)
-        connect(cancelButton, SIGNAL(Clicked()), SLOT(Close()));
-    connect(okButton, SIGNAL(Clicked()), SLOT(sendResult()));
+        connect(cancelButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
+    connect(okButton, &MythUIButton::Clicked, this, &SearchInputDialog::sendResult);
 
     m_textEdit->SetFilter(m_filter);
     m_textEdit->SetText(m_defaultValue);
     m_textEdit->SetPassword(m_isPassword);
-    connect(m_textEdit, SIGNAL(valueChanged()), SLOT(editChanged()));
+    connect(m_textEdit, &MythUITextEdit::valueChanged, this, &SearchInputDialog::editChanged);
 
     BuildFocusList();
 

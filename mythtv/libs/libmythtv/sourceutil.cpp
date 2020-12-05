@@ -145,7 +145,7 @@ uint SourceUtil::GetChannelCount(uint sourceid)
     return 0;
 }
 
-vector<uint> SourceUtil::GetMplexIDs(uint sourceid)
+std::vector<uint> SourceUtil::GetMplexIDs(uint sourceid)
 {
     MSqlQuery query(MSqlQuery::InitCon());
 
@@ -155,7 +155,7 @@ vector<uint> SourceUtil::GetMplexIDs(uint sourceid)
         "WHERE sourceid = :SOURCEID");
     query.bindValue(":SOURCEID", sourceid);
 
-    vector<uint> list;
+    std::vector<uint> list;
     if (!query.exec())
     {
         MythDB::DBError("SourceUtil::GetMplexIDs()", query);
@@ -306,11 +306,9 @@ bool SourceUtil::IsProperlyConnected(uint sourceid, bool strict)
 
 bool SourceUtil::IsEncoder(uint sourceid, bool strict)
 {
-    bool encoder = true;
-
     QStringList types = get_inputtypes(sourceid);
-    for (const auto & type : qAsConst(types))
-        encoder &= CardUtil::IsEncoder(type);
+    auto isencoder = [](const auto & type){ return CardUtil::IsEncoder(type); };
+    bool encoder = std::all_of(types.cbegin(), types.cend(), isencoder);
 
     // Source is connected, go by input types for type determination
     if (!types.empty())
@@ -342,26 +340,20 @@ bool SourceUtil::IsEncoder(uint sourceid, bool strict)
 
 bool SourceUtil::IsUnscanable(uint sourceid)
 {
-    bool unscanable = true;
     QStringList types = get_inputtypes(sourceid);
-    for (const auto & type : qAsConst(types))
-        unscanable &= CardUtil::IsUnscanable(type);
-
-    return types.empty() || unscanable;
+    if (types.empty())
+        return true;
+    auto unscannable = [](const auto & type) { return CardUtil::IsUnscanable(type); };
+    return std::all_of(types.cbegin(), types.cend(), unscannable);
 }
 
 bool SourceUtil::IsCableCardPresent(uint sourceid)
 {
-    bool ccpresent = false;
-    vector<uint> inputs = CardUtil::GetInputIDs(sourceid);
-    for (uint & input : inputs)
-    {
-        if (CardUtil::IsCableCardPresent(input, CardUtil::GetRawInputType(input))
-            || CardUtil::GetRawInputType(input) == "HDHOMERUN")
-            ccpresent = true;
-    }
-
-    return ccpresent;
+    std::vector<uint> inputs = CardUtil::GetInputIDs(sourceid);
+    auto ccpresent = [](uint input)
+        { return CardUtil::IsCableCardPresent(input, CardUtil::GetRawInputType(input)) ||
+                 CardUtil::GetRawInputType(input) == "HDHOMERUN"; };
+    return std::any_of(inputs.cbegin(), inputs.cend(), ccpresent);
 }
 
 bool SourceUtil::IsAnySourceScanable(void)
@@ -597,8 +589,18 @@ bool SourceUtil::DeleteAllSources(void)
         return false;
     }
 
-    return (query.exec("TRUNCATE TABLE channel") &&
-            query.exec("TRUNCATE TABLE program") &&
+    // Delete all channels
+    query.prepare("UPDATE channel "
+                  "SET deleted = NOW(), mplexid = 0, sourceid = 0 "
+                  "WHERE deleted IS NULL");
+
+    if (!query.exec() || !query.isActive())
+    {
+        MythDB::DBError("Deleting all Channels", query);
+        return false;
+    }
+
+    return (query.exec("TRUNCATE TABLE program") &&
             query.exec("TRUNCATE TABLE videosource") &&
             query.exec("TRUNCATE TABLE credits") &&
             query.exec("TRUNCATE TABLE programrating") &&

@@ -4,7 +4,6 @@
 #define IPTVSTREAMHANDLER_H
 
 #include <vector>
-using namespace std;
 
 #include <QHostAddress>
 #include <QUdpSocket>
@@ -27,7 +26,7 @@ class MPEGStreamData;
 class PacketBuffer;
 class IPTVChannel;
 
-class IPTVStreamHandlerReadHelper : QObject
+class IPTVStreamHandlerReadHelper : public QObject
 {
     Q_OBJECT
 
@@ -89,7 +88,7 @@ class IPTVStreamHandler : public StreamHandler
     void AddListener(MPEGStreamData *data,
                      bool /*allow_section_reader*/ = false,
                      bool /*needs_drb*/            = false,
-                     QString output_file           = QString()) override // StreamHandler
+                     const QString& output_file    = QString()) override // StreamHandler
     {
         // Force allow_section_reader and needs_buffering to false;
         StreamHandler::AddListener(data, false, false, output_file);

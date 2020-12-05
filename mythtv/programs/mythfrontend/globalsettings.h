@@ -38,7 +38,7 @@ class PlaybackSettings : public GroupSetting
     void Load(void) override; // StandardSetting
 
   private slots:
-    void NewPlaybackProfileSlot(void);
+    void NewPlaybackProfileSlot(void) const;
     void CreateNewPlaybackProfileSlot(const QString &name);
 
   private:
@@ -138,7 +138,7 @@ class AppearanceSettings : public GroupSetting
 
   public:
     AppearanceSettings();
-   ~AppearanceSettings() override;
+   ~AppearanceSettings() override = default;
     void applyChange() override; // GroupSetting
 
   public slots:
@@ -163,7 +163,7 @@ class HostRefreshRateComboBoxSetting : public HostComboBoxSetting
     virtual void ChangeResolution(StandardSetting *setting);
 
   private:
-    static vector<double> GetRefreshRates(const QString &resolution);
+    static std::vector<double> GetRefreshRates(const QString &resolution);
 };
 
 class MainGeneralSettings : public GroupSetting
@@ -207,7 +207,7 @@ class PlaybackProfileItemConfig : public GroupSetting
 
     bool keyPressEvent(QKeyEvent *e) override; // StandardSetting
     uint GetIndex(void) const;
-    void ShowDeleteDialog(void);
+    void ShowDeleteDialog(void) const;
     void DecreasePriority(void);
     void IncreasePriority(void);
 
@@ -272,15 +272,15 @@ class PlaybackProfileConfig : public GroupSetting
 
   private:
     void ReloadSettings(void);
-    vector<ProfileItem> m_items;
-    vector<ProfileItem> m_delItems;
+    std::vector<ProfileItem> m_items;
+    std::vector<ProfileItem> m_delItems;
     QString     m_profileName;
     uint        m_groupId {0};
 
     TransMythUICheckBoxSetting *m_markForDeletion {nullptr};
     ButtonStandardSetting      *m_addNewEntry     {nullptr};
-    vector<PlaybackProfileItemConfig*> m_profiles;
-    vector<TransMythUISpinBoxSetting*> m_priority;
+    std::vector<PlaybackProfileItemConfig*> m_profiles;
+    std::vector<TransMythUISpinBoxSetting*> m_priority;
 };
 
 class ChannelGroupSetting : public GroupSetting
@@ -308,7 +308,7 @@ class ChannelGroupsSetting : public GroupSetting
     void Load() override; // StandardSetting
 
   public slots:
-    void ShowNewGroupDialog(void);
+    void ShowNewGroupDialog(void) const;
     void CreateNewGroup(const QString& name);
 
   private:

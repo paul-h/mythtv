@@ -40,7 +40,7 @@ bool GlobalSetup::Create()
     BuildFocusList();
 
     m_finishButton->SetText(tr("Finish"));
-    connect(m_finishButton, SIGNAL(Clicked()), this, SLOT(saveData()));
+    connect(m_finishButton, &MythUIButton::Clicked, this, &GlobalSetup::saveData);
 
     loadData();
 
@@ -137,19 +137,19 @@ bool ScreenSetup::Create()
 
     BuildFocusList();
 
-    connect(m_activeList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            this, SLOT(updateHelpText()));
-    connect(m_activeList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            this, SLOT(doListSelect(MythUIButtonListItem *)));
-    connect(m_inactiveList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            this, SLOT(updateHelpText()));
-    connect(m_inactiveList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            this, SLOT(doListSelect(MythUIButtonListItem *)));
+    connect(m_activeList, &MythUIButtonList::itemSelected,
+            this, &ScreenSetup::updateHelpText);
+    connect(m_activeList, &MythUIButtonList::itemClicked,
+            this, &ScreenSetup::doListSelect);
+    connect(m_inactiveList, &MythUIButtonList::itemSelected,
+            this, &ScreenSetup::updateHelpText);
+    connect(m_inactiveList, &MythUIButtonList::itemClicked,
+            this, &ScreenSetup::doListSelect);
 
     SetFocusWidget(m_inactiveList);
 
     m_finishButton->SetText(tr("Finish"));
-    connect(m_finishButton, SIGNAL(Clicked()), this, SLOT(saveData()));
+    connect(m_finishButton, &MythUIButton::Clicked, this, &ScreenSetup::saveData);
 
     loadData();
 
@@ -470,13 +470,13 @@ void ScreenSetup::doListSelect(MythUIButtonListItem *selected)
 
             menuPopup->SetReturnEvent(this, "options");
 
-            menuPopup->AddButton(tr("Move Up"), QVariant::fromValue(selected));
-            menuPopup->AddButton(tr("Move Down"), QVariant::fromValue(selected));
-            menuPopup->AddButton(tr("Remove"), QVariant::fromValue(selected));
-            menuPopup->AddButton(tr("Change Location"), QVariant::fromValue(selected));
+            menuPopup->AddButtonV(tr("Move Up"), QVariant::fromValue(selected));
+            menuPopup->AddButtonV(tr("Move Down"), QVariant::fromValue(selected));
+            menuPopup->AddButtonV(tr("Remove"), QVariant::fromValue(selected));
+            menuPopup->AddButtonV(tr("Change Location"), QVariant::fromValue(selected));
             if (si->m_hasUnits)
-                menuPopup->AddButton(tr("Change Units"), QVariant::fromValue(selected));
-            menuPopup->AddButton(tr("Cancel"), QVariant::fromValue(selected));
+                menuPopup->AddButtonV(tr("Change Units"), QVariant::fromValue(selected));
+            menuPopup->AddButtonV(tr("Cancel"), QVariant::fromValue(selected));
         }
         else
         {
@@ -548,8 +548,8 @@ void ScreenSetup::showUnitsPopup(const QString &name, ScreenListInfo *si)
 
         menuPopup->SetReturnEvent(this, "units");
 
-        menuPopup->AddButton(tr("English Units"), QVariant::fromValue(si));
-        menuPopup->AddButton(tr("SI Units"), QVariant::fromValue(si));
+        menuPopup->AddButtonV(tr("English Units"), QVariant::fromValue(si));
+        menuPopup->AddButtonV(tr("SI Units"), QVariant::fromValue(si));
     }
     else
     {
@@ -645,11 +645,10 @@ void ScreenSetup::customEvent(QEvent *event)
         {
             auto *si = dce->GetData().value<ScreenListInfo *>();
 
-            for (const auto & type : qAsConst(si->m_types))
-            {
-                if (type.m_location.isEmpty())
-                    return;
-            }
+            auto emptyloc = [](const auto & type)
+                { return type.m_location.isEmpty(); };
+            if (std::any_of(si->m_types.cbegin(), si->m_types.cend(), emptyloc))
+                return;
 
             if (si->m_updating)
             {
@@ -714,25 +713,25 @@ bool SourceSetup::Create()
     BuildFocusList();
     SetFocusWidget(m_sourceList);
 
-    connect(m_sourceList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            SLOT(sourceListItemSelected(MythUIButtonListItem *)));
+    connect(m_sourceList, &MythUIButtonList::itemSelected,
+            this, qOverload<MythUIButtonListItem *>(&SourceSetup::sourceListItemSelected));
 #if 0
-    connect(m_sourceList, SIGNAL(TakingFocus()),
-            this, SLOT(sourceListItemSelected()));
+    connect(m_sourceList, &MythUIButtonList::TakingFocus,
+            this, qOverload<>(&SourceSetup::sourceListItemSelected));
 #endif
 
     // 12 Hour max interval
     m_updateSpinbox->SetRange(10, 720, 10);
-    connect(m_updateSpinbox, SIGNAL(LosingFocus()),
-            SLOT(updateSpinboxUpdate()));
+    connect(m_updateSpinbox, &MythUIType::LosingFocus,
+            this, &SourceSetup::updateSpinboxUpdate);
 
     // 2 Minute retrieval timeout max
     m_retrieveSpinbox->SetRange(10, 120, 5);
-    connect(m_retrieveSpinbox, SIGNAL(LosingFocus()),
-            SLOT(retrieveSpinboxUpdate()));
+    connect(m_retrieveSpinbox, &MythUIType::LosingFocus,
+            this, &SourceSetup::retrieveSpinboxUpdate);
 
     m_finishButton->SetText(tr("Finish"));
-    connect(m_finishButton, SIGNAL(Clicked()), SLOT(saveData()));
+    connect(m_finishButton, &MythUIButton::Clicked, this, &SourceSetup::saveData);
 
     loadData();
 
@@ -897,12 +896,12 @@ bool LocationDialog::Create()
     BuildFocusList();
     SetFocusWidget(m_locationEdit);
 
-    connect(m_searchButton, SIGNAL(Clicked()), this, SLOT(doSearch()));
+    connect(m_searchButton, &MythUIButton::Clicked, this, &LocationDialog::doSearch);
     m_searchButton->SetText(tr("Search"));
-    connect(m_locationList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            this, SLOT(itemSelected(MythUIButtonListItem *)));
-    connect(m_locationList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            this, SLOT(itemClicked(MythUIButtonListItem *)));
+    connect(m_locationList, &MythUIButtonList::itemSelected,
+            this, &LocationDialog::itemSelected);
+    connect(m_locationList, &MythUIButtonList::itemClicked,
+            this, &LocationDialog::itemClicked);
 
     return true;
 }

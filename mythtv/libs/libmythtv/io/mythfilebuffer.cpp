@@ -456,7 +456,7 @@ int MythFileBuffer::SafeRead(int /*fd*/, void *Buffer, uint Size)
             }
             else
             {
-                toread  = static_cast<uint>(min(sb.st_size - (m_internalReadPos + tot), static_cast<long long>(toread)));
+                toread  = static_cast<uint>(std::min(sb.st_size - (m_internalReadPos + tot), static_cast<long long>(toread)));
                 if (toread < (Size - tot))
                 {
                     eof = true;
@@ -535,7 +535,8 @@ int MythFileBuffer::SafeRead(RemoteFile *Remote, void *Buffer, uint Size)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "safe_read(RemoteFile* ...): read failed");
         m_posLock.lockForRead();
-        Remote->Seek(m_internalReadPos - m_readAdjust, SEEK_SET);
+        if (Remote->Seek(m_internalReadPos - m_readAdjust, SEEK_SET) < 0)
+            LOG(VB_GENERAL, LOG_ERR, LOC + "safe_read() failed to seek reset");
         m_posLock.unlock();
         m_numFailures++;
     }
@@ -620,10 +621,10 @@ long long MythFileBuffer::SeekInternal(long long Position, int Whence)
         if ((newposition < m_readPos))
         {
             // Seeking to earlier than current buffer's start, but still in buffer
-            int min_safety = max(m_fillMin, m_readBlockSize);
+            int min_safety = std::max(m_fillMin, m_readBlockSize);
             int free = ((m_rbwPos >= m_rbrPos) ? m_rbrPos + static_cast<int>(m_bufferSize) : m_rbrPos) - m_rbwPos;
             int internal_backbuf = (m_rbwPos >= m_rbrPos) ? m_rbrPos : m_rbrPos - m_rbwPos;
-            internal_backbuf = min(internal_backbuf, free - min_safety);
+            internal_backbuf = std::min(internal_backbuf, free - min_safety);
             long long sba = m_readPos - newposition;
             LOG(VB_FILE, LOG_INFO, LOC + QString("Seek(): internal_backbuf: %1 sba: %2")
                     .arg(internal_backbuf).arg(sba));

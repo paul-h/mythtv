@@ -15,12 +15,12 @@ class MythVTBInterop : public MythOpenGLInterop
     static MythVTBInterop* Create(MythRenderOpenGL *Context, MythOpenGLInterop::Type Type);
     vector<MythVideoTexture*> Acquire(MythRenderOpenGL *Context,
                                       MythVideoColourSpace *ColourSpace,
-                                      VideoFrame       *Frame,
+                                      MythVideoFrame       *Frame,
                                       FrameScanType    Scan) override;
 
   protected:
     CVPixelBufferRef Verify(MythRenderOpenGL *Context, MythVideoColourSpace *ColourSpace,
-                            VideoFrame *Frame);
+                            MythVideoFrame *Frame);
     static Type GetInteropType(VideoFrameType Format);
     MythVTBInterop(MythRenderOpenGL *Context, MythOpenGLInterop::Type Type);
    ~MythVTBInterop() override;
@@ -29,12 +29,12 @@ class MythVTBInterop : public MythOpenGLInterop
 class MythVTBSurfaceInterop : public MythVTBInterop
 {
   public:
-    MythVTBSurfaceInterop(MythRenderOpenGL *Context);
+    explicit MythVTBSurfaceInterop(MythRenderOpenGL *Context);
    ~MythVTBSurfaceInterop() override;
 
     vector<MythVideoTexture*> Acquire(MythRenderOpenGL *Context,
                                       MythVideoColourSpace *ColourSpace,
-                                      VideoFrame       *Frame,
+                                      MythVideoFrame       *Frame,
                                       FrameScanType     Scan) override;
 
   private:

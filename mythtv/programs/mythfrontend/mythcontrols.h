@@ -91,7 +91,7 @@ class MythControls : public MythScreenType
                             bool arrows = false);
     void    UpdateRightList(void);
 
-    void GrabKey(void);
+    void GrabKey(void) const;
     void DeleteKey(void);
     void Save(void) { m_bindings->CommitChanges(); }
 
@@ -110,7 +110,8 @@ class MythControls : public MythScreenType
     void RightPressed(MythUIButtonListItem *item);
     void ActionButtonPressed();
     void RefreshKeyInformation(void);
-    void AddKeyToAction(const QString& key, bool ignoreconflict = false);
+    void AddKeyToAction(const QString& key, bool ignoreconflict);
+    void AddKeyToAction(const QString& key);
 
   private:
     void ShowMenu(void) override; // MythScreenType

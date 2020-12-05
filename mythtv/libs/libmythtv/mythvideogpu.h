@@ -33,14 +33,11 @@ class MythVideoGPU : public QObject
 
     MythVideoGPU(MythRender* Render, MythVideoColourSpace* ColourSpace,
                  MythVideoBounds* Bounds, QString Profile);
-    MythVideoGPU(MythRender* Render, MythVideoColourSpace* ColourSpace,
-                 QSize VideoDim, QSize VideoDispDim, QRect DisplayVisibleRect,
-                 QRect DisplayVideoRect, QRect VideoRect, QString Profile);
    ~MythVideoGPU() override;
 
     virtual void StartFrame        () = 0;
-    virtual void PrepareFrame      (VideoFrame* Frame, FrameScanType Scan = kScan_Progressive) = 0;
-    virtual void RenderFrame       (VideoFrame* Frame, bool TopFieldFirst, FrameScanType Scan,
+    virtual void PrepareFrame      (MythVideoFrame* Frame, FrameScanType Scan = kScan_Progressive) = 0;
+    virtual void RenderFrame       (MythVideoFrame* Frame, bool TopFieldFirst, FrameScanType Scan,
                                     StereoscopicMode StereoOverride, bool DrawBorder = false) = 0;
     virtual void EndFrame          () = 0;
     virtual void ResetFrameFormat  ();
@@ -57,17 +54,15 @@ class MythVideoGPU : public QObject
 
   public slots:
     void         UpdateColourSpace (bool PrimariesChanged);
-    void         SetVideoDimensions(const QSize& VideoDim, const QSize& VideoDispDim);
-    void         SetVideoRects     (const QRect& DisplayVideoRect, const QRect& VideoRect);
-    void         SetViewportRect   (const QRect& DisplayVisibleRect);
+    void         SetVideoDimensions(QSize VideoDim, QSize VideoDispDim);
+    void         SetVideoRects     (QRect DisplayVideoRect, QRect VideoRect);
+    void         SetViewportRect   (QRect DisplayVisibleRect);
 
   protected:
     virtual void ColourSpaceUpdate (bool PrimariesChanged) = 0;
-    virtual void Init              () = 0;
-    void         CommonInit        ();
 
     MythRender*       m_render               { nullptr };
-    long long         m_discontinuityCounter { 0 };
+    uint64_t          m_discontinuityCounter { 0 };
     QString           m_profile;
     VideoFrameType    m_inputType            { FMT_NONE };
     VideoFrameType    m_outputType           { FMT_NONE };
@@ -76,7 +71,7 @@ class MythVideoGPU : public QObject
     QSize             m_masterViewportSize;
     QRect             m_displayVideoRect;
     QRect             m_videoRect;
-    MythVideoColourSpace* m_videoColourSpace     { nullptr };
+    MythVideoColourSpace* m_videoColourSpace { nullptr };
     QSize             m_inputTextureSize;
     VideoResizing     m_resizing             { None };
     int               m_lastRotation         { 0 };
@@ -84,6 +79,7 @@ class MythVideoGPU : public QObject
     bool              m_deinterlacer2x       { false };
     bool              m_valid                { false };
     bool              m_viewportControl      { true };
+    uint              m_lastStereo           { 0 }; // AV_STEREO3D_2D
     StereoscopicMode  m_stereoMode           { kStereoscopicModeSideBySideDiscard };
 };
 

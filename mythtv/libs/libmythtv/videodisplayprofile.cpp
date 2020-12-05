@@ -197,7 +197,7 @@ bool ProfileItem::CheckRange(const QString& Key,
     return match;
 }
 
-bool ProfileItem::IsMatch(const QSize &Size, float Framerate, const QString &CodecName,
+bool ProfileItem::IsMatch(QSize Size, float Framerate, const QString &CodecName,
                           const QStringList &DisallowedDecoders) const
 {
     bool match = true;
@@ -356,7 +356,7 @@ VideoDisplayProfile::VideoDisplayProfile()
     }
 }
 
-void VideoDisplayProfile::SetInput(const QSize &Size, float Framerate, const QString &CodecName,
+void VideoDisplayProfile::SetInput(QSize Size, float Framerate, const QString &CodecName,
                                    const QStringList &DisallowedDecoders)
 {
     QMutexLocker locker(&m_lock);
@@ -463,10 +463,10 @@ bool VideoDisplayProfile::CheckVideoRendererGroup(const QString &Renderer)
         QString("Preferred video renderer: %1 (current: %2)")
                 .arg(Renderer).arg(m_lastVideoRenderer));
 
-    for (const auto& group : qAsConst(s_safe_renderer_group))
-        if (group.contains(m_lastVideoRenderer) && group.contains(Renderer))
-            return true;
-    return false;
+    return std::any_of(s_safe_renderer_group.cbegin(), s_safe_renderer_group.cend(),
+                       [this,Renderer](const auto& group)
+                           { return group.contains(m_lastVideoRenderer) &&
+                                    group.contains(Renderer); } );
 }
 
 bool VideoDisplayProfile::IsDecoderCompatible(const QString &Decoder) const
@@ -502,7 +502,7 @@ void VideoDisplayProfile::SetPreference(const QString &Key, const QString &Value
 }
 
 vector<ProfileItem>::const_iterator VideoDisplayProfile::FindMatch
-    (const QSize &Size, float Framerate, const QString &CodecName, const QStringList& DisallowedDecoders)
+    (const QSize Size, float Framerate, const QString &CodecName, const QStringList& DisallowedDecoders)
 {
     for (auto it = m_allowedPreferences.cbegin(); it != m_allowedPreferences.cend(); ++it)
         if ((*it).IsMatch(Size, Framerate, CodecName, DisallowedDecoders))
@@ -511,7 +511,7 @@ vector<ProfileItem>::const_iterator VideoDisplayProfile::FindMatch
 }
 
 void VideoDisplayProfile::LoadBestPreferences
-    (const QSize &Size, float Framerate, const QString &CodecName, const QStringList &DisallowedDecoders)
+    (const QSize Size, float Framerate, const QString &CodecName, const QStringList &DisallowedDecoders)
 {
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("LoadBestPreferences(%1x%2, %3, %4)")
         .arg(Size.width()).arg(Size.height())
@@ -770,13 +770,8 @@ QStringList VideoDisplayProfile::GetDecoders(void)
 QStringList VideoDisplayProfile::GetDecoderNames(void)
 {
     InitStatics();
-    QStringList list;
-
-    const QStringList decs = GetDecoders();
-    for (const auto& dec : qAsConst(decs))
-        list += GetDecoderName(dec);
-
-    return list;
+    return std::accumulate(s_safe_decoders.cbegin(), s_safe_decoders.cend(), QStringList{},
+        [](QStringList Res, const QString& Dec) { return Res << GetDecoderName(Dec); });
 }
 
 QString VideoDisplayProfile::GetDecoderName(const QString &Decoder)

@@ -246,12 +246,28 @@ int DeviceManager::LocateMount(const QString &mount) const
 StringMap DeviceManager::GetDeviceDirs() const
 {
     StringMap paths;
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
     for (int id : m_devices.keys())
     {
         Device *dev = m_devices.value(id);
         if (dev)
             paths.insert(id, dev->m_mount);
     }
+#elif QT_VERSION < QT_VERSION_CHECK(5,15,0)
+    for (auto it = m_devices.constKeyValueBegin();
+         it != m_devices.constKeyValueEnd(); ++it)
+    {
+        if ((*it).second)
+            paths.insert((*it).first, (*it).second->m_mount);
+    }
+#else
+    for (auto it = m_devices.constKeyValueBegin();
+         it != m_devices.constKeyValueEnd(); ++it)
+    {
+        if (it->second)
+            paths.insert(it->first, it->second->m_mount);
+    }
+#endif
     return paths;
 }
 
@@ -260,12 +276,30 @@ StringMap DeviceManager::GetDeviceDirs() const
 QList<int> DeviceManager::GetAbsentees()
 {
     QList<int> absent;
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
     for (int id : m_devices.keys())
     {
         Device *dev = m_devices.value(id);
         if (dev && !dev->isPresent())
             absent << id;
     }
+#elif QT_VERSION < QT_VERSION_CHECK(5,15,0)
+    for (auto it = m_devices.constKeyValueBegin();
+         it != m_devices.constKeyValueEnd(); it++)
+    {
+        Device *dev = (*it).second;
+        if (dev && !dev->isPresent())
+            absent << (*it).first;
+    }
+#else
+    for (auto it = m_devices.constKeyValueBegin();
+         it != m_devices.constKeyValueEnd(); it++)
+    {
+        Device *dev = it->second;
+        if (dev && !dev->isPresent())
+            absent << it->first;
+    }
+#endif
     return absent;
 }
 
@@ -279,7 +313,8 @@ ImageAdapterBase::ImageAdapterBase() :
 {
     // Generate glob list from supported extensions
     QStringList glob;
-    for (const auto& ext : (m_imageFileExt + m_videoFileExt))
+    QStringList allExt = m_imageFileExt + m_videoFileExt;
+    for (const auto& ext : qAsConst(allExt))
         glob << "*." + ext;
 
     // Apply filters to only detect image files
@@ -562,7 +597,7 @@ int ImageDb<FS>::GetImages(const QString &ids, ImageList &files, ImageList &dirs
  \return int Number of items matching query, -1 on SQL error
 */
 template <class FS>
-int ImageDb<FS>::GetChildren(QString ids, ImageList &files, ImageList &dirs,
+int ImageDb<FS>::GetChildren(const QString &ids, ImageList &files, ImageList &dirs,
                 const QString &refine) const
 {
     QString select = QString("dir_id IN (%1) %2").arg(FS::DbIds(ids), refine);
@@ -889,7 +924,7 @@ QStringList ImageDb<FS>::RemoveFromDB(const ImageList &imList) const
  * \return bool False if db update failed
  */
 template <class FS>
-bool ImageDb<FS>::SetHidden(bool hide, QString ids) const
+bool ImageDb<FS>::SetHidden(bool hide, const QString &ids) const
 {
     if (ids.isEmpty())
         return false;

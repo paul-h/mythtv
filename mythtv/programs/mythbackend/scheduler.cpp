@@ -4,8 +4,6 @@
 #include <chrono> // for milliseconds
 #include <thread> // for sleep_for
 
-using namespace std;
-
 #ifdef __linux__
 #  include <sys/vfs.h>
 #else // if !__linux__
@@ -65,8 +63,7 @@ Scheduler::Scheduler(bool runthread, QMap<int, EncoderLink *> *tvList,
     m_doRun(runthread),
     m_openEnd(openEndNever)
 {
-    char *debug = getenv("DEBUG_CONFLICTS");
-    debugConflicts = (debug != nullptr);
+    debugConflicts = qEnvironmentVariableIsSet("DEBUG_CONFLICTS");
 
     if (master_sched)
         master_sched->GetAllPending(m_recList);
@@ -1073,7 +1070,8 @@ bool Scheduler::FindNextConflict(
     const RecordingInfo *p,
     RecConstIter      &iter,
     OpenEndType        openEnd,
-    uint              *paffinity) const
+    uint              *paffinity,
+    bool              ignoreinput) const
 {
     uint affinity = 0;
     for ( ; iter != cardlist.end(); ++iter)
@@ -1090,7 +1088,7 @@ bool Scheduler::FindNextConflict(
         if (debugConflicts)
             msg = QString("comparing with '%1' ").arg(q->GetTitle());
 
-        if (p->GetInputID() != q->GetInputID())
+        if (p->GetInputID() != q->GetInputID() && !ignoreinput)
         {
             const vector <uint> &conflicting_inputs =
                 m_sinputInfoMap[p->GetInputID()].m_conflictingInputs;
@@ -1723,7 +1721,8 @@ void Scheduler::getConflicting(RecordingInfo *pginfo, RecList *retlist)
     QReadLocker tvlocker(&TVRec::s_inputsLock);
 
     auto i = m_recList.cbegin();
-    for (; FindNextConflict(m_recList, pginfo, i); ++i)
+    for (; FindNextConflict(m_recList, pginfo, i, openEndNever,
+                            nullptr, true); ++i)
     {
         const RecordingInfo *p = *i;
         retlist->push_back(new RecordingInfo(*p));
@@ -2059,12 +2058,12 @@ void Scheduler::run(void)
             m_recListChanged = false;
         }
 
-        nextWakeTime = min(nextWakeTime, nextStartTime);
+        nextWakeTime = std::min(nextWakeTime, nextStartTime);
         QDateTime curtime = MythDate::current();
         int secs_to_next = curtime.secsTo(nextStartTime);
-        int sched_sleep = max(curtime.msecsTo(nextWakeTime), qint64(0));
+        int sched_sleep = std::max(curtime.msecsTo(nextWakeTime), qint64(0));
         if (idleTimeoutSecs > 0)
-            sched_sleep = min(sched_sleep, 15000);
+            sched_sleep = std::min(sched_sleep, 15000);
         bool haveRequests = HaveQueuedRequests();
         int const kSleepCheck = 300;
         bool checkSlaves = curtime >= nextSleepCheck;
@@ -2108,7 +2107,7 @@ void Scheduler::run(void)
                     startIter = m_recList.begin();
                 }
                 int elapsed = (t.elapsed() + 999) / 1000;
-                schedRunTime = max(static_cast<int>(elapsed * 1.5 + 2),
+                schedRunTime = std::max(static_cast<int>(elapsed * 1.5 + 2),
                                    schedRunTime);
             }
 
@@ -2638,12 +2637,12 @@ bool Scheduler::HandleRecording(
         // nothing later can shorten nextWakeTime, so stop scanning.
         if (nextWakeTime.secsTo(nextrectime) - prerollseconds > 300)
         {
-            nextStartTime = min(nextStartTime, nextrectime);
+            nextStartTime = std::min(nextStartTime, nextrectime);
             return true;
         }
 
         if (curtime < nextrectime)
-            nextWakeTime = min(nextWakeTime, nextrectime);
+            nextWakeTime = std::min(nextWakeTime, nextrectime);
         else
             ri.AddHistory(false);
         return false;
@@ -2656,8 +2655,8 @@ bool Scheduler::HandleRecording(
     // needs to be shorter than the related one in SchedLiveTV().
     if (secsleft - prerollseconds > 60)
     {
-        nextStartTime = min(nextStartTime, nextrectime.addSecs(-30));
-        nextWakeTime = min(nextWakeTime,
+        nextStartTime = std::min(nextStartTime, nextrectime.addSecs(-30));
+        nextWakeTime = std::min(nextWakeTime,
                             nextrectime.addSecs(-prerollseconds - 60));
         return true;
     }
@@ -2673,8 +2672,8 @@ bool Scheduler::HandleRecording(
 
     if (secsleft - prerollseconds > 35)
     {
-        nextStartTime = min(nextStartTime, nextrectime.addSecs(-30));
-        nextWakeTime = min(nextWakeTime,
+        nextStartTime = std::min(nextStartTime, nextrectime.addSecs(-30));
+        nextWakeTime = std::min(nextWakeTime,
                             nextrectime.addSecs(-prerollseconds - 35));
         return false;
     }
@@ -2731,15 +2730,15 @@ bool Scheduler::HandleRecording(
         if (isBusyRecording)
         {
             if (secsleft > 5)
-                nextWakeTime = min(nextWakeTime, curtime.addSecs(5));
+                nextWakeTime = std::min(nextWakeTime, curtime.addSecs(5));
             prerollseconds = 0;
         }
     }
 
     if (secsleft - prerollseconds > 30)
     {
-        nextStartTime = min(nextStartTime, nextrectime.addSecs(-30));
-        nextWakeTime = min(nextWakeTime,
+        nextStartTime = std::min(nextStartTime, nextrectime.addSecs(-30));
+        nextWakeTime = std::min(nextWakeTime,
                             nextrectime.addSecs(-prerollseconds - 30));
         return false;
     }
@@ -2773,8 +2772,8 @@ bool Scheduler::HandleRecording(
             EnqueuePlace("SlaveNotAwake");
         }
 
-        nextStartTime = min(nextStartTime, nextrectime);
-        nextWakeTime = min(nextWakeTime, curtime.addSecs(1));
+        nextStartTime = std::min(nextStartTime, nextrectime);
+        nextWakeTime = std::min(nextWakeTime, curtime.addSecs(1));
         return false;
     }
 
@@ -2803,7 +2802,7 @@ bool Scheduler::HandleRecording(
             MythEvent me(QString("ADD_CHILD_INPUT %1")
                          .arg(tempri.GetInputID()));
             gCoreContext->dispatch(me);
-            nextWakeTime = min(nextWakeTime, curtime.addSecs(1));
+            nextWakeTime = std::min(nextWakeTime, curtime.addSecs(1));
             return m_recListChanged;
         }
         ri.SetInputID(tempri.GetInputID());
@@ -2813,7 +2812,7 @@ bool Scheduler::HandleRecording(
         tempri.SetRecordingStatus(RecStatus::Pending);
         ri.AddHistory(false, false, true);
         m_schedLock.unlock();
-        nexttv->RecordPending(&tempri, max(secsleft, 0), false);
+        nexttv->RecordPending(&tempri, std::max(secsleft, 0), false);
         m_schedLock.lock();
         if (m_recListChanged)
             return m_recListChanged;
@@ -2821,8 +2820,8 @@ bool Scheduler::HandleRecording(
 
     if (secsleft - prerollseconds > 0)
     {
-        nextStartTime = min(nextStartTime, nextrectime);
-        nextWakeTime = min(nextWakeTime,
+        nextStartTime = std::min(nextStartTime, nextrectime);
+        nextWakeTime = std::min(nextWakeTime,
                             nextrectime.addSecs(-prerollseconds));
         return false;
     }
@@ -3047,7 +3046,7 @@ void Scheduler::DelayShutdown()
 void Scheduler::HandleIdleShutdown(
     bool &blockShutdown, QDateTime &idleSince,
     int prerollseconds, int idleTimeoutSecs, int idleWaitForRecordingTime,
-    const bool &statuschanged)
+    bool statuschanged)
 {
     // To ensure that one idle message is logged per 15 minutes
     uint logmask = VB_IDLE;
@@ -5095,8 +5094,8 @@ int Scheduler::FillRecordingDir(
     StorageGroup mysgroup(storagegroup, hostname);
     QStringList dirlist = mysgroup.GetDirList();
     QStringList recsCounted;
-    list<FileSystemInfo *> fsInfoList;
-    list<FileSystemInfo *>::iterator fslistit;
+    std::list<FileSystemInfo *> fsInfoList;
+    std::list<FileSystemInfo *>::iterator fslistit;
 
     recording_dir.clear();
 
@@ -5658,7 +5657,7 @@ bool Scheduler::WasStartedAutomatically()
         // to record, to obtain guide data or or for a
         // daily wakeup/shutdown period
         if (abs(startupTime.secsTo(MythDate::current())) <
-            max(startupSecs, 15 * 60))
+            std::max(startupSecs, 15 * 60))
         {
             LOG(VB_GENERAL, LOG_INFO,
                 "Close to auto-start time, AUTO-Startup assumed");
@@ -5666,7 +5665,7 @@ bool Scheduler::WasStartedAutomatically()
             QString str = gCoreContext->GetSetting("MythFillSuggestedRunTime");
             QDateTime guideRunTime = MythDate::fromString(str);
             if (guideRunTime.secsTo(MythDate::current()) <
-                max(startupSecs, 15 * 60))
+                std::max(startupSecs, 15 * 60))
             {
                 LOG(VB_GENERAL, LOG_INFO,
                     "Close to MythFillDB suggested run time, AUTO-Startup to fetch guide data?");

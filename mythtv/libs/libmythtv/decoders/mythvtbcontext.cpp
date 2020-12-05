@@ -7,6 +7,7 @@
 #include "opengl/mythrenderopengl.h"
 #include "videobuffers.h"
 #include "mythvtbinterop.h"
+#include "mythplayerui.h"
 #include "mythvtbcontext.h"
 
 // FFmpeg
@@ -41,7 +42,7 @@ void MythVTBContext::InitVideoCodec(AVCodecContext *Context, bool SelectedStream
     MythCodecContext::InitVideoCodec(Context, SelectedStream, DirectRendering);
 }
 
-bool MythVTBContext::RetrieveFrame(AVCodecContext* Context, VideoFrame* Frame, AVFrame* AvFrame)
+bool MythVTBContext::RetrieveFrame(AVCodecContext* Context, MythVideoFrame* Frame, AVFrame* AvFrame)
 {
     if (AvFrame->format != AV_PIX_FMT_VIDEOTOOLBOX)
         return false;
@@ -82,6 +83,14 @@ MythCodecID MythVTBContext::GetSupportedCodec(AVCodecContext **Context,
 
     if (!Decoder.startsWith("vtb") || IsUnsupportedProfile(*Context))
         return failure;
+
+    if (!decodeonly)
+    {
+        // check for the correct player type and interop supprt
+        MythPlayerUI* player = GetPlayerUI(*Context);
+        if (MythOpenGLInterop::GetInteropType(FMT_VTB, player) == MythOpenGLInterop::Unsupported)
+            return failure;
+    }
 
     // Check decoder support
     MythCodecContext::CodecProfile mythprofile = MythCodecContext::NoProfile;
@@ -133,11 +142,9 @@ int MythVTBContext::InitialiseDecoder(AVCodecContext *Context)
         return -1;
     OpenGLLocker locker(render);
 
-    // We need a player to release the interop
-    MythPlayer *player = nullptr;
-    auto *decoder = reinterpret_cast<AvFormatDecoder*>(Context->opaque);
-    if (decoder)
-        player = decoder->GetPlayer();
+    // The interop must have a reference to the ui player so it can be deleted
+    // from the main thread.
+    MythPlayerUI* player = GetPlayerUI(Context);
     if (!player)
         return -1;
 
@@ -306,7 +313,7 @@ void MythVTBContext::InitFramesContext(AVCodecContext *Context)
         return;
 
     AVPixelFormat format = AV_PIX_FMT_NV12;
-    if (ColorDepth(PixelFormatToFrameType(Context->sw_pix_fmt)) > 8)
+    if (MythVideoFrame::ColorDepth(MythAVUtil::PixelFormatToFrameType(Context->sw_pix_fmt)) > 8)
         format = AV_PIX_FMT_P010;
 
     if (m_framesContext)

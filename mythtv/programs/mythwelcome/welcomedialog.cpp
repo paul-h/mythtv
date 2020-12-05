@@ -4,8 +4,11 @@
 // POSIX
 #include <unistd.h>
 
+// C++
+#include <chrono>
+
 // qt
-#include <QCoreApplication>
+#include <QGuiApplication>
 #include <QKeyEvent>
 #include <QEvent>
 
@@ -23,8 +26,10 @@
 #include "welcomedialog.h"
 #include "welcomesettings.h"
 
-#define UPDATE_STATUS_INTERVAL   30000
-#define UPDATE_SCREEN_INTERVAL   15000
+using namespace std::chrono_literals;
+
+static constexpr std::chrono::milliseconds UPDATE_STATUS_INTERVAL { 30s };
+static constexpr std::chrono::milliseconds UPDATE_SCREEN_INTERVAL { 15s };
 
 
 WelcomeDialog::WelcomeDialog(MythScreenStack *parent, const char *name)
@@ -44,12 +49,12 @@ WelcomeDialog::WelcomeDialog(MythScreenStack *parent, const char *name)
 
     m_idleTimeoutSecs = gCoreContext->GetNumSetting("idleTimeoutSecs", 0);
 
-    connect(m_updateStatusTimer, SIGNAL(timeout()),
-            this, SLOT(updateStatus()));
+    connect(m_updateStatusTimer, &QTimer::timeout,
+            this, &WelcomeDialog::updateStatus);
     m_updateStatusTimer->start(UPDATE_STATUS_INTERVAL);
 
-    connect(m_updateScreenTimer, SIGNAL(timeout()),
-            this, SLOT(updateScreen()));
+    connect(m_updateScreenTimer, &QTimer::timeout,
+            this, &WelcomeDialog::updateScreen);
 }
 
 bool WelcomeDialog::Create(void)
@@ -75,8 +80,8 @@ bool WelcomeDialog::Create(void)
     m_warningText->SetVisible(false);
 
     m_startFrontendButton->SetText(tr("Start Frontend"));
-    connect(m_startFrontendButton, SIGNAL(Clicked()),
-            this, SLOT(startFrontendClick()));
+    connect(m_startFrontendButton, &MythUIButton::Clicked,
+            this, &WelcomeDialog::startFrontendClick);
 
     BuildFocusList();
 
@@ -93,7 +98,11 @@ void WelcomeDialog::startFrontend(void)
     QString startFECmd = gCoreContext->GetSetting("MythWelcomeStartFECmd",
                          m_appBinDir + "mythfrontend");
 
-    myth_system(startFECmd, kMSDisableUDPListener | kMSProcessEvents);
+    // Ensure we use the same platform for mythfrontend
+    QStringList args;
+    if (!startFECmd.contains("platform"))
+        args << QString("--platform %1").arg(QGuiApplication::platformName());
+    myth_system(startFECmd, args, kMSDisableUDPListener | kMSProcessEvents);
     updateAll();
     m_frontendIsRunning = false;
 }
@@ -106,7 +115,7 @@ void WelcomeDialog::startFrontendClick(void)
     m_frontendIsRunning = true;
 
     // this makes sure the button appears to click properly
-    QTimer::singleShot(500, this, SLOT(startFrontend()));
+    QTimer::singleShot(500ms, this, &WelcomeDialog::startFrontend);
 }
 
 void WelcomeDialog::checkAutoStart(void)
@@ -153,7 +162,7 @@ void WelcomeDialog::customEvent(QEvent *e)
             else
             {
                 // we can't query the backend from inside a customEvent
-                QTimer::singleShot(500, this, SLOT(updateRecordingList()));
+                QTimer::singleShot(500ms, this, &WelcomeDialog::updateRecordingList);
                 setPendingRecListUpdate(true);
             }
         }
@@ -171,7 +180,7 @@ void WelcomeDialog::customEvent(QEvent *e)
             }
             else
             {
-                QTimer::singleShot(500, this, SLOT(updateScheduledList()));
+                QTimer::singleShot(500ms, this, &WelcomeDialog::updateScheduledList);
                 setPendingSchedUpdate(true);
             }
         }
@@ -569,7 +578,7 @@ bool WelcomeDialog::checkConnectionToServer(void)
     if (bRes)
         m_updateStatusTimer->start(UPDATE_STATUS_INTERVAL);
     else
-        m_updateStatusTimer->start(5000);
+        m_updateStatusTimer->start(5s);
 
     return bRes;
 }
@@ -589,13 +598,13 @@ void WelcomeDialog::ShowMenu(void)
     uint statusCode = myth_system(mythshutdown_status + logPropagateArgs, kMSDontBlockInputDevs);
 
     if (!(statusCode & 0xFF00) && statusCode & 16)
-        m_menuPopup->AddButton(tr("Unlock Shutdown"), SLOT(unlockShutdown()));
+        m_menuPopup->AddButton(tr("Unlock Shutdown"), &WelcomeDialog::unlockShutdown);
     else
-        m_menuPopup->AddButton(tr("Lock Shutdown"), SLOT(lockShutdown()));
+        m_menuPopup->AddButton(tr("Lock Shutdown"), &WelcomeDialog::lockShutdown);
 
-    m_menuPopup->AddButton(tr("Run mythfilldatabase"), SLOT(runEPGGrabber()));
-    m_menuPopup->AddButton(tr("Shutdown Now"), SLOT(shutdownNow()));
-    m_menuPopup->AddButton(tr("Exit"), SLOT(closeDialog()));
+    m_menuPopup->AddButton(tr("Run mythfilldatabase"), &WelcomeDialog::runEPGGrabber);
+    m_menuPopup->AddButton(tr("Shutdown Now"), &WelcomeDialog::shutdownNow);
+    m_menuPopup->AddButton(tr("Exit"), &WelcomeDialog::closeDialog);
     m_menuPopup->AddButton(tr("Cancel"));
 }
 

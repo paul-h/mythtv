@@ -1,8 +1,6 @@
 #include <QStringList>
 #include <utility>
 
-using namespace std;
-
 #include "compat.h"
 #include "playbacksock.h"
 #include "programinfo.h"
@@ -289,7 +287,7 @@ QStringList PlaybackSock::GenPreviewPixmap(const QString &token,
                                            bool               time_fmt_sec,
                                            long long          time,
                                            const QString     &outputFile,
-                                           const QSize       &outputSize)
+                                           const QSize        outputSize)
 {
     QStringList strlist(QString("QUERY_GENPIXMAP2"));
     strlist += token;

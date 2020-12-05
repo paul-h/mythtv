@@ -4,7 +4,6 @@
 // C++ headers
 #include <deque>
 #include <vector>
-using namespace std;
 
 // Qt headers
 #include <QWaitCondition>
@@ -158,7 +157,8 @@ class Scheduler : public MThread, public MythScheduler
     bool FindNextConflict(const RecList &cardlist,
                           const RecordingInfo *p, RecConstIter &iter,
                           OpenEndType openEnd = openEndNever,
-                          uint *paffinity = nullptr) const;
+                          uint *paffinity = nullptr,
+                          bool ignoreinput = false) const;
     const RecordingInfo *FindConflict(const RecordingInfo *p,
                                       OpenEndType openEnd = openEndNever,
                                       uint *affinity = nullptr,
@@ -215,7 +215,7 @@ class Scheduler : public MThread, public MythScheduler
     void HandleIdleShutdown(
         bool &blockShutdown, QDateTime &idleSince, int prerollseconds,
         int idleTimeoutSecs, int idleWaitForRecordingTime,
-        const bool &statuschanged);
+        bool statuschanged);
 
     void EnqueueMatch(uint recordid, uint sourceid, uint mplexid,
                       const QDateTime &maxstarttime, const QString &why)
@@ -284,7 +284,7 @@ class Scheduler : public MThread, public MythScheduler
     OpenEndType m_openEnd;
 
     // cache IsSameProgram()
-    using IsSameKey = pair<const RecordingInfo*,const RecordingInfo*>;
+    using IsSameKey = std::pair<const RecordingInfo*,const RecordingInfo*>;
     using IsSameCacheType = QMap<IsSameKey,bool>;
     mutable IsSameCacheType m_cacheIsSameProgram;
     int m_tmLastLog                    {0};

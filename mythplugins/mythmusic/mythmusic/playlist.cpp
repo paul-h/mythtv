@@ -3,7 +3,6 @@
 #include <cstdlib>
 #include <map>
 #include <unistd.h>
-using namespace std;
 
 // qt
 #include <QApplication>
@@ -25,8 +24,6 @@ using namespace std;
 #include <mythmiscutil.h>
 #include <mythsystemlegacy.h>
 #include <exitcodes.h>
-
-const char *kID0err = "Song with ID of 0 in playlist, this shouldn't happen.";
 
 ///////////////////////////////////////////////////////////////////////////////
 // Playlist
@@ -326,7 +323,7 @@ void Playlist::shuffleTracks(MusicPlayer::ShuffleMode shuffleMode)
         {
             // "intellegent/album" order
 
-            using AlbumMap = map<QString, uint32_t>;
+            using AlbumMap = std::map<QString, uint32_t>;
             AlbumMap                       album_map;
             AlbumMap::iterator             Ialbum;
             QString                        album;
@@ -396,7 +393,7 @@ void Playlist::shuffleTracks(MusicPlayer::ShuffleMode shuffleMode)
         {
             // "intellegent/album" order
 
-            using ArtistMap = map<QString, uint32_t>;
+            using ArtistMap = std::map<QString, uint32_t>;
             ArtistMap                      artist_map;
             ArtistMap::iterator            Iartist;
             QString                        artist;
@@ -1243,6 +1240,11 @@ void Playlist::processExit(uint retval)
     m_procExitVal = retval;
 }
 
+void Playlist::processExit(void)
+{
+    m_procExitVal = GENERIC_EXIT_OK;
+}
+
 // FIXME: this needs updating to work with storage groups
 int Playlist::CreateCDMP3(void)
 {
@@ -1369,11 +1371,11 @@ int Playlist::CreateCDMP3(void)
 
     m_proc = new MythSystemLegacy(command, args, flags);
 
-    connect(m_proc, SIGNAL(readDataReady(int)), this, SLOT(mkisofsData(int)),
+    connect(m_proc, &MythSystemLegacy::readDataReady, this, &Playlist::mkisofsData,
             Qt::DirectConnection);
-    connect(m_proc, SIGNAL(finished()),         this, SLOT(processExit()),
+    connect(m_proc, &MythSystemLegacy::inished,       this, qOverload<>&Playlist::processExit,
             Qt::DirectConnection);
-    connect(m_proc, SIGNAL(error(uint)),        this, SLOT(processExit(uint)),
+    connect(m_proc, &MythSystemLegacy::error,         this, qOverload<uint>&Playlist::processExit),
             Qt::DirectConnection);
 
     m_procExitVal = GENERIC_EXIT_RUNNING;
@@ -1419,12 +1421,12 @@ int Playlist::CreateCDMP3(void)
                 kMSRunBackground;
 
         m_proc = new MythSystemLegacy(command, args, flags);
-        connect(m_proc, SIGNAL(readDataReady(int)),
-                this, SLOT(cdrecordData(int)), Qt::DirectConnection);
-        connect(m_proc, SIGNAL(finished()),
-                this, SLOT(processExit()), Qt::DirectConnection);
-        connect(m_proc, SIGNAL(error(uint)),
-                this, SLOT(processExit(uint)), Qt::DirectConnection);
+        connect(m_proc, &MythSystemLegacy::readDataReady,
+                this, &Playlist::cdrecordData, Qt::DirectConnection);
+        connect(m_proc, &MythSystemLegacy::finished,
+                this, qOverload<>&Playlist::processExit, Qt::DirectConnection);
+        connect(m_proc, &MythSystemLegacy::error,
+                this, qOverload<uint>&Playlist::processExit, Qt::DirectConnection);
         m_procExitVal = GENERIC_EXIT_RUNNING;
         m_proc->Run();
 

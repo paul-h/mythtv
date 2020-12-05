@@ -34,8 +34,6 @@
 #include <algorithm>
 #include <utility>
 
-using namespace std;
-
 // Qt includes
 #include <QMutexLocker>
 #include <QObject>
@@ -82,7 +80,7 @@ static const uint kRegionUndefined = 0xFFFF;        // Not regional
 QString ChannelScanSM::loc(const ChannelScanSM *siscan)
 {
     if (siscan && siscan->m_channel)
-        return QString("ChannelScanSM(%1)").arg(siscan->m_channel->GetDevice());
+        return QString("ChannelScanSM[%1]").arg(siscan->m_channel->GetInputID());
     return "ChannelScanSM(u)";
 }
 
@@ -327,7 +325,7 @@ bool ChannelScanSM::ScanExistingTransports(uint sourceid, bool follow_nit)
     m_scanTransports.clear();
     m_nextIt = m_scanTransports.end();
 
-    vector<uint> multiplexes = SourceUtil::GetMplexIDs(sourceid);
+    std::vector<uint> multiplexes = SourceUtil::GetMplexIDs(sourceid);
 
     if (multiplexes.empty())
     {
@@ -718,7 +716,7 @@ DTVTunerType ChannelScanSM::GuessDTVTunerType(DTVTunerType type) const
     if (!chan)
         return type;
 
-    vector<DTVTunerType> tts = chan->GetTunerTypes();
+    std::vector<DTVTunerType> tts = chan->GetTunerTypes();
 
     for (auto & tt : tts)
     {
@@ -2151,7 +2149,7 @@ void ChannelScanSM::HandleActiveScan(void)
     }
 }
 
-bool ChannelScanSM::Tune(const transport_scan_items_it_t &transport)
+bool ChannelScanSM::Tune(const transport_scan_items_it_t transport)
 {
     const TransportScanItem &item = *transport;
 
@@ -2194,7 +2192,7 @@ bool ChannelScanSM::Tune(const transport_scan_items_it_t &transport)
     return channel->Tune(tuning);
 }
 
-void ChannelScanSM::ScanTransport(const transport_scan_items_it_t &transport)
+void ChannelScanSM::ScanTransport(const transport_scan_items_it_t transport)
 {
     QString offset_str = (transport.offset()) ?
         QObject::tr(" offset %2").arg(transport.offset()) : "";

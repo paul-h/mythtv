@@ -80,7 +80,7 @@ DTC::ProgramGuide *Guide::GetProgramGuide( const QDateTime &rawStartTime,
                                                          nTotalAvailable,
                                                          !bWithInvisible,
                                                          ChannelUtil::kChanOrderByChanNum,
-                                                         ChannelUtil::kChanGroupByCallsign,
+                                                         ChannelUtil::kChanGroupByCallsignAndChannum,
                                                          0,
                                                          nChannelGroupId);
 
@@ -467,10 +467,10 @@ QFileInfo Guide::GetChannelIcon( int nChanId,
     }
 
     if ( nWidth == 0 )
-        nWidth = (int)rint(nHeight * fAspect);
+        nWidth = (int)std::rint(nHeight * fAspect);
 
     if ( nHeight == 0 )
-        nHeight = (int)rint(nWidth / fAspect);
+        nHeight = (int)std::rint(nWidth / fAspect);
 
     QImage img = pImage->scaled( nWidth, nHeight, Qt::IgnoreAspectRatio,
                                 Qt::SmoothTransformation);

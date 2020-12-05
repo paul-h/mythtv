@@ -2,8 +2,6 @@
 #include <iostream>
 #include <utility>
 
-using namespace std;
-
 #include <QApplication>
 #include <QDir>
 #include <QRegExp>
@@ -14,7 +12,7 @@ using namespace std;
 #include "tv_play.h"
 #include "programinfo.h"
 #include "commandlineparser.h"
-#include "mythplayer.h"
+#include "mythplayerui.h"
 #include "jitterometer.h"
 
 #include "exitcodes.h"
@@ -58,18 +56,16 @@ class VideoPerformanceTest
 
     void Test(void)
     {
-        PIPMap dummy;
         MythMediaBuffer *rb = MythMediaBuffer::Create(m_file, false, true, 2000);
-        auto *mp  = new MythPlayer(static_cast<PlayerFlags>(kAudioMuted | (m_allowGpu ? kDecodeAllowGPU: kNoFlags)));
+        m_ctx = new PlayerContext("VideoPerformanceTest");
+        auto *mp  = new MythPlayerUI(GetMythMainWindow(), nullptr, m_ctx, static_cast<PlayerFlags>(kAudioMuted | (m_allowGpu ? kDecodeAllowGPU: kNoFlags)));
         mp->GetAudio()->SetAudioInfo("NULL", "NULL", 0, 0);
         mp->GetAudio()->SetNoAudio();
-        m_ctx = new PlayerContext("VideoPerformanceTest");
         m_ctx->SetRingBuffer(rb);
         m_ctx->SetPlayer(mp);
         auto *pinfo = new ProgramInfo(m_file);
         m_ctx->SetPlayingInfo(pinfo); // makes a copy
         delete pinfo;
-        mp->SetPlayerInfo(nullptr, GetMythMainWindow(), m_ctx);
 
         FrameScanType scan = m_deinterlace ? kScan_Interlaced : kScan_Progressive;
         if (!mp->StartPlaying())
@@ -106,7 +102,7 @@ class VideoPerformanceTest
 
         int ms = m_secondsToRun * 1000;
         QTime start = QTime::currentTime();
-        VideoFrame *frame = nullptr;
+        MythVideoFrame *frame = nullptr;
         while (true)
         {
             mp->ProcessCallbacks();
@@ -140,18 +136,18 @@ class VideoPerformanceTest
 
             if (!m_decodeOnly)
             {
-                MythDeintType doubledeint = GetDoubleRateOption(frame, DEINT_CPU | DEINT_SHADER | DEINT_DRIVER);
-                vo->PrepareFrame(frame, dummy, scan);
-                vo->RenderFrame(frame, scan, nullptr);
+                MythDeintType doubledeint = frame->GetDoubleRateOption(DEINT_CPU | DEINT_SHADER | DEINT_DRIVER);
+                vo->PrepareFrame(frame, scan);
+                vo->RenderFrame(frame, scan);
                 vo->EndFrame();
 
                 if (doubledeint && m_deinterlace)
                 {
-                    doubledeint = GetDoubleRateOption(frame, DEINT_CPU);
-                    MythDeintType other = GetDoubleRateOption(frame, DEINT_SHADER | DEINT_DRIVER);
+                    doubledeint = frame->GetDoubleRateOption(DEINT_CPU);
+                    MythDeintType other = frame->GetDoubleRateOption(DEINT_SHADER | DEINT_DRIVER);
                     if (doubledeint && !other)
-                        vo->PrepareFrame(frame, dummy, kScan_Intr2ndField);
-                    vo->RenderFrame(frame, kScan_Intr2ndField, nullptr);
+                        vo->PrepareFrame(frame, kScan_Intr2ndField);
+                    vo->RenderFrame(frame, kScan_Intr2ndField);
                     vo->EndFrame();
                 }
             }
@@ -217,7 +213,7 @@ int main(int argc, char *argv[])
         return retval;
 
     if (!cmdline.toString("geometry").isEmpty())
-        MythUIHelper::ParseGeometryOverride(cmdline.toString("geometry"));
+        MythMainWindow::ParseGeometryOverride(cmdline.toString("geometry"));
 
     QString filename = "";
     if (!cmdline.toString("infile").isEmpty())
@@ -243,8 +239,6 @@ int main(int argc, char *argv[])
         LOG(VB_GENERAL, LOG_ERR, msg);
         return GENERIC_EXIT_NO_THEME;
     }
-
-    GetMythUI()->LoadQtConfig();
 
 #if defined(Q_OS_MACX)
     // Mac OS X doesn't define the AudioOutputDevice setting

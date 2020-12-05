@@ -39,11 +39,11 @@ ZMLivePlayer::ZMLivePlayer(MythScreenStack *parent, bool isMiniPlayer)
 {
     ZMClient::get()->setIsMiniPlayerEnabled(false);
 
-    GetMythUI()->DoDisableScreensaver();
+    MythMainWindow::DisableScreensaver();
     GetMythMainWindow()->PauseIdleTimer(true);
 
-    connect(m_frameTimer, SIGNAL(timeout()), this,
-            SLOT(updateFrame()));
+    connect(m_frameTimer, &QTimer::timeout, this,
+            &ZMLivePlayer::updateFrame);
 }
 
 bool ZMLivePlayer::Create(void)
@@ -161,7 +161,7 @@ ZMLivePlayer::~ZMLivePlayer()
 {
     gCoreContext->SaveSetting("ZoneMinderLiveLayout", m_monitorLayout);
 
-    GetMythUI()->DoRestoreScreensaver();
+    MythMainWindow::RestoreScreensaver();
     GetMythMainWindow()->PauseIdleTimer(false);
 
     if (m_players)
@@ -245,28 +245,28 @@ void ZMLivePlayer::ShowMenu()
 
     menuPopup->SetReturnEvent(this, "mainmenu");
 
-    menuPopup->AddButton(tr("Change View"),     QVariant::fromValue(QString("VIEW")));
-    menuPopup->AddButton(tr("Change Camera 1"), QVariant::fromValue(QString("CAMERA1")));
+    menuPopup->AddButtonV(tr("Change View"),     QVariant::fromValue(QString("VIEW")));
+    menuPopup->AddButtonV(tr("Change Camera 1"), QVariant::fromValue(QString("CAMERA1")));
 
     if (m_monitorLayout > 1)
-        menuPopup->AddButton(tr("Change Camera 2"), QVariant::fromValue(QString("CAMERA2")));
+        menuPopup->AddButtonV(tr("Change Camera 2"), QVariant::fromValue(QString("CAMERA2")));
 
     if (m_monitorLayout > 2)
     {
-        menuPopup->AddButton(tr("Change Camera 3"), QVariant::fromValue(QString("CAMERA3")));
-        menuPopup->AddButton(tr("Change Camera 4"), QVariant::fromValue(QString("CAMERA4")));
+        menuPopup->AddButtonV(tr("Change Camera 3"), QVariant::fromValue(QString("CAMERA3")));
+        menuPopup->AddButtonV(tr("Change Camera 4"), QVariant::fromValue(QString("CAMERA4")));
     }
 
     if (m_monitorLayout > 3)
     {
-        menuPopup->AddButton(tr("Change Camera 5"), QVariant::fromValue(QString("CAMERA5")));
-        menuPopup->AddButton(tr("Change Camera 6"), QVariant::fromValue(QString("CAMERA6")));
+        menuPopup->AddButtonV(tr("Change Camera 5"), QVariant::fromValue(QString("CAMERA5")));
+        menuPopup->AddButtonV(tr("Change Camera 6"), QVariant::fromValue(QString("CAMERA6")));
     }
 
     if (m_monitorLayout > 4)
     {
-        menuPopup->AddButton(tr("Change Camera 7"), QVariant::fromValue(QString("CAMERA7")));
-        menuPopup->AddButton(tr("Change Camera 8"), QVariant::fromValue(QString("CAMERA8")));
+        menuPopup->AddButtonV(tr("Change Camera 7"), QVariant::fromValue(QString("CAMERA7")));
+        menuPopup->AddButtonV(tr("Change Camera 8"), QVariant::fromValue(QString("CAMERA8")));
     }
 }
 
@@ -403,7 +403,7 @@ void ZMLivePlayer::setMonitorLayout(int layout, bool restore)
         delete m_players;
     }
 
-    m_players = new vector<Player *>;
+    m_players = new std::vector<Player *>;
     m_monitorCount = 1;
 
     if (layout == 1)
@@ -496,7 +496,7 @@ void Player::updateFrame(const unsigned char* buffer)
 {
     QImage image(buffer, m_monitor.width, m_monitor.height, QImage::Format_RGB888);
 
-    MythImage *img = GetMythMainWindow()->GetCurrentPainter()->GetFormatImage();
+    MythImage *img = GetMythMainWindow()->GetPainter()->GetFormatImage();
     img->Assign(image);
     m_frameImage->SetImage(img);
     img->DecrRef();

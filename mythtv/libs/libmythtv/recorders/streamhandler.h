@@ -5,7 +5,6 @@
 
 #include <utility>
 #include <vector>
-using namespace std;
 
 // Qt headers
 #include <QWaitCondition>
@@ -58,7 +57,7 @@ class StreamHandler : protected MThread, public DeviceReaderCB
     virtual void AddListener(MPEGStreamData *data,
                              bool allow_section_reader = false,
                              bool needs_buffering      = false,
-                             QString output_file       = QString());
+                             const QString& output_file= QString());
     virtual void RemoveListener(MPEGStreamData *data);
     bool IsRunning(void) const;
     bool HasError(void) const { return m_bError; }
@@ -128,7 +127,7 @@ class StreamHandler : protected MThread, public DeviceReaderCB
     QWaitCondition      m_runningStateChanged;
 
     mutable QMutex      m_pidLock               {QMutex::Recursive};
-    vector<uint>        m_eitPids;
+    std::vector<uint>   m_eitPids;
     PIDInfoMap          m_pidInfo;
     uint                m_openPidFilters        {0};
     MythTimer           m_cycleTimer;

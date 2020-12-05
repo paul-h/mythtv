@@ -55,10 +55,10 @@ bool GeneralSettings::Create()
         m_allowTagWriting->SetCheckState(MythUIStateType::Full);
 
     if (m_resetDBButton)
-        connect(m_resetDBButton, SIGNAL(Clicked()), this, SLOT(slotResetDB()));
+        connect(m_resetDBButton, &MythUIButton::Clicked, this, &GeneralSettings::slotResetDB);
 
-    connect(m_saveButton, SIGNAL(Clicked()), this, SLOT(slotSave()));
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(Close()));
+    connect(m_saveButton, &MythUIButton::Clicked, this, &GeneralSettings::slotSave);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
 
     m_musicAudioDevice->SetHelpText(tr("Audio Device used for playback. 'default' "
                  "will use the device specified in MythTV"));
@@ -98,10 +98,10 @@ bool GeneralSettings::Create()
     return true;
 }
 
-void GeneralSettings::slotResetDB(void)
+void GeneralSettings::slotResetDB(void) const
 {
     ShowOkPopup(tr("Are you sure you want to reset the music database?"),
-                this, SLOT(slotDoResetDB(bool)), true);
+                this, &GeneralSettings::slotDoResetDB, true);
 }
 
 void GeneralSettings::slotDoResetDB(bool ok)

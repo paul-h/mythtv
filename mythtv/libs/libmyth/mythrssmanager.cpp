@@ -13,8 +13,6 @@
 #include "rssparse.h"
 #include "mythsorthelper.h"
 
-using namespace std;
-
 #define LOC      QString("RSSSite: ")
 
 // ---------------------------------------------------
@@ -26,8 +24,8 @@ RSSManager::RSSManager()
 
     m_timer = new QTimer();
 
-    connect( m_timer, SIGNAL(timeout()),
-                      this, SLOT(doUpdate()));
+    connect( m_timer, &QTimer::timeout,
+                      this, &RSSManager::doUpdate);
 }
 
 RSSManager::~RSSManager()
@@ -54,8 +52,8 @@ void RSSManager::doUpdate()
         LOG(VB_GENERAL, LOG_INFO, LOC +
             QString("Updating RSS Feed %1") .arg(site->GetTitle()));
 
-        connect(site, SIGNAL(finished(RSSSite*)),
-                this, SLOT(slotRSSRetrieved(RSSSite*)));
+        connect(site, &RSSSite::finished,
+                this, &RSSManager::slotRSSRetrieved);
     }
 
     slotRefreshRSS();
@@ -108,11 +106,11 @@ void RSSManager::slotRSSRetrieved(RSSSite *site)
 RSSSite::RSSSite( QString  title,
                   QString  sortTitle,
                   QString  image,
-                  const ArticleType& type,
+                  ArticleType type,
                   QString  description,
                   QString  url,
                   QString  author,
-                  const bool& download,
+                  bool download,
                   QDateTime  updated) :
     m_title(std::move(title)), m_sortTitle(std::move(sortTitle)),
     m_image(std::move(image)), m_type(type),
@@ -146,8 +144,8 @@ void RSSSite::retrieve(void)
     if (!m_manager)
     {
         m_manager = new QNetworkAccessManager();
-        connect(m_manager, SIGNAL(finished(QNetworkReply*)), this,
-                       SLOT(slotCheckRedirect(QNetworkReply*)));
+        connect(m_manager, &QNetworkAccessManager::finished, this,
+                       &RSSSite::slotCheckRedirect);
     }
 
     m_reply = m_manager->get(QNetworkRequest(m_urlReq));

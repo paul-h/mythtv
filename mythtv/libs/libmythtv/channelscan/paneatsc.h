@@ -6,7 +6,6 @@
 #define PANE_ATSC_H
 
 #include <algorithm>
-using namespace std;
 
 // MythTV headers
 #include "channelscanmiscsettings.h"
@@ -25,11 +24,11 @@ class PaneATSC : public GroupSetting
     {
         setVisible(false);
 
-        connect(m_atscTable, SIGNAL(valueChanged(    const QString&)),
-                this,       SLOT(  FreqTableChanged(const QString&)));
+        connect(m_atscTable, qOverload<const QString&>(&StandardSetting::valueChanged),
+                this,        &PaneATSC::FreqTableChanged);
 
-        connect(m_atscModulation, SIGNAL(valueChanged(     const QString&)),
-                this,            SLOT(  ModulationChanged(const QString&)));
+        connect(m_atscModulation, qOverload<const QString&>(&StandardSetting::valueChanged),
+                this,             &PaneATSC::ModulationChanged);
 
         auto *range = new GroupSetting();
         m_transportStart = new TransMythUIComboBoxSetting();
@@ -43,10 +42,10 @@ class PaneATSC : public GroupSetting
         setting->addTargetedChildren(target,
                                      {this, m_atscTable, m_atscModulation, range});
 
-        connect(m_transportStart, SIGNAL(valueChanged(       const QString&)),
-                this,            SLOT(  TransportRangeChanged(const QString&)));
-        connect(m_transportEnd,   SIGNAL(valueChanged(       const QString&)),
-                this,            SLOT(  TransportRangeChanged(const QString&)));
+        connect(m_transportStart, qOverload<const QString&>(&StandardSetting::valueChanged),
+                this,             &PaneATSC::TransportRangeChanged);
+        connect(m_transportEnd,   qOverload<const QString&>(&StandardSetting::valueChanged),
+                this,             &PaneATSC::TransportRangeChanged);
 
         ResetTransportRange();
     }
@@ -105,7 +104,7 @@ class PaneATSC : public GroupSetting
             b = a;
         }
 
-        int diff = max(b + 1 - a, 0);
+        int diff = std::max(b + 1 - a, 0);
         m_transportCount->setValue(QString::number(diff));
     }
 

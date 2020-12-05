@@ -87,7 +87,7 @@ extern unsigned int useAltivec;
 extern const void ppc_zoom (unsigned int *frompixmap, unsigned int *topixmap,
                             unsigned int sizex, unsigned int sizey,
                             unsigned int *brutS, unsigned int *brutD,
-                            unsigned int buffratio, GoomCoefficients &precalCoef]);
+                            unsigned int buffratio, GoomCoefficients &precalCoef);
 
 #endif /* PowerPC */
 
@@ -659,9 +659,7 @@ zoomFilterFastRGB (Uint * pix1, Uint * pix2, ZoomFilterData * zf, Uint resx, Uin
 					(((brutD[x2] - brutSmypos) * buffratio) >> BUFFPOINTNB);
 			}
 			buffratio = 0;
-        }
-	
-        if (s_interlaceStart==-1) {
+
             signed int * tmp = brutD;
             brutD=brutT;
             brutT=tmp;

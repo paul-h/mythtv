@@ -1,6 +1,5 @@
 // C++
 #include <iostream>
-using namespace std;
 
 // Qt
 #include <QString>
@@ -59,14 +58,14 @@ bool BrowserConfig::Create()
     if (setting == 1)
         m_enablePluginsCheck->SetCheckState(MythUIStateType::Full);
 
-    connect(m_okButton, SIGNAL(Clicked()), this, SLOT(slotSave()));
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(Close()));
+    connect(m_okButton, &MythUIButton::Clicked, this, &BrowserConfig::slotSave);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
 
-    connect(m_commandEdit,  SIGNAL(TakingFocus()), SLOT(slotFocusChanged()));
-    connect(m_zoomEdit   ,  SIGNAL(TakingFocus()), SLOT(slotFocusChanged()));
-    connect(m_enablePluginsCheck,  SIGNAL(TakingFocus()), SLOT(slotFocusChanged()));
-    connect(m_okButton,     SIGNAL(TakingFocus()), SLOT(slotFocusChanged()));
-    connect(m_cancelButton, SIGNAL(TakingFocus()), SLOT(slotFocusChanged()));
+    connect(m_commandEdit,  &MythUIType::TakingFocus, this, &BrowserConfig::slotFocusChanged);
+    connect(m_zoomEdit   ,  &MythUIType::TakingFocus, this, &BrowserConfig::slotFocusChanged);
+    connect(m_enablePluginsCheck,  &MythUIType::TakingFocus, this, &BrowserConfig::slotFocusChanged);
+    connect(m_okButton,     &MythUIType::TakingFocus, this, &BrowserConfig::slotFocusChanged);
+    connect(m_cancelButton, &MythUIType::TakingFocus, this, &BrowserConfig::slotFocusChanged);
 
     BuildFocusList();
 
@@ -164,11 +163,11 @@ bool BookmarkManager::Create(void)
     UpdateGroupList();
     UpdateURLList();
 
-    connect(m_groupList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(slotGroupSelected(MythUIButtonListItem*)));
+    connect(m_groupList, &MythUIButtonList::itemSelected,
+            this, &BookmarkManager::slotGroupSelected);
 
-    connect(m_bookmarkList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            this, SLOT(slotBookmarkClicked(MythUIButtonListItem*)));
+    connect(m_bookmarkList, &MythUIButtonList::itemClicked,
+            this, &BookmarkManager::slotBookmarkClicked);
 
     BuildFocusList();
 
@@ -233,15 +232,8 @@ void BookmarkManager::UpdateURLList(void)
 
 uint BookmarkManager::GetMarkedCount(void)
 {
-    uint count = 0;
-
-    for (auto *site : qAsConst(m_siteList))
-    {
-        if (site && site->m_selected)
-            count++;
-    }
-
-    return count;
+    auto selected = [](auto *site){ return site && site->m_selected; };
+    return std::count_if(m_siteList.cbegin(), m_siteList.cend(), selected);
 }
 
 bool BookmarkManager::keyPressEvent(QKeyEvent *event)
@@ -275,24 +267,24 @@ bool BookmarkManager::keyPressEvent(QKeyEvent *event)
 
             m_menuPopup->SetReturnEvent(this, "action");
 
-            m_menuPopup->AddButton(tr("Set Homepage"), SLOT(slotSetHomepage()));
-            m_menuPopup->AddButton(tr("Add Bookmark"), SLOT(slotAddBookmark()));
+            m_menuPopup->AddButton(tr("Set Homepage"), &BookmarkManager::slotSetHomepage);
+            m_menuPopup->AddButton(tr("Add Bookmark"), &BookmarkManager::slotAddBookmark);
 
             if (m_bookmarkList->GetItemCurrent())
             {
-                m_menuPopup->AddButton(tr("Edit Bookmark"), SLOT(slotEditBookmark()));
-                m_menuPopup->AddButton(tr("Delete Bookmark"), SLOT(slotDeleteCurrent()));
-                m_menuPopup->AddButton(tr("Show Bookmark"), SLOT(slotShowCurrent()));
+                m_menuPopup->AddButton(tr("Edit Bookmark"), &BookmarkManager::slotEditBookmark);
+                m_menuPopup->AddButton(tr("Delete Bookmark"), &BookmarkManager::slotDeleteCurrent);
+                m_menuPopup->AddButton(tr("Show Bookmark"), &BookmarkManager::slotShowCurrent);
             }
 
             if (GetMarkedCount() > 0)
             {
-                m_menuPopup->AddButton(tr("Delete Marked"), SLOT(slotDeleteMarked()));
-                m_menuPopup->AddButton(tr("Show Marked"), SLOT(slotShowMarked()));
-                m_menuPopup->AddButton(tr("Clear Marked"), SLOT(slotClearMarked()));
+                m_menuPopup->AddButton(tr("Delete Marked"), &BookmarkManager::slotDeleteMarked);
+                m_menuPopup->AddButton(tr("Show Marked"), &BookmarkManager::slotShowMarked);
+                m_menuPopup->AddButton(tr("Clear Marked"), &BookmarkManager::slotClearMarked);
             }
             
-            m_menuPopup->AddButton(tr("Settings"), SLOT(slotSettings()));
+            m_menuPopup->AddButton(tr("Settings"), &BookmarkManager::slotSettings);
 
             popupStack->AddScreen(m_menuPopup);
         }
@@ -369,7 +361,7 @@ void BookmarkManager::slotBookmarkClicked(MythUIButtonListItem *item)
 
         if (mythbrowser->Create())
         {
-            connect(mythbrowser, SIGNAL(Exiting()), SLOT(slotBrowserClosed()));
+            connect(mythbrowser, &MythScreenType::Exiting, this, &BookmarkManager::slotBrowserClosed);
             mainStack->AddScreen(mythbrowser);
         }
         else
@@ -422,7 +414,7 @@ void BookmarkManager::ShowEditDialog(bool edit)
     auto *editor = new BookmarkEditor(&m_savedBookmark, edit, mainStack,
                                       "bookmarkeditor");
 
-    connect(editor, SIGNAL(Exiting()), this, SLOT(slotEditDialogExited()));
+    connect(editor, &MythScreenType::Exiting, this, &BookmarkManager::slotEditDialogExited);
 
     if (editor->Create())
         mainStack->AddScreen(editor);
@@ -506,8 +498,8 @@ void BookmarkManager::slotDeleteCurrent(void)
     if (dialog->Create())
         popupStack->AddScreen(dialog);
 
-    connect(dialog, SIGNAL(haveResult(bool)),
-            this, SLOT(slotDoDeleteCurrent(bool)));
+    connect(dialog, &MythConfirmationDialog::haveResult,
+            this, &BookmarkManager::slotDoDeleteCurrent);
 }
 
 void BookmarkManager::slotDoDeleteCurrent(bool doDelete)
@@ -550,8 +542,8 @@ void BookmarkManager::slotDeleteMarked(void)
     if (dialog->Create())
         popupStack->AddScreen(dialog);
 
-    connect(dialog, SIGNAL(haveResult(bool)),
-            this, SLOT(slotDoDeleteMarked(bool)));
+    connect(dialog, &MythConfirmationDialog::haveResult,
+            this, &BookmarkManager::slotDoDeleteMarked);
 }
 
 void BookmarkManager::slotDoDeleteMarked(bool doDelete)
@@ -614,7 +606,7 @@ void BookmarkManager::slotShowMarked(void)
 
         if (mythbrowser->Create())
         {
-            connect(mythbrowser, SIGNAL(Exiting()), SLOT(slotBrowserClosed()));
+            connect(mythbrowser, &MythScreenType::Exiting, this, &BookmarkManager::slotBrowserClosed);
             mainStack->AddScreen(mythbrowser);
         }
         else

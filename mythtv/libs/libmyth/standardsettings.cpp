@@ -38,8 +38,8 @@ MythUIButtonListItem * StandardSetting::createButton(MythUIButtonList * list)
 {
     auto *item = new MythUIButtonListItemSetting(list, m_label);
     item->SetData(QVariant::fromValue(this));
-    connect(this, SIGNAL(ShouldRedraw(StandardSetting *)),
-            item, SLOT(ShouldUpdate(StandardSetting *)));
+    connect(this, &StandardSetting::ShouldRedraw,
+            item, &MythUIButtonListItemSetting::ShouldUpdate);
     updateButton(item);
     return item;
 }
@@ -47,6 +47,12 @@ MythUIButtonListItem * StandardSetting::createButton(MythUIButtonList * list)
 void StandardSetting::setEnabled(bool enabled)
 {
     m_enabled = enabled;
+    emit ShouldRedraw(this);
+}
+
+void StandardSetting::setReadOnly(bool readonly)
+{
+    m_readonly = readonly;
     emit ShouldRedraw(this);
 }
 
@@ -289,6 +295,9 @@ void GroupSetting::edit(MythScreenType *screen)
     if (!isEnabled())
         return;
 
+    if (isReadOnly())
+        return;
+
     auto *dce = new DialogCompletionEvent("leveldown", 0, "", "");
     QCoreApplication::postEvent(screen, dce);
 }
@@ -381,6 +390,9 @@ void MythUITextEditSetting::edit(MythScreenType * screen)
     if (!isEnabled())
         return;
 
+    if (isReadOnly())
+        return;
+
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
     auto *settingdialog =
@@ -417,6 +429,9 @@ void MythUITextEditSetting::updateButton(MythUIButtonListItem *item)
 void MythUIFileBrowserSetting::edit(MythScreenType * screen)
 {
     if (!isEnabled())
+        return;
+
+    if (isReadOnly())
         return;
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
@@ -517,6 +532,9 @@ void MythUIComboBoxSetting::edit(MythScreenType * screen)
     if (!isEnabled())
         return;
 
+    if (isReadOnly())
+        return;
+
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
     auto *menuPopup = new MythDialogBox(getLabel(), popupStack, "optionmenu");
@@ -525,25 +543,25 @@ void MythUIComboBoxSetting::edit(MythScreenType * screen)
     {
         popupStack->AddScreen(menuPopup);
 
-        //connect(menuPopup, SIGNAL(haveResult(QString)),
-        //SLOT(setValue(QString)));
+        //connect(menuPopup, &MythDialogBox::haveResult,
+        //this, qOverload<const QString&>(&MythUIComboBoxSetting::setValue));
 
         menuPopup->SetReturnEvent(screen, "editsetting");
 
         if (m_rewrite)
         {
-            menuPopup->AddButton(QObject::tr("New entry"),
-                                 QString("NEWENTRY"),
-                                 false,
-                                 m_settingValue == "");
+            menuPopup->AddButtonV(QObject::tr("New entry"),
+                                  QString("NEWENTRY"),
+                                  false,
+                                  m_settingValue == "");
         }
         for (int i = 0; i < m_labels.size() && !m_values.empty(); ++i)
         {
             QString value = m_values.at(i);
-            menuPopup->AddButton(m_labels.at(i),
-                                 value,
-                                 false,
-                                 value == m_settingValue);
+            menuPopup->AddButtonV(m_labels.at(i),
+                                  value,
+                                  false,
+                                  value == m_settingValue);
         }
     }
     else
@@ -571,8 +589,8 @@ void MythUIComboBoxSetting::resultEdit(DialogCompletionEvent *dce)
 
             if (settingdialog->Create())
             {
-                connect(settingdialog, SIGNAL(haveResult(QString)),
-                        SLOT(setValue(const QString&)));
+                connect(settingdialog, &MythTextInputDialog::haveResult,
+                        this, qOverload<const QString&>(&MythUIComboBoxSetting::setValue));
                 popupStack->AddScreen(settingdialog);
             }
             else
@@ -660,6 +678,9 @@ void MythUISpinBoxSetting::edit(MythScreenType * screen)
     if (!isEnabled())
         return;
 
+    if (isReadOnly())
+        return;
+
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
     auto *settingdialog = new MythSpinBoxDialog(popupStack, getLabel());
@@ -723,6 +744,9 @@ void MythUICheckBoxSetting::edit(MythScreenType * screen)
     if (!isEnabled())
         return;
 
+    if (isReadOnly())
+        return;
+
     auto *dce = new DialogCompletionEvent("editsetting", 0, "", "");
     QCoreApplication::postEvent(screen, dce);
 }
@@ -760,10 +784,10 @@ bool StandardSettingDialog::Create(void)
         return false;
     }
 
-    connect(m_buttonList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(settingSelected(MythUIButtonListItem*)));
-    connect(m_buttonList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            SLOT(settingClicked(MythUIButtonListItem*)));
+    connect(m_buttonList, &MythUIButtonList::itemSelected,
+            this, &StandardSettingDialog::settingSelected);
+    connect(m_buttonList, &MythUIButtonList::itemClicked,
+            this, &StandardSettingDialog::settingClicked);
 
     BuildFocusList();
 
@@ -861,7 +885,7 @@ void StandardSettingDialog::setCurrentGroupSetting(
     if (m_currentGroupSetting)
     {
         disconnect(m_currentGroupSetting,
-                   SIGNAL(settingsChanged(StandardSetting *)), nullptr, nullptr);
+                   &StandardSetting::settingsChanged, nullptr, nullptr);
         m_currentGroupSetting->Close();
     }
 
@@ -875,8 +899,8 @@ void StandardSettingDialog::setCurrentGroupSetting(
     }
     updateSettings(selectedSetting);
     connect(m_currentGroupSetting,
-            SIGNAL(settingsChanged(StandardSetting *)),
-            SLOT(updateSettings(StandardSetting *)));
+            &StandardSetting::settingsChanged,
+            this, &StandardSettingDialog::updateSettings);
 }
 
 void StandardSettingDialog::updateSettings(StandardSetting * selectedSetting)
@@ -1029,9 +1053,9 @@ void StandardSettingDialog::ShowMenu()
         return;
     // m_title->GetText() for screen title
     auto *menu = new MythMenu(source->getLabel(), this, "mainmenu");
-    menu->AddItem(tr("Edit"), SLOT(editEntry()));
+    menu->AddItem(tr("Edit"), &StandardSettingDialog::editEntry);
     if (source->canDelete())
-        menu->AddItem(tr("Delete"), SLOT(deleteSelected()));
+        menu->AddItem(tr("Delete"), &StandardSettingDialog::deleteSelected);
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
@@ -1068,7 +1092,7 @@ void StandardSettingDialog::deleteEntry()
     {
         QString message = tr("Do you want to delete the '%1' entry?")
             .arg(source->getLabel());
-        ShowOkPopup(message, this, SLOT(deleteEntryConfirmed(bool)), true);
+        ShowOkPopup(message, this, &StandardSettingDialog::deleteEntryConfirmed, true);
     }
 }
 

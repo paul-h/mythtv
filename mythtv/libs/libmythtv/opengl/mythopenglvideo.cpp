@@ -1,3 +1,6 @@
+// Qt
+#include <QPen>
+
 // MythTV
 #include "mythcontext.h"
 #include "tv.h"
@@ -34,32 +37,6 @@ MythOpenGLVideo::MythOpenGLVideo(MythRenderOpenGL* Render, MythVideoColourSpace*
   : MythVideoGPU(Render, ColourSpace, Bounds, Profile),
     m_openglRender(Render)
 {
-    MythOpenGLVideo::Init();
-}
-
-MythOpenGLVideo::MythOpenGLVideo(MythRenderOpenGL *Render, MythVideoColourSpace* ColourSpace,
-                                 QSize VideoDim, QSize VideoDispDim, QRect DisplayVisibleRect,
-                                 QRect DisplayVideoRect, QRect VideoRect, const QString& Profile)
-  : MythVideoGPU(Render, ColourSpace, VideoDim, VideoDispDim, DisplayVisibleRect,
-                 DisplayVideoRect, VideoRect, Profile),
-    m_openglRender(Render)
-{
-    MythOpenGLVideo::Init();
-}
-
-MythOpenGLVideo::~MythOpenGLVideo()
-{
-    if (!m_openglRender)
-        return;
-
-    m_openglRender->makeCurrent();
-    MythOpenGLVideo::ResetFrameFormat();
-    delete m_toneMap;
-    m_openglRender->doneCurrent();
-}
-
-void MythOpenGLVideo::Init()
-{
     if (!m_openglRender || !m_videoColourSpace)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Fatal error");
@@ -78,6 +55,17 @@ void MythOpenGLVideo::Init()
     m_chromaUpsamplingFilter = gCoreContext->GetBoolSetting("ChromaUpsamplingFilter", true);
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Chroma upsampling filter %1")
         .arg(m_chromaUpsamplingFilter ? "enabled" : "disabled"));
+}
+
+MythOpenGLVideo::~MythOpenGLVideo()
+{
+    if (!m_openglRender)
+        return;
+
+    m_openglRender->makeCurrent();
+    MythOpenGLVideo::ResetFrameFormat();
+    delete m_toneMap;
+    m_openglRender->doneCurrent();
 }
 
 void MythOpenGLVideo::ColourSpaceUpdate(bool PrimariesChanged)
@@ -134,7 +122,7 @@ void MythOpenGLVideo::UpdateShaderParameters()
 
 QString MythOpenGLVideo::GetProfile() const
 {
-    if (format_is_hw(m_inputType))
+    if (MythVideoFrame::HardwareFormat(m_inputType))
         return TypeToProfile(m_inputType);
     return TypeToProfile(m_outputType);
 }
@@ -144,7 +132,7 @@ void MythOpenGLVideo::CleanupDeinterlacers()
     // If switching off/from basic deinterlacing, then we need to delete and
     // recreate the input textures and sometimes the shaders as well - so start
     // from scratch
-    if (m_deinterlacer == DEINT_BASIC && format_is_yuv(m_inputType))
+    if (m_deinterlacer == DEINT_BASIC && MythVideoFrame::YUVFormat(m_inputType))
     {
         // Note. Textures will be created with linear filtering - which matches
         // no resizing - which should be the case for the basic deinterlacer - and
@@ -161,7 +149,7 @@ void MythOpenGLVideo::CleanupDeinterlacers()
     m_deinterlacer2x = false;
 }
 
-bool MythOpenGLVideo::AddDeinterlacer(const VideoFrame* Frame, FrameScanType Scan,
+bool MythOpenGLVideo::AddDeinterlacer(const MythVideoFrame* Frame, FrameScanType Scan,
                                       MythDeintType Filter  /* = DEINT_SHADER */,
                                       bool CreateReferences /* = true */)
 {
@@ -174,15 +162,15 @@ bool MythOpenGLVideo::AddDeinterlacer(const VideoFrame* Frame, FrameScanType Sca
     // N.B. there should in theory be no situation in which shader deinterlacing is not
     // available for software formats, hence there should be no need to fallback to cpu
 
-    if (!is_interlaced(Scan) || Frame->already_deinterlaced)
+    if (!is_interlaced(Scan) || Frame->m_alreadyDeinterlaced)
     {
         CleanupDeinterlacers();
         return false;
     }
 
     m_deinterlacer2x = true;
-    MythDeintType deinterlacer = GetDoubleRateOption(Frame, Filter);
-    MythDeintType other        = GetDoubleRateOption(Frame, DEINT_DRIVER);
+    MythDeintType deinterlacer = Frame->GetDoubleRateOption(Filter);
+    MythDeintType other        = Frame->GetDoubleRateOption(DEINT_DRIVER);
     if (other) // another double rate deinterlacer is enabled
     {
         CleanupDeinterlacers();
@@ -192,8 +180,8 @@ bool MythOpenGLVideo::AddDeinterlacer(const VideoFrame* Frame, FrameScanType Sca
     if (!deinterlacer)
     {
         m_deinterlacer2x = false;
-        deinterlacer = GetSingleRateOption(Frame, Filter);
-        other        = GetSingleRateOption(Frame, DEINT_DRIVER);
+        deinterlacer = Frame->GetSingleRateOption(Filter);
+        other        = Frame->GetSingleRateOption(DEINT_DRIVER);
         if (!deinterlacer || other) // no shader deinterlacer needed
         {
             CleanupDeinterlacers();
@@ -228,7 +216,7 @@ bool MythOpenGLVideo::AddDeinterlacer(const VideoFrame* Frame, FrameScanType Sca
     //
     // YUYV formats are currently not supported as it does not work correctly - force YV12 instead.
 
-    if (deinterlacer == DEINT_BASIC && format_is_yuv(m_inputType))
+    if (deinterlacer == DEINT_BASIC && MythVideoFrame::YUVFormat(m_inputType))
     {
         if (m_outputType == FMT_YUY2)
         {
@@ -253,15 +241,15 @@ bool MythOpenGLVideo::AddDeinterlacer(const VideoFrame* Frame, FrameScanType Sca
     // sanity check max texture units. Should only be an issue on old hardware (e.g. Pi)
     int max = m_openglRender->GetMaxTextureUnits();
     uint refstocreate = ((deinterlacer == DEINT_HIGH) && CreateReferences) ? 2 : 0;
-    int totaltextures = static_cast<int>(planes(m_outputType)) * static_cast<int>(refstocreate + 1);
+    int totaltextures = static_cast<int>(MythVideoFrame::GetNumPlanes(m_outputType)) * static_cast<int>(refstocreate + 1);
     if (totaltextures > max)
     {
         m_fallbackDeinterlacer = deinterlacer;
         LOG(VB_GENERAL, LOG_WARNING, LOC + QString("Insufficent texture units for deinterlacer '%1' (%2 < %3)")
-            .arg(DeinterlacerName(deinterlacer | DEINT_SHADER, m_deinterlacer2x)).arg(max).arg(totaltextures));
+            .arg(MythVideoFrame::DeinterlacerName(deinterlacer | DEINT_SHADER, m_deinterlacer2x)).arg(max).arg(totaltextures));
         deinterlacer = DEINT_BASIC;
         LOG(VB_GENERAL, LOG_WARNING, LOC + QString("Falling back to '%1'")
-            .arg(DeinterlacerName(deinterlacer | DEINT_SHADER, m_deinterlacer2x)));
+            .arg(MythVideoFrame::DeinterlacerName(deinterlacer | DEINT_SHADER, m_deinterlacer2x)));
     }
 
     // create new deinterlacers - the old ones will be deleted
@@ -289,8 +277,9 @@ bool MythOpenGLVideo::AddDeinterlacer(const VideoFrame* Frame, FrameScanType Sca
     m_deinterlacer = deinterlacer;
 
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Created deinterlacer '%1' (%2->%3)")
-        .arg(DeinterlacerName(m_deinterlacer | DEINT_SHADER, m_deinterlacer2x))
-        .arg(format_description(m_inputType)).arg(format_description(m_outputType)));
+        .arg(MythVideoFrame::DeinterlacerName(m_deinterlacer | DEINT_SHADER, m_deinterlacer2x))
+        .arg(MythVideoFrame::FormatDescription(m_inputType))
+        .arg(MythVideoFrame::FormatDescription(m_outputType)));
     return true;
 }
 
@@ -319,7 +308,7 @@ bool MythOpenGLVideo::CreateVideoShader(VideoShaderType Type, MythDeintType Dein
     if (m_textureTarget == GL_TEXTURE_EXTERNAL_OES)
         defines << "EXTOES";
 
-    if ((Default == Type) || (!format_is_yuv(m_outputType)))
+    if ((Default == Type) || (!MythVideoFrame::YUVFormat(m_outputType)))
     {
         QString glsldefines;
         for (const QString& define : qAsConst(defines))
@@ -340,7 +329,7 @@ bool MythOpenGLVideo::CreateVideoShader(VideoShaderType Type, MythDeintType Dein
 
         // Any software frames that are not 8bit need to use unsigned integer
         // samplers with GLES3.x - which need more modern shaders
-        if ((m_gles > 2) && (ColorDepth(m_inputType) > 8))
+        if ((m_gles > 2) && (MythVideoFrame::ColorDepth(m_inputType) > 8))
         {
             static const QString glsl300("#version 300 es\n");
             fragment   = GLSL300YUVFragmentShader;
@@ -352,12 +341,12 @@ bool MythOpenGLVideo::CreateVideoShader(VideoShaderType Type, MythDeintType Dein
         bool kernel = false;
         bool topfield = InterlacedTop == Type;
         bool progressive = (Progressive == Type) || (Deint == DEINT_NONE);
-        if (format_is_420(m_outputType) || format_is_422(m_outputType) || format_is_444(m_outputType))
+        if (MythVideoFrame::FormatIs420(m_outputType) || MythVideoFrame::FormatIs422(m_outputType) || MythVideoFrame::FormatIs444(m_outputType))
         {
             defines << "YV12";
             cost = 3;
         }
-        else if (format_is_nv12(m_outputType))
+        else if (MythVideoFrame::FormatIsNV12(m_outputType))
         {
             defines << "NV12";
             cost = 2;
@@ -377,9 +366,9 @@ bool MythOpenGLVideo::CreateVideoShader(VideoShaderType Type, MythDeintType Dein
 #endif
         if (!progressive)
         {
-            bool basic = Deint == DEINT_BASIC && format_is_yuv(m_inputType);
+            bool basic = Deint == DEINT_BASIC && MythVideoFrame::YUVFormat(m_inputType);
             // Chroma upsampling filter
-            if ((format_is_420(m_outputType) || format_is_nv12(m_outputType)) &&
+            if ((MythVideoFrame::FormatIs420(m_outputType) || MythVideoFrame::FormatIsNV12(m_outputType)) &&
                 m_chromaUpsamplingFilter && !basic)
             {
                 defines << "CUE";
@@ -409,7 +398,7 @@ bool MythOpenGLVideo::CreateVideoShader(VideoShaderType Type, MythDeintType Dein
 
         // 'expand' calls to sampleYUV for multiple planes
         // do this before we add the samplers
-        int count = static_cast<int>(planes(m_outputType));
+        int count = static_cast<int>(MythVideoFrame::GetNumPlanes(m_outputType));
         for (int i = (kernel ? 2 : 0); (i >= 0) && count; i--)
         {
             QString find = QString("s_texture%1").arg(i);
@@ -480,11 +469,13 @@ bool MythOpenGLVideo::SetupFrameFormat(VideoFrameType InputType, VideoFrameType 
                      (TextureTarget == GL_TEXTURE_EXTERNAL_OES) ? "OES" : "2D";
     QString texold = (m_textureTarget == QOpenGLTexture::TargetRectangle) ? "Rect" :
                      (m_textureTarget == GL_TEXTURE_EXTERNAL_OES) ? "OES" : "2D";
-    LOG(VB_GENERAL, LOG_WARNING, LOC +
+    LOG(VB_GENERAL, LOG_INFO, LOC +
         QString("New frame format: %1:%2 %3x%4 (Tex: %5) -> %6:%7 %8x%9 (Tex: %10)")
-        .arg(format_description(m_inputType)).arg(format_description(m_outputType))
+        .arg(MythVideoFrame::FormatDescription(m_inputType))
+        .arg(MythVideoFrame::FormatDescription(m_outputType))
         .arg(m_videoDim.width()).arg(m_videoDim.height()).arg(texold)
-        .arg(format_description(InputType)).arg(format_description(OutputType))
+        .arg(MythVideoFrame::FormatDescription(InputType))
+        .arg(MythVideoFrame::FormatDescription(OutputType))
         .arg(Size.width()).arg(Size.height()).arg(texnew));
 
     ResetFrameFormat();
@@ -499,7 +490,7 @@ bool MythOpenGLVideo::SetupFrameFormat(VideoFrameType InputType, VideoFrameType 
     if (m_inputType == FMT_DRMPRIME && m_outputType == FMT_RGBA32)
         emit OutputChanged(m_videoDim, m_videoDim, -1.0F);
 
-    if (!format_is_hw(InputType))
+    if (!MythVideoFrame::HardwareFormat(InputType))
     {
         vector<QSize> sizes;
         sizes.push_back(Size);
@@ -549,16 +540,16 @@ void MythOpenGLVideo::ResetFrameFormat()
 }
 
 /// \brief Update the current input texture using the data from the given video frame.
-void MythOpenGLVideo::PrepareFrame(VideoFrame* Frame, FrameScanType Scan)
+void MythOpenGLVideo::PrepareFrame(MythVideoFrame* Frame, FrameScanType Scan)
 {
-    if (Frame->codec == FMT_NONE)
+    if (Frame->m_type == FMT_NONE)
         return;
 
     // Hardware frames are retrieved/updated in PrepareFrame but we need to
     // reset software frames now if necessary
-    if (format_is_hw(Frame->codec))
+    if (MythVideoFrame::HardwareFormat(Frame->m_type))
     {
-        if ((!format_is_hw(m_inputType)) && (m_inputType != FMT_NONE))
+        if ((!MythVideoFrame::HardwareFormat(m_inputType)) && (m_inputType != FMT_NONE))
         {
             LOG(VB_PLAYBACK, LOG_INFO, LOC + "Resetting input format");
             ResetFrameFormat();
@@ -567,14 +558,14 @@ void MythOpenGLVideo::PrepareFrame(VideoFrame* Frame, FrameScanType Scan)
     }
 
     // Sanitise frame
-    if ((Frame->width < 1) || (Frame->height < 1) || !Frame->buf)
+    if ((Frame->m_width < 1) || (Frame->m_height < 1) || !Frame->m_buffer)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Invalid software frame");
         return;
     }
 
     // Can we render this frame format
-    if (!format_is_yuv(Frame->codec))
+    if (!MythVideoFrame::YUVFormat(Frame->m_type))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Frame format is not supported");
         return;
@@ -584,15 +575,15 @@ void MythOpenGLVideo::PrepareFrame(VideoFrame* Frame, FrameScanType Scan)
     OpenGLLocker ctx_lock(m_openglRender);
 
     // check for input changes
-    if ((Frame->width  != m_videoDim.width()) ||
-        (Frame->height != m_videoDim.height()) ||
-        (Frame->codec  != m_inputType))
+    if ((Frame->m_width  != m_videoDim.width()) ||
+        (Frame->m_height != m_videoDim.height()) ||
+        (Frame->m_type  != m_inputType))
     {
-        VideoFrameType frametype = Frame->codec;
+        VideoFrameType frametype = Frame->m_type;
         if ((frametype == FMT_YV12) && (m_profile == "opengl"))
             frametype = FMT_YUY2;
-        QSize size(Frame->width, Frame->height);
-        if (!SetupFrameFormat(Frame->codec, frametype, size, QOpenGLTexture::Target2D))
+        QSize size(Frame->m_width, Frame->m_height);
+        if (!SetupFrameFormat(Frame->m_type, frametype, size, QOpenGLTexture::Target2D))
             return;
     }
 
@@ -610,7 +601,7 @@ void MythOpenGLVideo::PrepareFrame(VideoFrame* Frame, FrameScanType Scan)
     {
         if (!m_nextTextures.empty() && !m_prevTextures.empty())
         {
-            if (abs(Frame->frameCounter - m_discontinuityCounter) > 1)
+            if (qAbs(Frame->m_frameCounter - m_discontinuityCounter) > 1)
                 ResetTextures();
             vector<MythVideoTexture*> temp = m_prevTextures;
             m_prevTextures = m_inputTextures;
@@ -620,24 +611,24 @@ void MythOpenGLVideo::PrepareFrame(VideoFrame* Frame, FrameScanType Scan)
         }
     }
 
-    m_discontinuityCounter = Frame->frameCounter;
+    m_discontinuityCounter = Frame->m_frameCounter;
 
     if (m_deinterlacer == DEINT_BASIC)
     {
         // first field. Fake the pitches
-        FramePitches pitches = Frame->pitches;
-        Frame->pitches[0] = Frame->pitches[0] << 1;
-        Frame->pitches[1] = Frame->pitches[1] << 1;
-        Frame->pitches[2] = Frame->pitches[2] << 1;
+        FramePitches pitches = Frame->m_pitches;
+        Frame->m_pitches[0] = Frame->m_pitches[0] << 1;
+        Frame->m_pitches[1] = Frame->m_pitches[1] << 1;
+        Frame->m_pitches[2] = Frame->m_pitches[2] << 1;
         MythVideoTexture::UpdateTextures(m_openglRender, Frame, m_inputTextures);
         // second field. Fake the offsets as well.
-        FrameOffsets offsets = Frame->offsets;
-        Frame->offsets[0] = Frame->offsets[0] + pitches[0];
-        Frame->offsets[1] = Frame->offsets[1] + pitches[1];
-        Frame->offsets[2] = Frame->offsets[2] + pitches[2];
+        FrameOffsets offsets = Frame->m_offsets;
+        Frame->m_offsets[0] = Frame->m_offsets[0] + pitches[0];
+        Frame->m_offsets[1] = Frame->m_offsets[1] + pitches[1];
+        Frame->m_offsets[2] = Frame->m_offsets[2] + pitches[2];
         MythVideoTexture::UpdateTextures(m_openglRender, Frame, m_nextTextures);
-        Frame->pitches = pitches;
-        Frame->offsets = offsets;
+        Frame->m_pitches = pitches;
+        Frame->m_offsets = offsets;
     }
     else
     {
@@ -648,7 +639,7 @@ void MythOpenGLVideo::PrepareFrame(VideoFrame* Frame, FrameScanType Scan)
         m_openglRender->logDebugMarker(LOC + "UPDATE_FRAME_END");
 }
 
-void MythOpenGLVideo::RenderFrame(VideoFrame* Frame, bool TopFieldFirst, FrameScanType Scan,
+void MythOpenGLVideo::RenderFrame(MythVideoFrame* Frame, bool TopFieldFirst, FrameScanType Scan,
                                   StereoscopicMode StereoOverride, bool DrawBorder)
 {
     if (!m_openglRender)
@@ -675,8 +666,8 @@ void MythOpenGLVideo::RenderFrame(VideoFrame* Frame, bool TopFieldFirst, FrameSc
     // nothing to display, then fallback to this framebuffer.
     // N.B. this is now strictly necessary with v4l2 and DRM PRIME direct rendering
     // but ignore now for performance reasons
-    VideoResizing resize = Frame ? (format_is_hwframes(Frame->codec) ? Framebuffer : None) :
-                                   (format_is_hwframes(m_inputType)  ? Framebuffer : None);
+    VideoResizing resize = Frame ? (MythVideoFrame::HardwareFramesFormat(Frame->m_type) ? Framebuffer : None) :
+                                   (MythVideoFrame::HardwareFramesFormat(m_inputType)  ? Framebuffer : None);
 
     vector<MythVideoTexture*> inputtextures = m_inputTextures;
     if (inputtextures.empty())
@@ -732,7 +723,7 @@ void MythOpenGLVideo::RenderFrame(VideoFrame* Frame, bool TopFieldFirst, FrameSc
     // Determine which shader to use. This helps optimise the resize check.
     bool deinterlacing = false;
     bool basicdeinterlacing = false;
-    VideoShaderType program = format_is_yuv(m_outputType) ? Progressive :  Default;
+    VideoShaderType program = MythVideoFrame::YUVFormat(m_outputType) ? Progressive :  Default;
     if (m_deinterlacer != DEINT_NONE)
     {
         if (Scan == kScan_Interlaced)
@@ -747,7 +738,7 @@ void MythOpenGLVideo::RenderFrame(VideoFrame* Frame, bool TopFieldFirst, FrameSc
         }
 
         // select the correct field for the basic deinterlacer
-        if (deinterlacing && m_deinterlacer == DEINT_BASIC && format_is_yuv(m_inputType))
+        if (deinterlacing && m_deinterlacer == DEINT_BASIC && MythVideoFrame::YUVFormat(m_inputType))
         {
             basicdeinterlacing = true;
             if (program == InterlacedBot)
@@ -758,8 +749,8 @@ void MythOpenGLVideo::RenderFrame(VideoFrame* Frame, bool TopFieldFirst, FrameSc
     // Set deinterlacer type for debug OSD
     if (deinterlacing && Frame)
     {
-        Frame->deinterlace_inuse = m_deinterlacer | DEINT_SHADER;
-        Frame->deinterlace_inuse2x = m_deinterlacer2x;
+        Frame->m_deinterlaceInuse = m_deinterlacer | DEINT_SHADER;
+        Frame->m_deinterlaceInuse2x = m_deinterlacer2x;
     }
 
     // Tonemapping can only render to a texture
@@ -767,7 +758,7 @@ void MythOpenGLVideo::RenderFrame(VideoFrame* Frame, bool TopFieldFirst, FrameSc
         resize |= ToneMap;
 
     // Decide whether to use render to texture - for performance or quality
-    if (format_is_yuv(m_outputType) && !resize)
+    if (MythVideoFrame::YUVFormat(m_outputType) && !resize)
     {
         // ensure deinterlacing works correctly when down scaling in height
         // N.B. not needed for the basic deinterlacer
@@ -782,7 +773,7 @@ void MythOpenGLVideo::RenderFrame(VideoFrame* Frame, bool TopFieldFirst, FrameSc
         if (FMT_YUY2 == m_outputType)
             resize |= Sampling;
         // unsigned integer texture formats need GL_NEAREST sampling
-        if ((m_gles > 2) && (ColorDepth(m_inputType) > 8))
+        if ((m_gles > 2) && (MythVideoFrame::ColorDepth(m_inputType) > 8))
             resize |= Sampling;
 
         // don't enable resizing if the cost of a framebuffer switch may be
@@ -927,14 +918,15 @@ void MythOpenGLVideo::RenderFrame(VideoFrame* Frame, bool TopFieldFirst, FrameSc
 
     // discard stereoscopic fields
     StereoscopicMode stereo = StereoOverride;
+    m_lastStereo = Frame ? Frame->m_stereo3D : m_lastStereo;
     // N.B. kStereoscopicModeSideBySideDiscard is a proxy here for discard of all types
     if ((stereo == kStereoscopicModeAuto) &&
         (m_stereoMode == kStereoscopicModeSideBySideDiscard) &&
-        Frame && (Frame->stereo3D != AV_STEREO3D_2D))
+        (m_lastStereo != AV_STEREO3D_2D))
     {
-        if (Frame->stereo3D == AV_STEREO3D_SIDEBYSIDE)
+        if (m_lastStereo == AV_STEREO3D_SIDEBYSIDE)
             stereo = kStereoscopicModeSideBySideDiscard;
-        else if (Frame->stereo3D == AV_STEREO3D_TOPBOTTOM)
+        else if (m_lastStereo == AV_STEREO3D_TOPBOTTOM)
             stereo = kStereoscopicModeTopAndBottomDiscard;
     }
 
@@ -962,7 +954,7 @@ void MythOpenGLVideo::RenderFrame(VideoFrame* Frame, bool TopFieldFirst, FrameSc
 
     // rotation
     if (Frame)
-        m_lastRotation = Frame->rotation;
+        m_lastRotation = Frame->m_rotation;
 
     // apply scissoring
     if (tiled)
@@ -999,21 +991,15 @@ void MythOpenGLVideo::ResetTextures()
 void MythOpenGLVideo::BindTextures(bool Deinterlacing, vector<MythVideoTexture*>& Current,
                                    vector<MythGLTexture*>& Textures)
 {
-    bool usecurrent = true;
-    if (Deinterlacing)
+    if (Deinterlacing && !MythVideoFrame::HardwareFormat(m_inputType))
     {
-        if (format_is_hw(m_inputType))
-        {
-            usecurrent = true;
-        }
-        else if ((m_nextTextures.size() == Current.size()) && (m_prevTextures.size() == Current.size()))
+        if ((m_nextTextures.size() == Current.size()) && (m_prevTextures.size() == Current.size()))
         {
             // if we are using reference frames, we want the current frame in the middle
             // but next will be the first valid, followed by current...
-            usecurrent = false;
             size_t count = Current.size();
-            vector<MythVideoTexture*> &current = Current[0]->m_valid ? Current : m_nextTextures;
-            vector<MythVideoTexture*> &prev    = m_prevTextures[0]->m_valid ? m_prevTextures : current;
+            vector<MythVideoTexture*>& current = Current[0]->m_valid ? Current : m_nextTextures;
+            vector<MythVideoTexture*>& prev    = m_prevTextures[0]->m_valid ? m_prevTextures : current;
 
             for (uint i = 0; i < count; ++i)
                 Textures.push_back(reinterpret_cast<MythGLTexture*>(prev[i]));
@@ -1021,17 +1007,17 @@ void MythOpenGLVideo::BindTextures(bool Deinterlacing, vector<MythVideoTexture*>
                 Textures.push_back(reinterpret_cast<MythGLTexture*>(current[i]));
             for (uint i = 0; i < count; ++i)
                 Textures.push_back(reinterpret_cast<MythGLTexture*>(m_nextTextures[i]));
+            return;
         }
     }
 
-    if (usecurrent)
-        for (auto & texture : Current)
-            Textures.push_back(reinterpret_cast<MythGLTexture*>(texture));
+    std::transform(Current.cbegin(), Current.cend(), std::back_inserter(Textures),
+                   [](MythVideoTexture* Tex) { return reinterpret_cast<MythGLTexture*>(Tex); });
 }
 
 QString MythOpenGLVideo::TypeToProfile(VideoFrameType Type)
 {
-    if (format_is_hw(Type))
+    if (MythVideoFrame::HardwareFormat(Type))
         return "opengl-hw";
 
     switch (Type)
@@ -1053,7 +1039,7 @@ QOpenGLFramebufferObject* MythOpenGLVideo::CreateVideoFrameBuffer(VideoFrameType
     // never be enabled as it returns an RGB frame - so if MediaCodec uses a 16bit texture, precision
     // will be preserved.
     bool sixteenbitfb  = m_extraFeatures & kGL16BitFBO;
-    bool sixteenbitvid = ColorDepth(OutputType) > 8;
+    bool sixteenbitvid = MythVideoFrame::ColorDepth(OutputType) > 8;
     if (sixteenbitfb && sixteenbitvid)
         LOG(VB_PLAYBACK, LOG_INFO, LOC + "Requesting 16bit framebuffer texture");
     return m_openglRender->CreateFramebuffer(Size, sixteenbitfb && sixteenbitvid);

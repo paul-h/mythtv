@@ -59,9 +59,7 @@
 #define O_LARGEFILE 0
 #endif
 
-using namespace std;
-
-static std::array<const MIMETypes,63> g_MIMETypes
+static std::array<const MIMETypes,66> g_MIMETypes
 {{
     // Image Mime Types
     { "gif" , "image/gif"                  },
@@ -130,7 +128,11 @@ static std::array<const MIMETypes,63> g_MIMETypes
     { "ps"  , "video/mp2p"                 }, // RFC 3555
     { "ts"  , "video/mp2t"                 }, // RFC 3555
     { "vob" , "video/mpeg"                 }, // Also video/dvd
-    { "wmv" , "video/x-ms-wmv"             }
+    { "wmv" , "video/x-ms-wmv"             },
+    // Font Mime Types
+    { "ttf"  , "font/ttf"                  },
+    { "woff" , "font/woff"                 },
+    { "woff2", "font/woff2"                }
 }};
 
 // NOTE 1
@@ -160,7 +162,7 @@ const char *HTTPRequest::s_szServerHeaders = "Accept-Ranges: bytes\r\n";
 //
 /////////////////////////////////////////////////////////////////////////////
 
-QString HTTPRequest::GetLastHeader( const QString &sType )
+QString HTTPRequest::GetLastHeader( const QString &sType ) const
 {
     QStringList values = m_mapHeaders.values( sType );
     if (!values.isEmpty())
@@ -287,7 +289,7 @@ QString HTTPRequest::BuildResponseHeader( long long nSize )
     for (const auto & value : values)
         AddCORSHeaders(value);
 
-    if (getenv("HTTPREQUEST_DEBUG"))
+    if (qEnvironmentVariableIsSet("HTTPREQUEST_DEBUG"))
     {
         // Dump response header
         QMap<QString, QString>::iterator it;
@@ -402,8 +404,8 @@ qint64 HTTPRequest::SendResponse( void )
 
     // ----------------------------------------------------------------------
     // DEBUGGING
-    if (getenv("HTTPREQUEST_DEBUG"))
-        cout << m_response.buffer().constData() << endl;
+    if (qEnvironmentVariableIsSet("HTTPREQUEST_DEBUG"))
+        std::cout << m_response.buffer().constData() << std::endl;
     // ----------------------------------------------------------------------
 
     LOG(VB_HTTP, LOG_DEBUG, QString("Reponse Content Length: %1").arg(nContentLen));
@@ -1171,7 +1173,7 @@ long HTTPRequest::GetParameters( QString sParams, QStringMap &mapParams  )
 //
 /////////////////////////////////////////////////////////////////////////////
 
-QString HTTPRequest::GetRequestHeader( const QString &sKey, QString sDefault )
+QString HTTPRequest::GetRequestHeader( const QString &sKey, const QString &sDefault )
 {
     QStringMap::iterator it = m_mapHeaders.find( sKey.toLower() );
 

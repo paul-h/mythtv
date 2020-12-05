@@ -111,7 +111,7 @@ bool MythMediaCodecInterop::Initialise(QSize Size)
 
 vector<MythVideoTexture*> MythMediaCodecInterop::Acquire(MythRenderOpenGL *Context,
                                                          MythVideoColourSpace *ColourSpace,
-                                                         VideoFrame *Frame,
+                                                         MythVideoFrame *Frame,
                                                          FrameScanType)
 {
     vector<MythVideoTexture*> result;
@@ -119,7 +119,7 @@ vector<MythVideoTexture*> MythMediaCodecInterop::Acquire(MythRenderOpenGL *Conte
         return result;
 
     // Pause frame handling - we can never release the same buffer twice
-    if (!Frame->buf)
+    if (!Frame->m_buffer)
     {
         if (!m_openglTextures.isEmpty())
             return m_openglTextures[DUMMY_INTEROP_ID];
@@ -127,7 +127,7 @@ vector<MythVideoTexture*> MythMediaCodecInterop::Acquire(MythRenderOpenGL *Conte
     }
 
     // Sanitise
-    if (!Context || !ColourSpace || !Frame || m_openglTextures.isEmpty())
+    if (!Context || !ColourSpace || m_openglTextures.isEmpty())
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Failed");
         return result;
@@ -142,7 +142,7 @@ vector<MythVideoTexture*> MythMediaCodecInterop::Acquire(MythRenderOpenGL *Conte
     }
 
     // Retrieve buffer
-    AVMediaCodecBuffer *buffer = reinterpret_cast<AVMediaCodecBuffer*>(Frame->buf);
+    AVMediaCodecBuffer *buffer = reinterpret_cast<AVMediaCodecBuffer*>(Frame->m_buffer);
     if (!buffer)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "No AVMediaCodecBuffer");
@@ -160,7 +160,7 @@ vector<MythVideoTexture*> MythMediaCodecInterop::Acquire(MythRenderOpenGL *Conte
     m_frameWaitLock.unlock();
 
     // Ensure we don't try and release it again
-    Frame->buf = nullptr;
+    Frame->m_buffer = nullptr;
 
     // Update texture
     m_surfaceTexture.callMethod<void>("updateTexImage");

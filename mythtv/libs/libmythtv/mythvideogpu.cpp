@@ -17,41 +17,6 @@ MythVideoGPU::MythVideoGPU(MythRender *Render, MythVideoColourSpace* ColourSpace
     m_videoColourSpace(ColourSpace),
     m_inputTextureSize(Bounds->GetVideoDim())
 {
-    CommonInit();
-
-    connect(Bounds, &MythVideoBounds::VideoSizeChanged,  this,   &MythVideoGPU::SetVideoDimensions);
-    connect(Bounds, &MythVideoBounds::VideoRectsChanged, this,   &MythVideoGPU::SetVideoRects);
-    connect(Bounds, &MythVideoBounds::WindowRectChanged, this,   &MythVideoGPU::SetViewportRect);
-    connect(this,   &MythVideoGPU::OutputChanged,        Bounds, &MythVideoBounds::SourceChanged);
-}
-
-MythVideoGPU::MythVideoGPU(MythRender* Render, MythVideoColourSpace* ColourSpace,
-                           QSize VideoDim, QSize VideoDispDim, QRect DisplayVisibleRect,
-                           QRect DisplayVideoRect, QRect VideoRect, QString Profile)
-  : m_render(Render),
-    m_profile(std::move(Profile)),
-    m_videoDispDim(VideoDispDim),
-    m_videoDim(VideoDim),
-    m_masterViewportSize(DisplayVisibleRect.size()),
-    m_displayVideoRect(DisplayVideoRect),
-    m_videoRect(VideoRect),
-    m_videoColourSpace(ColourSpace),
-    m_inputTextureSize(VideoDim),
-    m_viewportControl(false)
-{
-    CommonInit();
-}
-
-MythVideoGPU::~MythVideoGPU()
-{
-    if (m_render)
-        m_render->DecrRef();
-    if (m_videoColourSpace)
-        m_videoColourSpace->DecrRef();
-}
-
-void MythVideoGPU::CommonInit()
-{
     if (m_render)
         m_render->IncrRef();
 
@@ -65,6 +30,19 @@ void MythVideoGPU::CommonInit()
                     kStereoscopicModeSideBySideDiscard : kStereoscopicModeIgnore3D;
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Discard stereoscopic fields: %1")
         .arg(m_stereoMode == kStereoscopicModeIgnore3D ? "No" : "Yes"));
+
+    connect(Bounds, &MythVideoBounds::VideoSizeChanged,  this,   &MythVideoGPU::SetVideoDimensions);
+    connect(Bounds, &MythVideoBounds::VideoRectsChanged, this,   &MythVideoGPU::SetVideoRects);
+    connect(Bounds, &MythVideoBounds::WindowRectChanged, this,   &MythVideoGPU::SetViewportRect);
+    connect(this,   &MythVideoGPU::OutputChanged,        Bounds, &MythVideoBounds::SourceChanged);
+}
+
+MythVideoGPU::~MythVideoGPU()
+{
+    if (m_render)
+        m_render->DecrRef();
+    if (m_videoColourSpace)
+        m_videoColourSpace->DecrRef();
 }
 
 /// \note QObject::connect with function pointers does not work when the slot
@@ -119,19 +97,19 @@ QString MythVideoGPU::VideoResizeToString(VideoResizing Resize)
     return reasons.join(",");
 }
 
-void MythVideoGPU::SetVideoDimensions(const QSize& VideoDim, const QSize& VideoDispDim)
+void MythVideoGPU::SetVideoDimensions(QSize VideoDim, QSize VideoDispDim)
 {
     m_videoDim = VideoDim;
     m_videoDispDim = VideoDispDim;
 }
 
-void MythVideoGPU::SetVideoRects(const QRect& DisplayVideoRect, const QRect& VideoRect)
+void MythVideoGPU::SetVideoRects(QRect DisplayVideoRect, QRect VideoRect)
 {
     m_displayVideoRect = DisplayVideoRect;
     m_videoRect = VideoRect;
 }
 
-void MythVideoGPU::SetViewportRect(const QRect& DisplayVisibleRect)
+void MythVideoGPU::SetViewportRect(QRect DisplayVisibleRect)
 {
     SetMasterViewport(DisplayVisibleRect.size());
 }

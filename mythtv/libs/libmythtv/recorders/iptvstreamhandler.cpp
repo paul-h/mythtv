@@ -228,7 +228,7 @@ void IPTVStreamHandler::run(void)
                 "Unable to create socket " + ENO);
             continue;
         }
-        int buf_size = 2 * 1024 * max(tuning.GetBitrate(i)/1000, 500U);
+        int buf_size = 2 * 1024 * std::max(tuning.GetBitrate(i)/1000, 500U);
         if (!tuning.GetBitrate(i))
             buf_size = 2 * 1024 * 1024;
         int err = setsockopt(fd, SOL_SOCKET, SO_RCVBUF,
@@ -336,8 +336,8 @@ IPTVStreamHandlerReadHelper::IPTVStreamHandlerReadHelper(
     m_parent(p), m_socket(s), m_sender(p->m_sender[stream]),
     m_stream(stream)
 {
-    connect(m_socket, SIGNAL(readyRead()),
-            this,     SLOT(ReadPending()));
+    connect(m_socket, &QIODevice::readyRead,
+            this,     &IPTVStreamHandlerReadHelper::ReadPending);
 }
 
 #define LOC_WH QString("IPTVSH(%1): ").arg(m_parent->m_device)

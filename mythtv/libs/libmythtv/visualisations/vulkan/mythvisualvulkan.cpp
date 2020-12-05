@@ -7,8 +7,8 @@
 #define LOC QString("VulkanVis: ")
 
 MythVisualVulkan::MythVisualVulkan(MythRenderVulkan *Render,
-                                   std::vector<VkDynamicState> Dynamic,
-                                   std::vector<int> Stages,
+                                   const std::vector<VkDynamicState>& Dynamic,
+                                   const std::vector<int>& Stages,
                                    const MythShaderMap *Sources,
                                    const MythBindingMap *Bindings)
   : MythVulkanObject(Render),
@@ -24,7 +24,7 @@ MythVisualVulkan::~MythVisualVulkan()
     MythVisualVulkan::TearDownVulkan();
 }
 
-MythRenderVulkan* MythVisualVulkan::InitialiseVulkan(const QRect& /*Area*/)
+MythRenderVulkan* MythVisualVulkan::InitialiseVulkan(const QRect /*Area*/)
 {
     if (!IsValidVulkan())
         return nullptr;
@@ -75,7 +75,7 @@ MythRenderVulkan* MythVisualVulkan::InitialiseVulkan(const QRect& /*Area*/)
     }
 
     // Create descriptor
-    auto layout = m_vulkanShader->GetDescSetLayout(0);
+    VkDescriptorSetLayout layout = m_vulkanShader->GetDescSetLayout(0);
     VkDescriptorSetAllocateInfo alloc { };
     alloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     alloc.descriptorPool = m_descriptorPool;

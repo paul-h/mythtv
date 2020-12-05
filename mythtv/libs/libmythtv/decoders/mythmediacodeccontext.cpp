@@ -8,6 +8,7 @@
 #include "mythmainwindow.h"
 #include "avformatdecoder.h"
 #include "mythmediacodecinterop.h"
+#include "mythplayerui.h"
 #include "mythmediacodeccontext.h"
 
 // FFmpeg
@@ -164,11 +165,9 @@ int MythMediaCodecContext::InitialiseDecoder(AVCodecContext *Context)
     if (!Context || !gCoreContext->IsUIThread())
         return -1;
 
-    // We need a player to release the interop
-    MythPlayer *player = nullptr;
-    auto *decoder = reinterpret_cast<AvFormatDecoder*>(Context->opaque);
-    if (decoder)
-        player = decoder->GetPlayer();
+    // The interop must have a reference to the ui player so it can be deleted
+    // from the main thread.
+    MythPlayerUI* player = GetPlayerUI(Context);
     if (!player)
         return -1;
 
@@ -227,6 +226,14 @@ MythCodecID MythMediaCodecContext::GetBestSupportedCodec(AVCodecContext **Contex
     if (!HaveMediaCodec())
         return failure;
 
+    if (!decodeonly)
+    {
+        // check for the correct player type and interop supprt
+        MythPlayerUI* player = GetPlayerUI(*Context);
+        if (MythOpenGLInterop::GetInteropType(FMT_MEDIACODEC, player) == MythOpenGLInterop::Unsupported)
+            return failure;
+    }
+
     bool found = false;
     MCProfiles& profiles = MythMediaCodecContext::GetProfiles();
     MythCodecContext::CodecProfile mythprofile =
@@ -255,8 +262,8 @@ MythCodecID MythMediaCodecContext::GetBestSupportedCodec(AVCodecContext **Contex
             *Codec = newCodec;
             LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("HW device type '%1' supports decoding '%2' (%3)")
                     .arg(av_hwdevice_get_type_name(AV_HWDEVICE_TYPE_MEDIACODEC)).arg((*Codec)->name).arg(profilestr));
-            decoder->CodecMap()->freeCodecContext(Stream);
-            *Context = decoder->CodecMap()->getCodecContext(Stream, *Codec);
+            decoder->CodecMap()->FreeCodecContext(Stream);
+            *Context = decoder->CodecMap()->GetCodecContext(Stream, *Codec);
             (*Context)->pix_fmt = AV_PIX_FMT_MEDIACODEC;
             return success;
         }
@@ -294,7 +301,7 @@ int MythMediaCodecContext::HwDecoderInit(AVCodecContext *Context)
     return -1;
 }
 
-bool MythMediaCodecContext::RetrieveFrame(AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame)
+bool MythMediaCodecContext::RetrieveFrame(AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame)
 {
     if (AvFrame->format != AV_PIX_FMT_MEDIACODEC)
         return false;
@@ -318,18 +325,18 @@ AVPixelFormat MythMediaCodecContext::GetFormat(AVCodecContext*, const AVPixelFor
  *
  * \note This may not be appropriate for all devices
 */
-void MythMediaCodecContext::PostProcessFrame(AVCodecContext*, VideoFrame* Frame)
+void MythMediaCodecContext::PostProcessFrame(AVCodecContext*, MythVideoFrame* Frame)
 {
     if (!Frame)
         return;
 
-    Frame->deinterlace_inuse = DEINT_BASIC | DEINT_DRIVER;
-    Frame->deinterlace_inuse2x = false;
-    Frame->interlaced_frame = 0;
-    Frame->interlaced_reversed = false;
-    Frame->top_field_first = false;
-    Frame->deinterlace_allowed = DEINT_NONE;
-    Frame->already_deinterlaced = true;
+    Frame->m_deinterlaceInuse = DEINT_BASIC | DEINT_DRIVER;
+    Frame->m_deinterlaceInuse2x = false;
+    Frame->m_interlaced = 0;
+    Frame->m_interlacedReverse = false;
+    Frame->m_topFieldFirst = false;
+    Frame->m_deinterlaceAllowed = DEINT_NONE;
+    Frame->m_alreadyDeinterlaced = true;
 }
 
 /*! /brief Say yes
@@ -465,19 +472,13 @@ MCProfiles &MythMediaCodecContext::GetProfiles(void)
                     jfieldID id     = env->GetFieldID(objclass, "profile", "I");
                     int value       = static_cast<int>(env->GetIntField(profile, id));
                     QList<int>& mcprofiles = mimetype.second.second;
-                    bool found = false;
-                    for (auto mcprofile : qAsConst(mcprofiles))
+                    auto sameprof = [value](auto mcprofile) { return value == mcprofile; };
+                    if (std::any_of(mcprofiles.cbegin(), mcprofiles.cend(), sameprof))
                     {
-                        if (value == mcprofile)
-                        {
-                            found = true;
-                            MythCodecContext::CodecProfile p = MediaCodecToMythProfile(mimetype.second.first, value);
-                            s_profiles.append(QPair<MythCodecContext::CodecProfile,QSize>(p, QSize(width, height)));
-                            break;
-                        }
+                        MythCodecContext::CodecProfile p = MediaCodecToMythProfile(mimetype.second.first, value);
+                        s_profiles.append(QPair<MythCodecContext::CodecProfile,QSize>(p, QSize(width, height)));
                     }
-
-                    if (!found)
+                    else
                         s_profiles.append(QPair<MythCodecContext::CodecProfile,QSize>(mimetype.second.first, QSize(width, height)));
                 }
             }

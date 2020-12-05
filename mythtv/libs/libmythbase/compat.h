@@ -7,6 +7,7 @@
 
 #ifdef __cplusplus
 #    include <cstdio>         // for snprintf(), used by inline dlerror()
+#    include <QtGlobal>       // for Q_OS_XXX
 #else
 #    include <stdio.h>        // for snprintf(), used by inline dlerror()
 #endif
@@ -149,6 +150,7 @@
     static inline long int random(void)
         { return QRandomGenerator::global()->generate64(); }
 #else
+    // cppcheck-suppress qsrandCalled
     static inline void srandom(unsigned int seed) { qsrand(seed); }
     static inline long int random(void) { return qrand(); }
 #endif

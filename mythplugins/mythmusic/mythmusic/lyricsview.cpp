@@ -83,7 +83,7 @@ bool LyricsView::Create(void)
         return false;
     }
 
-    connect(m_lyricsList, SIGNAL(itemClicked(MythUIButtonListItem*)), this, SLOT(setLyricTime()));
+    connect(m_lyricsList, &MythUIButtonList::itemClicked, this, &LyricsView::setLyricTime);
 
     BuildFocusList();
 
@@ -259,13 +259,13 @@ MythMenu* LyricsView::createFindLyricsMenu(void)
     QString label = tr("Find Lyrics");
 
     auto *menu = new MythMenu(label, this, "findlyricsmenu");
-    menu->AddItem(tr("Search All Grabbers"), QVariant::fromValue(QString("ALL")));
+    menu->AddItemV(tr("Search All Grabbers"), QVariant::fromValue(QString("ALL")));
 
     QStringList strList("MUSIC_LYRICS_GETGRABBERS");
     if (gCoreContext->SendReceiveStringList(strList))
     {
         for (int x = 1; x < strList.count(); x++)
-            menu->AddItem(tr("Search %1").arg(strList.at(x)), QVariant::fromValue(strList.at(x)));
+            menu->AddItemV(tr("Search %1").arg(strList.at(x)), QVariant::fromValue(strList.at(x)));
     }
 
     return menu;
@@ -379,8 +379,8 @@ void LyricsView::findLyrics(const QString &grabber)
 
     m_lyricData = mdata->getLyricsData();
 
-    connect(m_lyricData, SIGNAL(statusChanged(LyricsData::Status, const QString&)), 
-            this,  SLOT(lyricStatusChanged(LyricsData::Status, const QString&)));
+    connect(m_lyricData, &LyricsData::statusChanged, 
+            this,  &LyricsView::lyricStatusChanged);
 
     m_lyricData->findLyrics(grabber);
 }
@@ -477,7 +477,7 @@ void LyricsView::editLyrics(void)
         delete editDialog;
         return;
     }
-    connect(editDialog, SIGNAL(haveResult(bool)), this, SLOT(editFinished(bool)));
+    connect(editDialog, &EditLyricsDialog::haveResult, this, &LyricsView::editFinished);
     mainStack->AddScreen(editDialog);
 }
 
@@ -520,9 +520,9 @@ bool EditLyricsDialog::Create(void)
         return false;
     }
 
-    connect(m_okButton, SIGNAL(Clicked()), this, SLOT(okPressed()));
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(cancelPressed()));
-    connect(m_syncronizedCheck, SIGNAL(toggled(bool)), this, SLOT(syncronizedChanged(bool)));
+    connect(m_okButton, &MythUIButton::Clicked, this, &EditLyricsDialog::okPressed);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &EditLyricsDialog::cancelPressed);
+    connect(m_syncronizedCheck, &MythUICheckBox::toggled, this, &EditLyricsDialog::syncronizedChanged);
 
     m_grabberEdit->SetText(m_sourceData->grabber());
     m_syncronizedCheck->SetCheckState(m_sourceData->syncronized());
@@ -657,7 +657,7 @@ void EditLyricsDialog::cancelPressed(void )
 {
     if (somethingChanged())
     {
-        ShowOkPopup(tr("Save changes?"), this, SLOT(saveEdits(bool)), true);
+        ShowOkPopup(tr("Save changes?"), this, &EditLyricsDialog::saveEdits, true);
         return;
     }
 

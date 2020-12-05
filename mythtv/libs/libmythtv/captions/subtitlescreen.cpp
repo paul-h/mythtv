@@ -46,7 +46,7 @@ class SubSimpleText : public MythUISimpleText, public SubWrapper
 {
 public:
     SubSimpleText(const QString &text, const MythFontProperties &font,
-                  const QRect &rect, Qt::Alignment align,
+                  QRect rect, Qt::Alignment align,
                   MythUIType *parent, const QString &name,
                   int whichImageCache, long long expireTime) :
         MythUISimpleText(text, font, rect, align, parent, name),
@@ -760,7 +760,7 @@ QSize FormattedTextLine::CalcSize(float layoutSpacing) const
     {
         bool isLast = (it + 1 == chunks.constEnd());
         QSize tmp = (*it).CalcSize(layoutSpacing);
-        height = max(height, tmp.height());
+        height = std::max(height, tmp.height());
         width += tmp.width();
         (*it).CalcPadding(isFirst, isLast, leftPadding, rightPadding);
         if (it == chunks.constBegin())
@@ -789,7 +789,7 @@ void FormattedTextSubtitle::Layout(void)
     for (const auto & line : qAsConst(m_lines))
     {
         QSize sz = line.CalcSize(LINE_SPACING);
-        anchor_width = max(anchor_width, sz.width());
+        anchor_width = std::max(anchor_width, sz.width());
         anchor_height += sz.height();
     }
 
@@ -806,8 +806,8 @@ void FormattedTextSubtitle::Layout(void)
         anchor_y -= anchor_height;
 
     // Shift the anchor point back into the safe area if necessary/possible.
-    anchor_y = max(0, min(anchor_y, m_safeArea.height() - anchor_height));
-    anchor_x = max(0, min(anchor_x, m_safeArea.width() - anchor_width));
+    anchor_y = std::max(0, std::min(anchor_y, m_safeArea.height() - anchor_height));
+    anchor_x = std::max(0, std::min(anchor_x, m_safeArea.width() - anchor_width));
 
     m_bounds = QRect(anchor_x, anchor_y, anchor_width, anchor_height);
 
@@ -1184,7 +1184,7 @@ void FormattedTextSubtitle608::Layout(void)
     // Calculate totalHeight and totalSpace
     for (int i = 0; i < m_lines.size(); i++)
     {
-        m_lines[i].m_yIndent = max(m_lines[i].m_yIndent, prevY); // avoid overlap
+        m_lines[i].m_yIndent = std::max(m_lines[i].m_yIndent, prevY); // avoid overlap
         int y = m_lines[i].m_yIndent;
         if (i == 0)
             firstY = prevY = y;
@@ -1196,7 +1196,7 @@ void FormattedTextSubtitle608::Layout(void)
         totalHeight += height;
     }
     int safeHeight = m_safeArea.height();
-    int overage = min(totalHeight - safeHeight, totalSpace);
+    int overage = std::min(totalHeight - safeHeight, totalSpace);
 
     // Recalculate Y coordinates, applying the shrink factor to space
     // between each line.
@@ -1212,7 +1212,7 @@ void FormattedTextSubtitle608::Layout(void)
     }
 
     // Shift Y coordinates back up into the safe area.
-    int shift = min(firstY, max(0, prevY - safeHeight));
+    int shift = std::min(firstY, std::max(0, prevY - safeHeight));
     // NOLINTNEXTLINE(modernize-loop-convert)
     for (int i = 0; i < m_lines.size(); i++)
         m_lines[i].m_yIndent -= shift;
@@ -1297,7 +1297,7 @@ void FormattedTextSubtitle608::Init(const vector<CC608Text*> &buffers)
             QString captionText =
                 extract_cc608(text, color, isItalic, isUnderline);
             CC708CharacterAttribute attr(isItalic, isBold, isUnderline,
-                                         kClr[min(max(0, color), 7)]);
+                                         kClr[std::min(std::max(0, color), 7)]);
             FormattedTextChunk chunk(captionText, attr, m_subScreen);
             line.chunks += chunk;
             LOG(VB_VBI, LOG_INFO,
@@ -1363,13 +1363,14 @@ void FormattedTextSubtitle708::Init(const CC708Window &win,
 
 ////////////////////////////////////////////////////////////////////////////
 
-SubtitleScreen::SubtitleScreen(MythPlayer *player, const char * name,
-                               int fontStretch) :
-    MythScreenType((MythScreenType*)nullptr, name),
-    m_player(player),
-    m_fontStretch(fontStretch),
+SubtitleScreen::SubtitleScreen(MythPlayer *Player, MythPainter *Painter,
+                               const QString &Name, int FontStretch)
+  : MythScreenType(static_cast<MythScreenType*>(nullptr), Name),
+    m_player(Player),
+    m_fontStretch(FontStretch),
     m_format(new SubtitleFormat)
 {
+    m_painter = Painter;
     m_removeHTML.setMinimal(true);
 }
 
@@ -1629,8 +1630,8 @@ static QSize CalcShadowOffsetPadding(MythFontProperties *mythfont)
         shadowWidth = abs(shadowOffset.x());
         shadowHeight = abs(shadowOffset.y());
         // Shadow and outline overlap, so don't just add them.
-        shadowWidth = max(shadowWidth, outlineSize);
-        shadowHeight = max(shadowHeight, outlineSize);
+        shadowWidth = std::max(shadowWidth, outlineSize);
+        shadowHeight = std::max(shadowHeight, outlineSize);
     }
     return {shadowWidth + outlineSize, shadowHeight + outlineSize};
 }
@@ -1649,7 +1650,7 @@ QSize SubtitleScreen::CalcTextSize(const QString &text,
 #endif
     int height = fm.height() * (1 + PAD_HEIGHT);
     if (layoutSpacing > 0 && !text.trimmed().isEmpty())
-        height = max(height, (int)(font->pixelSize() * layoutSpacing));
+        height = std::max(height, (int)(font->pixelSize() * layoutSpacing));
     height += CalcShadowOffsetPadding(mythfont).height();
     return {width, height};
 }
@@ -1717,8 +1718,8 @@ void SubtitleScreen::Pulse(void)
     QList<MythUIType *>::iterator itNext;
 
     MythVideoOutput *videoOut = m_player->GetVideoOutput();
-    VideoFrame *currentFrame = videoOut ? videoOut->GetLastShownFrame() : nullptr;
-    long long now = currentFrame ? currentFrame->timecode : LLONG_MAX;
+    MythVideoFrame *currentFrame = videoOut ? videoOut->GetLastShownFrame() : nullptr;
+    long long now = currentFrame ? currentFrame->m_timecode : LLONG_MAX;
     bool needRescale = (m_textFontZoom != m_textFontZoomPrev);
 
     for (it = m_childrenList.begin(); it != m_childrenList.end(); it = itNext)
@@ -1835,7 +1836,7 @@ void SubtitleScreen::DisplayAVSubtitles(void)
         return;
 
     MythVideoOutput *videoOut = m_player->GetVideoOutput();
-    VideoFrame *currentFrame = videoOut ? videoOut->GetLastShownFrame() : nullptr;
+    MythVideoFrame *currentFrame = videoOut ? videoOut->GetLastShownFrame() : nullptr;
 
     if (!currentFrame || !videoOut)
         return;
@@ -1847,7 +1848,7 @@ void SubtitleScreen::DisplayAVSubtitles(void)
     while (!subs->m_buffers.empty())
     {
         AVSubtitle subtitle = subs->m_buffers.front();
-        if (subtitle.start_display_time > currentFrame->timecode)
+        if (subtitle.start_display_time > currentFrame->m_timecode)
             break;
 
         long long displayfor = subtitle.end_display_time -
@@ -1855,7 +1856,7 @@ void SubtitleScreen::DisplayAVSubtitles(void)
         if (displayfor == 0)
             displayfor = 60000;
         displayfor = (displayfor < 50) ? 50 : displayfor;
-        long long late = currentFrame->timecode -
+        long long late = currentFrame->m_timecode -
                          subtitle.start_display_time;
 
         ClearDisplayedSubtitles();
@@ -1867,7 +1868,7 @@ void SubtitleScreen::DisplayAVSubtitles(void)
             bool displaysub = true;
             if (!subs->m_buffers.empty() &&
                 subs->m_buffers.front().end_display_time <
-                currentFrame->timecode)
+                currentFrame->m_timecode)
             {
                 displaysub = false;
             }
@@ -1883,21 +1884,21 @@ void SubtitleScreen::DisplayAVSubtitles(void)
 
                 int right  = rect->x + rect->w;
                 int bottom = rect->y + rect->h;
-                if (subs->m_fixPosition || (currentFrame->height < bottom) ||
-                    (currentFrame->width  < right) ||
+                if (subs->m_fixPosition || (currentFrame->m_height < bottom) ||
+                    (currentFrame->m_width  < right) ||
                     !display.width() || !display.height())
                 {
                     int sd_height = 576;
                     if ((m_player->GetFrameRate() > 26.0F ||
                          m_player->GetFrameRate() < 24.0F) && bottom <= 480)
                         sd_height = 480;
-                    int height = ((currentFrame->height <= sd_height) &&
+                    int height = ((currentFrame->m_height <= sd_height) &&
                                   (bottom <= sd_height)) ? sd_height :
-                                 ((currentFrame->height <= 720) && bottom <= 720)
+                                 ((currentFrame->m_height <= 720) && bottom <= 720)
                                    ? 720 : 1080;
-                    int width  = ((currentFrame->width  <= 720) &&
+                    int width  = ((currentFrame->m_width  <= 720) &&
                                   (right <= 720)) ? 720 :
-                                 ((currentFrame->width  <= 1280) &&
+                                 ((currentFrame->m_width  <= 1280) &&
                                   (right <= 1280)) ? 1280 : 1920;
                     display = QRect(0, 0, width, height);
                 }
@@ -1905,7 +1906,7 @@ void SubtitleScreen::DisplayAVSubtitles(void)
                 // split into upper/lower to allow zooming
                 QRect bbox;
                 int uh = display.height() / 2 - rect->y;
-                long long displayuntil = currentFrame->timecode + displayfor;
+                long long displayuntil = currentFrame->m_timecode + displayfor;
                 if (uh > 0)
                 {
                     bbox = QRect(0, 0, rect->w, uh);
@@ -1937,7 +1938,7 @@ void SubtitleScreen::DisplayAVSubtitles(void)
         SubtitleReader::FreeAVSubtitle(subtitle);
     }
 #ifdef USING_LIBASS
-    RenderAssTrack(currentFrame->timecode);
+    RenderAssTrack(currentFrame->m_timecode);
 #endif
 }
 
@@ -2056,15 +2057,12 @@ int SubtitleScreen::DisplayScaledAVSubtitles(const AVSubtitleRect *rect,
     QRect scaled = videoOut->GetImageRect(bbox, &display);
 
     if (scaled.size() != orig_rect.size())
-        qImage = qImage.scaled(scaled.width(), scaled.height(),
-                               Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        qImage = qImage.scaled(scaled.width(), scaled.height(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 
     int hsize = m_safeArea.width();
     int vsize = m_safeArea.height();
 
-    scaled.moveLeft(((100 - m_textFontZoom) * hsize / 2 +
-                     m_textFontZoom * scaled.left()) /
-                    100);
+    scaled.moveLeft(((100 - m_textFontZoom) * hsize / 2 + m_textFontZoom * scaled.left()) / 100);
     if (top)
     {
         // anchor up
@@ -2073,22 +2071,16 @@ int SubtitleScreen::DisplayScaledAVSubtitles(const AVSubtitleRect *rect,
     else
     {
         // anchor down
-        scaled.moveTop(((100 - m_textFontZoom) * vsize +
-                        m_textFontZoom * scaled.top()) / 100);
+        scaled.moveTop(((100 - m_textFontZoom) * vsize + m_textFontZoom * scaled.top()) / 100);
     }
 
-
-    MythPainter *osd_painter = videoOut->GetOSDPainter();
-    MythImage *image = nullptr;
-    if (osd_painter)
-       image = osd_painter->GetFormatImage();
-
+    MythImage* image = m_painter->GetFormatImage();
     SubImage *uiimage = nullptr;
+
     if (image)
     {
         image->Assign(qImage);
-        uiimage = new SubImage(this, imagename,
-                               MythRect(scaled), displayuntil);
+        uiimage = new SubImage(this, imagename, MythRect(scaled), displayuntil);
         if (uiimage)
         {
             uiimage->SetImage(image);
@@ -2098,15 +2090,13 @@ int SubtitleScreen::DisplayScaledAVSubtitles(const AVSubtitleRect *rect,
         image->DecrRef();
         image = nullptr;
     }
+
     if (uiimage)
     {
-        LOG(VB_PLAYBACK, LOG_INFO, LOC +
-            QString("Display %1AV sub until %2ms")
-           .arg(forced ? "FORCED " : "")
-           .arg(displayuntil));
+        LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Display %1AV sub until %2ms")
+           .arg(forced ? "FORCED " : "").arg(displayuntil));
         if (late > 50)
-            LOG(VB_PLAYBACK, LOG_INFO, LOC +
-                QString("AV Sub was %1ms late").arg(late));
+            LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("AV Sub was %1ms late").arg(late));
     }
 
     return (ysplit + 1);
@@ -2126,7 +2116,7 @@ void SubtitleScreen::DisplayTextSubtitles(void)
         return;
     m_safeArea = vo->GetSafeRect();
 
-    VideoFrame *currentFrame = vo->GetLastShownFrame();
+    MythVideoFrame *currentFrame = vo->GetLastShownFrame();
     if (!currentFrame)
         return;
 
@@ -2139,7 +2129,7 @@ void SubtitleScreen::DisplayTextSubtitles(void)
         // frame based subtitles get out of synch after running mythcommflag
         // for the file, i.e., the following number is wrong and does not
         // match the subtitle frame numbers:
-        playPos = currentFrame->frameNumber;
+        playPos = currentFrame->m_frameNumber;
         playPosAdj /= m_player->GetFrameRate();
     }
     else
@@ -2156,7 +2146,7 @@ void SubtitleScreen::DisplayTextSubtitles(void)
         //    playPos = (uint64_t)
         //        ((currentFrame->frameNumber / video_frame_rate) * 1000);
         //else
-        playPos = m_player->GetDecoder()->NormalizeVideoTimecode(currentFrame->timecode);
+        playPos = m_player->GetDecoder()->NormalizeVideoTimecode(currentFrame->m_timecode);
     }
     playPos -= playPosAdj;
     if (playPos != 0)
@@ -2201,7 +2191,7 @@ void SubtitleScreen::DisplayRawTextSubtitles(void)
     if (!vo)
         return;
 
-    VideoFrame *currentFrame = vo->GetLastShownFrame();
+    MythVideoFrame *currentFrame = vo->GetLastShownFrame();
     if (!currentFrame)
         return;
 
@@ -2210,7 +2200,7 @@ void SubtitleScreen::DisplayRawTextSubtitles(void)
     // delete old subs that may still be on screen
     DeleteAllChildren();
     SetElementDeleted();
-    DrawTextSubtitles(subs, currentFrame->timecode, duration);
+    DrawTextSubtitles(subs, currentFrame->m_timecode, duration);
 }
 
 void SubtitleScreen::DrawTextSubtitles(const QStringList &subs,
@@ -2314,11 +2304,7 @@ void SubtitleScreen::AddScaledImage(QImage &img, QRect &pos)
                          Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     }
 
-    MythPainter *osd_painter = vo->GetOSDPainter();
-    MythImage* image = nullptr;
-    if (osd_painter)
-         image = osd_painter->GetFormatImage();
-
+    MythImage* image = m_painter->GetFormatImage();
     if (image)
     {
         image->Assign(img);
@@ -2513,13 +2499,8 @@ void SubtitleScreen::RenderAssTrack(uint64_t timecode)
         ResizeAssRenderer();
 
     int changed = 0;
-    ASS_Image *images = ass_render_frame(m_assRenderer, m_assTrack,
-                                         timecode, &changed);
+    ASS_Image *images = ass_render_frame(m_assRenderer, m_assTrack, timecode, &changed);
     if (!changed)
-        return;
-
-    MythPainter *osd_painter = vo->GetOSDPainter();
-    if (!osd_painter)
         return;
 
     int count = 0;
@@ -2566,11 +2547,8 @@ void SubtitleScreen::RenderAssTrack(uint64_t timecode)
             src += images->stride;
         }
 
-        MythImage* image = nullptr;
+        MythImage* image = m_painter->GetFormatImage();
         SubImage *uiimage = nullptr;
-
-        if (osd_painter)
-            image = osd_painter->GetFormatImage();
 
         if (image)
         {
@@ -2585,6 +2563,7 @@ void SubtitleScreen::RenderAssTrack(uint64_t timecode)
             }
             image->DecrRef();
         }
+
         images = images->next;
         count++;
     }

@@ -4,56 +4,55 @@
 // MythTV
 #include "mythvideoout.h"
 
+class MythMainWindow;
 class MythVideoGPU;
 class MythPainterGPU;
 
 class MythVideoOutputGPU : public MythVideoOutput
 {
+    Q_OBJECT
+
   public:
-    MythVideoOutputGPU(MythRender* Render, QString &Profile);
+    static MythVideoOutputGPU* Create(MythMainWindow* MainWindow, const QString& Decoder,
+                                      MythCodecID CodecID,       QSize VideoDim,
+                                      QSize VideoDispDim,        float VideoAspect,
+                                      float FrameRate,           uint  PlayerFlags,
+                                      const QString& Codec,      int ReferenceFrames);
    ~MythVideoOutputGPU() override;
 
-    MythPainter*    GetOSDPainter         () override;
+  signals:
+    void            ChangePictureAttribute(PictureAttribute Attribute, bool Direction, int Value);
+    void            PictureAttributeChanged(PictureAttribute Attribute, int Value);
+
+  public slots:
+    void            WindowResized         (QSize Size);
+
+  public:
     void            InitPictureAttributes () override;
-    void            WindowResized         (const QSize& Size) override;
     void            SetVideoFrameRate     (float NewRate) override;
     void            DiscardFrames         (bool KeyFrame, bool Flushed) override;
-    void            DoneDisplayingFrame   (VideoFrame* Frame) override;
+    void            DoneDisplayingFrame   (MythVideoFrame* Frame) override;
     void            UpdatePauseFrame      (int64_t& DisplayTimecode, FrameScanType Scan = kScan_Progressive) override;
-    bool            InputChanged          (const QSize& VideoDim, const QSize& VideoDispDim,
+    bool            InputChanged          (QSize VideoDim, QSize VideoDispDim,
                                            float Aspect, MythCodecID CodecId, bool& AspectOnly,
                                            int ReferenceFrames, bool ForceChange) override;
     void            EndFrame              () override;
     void            ClearAfterSeek        () override;
-    bool            IsPIPSupported        () const override  { return true; }
-    void            ShowPIPs              (const PIPMap& PiPPlayers) override;
-    void            ShowPIP               (MythPlayer* PiPPlayer, PIPLocation Location) override;
-    void            RemovePIP             (MythPlayer* PiPPlayer) override;
-    bool            EnableVisualisation   (AudioPlayer* Audio, bool Enable, const QString& Name = QString("")) override;
-    bool            CanVisualise          (AudioPlayer* Audio) override;
-    bool            SetupVisualisation    (AudioPlayer* Audio, const QString& Name) override;
-    VideoVisual*    GetVisualisation      () override;
-    QString         GetVisualiserName     () override;
-    QStringList     GetVisualiserList     () override;
-    void            DestroyVisualisation  () override;
-    bool            StereoscopicModesAllowed() const override;
     void            ResizeForVideo        (QSize Size = QSize()) override;
 
   protected:
-    virtual MythVideoGPU* CreateSecondaryVideo(const QSize& VideoDim,
-                                               const QSize& VideoDispDim,
-                                               const QRect& DisplayVisibleRect,
-                                               const QRect& DisplayVideoRect,
-                                               const QRect& VideoRect) = 0;
+    MythVideoOutputGPU(MythRender* Render, QString &Profile);
     virtual QRect   GetDisplayVisibleRectAdj();
-    bool            Init                  (const QSize& VideoDim, const QSize& VideoDispDim, float Aspect,
-                                           const QRect& DisplayVisibleRect, MythCodecID CodecId) override;
-    void            PrepareFrame          (VideoFrame* Frame, const PIPMap& PiPPlayers, FrameScanType Scan) override;
-    void            RenderFrame           (VideoFrame* Frame, FrameScanType Scan, OSD* Osd) override;
+    bool            Init                  (QSize VideoDim, QSize VideoDispDim, float Aspect,
+                                           QRect DisplayVisibleRect, MythCodecID CodecId) override;
+    void            PrepareFrame          (MythVideoFrame* Frame, FrameScanType Scan) override;
+    void            RenderFrame           (MythVideoFrame* Frame, FrameScanType Scan) override;
+    void            RenderOverlays        (OSD& Osd) override;
     bool            CreateBuffers         (MythCodecID CodecID, QSize Size);
     void            DestroyBuffers        ();
     bool            ProcessInputChange    ();
     void            InitDisplayMeasurements();
+    void            SetReferenceFrames    (int ReferenceFrames);
 
     MythRender*     m_render              { nullptr };
     MythVideoGPU*   m_video               { nullptr };
@@ -65,11 +64,6 @@ class MythVideoOutputGPU : public MythVideoOutput
     bool            m_newFrameRate        { false };
     bool            m_buffersCreated      { false };
     QString         m_profile;
-    VideoVisual*    m_visual              { nullptr };
-
-    QMap<MythPlayer*,MythVideoGPU*> m_pxpVideos;
-    QMap<MythPlayer*,bool>          m_pxpVideosReady;
-    MythVideoGPU*                   m_pxpVideoActive { nullptr };
 
   private:
     Q_DISABLE_COPY(MythVideoOutputGPU)

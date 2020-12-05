@@ -9,8 +9,6 @@
 #include <algorithm>
 #include <vector>
 
-using namespace std;
-
 #include "audiooutputsettings.h"
 #include "mythlogging.h"
 #include "mythcorecontext.h"
@@ -105,11 +103,10 @@ int AudioOutputSettings::NearestSupportedRate(int rate)
         return 48000;
 
     // Assume rates vector is sorted
-    for (const auto entry : m_rates)
-    {
-        if (entry >= rate)
-            return entry;
-    }
+    auto it = std::find_if(m_rates.cbegin(), m_rates.cend(),
+                           [rate](const auto entry){ return entry >= rate; } );
+    if (it != m_rates.cend())
+        return *it;
 
     // Not found, so return highest available rate
     return m_rates.back();
@@ -248,11 +245,9 @@ bool AudioOutputSettings::IsSupportedChannels(int channels)
     if (m_channels.empty() && channels == 2)
         return true;
 
-    for (const auto entry : m_channels)
-        if (entry == channels)
-            return true;
-
-    return false;
+    return std::any_of(m_channels.cbegin(), m_channels.cend(),
+                       [channels](const auto entry)
+                           { return entry == channels; } );
 }
 
 int AudioOutputSettings::BestSupportedChannels()
@@ -277,14 +272,11 @@ void AudioOutputSettings::SetBestSupportedChannels(int channels)
         return;
     }
 
-    vector<int>::reverse_iterator it;
-
-    for (it = m_channels.rbegin();
-         it != m_channels.rend() && *it >= channels;
-         ++it)
-    {
-        m_channels.pop_back();
-    }
+    std::vector<int>tmp;
+    std::copy_if(m_channels.cbegin(), m_channels.cend(),
+                 std::back_inserter(tmp),
+                 [channels](int value){ return channels > value; } );
+    m_channels = tmp;
     m_channels.push_back(channels);
 }
 
@@ -547,7 +539,7 @@ bool AudioOutputSettings::hasELD() const
 void AudioOutputSettings::setELD(QByteArray *ba)
 {
     m_hasEld = true;
-    m_eld = ELD(ba->constData(), ba->size());
+    m_eld = eld(ba->constData(), ba->size());
     m_eld.show();
 }
 

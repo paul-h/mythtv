@@ -2,7 +2,7 @@
 #include <QWaitCondition>
 
 // MythTV
-#include "mythplayer.h"
+#include "mythplayerui.h"
 #include "mythcorecontext.h"
 #include "mythvideocolourspace.h"
 #include "opengl/mythrenderopengl.h"
@@ -70,11 +70,8 @@ void MythOpenGLInterop::GetInteropTypeCallback(void *Wait, void *Format, void *R
 }
 
 /*! \brief Check whether we support direct rendering for the given VideoFrameType.
- *
- * \note GetInteropType is protected in all subclasses to ensure thread safety.
- * The subclasses will fail this check if not called from the UI thread.
 */
-MythOpenGLInterop::Type MythOpenGLInterop::GetInteropType(VideoFrameType Format, MythPlayer *Player)
+MythOpenGLInterop::Type MythOpenGLInterop::GetInteropType(VideoFrameType Format, MythPlayerUI *Player)
 {
     // cache supported formats to avoid potentially expensive callbacks
     static QMutex s_lock(QMutex::Recursive);
@@ -104,6 +101,7 @@ MythOpenGLInterop::Type MythOpenGLInterop::GetInteropType(VideoFrameType Format,
             }
             else
             {
+                // Note - this is a callback into the same function from the main thread
                 Player->HandleDecoderCallback("interop check",
                                               MythOpenGLInterop::GetInteropTypeCallback,
                                               &Format, &supported);
@@ -112,7 +110,7 @@ MythOpenGLInterop::Type MythOpenGLInterop::GetInteropType(VideoFrameType Format,
         }
 
         LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Checking interop support for %1")
-            .arg(format_description(Format)));
+            .arg(MythVideoFrame::FormatDescription(Format)));
 
 #ifdef USING_VTB
         if (FMT_VTB == Format)
@@ -151,55 +149,55 @@ MythOpenGLInterop::Type MythOpenGLInterop::GetInteropType(VideoFrameType Format,
     if (Unsupported == supported)
     {
         LOG(VB_GENERAL, LOG_WARNING, LOC + QString("No render support for frame type '%1'")
-            .arg(format_description(Format)));
+            .arg(MythVideoFrame::FormatDescription(Format)));
     }
     else
     {
         LOG(VB_GENERAL, LOG_INFO, LOC + QString("Rendering supported for frame type '%1' with %2")
-            .arg(format_description(Format)).arg(TypeToString(supported)));
+            .arg(MythVideoFrame::FormatDescription(Format)).arg(TypeToString(supported)));
     }
     return supported;
 }
 
 vector<MythVideoTexture*> MythOpenGLInterop::Retrieve(MythRenderOpenGL *Context,
                                                       MythVideoColourSpace *ColourSpace,
-                                                      VideoFrame       *Frame,
+                                                      MythVideoFrame       *Frame,
                                                       FrameScanType     Scan)
 {
     vector<MythVideoTexture*> result;
     if (!(Context && Frame))
         return result;
 
-    if (!(Frame->priv[1] && format_is_hw(Frame->codec) &&
-         (Frame->codec == PixelFormatToFrameType(static_cast<AVPixelFormat>(Frame->pix_fmt)))))
+    if (!(Frame->m_priv[1] && MythVideoFrame::HardwareFormat(Frame->m_type) &&
+         (Frame->m_type == MythAVUtil::PixelFormatToFrameType(static_cast<AVPixelFormat>(Frame->m_pixFmt)))))
     {
         LOG(VB_GENERAL, LOG_WARNING, LOC + "Not a valid hardware frame");
         return result;
     }
 
     MythOpenGLInterop* interop = nullptr;
-    if ((Frame->codec == FMT_VTB)  || (Frame->codec == FMT_MEDIACODEC) ||
-        (Frame->codec == FMT_MMAL) || (Frame->codec == FMT_DRMPRIME))
+    if ((Frame->m_type == FMT_VTB)  || (Frame->m_type == FMT_MEDIACODEC) ||
+        (Frame->m_type == FMT_MMAL) || (Frame->m_type == FMT_DRMPRIME))
     {
-        interop = reinterpret_cast<MythOpenGLInterop*>(Frame->priv[1]);
+        interop = reinterpret_cast<MythOpenGLInterop*>(Frame->m_priv[1]);
     }
     else
     {
         // Unpick
-        auto* buffer = reinterpret_cast<AVBufferRef*>(Frame->priv[1]);
-        if (!buffer || (buffer && !buffer->data))
+        auto* buffer = reinterpret_cast<AVBufferRef*>(Frame->m_priv[1]);
+        if (!buffer || !buffer->data)
             return result;
-        if (Frame->codec == FMT_NVDEC)
+        if (Frame->m_type == FMT_NVDEC)
         {
             auto* context = reinterpret_cast<AVHWDeviceContext*>(buffer->data);
-            if (!context || (context && !context->user_opaque))
+            if (!context || !context->user_opaque)
                 return result;
             interop = reinterpret_cast<MythOpenGLInterop*>(context->user_opaque);
         }
         else
         {
             auto* frames = reinterpret_cast<AVHWFramesContext*>(buffer->data);
-            if (!frames || (frames && !frames->user_opaque))
+            if (!frames || !frames->user_opaque)
                 return result;
             interop = reinterpret_cast<MythOpenGLInterop*>(frames->user_opaque);
         }
@@ -238,7 +236,7 @@ MythOpenGLInterop* MythOpenGLInterop::CreateDummy(void)
 
 vector<MythVideoTexture*> MythOpenGLInterop::Acquire(MythRenderOpenGL* /*Context*/,
                                                      MythVideoColourSpace* /*ColourSpace*/,
-                                                     VideoFrame* /*Frame*/, FrameScanType /*Scan*/)
+                                                     MythVideoFrame* /*Frame*/, FrameScanType /*Scan*/)
 {
     return vector<MythVideoTexture*>();
 }
@@ -272,12 +270,12 @@ MythOpenGLInterop::Type MythOpenGLInterop::GetType(void)
     return m_type;
 }
 
-MythPlayer* MythOpenGLInterop::GetPlayer(void)
+MythPlayerUI* MythOpenGLInterop::GetPlayer(void)
 {
     return m_player;
 }
 
-void MythOpenGLInterop::SetPlayer(MythPlayer *Player)
+void MythOpenGLInterop::SetPlayer(MythPlayerUI* Player)
 {
     m_player = Player;
 }

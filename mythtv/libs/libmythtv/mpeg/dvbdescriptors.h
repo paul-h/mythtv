@@ -1213,8 +1213,8 @@ class T2DeliverySystemDescriptor : public MPEGDescriptor
     QString toString(void) const override; // MPEGDescriptor
 
   private:
-    mutable vector<const unsigned char*> m_cellPtrs; // used to parse
-    mutable vector<const unsigned char*> m_subCellPtrs; // used to parse
+    mutable std::vector<const unsigned char*> m_cellPtrs; // used to parse
+    mutable std::vector<const unsigned char*> m_subCellPtrs; // used to parse
 };
 
 // DVB Bluebook A038 (Feb 2019) p 100       0x7f 0x05
@@ -2797,7 +2797,7 @@ class SkyLCNDescriptor : public MPEGDescriptor
 class OpenTVChannelListDescriptor : public MPEGDescriptor
 {
   public:
-    OpenTVChannelListDescriptor(const unsigned char *data, int len = 300) :
+    explicit OpenTVChannelListDescriptor(const unsigned char *data, int len = 300) :
         MPEGDescriptor(data, len, PrivateDescriptorID::opentv_channel_list) { }
     //       Name             bits  loc  expected value
     // descriptor_tag           8   0.0       0xB1
@@ -2861,6 +2861,7 @@ class DVBContentIdentifierDescriptor : public MPEGDescriptor
     // A content identifier is a URI.  It may contain UTF-8 encoded using %XX.
     QString ContentId(size_t n=0) const
     {
+        // cppcheck-suppress AssignmentAddressToInteger
         int length = m_crid[n][1];
         int positionOfHash = length-1;
         while (positionOfHash >= 0) {

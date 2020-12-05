@@ -14,16 +14,17 @@
 
 // C++
 #include <iostream>
-using namespace std;
 
 // Qt
 #include <QCoreApplication>
+#include <QApplication>
 #include <QPainter>
 #include <QImage>
 
 // MythTV
 #include <mythdbcon.h>
 #include <mythcontext.h>
+#include <mythmainwindow.h>
 #include <mythuihelper.h>
 #include <remotefile.h>
 #include <musicmetadata.h>
@@ -45,7 +46,7 @@ VisualBase::VisualBase(bool screensaverenable)
     : m_xscreensaverenable(screensaverenable)
 {
     if (!m_xscreensaverenable)
-        GetMythUI()->DoDisableScreensaver();
+        MythMainWindow::DisableScreensaver();
 }
 
 VisualBase::~VisualBase()
@@ -56,15 +57,41 @@ VisualBase::~VisualBase()
     //    can destruct properly
     //
     if (!m_xscreensaverenable)
-        GetMythUI()->DoRestoreScreensaver();
+        MythMainWindow::RestoreScreensaver();
 }
 
 
-void VisualBase::drawWarning(QPainter *p, const QColor &back, const QSize &size, const QString& warning, int fontSize)
+void VisualBase::drawWarning(QPainter *p, const QColor &back, const QSize size, const QString& warning, int fontSize)
 {
     p->fillRect(0, 0, size.width(), size.height(), back);
     p->setPen(Qt::white);
-    QFont font = MythUIHelper::GetMediumFont();
+
+    // Taken from removed MythUIHelper::GetMediumFont
+    QFont font = QApplication::font();
+
+#ifdef _WIN32
+    // logicalDpiY not supported in Windows.
+    int logicalDpiY = 100;
+    HDC hdc = GetDC(nullptr);
+    if (hdc)
+    {
+        logicalDpiY = GetDeviceCaps(hdc, LOGPIXELSY);
+        ReleaseDC(nullptr, hdc);
+    }
+#else
+    int logicalDpiY = GetMythMainWindow()->logicalDpiY();
+#endif
+
+    // adjust for screen resolution relative to 100 dpi
+    float floatSize = (16 * 100.0F) / logicalDpiY;
+    // adjust for myth GUI size relative to 800x600
+    float dummy = 0.0;
+    float hmult = 0.0;
+    GetMythMainWindow()->GetScalingFactors(hmult, dummy);
+    floatSize = floatSize * hmult;
+    // round and set
+    font.setPointSize(lroundf(floatSize));
+    font.setWeight(QFont::Bold);
     font.setPointSizeF(fontSize * (size.width() / 800.0));
     p->setFont(font);
 

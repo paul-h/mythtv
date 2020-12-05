@@ -78,35 +78,27 @@ desc_list_t MPEGDescriptor::ParseOnlyInclude(
 const unsigned char *MPEGDescriptor::Find(const desc_list_t &parsed,
                                           uint desc_tag)
 {
-    for (const auto *item : parsed)
-    {
-        if (item[0] == desc_tag)
-            return item;
-    }
-    return nullptr;
+    auto sametag = [desc_tag](const auto *item){ return item[0] == desc_tag; };
+    auto it = std::find_if(parsed.cbegin(), parsed.cend(), sametag);
+    return (it != parsed.cend()) ? *it : nullptr;
 }
 
 const unsigned char *MPEGDescriptor::FindExtension(const desc_list_t &parsed,
                                                     uint desc_tag)
 {
-    for (const auto *item : parsed)
-    {
-        if (item[0] == DescriptorID::extension &&
-            item[1] > 1 &&
-            item[2] == desc_tag)
-            return item;
-    }
-    return nullptr;
+    auto sametag = [desc_tag](const auto *item)
+        { return item[0] == DescriptorID::extension &&
+                 item[1] > 1 &&
+                 item[2] == desc_tag; };
+    auto it = std::find_if(parsed.cbegin(), parsed.cend(), sametag);
+    return (it != parsed.cend()) ? *it : nullptr;
 }
 
 desc_list_t MPEGDescriptor::FindAll(const desc_list_t &parsed, uint desc_tag)
 {
     desc_list_t tmp;
-    for (const auto *item : parsed)
-    {
-        if (item[0] == desc_tag)
-            tmp.push_back(item);
-    }
+    auto sametag = [desc_tag](const auto *item){ return item[0] == desc_tag; };
+    std::copy_if(parsed.cbegin(), parsed.cend(), std::back_inserter(tmp), sametag);
     return tmp;
 }
 
@@ -114,7 +106,7 @@ static uint maxPriority(const QMap<uint,uint> &langPrefs)
 {
     uint max_pri = 0;
     for (uint pref : langPrefs)
-        max_pri = max(max_pri, pref);
+        max_pri = std::max(max_pri, pref);
     return max_pri;
 }
 
@@ -428,9 +420,21 @@ QString MPEGDescriptor::toStringPD(uint priv_dsid) const
     {
         str = "Invalid Descriptor";
     }
+    else if (DescriptorID::video_stream == DescriptorTag())
+    {
+        SET_STRING(VideoStreamDescriptor);
+    }
+    else if (DescriptorID::audio_stream == DescriptorTag())
+    {
+        SET_STRING(AudioStreamDescriptor);
+    }
     else if (DescriptorID::registration == DescriptorTag())
     {
         SET_STRING(RegistrationDescriptor);
+    }
+    else if (DescriptorID::data_stream_alignment == DescriptorTag())
+    {
+        SET_STRING(DataStreamAlignmentDescriptor);
     }
     else if (DescriptorID::conditional_access == DescriptorTag())
     {
@@ -439,6 +443,14 @@ QString MPEGDescriptor::toStringPD(uint priv_dsid) const
     else if (DescriptorID::iso_639_language == DescriptorTag())
     {
         SET_STRING(ISO639LanguageDescriptor);
+    }
+    else if (DescriptorID::system_clock == DescriptorTag())
+    {
+        SET_STRING(SystemClockDescriptor);
+    }
+    else if (DescriptorID::maximum_bitrate == DescriptorTag())
+    {
+        SET_STRING(MaximumBitrateDescriptor);
     }
     else if (DescriptorID::avc_video == DescriptorTag())
     {
@@ -495,6 +507,10 @@ QString MPEGDescriptor::toStringPD(uint priv_dsid) const
     else if (DescriptorID::frequency_list == DescriptorTag())
     {
         SET_STRING(FrequencyListDescriptor);
+    }
+    else if (DescriptorID::scrambling == DescriptorTag())
+    {
+        SET_STRING(ScramblingDescriptor);
     }
     //else if (DescriptorID::ancillary_data == DescriptorTag())
     //{
@@ -636,7 +652,7 @@ QString MPEGDescriptor::toStringPD(uint priv_dsid) const
     // ATSC/SCTE descriptors, range 0x80-0xFE
     else if (DescriptorID::ac3_audio_stream == DescriptorTag())
     {
-        SET_STRING(AudioStreamDescriptor);
+        SET_STRING(AC3AudioStreamDescriptor);
     }
     else if (DescriptorID::caption_service == DescriptorTag())
     {
@@ -732,6 +748,29 @@ QString MPEGDescriptor::hexdump(void) const
     return str;
 }
 
+QString VideoStreamDescriptor::toString() const
+{
+    QString str = QString("Video Stream Descriptor: frame_rate(%1) MPEG-1(%2)")
+        .arg(FrameRateCode())
+        .arg(MPEG1OnlyFlag());
+    if (!MPEG1OnlyFlag())
+    {
+        str.append(QString(" still_picture(%1) profile(%2)")
+            .arg(StillPictureFlag())
+            .arg(ProfileAndLevelIndication()));
+    }
+    return str;
+}
+
+QString AudioStreamDescriptor::toString() const
+{
+    return QString("Audio Stream Descriptor: free_format(%1) ID(%2) layer(%3) variable_rate(%4)")
+        .arg(FreeFormatFlag())
+        .arg(ID())
+        .arg(Layer())
+        .arg(VariableRateAudioIndicator());
+}
+
 void RegistrationDescriptor::InitializeDescriptionMap(void)
 {
     QMutexLocker locker(&description_map_lock);
@@ -815,6 +854,12 @@ QString RegistrationDescriptor::toString() const
     return msg + msg2;
 }
 
+QString DataStreamAlignmentDescriptor::toString() const
+{
+    return QString("Data Stream Alignment Descriptor: alignment_type(%1)")
+        .arg(AlignmentType());
+}
+
 QString ConditionalAccessDescriptor::toString() const
 {
     return QString("Conditional Access: sid(0x%1) pid(0x%2) data_size(%3)")
@@ -828,14 +873,29 @@ QString ISO639LanguageDescriptor::toString() const
         .arg(iso639_key_toName(CanonicalLanguageKey()));
 }
 
+QString SystemClockDescriptor::toString() const
+{
+    return QString("System Clock Descriptor: extref(%1) accuracy(%2e-%3 ppm)")
+        .arg(ExternalClockReferenceIndicator())
+        .arg(ClockAccuracyInteger())
+        .arg(ClockAccuracyExponent());
+}
+
+QString MaximumBitrateDescriptor::toString() const
+{
+    return QString("Maximum Bitrate Descriptor: maximum_bitrate(0x%1) %2 Mbits/second")
+        .arg(MaximumBitrate(),6,16,QChar('0'))
+        .arg(MaximumBitrate() * 1.0 * 50 * 8 / 1e6);
+}
+
 QString AVCVideoDescriptor::toString() const
 {
     return QString("AVC Video: IDC prof(%1) IDC level(%2) sets(%3%4%5) "
                    "compat(%6) still(%7) 24hr(%8) FramePacking(%9)")
         .arg(ProfileIDC()).arg(LevelIDC())
-        .arg(static_cast<int>(ConstaintSet0()))
-        .arg(static_cast<int>(ConstaintSet1()))
-        .arg(static_cast<int>(ConstaintSet2()))
+        .arg(static_cast<int>(ConstraintSet0()))
+        .arg(static_cast<int>(ConstraintSet1()))
+        .arg(static_cast<int>(ConstraintSet2()))
         .arg(AVCCompatible())
         .arg(static_cast<int>(AVCStill()))
         .arg(static_cast<int>(AVC24HourPicture()))
@@ -844,5 +904,9 @@ QString AVCVideoDescriptor::toString() const
 
 QString HEVCVideoDescriptor::toString() const
 {
-    return QString("HEVC Video: ");
+    QString str = QString("HEVC Video: ProfileSpace(%1) Tier(%2) ProfileIDC(%3)")
+        .arg(ProfileSpace()).arg(Tier()).arg(ProfileIDC());
+    str.append(" Dumping\n");
+    str.append(hexdump());
+    return str;
 }

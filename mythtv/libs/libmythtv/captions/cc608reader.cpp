@@ -1,7 +1,6 @@
 #include "vbitext/vbi.h"
 
 #include <algorithm>
-using namespace std;
 
 #include "mythplayer.h"
 #include "captions/cc608reader.h"
@@ -78,12 +77,12 @@ CC608Buffer *CC608Reader::GetOutputText(bool &changed, int &streamIdx)
         return &m_state[MAXOUTBUFFERS - 1].m_output;
     }
 
-    VideoFrame *last = nullptr;
+    MythVideoFrame *last = nullptr;
     if (m_parent->GetVideoOutput())
         last = m_parent->GetVideoOutput()->GetLastShownFrame();
 
     if (NumInputBuffers() && m_inputBuffers[m_writePosition].timecode &&
-       (last && m_inputBuffers[m_writePosition].timecode <= last->timecode))
+       (last && m_inputBuffers[m_writePosition].timecode <= last->m_timecode))
     {
         if (m_inputBuffers[m_writePosition].type == 'T')
         {
@@ -349,7 +348,7 @@ void CC608Reader::TranscodeWriteText(void (*func)
 }
 
 void CC608Reader::Update608Text(
-    vector<CC608Text*> *ccbuf, int replace, int scroll, bool scroll_prsv,
+    std::vector<CC608Text*> *ccbuf, int replace, int scroll, bool scroll_prsv,
     int scroll_yoff, int scroll_ymax, int streamIdx)
 // ccbuf      :  new text
 // replace    :  replace last lines
@@ -462,7 +461,7 @@ void CC608Reader::ClearBuffers(bool input, bool output, int outputStreamIdx)
 
     if (output && outputStreamIdx >= 0)
     {
-        outputStreamIdx = min(outputStreamIdx, MAXOUTBUFFERS - 1);
+        outputStreamIdx = std::min(outputStreamIdx, MAXOUTBUFFERS - 1);
         m_state[outputStreamIdx].Clear();
     }
 }

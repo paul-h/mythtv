@@ -10,6 +10,8 @@
 #include <thread> // for sleep_for
 #include <utility>
 
+using namespace std::chrono_literals;
+
 #define LOC QString("UPnPScan: ")
 #define ERR QString("UPnPScan error: ")
 
@@ -87,7 +89,7 @@ class MediaServer : public MediaServerItem
     }
     explicit MediaServer(QUrl URL)
      : MediaServerItem(QString("0"), QString(), QString(), QString()),
-       m_url(std::move(URL)), m_eventSubPath(QString()),
+       m_serverURL(std::move(URL)), m_eventSubPath(QString()),
        m_friendlyName(QString("Unknown"))
     {
     }
@@ -104,7 +106,7 @@ class MediaServer : public MediaServerItem
         return result;
     }
 
-    QUrl    m_url;
+    QUrl    m_serverURL;
     int     m_connectionAttempts {0};
     QUrl    m_controlURL;
     QUrl    m_eventSubURL;
@@ -177,8 +179,8 @@ UPNPScanner* UPNPScanner::Instance(UPNPSubscription *sub)
     {
         gUPNPScanner->moveToThread(gUPNPScannerThread->qthread());
         QObject::connect(
-            gUPNPScannerThread->qthread(), SIGNAL(started()),
-            gUPNPScanner,                  SLOT(Start()));
+            gUPNPScannerThread->qthread(), &QThread::started,
+            gUPNPScanner,                  &UPNPScanner::Start);
         gUPNPScannerThread->start(QThread::LowestPriority);
     }
 
@@ -411,8 +413,8 @@ void UPNPScanner::Start()
 
     // create our network handler
     m_network = new QNetworkAccessManager();
-    connect(m_network, SIGNAL(finished(QNetworkReply*)),
-            this, SLOT(replyFinished(QNetworkReply*)));
+    connect(m_network, &QNetworkAccessManager::finished,
+            this, &UPNPScanner::replyFinished);
 
     // listen for SSDP updates
     SSDP::AddListener(this);
@@ -424,12 +426,12 @@ void UPNPScanner::Start()
     // create our update timer (driven by AddServer and ParseDescription)
     m_updateTimer = new QTimer(this);
     m_updateTimer->setSingleShot(true);
-    connect(m_updateTimer, SIGNAL(timeout()), this, SLOT(Update()));
+    connect(m_updateTimer, &QTimer::timeout, this, &UPNPScanner::Update);
 
     // create our watchdog timer (checks for stale servers)
     m_watchdogTimer = new QTimer(this);
-    connect(m_watchdogTimer, SIGNAL(timeout()), this, SLOT(CheckStatus()));
-    m_watchdogTimer->start(1000 * 10); // every 10s
+    connect(m_watchdogTimer, &QTimer::timeout, this, &UPNPScanner::CheckStatus);
+    m_watchdogTimer->start(10s);
 
     // avoid connecting to the master backend
     m_masterHost = gCoreContext->GetMasterServerIP();
@@ -563,9 +565,8 @@ void UPNPScanner::CheckStatus(void)
         // FIXME UPNP version comparision done wrong, we are using urn:schemas-upnp-org:device:MediaServer:4 ourselves
         if (!SSDP::Find("urn:schemas-upnp-org:device:MediaServer:1", it.key()))
         {
-            LOG(VB_UPNP, LOG_INFO, LOC +
-                QString("%1 no longer in SSDP cache. Removing")
-                    .arg(it.value()->m_url.toString()));
+            LOG(VB_UPNP, LOG_INFO, LOC + QString("%1 no longer in SSDP cache. Removing")
+                .arg(it.value()->m_serverURL.toString()));
             MediaServer* last = it.value();
             it.remove();
             delete last;
@@ -757,7 +758,7 @@ void UPNPScanner::ScheduleUpdate(void)
 {
     m_lock.lock();
     if (m_updateTimer && !m_updateTimer->isActive())
-        m_updateTimer->start(200);
+        m_updateTimer->start(200ms);
     m_lock.unlock();
 }
 
@@ -772,8 +773,7 @@ void UPNPScanner::CheckFailure(const QUrl &url)
     while (it.hasNext())
     {
         it.next();
-        if (it.value()->m_url == url &&
-            it.value()->m_connectionAttempts == MAX_ATTEMPTS)
+        if (it.value()->m_serverURL == url && it.value()->m_connectionAttempts == MAX_ATTEMPTS)
         {
             Debug();
             break;
@@ -1298,7 +1298,7 @@ bool UPNPScanner::ParseDescription(const QUrl &url, QNetworkReply *reply)
     while (it.hasNext())
     {
         it.next();
-        if (it.value()->m_url == url)
+        if (it.value()->m_serverURL == url)
         {
             usn = it.key();
             QUrl qcontrolurl(controlURL);

@@ -54,31 +54,15 @@ const MythVideoColourSpace::ColourPrimaries MythVideoColourSpace::kBT2020 =
  * a colourspace that has a different reference gamma (e.g. Rec 2020) or when
  * using an HDR display. Futher work is required.
 */
-MythVideoColourSpace::MythVideoColourSpace(MythVideoColourSpace *Parent)
-  : ReferenceCounter("Colour"),
-    m_parent(Parent)
+MythVideoColourSpace::MythVideoColourSpace()
+  : ReferenceCounter("Colour")
 {
-    if (m_parent)
-    {
-        m_parent->IncrRef();
-        connect(m_parent, &MythVideoColourSpace::PictureAttributeChanged, this, &MythVideoColourSpace::SetPictureAttribute);
-        m_supportedAttributes = m_parent->SupportedAttributes();
-        m_dbSettings[kPictureAttribute_Brightness] = m_parent->GetPictureAttribute(kPictureAttribute_Brightness);
-        m_dbSettings[kPictureAttribute_Contrast]   = m_parent->GetPictureAttribute(kPictureAttribute_Contrast);
-        m_dbSettings[kPictureAttribute_Colour]     = m_parent->GetPictureAttribute(kPictureAttribute_Colour);
-        m_dbSettings[kPictureAttribute_Hue]        = m_parent->GetPictureAttribute(kPictureAttribute_Hue);
-        m_dbSettings[kPictureAttribute_Range]      = m_parent->GetPictureAttribute(kPictureAttribute_Range);
-        m_primariesMode = m_parent->GetPrimariesMode();
-    }
-    else
-    {
-        m_dbSettings[kPictureAttribute_Brightness] = gCoreContext->GetNumSetting("PlaybackBrightness", 50);
-        m_dbSettings[kPictureAttribute_Contrast]   = gCoreContext->GetNumSetting("PlaybackContrast",   50);
-        m_dbSettings[kPictureAttribute_Colour]     = gCoreContext->GetNumSetting("PlaybackColour",     50);
-        m_dbSettings[kPictureAttribute_Hue]        = gCoreContext->GetNumSetting("PlaybackHue",        0);
-        m_dbSettings[kPictureAttribute_Range]      = static_cast<int>(gCoreContext->GetBoolSetting("GUIRGBLevels", true));
-        m_primariesMode = toPrimariesMode(gCoreContext->GetSetting("ColourPrimariesMode", "auto"));
-    }
+    m_dbSettings[kPictureAttribute_Brightness] = gCoreContext->GetNumSetting("PlaybackBrightness", 50);
+    m_dbSettings[kPictureAttribute_Contrast]   = gCoreContext->GetNumSetting("PlaybackContrast",   50);
+    m_dbSettings[kPictureAttribute_Colour]     = gCoreContext->GetNumSetting("PlaybackColour",     50);
+    m_dbSettings[kPictureAttribute_Hue]        = gCoreContext->GetNumSetting("PlaybackHue",        0);
+    m_dbSettings[kPictureAttribute_Range]      = static_cast<int>(gCoreContext->GetBoolSetting("GUIRGBLevels", true));
+    m_primariesMode = toPrimariesMode(gCoreContext->GetSetting("ColourPrimariesMode", "auto"));
 
     SetBrightness(m_dbSettings[kPictureAttribute_Brightness]);
     SetContrast(m_dbSettings[kPictureAttribute_Contrast]);
@@ -123,8 +107,6 @@ MythVideoColourSpace::MythVideoColourSpace(MythVideoColourSpace *Parent)
 MythVideoColourSpace::~MythVideoColourSpace()
 {
     delete m_customDisplayPrimaries;
-    if (m_parent)
-        m_parent->DecrRef();
 }
 
 PictureAttributeSupported MythVideoColourSpace::SupportedAttributes(void) const
@@ -148,40 +130,6 @@ int MythVideoColourSpace::GetPictureAttribute(PictureAttribute Attribute)
     if (m_dbSettings.contains(Attribute))
         return m_dbSettings.value(Attribute);
     return -1;
-}
-
-/// \brief Set the Value for the given PictureAttribute
-int MythVideoColourSpace::SetPictureAttribute(PictureAttribute Attribute, int Value)
-{
-    if (!(m_supportedAttributes & toMask(Attribute)))
-        return -1;
-
-    Value = std::min(std::max(Value, 0), 100);
-
-    switch (Attribute)
-    {
-        case kPictureAttribute_Brightness:
-            SetBrightness(Value);
-            break;
-        case kPictureAttribute_Contrast:
-            SetContrast(Value);
-            break;
-        case kPictureAttribute_Colour:
-            SetSaturation(Value);
-            break;
-        case kPictureAttribute_Hue:
-            SetHue(Value);
-            break;
-        default:
-            Value = -1;
-    }
-
-    emit PictureAttributeChanged(Attribute, Value);
-
-    if (Value >= 0)
-        SaveValue(Attribute, Value);
-
-    return Value;
 }
 
 /*! \brief Update the matrix for the current settings and colourspace.
@@ -323,19 +271,53 @@ void MythVideoColourSpace::Debug(void)
     }
 }
 
-int MythVideoColourSpace::ChangePictureAttribute(PictureAttribute AttributeType, bool Direction)
+int MythVideoColourSpace::ChangePictureAttribute(PictureAttribute Attribute, bool Direction, int Value)
 {
-    int current = GetPictureAttribute(AttributeType);
+    if (!(m_supportedAttributes & toMask(Attribute)))
+        return -1;
+
+    int current = GetPictureAttribute(Attribute);
     if (current < 0)
         return -1;
 
-    int next = current + ((Direction) ? +1 : -1);
-    if (kPictureAttribute_Hue == AttributeType)
-        next = next % 100;
-    if ((kPictureAttribute_Range == AttributeType) && next > 1)
-        next = 1;
-    next = min(max(next, 0), 100);
-    return SetPictureAttribute(AttributeType, next);
+    int newvalue = Value;
+    if (Value < 0)
+    {
+        newvalue = current + ((Direction) ? +1 : -1);
+        if (kPictureAttribute_Hue == Attribute)
+            newvalue = newvalue % 100;
+        if ((kPictureAttribute_Range == Attribute) && newvalue > 1)
+            newvalue = 1;
+    }
+
+    newvalue = std::min(std::max(newvalue, 0), 100);
+    if (newvalue != current)
+    {
+        switch (Attribute)
+        {
+            case kPictureAttribute_Brightness:
+                SetBrightness(newvalue);
+                break;
+            case kPictureAttribute_Contrast:
+                SetContrast(newvalue);
+                break;
+            case kPictureAttribute_Colour:
+                SetSaturation(newvalue);
+                break;
+            case kPictureAttribute_Hue:
+                SetHue(newvalue);
+                break;
+            default:
+                newvalue = -1;
+        }
+
+        emit PictureAttributeChanged(Attribute, newvalue);
+
+        if (newvalue >= 0)
+            SaveValue(Attribute, newvalue);
+    }
+
+    return newvalue;
 }
 
 /*! \brief Set the current colourspace to use.
@@ -344,44 +326,44 @@ int MythVideoColourSpace::ChangePictureAttribute(PictureAttribute AttributeType,
  * that no colourspace is found we use sensible defaults for standard and high
  * definition content (BT470BG/BT601 and BT709 respectively).
 */
-bool MythVideoColourSpace::UpdateColourSpace(const VideoFrame *Frame)
+bool MythVideoColourSpace::UpdateColourSpace(const MythVideoFrame *Frame)
 {
     if (!Frame)
         return false;
 
-    int csp      = Frame->colorspace;
-    int primary  = Frame->colorprimaries;
-    int transfer = Frame->colortransfer;
-    int chroma   = Frame->chromalocation;
+    int csp      = Frame->m_colorspace;
+    int primary  = Frame->m_colorprimaries;
+    int transfer = Frame->m_colortransfer;
+    int chroma   = Frame->m_chromalocation;
     int raw      = csp;
     int rawchroma = chroma;
-    VideoFrameType frametype = Frame->codec;
-    VideoFrameType softwaretype = PixelFormatToFrameType(static_cast<AVPixelFormat>(Frame->sw_pix_fmt));
+    VideoFrameType frametype = Frame->m_type;
+    VideoFrameType softwaretype = MythAVUtil::PixelFormatToFrameType(static_cast<AVPixelFormat>(Frame->m_swPixFmt));
 
     // workaround for NVDEC. NVDEC defaults to a colorspace of 0 - which happens
     // to equate to RGB. In testing, NVDEC reports the same colourspace as FFmpeg
     // software decode for MPEG2, MPEG4, H.264, HEVC and VP8. VP9 seems to go wrong (with limited samples)
     bool forced = false;
-    if (csp == AVCOL_SPC_RGB && (format_is_yuv(frametype) || frametype == FMT_NVDEC))
+    if (csp == AVCOL_SPC_RGB && (MythVideoFrame::YUVFormat(frametype) || frametype == FMT_NVDEC))
     {
         forced = true;
         csp = AVCOL_SPC_UNSPECIFIED;
     }
-    int range = Frame->colorrange;
+    int range = Frame->m_colorrange;
     if (range ==  AVCOL_RANGE_UNSPECIFIED)
         range = AVCOL_RANGE_MPEG;
-    int depth = ColorDepth(format_is_hw(frametype) ? softwaretype : frametype);
+    int depth = MythVideoFrame::ColorDepth(MythVideoFrame::HardwareFormat(frametype) ? softwaretype : frametype);
     if (csp == AVCOL_SPC_UNSPECIFIED)
-        csp = (Frame->width < 1280) ? AVCOL_SPC_BT470BG : AVCOL_SPC_BT709;
+        csp = (Frame->m_width < 1280) ? AVCOL_SPC_BT470BG : AVCOL_SPC_BT709;
     if (primary == AVCOL_PRI_UNSPECIFIED)
-        primary = (Frame->width < 1280) ? AVCOL_PRI_BT470BG : AVCOL_PRI_BT709;
+        primary = (Frame->m_width < 1280) ? AVCOL_PRI_BT470BG : AVCOL_PRI_BT709;
     if (transfer == AVCOL_TRC_UNSPECIFIED)
-        transfer = (Frame->width < 1280) ? AVCOL_TRC_GAMMA28 : AVCOL_TRC_BT709;
+        transfer = (Frame->m_width < 1280) ? AVCOL_TRC_GAMMA28 : AVCOL_TRC_BT709;
     if (chroma == AVCHROMA_LOC_UNSPECIFIED)
         chroma = AVCHROMA_LOC_LEFT;
 
     if ((csp == m_colourSpace) && (m_colourSpaceDepth == depth) &&
-        (m_range == range) && (m_colourShifted == Frame->colorshifted) &&
+        (m_range == range) && (m_colourShifted == Frame->m_colorshifted) &&
         (primary == m_colourPrimaries) && (chroma == m_chromaLocation))
     {
         return false;
@@ -390,14 +372,14 @@ bool MythVideoColourSpace::UpdateColourSpace(const VideoFrame *Frame)
     m_colourSpace      = csp;
     m_colourSpaceDepth = depth;
     m_range            = range;
-    m_colourShifted    = Frame->colorshifted;
+    m_colourShifted    = Frame->m_colorshifted;
     m_colourPrimaries  = primary;
     m_colourTransfer   = transfer;
     m_chromaLocation   = chroma;
 
     if (forced)
         LOG(VB_GENERAL, LOG_WARNING, LOC + QString("Forcing inconsistent colourspace - frame format %1")
-            .arg(format_description(Frame->codec)));
+            .arg(MythVideoFrame::FormatDescription(Frame->m_type)));
 
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Input : %1(%2) Depth:%3 %4Range:%5")
         .arg(av_color_space_name(static_cast<AVColorSpace>(m_colourSpace)))
@@ -513,10 +495,6 @@ void MythVideoColourSpace::SetPrimariesMode(PrimariesMode Mode)
 /// \brief Save the PictureAttribute value to the database.
 void MythVideoColourSpace::SaveValue(PictureAttribute AttributeType, int Value)
 {
-    // parent owns the database settings
-    if (m_parent)
-        return;
-
     QString dbName;
     if (kPictureAttribute_Brightness == AttributeType)
         dbName = "PlaybackBrightness";
@@ -597,7 +575,7 @@ bool MythVideoColourSpace::Similar(const ColourPrimaries &First, const ColourPri
            cmp(First.whitepoint[1],   Second.whitepoint[1]);
 }
 
-inline float CalcBy(const PrimarySpace p, const WhiteSpace w)
+inline float CalcBy(const PrimarySpace& p, const WhiteSpace w)
 {
     float val = ((1-w[0])/w[1] - (1-p[0][0])/p[0][1]) * (p[1][0]/p[1][1] - p[0][0]/p[0][1]) -
     (w[0]/w[1] - p[0][0]/p[0][1]) * ((1-p[1][0])/p[1][1] - (1-p[0][0])/p[0][1]);
@@ -606,7 +584,7 @@ inline float CalcBy(const PrimarySpace p, const WhiteSpace w)
     return val;
 }
 
-inline float CalcGy(const PrimarySpace p, const WhiteSpace w, const float By)
+inline float CalcGy(const PrimarySpace& p, const WhiteSpace w, const float By)
 {
     float val = w[0]/w[1] - p[0][0]/p[0][1] - By * (p[2][0]/p[2][1] - p[0][0]/p[0][1]);
     val /= p[1][0]/p[1][1] - p[0][0]/p[0][1];
@@ -625,7 +603,7 @@ inline float CalcRy(const float By, const float Gy)
  *
  * \note We use QMatrix4x4 because QMatrix3x3 has no inverted method.
  */
-QMatrix4x4 MythVideoColourSpace::RGBtoXYZ(ColourPrimaries Primaries)
+QMatrix4x4 MythVideoColourSpace::RGBtoXYZ(const ColourPrimaries& Primaries)
 {
     float By = CalcBy(Primaries.primaries, Primaries.whitepoint);
     float Gy = CalcGy(Primaries.primaries, Primaries.whitepoint, By);

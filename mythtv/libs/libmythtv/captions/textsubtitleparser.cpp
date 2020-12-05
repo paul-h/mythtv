@@ -263,6 +263,7 @@ void TextSubtitles::Clear(void)
 
 void TextSubtitles::SetLastLoaded(void)
 {
+    emit TextSubtitlesUpdated();
     QMutexLocker locker(&m_lock);
     m_lastLoaded = QDateTime::currentDateTimeUtc();
 }
@@ -413,5 +414,7 @@ void TextSubtitleParser::LoadSubtitles(const QString &fileName,
     // Don't delete[] sub_data.rbuffer_text; because the QByteArray
     // destructor will clean up.
 
+    LOG(VB_GENERAL, LOG_INFO, QString("Loaded %1 subtitles from '%2'")
+        .arg(target.GetSubtitleCount()).arg(fileName));
     target.SetLastLoaded();
 }

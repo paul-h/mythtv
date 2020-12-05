@@ -49,8 +49,8 @@ AudioDeviceComboBox::AudioDeviceComboBox(AudioConfigSettings *parent) :
                                                dflt);
     addSelection(current, current, true);
 
-    connect(this, SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(AudioDescriptionHelp(StandardSetting *)));
+    connect(this, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, &AudioDeviceComboBox::AudioDescriptionHelp);
 }
 
 void AudioDeviceComboBox::edit(MythScreenType * screen)
@@ -119,7 +119,7 @@ AudioConfigSettings::AudioConfigSettings()
                            "Current entry will be checked and "
                            "capability entries populated."));
     addChild(rescan);
-    connect(rescan, SIGNAL(clicked()), SLOT(AudioRescan()));
+    connect(rescan, &ButtonStandardSetting::clicked, this, &AudioConfigSettings::AudioRescan);
 
     // digital settings
     m_triggerDigital = new GroupSetting();
@@ -147,8 +147,8 @@ AudioConfigSettings::AudioConfigSettings()
     m_passThroughDeviceOverride = PassThroughOutputDevice();
     advancedSettings->addChild(m_passThroughDeviceOverride);
     m_passThroughDeviceOverride->setEnabled(m_passThroughOverride->boolValue());
-    connect(m_passThroughOverride, SIGNAL(valueChanged(bool)),
-            m_passThroughDeviceOverride, SLOT(setEnabled(bool)));
+    connect(m_passThroughOverride, &MythUICheckBoxSetting::valueChanged,
+            m_passThroughDeviceOverride, &StandardSetting::setEnabled);
 
     StandardSetting *srcqualityoverride = SRCQualityOverride();
     srcqualityoverride->addTargetedChild("1", SRCQuality());
@@ -166,26 +166,26 @@ AudioConfigSettings::AudioConfigSettings()
     addChild(m_audioTest = new AudioTest());
 
         // Set slots
-    connect(m_maxAudioChannels, SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(UpdateVisibility(StandardSetting *)));
-    connect(m_outputDevice, SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(UpdateCapabilities()));
-    connect(m_ac3PassThrough, SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(UpdateCapabilitiesAC3()));
+    connect(m_maxAudioChannels, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, qOverload<StandardSetting *>(&AudioConfigSettings::UpdateVisibility));
+    connect(m_outputDevice, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, qOverload<StandardSetting *>(&AudioConfigSettings::UpdateCapabilities));
+    connect(m_ac3PassThrough, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, qOverload<StandardSetting *>(&AudioConfigSettings::UpdateCapabilitiesAC3));
 
-    connect(m_dtsPassThrough, SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(UpdateCapabilities()));
-    connect(m_eac3PassThrough, SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(UpdateCapabilities()));
-    connect(m_trueHDPassThrough, SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(UpdateCapabilities()));
-    connect(m_dtsHDPassThrough, SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(UpdateCapabilities()));
+    connect(m_dtsPassThrough, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, qOverload<StandardSetting *>(&AudioConfigSettings::UpdateCapabilities));
+    connect(m_eac3PassThrough, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, qOverload<StandardSetting *>(&AudioConfigSettings::UpdateCapabilities));
+    connect(m_trueHDPassThrough, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, qOverload<StandardSetting *>(&AudioConfigSettings::UpdateCapabilities));
+    connect(m_dtsHDPassThrough, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, qOverload<StandardSetting *>(&AudioConfigSettings::UpdateCapabilities));
     //Slot for audio test
-    connect(m_outputDevice, SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(UpdateAudioTest()));
-    connect(m_maxAudioChannels, SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(UpdateAudioTest()));
+    connect(m_outputDevice, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, &AudioConfigSettings::UpdateAudioTest);
+    connect(m_maxAudioChannels, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, &AudioConfigSettings::UpdateAudioTest);
 }
 
 void AudioConfigSettings::CheckConfiguration(void)
@@ -415,11 +415,20 @@ AudioOutputSettings AudioConfigSettings::UpdateCapabilities(
     return settings;
 }
 
+void AudioConfigSettings::UpdateCapabilities(StandardSetting */*setting*/)
+{
+    UpdateCapabilities();
+}
+
 AudioOutputSettings AudioConfigSettings::UpdateCapabilitiesAC3(void)
 {
     return UpdateCapabilities(false, true);
 }
 
+void AudioConfigSettings::UpdateCapabilitiesAC3(StandardSetting */*setting*/)
+{
+    UpdateCapabilitiesAC3();
+}
 
 HostComboBoxSetting *AudioConfigSettings::MaxAudioChannels()
 {
@@ -775,28 +784,28 @@ AudioTest::AudioTest()
     m_frontleft->setHelpText(tr("Start front left channel test"));
     addChild(m_frontleft);
     connect(m_frontleft,
-            SIGNAL(clicked()), this, SLOT(toggle()));
+            &ButtonStandardSetting::clicked, this, &AudioTest::toggle);
 
     m_frontright = new ButtonStandardSetting(m_channels == 2 ? "1" : "2");
     m_frontright->setLabel(tr("Front Right"));
     m_frontright->setHelpText(tr("Start front right channel test"));
     addChild(m_frontright);
     connect(m_frontright,
-            SIGNAL(clicked()), this, SLOT(toggle()));
+            &ButtonStandardSetting::clicked, this, &AudioTest::toggle);
 
     m_rearleft = new ButtonStandardSetting("5");
     m_rearleft->setLabel(tr("Rear Left"));
     m_rearleft->setHelpText(tr("Start rear left channel test"));
     addChild(m_rearleft);
     connect(m_rearleft,
-            SIGNAL(clicked()), this, SLOT(toggle()));
+            &ButtonStandardSetting::clicked, this, &AudioTest::toggle);
 
     m_rearright = new ButtonStandardSetting("4");
     m_rearright->setLabel(tr("Rear Right"));
     m_rearright->setHelpText(tr("Start rear right channel test"));
     addChild(m_rearright);
     connect(m_rearright,
-            SIGNAL(clicked()), this, SLOT(toggle()));
+            &ButtonStandardSetting::clicked, this, &AudioTest::toggle);
 
     m_lfe = new ButtonStandardSetting(m_channels == 6 ? "5" :
                                       m_channels == 7 ? "6" : "7");
@@ -804,7 +813,7 @@ AudioTest::AudioTest()
     m_lfe->setHelpText(tr("Start LFE channel test"));
     addChild(m_lfe);
     connect(m_lfe,
-            SIGNAL(clicked()), this, SLOT(toggle()));
+            &ButtonStandardSetting::clicked, this, &AudioTest::toggle);
 
     m_surroundleft = new ButtonStandardSetting(m_channels == 6 ? "4" :
                                                m_channels == 7 ? "5" : "6");
@@ -812,27 +821,27 @@ AudioTest::AudioTest()
     m_surroundleft->setHelpText(tr("Start surround left channel test"));
     addChild(m_surroundleft);
     connect(m_surroundleft,
-            SIGNAL(clicked()), this, SLOT(toggle()));
+            &ButtonStandardSetting::clicked, this, &AudioTest::toggle);
 
     m_surroundright = new ButtonStandardSetting("3");
     m_surroundright->setLabel(tr("Surround Right"));
     m_surroundright->setHelpText(tr("Start surround right channel test"));
     addChild(m_surroundright);
     connect(m_surroundright,
-            SIGNAL(clicked()), this, SLOT(toggle()));
+            &ButtonStandardSetting::clicked, this, &AudioTest::toggle);
 
     m_center = new ButtonStandardSetting("1");
     m_center->setLabel(tr("Center"));
     m_center->setHelpText(tr("Start center channel test"));
     addChild(m_center);
     connect(m_center,
-            SIGNAL(clicked()), this, SLOT(toggle()));
+            &ButtonStandardSetting::clicked, this, &AudioTest::toggle);
 
     m_startButton = new ButtonStandardSetting("start");
     m_startButton->setLabel(tr("Test All"));
     m_startButton->setHelpText(tr("Start all channels test"));
     addChild(m_startButton);
-    connect(m_startButton, SIGNAL(clicked()), this, SLOT(toggle()));
+    connect(m_startButton, &ButtonStandardSetting::clicked, this, &AudioTest::toggle);
 
     m_hd = new TransMythUICheckBoxSetting();
     m_hd->setLabel(tr("Use Highest Quality Mode"));
@@ -841,7 +850,8 @@ AudioTest::AudioTest()
                          "a good place to start troubleshooting "
                          "potential errors"));
     addChild(m_hd);
-    connect(m_hd, SIGNAL(valueChanged(QString)), this, SLOT(togglequality()));
+    connect(m_hd, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this, &AudioTest::togglequality);
 }
 
 AudioTest::~AudioTest()
@@ -920,7 +930,7 @@ void AudioTest::toggle()
     m_at->start();
 }
 
-void AudioTest::togglequality()
+void AudioTest::togglequality(const QString &/*value*/)
 {
     cancelTest();
     m_quality = m_hd->boolValue();
@@ -969,12 +979,12 @@ bool AudioTest::event(QEvent *event)
 
     auto *cce = dynamic_cast<ChannelChangedEvent*>(event);
     if (cce == nullptr)
-        return false;
+        return GroupSetting::event(event);
 
     QString channel = cce->m_channel;
 
     if (!cce->m_fulltest)
-        return false;
+        return  GroupSetting::event(event);
 
     bool fl = false;
     bool fr = false;
@@ -1033,7 +1043,7 @@ bool AudioTest::event(QEvent *event)
         m_rearright->setEnabled(rr);
     if (m_lfe)
         m_lfe->setEnabled(lfe);
-    return false;
+    return  GroupSetting::event(event);
 }
 
 

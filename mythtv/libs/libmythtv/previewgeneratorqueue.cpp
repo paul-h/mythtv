@@ -143,7 +143,7 @@ PreviewGeneratorQueue::~PreviewGeneratorQueue()
  */
 void PreviewGeneratorQueue::GetPreviewImage(
     const ProgramInfo &pginfo,
-    const QSize &outputsize,
+    const QSize outputsize,
     const QString &outputfile,
     long long time, bool in_seconds,
     const QString& token)
@@ -227,7 +227,7 @@ bool PreviewGeneratorQueue::event(QEvent *e)
 
     auto *me = dynamic_cast<MythEvent*>(e);
     if (me == nullptr)
-        return false;
+        return QObject::event(e);
     if (me->Message() == "GET_PREVIEW")
     {
         const QStringList &list = me->ExtraDataList();
@@ -329,7 +329,7 @@ bool PreviewGeneratorQueue::event(QEvent *e)
 
         return true;
     }
-    return false;
+    return QObject::event(e);
 }
 
 /**
@@ -411,7 +411,7 @@ void PreviewGeneratorQueue::SendEvent(
  */
 QString PreviewGeneratorQueue::GeneratePreviewImage(
     ProgramInfo &pginfo,
-    const QSize &size,
+    const QSize size,
     const QString &outputfile,
     long long time, bool in_seconds,
     const QString& token)
@@ -674,7 +674,7 @@ void PreviewGeneratorQueue::SetPreviewGenerator(
         PreviewGenState &state = m_previewMap[key];
         if (state.m_gen)
         {
-            if (g && state.m_gen != g)
+            if (state.m_gen != g)
             {
                 if (!g->GetToken().isEmpty())
                     state.m_tokens.insert(g->GetToken());

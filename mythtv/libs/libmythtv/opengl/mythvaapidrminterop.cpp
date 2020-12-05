@@ -163,7 +163,7 @@ vector<MythVideoTexture*> MythVAAPIInteropDRM::GetReferenceFrames(void)
 
 vector<MythVideoTexture*> MythVAAPIInteropDRM::Acquire(MythRenderOpenGL *Context,
                                                        MythVideoColourSpace *ColourSpace,
-                                                       VideoFrame *Frame,
+                                                       MythVideoFrame *Frame,
                                                        FrameScanType Scan)
 {
     vector<MythVideoTexture*> result;
@@ -184,12 +184,12 @@ vector<MythVideoTexture*> MythVAAPIInteropDRM::Acquire(MythRenderOpenGL *Context
 
     // Deinterlacing
     bool needreferenceframes = false;
-    auto discontinuity = abs(Frame->frameCounter - m_discontinuityCounter) > 1;
+    auto discontinuity = qAbs(Frame->m_frameCounter - m_discontinuityCounter) > 1;
 
     if (is_interlaced(Scan))
     {
         // allow GLSL deinterlacers
-        Frame->deinterlace_allowed = Frame->deinterlace_allowed | DEINT_SHADER;
+        Frame->m_deinterlaceAllowed = Frame->m_deinterlaceAllowed | DEINT_SHADER;
 
         // is GLSL preferred - and if so do we need reference frames
         bool glsldeint = false;
@@ -197,27 +197,27 @@ vector<MythVideoTexture*> MythVAAPIInteropDRM::Acquire(MythRenderOpenGL *Context
         // we explicitly use a shader if preferred over driver. If CPU only
         // is preferred, the default will be to use the driver instead and if that
         // fails we fall back to GLSL
-        MythDeintType shader = GetDoubleRateOption(Frame, DEINT_SHADER);
-        MythDeintType driver = GetDoubleRateOption(Frame, DEINT_DRIVER);
+        MythDeintType shader = Frame->GetDoubleRateOption(DEINT_SHADER);
+        MythDeintType driver = Frame->GetDoubleRateOption(DEINT_DRIVER);
         if (m_filterError)
-            shader = GetDoubleRateOption(Frame, DEINT_SHADER | DEINT_CPU | DEINT_DRIVER, DEINT_ALL);
+            shader = Frame->GetDoubleRateOption(DEINT_SHADER | DEINT_CPU | DEINT_DRIVER, DEINT_ALL);
         if (shader && !driver)
         {
             glsldeint = true;
             needreferenceframes = shader == DEINT_HIGH;
-            Frame->deinterlace_double = Frame->deinterlace_double | DEINT_SHADER;
+            Frame->m_deinterlaceDouble = Frame->m_deinterlaceDouble | DEINT_SHADER;
         }
         else if (!shader && !driver) // singlerate
         {
-            shader = GetSingleRateOption(Frame, DEINT_SHADER);
-            driver = GetSingleRateOption(Frame, DEINT_DRIVER);
+            shader = Frame->GetSingleRateOption(DEINT_SHADER);
+            driver = Frame->GetSingleRateOption(DEINT_DRIVER);
             if (m_filterError)
-                shader = GetSingleRateOption(Frame, DEINT_SHADER | DEINT_CPU | DEINT_DRIVER, DEINT_ALL);
+                shader = Frame->GetSingleRateOption(DEINT_SHADER | DEINT_CPU | DEINT_DRIVER, DEINT_ALL);
             if (shader && !driver)
             {
                 glsldeint = true;
                 needreferenceframes = shader == DEINT_HIGH;
-                Frame->deinterlace_single = Frame->deinterlace_single | DEINT_SHADER;
+                Frame->m_deinterlaceSingle = Frame->m_deinterlaceSingle | DEINT_SHADER;
             }
         }
 
@@ -231,7 +231,7 @@ vector<MythVideoTexture*> MythVAAPIInteropDRM::Acquire(MythRenderOpenGL *Context
 
         // fallback to shaders if VAAPI deints fail
         if (m_filterError)
-            Frame->deinterlace_allowed = Frame->deinterlace_allowed & ~DEINT_DRIVER;
+            Frame->m_deinterlaceAllowed = Frame->m_deinterlaceAllowed & ~DEINT_DRIVER;
     }
     else if (m_deinterlacer)
     {
@@ -242,13 +242,13 @@ vector<MythVideoTexture*> MythVAAPIInteropDRM::Acquire(MythRenderOpenGL *Context
     {
         if (discontinuity)
             CleanupReferenceFrames();
-        RotateReferenceFrames(reinterpret_cast<AVBufferRef*>(Frame->priv[0]));
+        RotateReferenceFrames(reinterpret_cast<AVBufferRef*>(Frame->m_priv[0]));
     }
     else
     {
         CleanupReferenceFrames();
     }
-    m_discontinuityCounter = Frame->frameCounter;
+    m_discontinuityCounter = Frame->m_frameCounter;
 
     // return cached texture if available
     if (m_openglTextures.contains(id))
@@ -276,7 +276,7 @@ vector<MythVideoTexture*> MythVAAPIInteropDRM::Acquire(MythRenderOpenGL *Context
 
 vector<MythVideoTexture*> MythVAAPIInteropDRM::AcquireVAAPI(VASurfaceID Id,
                                                             MythRenderOpenGL *Context,
-                                                            VideoFrame *Frame)
+                                                            MythVideoFrame *Frame)
 {
     vector<MythVideoTexture*> result;
 
@@ -302,10 +302,10 @@ vector<MythVideoTexture*> MythVAAPIInteropDRM::AcquireVAAPI(VASurfaceID Id,
     }
     else
     {
-        if (numplanes != planes(format))
+        if (numplanes != MythVideoFrame::GetNumPlanes(format))
         {
             LOG(VB_GENERAL, LOG_ERR, LOC + QString("Inconsistent plane count %1 != %2")
-                .arg(numplanes).arg(planes(format)));
+                .arg(numplanes).arg(MythVideoFrame::GetNumPlanes(format)));
         }
         else
         {
@@ -399,7 +399,7 @@ static inline void VADRMtoPRIME(VADRMPRIMESurfaceDescriptor* VaDRM, AVDRMFrameDe
 */
 vector<MythVideoTexture*> MythVAAPIInteropDRM::AcquirePrime(VASurfaceID Id,
                                                             MythRenderOpenGL *Context,
-                                                            VideoFrame *Frame)
+                                                            MythVideoFrame *Frame)
 {
     vector<MythVideoTexture*> result;
 
@@ -474,9 +474,8 @@ bool MythVAAPIInteropDRM::TestPrimeInterop(void)
                                        &vadesc);
         if (status == VA_STATUS_SUCCESS)
         {
-            VideoFrame frame {};
-            init(&frame, FMT_DRMPRIME, nullptr, 1920, 1080, 0);
-            frame.sw_pix_fmt = AV_PIX_FMT_NV12;
+            MythVideoFrame frame(FMT_DRMPRIME, nullptr, 0, 1920, 1080);
+            frame.m_swPixFmt = AV_PIX_FMT_NV12;
             AVDRMFrameDescriptor drmdesc;
             memset(&drmdesc, 0, sizeof(drmdesc));
             VADRMtoPRIME(&vadesc, &drmdesc);

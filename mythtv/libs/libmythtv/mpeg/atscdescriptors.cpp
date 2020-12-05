@@ -2,15 +2,11 @@
 // Copyright (c) 2003-2004, Daniel Thor Kristjansson
 
 #include <algorithm>
-using namespace std;
 
 #include "atscdescriptors.h"
 #include "mythlogging.h"
 #include "iso639.h"
 #include "atsc_huffman.h"
-
-using namespace std;
-
 
 QString MultipleStringStructure::CompressionTypeString(uint i, uint j) const
 {
@@ -61,7 +57,7 @@ static uint maxPriority(const QMap<uint,uint> &langPrefs)
 {
     uint max_pri = 0;
     for (uint pref : qAsConst(langPrefs))
-        max_pri = max(max_pri, pref);
+        max_pri = std::max(max_pri, pref);
     return max_pri;
 }
 
@@ -234,7 +230,7 @@ QString ContentAdvisoryDescriptor::toString() const
     return "ContentAdvisoryDescriptor::toString(): Not implemented";
 }
 
-QString AudioStreamDescriptor::SampleRateCodeString(void) const
+QString AC3AudioStreamDescriptor::SampleRateCodeString(void) const
 {
     static const std::array<const std::string,8> s_asd
     {
@@ -245,7 +241,7 @@ QString AudioStreamDescriptor::SampleRateCodeString(void) const
     return QString::fromStdString(s_asd[SampleRateCode()]);
 }
 
-QString AudioStreamDescriptor::BitRateCodeString(void) const
+QString AC3AudioStreamDescriptor::BitRateCodeString(void) const
 {
     // cppcheck-suppress variableScope
     static const std::array<const std::string,19> s_ebr
@@ -270,7 +266,7 @@ QString AudioStreamDescriptor::BitRateCodeString(void) const
     return QString("Unknown Bit Rate Code");
 }
 
-QString AudioStreamDescriptor::SurroundModeString(void) const
+QString AC3AudioStreamDescriptor::SurroundModeString(void) const
 {
     static const std::array<const std::string,4> s_sms
     {
@@ -282,7 +278,7 @@ QString AudioStreamDescriptor::SurroundModeString(void) const
     return QString::fromStdString(s_sms[SurroundMode()]);
 }
 
-QString AudioStreamDescriptor::ChannelsString(void) const
+QString AC3AudioStreamDescriptor::ChannelsString(void) const
 {
     static const std::array<const std::string,16> s_cs
     {
@@ -294,10 +290,10 @@ QString AudioStreamDescriptor::ChannelsString(void) const
     return QString::fromStdString(s_cs[Channels()]);
 }
 
-QString AudioStreamDescriptor::toString() const
+QString AC3AudioStreamDescriptor::toString() const
 {
     QString str;
-    str.append(QString("Audio Stream Descriptor "));
+    str.append(QString("AC-3 Audio Stream Descriptor "));
     str.append(QString(" full_srv(%1) sample_rate(%2) bit_rate(%3, %4)\n")
                .arg(static_cast<int>(FullService())).arg(SampleRateCodeString())
                .arg(BitRateCodeString()).arg(BitRateCode()));

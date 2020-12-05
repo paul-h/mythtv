@@ -13,8 +13,6 @@
 #include <QSocketNotifier>
 #include <iostream>
 
-using namespace std;
-
 #include "mythlogging.h"
 #include "logging.h"
 #include "loggingserver.h"
@@ -87,19 +85,11 @@ static QWaitCondition               logMsgListNotEmpty;
 /// \brief LoggerBase class constructor.  Adds the new logger instance to the
 ///        loggerMap.
 /// \param string a C-string of the handle for this instance (NULL if unused)
-LoggerBase::LoggerBase(const char *string)
+LoggerBase::LoggerBase(const char *string) :
+    m_handle(string)
 {
     QMutexLocker locker(&loggerMapMutex);
-    if (string)
-    {
-        m_handle = strdup(string);
-        loggerMap.insert(QString(m_handle), this);
-    }
-    else
-    {
-        m_handle = nullptr;
-        loggerMap.insert(QString(""), this);
-    }
+    loggerMap.insert(m_handle, this);
 }
 
 
@@ -108,10 +98,7 @@ LoggerBase::LoggerBase(const char *string)
 LoggerBase::~LoggerBase()
 {
     QMutexLocker locker(&loggerMapMutex);
-    loggerMap.remove(QString(m_handle));
-
-    if (m_handle)
-        free(m_handle);
+    loggerMap.remove(m_handle);
 }
 
 
@@ -167,7 +154,7 @@ void FileLogger::reopen(void)
 {
     close(m_fd);
 
-    m_fd = open(m_handle, O_WRONLY|O_CREAT|O_APPEND, 0664);
+    m_fd = open(qPrintable(m_handle), O_WRONLY|O_CREAT|O_APPEND, 0664);
     m_opened = (m_fd != -1);
     LOG(VB_GENERAL, LOG_INFO, QString("Rolled logging on %1") .arg(m_handle));
 }
@@ -268,9 +255,9 @@ bool SyslogLogger::logmsg(LoggingItem *item)
 
     char shortname = item->getLevelChar();
     syslog(item->level() | item->facility(), "%s[%d]: %c %s %s:%d (%s) %s",
-           item->rawAppName(), item->pid(), shortname, item->rawThreadName(),
-           item->rawFile(), item->line(), item->rawFunction(),
-           qPrintable(item->message()));
+           qPrintable(item->appName()), item->pid(), shortname,
+           qPrintable(item->threadName()), qPrintable(item->file()), item->line(),
+           qPrintable(item->function()), qPrintable(item->message()));
 
     return true;
 }
@@ -314,12 +301,12 @@ bool JournalLogger::logmsg(LoggingItem *item)
     sd_journal_send(
         "MESSAGE=%s", qUtf8Printable(item->message()),
         "PRIORITY=%d", item->level(),
-        "CODE_FILE=%s", item->rawFile(),
+        "CODE_FILE=%s", qUtf8Printable(item->file()),
         "CODE_LINE=%d", item->line(),
-        "CODE_FUNC=%s", item->rawFunction(),
-        "SYSLOG_IDENTIFIER=%s", item->rawAppName(),
+        "CODE_FUNC=%s", qUtf8Printable(item->function()),
+        "SYSLOG_IDENTIFIER=%s", qUtf8Printable(item->appName()),
         "SYSLOG_PID=%d", item->pid(),
-        "MYTH_THREAD=%s", item->rawThreadName(),
+        "MYTH_THREAD=%s", qUtf8Printable(item->threadName()),
         NULL
         );
     return true;
@@ -669,7 +656,8 @@ void LogForwardThread::run(void)
 {
     RunProlog();
 
-    connect(this, SIGNAL(incomingSigHup(void)), this, SLOT(handleSigHup(void)),
+    connect(this, &LogForwardThread::incomingSigHup,
+            this, &LogForwardThread::handleSigHup,
             Qt::QueuedConnection);
 
     qRegisterMetaType<QList<QByteArray> >("QList<QByteArray>");

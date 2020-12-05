@@ -145,20 +145,6 @@ static HostCheckBoxSetting *FFmpegDemuxer()
 }
 #endif
 
-static HostComboBoxSetting *PIPLocationComboBox()
-{
-    auto *gc = new HostComboBoxSetting("PIPLocation");
-
-    gc->setLabel(PlaybackSettings::tr("PIP video location"));
-
-    for (uint loc = 0; loc < kPIP_END; ++loc)
-        gc->addSelection(toString((PIPLocation) loc), QString::number(loc));
-
-    gc->setHelpText(PlaybackSettings::tr("Location of PIP Video window."));
-
-    return gc;
-}
-
 static HostComboBoxSetting *DisplayRecGroup()
 {
     auto *gc = new HostComboBoxSetting("DisplayRecGroup");
@@ -825,22 +811,22 @@ PlaybackProfileItemConfig::PlaybackProfileItemConfig(
     addChild(m_doubleShader);
     addChild(m_doubleDriver);
 
-    connect(m_widthRange, SIGNAL(valueChanged(const QString&)),
-            this,    SLOT(widthChanged(const QString&)));
-    connect(m_heightRange, SIGNAL(valueChanged(const QString&)),
-            this,    SLOT(heightChanged(const QString&)));
-    connect(m_codecs, SIGNAL(valueChanged(const QString&)),
-            this,    SLOT(InitLabel()));
-    connect(m_framerate, SIGNAL(valueChanged(const QString&)),
-            this,    SLOT(framerateChanged(const QString&)));
-    connect(m_decoder, SIGNAL(valueChanged(const QString&)),
-            this,    SLOT(decoderChanged(const QString&)));
-    connect(m_vidRend, SIGNAL(valueChanged(const QString&)),
-            this,    SLOT(vrenderChanged(const QString&)));
-    connect(m_singleDeint, SIGNAL(valueChanged(const QString&)),
-            this,    SLOT(SingleQualityChanged(const QString&)));
-    connect(m_doubleDeint, SIGNAL(valueChanged(const QString&)),
-            this,    SLOT(DoubleQualityChanged(const QString&)));
+    connect(m_widthRange, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,    &PlaybackProfileItemConfig::widthChanged);
+    connect(m_heightRange, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,    &PlaybackProfileItemConfig::heightChanged);
+    connect(m_codecs, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,    &PlaybackProfileItemConfig::InitLabel);
+    connect(m_framerate, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,    &PlaybackProfileItemConfig::framerateChanged);
+    connect(m_decoder, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,    &PlaybackProfileItemConfig::decoderChanged);
+    connect(m_vidRend, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,    &PlaybackProfileItemConfig::vrenderChanged);
+    connect(m_singleDeint, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,    &PlaybackProfileItemConfig::SingleQualityChanged);
+    connect(m_doubleDeint, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,    &PlaybackProfileItemConfig::DoubleQualityChanged);
 }
 
 uint PlaybackProfileItemConfig::GetIndex(void) const
@@ -1099,19 +1085,17 @@ bool PlaybackProfileItemConfig::keyPressEvent(QKeyEvent *e)
     if (GetMythMainWindow()->TranslateKeyPress("Global", e, actions))
         return true;
 
-    for (const QString & action : qAsConst(actions))
+    if (std::any_of(actions.cbegin(), actions.cend(),
+                    [](const QString & action) { return action == "DELETE"; } ))
     {
-        if (action == "DELETE")
-        {
-            ShowDeleteDialog();
-            return true;
-        }
+        ShowDeleteDialog();
+        return true;
     }
 
     return false;
 }
 
-void PlaybackProfileItemConfig::ShowDeleteDialog()
+void PlaybackProfileItemConfig::ShowDeleteDialog() const
 {
     QString message = tr("Remove this profile item?");
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
@@ -1119,8 +1103,8 @@ void PlaybackProfileItemConfig::ShowDeleteDialog()
 
     if (confirmDelete->Create())
     {
-        connect(confirmDelete, SIGNAL(haveResult(bool)),
-                SLOT(DoDeleteSlot(bool)));
+        connect(confirmDelete, &MythConfirmationDialog::haveResult,
+                this, &PlaybackProfileItemConfig::DoDeleteSlot);
         popupStack->AddScreen(confirmDelete);
     }
     else
@@ -1189,7 +1173,8 @@ void PlaybackProfileConfig::InitUI(StandardSetting *parent)
     parent->addTargetedChild(m_profileName, m_markForDeletion);
     parent->addTargetedChild(m_profileName, m_addNewEntry);
 
-    connect(m_addNewEntry, SIGNAL(clicked()), SLOT(AddNewEntry()));
+    connect(m_addNewEntry, &ButtonStandardSetting::clicked,
+            this, &PlaybackProfileConfig::AddNewEntry);
 
     for (size_t i = 0; i < m_items.size(); ++i)
         InitProfileItem(i, parent);
@@ -1337,7 +1322,7 @@ static HostComboBoxSetting * CurrentPlaybackProfile()
     return grouptrigger;
 }
 
-void PlaybackSettings::NewPlaybackProfileSlot()
+void PlaybackSettings::NewPlaybackProfileSlot() const
 {
     QString msg = tr("Enter Playback Profile Name");
 
@@ -1348,8 +1333,8 @@ void PlaybackSettings::NewPlaybackProfileSlot()
 
     if (settingdialog->Create())
     {
-        connect(settingdialog, SIGNAL(haveResult(QString)),
-                SLOT(CreateNewPlaybackProfileSlot(const QString&)));
+        connect(settingdialog, &MythTextInputDialog::haveResult,
+                this, &PlaybackSettings::CreateNewPlaybackProfileSlot);
         popupStack->AddScreen(settingdialog);
     }
     else
@@ -1935,7 +1920,7 @@ static HostSpinBoxSetting *FrontendIdleTimeout()
 
 static HostSpinBoxSetting *FrontendShutdownTimeout()
 {
-    HostSpinBoxSetting *gs = new HostSpinBoxSetting("FrontendShutdownTimeout", 0, 360, 1);
+    auto * gs = new HostSpinBoxSetting("FrontendShutdownTimeout", 0, 360, 1);
 
     gs->setLabel(MainGeneralSettings::tr("Time to wait before attempting to shutdown "
                                          "the frontend system (seconds)"));
@@ -1953,6 +1938,17 @@ static HostSpinBoxSetting *FrontendShutdownTimeout()
     return gs;
 }
 
+static HostCheckBoxSetting* ConfirmPowerEvent()
+{
+    auto * checkbox = new HostCheckBoxSetting("ConfirmPowerEvent");
+    checkbox->setValue(true);
+    checkbox->setLabel(MainGeneralSettings::tr("Confirm before suspending/shutting down"));
+    checkbox->setHelpText(MainGeneralSettings::tr(
+        "If enabled (the default) then the user will always be asked to confirm before the system "
+        "is shutdown, suspended or rebooted."));
+    return checkbox;
+}
+
 static HostComboBoxSetting *OverrideExitMenu(MythPower *Power)
 {
     auto *gc = new HostComboBoxSetting("OverrideExitMenu");
@@ -1963,8 +1959,8 @@ static HostComboBoxSetting *OverrideExitMenu(MythPower *Power)
     gc->addSelection(MainGeneralSettings::tr("Show quit"), "1");
     gc->addSelection(MainGeneralSettings::tr("Show quit and suspend"), "9");
     gc->addSelection(MainGeneralSettings::tr("Show quit and shutdown"), "2");
-    gc->addSelection(MainGeneralSettings::tr("Show quit, reboot and shutdown"),
-                     "3");
+    gc->addSelection(MainGeneralSettings::tr("Show quit, reboot and shutdown"), "3");
+    gc->addSelection(MainGeneralSettings::tr("Show quit, reboot, shutdown and suspend"), "10");
     gc->addSelection(MainGeneralSettings::tr("Show shutdown"), "4");
     gc->addSelection(MainGeneralSettings::tr("Show reboot"), "5");
     gc->addSelection(MainGeneralSettings::tr("Show reboot and shutdown"), "6");
@@ -2340,9 +2336,8 @@ static HostComboBoxSetting *GuiVidModeResolution()
     gc->setHelpText(VideoModeSettings::tr("Resolution of screen when not "
                                           "watching a video."));
 
-    MythDisplay* display = MythDisplay::AcquireRelease();
-    vector<MythDisplayMode> scr = display->GetVideoModes();
-    MythDisplay::AcquireRelease(false);
+    MythDisplay* display = GetMythMainWindow()->GetDisplay();
+    std::vector<MythDisplayMode> scr = display->GetVideoModes();
     for (auto & vmode : scr)
     {
         int w = vmode.Width();
@@ -2390,9 +2385,8 @@ static HostComboBoxSetting *TVVidModeResolution(int idx=-1)
 
     gc->setHelpText(hstr);
 
-    MythDisplay* display = MythDisplay::AcquireRelease();
-    vector<MythDisplayMode> scr = display->GetVideoModes();
-    MythDisplay::AcquireRelease(false);
+    MythDisplay* display = GetMythMainWindow()->GetDisplay();
+    std::vector<MythDisplayMode> scr = display->GetVideoModes();
     for (auto & vmode : scr)
     {
         QString sel = QString("%1x%2").arg(vmode.Width()).arg(vmode.Height());
@@ -2411,7 +2405,7 @@ void HostRefreshRateComboBoxSetting::ChangeResolution(StandardSetting * setting)
     QString resolution = setting->getValue();
     int hz50 = -1;
     int hz60 = -1;
-    const vector<double> list = GetRefreshRates(resolution);
+    const std::vector<double> list = GetRefreshRates(resolution);
     addSelection(QObject::tr("Auto"), "0");
     for (size_t i = 0; i < list.size(); ++i)
     {
@@ -2437,7 +2431,7 @@ void HostRefreshRateComboBoxSetting::ChangeResolution(StandardSetting * setting)
     setEnabled(!list.empty());
 }
 
-vector<double> HostRefreshRateComboBoxSetting::GetRefreshRates(const QString &res)
+std::vector<double> HostRefreshRateComboBoxSetting::GetRefreshRates(const QString &res)
 {
     QStringList slist = res.split("x");
     int width = 0;
@@ -2450,13 +2444,12 @@ vector<double> HostRefreshRateComboBoxSetting::GetRefreshRates(const QString &re
         height = slist[1].toInt(&ok1);
     }
 
-    vector<double> result;
+    std::vector<double> result;
     if (ok0 && ok1)
     {
         QSize size(width, height);
-        MythDisplay *display = MythDisplay::AcquireRelease();
+        MythDisplay* display = GetMythMainWindow()->GetDisplay();
         result = display->GetRefreshRates(size);
-        MythDisplay::AcquireRelease(false);
     }
     return result;
 }
@@ -2548,8 +2541,8 @@ VideoModeSettings::VideoModeSettings(const char *c) : HostCheckBoxSetting(c)
     addChild(rate);
     addChild(TVVidModeForceAspect());
     addChild(pause);
-    connect(res, SIGNAL(valueChanged(StandardSetting *)),
-            rate, SLOT(ChangeResolution(StandardSetting *)));
+    connect(res, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            rate, &HostRefreshRateComboBoxSetting::ChangeResolution);
 
     auto *overrides = new GroupSetting();
 
@@ -2565,8 +2558,8 @@ VideoModeSettings::VideoModeSettings(const char *c) : HostCheckBoxSetting(c)
         overrides->addChild(rate = TVVidModeRefreshRate(idx));
         overrides->addChild(TVVidModeForceAspect(idx));
 
-        connect(res, SIGNAL(valueChanged(StandardSetting *)),
-                rate, SLOT(ChangeResolution(StandardSetting *)));
+        connect(res, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+                rate, &HostRefreshRateComboBoxSetting::ChangeResolution);
     }
 
     addChild(overrides);
@@ -4002,6 +3995,7 @@ class ShutDownRebootSetting : public GroupSetting
     StandardSetting *m_haltCommand      { nullptr };
     StandardSetting *m_rebootCommand    { nullptr };
     StandardSetting *m_suspendCommand   { nullptr };
+    StandardSetting *m_confirmCommand   { nullptr };
 };
 
 ShutDownRebootSetting::ShutDownRebootSetting()
@@ -4011,54 +4005,80 @@ ShutDownRebootSetting::ShutDownRebootSetting()
     addChild(FrontendShutdownTimeout());
     auto *power = MythPower::AcquireRelease(this, true);
     addChild(m_overrideExitMenu = OverrideExitMenu(power));
+    addChild(m_confirmCommand   = ConfirmPowerEvent());
 #ifndef Q_OS_ANDROID
     addChild(m_haltCommand      = HaltCommand(power));
     addChild(m_rebootCommand    = RebootCommand(power));
     addChild(m_suspendCommand   = SuspendCommand(power));
 #endif
+    addChild(FrontendIdleTimeout());
     if (power)
         MythPower::AcquireRelease(this, false);
-    connect(m_overrideExitMenu,SIGNAL(valueChanged(StandardSetting *)),
-            SLOT(childChanged(StandardSetting *)));
+    connect(m_overrideExitMenu, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, &ShutDownRebootSetting::childChanged);
 }
 
 void ShutDownRebootSetting::childChanged(StandardSetting* /*unused*/)
 {
-    if (!m_haltCommand || !m_suspendCommand || !m_rebootCommand)
+    if (!m_haltCommand || !m_suspendCommand || !m_rebootCommand || !m_confirmCommand)
         return;
+
+    bool confirmold = m_confirmCommand->isVisible();
+    bool haltold    = m_haltCommand->isVisible();
+    bool rebootold  = m_rebootCommand->isVisible();
+    bool suspendold = m_suspendCommand->isVisible();
 
     switch (m_overrideExitMenu->getValue().toInt())
     {
         case 2:
         case 4:
-            m_haltCommand->setEnabled(true);
-            m_rebootCommand->setEnabled(false);
-            m_suspendCommand->setEnabled(false);
+            m_haltCommand->setVisible(true);
+            m_rebootCommand->setVisible(false);
+            m_suspendCommand->setVisible(false);
+            m_confirmCommand->setVisible(true);
             break;
         case 3:
         case 6:
-            m_haltCommand->setEnabled(true);
-            m_rebootCommand->setEnabled(true);
-            m_suspendCommand->setEnabled(false);
+            m_haltCommand->setVisible(true);
+            m_rebootCommand->setVisible(true);
+            m_suspendCommand->setVisible(false);
+            m_confirmCommand->setVisible(true);
             break;
         case 5:
-            m_haltCommand->setEnabled(false);
-            m_rebootCommand->setEnabled(true);
-            m_suspendCommand->setEnabled(false);
+            m_haltCommand->setVisible(false);
+            m_rebootCommand->setVisible(true);
+            m_suspendCommand->setVisible(false);
+            m_confirmCommand->setVisible(true);
             break;
         case 8:
         case 9:
-            m_suspendCommand->setEnabled(true);
-            m_haltCommand->setEnabled(false);
-            m_rebootCommand->setEnabled(false);
+            m_haltCommand->setVisible(false);
+            m_rebootCommand->setVisible(false);
+            m_suspendCommand->setVisible(true);
+            m_confirmCommand->setVisible(true);
             break;
+        case 10:
+            m_haltCommand->setVisible(true);
+            m_rebootCommand->setVisible(true);
+            m_suspendCommand->setVisible(true);
+            m_confirmCommand->setVisible(true);
+        break;
         case 0:
         case 1:
         default:
-            m_haltCommand->setEnabled(false);
-            m_rebootCommand->setEnabled(false);
-            m_suspendCommand->setEnabled(false);
+            m_haltCommand->setVisible(false);
+            m_rebootCommand->setVisible(false);
+            m_suspendCommand->setVisible(false);
+            m_confirmCommand->setVisible(false);
             break;
+    }
+
+    if (confirmold != m_confirmCommand->isVisible() ||
+        haltold    != m_haltCommand->isVisible() ||
+        rebootold  != m_rebootCommand->isVisible() ||
+        suspendold != m_suspendCommand->isVisible())
+    {
+        emit settingsChanged();
     }
 }
 
@@ -4114,10 +4134,10 @@ MainGeneralSettings::MainGeneralSettings()
     cec->addTargetedChild("1",m_cecPowerOffTVAllowed);
     cec->addTargetedChild("1",m_cecPowerOnTVOnStart);
     cec->addTargetedChild("1",m_cecPowerOffTVOnExit);
-    connect(m_cecPowerOnTVAllowed, SIGNAL(valueChanged(bool)),
-            this, SLOT(cecChanged(bool)));
-    connect(m_cecPowerOffTVAllowed, SIGNAL(valueChanged(bool)),
-            this, SLOT(cecChanged(bool)));
+    connect(m_cecPowerOnTVAllowed, &MythUICheckBoxSetting::valueChanged,
+            this, &MainGeneralSettings::cecChanged);
+    connect(m_cecPowerOffTVAllowed, &MythUICheckBoxSetting::valueChanged,
+            this, &MainGeneralSettings::cecChanged);
 #endif // USING_LIBCEC
     addChild(remotecontrol);
 
@@ -4187,14 +4207,14 @@ PlayBackScaling::PlayBackScaling()
     addChild(m_yScan = YScanDisplacement());
     addChild(m_horizScan = HorizScanPercentage());
     addChild(m_xScan = XScanDisplacement());
-    connect(m_vertScan, SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(childChanged(StandardSetting *)));
-    connect(m_yScan, SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(childChanged(StandardSetting *)));
-    connect(m_horizScan, SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(childChanged(StandardSetting *)));
-    connect(m_xScan,SIGNAL(valueChanged(StandardSetting *)),
-            this, SLOT(childChanged(StandardSetting *)));
+    connect(m_vertScan, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, &PlayBackScaling::childChanged);
+    connect(m_yScan, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, &PlayBackScaling::childChanged);
+    connect(m_horizScan, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, &PlayBackScaling::childChanged);
+    connect(m_xScan, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, &PlayBackScaling::childChanged);
 }
 
 
@@ -4245,11 +4265,11 @@ void PlaybackSettingsDialog::ShowPlaybackProfileMenu(MythUIButtonListItem *item)
     auto *menu = new MythMenu(tr("Playback Profile Menu"), this, "mainmenu");
 
     if (m_buttonList->GetItemPos(item) > 2)
-        menu->AddItem(tr("Move Up"), SLOT(MoveProfileItemUp()));
+        menu->AddItem(tr("Move Up"), &PlaybackSettingsDialog::MoveProfileItemUp);
     if (m_buttonList->GetItemPos(item) + 1 < m_buttonList->GetCount())
-        menu->AddItem(tr("Move Down"), SLOT(MoveProfileItemDown()));
+        menu->AddItem(tr("Move Down"), &PlaybackSettingsDialog::MoveProfileItemDown);
 
-    menu->AddItem(tr("Delete"), SLOT(DeleteProfileItem()));
+    menu->AddItem(tr("Delete"), &PlaybackSettingsDialog::DeleteProfileItem);
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
@@ -4329,7 +4349,6 @@ void PlaybackSettings::Load(void)
     general->addChild(AdjustFill());
 
     general->addChild(LetterboxingColour());
-    general->addChild(PIPLocationComboBox());
     general->addChild(PlaybackExitPrompt());
     general->addChild(EndOfRecordingExitPrompt());
     general->addChild(MusicChoiceEnabled());
@@ -4353,8 +4372,8 @@ void PlaybackSettings::Load(void)
     m_newPlaybackProfileButton =
         new ButtonStandardSetting(tr("Add a new playback profile"));
     addChild(m_newPlaybackProfileButton);
-    connect(m_newPlaybackProfileButton, SIGNAL(clicked()),
-            SLOT(NewPlaybackProfileSlot()));
+    connect(m_newPlaybackProfileButton, &ButtonStandardSetting::clicked,
+            this, &PlaybackSettings::NewPlaybackProfileSlot);
 
     auto *pbox = new GroupSetting();
     pbox->setLabel(tr("View Recordings"));
@@ -4572,14 +4591,14 @@ GuiDimension::GuiDimension()
     addChild(m_height  = GuiHeight());
     addChild(m_offsetX = GuiOffsetX());
     addChild(m_offsetY = GuiOffsetY());
-    connect(m_width, SIGNAL(valueChanged(StandardSetting *)),
-            SLOT(childChanged(StandardSetting *)));
-    connect(m_height, SIGNAL(valueChanged(StandardSetting *)),
-            SLOT(childChanged(StandardSetting *)));
-    connect(m_offsetX, SIGNAL(valueChanged(StandardSetting *)),
-            SLOT(childChanged(StandardSetting *)));
-    connect(m_offsetY, SIGNAL(valueChanged(StandardSetting *)),
-            SLOT(childChanged(StandardSetting *)));
+    connect(m_width, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, &GuiDimension::childChanged);
+    connect(m_height, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, &GuiDimension::childChanged);
+    connect(m_offsetX, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, &GuiDimension::childChanged);
+    connect(m_offsetY, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, &GuiDimension::childChanged);
 }
 
 void GuiDimension::updateButton(MythUIButtonListItem *item)
@@ -4636,7 +4655,7 @@ AppearanceSettings::AppearanceSettings()
     screen->addChild(MenuTheme());
     screen->addChild(GUIRGBLevels());
 
-    m_display = MythDisplay::AcquireRelease();
+    m_display = GetMythMainWindow()->GetDisplay();
     m_screen = ScreenSelection();
     m_screenAspect = ScreenAspectRatio();
     screen->addChild(m_screen);
@@ -4659,14 +4678,13 @@ AppearanceSettings::AppearanceSettings()
     screen->addChild(AirPlayFullScreen());
 #endif
 
-    MythDisplay* display = MythDisplay::AcquireRelease();
+    MythDisplay* display = GetMythMainWindow()->GetDisplay();
     if (display->VideoModesAvailable())
     {
-        vector<MythDisplayMode> scr = display->GetVideoModes();
+        std::vector<MythDisplayMode> scr = display->GetVideoModes();
         if (!scr.empty())
             addChild(UseVideoModes());
     }
-    MythDisplay::AcquireRelease(false);
 
     auto *dates = new GroupSetting();
 
@@ -4682,11 +4700,6 @@ AppearanceSettings::AppearanceSettings()
     addChild(dates);
 
     addChild(LCDEnable());
-}
-
-AppearanceSettings::~AppearanceSettings()
-{
-    MythDisplay::AcquireRelease(false);
 }
 
 /*******************************************************************************
@@ -4880,7 +4893,8 @@ void ChannelGroupsSetting::Load()
 {
     clearSettings();
     auto *newGroup = new ButtonStandardSetting(tr("(Create New Channel Group)"));
-    connect(newGroup, SIGNAL(clicked()), SLOT(ShowNewGroupDialog()));
+    connect(newGroup, &ButtonStandardSetting::clicked,
+            this, &ChannelGroupsSetting::ShowNewGroupDialog);
     addChild(newGroup);
 
     addChild(new ChannelGroupSetting(tr("Favorites"), 1));
@@ -4911,7 +4925,7 @@ void ChannelGroupsSetting::Load()
 }
 
 
-void ChannelGroupsSetting::ShowNewGroupDialog()
+void ChannelGroupsSetting::ShowNewGroupDialog() const
 {
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
     auto *settingdialog = new MythTextInputDialog(popupStack,
@@ -4919,8 +4933,8 @@ void ChannelGroupsSetting::ShowNewGroupDialog()
 
     if (settingdialog->Create())
     {
-        connect(settingdialog, SIGNAL(haveResult(QString)),
-                SLOT(CreateNewGroup(QString)));
+        connect(settingdialog, &MythTextInputDialog::haveResult,
+                this, &ChannelGroupsSetting::CreateNewGroup);
         popupStack->AddScreen(settingdialog);
     }
     else

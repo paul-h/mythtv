@@ -1611,7 +1611,7 @@ void EITFixUp::FixMCA(DBEventEIT &event) const
     if (tmpExp1.indexIn(event.m_description) != -1)
     {
         uint tmpExp1Len = tmpExp1.cap(1).length();
-        uint evDescLen = max(event.m_description.length(), 1);
+        uint evDescLen = std::max(event.m_description.length(), 1);
 
         if ((tmpExp1Len < lSUBTITLE_MAX_LEN) &&
             ((tmpExp1Len * 100 / evDescLen) < SUBTITLE_PCT))
@@ -1807,7 +1807,7 @@ void EITFixUp::FixRTL(DBEventEIT &event) const
         if (tmpExp1.indexIn(event.m_description) != -1)
         {
             uint tmpExp1Len = tmpExp1.cap(1).length();
-            uint evDescLen = max(event.m_description.length(), 1);
+            uint evDescLen = std::max(event.m_description.length(), 1);
 
             if ((tmpExp1Len < lSUBTITLE_MAX_LEN) &&
                 (tmpExp1Len * 100 / evDescLen < SUBTITLE_PCT))
@@ -2907,7 +2907,7 @@ void EITFixUp::FixGreekEIT(DBEventEIT &event) const
                 event.m_season = 11;
             else if (romanSeries == "XII")
                 event.m_season = 12;
-            else if (romanSeries == "XII")
+            else if (romanSeries == "XIII")
                 event.m_season = 13;
             else if (romanSeries == "XIV")
                 event.m_season = 14;
@@ -2917,7 +2917,7 @@ void EITFixUp::FixGreekEIT(DBEventEIT &event) const
                 event.m_season = 16;
             else if (romanSeries == "XVII")
                 event.m_season = 17;
-            else if (romanSeries == "XIII")
+            else if (romanSeries == "XVIII")
                 event.m_season = 18;
             else if (romanSeries == "XIX")
                 event.m_season = 19;

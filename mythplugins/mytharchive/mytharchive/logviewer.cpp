@@ -1,6 +1,7 @@
-#include <unistd.h>
-#include <iostream>
+#include <chrono>
 #include <cstdlib>
+#include <iostream>
+#include <unistd.h>
 
 // qt
 #include <QKeyEvent>
@@ -20,6 +21,8 @@
 // mytharchive
 #include "archiveutil.h"
 #include "logviewer.h"
+
+using namespace std::chrono_literals;
 
 void showLogViewer(void)
 {
@@ -111,16 +114,16 @@ bool LogViewer::Create(void)
         return false;
     }
 
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(cancelClicked()));
-    connect(m_updateButton, SIGNAL(Clicked()), this, SLOT(updateClicked()));
-    connect(m_exitButton, SIGNAL(Clicked()), this, SLOT(Close()));
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &LogViewer::cancelClicked);
+    connect(m_updateButton, &MythUIButton::Clicked, this, &LogViewer::updateClicked);
+    connect(m_exitButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
 
-    connect(m_logList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(updateLogItem(MythUIButtonListItem*)));
+    connect(m_logList, &MythUIButtonList::itemSelected,
+            this, &LogViewer::updateLogItem);
 
     m_updateTimer = nullptr;
     m_updateTimer = new QTimer(this);
-    connect(m_updateTimer, SIGNAL(timeout()), SLOT(updateTimerTimeout()) );
+    connect(m_updateTimer, &QTimer::timeout, this, &LogViewer::updateTimerTimeout );
 
     BuildFocusList();
 
@@ -231,7 +234,7 @@ void LogViewer::updateClicked(void)
         if (m_logList->GetCount() > 0)
             m_updateTimer->start(m_updateTime * 1000);
         else
-            m_updateTimer->start(500);
+            m_updateTimer->start(500ms);
     }
 }
 
@@ -341,10 +344,10 @@ void LogViewer::ShowMenu()
     menuPopup->SetReturnEvent(this, "action");
 
     if (m_autoUpdate)
-        menuPopup->AddButton(tr("Don't Auto Update"), SLOT(toggleAutoUpdate()));
+        menuPopup->AddButton(tr("Don't Auto Update"), &LogViewer::toggleAutoUpdate);
     else
-        menuPopup->AddButton(tr("Auto Update"), SLOT(toggleAutoUpdate()));
+        menuPopup->AddButton(tr("Auto Update"), &LogViewer::toggleAutoUpdate);
 
-    menuPopup->AddButton(tr("Show Progress Log"), SLOT(showProgressLog()));
-    menuPopup->AddButton(tr("Show Full Log"), SLOT(showFullLog()));
+    menuPopup->AddButton(tr("Show Progress Log"), &LogViewer::showProgressLog);
+    menuPopup->AddButton(tr("Show Full Log"), &LogViewer::showFullLog);
 }

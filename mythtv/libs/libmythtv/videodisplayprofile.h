@@ -13,7 +13,6 @@
 
 // Std
 #include <vector>
-using namespace std;
 
 #define DEINT_QUALITY_NONE   QString("none")
 #define DEINT_QUALITY_LOW    QString("low")
@@ -55,7 +54,7 @@ class MTV_PUBLIC ProfileItem
     bool CheckRange(const QString& Key, float Value, bool *Ok = nullptr) const;
     bool CheckRange(const QString& Key, int Value, bool *Ok = nullptr) const;
     bool CheckRange(const QString& Key, float FValue, int IValue, bool IsFloat, bool *Ok = nullptr) const;
-    bool IsMatch(const QSize &Size, float Framerate, const QString &CodecName,
+    bool IsMatch(QSize Size, float Framerate, const QString &CodecName,
                  const QStringList &DisallowedDecoders = QStringList()) const;
     bool IsValid(QString *Reason = nullptr) const;
     bool operator<(const ProfileItem &Other) const;
@@ -72,7 +71,7 @@ class MTV_PUBLIC VideoDisplayProfile
     VideoDisplayProfile();
    ~VideoDisplayProfile() = default;
 
-    void    SetInput(const QSize &Size, float Framerate = 0, const QString &CodecName = QString(),
+    void    SetInput(QSize Size, float Framerate = 0, const QString &CodecName = QString(),
                      const QStringList &DisallowedDecoders = QStringList());
     void    SetOutput(float Framerate);
     float   GetOutput(void) const;
@@ -113,15 +112,15 @@ class MTV_PUBLIC VideoDisplayProfile
     static bool        IsFilterAllowed( const QString &VideoRenderer);
     static QStringList GetFilteredRenderers(const QString &Decoder, const QStringList &Renderers);
     static QString     GetBestVideoRenderer(const QStringList &Renderers);
-    static vector<ProfileItem> LoadDB(uint GroupId);
-    static bool        DeleteDB(uint GroupId, const vector<ProfileItem>& Items);
-    static bool        SaveDB(uint GroupId, vector<ProfileItem>& Items);
+    static std::vector<ProfileItem> LoadDB(uint GroupId);
+    static bool        DeleteDB(uint GroupId, const std::vector<ProfileItem>& Items);
+    static bool        SaveDB(uint GroupId, std::vector<ProfileItem>& Items);
 
   private:
-    vector<ProfileItem>::const_iterator
-            FindMatch(const QSize &Size, float Framerate, const QString &CodecName,
+    std::vector<ProfileItem>::const_iterator
+            FindMatch(QSize Size, float Framerate, const QString &CodecName,
                       const QStringList& DisallowedDecoders = QStringList());
-    void    LoadBestPreferences(const QSize &Size, float Framerate, const QString &CodecName,
+    void    LoadBestPreferences(QSize Size, float Framerate, const QString &CodecName,
                                 const QStringList &DisallowedDecoders = QStringList());
     QString GetPreference(const QString &Key) const;
     void    SetPreference(const QString &Key, const QString &Value);
@@ -133,7 +132,7 @@ class MTV_PUBLIC VideoDisplayProfile
     QString               m_lastCodecName       { };
     QString               m_lastVideoRenderer   { };
     QMap<QString,QString> m_currentPreferences  { };
-    vector<ProfileItem>   m_allowedPreferences  { };
+    std::vector<ProfileItem>   m_allowedPreferences  { };
 
     static QMutex                    s_safe_lock;
     static bool                      s_safe_initialized;

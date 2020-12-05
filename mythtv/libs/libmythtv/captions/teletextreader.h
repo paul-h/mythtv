@@ -11,8 +11,6 @@
 #include <QString>
 #include <QMutex>
 
-using namespace std;
-
 enum TTColor
 {
     kTTColorBlack       = 0,
@@ -51,7 +49,7 @@ class TeletextSubPage
     bool active;              ///< data has arrived since page last cleared
 };
 
-using int_to_subpage_t = map<int, TeletextSubPage>;
+using int_to_subpage_t = std::map<int, TeletextSubPage>;
 
 class TeletextPage
 {
@@ -60,7 +58,7 @@ class TeletextPage
     int               current_subpage {0};
     int_to_subpage_t  subpages;
 };
-using int_to_page_t = map<int, TeletextPage>;
+using int_to_page_t = std::map<int, TeletextPage>;
 
 class TeletextMagazine
 {
@@ -82,7 +80,7 @@ class TeletextReader
 
     // OSD/Player methods
     void Reset(void);
-    bool KeyPress(const QString &key);
+    bool KeyPress(const QString& Key, bool& Exit);
     QString GetPage(void);
     void SetPage(int page, int subpage);
     void SetSubPage(int subpage)        { m_cursubpage = subpage;      }

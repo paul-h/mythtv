@@ -230,7 +230,7 @@ class UPNP_PUBLIC HTTPRequest
                                     const QDateTime &expiryDate,
                                     bool secure );
 
-        QString         GetRequestHeader  ( const QString &sKey, QString sDefault );
+        QString         GetRequestHeader  ( const QString &sKey, const QString &sDefault );
 
         bool            GetKeepAlive () const { return m_bKeepAlive; }
 
@@ -242,7 +242,7 @@ class UPNP_PUBLIC HTTPRequest
         static QString         GetResponseProtocol () ;
 
         QString         GetRequestType () const;
-        QString         GetLastHeader( const QString &sType );
+        QString         GetLastHeader( const QString &sType ) const;
 
         static QString  GetMimeType     ( const QString &sFileExtension );
         static QStringList GetSupportedMimeTypes ();

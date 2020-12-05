@@ -133,13 +133,13 @@ void RemoteCancelNextRecording(uint inputid, bool cancel)
     gCoreContext->SendReceiveStringList(strlist);
 }
 
-vector<InputInfo> RemoteRequestFreeInputInfo(uint excluded_input)
+std::vector<InputInfo> RemoteRequestFreeInputInfo(uint excluded_input)
 {
     LOG(VB_CHANNEL, LOG_INFO,
         QString("RemoteRequestFreeInputInfo excluding input %1")
         .arg(excluded_input));
 
-    vector<InputInfo> inputs;
+    std::vector<InputInfo> inputs;
 
     QStringList strlist(QString("GET_FREE_INPUT_INFO %1")
                         .arg(excluded_input));
@@ -168,7 +168,7 @@ int RemoteGetFreeRecorderCount(void)
 {
     LOG(VB_CHANNEL, LOG_INFO, QString("RemoteGetFreeRecorderCount"));
 
-    vector<InputInfo> inputs =
+    std::vector<InputInfo> inputs =
         RemoteRequestFreeInputInfo(0);
 
     LOG(VB_CHANNEL, LOG_INFO, QString("RemoteGetFreeRecorderCount got %1")
@@ -182,7 +182,7 @@ RemoteEncoder *RemoteRequestNextFreeRecorder(int inputid)
         QString("RemoteRequestNextFreeRecorder after input %1)")
         .arg(inputid));
 
-    vector<InputInfo> inputs =
+    std::vector<InputInfo> inputs =
         RemoteRequestFreeInputInfo(inputid);
 
     if (inputs.empty())
@@ -223,36 +223,36 @@ RemoteEncoder *RemoteRequestNextFreeRecorder(int inputid)
     return RemoteGetExistingRecorder(inputs[i].m_inputId);
 }
 
-vector<uint> RemoteRequestFreeRecorderList(uint excluded_input)
+std::vector<uint> RemoteRequestFreeRecorderList(uint excluded_input)
 {
     LOG(VB_CHANNEL, LOG_INFO,
         QString("RemoteRequestFreeRecorderList excluding input %1")
         .arg(excluded_input));
 
-    vector<InputInfo> inputs =
+    std::vector<InputInfo> inputs =
         RemoteRequestFreeInputInfo(excluded_input);
 
-    vector<uint> inputids;
-    for (auto & input : inputs)
-        inputids.push_back(input.m_inputId);
+    std::vector<uint> inputids;
+    std::transform(inputs.cbegin(), inputs.cend(), std::back_inserter(inputids),
+                   [](const auto & input){ return input.m_inputId; } );
 
     LOG(VB_CHANNEL, LOG_INFO,
         QString("RemoteRequestFreeRecorderList got inputs"));
     return inputids;
 }
 
-vector<uint> RemoteRequestFreeInputList(uint excluded_input)
+std::vector<uint> RemoteRequestFreeInputList(uint excluded_input)
 {
     LOG(VB_CHANNEL, LOG_INFO,
         QString("RemoteRequestFreeInputList excluding input %1")
         .arg(excluded_input));
 
-    vector<InputInfo> inputs =
+    std::vector<InputInfo> inputs =
         RemoteRequestFreeInputInfo(excluded_input);
 
-    vector<uint> inputids;
-    for (auto & input : inputs)
-        inputids.push_back(input.m_inputId);
+    std::vector<uint> inputids;
+    std::transform(inputs.cbegin(), inputs.cend(), std::back_inserter(inputids),
+                   [](const auto & input){ return input.m_inputId; } );
 
     LOG(VB_CHANNEL, LOG_INFO,
         QString("RemoteRequestFreeInputList got inputs"));
@@ -266,21 +266,19 @@ RemoteEncoder *RemoteRequestFreeRecorderFromList
         QString("RemoteRequestFreeRecorderFromList excluding input %1")
         .arg(excluded_input));
 
-    vector<InputInfo> inputs =
+    std::vector<InputInfo> inputs =
         RemoteRequestFreeInputInfo(excluded_input);
 
     for (const auto & recorder : qAsConst(qualifiedRecorders))
     {
         uint inputid = recorder.toUInt();
-        for (auto & input : inputs)
+        auto sameinput = [inputid](const auto & input){ return input.m_inputId == inputid; };
+        if (std::any_of(inputs.cbegin(), inputs.cend(), sameinput))
         {
-            if (input.m_inputId == inputid)
-            {
-                LOG(VB_CHANNEL, LOG_INFO,
-                    QString("RemoteRequestFreeRecorderFromList got input %1")
-                    .arg(inputid));
-                return RemoteGetExistingRecorder(inputid);
-            }
+            LOG(VB_CHANNEL, LOG_INFO,
+                QString("RemoteRequestFreeRecorderFromList got input %1")
+                .arg(inputid));
+            return RemoteGetExistingRecorder(inputid);
         }
     }
 
@@ -294,7 +292,7 @@ RemoteEncoder *RemoteRequestRecorder(void)
     LOG(VB_CHANNEL, LOG_INFO,
         QString("RemoteRequestRecorder entered"));
 
-    vector<InputInfo> inputs =
+    std::vector<InputInfo> inputs =
         RemoteRequestFreeInputInfo(0);
 
     if (inputs.empty())
@@ -399,10 +397,10 @@ bool RemoteIsBusy(uint inputid, InputInfo &busy_input)
 }
 
 bool RemoteGetRecordingStatus(
-    vector<TunerStatus> *tunerList, bool list_inactive)
+    std::vector<TunerStatus> *tunerList, bool list_inactive)
 {
     bool isRecording = false;
-    vector<uint> inputlist = CardUtil::GetInputList();
+    std::vector<uint> inputlist = CardUtil::GetInputList();
 
     if (tunerList)
         tunerList->clear();

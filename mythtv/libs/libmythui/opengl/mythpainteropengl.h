@@ -12,7 +12,7 @@
 // Std
 #include <list>
 
-class QWidget;
+class MythMainWindow;
 class MythGLTexture;
 class MythRenderOpenGL;
 class QOpenGLBuffer;
@@ -25,7 +25,7 @@ class MUI_PUBLIC MythOpenGLPainter : public MythPainterGPU
     Q_OBJECT
 
   public:
-    explicit MythOpenGLPainter(MythRenderOpenGL *Render, QWidget *Parent);
+    MythOpenGLPainter(MythRenderOpenGL* Render, MythMainWindow* Parent);
    ~MythOpenGLPainter() override;
 
     void DeleteTextures(void);
@@ -37,10 +37,10 @@ class MUI_PUBLIC MythOpenGLPainter : public MythPainterGPU
     void FreeResources(void) override;
     void Begin(QPaintDevice *Parent) override;
     void End() override;
-    void DrawImage(const QRect &Dest, MythImage *Image, const QRect &Source, int Alpha) override;
-    void DrawRect(const QRect &Area, const QBrush &FillBrush,
+    void DrawImage(QRect Dest, MythImage *Image, QRect Source, int Alpha) override;
+    void DrawRect(QRect Area, const QBrush &FillBrush,
                   const QPen &LinePen, int Alpha) override;
-    void DrawRoundRect(const QRect &Area, int CornerRadius,
+    void DrawRoundRect(QRect Area, int CornerRadius,
                        const QBrush &FillBrush, const QPen &LinePen, int Alpha) override;
     void PushTransformation(const UIEffects &Fx, QPointF Center = QPointF()) override;
     void PopTransformation(void) override;

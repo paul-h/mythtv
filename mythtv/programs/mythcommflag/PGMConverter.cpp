@@ -69,7 +69,7 @@ PGMConverter::MythPlayerInited(const MythPlayer *player)
 }
 
 const AVFrame *
-PGMConverter::getImage(const VideoFrame *frame, long long _frameno,
+PGMConverter::getImage(const MythVideoFrame *frame, long long _frameno,
         int *pwidth, int *pheight)
 {
 #ifdef PGM_CONVERT_GREYSCALE
@@ -81,7 +81,7 @@ PGMConverter::getImage(const VideoFrame *frame, long long _frameno,
     if (m_frameNo == _frameno)
         goto out;
 
-    if (!frame->buf)
+    if (!frame->m_buffer)
     {
         LOG(VB_COMMFLAG, LOG_ERR, "PGMConverter::getImage no buf");
         goto error;

@@ -65,17 +65,17 @@ MythOpenGLInterop::Type MythDRMPRIMEInterop::GetInteropType(VideoFrameType Forma
     return HaveDMABuf(context) ? DRMPRIME : Unsupported;
 }
 
-AVDRMFrameDescriptor* MythDRMPRIMEInterop::VerifyBuffer(MythRenderOpenGL *Context, VideoFrame *Frame)
+AVDRMFrameDescriptor* MythDRMPRIMEInterop::VerifyBuffer(MythRenderOpenGL *Context, MythVideoFrame *Frame)
 {
     AVDRMFrameDescriptor* result = nullptr;
 
-    if ((Frame->pix_fmt != AV_PIX_FMT_DRM_PRIME) || (Frame->codec != FMT_DRMPRIME) ||
-        !Frame->buf || !Frame->priv[0])
+    if ((Frame->m_pixFmt != AV_PIX_FMT_DRM_PRIME) || (Frame->m_type != FMT_DRMPRIME) ||
+        !Frame->m_buffer || !Frame->m_priv[0])
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + QString("Invalid DRM PRIME buffer %1 %2 %3 %4")
-            .arg(Frame->buf != nullptr).arg(Frame->priv[0] != nullptr)
-            .arg(format_description(Frame->codec))
-            .arg(av_get_pix_fmt_name(static_cast<AVPixelFormat>(Frame->pix_fmt))));
+            .arg(Frame->m_buffer != nullptr).arg(Frame->m_priv[0] != nullptr)
+            .arg(MythVideoFrame::FormatDescription(Frame->m_type))
+            .arg(av_get_pix_fmt_name(static_cast<AVPixelFormat>(Frame->m_pixFmt))));
         return result;
     }
 
@@ -87,7 +87,7 @@ AVDRMFrameDescriptor* MythDRMPRIMEInterop::VerifyBuffer(MythRenderOpenGL *Contex
     }
 
     // Check size
-    QSize surfacesize(Frame->width, Frame->height);
+    QSize surfacesize(Frame->m_width, Frame->m_height);
     if (m_openglTextureSize != surfacesize)
     {
         if (!m_openglTextureSize.isEmpty())
@@ -95,12 +95,12 @@ AVDRMFrameDescriptor* MythDRMPRIMEInterop::VerifyBuffer(MythRenderOpenGL *Contex
         m_openglTextureSize = surfacesize;
     }
 
-    return  reinterpret_cast<AVDRMFrameDescriptor*>(Frame->buf);
+    return  reinterpret_cast<AVDRMFrameDescriptor*>(Frame->m_buffer);
 }
 
 vector<MythVideoTexture*> MythDRMPRIMEInterop::Acquire(MythRenderOpenGL *Context,
                                                        MythVideoColourSpace *ColourSpace,
-                                                       VideoFrame *Frame,
+                                                       MythVideoFrame *Frame,
                                                        FrameScanType Scan)
 {
     vector<MythVideoTexture*> result;
@@ -129,14 +129,14 @@ vector<MythVideoTexture*> MythDRMPRIMEInterop::Acquire(MythRenderOpenGL *Context
             textures = m_openglTextures[id];
         }
 
-        if (textures.empty() ? false : format_is_yuv(textures[0]->m_frameFormat))
+        if (textures.empty() ? false : MythVideoFrame::YUVFormat(textures[0]->m_frameFormat))
         {
             // Enable colour controls for YUV frame
             if (firstpass)
                 ColourSpace->SetSupportedAttributes(ALL_PICTURE_ATTRIBUTES);
             ColourSpace->UpdateColourSpace(Frame);
             // and shader based deinterlacing
-            Frame->deinterlace_allowed = Frame->deinterlace_allowed | DEINT_SHADER;
+            Frame->m_deinterlaceAllowed = Frame->m_deinterlaceAllowed | DEINT_SHADER;
         }
         return textures;
     };
@@ -152,11 +152,11 @@ vector<MythVideoTexture*> MythDRMPRIMEInterop::Acquire(MythRenderOpenGL *Context
 
     // Is deinterlacing selected? Accept any value as RGB frames can only be deinterlaced here
     bool doublerate = false;
-    MythDeintType option = GetDoubleRateOption(Frame, DEINT_CPU | DEINT_SHADER | DEINT_DRIVER, DEINT_ALL);
+    MythDeintType option = Frame->GetDoubleRateOption(DEINT_CPU | DEINT_SHADER | DEINT_DRIVER, DEINT_ALL);
     if (option != DEINT_NONE)
         doublerate = true;
     else
-        option = GetSingleRateOption(Frame, DEINT_CPU | DEINT_SHADER | DEINT_DRIVER, DEINT_ALL);
+        option = Frame->GetSingleRateOption(DEINT_CPU | DEINT_SHADER | DEINT_DRIVER, DEINT_ALL);
     interlaced &= option != DEINT_NONE;
 
     // Clear redundant frame caches
@@ -197,9 +197,9 @@ vector<MythVideoTexture*> MythDRMPRIMEInterop::Acquire(MythRenderOpenGL *Context
     if (m_deinterlacing)
     {
         result.clear();
-        Frame->deinterlace_inuse = DEINT_DRIVER | DEINT_BASIC;
-        Frame->deinterlace_inuse2x = doublerate;
-        bool tff = Frame->interlaced_reversed ? !Frame->top_field_first : Frame->top_field_first;
+        Frame->m_deinterlaceInuse = DEINT_DRIVER | DEINT_BASIC;
+        Frame->m_deinterlaceInuse2x = doublerate;
+        bool tff = Frame->m_interlacedReverse ? !Frame->m_topFieldFirst : Frame->m_topFieldFirst;
         result.emplace_back(m_openglTextures[id].at(Scan == kScan_Interlaced ? (tff ? 1 : 0) : tff ? 0 : 1));
     }
 

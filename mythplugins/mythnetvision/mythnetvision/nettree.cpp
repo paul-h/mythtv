@@ -48,7 +48,7 @@ NetTree::NetTree(DialogType type, MythScreenStack *parent, const char *name)
     : NetBase(parent, name),
       m_gdt(new GrabberDownloadThread(this)), m_type(type)
 {
-    connect(m_gdt, SIGNAL(finished()), SLOT(DoTreeRefresh()));
+    connect(m_gdt, &GrabberDownloadThread::finished, this, &NetTree::DoTreeRefresh);
     m_updateFreq = gCoreContext->GetNumSetting(
                        "mythNetTree.updateFreq", 6);
     m_rssAutoUpdate = gCoreContext->GetBoolSetting(
@@ -109,21 +109,21 @@ bool NetTree::Create()
     {
         SetFocusWidget(m_siteMap);
 
-        connect(m_siteMap, SIGNAL(itemClicked(MythUIButtonListItem *)),
-                SLOT(StreamWebVideo(void)));
-        connect(m_siteMap, SIGNAL(itemSelected(MythUIButtonListItem *)),
-                SLOT(SlotItemChanged(void)));
-        connect(m_siteMap, SIGNAL(nodeChanged(MythGenericTree *)),
-                SLOT(SlotItemChanged(void)));
+        connect(m_siteMap, &MythUIButtonTree::itemClicked,
+                this, &NetTree::StreamWebVideo);
+        connect(m_siteMap, &MythUIButtonTree::itemSelected,
+                this, &NetTree::SlotItemChanged);
+        connect(m_siteMap, &MythUIButtonTree::nodeChanged,
+                this, &NetTree::SlotItemChanged);
     }
     else
     {
         SetFocusWidget(m_siteButtonList);
 
-        connect(m_siteButtonList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-                SLOT(HandleSelect(MythUIButtonListItem *)));
-        connect(m_siteButtonList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-                SLOT(SlotItemChanged(void)));
+        connect(m_siteButtonList, &MythUIButtonList::itemClicked,
+                this, &NetTree::HandleSelect);
+        connect(m_siteButtonList, &MythUIButtonList::itemSelected,
+                this, &NetTree::SlotItemChanged);
     }
 
     return true;
@@ -168,10 +168,10 @@ void NetTree::LoadData(void)
         m_siteButtonList->Reset();
 
         if (!m_currentNode)
+        {
             SetCurrentNode(m_siteGeneric);
-
-        if (!m_currentNode)
             return;
+        }
 
         MythGenericTree *selectedNode = m_currentNode->getSelectedChild();
 
@@ -419,11 +419,11 @@ void NetTree::ShowMenu(void)
     if (item)
     {
         if (item->GetDownloadable())
-            menu->AddItem(tr("Stream Video"), SLOT(StreamWebVideo()));
-        menu->AddItem(tr("Open Web Link"), SLOT(ShowWebVideo()));
+            menu->AddItem(tr("Stream Video"), &NetTree::StreamWebVideo);
+        menu->AddItem(tr("Open Web Link"), &NetTree::ShowWebVideo);
 
         if (item->GetDownloadable())
-            menu->AddItem(tr("Save This Video"), SLOT(DoDownloadAndPlay()));
+            menu->AddItem(tr("Save This Video"), &NetTree::DoDownloadAndPlay);
     }
 
     menu->AddItem(tr("Scan/Manage Subscriptions"), nullptr, CreateShowManageMenu());
@@ -445,11 +445,11 @@ MythMenu* NetTree::CreateShowViewMenu()
     auto *menu = new MythMenu(label, this, "options");
 
     if (m_type != DLG_TREE)
-        menu->AddItem(tr("Switch to List View"), SLOT(SwitchTreeView()));
+        menu->AddItem(tr("Switch to List View"), &NetTree::SwitchTreeView);
     if (m_type != DLG_GALLERY)
-        menu->AddItem(tr("Switch to Gallery View"), SLOT(SwitchGalleryView()));
+        menu->AddItem(tr("Switch to Gallery View"), &NetTree::SwitchGalleryView);
     if (m_type != DLG_BROWSER)
-        menu->AddItem(tr("Switch to Browse View"), SLOT(SwitchBrowseView()));
+        menu->AddItem(tr("Switch to Browse View"), &NetTree::SwitchBrowseView);
 
     return menu;
 }
@@ -460,24 +460,24 @@ MythMenu* NetTree::CreateShowManageMenu()
 
     auto *menu = new MythMenu(label, this, "options");
 
-    menu->AddItem(tr("Update Site Maps"), SLOT(UpdateTrees()));
-    menu->AddItem(tr("Update RSS"), SLOT(UpdateRSS()));
-    menu->AddItem(tr("Manage Site Subscriptions"), SLOT(RunTreeEditor()));
-    menu->AddItem(tr("Manage RSS Subscriptions"), SLOT(RunRSSEditor()));
+    menu->AddItem(tr("Update Site Maps"), &NetTree::UpdateTrees);
+    menu->AddItem(tr("Update RSS"), &NetTree::UpdateRSS);
+    menu->AddItem(tr("Manage Site Subscriptions"), &NetTree::RunTreeEditor);
+    menu->AddItem(tr("Manage RSS Subscriptions"), &NetTree::RunRSSEditor);
     if (!m_treeAutoUpdate)
     {
         menu->AddItem(tr("Enable Automatic Site Updates"),
-                      SLOT(ToggleTreeUpdates()));
+                      &NetTree::ToggleTreeUpdates);
     }
     else
     {
         menu->AddItem(tr("Disable Automatic Site Updates"),
-                      SLOT(ToggleTreeUpdates()));
+                      &NetTree::ToggleTreeUpdates);
     }
 //    if (!m_rssAutoUpdate)
-//        menu->AddItem(tr("Enable Automatic RSS Updates"), SLOT(ToggleRSSUpdates()));
+//        menu->AddItem(tr("Enable Automatic RSS Updates"), &NetTree::ToggleRSSUpdates);
 //    else
-//        menu->AddItem(tr("Disable Automatic RSS Updates"), SLOT(ToggleRSSUpdates()));
+//        menu->AddItem(tr("Disable Automatic RSS Updates"), &NetTree::ToggleRSSUpdates);
 
     return menu;
 }
@@ -837,7 +837,7 @@ void NetTree::SlotItemChanged()
         UpdateCurrentItem();
 }
 
-void NetTree::RunTreeEditor()
+void NetTree::RunTreeEditor() const
 {
     MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
 
@@ -845,7 +845,7 @@ void NetTree::RunTreeEditor()
 
     if (treeedit->Create())
     {
-        connect(treeedit, SIGNAL(ItemsChanged()), this, SLOT(DoTreeRefresh()));
+        connect(treeedit, &NetEditorBase::ItemsChanged, this, &NetTree::DoTreeRefresh);
 
         mainStack->AddScreen(treeedit);
     }
@@ -853,7 +853,7 @@ void NetTree::RunTreeEditor()
         delete treeedit;
 }
 
-void NetTree::RunRSSEditor()
+void NetTree::RunRSSEditor() const
 {
     MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
 
@@ -861,7 +861,7 @@ void NetTree::RunRSSEditor()
 
     if (rssedit->Create())
     {
-        connect(rssedit, SIGNAL(ItemsChanged()), this, SLOT(UpdateRSS()));
+        connect(rssedit, &RSSEditor::ItemsChanged, this, &NetTree::UpdateRSS);
 
         mainStack->AddScreen(rssedit);
     }
@@ -899,7 +899,7 @@ void NetTree::UpdateRSS()
     OpenBusyPopup(title);
 
     auto *rssMan = new RSSManager();
-    connect(rssMan, SIGNAL(finished()), this, SLOT(DoTreeRefresh()));
+    connect(rssMan, &RSSManager::finished, this, &NetTree::DoTreeRefresh);
     rssMan->startTimer();
     rssMan->doUpdate();
 }

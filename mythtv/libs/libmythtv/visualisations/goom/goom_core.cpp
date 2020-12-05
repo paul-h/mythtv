@@ -413,13 +413,14 @@ guint32 * goom_update (GoomDualData& data, int forceMode) {
 			}
 			else if (s_blocker) s_blocker--;
 
-			for (auto state : kStates) {
-				if ((s_rndn >= state.m_rangeMin)
-				    && (s_rndn <= state.m_rangeMax)) {
-					curGState = &state;
-                                        break;
-                                }
-                        }
+                        (void)s_rndn; // Used in the lambda. Quiet warning.
+                        auto goodstate = [&](auto state)
+                            { return (s_rndn >= state.m_rangeMin) &&
+                                     (s_rndn <= state.m_rangeMax); };
+                        const auto *it =
+                            std::find_if(kStates.cbegin(), kStates.cend(), goodstate);
+                        if (it != kStates.cend())
+                            curGState = &(*it);
 
 			if ((curGState->m_drawIfs) && (s_ifsIncr<=0)) {
 				s_recayIfs = 5;
@@ -429,9 +430,6 @@ guint32 * goom_update (GoomDualData& data, int forceMode) {
 			if ((!curGState->m_drawIfs) && (s_ifsIncr>0) && (s_decayIfs<=0))
 				s_decayIfs = 100;
 
-			if (!curGState->m_drawScope)
-				s_stopLines = 0xf000 & 5;
-			
 			if (!curGState->m_drawScope) {
 				s_stopLines = 0;
 				s_lineMode = DRAWLINES;

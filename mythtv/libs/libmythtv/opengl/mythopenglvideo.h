@@ -39,15 +39,11 @@ class MythOpenGLVideo : public MythVideoGPU
 
     MythOpenGLVideo(MythRenderOpenGL* Render, MythVideoColourSpace* ColourSpace,
                     MythVideoBounds* Bounds, const QString &Profile);
-    MythOpenGLVideo(MythRenderOpenGL* Render, MythVideoColourSpace* ColourSpace,
-                    QSize VideoDim, QSize VideoDispDim, QRect DisplayVisibleRect,
-                    QRect DisplayVideoRect, QRect VideoRect,
-                    const QString &Profile);
     ~MythOpenGLVideo() override;
 
     void    StartFrame       () override {}
-    void    PrepareFrame     (VideoFrame* Frame, FrameScanType Scan = kScan_Progressive) override;
-    void    RenderFrame      (VideoFrame* Frame, bool TopFieldFirst, FrameScanType Scan,
+    void    PrepareFrame     (MythVideoFrame* Frame, FrameScanType Scan = kScan_Progressive) override;
+    void    RenderFrame      (MythVideoFrame* Frame, bool TopFieldFirst, FrameScanType Scan,
                               StereoscopicMode StereoOverride, bool DrawBorder = false) override;
     void    EndFrame         () override {}
     QString GetProfile       () const override;
@@ -61,13 +57,12 @@ class MythOpenGLVideo : public MythVideoGPU
     void    ColourSpaceUpdate(bool PrimariesChanged) override;
 
   private:
-    void    Init             () override;
     bool    SetupFrameFormat (VideoFrameType InputType, VideoFrameType OutputType,
                               QSize Size, GLenum TextureTarget);
     bool    CreateVideoShader(VideoShaderType Type, MythDeintType Deint = DEINT_NONE);
     void    BindTextures     (bool Deinterlacing, vector<MythVideoTexture*>& Current,
                               vector<MythGLTexture*>& Textures);
-    bool    AddDeinterlacer  (const VideoFrame* Frame,  FrameScanType Scan,
+    bool    AddDeinterlacer  (const MythVideoFrame* Frame,  FrameScanType Scan,
                               MythDeintType Filter = DEINT_SHADER, bool CreateReferences = true);
     QOpenGLFramebufferObject* CreateVideoFrameBuffer(VideoFrameType OutputType, QSize Size);
     void    CleanupDeinterlacers();

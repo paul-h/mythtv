@@ -113,7 +113,7 @@ bool ClassicLogoDetector::searchForLogo(MythCommFlagPlayer *player)
         long long seekFrame = m_commDetector->m_preRoll + seekIncrement;
         while (loops < maxLoops && player->GetEof() == kEofStateNone)
         {
-            VideoFrame* vf = player->GetRawVideoFrame(seekFrame);
+            MythVideoFrame* vf = player->GetRawVideoFrame(seekFrame);
 
             if ((loops % 50) == 0)
                 m_commDetector->logoDetectorBreathe();
@@ -318,44 +318,44 @@ void ClassicLogoDetector::DumpLogo(bool fromCurrentFrame,
     if (!m_logoInfoAvailable)
         return;
 
-    cerr << "\nLogo Data ";
+    std::cerr << "\nLogo Data ";
     if (fromCurrentFrame)
-        cerr << "from current frame\n";
+        std::cerr << "from current frame\n";
 
-    cerr << "\n     ";
+    std::cerr << "\n     ";
 
     for(unsigned int x = m_logoMinX - 2; x <= (m_logoMaxX + 2); x++)
-        cerr << (x % 10);
-    cerr << "\n";
+        std::cerr << (x % 10);
+    std::cerr << "\n";
 
     for(unsigned int y = m_logoMinY - 2; y <= (m_logoMaxY + 2); y++)
     {
         QString tmp = QString("%1: ").arg(y, 3);
         QString ba = tmp.toLatin1();
-        cerr << ba.constData();
+        std::cerr << ba.constData();
         for(unsigned int x = m_logoMinX - 2; x <= (m_logoMaxX + 2); x++)
         {
             if (fromCurrentFrame)
             {
-                cerr << scrPixels[framePtr[y * m_width + x] / 50];
+                std::cerr << scrPixels[framePtr[y * m_width + x] / 50];
             }
             else
             {
                 switch (m_logoMask[y * m_width + x])
                 {
                         case 0:
-                        case 2: cerr << " ";
+                        case 2: std::cerr << " ";
                         break;
-                        case 1: cerr << "*";
+                        case 1: std::cerr << "*";
                         break;
-                        case 3: cerr << ".";
+                        case 3: std::cerr << ".";
                         break;
                 }
             }
         }
-        cerr << "\n";
+        std::cerr << "\n";
     }
-    cerr.flush();
+    std::cerr.flush();
 }
 
 
@@ -363,7 +363,7 @@ void ClassicLogoDetector::DumpLogo(bool fromCurrentFrame,
  * which are partially mods based on Myth's original commercial skip
  * code written by Chris Pinkham. */
 bool ClassicLogoDetector::doesThisFrameContainTheFoundLogo(
-    VideoFrame* frame)
+    MythVideoFrame* frame)
 {
     int radius = 2;
     int goodEdges = 0;
@@ -371,8 +371,8 @@ bool ClassicLogoDetector::doesThisFrameContainTheFoundLogo(
     int testEdges = 0;
     int testNotEdges = 0;
 
-    unsigned char* framePtr = frame->buf;
-    int bytesPerLine = frame->pitches[0];
+    unsigned char* framePtr = frame->m_buffer;
+    int bytesPerLine = frame->m_pitches[0];
 
     for (uint y = m_logoMinY; y <= m_logoMaxY; y++ )
     {
@@ -435,12 +435,12 @@ bool ClassicLogoDetector::pixelInsideLogo(unsigned int x, unsigned int y)
             (y > m_logoMinY) && (y < m_logoMaxY));
 }
 
-void ClassicLogoDetector::DetectEdges(VideoFrame *frame, EdgeMaskEntry *edges,
+void ClassicLogoDetector::DetectEdges(MythVideoFrame *frame, EdgeMaskEntry *edges,
                                       int edgeDiff)
 {
     int r = 2;
-    unsigned char *buf = frame->buf;
-    int bytesPerLine = frame->pitches[0];
+    unsigned char *buf = frame->m_buffer;
+    int bytesPerLine = frame->m_pitches[0];
 
     for (uint y = m_commDetectBorder + r; y < (m_height - m_commDetectBorder - r); y++)
     {

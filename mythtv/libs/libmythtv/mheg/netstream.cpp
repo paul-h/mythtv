@@ -4,8 +4,10 @@
 #include "netstream.h"
 
 // C/C++ lib
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
 #include <cstdlib>
 using std::getenv;
+#endif
 #include <cstddef>
 #include <cstdio>
 #include <cinttypes>
@@ -40,6 +42,9 @@ using std::getenv;
 #include "mythcorecontext.h"
 #include "mythdirs.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#define qEnvironmentVariable getenv
+#endif
 
 /*
  * Constants
@@ -110,8 +115,8 @@ NetStream::NetStream(const QUrl &url, EMode mode /*= kPreferCache*/,
             QNetworkRequest::PreferNetwork );
 
     // Receive requestStarted signals from NAMThread when it processes a NetStreamRequest
-    connect(&NAMThread::manager(), SIGNAL(requestStarted(int, QNetworkReply*)),
-        this, SLOT(slotRequestStarted(int, QNetworkReply*)), Qt::DirectConnection );
+    connect(&NAMThread::manager(), &NAMThread::requestStarted,
+        this, &NetStream::slotRequestStarted, Qt::DirectConnection );
 
     QMutexLocker locker(&m_mutex);
 
@@ -298,13 +303,13 @@ void NetStream::slotRequestStarted(int id, QNetworkReply *reply)
         // was connected Qt::DirectConnection so the current thread is NAMThread
 
         // QNetworkReply signals
-        connect(reply, SIGNAL(finished()), this, SLOT(slotFinished()), Qt::DirectConnection );
+        connect(reply, &QNetworkReply::finished, this, &NetStream::slotFinished, Qt::DirectConnection );
 #ifndef QT_NO_OPENSSL
-        connect(reply, SIGNAL(sslErrors(const QList<QSslError> &)), this,
-            SLOT(slotSslErrors(const QList<QSslError> &)), Qt::DirectConnection );
+        connect(reply, &QNetworkReply::sslErrors, this,
+            &NetStream::slotSslErrors, Qt::DirectConnection );
 #endif
         // QIODevice signals
-        connect(reply, SIGNAL(readyRead()), this, SLOT(slotReadyRead()), Qt::DirectConnection );
+        connect(reply, &QIODevice::readyRead, this, &NetStream::slotReadyRead, Qt::DirectConnection );
     }
     else
         LOG(VB_GENERAL, LOG_ERR, LOC +
@@ -329,6 +334,7 @@ static qlonglong inline ContentRange(const QNetworkReply *reply,
     // See RFC 2616 14.16: 'bytes begin-end/size'
     qulonglong len = 0;
     const char *fmt = " bytes %20" SCNd64 " - %20" SCNd64 " / %20" SCNd64;
+    // cppcheck-suppress wrongPrintfScanfArgNum
     if (3 != std::sscanf(range.constData(), fmt, &first, &last, &len))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + QString("Invalid Content-Range:'%1'")
@@ -776,7 +782,7 @@ void NAMThread::run()
 
     // Setup a network proxy e.g. for TOR: socks://localhost:9050
     // TODO get this from mythdb
-    QString proxy(getenv("MYTHMHEG_PROXY"));
+    QString proxy(qEnvironmentVariable("MYTHMHEG_PROXY"));
     if (!proxy.isEmpty())
     {
         QUrl url(proxy, QUrl::TolerantMode);
@@ -802,7 +808,8 @@ void NAMThread::run()
     }
 
     // Quit when main app quits
-    connect(QCoreApplication::instance(), SIGNAL(aboutToQuit()), this, SLOT(quit()) );
+    connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit,
+            this, &NAMThread::quit);
 
     m_running.release();
 

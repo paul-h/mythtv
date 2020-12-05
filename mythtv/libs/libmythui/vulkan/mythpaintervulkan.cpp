@@ -14,7 +14,7 @@
 
 #define LOC QString("VulkanPainter: ")
 
-MythPainterVulkan::MythPainterVulkan(MythRenderVulkan *VulkanRender, QWidget *Parent)
+MythPainterVulkan::MythPainterVulkan(MythRenderVulkan* VulkanRender, MythMainWindow* Parent)
   : MythPainterGPU(Parent)
 {
     m_transforms.push(QMatrix4x4());
@@ -129,7 +129,7 @@ bool MythPainterVulkan::Ready()
         // device setup can be delayed by a few frames on startup - check status
         // before continuing
         auto * window = MythRenderVulkan::GetVulkanRender()->GetVulkanWindow();
-        if (!window || (window && !window->device()))
+        if (!window || !window->device())
             return false;
 
         m_vulkan = MythVulkanObject::Create(MythRenderVulkan::GetVulkanRender());
@@ -213,8 +213,8 @@ bool MythPainterVulkan::Ready()
         const auto & sizes = m_textureShader->GetPoolSizes(1);
         // match total number of individual descriptors with pool size
         std::vector<VkDescriptorPoolSize> adjsizes;
-        for (const auto & size : sizes)
-            adjsizes.push_back( { size.type, MAX_TEXTURE_COUNT } );
+        std::transform(sizes.cbegin(), sizes.cend(), std::back_inserter(adjsizes),
+                       [](VkDescriptorPoolSize Size){ return VkDescriptorPoolSize { Size.type, MAX_TEXTURE_COUNT }; });
         VkDescriptorPoolCreateInfo pool { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, nullptr,
                                           0, MAX_TEXTURE_COUNT, static_cast<uint32_t>(adjsizes.size()), adjsizes.data() };
         if (m_vulkan->Funcs()->vkCreateDescriptorPool(m_vulkan->Device(), &pool, nullptr, &m_textureDescriptorPool) != VK_SUCCESS)
@@ -333,7 +333,7 @@ void MythPainterVulkan::End()
 
     // Bind our pipeline and retrieve layout once
     m_vulkan->Funcs()->vkCmdBindPipeline(currentcmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_texturePipeline);
-    auto layout = m_textureShader->GetPipelineLayout();
+    VkPipelineLayout layout = m_textureShader->GetPipelineLayout();
 
     // Bind descriptor set 0 - which is the projection, which is 'constant' for all textures
     m_vulkan->Funcs()->vkCmdBindDescriptorSets(currentcmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -363,7 +363,7 @@ void MythPainterVulkan::End()
         m_vulkan->Render()->EndFrame();
 }
 
-void MythPainterVulkan::DrawImage(const QRect &Dest, MythImage *Image, const QRect &Source, int Alpha)
+void MythPainterVulkan::DrawImage(const QRect Dest, MythImage *Image, const QRect Source, int Alpha)
 {
     if (!m_frameStarted)
         return;

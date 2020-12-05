@@ -27,6 +27,7 @@
 #include "mythmainwindow.h"
 #include "mythopenglinterop.h"
 #include "avformatdecoder.h"
+#include "mythplayerui.h"
 
 #ifdef USING_VAAPI
 #include "mythvaapicontext.h"
@@ -311,7 +312,7 @@ void MythCodecContext::InitVideoCodec(AVCodecContext *Context,
 int MythCodecContext::GetBuffer(struct AVCodecContext *Context, AVFrame *Frame, int Flags)
 {
     auto *avfd = static_cast<AvFormatDecoder*>(Context->opaque);
-    VideoFrame *videoframe = avfd->GetPlayer()->GetNextVideoFrame();
+    MythVideoFrame *videoframe = avfd->GetPlayer()->GetNextVideoFrame();
 
     // set fields required for directrendering
     for (int i = 0; i < 4; i++)
@@ -320,7 +321,7 @@ int MythCodecContext::GetBuffer(struct AVCodecContext *Context, AVFrame *Frame, 
         Frame->linesize[i] = 0;
     }
     Frame->opaque           = videoframe;
-    videoframe->pix_fmt     = Context->pix_fmt;
+    videoframe->m_pixFmt    = Context->pix_fmt;
     Frame->reordered_opaque = Context->reordered_opaque;
 
     int ret = avcodec_default_get_buffer2(Context, Frame, Flags);
@@ -332,24 +333,24 @@ int MythCodecContext::GetBuffer(struct AVCodecContext *Context, AVFrame *Frame, 
     {
         auto *context = reinterpret_cast<AVHWFramesContext*>(Frame->hw_frames_ctx->data);
         if (context)
-            videoframe->sw_pix_fmt = context->sw_format;
+            videoframe->m_swPixFmt = context->sw_format;
     }
 
     // VAAPI 'fixes' 10/12/16bit colour values. Irrelevant for VDPAU.
-    videoframe->colorshifted = true;
+    videoframe->m_colorshifted = true;
 
     // avcodec_default_get_buffer2 will retrieve an AVBufferRef from the pool of
     // hardware surfaces stored within AVHWFramesContext. The pointer to the surface is stored
     // in Frame->data[3]. Store this in VideoFrame::buf for the interop class to use.
-    videoframe->buf = Frame->data[3];
+    videoframe->m_buffer = Frame->data[3];
     // Frame->buf(0) also contains a reference to the buffer. Take an additional reference to this
     // buffer to retain the surface until it has been displayed (otherwise it is
     // reused once the decoder is finished with it).
-    videoframe->priv[0] = reinterpret_cast<unsigned char*>(av_buffer_ref(Frame->buf[0]));
+    videoframe->m_priv[0] = reinterpret_cast<unsigned char*>(av_buffer_ref(Frame->buf[0]));
     // frame->hw_frames_ctx contains a reference to the AVHWFramesContext. Take an additional
     // reference to ensure AVHWFramesContext is not released until we are finished with it.
     // This also contains the underlying MythOpenGLInterop class reference.
-    videoframe->priv[1] = reinterpret_cast<unsigned char*>(av_buffer_ref(Frame->hw_frames_ctx));
+    videoframe->m_priv[1] = reinterpret_cast<unsigned char*>(av_buffer_ref(Frame->hw_frames_ctx));
 
     // Set release method
     Frame->buf[1] = av_buffer_create(reinterpret_cast<uint8_t*>(videoframe), 0,
@@ -359,7 +360,7 @@ int MythCodecContext::GetBuffer(struct AVCodecContext *Context, AVFrame *Frame, 
 
 
 /// \brief A generic hardware buffer initialisation method when AVHWFramesContext is NOT used.
-bool MythCodecContext::GetBuffer2(struct AVCodecContext *Context, VideoFrame* Frame,
+bool MythCodecContext::GetBuffer2(struct AVCodecContext *Context, MythVideoFrame* Frame,
                                  AVFrame *AvFrame, int /*Flags*/)
 {
     if (!AvFrame || !Context || !Frame)
@@ -367,9 +368,9 @@ bool MythCodecContext::GetBuffer2(struct AVCodecContext *Context, VideoFrame* Fr
 
     auto *avfd = static_cast<AvFormatDecoder*>(Context->opaque);
 
-    Frame->pix_fmt = Context->pix_fmt;
-    Frame->directrendering = true;
-    Frame->colorshifted = true;
+    Frame->m_pixFmt = Context->pix_fmt;
+    Frame->m_directRendering = true;
+    Frame->m_colorshifted = true;
 
     AvFrame->reordered_opaque = Context->reordered_opaque;
     AvFrame->opaque = Frame;
@@ -379,19 +380,19 @@ bool MythCodecContext::GetBuffer2(struct AVCodecContext *Context, VideoFrame* Fr
     {
         auto *context = reinterpret_cast<AVHWFramesContext*>(AvFrame->hw_frames_ctx->data);
         if (context)
-            Frame->sw_pix_fmt = context->sw_format;
+            Frame->m_swPixFmt = context->sw_format;
     }
 
     // the hardware surface is stored in Frame->data[3]
-    Frame->buf = AvFrame->data[3];
+    Frame->m_buffer = AvFrame->data[3];
 
     // Frame->buf[0] contains the release method. Take another reference to
     // ensure the frame is not released before it is displayed.
-    Frame->priv[0] = reinterpret_cast<unsigned char*>(av_buffer_ref(AvFrame->buf[0]));
+    Frame->m_priv[0] = reinterpret_cast<unsigned char*>(av_buffer_ref(AvFrame->buf[0]));
 
     // Retrieve and set the interop class
     auto *devicectx = reinterpret_cast<AVHWDeviceContext*>(Context->hw_device_ctx->data);
-    Frame->priv[1] = reinterpret_cast<unsigned char*>(devicectx->user_opaque);
+    Frame->m_priv[1] = reinterpret_cast<unsigned char*>(devicectx->user_opaque);
 
     // Set release method
     AvFrame->buf[1] = av_buffer_create(reinterpret_cast<uint8_t*>(Frame), 0,
@@ -402,7 +403,7 @@ bool MythCodecContext::GetBuffer2(struct AVCodecContext *Context, VideoFrame* Fr
 void MythCodecContext::ReleaseBuffer(void *Opaque, uint8_t *Data)
 {
     auto *decoder = static_cast<AvFormatDecoder*>(Opaque);
-    auto *frame = reinterpret_cast<VideoFrame*>(Data);
+    auto *frame = reinterpret_cast<MythVideoFrame*>(Data);
     if (decoder && decoder->GetPlayer())
         decoder->GetPlayer()->DeLimboFrame(frame);
 }
@@ -489,6 +490,15 @@ void MythCodecContext::CreateDecoderCallback(void *Wait, void *Context, void *Ca
         wait->wakeAll();
 }
 
+MythPlayerUI* MythCodecContext::GetPlayerUI(AVCodecContext *Context)
+{
+    MythPlayerUI* result = nullptr;
+    auto* decoder = reinterpret_cast<AvFormatDecoder*>(Context->opaque);
+    if (decoder)
+        result = dynamic_cast<MythPlayerUI*>(decoder->GetPlayer());
+    return result;
+}
+
 /// \brief Initialise a hardware decoder that is expected to use AVHWFramesContext
 int MythCodecContext::InitialiseDecoder(AVCodecContext *Context, CreateHWDecoder Callback,
                                         const QString &Debug)
@@ -499,10 +509,7 @@ int MythCodecContext::InitialiseDecoder(AVCodecContext *Context, CreateHWDecoder
         return Callback(Context);
 
     // Callback to MythPlayer (which will fail without a MythPlayer instance)
-    MythPlayer *player = nullptr;
-    auto *decoder = reinterpret_cast<AvFormatDecoder*>(Context->opaque);
-    if (decoder)
-        player = decoder->GetPlayer();
+    MythPlayerUI* player = GetPlayerUI(Context);
     if (player)
         player->HandleDecoderCallback(Debug, MythCodecContext::CreateDecoderCallback,
                                       Context, reinterpret_cast<void*>(Callback));
@@ -519,10 +526,7 @@ int MythCodecContext::InitialiseDecoder2(AVCodecContext *Context, CreateHWDecode
         return Callback(Context);
 
     // Callback to MythPlayer (which will fail without a MythPlayer instance)
-    MythPlayer *player = nullptr;
-    auto *decoder = reinterpret_cast<AvFormatDecoder*>(Context->opaque);
-    if (decoder)
-        player = decoder->GetPlayer();
+    MythPlayerUI* player = GetPlayerUI(Context);
     if (player)
         player->HandleDecoderCallback(Debug, MythCodecContext::CreateDecoderCallback,
                                       Context, reinterpret_cast<void*>(Callback));
@@ -598,7 +602,7 @@ int MythCodecContext::FilteredReceiveFrame(AVCodecContext *Context, AVFrame *Fra
     return avcodec_receive_frame(Context, Frame);
 }
 
-bool MythCodecContext::RetrieveHWFrame(VideoFrame *Frame, AVFrame *AvFrame)
+bool MythCodecContext::RetrieveHWFrame(MythVideoFrame *Frame, AVFrame *AvFrame)
 {
     if (!Frame || !AvFrame)
         return false;
@@ -616,9 +620,9 @@ bool MythCodecContext::RetrieveHWFrame(VideoFrame *Frame, AVFrame *AvFrame)
         AVPixelFormat best = m_parent->GetBestVideoFormat(pixelformats);
         if (best != AV_PIX_FMT_NONE)
         {
-            VideoFrameType type = PixelFormatToFrameType(best);
-            bool valid = Frame->codec == type;
-            if (!valid || (Frame->width != AvFrame->width) || (Frame->height != AvFrame->height))
+            VideoFrameType type = MythAVUtil::PixelFormatToFrameType(best);
+            bool valid = Frame->m_type == type;
+            if (!valid || (Frame->m_width != AvFrame->width) || (Frame->m_height != AvFrame->height))
                 valid = VideoBuffers::ReinitBuffer(Frame, type, m_parent->GetVideoCodecID(),
                                                    AvFrame->width, AvFrame->height);
 
@@ -626,11 +630,11 @@ bool MythCodecContext::RetrieveHWFrame(VideoFrame *Frame, AVFrame *AvFrame)
             {
                 // Retrieve the picture directly into the VideoFrame Buffer
                 temp->format = best;
-                uint max = planes(Frame->codec);
+                uint max = MythVideoFrame::GetNumPlanes(Frame->m_type);
                 for (uint i = 0; i < 3; i++)
                 {
-                    temp->data[i]     = (i < max) ? (Frame->buf + Frame->offsets[i]) : nullptr;
-                    temp->linesize[i] = Frame->pitches[i];
+                    temp->data[i]     = (i < max) ? (Frame->m_buffer + Frame->m_offsets[i]) : nullptr;
+                    temp->linesize[i] = Frame->m_pitches[i];
                 }
 
                 // Dummy release method - we do not want to free the buffer
@@ -648,7 +652,7 @@ bool MythCodecContext::RetrieveHWFrame(VideoFrame *Frame, AVFrame *AvFrame)
         if ((ret = av_hwframe_transfer_data(temp, AvFrame, 0)) < 0)
             LOG(VB_GENERAL, LOG_ERR, LOC + QString("Error %1 transferring the data to system memory").arg(ret));
 
-    Frame->colorshifted = true;
+    Frame->m_colorshifted = true;
     av_frame_free(&temp);
     return ret >= 0;
 }
@@ -833,7 +837,7 @@ QString MythCodecContext::GetProfileDescription(CodecProfile Profile, QSize Size
         return profile;
 
     return QObject::tr("%1%2%3 (Max size: %4x%5)")
-            .arg(profile).arg(Format != FMT_NONE ? QString(" %1").arg(format_description(Format)) : "")
+            .arg(profile).arg(Format != FMT_NONE ? QString(" %1").arg(MythVideoFrame::FormatDescription(Format)) : "")
             .arg(ColorDepth > 8 ? QString(" %1Bit").arg(ColorDepth) : "")
             .arg(Size.width()).arg(Size.height());
 }

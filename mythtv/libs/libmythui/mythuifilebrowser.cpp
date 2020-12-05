@@ -1,3 +1,6 @@
+#include <chrono>
+#include <utility>
+
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QImageReader>
@@ -5,21 +8,26 @@
 #include <QStringList>
 #include <QTimer>
 #include <QUrl>
-#include <utility>
 
 #include "mythlogging.h"
 
-#include "mythdialogbox.h"
-#include "mythmainwindow.h"
-#include "mythfontproperties.h"
-#include "mythuiutils.h"
-#include "mythuitext.h"
-#include "mythuiimage.h"
-#include "mythuibuttonlist.h"
-#include "mythuibutton.h"
-#include "mythuistatetype.h"
-#include "mythuifilebrowser.h"
 #include "mythcorecontext.h"
+#include "mythdialogbox.h"
+#include "mythfontproperties.h"
+#include "mythmainwindow.h"
+#include "mythuibutton.h"
+#include "mythuibuttonlist.h"
+#include "mythuifilebrowser.h"
+#include "mythuiimage.h"
+#include "mythuistatetype.h"
+#include "mythuitext.h"
+#include "mythuiutils.h"
+
+using namespace std::chrono_literals;
+
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#define qEnvironmentVariable getenv
+#endif
 
 /////////////////////////////////////////////////////////////////////
 MFileInfo::MFileInfo(const QString& fileName, QString sgDir, bool isDir, qint64 size)
@@ -65,7 +73,7 @@ MFileInfo::MFileInfo(const MFileInfo& other)
     QString sgDir = other.storageGroupDir();
     bool isDir    = other.isDir();
     qint64 size   = other.size();
-    init(other.fileName(), sgDir, isDir, size);
+    init(other.filePath(), sgDir, isDir, size);
 }
 
 MFileInfo &MFileInfo::operator=(const MFileInfo &other)
@@ -157,7 +165,7 @@ MythUIFileBrowser::MythUIFileBrowser(MythScreenStack *parent,
 
     m_previewTimer = new QTimer(this);
     m_previewTimer->setSingleShot(true);
-    connect(m_previewTimer, SIGNAL(timeout()), SLOT(LoadPreview()));
+    connect(m_previewTimer, &QTimer::timeout, this, &MythUIFileBrowser::LoadPreview);
 }
 
 void MythUIFileBrowser::SetPath(const QString &startPath)
@@ -219,19 +227,19 @@ bool MythUIFileBrowser::Create()
         return false;
     }
 
-    connect(m_fileList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            SLOT(PathClicked(MythUIButtonListItem *)));
-    connect(m_fileList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            SLOT(PathSelected(MythUIButtonListItem *)));
-    connect(m_locationEdit, SIGNAL(LosingFocus()), SLOT(editLostFocus()));
-    connect(m_okButton, SIGNAL(Clicked()), SLOT(OKPressed()));
-    connect(m_cancelButton, SIGNAL(Clicked()), SLOT(cancelPressed()));
+    connect(m_fileList, &MythUIButtonList::itemClicked,
+            this, &MythUIFileBrowser::PathClicked);
+    connect(m_fileList, &MythUIButtonList::itemSelected,
+            this, &MythUIFileBrowser::PathSelected);
+    connect(m_locationEdit, &MythUIType::LosingFocus, this, &MythUIFileBrowser::editLostFocus);
+    connect(m_okButton, &MythUIButton::Clicked, this, &MythUIFileBrowser::OKPressed);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &MythUIFileBrowser::cancelPressed);
 
     if (m_backButton)
-        connect(m_backButton, SIGNAL(Clicked()), SLOT(backPressed()));
+        connect(m_backButton, &MythUIButton::Clicked, this, &MythUIFileBrowser::backPressed);
 
     if (m_homeButton)
-        connect(m_homeButton, SIGNAL(Clicked()), SLOT(homePressed()));
+        connect(m_homeButton, &MythUIButton::Clicked, this, &MythUIFileBrowser::homePressed);
 
     BuildFocusList();
     updateFileList();
@@ -278,7 +286,7 @@ void MythUIFileBrowser::PathSelected(MythUIButtonListItem *item)
         if (IsImage(finfo.suffix()) && m_previewImage)
         {
             m_previewImage->SetFilename(finfo.absoluteFilePath());
-            m_previewTimer->start(250);
+            m_previewTimer->start(250ms);
         }
 
         if (m_infoText)
@@ -396,8 +404,7 @@ void MythUIFileBrowser::homePressed()
     }
     else
     {
-        char *home = getenv("HOME");
-        m_subDirectory = home;
+        m_subDirectory = qEnvironmentVariable("HOME");
     }
 
     updateFileList();

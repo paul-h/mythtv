@@ -1,8 +1,6 @@
 
 #include "statusbox.h"
 
-using namespace std;
-
 #include <QRegExp>
 #include <QHostAddress>
 #include <QNetworkInterface>
@@ -98,12 +96,12 @@ bool StatusBox::Create()
         return false;
     }
 
-    connect(m_categoryList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            SLOT(updateLogList(MythUIButtonListItem *)));
-    connect(m_logList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            SLOT(setHelpText(MythUIButtonListItem *)));
-    connect(m_logList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            SLOT(clicked(MythUIButtonListItem *)));
+    connect(m_categoryList, &MythUIButtonList::itemSelected,
+            this, &StatusBox::updateLogList);
+    connect(m_logList, &MythUIButtonList::itemSelected,
+            this, &StatusBox::setHelpText);
+    connect(m_logList, &MythUIButtonList::itemClicked,
+            this, &StatusBox::clicked);
 
     BuildFocusList();
     return true;
@@ -112,35 +110,35 @@ bool StatusBox::Create()
 void StatusBox::Init()
 {
     auto *item = new MythUIButtonListItem(m_categoryList, tr("Listings Status"),
-                            QVariant::fromValue((void*)SLOT(doListingsStatus())));
+                                          &StatusBox::doListingsStatus);
     item->DisplayState("listings", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Schedule Status"),
-                            QVariant::fromValue((void*)SLOT(doScheduleStatus())));
+                                    &StatusBox::doScheduleStatus);
     item->DisplayState("schedule", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Input Status"),
-                            QVariant::fromValue((void*)SLOT(doTunerStatus())));
+                                    &StatusBox::doTunerStatus);
     item->DisplayState("tuner", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Job Queue"),
-                            QVariant::fromValue((void*)SLOT(doJobQueueStatus())));
+                                    &StatusBox::doJobQueueStatus);
     item->DisplayState("jobqueue", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Video decoders"),
-                            QVariant::fromValue((void*)SLOT(doDecoderStatus())));
+                                    &StatusBox::doDecoderStatus);
     item->DisplayState("decoders", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Display"),
-                            QVariant::fromValue((void*)SLOT(doDisplayStatus())));
+                                    &StatusBox::doDisplayStatus);
     item->DisplayState("display", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Machine Status"),
-                            QVariant::fromValue((void*)SLOT(doMachineStatus())));
+                                    &StatusBox::doMachineStatus);
     item->DisplayState("machine", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("AutoExpire List"),
-                            QVariant::fromValue((void*)SLOT(doAutoExpireList())));
+                                    qOverload<>(&StatusBox::doAutoExpireList));
     item->DisplayState("autoexpire", "icon");
 
     int itemCurrent = gCoreContext->GetNumSetting("StatusBoxItemCurrent", 0);
@@ -260,12 +258,20 @@ void StatusBox::updateLogList(MythUIButtonListItem *item)
     if (!item)
         return;
 
-    disconnect(this, SIGNAL(updateLog()),nullptr,nullptr);
+    disconnect(this, &StatusBox::updateLog,nullptr,nullptr);
 
-    const char *slot = (const char *)item->GetData().value<void*>();
-
-    connect(this, SIGNAL(updateLog()), slot);
-    emit updateLog();
+    if (item->GetData().value<MythUICallbackMF>())
+    {
+        connect(this, &StatusBox::updateLog,
+                item->GetData().value<MythUICallbackMF>());
+        emit updateLog();
+    }
+    else if (item->GetData().value<MythUICallbackMFc>())
+    {
+        connect(this, &StatusBox::updateLog,
+                item->GetData().value<MythUICallbackMFc>());
+        emit updateLog();
+    }
 }
 
 void StatusBox::clicked(MythUIButtonListItem *item)
@@ -330,11 +336,11 @@ void StatusBox::clicked(MythUIButtonListItem *item)
             QVariant data = QVariant::fromValue(logline.m_data);
 
             if (jobStatus == JOB_PAUSED)
-                menuPopup->AddButton(tr("Resume"), data);
+                menuPopup->AddButtonV(tr("Resume"), data);
             else
-                menuPopup->AddButton(tr("Pause"), data);
-            menuPopup->AddButton(tr("Stop"), data);
-            menuPopup->AddButton(tr("No Change"), data);
+                menuPopup->AddButtonV(tr("Pause"), data);
+            menuPopup->AddButtonV(tr("Stop"), data);
+            menuPopup->AddButtonV(tr("No Change"), data);
         }
         else if (jobStatus & JOB_DONE)
         {
@@ -366,18 +372,18 @@ void StatusBox::clicked(MythUIButtonListItem *item)
 
             menuPopup->SetReturnEvent(this, "AutoExpireManage");
 
-            menuPopup->AddButton(tr("Delete Now"), QVariant::fromValue(rec));
+            menuPopup->AddButtonV(tr("Delete Now"), QVariant::fromValue(rec));
             if ((rec)->GetRecordingGroup() == "LiveTV")
             {
-                menuPopup->AddButton(tr("Move to Default group"),
+                menuPopup->AddButtonV(tr("Move to Default group"),
                                                        QVariant::fromValue(rec));
             }
             else if ((rec)->GetRecordingGroup() == "Deleted")
-                menuPopup->AddButton(tr("Undelete"), QVariant::fromValue(rec));
+                menuPopup->AddButtonV(tr("Undelete"), QVariant::fromValue(rec));
             else
-                menuPopup->AddButton(tr("Disable AutoExpire"),
+                menuPopup->AddButtonV(tr("Disable AutoExpire"),
                                                         QVariant::fromValue(rec));
-            menuPopup->AddButton(tr("No Change"), QVariant::fromValue(rec));
+            menuPopup->AddButtonV(tr("No Change"), QVariant::fromValue(rec));
 
         }
     }
@@ -1549,12 +1555,13 @@ void StatusBox::doDisplayStatus()
     if (m_justHelpText)
         m_justHelpText->SetText(displayhelp);
 
-    QStringList desc = MythDisplay::GetDescription();
+    MythMainWindow* window = GetMythMainWindow();
+    QStringList desc = window->GetDisplay()->GetDescription();
     for (const auto & line : qAsConst(desc))
         AddLogLine(line);
     AddLogLine("");
 
-    MythRender* render = GetMythMainWindow()->GetRenderDevice();
+    MythRender* render = window->GetRenderDevice();
     if (render)
     {
         MythRenderOpenGL* gl = MythRenderOpenGL::GetOpenGLRender();

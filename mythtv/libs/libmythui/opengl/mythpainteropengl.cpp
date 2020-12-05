@@ -6,12 +6,11 @@
 #include <QPainter>
 
 // MythTV
+#include "mythmainwindow.h"
 #include "mythrenderopengl.h"
 #include "mythpainteropengl.h"
 
-using namespace std;
-
-MythOpenGLPainter::MythOpenGLPainter(MythRenderOpenGL *Render, QWidget *Parent)
+MythOpenGLPainter::MythOpenGLPainter(MythRenderOpenGL* Render, MythMainWindow* Parent)
   : MythPainterGPU(Parent),
     m_render(Render)
 {
@@ -89,14 +88,7 @@ void MythOpenGLPainter::Begin(QPaintDevice *Parent)
 {
     MythPainterGPU::Begin(Parent);
 
-    if (!m_widget)
-    {
-        m_widget = dynamic_cast<QWidget *>(Parent);
-        if (!m_widget)
-            return;
-    }
-
-    if (!m_render)
+    if (!(m_render && m_parent))
     {
         LOG(VB_GENERAL, LOG_ERR, "FATAL ERROR: No render device in 'Begin'");
         return;
@@ -106,11 +98,11 @@ void MythOpenGLPainter::Begin(QPaintDevice *Parent)
     {
         m_mappedBufferPoolReady = true;
         // initialise the VBO pool
-        for (auto & buf : m_mappedBufferPool)
-            buf = m_render->CreateVBO(static_cast<int>(MythRenderOpenGL::kVertexSize));
+        std::generate(m_mappedBufferPool.begin(), m_mappedBufferPool.end(),
+            [&]() { return m_render->CreateVBO(static_cast<int>(MythRenderOpenGL::kVertexSize)); });
     }
 
-    QSize currentsize = m_widget->size();
+    QSize currentsize = m_parent->size();
 
     // check if we need to adjust cache sizes
     // NOTE - don't use the scaled size if using high DPI. Our images are at the lower
@@ -242,8 +234,8 @@ MythGLTexture* MythOpenGLPainter::GetTextureFromCache(MythImage *Image)
 #define DEST Dest
 #endif
 
-void MythOpenGLPainter::DrawImage(const QRect &Dest, MythImage *Image,
-                                  const QRect &Source, int Alpha)
+void MythOpenGLPainter::DrawImage(const QRect Dest, MythImage *Image,
+                                  const QRect Source, int Alpha)
 {
     if (m_render)
     {
@@ -288,7 +280,7 @@ void MythOpenGLPainter::DrawImage(const QRect &Dest, MythImage *Image,
  * \note If high DPI scaling is in use, just use Qt painting rather than
  * handling all of the adjustments required for pen width etc etc.
 */
-void MythOpenGLPainter::DrawRect(const QRect &Area, const QBrush &FillBrush,
+void MythOpenGLPainter::DrawRect(const QRect Area, const QBrush &FillBrush,
                                  const QPen &LinePen, int Alpha)
 {
     if ((FillBrush.style() == Qt::SolidPattern ||
@@ -300,7 +292,7 @@ void MythOpenGLPainter::DrawRect(const QRect &Area, const QBrush &FillBrush,
     MythPainterGPU::DrawRect(Area, FillBrush, LinePen, Alpha);
 }
 
-void MythOpenGLPainter::DrawRoundRect(const QRect &Area, int CornerRadius,
+void MythOpenGLPainter::DrawRoundRect(const QRect Area, int CornerRadius,
                                       const QBrush &FillBrush,
                                       const QPen &LinePen, int Alpha)
 {

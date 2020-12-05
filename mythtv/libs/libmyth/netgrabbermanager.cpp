@@ -18,15 +18,13 @@
 
 #define LOC      QString("NetContent: ")
 
-using namespace std;
-
 // ---------------------------------------------------
 
 GrabberScript::GrabberScript(const QString& title, const QString& image,
-              const ArticleType &type, const QString& author,
-              const bool& search, const bool& tree,
+              const ArticleType type, const QString& author,
+              const bool search, const bool tree,
               const QString& description, const QString& commandline,
-              const double& version) :
+              const double version) :
     MThread("GrabberScript")
 {
     m_title = title;
@@ -101,7 +99,7 @@ void GrabberScript::run()
 
 void GrabberScript::parseDBTree(const QString &feedtitle, const QString &path,
                                 const QString &pathThumb, QDomElement& domElem,
-                                const ArticleType &type)
+                                const ArticleType type)
 {
     QMutexLocker locker(&m_lock);
 
@@ -151,8 +149,8 @@ GrabberManager::GrabberManager()
     m_updateFreq = (gCoreContext->GetNumSetting(
                        "netsite.updateFreq", 24) * 3600 * 1000);
     m_timer = new QTimer();
-    connect( m_timer, SIGNAL(timeout()),
-                      this, SLOT(timeout()));
+    connect( m_timer, &QTimer::timeout,
+                      this, &GrabberManager::timeout);
 }
 
 GrabberManager::~GrabberManager()
@@ -269,10 +267,10 @@ void Search::executeSearch(const QString &script, const QString &query,
     LOG(VB_GENERAL, LOG_DEBUG, "Search::executeSearch");
     m_searchProcess = new MythSystemLegacy();
 
-    connect(m_searchProcess, SIGNAL(finished()),
-            this, SLOT(slotProcessSearchExit()));
-    connect(m_searchProcess, SIGNAL(error(uint)),
-            this, SLOT(slotProcessSearchExit(uint)));
+    connect(m_searchProcess, &MythSystemLegacy::finished,
+            this, qOverload<>(&Search::slotProcessSearchExit));
+    connect(m_searchProcess, &MythSystemLegacy::error,
+            this, qOverload<uint>(&Search::slotProcessSearchExit));
 
     const QString& cmd = script;
 
@@ -406,6 +404,11 @@ void Search::slotProcessSearchExit(uint exitcode)
     m_searchProcess->deleteLater();
     m_searchProcess = nullptr;
     emit finishedSearch(this);
+}
+
+void Search::slotProcessSearchExit(void)
+{
+    slotProcessSearchExit(GENERIC_EXIT_OK);
 }
 
 void Search::SetData(QByteArray data)

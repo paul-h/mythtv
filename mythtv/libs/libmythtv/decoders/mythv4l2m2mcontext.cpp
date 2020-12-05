@@ -6,6 +6,7 @@
 #include "v4l2util.h"
 #include "fourcc.h"
 #include "avformatdecoder.h"
+#include "mythplayerui.h"
 #include "opengl/mythrenderopengl.h"
 #ifdef USING_EGL
 #include "opengl/mythdrmprimeinterop.h"
@@ -58,6 +59,14 @@ MythCodecID MythV4L2M2MContext::GetSupportedCodec(AVCodecContext **Context,
     // not us
     if (!Decoder.startsWith("v4l2"))
         return failure;
+
+    if (!decodeonly)
+    {
+        // check for the correct player type and interop supprt
+        MythPlayerUI* player = GetPlayerUI(*Context);
+        if (MythOpenGLInterop::GetInteropType(FMT_DRMPRIME, player) == MythOpenGLInterop::Unsupported)
+            return failure;
+    }
 
     // supported by device driver?
     MythCodecContext::CodecProfile mythprofile = MythCodecContext::NoProfile;
@@ -135,10 +144,10 @@ void MythV4L2M2MContext::InitVideoCodec(AVCodecContext *Context, bool SelectedSt
         DirectRendering = false;
         return;
     }
-    return MythDRMPRIMEContext::InitVideoCodec(Context, SelectedStream, DirectRendering);
+    MythDRMPRIMEContext::InitVideoCodec(Context, SelectedStream, DirectRendering);
 }
 
-bool MythV4L2M2MContext::RetrieveFrame(AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame)
+bool MythV4L2M2MContext::RetrieveFrame(AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame)
 {
     if (s_useV4L2Request && codec_is_v4l2(m_codecID))
         return MythCodecContext::GetBuffer2(Context, Frame, AvFrame, 0);
@@ -176,7 +185,7 @@ void MythV4L2M2MContext::SetDecoderOptions(AVCodecContext* Context, AVCodec* Cod
  * AvFormatDecoder but we copy the data from the AVFrame rather than providing
  * our own buffer (the codec does not support direct rendering).
 */
-bool MythV4L2M2MContext::GetBuffer(AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame, int /*Flags*/)
+bool MythV4L2M2MContext::GetBuffer(AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame, int /*Flags*/)
 {
     // Sanity checks
     if (!Context || !AvFrame || !Frame)
@@ -184,26 +193,38 @@ bool MythV4L2M2MContext::GetBuffer(AVCodecContext *Context, VideoFrame *Frame, A
 
     // Ensure we can render this format
     auto *decoder = static_cast<AvFormatDecoder*>(Context->opaque);
-    VideoFrameType type = PixelFormatToFrameType(static_cast<AVPixelFormat>(AvFrame->format));
-    const VideoFrameTypeVec* supported = decoder->GetPlayer()->DirectRenderFormats();
+    VideoFrameType type = MythAVUtil::PixelFormatToFrameType(static_cast<AVPixelFormat>(AvFrame->format));
+    const VideoFrameTypes* supported = decoder->GetPlayer()->DirectRenderFormats();
     auto foundIt = std::find(supported->cbegin(), supported->cend(), type);
     // No fallback currently (unlikely)
     if (foundIt == supported->end())
         return false;
 
     // Re-allocate if necessary
-    if ((Frame->codec != type) || (Frame->width != AvFrame->width) || (Frame->height != AvFrame->height))
+    if ((Frame->m_type != type) || (Frame->m_width != AvFrame->width) || (Frame->m_height != AvFrame->height))
         if (!VideoBuffers::ReinitBuffer(Frame, type, decoder->GetVideoCodecID(), AvFrame->width, AvFrame->height))
             return false;
 
     // Copy data
-    uint count = planes(Frame->codec);
+    uint count = MythVideoFrame::GetNumPlanes(Frame->m_type);
     for (uint plane = 0; plane < count; ++plane)
-        copyplane(Frame->buf + Frame->offsets[plane], Frame->pitches[plane], AvFrame->data[plane], AvFrame->linesize[plane],
-                  pitch_for_plane(Frame->codec, AvFrame->width, plane), height_for_plane(Frame->codec, AvFrame->height, plane));
+    {
+        MythVideoFrame::CopyPlane(Frame->m_buffer + Frame->m_offsets[plane],Frame->m_pitches[plane],
+                                  AvFrame->data[plane], AvFrame->linesize[plane],
+                                  MythVideoFrame::GetPitchForPlane(Frame->m_type, AvFrame->width, plane),
+                                  MythVideoFrame::GetHeightForPlane(Frame->m_type, AvFrame->height, plane));
+    }
 
     return true;
 }
+
+#ifndef V4L2_PIX_FMT_HEVC
+#define V4L2_PIX_FMT_HEVC v4l2_fourcc('H', 'E', 'V', 'C')
+#endif
+
+#ifndef V4L2_PIX_FMT_VP9
+#define V4L2_PIX_FMT_VP9 v4l2_fourcc('V', 'P', '9', '0')
+#endif
 
 const V4L2Profiles& MythV4L2M2MContext::GetProfiles(void)
 {
@@ -403,12 +424,9 @@ int MythV4L2M2MContext::InitialiseV4L2RequestContext(AVCodecContext *Context)
     if (!render)
         return -1;
 
-    // The interop must have a reference to the player so it can be deleted
+    // The interop must have a reference to the ui player so it can be deleted
     // from the main thread.
-    MythPlayer *player = nullptr;
-    auto *decoder = reinterpret_cast<AvFormatDecoder*>(Context->opaque);
-    if (decoder)
-        player = decoder->GetPlayer();
+    MythPlayerUI* player = GetPlayerUI(Context);
     if (!player)
         return -1;
 
@@ -437,7 +455,7 @@ int MythV4L2M2MContext::InitialiseV4L2RequestContext(AVCodecContext *Context)
     }
 
     auto* hwdevicecontext = reinterpret_cast<AVHWDeviceContext*>(hwdeviceref->data);
-    if (!hwdevicecontext || (hwdevicecontext && !hwdevicecontext->hwctx))
+    if (!hwdevicecontext || !hwdevicecontext->hwctx)
     {
         interop->DecrRef();
         return -1;

@@ -11,6 +11,8 @@ class MythOpenGLPerf;
 
 class MythVideoOutputOpenGL : public MythVideoOutputGPU
 {
+    Q_OBJECT
+
   public:
     enum TextureFormats
     {
@@ -22,26 +24,21 @@ class MythVideoOutputOpenGL : public MythVideoOutputGPU
     ~MythVideoOutputOpenGL() override;
 
     static void   GetRenderOptions (RenderOptions& Options);
-    static QStringList GetAllowedRenderers(MythCodecID CodecId, const QSize& VideoDim);
-    static VideoFrameTypeVec s_openglFrameTypes;
-    static VideoFrameTypeVec s_openglFrameTypesLegacy;
+    static QStringList GetAllowedRenderers(MythCodecID CodecId, QSize VideoDim);
+    static VideoFrameTypes s_openglFrameTypes;
+    static VideoFrameTypes s_openglFrameTypesLegacy;
 
-    bool          Init             (const QSize& VideoDim, const QSize& VideoDispDim,
-                                    float Aspect, const QRect& DisplayVisibleRect, MythCodecID CodecId) override;
-    void          PrepareFrame     (VideoFrame* Frame, const PIPMap& PiPPlayers, FrameScanType Scan) override;
-    void          RenderFrame      (VideoFrame* Frame, FrameScanType Scan, OSD* Osd) override;
+    bool          Init             (QSize VideoDim, QSize VideoDispDim,
+                                    float Aspect, QRect DisplayVisibleRect, MythCodecID CodecId) override;
+    void          PrepareFrame     (MythVideoFrame* Frame, FrameScanType Scan) override;
+    void          RenderFrame      (MythVideoFrame* Frame, FrameScanType Scan) override;
+    void          RenderEnd        () override;
     void          EndFrame         () override;
 
   protected:
     QRect         GetDisplayVisibleRectAdj() override;
 
   private:
-    MythVideoGPU* CreateSecondaryVideo(const QSize& VideoDim,
-                                       const QSize& VideoDispDim,
-                                       const QRect& DisplayVisibleRect,
-                                       const QRect& DisplayVideoRect,
-                                       const QRect& VideoRect) override;
-
     MythRenderOpenGL* m_openglRender   { nullptr };
     MythOpenGLPerf*   m_openGLPerf     { nullptr };
 };

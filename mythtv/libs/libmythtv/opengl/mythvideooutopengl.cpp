@@ -19,7 +19,7 @@
 #define LOC QString("VidOutGL: ")
 
 // Complete list of formats supported for OpenGL 2.0 and higher and OpenGL ES3.X
-VideoFrameTypeVec MythVideoOutputOpenGL::s_openglFrameTypes =
+VideoFrameTypes MythVideoOutputOpenGL::s_openglFrameTypes =
 {
     FMT_YV12,     FMT_NV12,      FMT_YUV422P,   FMT_YUV444P,
     FMT_YUV420P9, FMT_YUV420P10, FMT_YUV420P12, FMT_YUV420P14, FMT_YUV420P16,
@@ -29,7 +29,7 @@ VideoFrameTypeVec MythVideoOutputOpenGL::s_openglFrameTypes =
 };
 
 // OpenGL ES 2.0 and OpenGL1.X only allow luminance textures
-VideoFrameTypeVec MythVideoOutputOpenGL::s_openglFrameTypesLegacy =
+VideoFrameTypes MythVideoOutputOpenGL::s_openglFrameTypesLegacy =
 {
     FMT_YV12, FMT_YUV422P, FMT_YUV444P
 };
@@ -171,8 +171,8 @@ MythVideoOutputOpenGL::~MythVideoOutputOpenGL()
     }
 }
 
-bool MythVideoOutputOpenGL::Init(const QSize& VideoDim, const QSize& VideoDispDim,
-                                 float Aspect, const QRect& DisplayVisibleRect, MythCodecID CodecId)
+bool MythVideoOutputOpenGL::Init(const QSize VideoDim, const QSize VideoDispDim,
+                                 float Aspect, const QRect DisplayVisibleRect, MythCodecID CodecId)
 {
     if (!(m_openglRender && m_painter && m_video))
     {
@@ -228,7 +228,7 @@ QRect MythVideoOutputOpenGL::GetDisplayVisibleRectAdj()
     return dvr;
 }
 
-void MythVideoOutputOpenGL::PrepareFrame(VideoFrame* Frame, const PIPMap& PiPPlayers, FrameScanType Scan)
+void MythVideoOutputOpenGL::PrepareFrame(MythVideoFrame* Frame, FrameScanType Scan)
 {
     if (!m_openglRender)
         return;
@@ -244,7 +244,7 @@ void MythVideoOutputOpenGL::PrepareFrame(VideoFrame* Frame, const PIPMap& PiPPla
         m_openglRender->logDebugMarker(LOC + "PROCESS_FRAME_START");
 
     // Update software frames
-    MythVideoOutputGPU::PrepareFrame(Frame, PiPPlayers, Scan);
+    MythVideoOutputGPU::PrepareFrame(Frame, Scan);
 
     // Time texture update
     if (m_openGLPerf)
@@ -254,7 +254,7 @@ void MythVideoOutputOpenGL::PrepareFrame(VideoFrame* Frame, const PIPMap& PiPPla
         m_openglRender->logDebugMarker(LOC + "PROCESS_FRAME_END");
 }
 
-void MythVideoOutputOpenGL::RenderFrame(VideoFrame* Frame, FrameScanType Scan, OSD* Osd)
+void MythVideoOutputOpenGL::RenderFrame(MythVideoFrame* Frame, FrameScanType Scan)
 {
     if (!m_openglRender)
         return;
@@ -267,7 +267,7 @@ void MythVideoOutputOpenGL::RenderFrame(VideoFrame* Frame, FrameScanType Scan, O
     OpenGLLocker ctx_lock(m_openglRender);
 
     if (VERBOSE_LEVEL_CHECK(VB_GPU, LOG_INFO))
-        m_openglRender->logDebugMarker(LOC + "PREPARE_FRAME_START");
+        m_openglRender->logDebugMarker(LOC + "RENDER_FRAME_START");
 
     // If process frame has not been called (double rate hardware deint), then
     // we need to start the first 2 performance timers here
@@ -288,7 +288,7 @@ void MythVideoOutputOpenGL::RenderFrame(VideoFrame* Frame, FrameScanType Scan, O
 
     uint8_t gray = m_dbLetterboxColour == kLetterBoxColour_Gray25 ? 64 : 0;
 
-    if (!Frame || (Frame && Frame->dummy) || ((m_openglRender->GetExtraFeatures() & kGLTiled) != 0))
+    if (!Frame || Frame->m_dummy || ((m_openglRender->GetExtraFeatures() & kGLTiled) != 0))
     {
         m_openglRender->SetBackground(gray, gray, gray, 255);
         m_openglRender->ClearFramebuffer();
@@ -319,21 +319,22 @@ void MythVideoOutputOpenGL::RenderFrame(VideoFrame* Frame, FrameScanType Scan, O
         m_openGLPerf->RecordSample();
 
     // Render
-    MythVideoOutputGPU::RenderFrame(Frame, Scan, Osd);
+    MythVideoOutputGPU::RenderFrame(Frame, Scan);
 
     // Time rendering
     if (m_openGLPerf)
         m_openGLPerf->RecordSample();
 
-    // Flish
-    m_openglRender->Flush();
+    if (VERBOSE_LEVEL_CHECK(VB_GPU, LOG_INFO))
+        m_openglRender->logDebugMarker(LOC + "RENDER_FRAME_END");
+}
 
-    // Time flush
+void MythVideoOutputOpenGL::RenderEnd()
+{
+    // Flush and time
+    m_openglRender->Flush();
     if (m_openGLPerf)
         m_openGLPerf->RecordSample();
-
-    if (VERBOSE_LEVEL_CHECK(VB_GPU, LOG_INFO))
-        m_openglRender->logDebugMarker(LOC + "PREPARE_FRAME_END");
 }
 
 void MythVideoOutputOpenGL::EndFrame()
@@ -364,7 +365,7 @@ void MythVideoOutputOpenGL::EndFrame()
 
 /*! \brief Generate a list of supported OpenGL profiles.
 */
-QStringList MythVideoOutputOpenGL::GetAllowedRenderers(MythCodecID CodecId, const QSize& /*VideoDim*/)
+QStringList MythVideoOutputOpenGL::GetAllowedRenderers(MythCodecID CodecId, QSize /*VideoDim*/)
 {
     QStringList allowed;
 
@@ -398,24 +399,4 @@ QStringList MythVideoOutputOpenGL::GetAllowedRenderers(MythCodecID CodecId, cons
 
     allowed += MythOpenGLInterop::GetAllowedRenderers(format);
     return allowed;
-}
-
-MythVideoGPU* MythVideoOutputOpenGL::CreateSecondaryVideo(const QSize& VideoDim,
-                                                          const QSize& VideoDispDim,
-                                                          const QRect& DisplayVisibleRect,
-                                                          const QRect& DisplayVideoRect,
-                                                          const QRect& VideoRect)
-{
-    auto * colourspace = new MythVideoColourSpace(&m_videoColourSpace);
-    auto * result = new MythOpenGLVideo(m_openglRender, colourspace,
-                                        VideoDim, VideoDispDim,
-                                        DisplayVisibleRect, DisplayVideoRect,
-                                        VideoRect, m_profile);
-    if (result && !result->IsValid())
-    {
-        delete result;
-        result = nullptr;
-    }
-    colourspace->DecrRef();
-    return result;
 }

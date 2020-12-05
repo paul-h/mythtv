@@ -9,7 +9,7 @@
 #include "mythdvdplayer.h"
 #include "compat.h"
 #include "mythlogging.h"
-#include "mythuihelper.h"
+#include "mythmainwindow.h"
 #include "mythuiactions.h"
 #include "tv_actions.h"
 #include "mythdvdbuffer.h"
@@ -370,8 +370,9 @@ void MythDVDBuffer::GetChapterTimes(QList<long long> &Times)
         GetChapterTimes(m_title);
     if (!m_chapterMap.contains(m_title))
         return;
-    for (uint64_t chapter : m_chapterMap.value(m_title))
-        Times.push_back(static_cast<long long>(chapter));
+    const QList<uint64_t>& chapters = m_chapterMap.value(m_title);
+    std::transform(chapters.cbegin(), chapters.cend(), std::back_inserter(Times),
+                   [](uint64_t chap) { return static_cast<long long>(chap); });
 }
 
 uint64_t MythDVDBuffer::GetChapterTimes(int Title)
@@ -500,8 +501,9 @@ void MythDVDBuffer::WaitForPlayer(void)
         int count = 0;
         while (m_playerWait && count++ < 200)
         {
+            const struct timespec tenms {0, 10000000};
             m_rwLock.unlock();
-            usleep(10000);
+            nanosleep(&tenms, nullptr);
             m_rwLock.lockForWrite();
         }
 
@@ -522,6 +524,7 @@ int MythDVDBuffer::SafeRead(void *Buffer, uint Size)
     int             offset       = 0;
     bool            reprocessing = false;
     bool            waiting      = false;
+    const struct timespec tenms {0, 10000000};
 
     if (m_gotStop)
     {
@@ -814,11 +817,11 @@ int MythDVDBuffer::SafeRead(void *Buffer, uint Size)
                                 if (m_inMenu)
                                 {
                                     m_autoselectsubtitle = true;
-                                    MythUIHelper::RestoreScreensaver();
+                                    MythMainWindow::RestoreScreensaver();
                                 }
                                 else
                                 {
-                                    MythUIHelper::DisableScreensaver();
+                                    MythMainWindow::DisableScreensaver();
                                 }
                             }
 
@@ -996,7 +999,7 @@ int MythDVDBuffer::SafeRead(void *Buffer, uint Size)
                         // pause a little as the dvdnav VM will continue to return
                         // this event until it has been skipped
                         m_rwLock.unlock();
-                        usleep(10000);
+                        nanosleep(&tenms, nullptr);
                         m_rwLock.lockForWrite();
 
                         // when scanning the file or exiting playback, skip immediately
@@ -1052,7 +1055,7 @@ int MythDVDBuffer::SafeRead(void *Buffer, uint Size)
                         {
                             m_dvdWaiting = true;
                             m_rwLock.unlock();
-                            usleep(10000);
+                            nanosleep(&tenms, nullptr);
                             m_rwLock.lockForWrite();
                         }
 
@@ -1980,7 +1983,7 @@ int64_t MythDVDBuffer::GetCurrentTime(void) const
 }
 
 /// \brief converts palette values from YUV to RGB
-void MythDVDBuffer::GuessPalette(uint32_t *RGBAPalette, const PaletteArray& Palette, const AlphaArray& Alpha)
+void MythDVDBuffer::GuessPalette(uint32_t *RGBAPalette, const PaletteArray Palette, const AlphaArray Alpha)
 {
     memset(RGBAPalette, 0, 16);
     for (int i = 0 ; i < 4 ; i++)

@@ -35,6 +35,7 @@ class MythNews : public MythScreenType
     void clearSites(void);
     void cancelRetrieve(void);
     void processAndShowNews(NewsSite *site);
+    static QString cleanText(const QString &text);
 
     static QString formatSize(long long bytes, int prec);
     static void playVideo(const NewsArticle &article);
@@ -43,7 +44,7 @@ class MythNews : public MythScreenType
     void ShowMenu(void) override; // MythScreenType
     void deleteNewsSite(void);
     void ShowEditDialog(bool edit);
-    void ShowFeedManager();
+    void ShowFeedManager() const;
 
     mutable QMutex m_lock            {QMutex::Recursive};
     NewsSite::List m_newsSites;

@@ -3,6 +3,7 @@
 // race on startup?
 // http date format and locale
 
+#include <chrono>
 #include <vector>
 
 #include <QTcpSocket>
@@ -26,6 +27,8 @@
 
 #include "bonjourregister.h"
 #include "mythairplayserver.h"
+
+using namespace std::chrono_literals;
 
 MythAirplayServer* MythAirplayServer::gMythAirplayServer = nullptr;
 MThread*           MythAirplayServer::gMythAirplayServerThread = nullptr;
@@ -229,10 +232,9 @@ class APHTTPRequest
 
     QByteArray GetQueryValue(const QByteArray& key)
     {
-        for (const auto& query : qAsConst(m_queries))
-            if (query.first == key)
-                return query.second;
-        return "";
+        auto samekey = [key](const auto& query) { return query.first == key; };;
+        auto query = std::find_if(m_queries.cbegin(), m_queries.cend(), samekey);
+        return (query != m_queries.cend()) ? query->second : "";
     }
 
     QMap<QByteArray,QByteArray> GetHeadersFromBody(void)
@@ -373,11 +375,11 @@ bool MythAirplayServer::Create(void)
     {
         gMythAirplayServer->moveToThread(gMythAirplayServerThread->qthread());
         QObject::connect(
-            gMythAirplayServerThread->qthread(), SIGNAL(started()),
-            gMythAirplayServer,                  SLOT(Start()));
+            gMythAirplayServerThread->qthread(), &QThread::started,
+            gMythAirplayServer,                  &MythAirplayServer::Start);
         QObject::connect(
-            gMythAirplayServerThread->qthread(), SIGNAL(finished()),
-            gMythAirplayServer,                  SLOT(Stop()));
+            gMythAirplayServerThread->qthread(), &QThread::finished,
+            gMythAirplayServer,                  &MythAirplayServer::Stop);
         gMythAirplayServerThread->start(QThread::LowestPriority);
     }
 
@@ -453,8 +455,8 @@ void MythAirplayServer::Start(void)
         return;
 
     // join the dots
-    connect(this, SIGNAL(newConnection(QTcpSocket*)),
-            this, SLOT(newConnection(QTcpSocket*)));
+    connect(this, &ServerPool::newConnection,
+            this, &MythAirplayServer::newAirplayConnection);
 
     // start listening for connections
     // try a few ports in case the default is in use
@@ -500,10 +502,10 @@ void MythAirplayServer::Start(void)
         if (!m_serviceRefresh)
         {
             m_serviceRefresh = new QTimer();
-            connect(m_serviceRefresh, SIGNAL(timeout()), this, SLOT(timeout()));
+            connect(m_serviceRefresh, &QTimer::timeout, this, &MythAirplayServer::timeout);
         }
         // Will force a Bonjour refresh in two seconds
-        m_serviceRefresh->start(2000);
+        m_serviceRefresh->start(2s);
     }
     m_valid = true;
 }
@@ -511,7 +513,7 @@ void MythAirplayServer::Start(void)
 void MythAirplayServer::timeout(void)
 {
     m_bonjour->ReAnnounceService();
-    m_serviceRefresh->start(10000);
+    m_serviceRefresh->start(10s);
 }
 
 void MythAirplayServer::Stop(void)
@@ -519,7 +521,7 @@ void MythAirplayServer::Stop(void)
     Teardown();
 }
 
-void MythAirplayServer::newConnection(QTcpSocket *client)
+void MythAirplayServer::newAirplayConnection(QTcpSocket *client)
 {
     QMutexLocker locker(m_lock);
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("New connection from %1:%2")
@@ -527,8 +529,9 @@ void MythAirplayServer::newConnection(QTcpSocket *client)
 
     gCoreContext->SendSystemEvent(QString("AIRPLAY_NEW_CONNECTION"));
     m_sockets.append(client);
-    connect(client, SIGNAL(disconnected()), this, SLOT(deleteConnection()));
-    connect(client, SIGNAL(readyRead()), this, SLOT(read()));
+    connect(client, &QAbstractSocket::disconnected,
+            this, qOverload<>(&MythAirplayServer::deleteConnection));
+    connect(client, &QIODevice::readyRead, this, &MythAirplayServer::read);
 }
 
 void MythAirplayServer::deleteConnection(void)
@@ -1209,8 +1212,9 @@ void MythAirplayServer::StartPlayback(const QString &pathname)
     auto* me = new MythEvent(ACTION_HANDLEMEDIA, QStringList(pathname));
     qApp->postEvent(GetMythMainWindow(), me);
     // Wait until we receive that the play has started
-    std::vector<const char*> sigs { SIGNAL(TVPlaybackStarted()),
-                                    SIGNAL(TVPlaybackAborted()) };
+    std::vector<CoreWaitInfo> sigs {
+        { "TVPlaybackStarted", &MythCoreContext::TVPlaybackStarted },
+        { "TVPlaybackAborted", &MythCoreContext::TVPlaybackAborted } };
     gCoreContext->WaitUntilSignals(sigs);
     LOG(VB_PLAYBACK, LOG_DEBUG, LOC +
         QString("ACTION_HANDLEMEDIA completed"));
@@ -1228,8 +1232,9 @@ void MythAirplayServer::StopPlayback(void)
                                  Qt::NoModifier, ACTION_STOP);
         qApp->postEvent(GetMythMainWindow(), (QEvent*)ke);
         // Wait until we receive that playback has stopped
-        std::vector<const char*> sigs { SIGNAL(TVPlaybackStopped()),
-                                        SIGNAL(TVPlaybackAborted()) };
+        std::vector<CoreWaitInfo> sigs {
+            { "TVPlaybackStopped", &MythCoreContext::TVPlaybackStopped },
+            { "TVPlaybackAborted", &MythCoreContext::TVPlaybackAborted } };
         gCoreContext->WaitUntilSignals(sigs);
         LOG(VB_PLAYBACK, LOG_DEBUG, LOC +
             QString("ACTION_STOP completed"));
@@ -1254,9 +1259,10 @@ void MythAirplayServer::SeekPosition(uint64_t position)
                                  QStringList(QString::number(position)));
         qApp->postEvent(GetMythMainWindow(), me);
         // Wait until we receive that the seek has completed
-        std::vector<const char*> sigs { SIGNAL(TVPlaybackSought(qint64)),
-                                        SIGNAL(TVPlaybackStopped()),
-                                        SIGNAL(TVPlaybackAborted()) };
+        std::vector<CoreWaitInfo> sigs {
+            { "TVPlaybackSought", qOverload<>(&MythCoreContext::TVPlaybackSought) },
+            { "TVPlaybackStopped", &MythCoreContext::TVPlaybackStopped },
+            { "TVPlaybackAborted", &MythCoreContext::TVPlaybackAborted } };
         gCoreContext->WaitUntilSignals(sigs);
         LOG(VB_PLAYBACK, LOG_DEBUG, LOC +
             QString("ACTION_SEEKABSOLUTE completed"));
@@ -1280,9 +1286,10 @@ void MythAirplayServer::PausePlayback(void)
                                  Qt::NoModifier, ACTION_PAUSE);
         qApp->postEvent(GetMythMainWindow(), (QEvent*)ke);
         // Wait until we receive that playback has stopped
-        std::vector<const char*> sigs { SIGNAL(TVPlaybackPaused()),
-                                        SIGNAL(TVPlaybackStopped()),
-                                        SIGNAL(TVPlaybackAborted()) };
+        std::vector<CoreWaitInfo> sigs {
+            { "TVPlaybackPaused", &MythCoreContext::TVPlaybackPaused },
+            { "TVPlaybackStopped", &MythCoreContext::TVPlaybackStopped },
+            { "TVPlaybackAborted", &MythCoreContext::TVPlaybackAborted } };
         gCoreContext->WaitUntilSignals(sigs);
         LOG(VB_PLAYBACK, LOG_DEBUG, LOC +
             QString("ACTION_PAUSE completed"));
@@ -1306,9 +1313,10 @@ void MythAirplayServer::UnpausePlayback(void)
                                  Qt::NoModifier, ACTION_PLAY);
         qApp->postEvent(GetMythMainWindow(), (QEvent*)ke);
         // Wait until we receive that playback has stopped
-        std::vector<const char*> sigs { SIGNAL(TVPlaybackPlaying()),
-                                        SIGNAL(TVPlaybackStopped()),
-                                        SIGNAL(TVPlaybackAborted()) };
+        std::vector<CoreWaitInfo> sigs {
+            { "TVPlaybackPlaying", &MythCoreContext::TVPlaybackPlaying },
+            { "TVPlaybackStopped", &MythCoreContext::TVPlaybackStopped },
+            { "TVPlaybackAborted", &MythCoreContext::TVPlaybackAborted } };
         gCoreContext->WaitUntilSignals(sigs);
         LOG(VB_PLAYBACK, LOG_DEBUG, LOC +
             QString("ACTION_PLAY completed"));

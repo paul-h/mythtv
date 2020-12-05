@@ -59,8 +59,6 @@ DTVRecorder::DTVRecorder(TVRec *rec) :
         gCoreContext->GetNumSetting("MinimumRecordingQuality", 95);
 
     m_containerFormat = formatMPEG2_TS;
-
-    m_continuityCounter.fill(0xff);
 }
 
 DTVRecorder::~DTVRecorder(void)
@@ -172,6 +170,11 @@ void DTVRecorder::ResetForNewFile(void)
     m_durationMap.clear();
     m_durationMapDelta.clear();
 
+    m_primaryVideoCodec = AV_CODEC_ID_NONE;
+    m_primaryAudioCodec = AV_CODEC_ID_NONE;
+
+    m_continuityCounter.fill(0xff);
+
     locker.unlock();
     DTVRecorder::ClearStatistics();
 }
@@ -192,6 +195,7 @@ void DTVRecorder::ClearStatistics(void)
     m_tdBase                     = 0;
     m_tdTickCount                = 0;
     m_tdTickFramerate            = FrameRate(0);
+
 }
 
 // documented in recorderbase.h

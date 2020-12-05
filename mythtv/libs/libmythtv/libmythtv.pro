@@ -34,6 +34,7 @@ DEPENDPATH  += ../libmythbase
 DEPENDPATH  += ./mpeg ./channelscan ./mheg ./decoders ./opengl ./io ./captions
 DEPENDPATH  += ./visualisations ./visualisations/opengl ./visualisations/vulkan
 DEPENDPATH  += ./vulkan
+DEPENDPATH  += ./overlays
 DEPENDPATH  += ./recorders
 DEPENDPATH  += ./recorders/dvbdev
 DEPENDPATH  += ./recorders/rtp
@@ -375,23 +376,50 @@ using_frontend {
 
     # Video playback
     HEADERS += tv_play.h
+    HEADERS += tvplaybackstate.h
+    HEADERS += mythtvmenu.h
+    HEADERS += mythtvactionutils.h
     HEADERS += mythplayer.h
+    HEADERS += mythplayerstate.h
+    HEADERS += mythplayeruibase.h
+    HEADERS += mythplayerui.h
+    HEADERS += mythplayervideoui.h
+    HEADERS += mythplayercaptionsui.h
+    HEADERS += mythplayeroverlayui.h
+    HEADERS += mythvideoscantracker.h
+    HEADERS += mythplayervisualiserui.h
+    HEADERS += mythplayeravsync.h
+    HEADERS += mythplayeraudioui.h
     HEADERS += audioplayer.h
     HEADERS += mythccextractorplayer.h
     HEADERS += captions/teletextextractorreader.h
     HEADERS += playercontext.h
     HEADERS += tv_play_win.h            deletemap.h
     HEADERS += mythcommflagplayer.h     commbreakmap.h
+    HEADERS += mythpreviewplayer.h
     HEADERS += tvbrowsehelper.h
     HEADERS += mheg/netstream.h
     SOURCES += tv_play.cpp
+    SOURCES += tvplaybackstate.cpp
+    SOURCES += mythtvmenu.cpp
     SOURCES += mythplayer.cpp
+    SOURCES += mythplayerstate.cpp
+    SOURCES += mythplayeruibase.cpp
+    SOURCES += mythplayerui.cpp
+    SOURCES += mythplayervideoui.cpp
+    SOURCES += mythplayercaptionsui.cpp
+    SOURCES += mythplayeroverlayui.cpp
+    SOURCES += mythvideoscantracker.cpp
+    SOURCES += mythplayervisualiserui.cpp
+    SOURCES += mythplayeravsync.cpp
+    SOURCES += mythplayeraudioui.cpp
     SOURCES += audioplayer.cpp
     SOURCES += mythccextractorplayer.cpp
     SOURCES += captions/teletextextractorreader.cpp
     SOURCES += playercontext.cpp
     SOURCES += tv_play_win.cpp          deletemap.cpp
     SOURCES += mythcommflagplayer.cpp   commbreakmap.cpp
+    SOURCES += mythpreviewplayer.cpp
     SOURCES += tvbrowsehelper.cpp
     SOURCES += mheg/netstream.cpp
 
@@ -410,12 +438,10 @@ using_frontend {
     # A/V decoders
     HEADERS += decoders/decoderbase.h
     HEADERS += decoders/avformatdecoder.h
-    HEADERS += decoders/privatedecoder.h
     HEADERS += decoders/mythcodeccontext.h
     HEADERS += decoders/mythdecoderthread.h
     SOURCES += decoders/decoderbase.cpp
     SOURCES += decoders/avformatdecoder.cpp
-    SOURCES += decoders/privatedecoder.cpp
     SOURCES += decoders/mythcodeccontext.cpp
     SOURCES += decoders/mythdecoderthread.cpp
 
@@ -426,12 +452,20 @@ using_frontend {
 
     # On screen display (video output overlay)
     HEADERS += osd.h
+    HEADERS += mythmediaoverlay.h
+    HEADERS += mythcaptionsoverlay.h
     HEADERS += captions/teletextscreen.h
     HEADERS += captions/subtitlescreen.h
+    HEADERS += overlays/mythnavigationoverlay.h
+    HEADERS += overlays/mythchanneloverlay.h
     HEADERS += mheg/interactivescreen.h
     SOURCES += osd.cpp
+    SOURCES += mythmediaoverlay.cpp
+    SOURCES += mythcaptionsoverlay.cpp
     SOURCES += captions/teletextscreen.cpp
     SOURCES += captions/subtitlescreen.cpp
+    SOURCES += overlays/mythnavigationoverlay.cpp
+    SOURCES += overlays/mythchanneloverlay.cpp
     SOURCES += mheg/interactivescreen.cpp
 
     # Video output

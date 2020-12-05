@@ -2,26 +2,42 @@
 #define VIDEOOUT_TYPES_H_
 
 // Qt
+#include <QPoint>
 #include <QString>
 #include <QObject>
 
-enum PIPState
+// Caption Display modes
+enum
 {
-    kPIPOff = 0,
-    kPIPonTV,
-    kPIPStandAlone,
-    kPBPLeft,
-    kPBPRight,
+    kDisplayNone                = 0x000,
+    kDisplayNUVTeletextCaptions = 0x001,
+    kDisplayTeletextCaptions    = 0x002,
+    kDisplayAVSubtitle          = 0x004,
+    kDisplayCC608               = 0x008,
+    kDisplayCC708               = 0x010,
+    kDisplayTextSubtitle        = 0x020,
+    kDisplayDVDButton           = 0x040,
+    kDisplayRawTextSubtitle     = 0x080,
+    kDisplayAllCaptions         = 0x0FF,
+    kDisplayTeletextMenu        = 0x100,
+    kDisplayAllTextCaptions     = ~kDisplayDVDButton & kDisplayAllCaptions
 };
 
-enum PIPLocation
+/*! \brief Return whether any *optional* captions are enabled
+ *
+ * Which currently means anything except DVD buttons.
+*/
+inline bool OptionalCaptionEnabled(uint Captions)
 {
-    kPIPTopLeft = 0,
-    kPIPBottomLeft,
-    kPIPTopRight,
-    kPIPBottomRight,
-    kPIP_END
-};
+    return (kDisplayNUVTeletextCaptions == Captions) ||
+           (kDisplayTeletextCaptions    == Captions) ||
+           (kDisplayAVSubtitle          == Captions) ||
+           (kDisplayCC608               == Captions) ||
+           (kDisplayCC708               == Captions) ||
+           (kDisplayTextSubtitle        == Captions) ||
+           (kDisplayRawTextSubtitle     == Captions) ||
+           (kDisplayTeletextMenu        == Captions);
+}
 
 enum ZoomDirection
 {
@@ -204,32 +220,6 @@ inline QString ScanTypeToString(FrameScanType Scan)
     }
 }
 
-inline QString toString(PIPState State)
-{
-    switch (State)
-    {
-        case kPIPOff:        return QString("Pip Off");
-        case kPIPonTV:       return QString("Pip on TV");
-        case kPIPStandAlone: return QString("Pip Standalone");
-        case kPBPLeft:       return QString("PBP Left");
-        case kPBPRight:      return QString("PBP Right");
-    }
-    return QString("Unknown");
-}
-
-inline QString toString(PIPLocation Location)
-{
-    switch (Location)
-    {
-        case kPIPTopLeft:     return QObject::tr("Top Left");
-        case kPIPBottomLeft:  return QObject::tr("Bottom Left");
-        case kPIPTopRight:    return QObject::tr("Top Right");
-        case kPIPBottomRight: return QObject::tr("Bottom Right");
-        case kPIP_END:        break;
-    }
-    return "";
-}
-
 inline QString toString(AspectOverrideMode Aspectmode)
 {
     switch (Aspectmode)
@@ -357,8 +347,7 @@ inline PictureAttributeSupported toMask(PictureAttribute PictureAttribute)
     return kPictureAttributeSupported_None;
 }
 
-inline PictureAttribute next(PictureAttributeSupported Supported,
-                             PictureAttribute          Attribute)
+inline PictureAttribute next_picattr(PictureAttributeSupported Supported, PictureAttribute Attribute)
 {
     int i = static_cast<int>(Attribute + 1) % static_cast<int>(kPictureAttribute_MAX);
     for (int j = 0; j < kPictureAttribute_MAX; (i = (i +1 ) % kPictureAttribute_MAX), j++)
@@ -367,4 +356,12 @@ inline PictureAttribute next(PictureAttributeSupported Supported,
     return kPictureAttribute_None;
 }
 
-#endif // VIDEOOUT_TYPES_H_
+inline QString GetZoomString(float HorizScale, float VertScale, QPoint Move)
+{
+    return QObject::tr("Zoom %1x%2 @ (%3,%4)")
+            .arg(static_cast<double>(HorizScale), 0, 'f', 2)
+            .arg(static_cast<double>(VertScale), 0, 'f', 2)
+            .arg(Move.x()).arg(Move.y());
+}
+
+#endif

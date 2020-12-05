@@ -2,7 +2,6 @@
 #define EDITMETADATA_H_
 
 #include <iostream>
-using namespace std;
 
 #include <mythscreentype.h>
 #include <musicmetadata.h>
@@ -72,10 +71,10 @@ class EditMetadataDialog : public EditMetadataCommon
     void customEvent(QEvent *event) override; // MythUIType
 
   protected slots:
-    void searchArtist(void);
-    void searchCompilationArtist(void);
-    void searchAlbum(void);
-    void searchGenre(void);
+    void searchArtist(void) const;
+    void searchCompilationArtist(void) const;
+    void searchAlbum(void) const;
+    void searchGenre(void) const;
 
     void setArtist(const QString& artist);
     void setCompArtist(const QString& compArtist);
@@ -151,9 +150,6 @@ class EditAlbumartDialog : public EditMetadataCommon
 
     bool keyPressEvent(QKeyEvent *event) override; // EditMetadataCommon
     void customEvent(QEvent *event) override; // MythUIType
-
-  signals:
-    void metadataChanged(void);
 
   protected slots:
     void switchToMetadata(void);

@@ -136,8 +136,8 @@ void BrowserApi::setWebView(QWebView *view)
     m_frame = page->mainFrame();
 
     attachObject();
-    connect(m_frame, SIGNAL(javaScriptWindowObjectCleared()), this,
-            SLOT(attachObject()));
+    connect(m_frame, &QWebFrame::javaScriptWindowObjectCleared, this,
+            &BrowserApi::attachObject);
 }
 
 void BrowserApi::attachObject(void)
@@ -358,11 +358,11 @@ MythWebView::MythWebView(QWidget *parent, MythUIWebBrowser *parentBrowser)
 
     m_parentBrowser = parentBrowser;
 
-    connect(page(), SIGNAL(unsupportedContent(QNetworkReply *)),
-            this, SLOT(handleUnsupportedContent(QNetworkReply *)));
+    connect(page(), &QWebPage::unsupportedContent,
+            this, &MythWebView::handleUnsupportedContent);
 
-    connect(page(), SIGNAL(downloadRequested(const QNetworkRequest &)),
-            this, SLOT(handleDownloadRequested(QNetworkRequest)));
+    connect(page(), &QWebPage::downloadRequested,
+            this, &MythWebView::handleDownloadRequested);
 
     page()->setForwardUnsupportedContent(true);
 
@@ -380,19 +380,19 @@ MythWebView::~MythWebView(void)
  *  \copydoc MythUIType::keyPressEvent()
  */
 
-const char *kgetType = "\
+const QString kgetType { QStringLiteral("\
 function activeElement()\
 {\
     var type;\
     type = document.activeElement.type;\
     return type;\
 }\
-activeElement();";
+activeElement();") };
 
 void MythWebView::keyPressEvent(QKeyEvent *event)
 {
     // does an edit have focus?
-    QString type = m_parentBrowser->evaluateJavaScript(QString(kgetType))
+    QString type = m_parentBrowser->evaluateJavaScript(kgetType)
                                                     .toString().toLower();
     bool editHasFocus = (type == "text" || type == "textarea" ||
                          type == "password");
@@ -739,40 +739,32 @@ QString MythWebView::getExtensionForMimetype(const QString &mimetype)
 
 bool MythWebView::isMusicFile(const QString &extension, const QString &mimetype)
 {
-    for (const auto &entry : SupportedMimeTypes)
-    {
-        if (entry.m_isVideo)
-            continue;
-
-        if (!mimetype.isEmpty() &&
-            mimetype == entry.m_mimeType)
-            return true;
-
-        if (!extension.isEmpty() &&
-            extension.toLower() == entry.m_extension)
-            return true;
-    }
-
-    return false;
+    return std::any_of(SupportedMimeTypes.cbegin(), SupportedMimeTypes.cend(),
+                       [extension, mimetype](const auto &entry){
+                           if (entry.m_isVideo)
+                               return false;
+                           if (!mimetype.isEmpty() &&
+                               mimetype == entry.m_mimeType)
+                               return true;
+                           if (!extension.isEmpty() &&
+                               extension.toLower() == entry.m_extension)
+                               return true;
+                           return false; } );
 }
 
 bool MythWebView::isVideoFile(const QString &extension, const QString &mimetype)
 {
-    for (const auto &entry : SupportedMimeTypes)
-    {
-        if (!entry.m_isVideo)
-            continue;
-
-        if (!mimetype.isEmpty() &&
-            mimetype == entry.m_mimeType)
-            return true;
-
-        if (!extension.isEmpty() &&
-            extension.toLower() == entry.m_extension)
-            return true;
-    }
-
-    return false;
+    return std::any_of(SupportedMimeTypes.cbegin(), SupportedMimeTypes.cend(),
+                       [extension, mimetype](const auto &entry) {
+                           if (!entry.m_isVideo)
+                               return false;
+                           if (!mimetype.isEmpty() &&
+                               mimetype == entry.m_mimeType)
+                               return true;
+                           if (!extension.isEmpty() &&
+                               extension.toLower() == entry.m_extension)
+                               return true;
+                           return false; } );
 }
 
 QString MythWebView::getReplyMimetype(void)
@@ -900,20 +892,20 @@ void MythUIWebBrowser::Init(void)
     {
         QWebFrame* frame = m_browser->page()->currentFrame();
         frame->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAlwaysOff);
-        connect(m_horizontalScrollbar, SIGNAL(Hiding()),
-                this, SLOT(slotScrollBarHiding()));
-        connect(m_horizontalScrollbar, SIGNAL(Showing()),
-                this, SLOT(slotScrollBarShowing()));
+        connect(m_horizontalScrollbar, &MythUIType::Hiding,
+                this, &MythUIWebBrowser::slotScrollBarHiding);
+        connect(m_horizontalScrollbar, &MythUIType::Showing,
+                this, &MythUIWebBrowser::slotScrollBarShowing);
     }
 
     if (m_verticalScrollbar)
     {
         QWebFrame* frame = m_browser->page()->currentFrame();
         frame->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
-        connect(m_verticalScrollbar, SIGNAL(Hiding()),
-                this, SLOT(slotScrollBarHiding()));
-        connect(m_verticalScrollbar, SIGNAL(Showing()),
-                this, SLOT(slotScrollBarShowing()));
+        connect(m_verticalScrollbar, &MythUIType::Hiding,
+                this, &MythUIWebBrowser::slotScrollBarHiding);
+        connect(m_verticalScrollbar, &MythUIType::Showing,
+                this, &MythUIWebBrowser::slotScrollBarShowing);
     }
 
     // if we have a valid css URL use that ...
@@ -937,24 +929,22 @@ void MythUIWebBrowser::Init(void)
 
     SetActive(m_active);
 
-    connect(m_browser, SIGNAL(loadStarted()),
-            this, SLOT(slotLoadStarted()));
-    connect(m_browser, SIGNAL(loadFinished(bool)),
-            this, SLOT(slotLoadFinished(bool)));
-    connect(m_browser, SIGNAL(loadProgress(int)),
-            this, SLOT(slotLoadProgress(int)));
-    connect(m_browser, SIGNAL(titleChanged(const QString &)),
-            this, SLOT(slotTitleChanged(const QString &)));
-    connect(m_browser, SIGNAL(iconChanged(void)),
-            this, SLOT(slotIconChanged(void)));
-    connect(m_browser, SIGNAL(statusBarMessage(const QString &)),
-            this, SLOT(slotStatusBarMessage(const QString &)));
-    connect(m_browser->page(), SIGNAL(linkHovered(const QString &,
-                                                  const QString &,
-                                                  const QString &)),
-            this, SLOT(slotStatusBarMessage(const QString &)));
-    connect(m_browser, SIGNAL(linkClicked(const QUrl &)),
-            this, SLOT(slotLinkClicked(const QUrl &)));
+    connect(m_browser, &QWebView::loadStarted,
+            this, &MythUIWebBrowser::slotLoadStarted);
+    connect(m_browser, &QWebView::loadFinished,
+            this, &MythUIWebBrowser::slotLoadFinished);
+    connect(m_browser, &QWebView::loadProgress,
+            this, &MythUIWebBrowser::slotLoadProgress);
+    connect(m_browser, &QWebView::titleChanged,
+            this, &MythUIWebBrowser::slotTitleChanged);
+    connect(m_browser, &QWebView::iconChanged,
+            this, &MythUIWebBrowser::slotIconChanged);
+    connect(m_browser, &QWebView::statusBarMessage,
+            this, &MythUIWebBrowser::slotStatusBarMessage);
+    connect(m_browser->page(), &QWebPage::linkHovered,
+            this, &MythUIWebBrowser::slotStatusBarMessage);
+    connect(m_browser, &QWebView::linkClicked,
+            this, &MythUIWebBrowser::slotLinkClicked);
 
     // find what screen we are on
     m_parentScreen = nullptr;
@@ -980,8 +970,8 @@ void MythUIWebBrowser::Init(void)
         MythScreenStack *stack = GetMythMainWindow()->GetStackAt(x);
 
         if (stack)
-            connect(stack, SIGNAL(topScreenChanged(MythScreenType *)),
-                    this, SLOT(slotTopScreenChanged(MythScreenType *)));
+            connect(stack, &MythScreenStack::topScreenChanged,
+                    this, &MythUIWebBrowser::slotTopScreenChanged);
     }
 
     // set up the icon cache directory

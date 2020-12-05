@@ -10,6 +10,7 @@
 #include <poll.h>
 #include <sys/ioctl.h>
 #endif
+#include <QtGlobal>
 #ifdef Q_OS_ANDROID
 #include <sys/wait.h>
 #endif
@@ -410,7 +411,7 @@ void ExternIO::Fork(void)
     {
         std::cerr << "ExternIO: "
              << "setpgid() failed: "
-             << strerror(errno) << endl;
+             << strerror(errno) << std::endl;
     }
 
     /* run command */
@@ -431,13 +432,13 @@ void ExternIO::Fork(void)
         // Can't use LOG due to locking fun.
         std::cerr << "ExternIO: "
              << "execv() failed: "
-             << strerror(errno) << endl;
+             << strerror(errno) << std::endl;
     }
     else
     {
         std::cerr << "ExternIO: "
                   << "execv() should not be here?: "
-                  << strerror(errno) << endl;
+                  << strerror(errno) << std::endl;
     }
 
 #endif // !defined( USING_MINGW ) && !defined( _MSC_VER )
@@ -866,7 +867,7 @@ bool ExternalStreamHandler::SetAPIVersion(void)
 
         if (tokens.size() > 1)
             m_apiVersion = tokens[1].toUInt();
-        m_apiVersion = min(m_apiVersion, static_cast<int>(MAX_API_VERSION));
+        m_apiVersion = std::min(m_apiVersion, static_cast<int>(MAX_API_VERSION));
         if (m_apiVersion < 1)
         {
             LOG(VB_RECORD, LOG_ERR, LOC +

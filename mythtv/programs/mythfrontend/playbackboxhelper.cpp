@@ -1,5 +1,4 @@
 #include <algorithm>
-using namespace std;
 
 #include <QCoreApplication>
 #include <QStringList>
@@ -165,7 +164,7 @@ bool PBHEventHandler::event(QEvent *e)
     {
         auto *me = dynamic_cast<MythEvent*>(e);
         if (me == nullptr)
-            return false;
+            return QObject::event(e);
 
         if (me->Message() == "UPDATE_FREE_SPACE")
         {

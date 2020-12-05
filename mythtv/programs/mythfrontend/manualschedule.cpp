@@ -30,10 +30,10 @@
 #include "scheduleeditor.h"
 
 ManualSchedule::ManualSchedule(MythScreenStack *parent)
-               : MythScreenType(parent, "ManualSchedule")
+    : MythScreenType(parent, "ManualSchedule"),
+      m_nowDateTime(MythDate::current()),
+      m_startDateTime(m_nowDateTime)
 {
-    m_nowDateTime = MythDate::current();
-    m_startDateTime = m_nowDateTime;
 }
 
 bool ManualSchedule::Create(void)
@@ -114,8 +114,8 @@ bool ManualSchedule::Create(void)
     m_durationSpin->SetValue(60);
 
     connectSignals();
-    connect(m_recordButton, SIGNAL(Clicked()), SLOT(recordClicked()));
-    connect(m_cancelButton, SIGNAL(Clicked()), SLOT(Close()));
+    connect(m_recordButton, &MythUIButton::Clicked, this, &ManualSchedule::recordClicked);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
 
     m_titleEdit->SetMaxLength(128);
 
@@ -126,12 +126,12 @@ bool ManualSchedule::Create(void)
 
 void ManualSchedule::connectSignals()
 {
-    connect(m_startdateList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-                         SLOT(dateChanged(void)));
-    connect(m_starthourSpin, SIGNAL(itemSelected(MythUIButtonListItem*)),
-                         SLOT(dateChanged(void)));
-    connect(m_startminuteSpin, SIGNAL(itemSelected(MythUIButtonListItem*)),
-                           SLOT(dateChanged(void)));
+    connect(m_startdateList, &MythUIButtonList::itemSelected,
+                         this, &ManualSchedule::dateChanged);
+    connect(m_starthourSpin, &MythUIButtonList::itemSelected,
+                         this, &ManualSchedule::dateChanged);
+    connect(m_startminuteSpin, &MythUIButtonList::itemSelected,
+                           this, &ManualSchedule::dateChanged);
 }
 
 void ManualSchedule::disconnectSignals()
@@ -204,7 +204,7 @@ void ManualSchedule::dateChanged(void)
 void ManualSchedule::recordClicked(void)
 {
     QDateTime endts = m_startDateTime
-        .addSecs(max(m_durationSpin->GetIntValue() * 60, 60));
+        .addSecs(std::max(m_durationSpin->GetIntValue() * 60, 60));
 
     if (m_channelList->GetCurrentPos() >= m_chanids.size())
     {
@@ -226,7 +226,7 @@ void ManualSchedule::recordClicked(void)
     if (schededit->Create())
     {
         mainStack->AddScreen(schededit);
-        connect(schededit, SIGNAL(ruleSaved(int)), SLOT(scheduleCreated(int)));
+        connect(schededit, &ScheduleEditor::ruleSaved, this, &ManualSchedule::scheduleCreated);
     }
     else
         delete schededit;

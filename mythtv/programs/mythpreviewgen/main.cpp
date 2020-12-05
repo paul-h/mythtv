@@ -15,7 +15,6 @@
 #include <sys/time.h>     // for setpriority
 #include <sys/types.h>
 #include <unistd.h>
-using namespace std;
 
 #ifndef _WIN32
 #include <QCoreApplication>
@@ -69,7 +68,7 @@ namespace
 
 int preview_helper(uint chanid, QDateTime starttime,
                    long long previewFrameNumber, long long previewSeconds,
-                   const QSize &previewSize,
+                   const QSize previewSize,
                    const QString &infile, const QString &outfile)
 {
     // Lower scheduling priority, to avoid problems with recordings.
@@ -170,9 +169,9 @@ int main(int argc, char **argv)
     if ((!cmdline.toBool("chanid") || !cmdline.toBool("starttime")) &&
         !cmdline.toBool("inputfile"))
     {
-        cerr << "--generate-preview must be accompanied by either " <<endl
-             << "\nboth --chanid and --starttime parameters, " << endl
-             << "\nor the --infile parameter." << endl;
+        std::cerr << "--generate-preview must be accompanied by either " <<std::endl
+                  << "\nboth --chanid and --starttime parameters, " << std::endl
+                  << "\nor the --infile parameter." << std::endl;
         return GENERIC_EXIT_INVALID_CMDLINE;
     }
 

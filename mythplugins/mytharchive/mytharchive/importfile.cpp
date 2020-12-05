@@ -252,8 +252,8 @@ void ImportFile::showMenu()
 
     menuPopup->SetReturnEvent(this, "action");
 
-    menuPopup->AddButton(tr("Clear All"), SLOT(clearAll()));
-    menuPopup->AddButton(tr("Select All"), SLOT(selectAll()));
+    menuPopup->AddButton(tr("Clear All"), &ImportFile::clearAll);
+    menuPopup->AddButton(tr("Select All"), &ImportFile::selectAll);
 }
 
 void ImportFile::selectAll()

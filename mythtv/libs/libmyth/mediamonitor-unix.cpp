@@ -22,8 +22,6 @@
 // C++ headers
 #include <iostream>
 
-using namespace std;
-
 // Qt headers
 #if CONFIG_QTDBUS
 #include <QtDBus>
@@ -576,7 +574,7 @@ bool MediaMonitorUnix::AddDevice(MythMediaDevice* pDevice)
         return false;
 
     QString path = pDevice->getDevicePath();
-    if (!path.length())
+    if (path.isEmpty())
     {
         LOG(VB_GENERAL, LOG_ALERT,
                 "MediaMonitorUnix::AddDevice() - empty device path.");
@@ -617,8 +615,8 @@ bool MediaMonitorUnix::AddDevice(MythMediaDevice* pDevice)
 
     QMutexLocker locker(&m_devicesLock);
 
-    connect(pDevice, SIGNAL(statusChanged(MythMediaStatus, MythMediaDevice*)),
-            this, SLOT(mediaStatusChanged(MythMediaStatus, MythMediaDevice*)));
+    connect(pDevice, &MythMediaDevice::statusChanged,
+            this, &MediaMonitor::mediaStatusChanged);
     m_devices.push_back( pDevice );
     m_useCount[pDevice] = 0;
     LOG(VB_MEDIA, LOG_INFO, LOC + ":AddDevice() - Added " + path);

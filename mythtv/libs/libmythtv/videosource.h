@@ -3,7 +3,6 @@
 
 #include <utility>
 #include <vector>
-using namespace std;
 
 // MythTV headers
 #include "mthread.h"
@@ -686,9 +685,6 @@ class DVBConfigurationGroup : public GroupSetting
     DVBCardType                  *m_cardType       {nullptr};
     SignalTimeout                *m_signalTimeout  {nullptr};
     ChannelTimeout               *m_channelTimeout {nullptr};
-#if 0
-    TransButtonSetting           *m_buttonAnalog   {nullptr};
-#endif
     DVBTuningDelay               *m_tuningDelay    {nullptr};
     DiSEqCDevTree                *m_diseqcTree     {nullptr};
     DeviceTree                   *m_diseqcBtn      {nullptr};
@@ -820,6 +816,7 @@ class CaptureCardButton : public ButtonStandardSetting
     QString m_value;
 };
 
+
 class MTV_PUBLIC CaptureCardEditor : public GroupSetting
 {
     Q_OBJECT
@@ -829,11 +826,14 @@ class MTV_PUBLIC CaptureCardEditor : public GroupSetting
 
     void Load(void) override; // StandardSetting
 
-    void AddSelection(const QString &label, const char *slot);
+    using CCESlot = void (CaptureCardEditor::*)(void);
+    using CCESlotConst = void (CaptureCardEditor::*)(void) const;
+    void AddSelection(const QString &label, CCESlot slot);
+    void AddSelection(const QString &label, CCESlotConst slot);
 
   public slots:
-    void ShowDeleteAllCaptureCardsDialog(void);
-    void ShowDeleteAllCaptureCardsDialogOnHost(void);
+    void ShowDeleteAllCaptureCardsDialog(void) const;
+    void ShowDeleteAllCaptureCardsDialogOnHost(void) const;
     void DeleteAllCaptureCards(bool doDelete);
     void DeleteAllCaptureCardsOnHost(bool doDelete);
     void AddNewCard(void);
@@ -846,15 +846,18 @@ class MTV_PUBLIC VideoSourceEditor : public GroupSetting
   public:
     VideoSourceEditor();
 
-    static bool cardTypesInclude(const int& SourceID,
+    static bool cardTypesInclude(int SourceID,
                                  const QString& thecardtype);
 
     void Load(void) override; // StandardSetting
-    void AddSelection(const QString &label, const char *slot);
+    using VSESlot = void (VideoSourceEditor::*)(void);
+    using VSESlotConst = void (VideoSourceEditor::*)(void) const;
+    void AddSelection(const QString &label, VSESlot slot);
+    void AddSelection(const QString &label, VSESlotConst slot);
 
   public slots:
     void NewSource(void);
-    void ShowDeleteAllSourcesDialog(void);
+    void ShowDeleteAllSourcesDialog(void) const;
     void DeleteAllSources(bool doDelete);
 };
 
@@ -868,7 +871,7 @@ class MTV_PUBLIC CardInputEditor : public GroupSetting
     void Load(void) override; // StandardSetting
 
   private:
-    vector<CardInput*>  m_cardInputs;
+    std::vector<CardInput*>  m_cardInputs;
 };
 
 class StartingChannel : public MythUIComboBoxSetting
@@ -1030,12 +1033,14 @@ class VBoxDeviceID : public MythUITextEditSetting
     QString m_overrideDeviceId;
 };
 
+#ifdef USING_CETON
 class CetonSetting : public TransTextEditSetting
 {
     Q_OBJECT
 
   public:
-    CetonSetting(const char* label, const char* helptext);
+    CetonSetting(QString label, const QString& helptext);
+    static void CetonConfigurationGroup(CaptureCard& parent, CardType& cardtype);
 
   signals:
     void NewValue(const QString&);
@@ -1070,5 +1075,6 @@ class CetonDeviceID : public MythUITextEditSetting
     QString m_tuner;
     const CaptureCard &m_parent;
 };
+#endif // USING_CETON
 
 #endif

@@ -46,8 +46,8 @@ MythUITextEdit::MythUITextEdit(MythUIType *parent, const QString &name)
 
     m_keyboardPosition = VK_POSBELOWEDIT;
 
-    connect(this, SIGNAL(TakingFocus()), SLOT(Select()));
-    connect(this, SIGNAL(LosingFocus()), SLOT(Deselect()));
+    connect(this, &MythUIType::TakingFocus, this, &MythUITextEdit::Select);
+    connect(this, &MythUIType::LosingFocus, this, &MythUITextEdit::Deselect);
 
     m_canHaveFocus = true;
 
@@ -527,7 +527,6 @@ bool MythUITextEdit::keyPressEvent(QKeyEvent *event)
 
             if (kb->Create())
             {
-                //connect(kb, SIGNAL(keyPress(QString)), SLOT(keyPress(QString)));
                 popupStack->AddScreen(kb);
             }
             else

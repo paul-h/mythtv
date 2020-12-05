@@ -38,16 +38,17 @@
 
 enum GLFeatures
 {
-    kGLFeatNone       = 0x0000,
-    kGLBufferMap      = 0x0001,
-    kGLExtRects       = 0x0002,
-    kGLExtRGBA16      = 0x0004, // TODO remove
-    kGLExtSubimage    = 0x0008,
-    kGLTiled          = 0x0010,
-    kGLLegacyTextures = 0x0020,
-    kGLNVMemory       = 0x0040,
-    kGL16BitFBO       = 0x0080,
-    kGLComputeShaders = 0x0100
+    kGLFeatNone        = 0x0000,
+    kGLBufferMap       = 0x0001,
+    kGLExtRects        = 0x0002,
+    kGLExtRGBA16       = 0x0004, // TODO remove
+    kGLExtSubimage     = 0x0008,
+    kGLTiled           = 0x0010,
+    kGLLegacyTextures  = 0x0020,
+    kGLNVMemory        = 0x0040,
+    kGL16BitFBO        = 0x0080,
+    kGLComputeShaders  = 0x0100,
+    kGLGeometryShaders = 0x0200
 };
 
 #define TEX_OFFSET 8
@@ -112,13 +113,12 @@ class MUI_PUBLIC MythRenderOpenGL : public QOpenGLContext, public QOpenGLFunctio
     void  swapBuffers();
 
     bool  Init(void);
-    int   GetColorDepth(void) const;
     int   GetMaxTextureSize(void) const;
     int   GetMaxTextureUnits(void) const;
     int   GetExtraFeatures(void) const;
     QOpenGLFunctions::OpenGLFeatures GetFeatures(void) const;
     bool  IsRecommendedRenderer(void);
-    void  SetViewPort(const QRect &Rect, bool ViewportOnly = false) override;
+    void  SetViewPort(QRect Rect, bool ViewportOnly = false) override;
     QRect GetViewPort(void) { return m_viewport; }
     void  PushTransformation(const UIEffects &Fx, QPointF &Center);
     void  PopTransformation(void);
@@ -131,7 +131,7 @@ class MUI_PUBLIC MythRenderOpenGL : public QOpenGLContext, public QOpenGLFunctio
     QOpenGLBuffer* CreateVBO(int Size, bool Release = true);
 
     MythGLTexture* CreateTextureFromQImage(QImage *Image);
-    QSize GetTextureSize(const QSize &Size, bool Normalised);
+    QSize GetTextureSize(QSize Size, bool Normalised);
     static int GetTextureDataSize(MythGLTexture *Texture);
     void  SetTextureFilters(MythGLTexture *Texture, QOpenGLTexture::Filter Filter,
                             QOpenGLTexture::WrapMode Wrap = QOpenGLTexture::ClampToEdge);
@@ -153,24 +153,24 @@ class MUI_PUBLIC MythRenderOpenGL : public QOpenGLContext, public QOpenGLFunctio
     void  SetShaderProjection(QOpenGLShaderProgram* Program);
 
     void  DrawBitmap(MythGLTexture *Texture, QOpenGLFramebufferObject *Target,
-                     const QRect &Source, const QRect &Destination,
+                     QRect Source, QRect Destination,
                      QOpenGLShaderProgram *Program, int Alpha = 255, qreal Scale = 1.0);
     void  DrawBitmap(std::vector<MythGLTexture *> &Textures,
                      QOpenGLFramebufferObject *Target,
-                     const QRect &Source, const QRect &Destination,
+                     QRect Source, QRect Destination,
                      QOpenGLShaderProgram *Program, int Rotation);
     void  DrawRect(QOpenGLFramebufferObject *Target,
-                   const QRect &Area, const QBrush &FillBrush,
+                   QRect Area, const QBrush &FillBrush,
                    const QPen &LinePen, int Alpha);
     void  DrawRoundRect(QOpenGLFramebufferObject *Target,
-                        const QRect &Area, int CornerRadius,
+                        QRect Area, int CornerRadius,
                         const QBrush &FillBrush, const QPen &LinePen, int Alpha);
-    void  ClearRect(QOpenGLFramebufferObject *Target, const QRect &Area, int Color);
+    void  ClearRect(QOpenGLFramebufferObject *Target, QRect Area, int Color);
 
     bool  GetGPUMemory(int &Available, int &Total);
 
   public slots:
-    void  messageLogged  (const QOpenGLDebugMessage &Message);
+    void  MessageLogged  (const QOpenGLDebugMessage &Message);
     void  logDebugMarker (const QString &Message);
     void  contextToBeDestroyed(void);
 
@@ -181,11 +181,11 @@ class MUI_PUBLIC MythRenderOpenGL : public QOpenGLContext, public QOpenGLFunctio
     void  Init2DState(void);
     void  SetMatrixView(void);
     void  DeleteFramebuffers(void);
-    static bool UpdateTextureVertices(MythGLTexture *Texture, const QRect &Source,
-                                      const QRect &Destination, int Rotation, qreal Scale = 1.0);
-    GLfloat* GetCachedVertices(GLuint Type, const QRect &Area);
+    static bool UpdateTextureVertices(MythGLTexture *Texture, QRect Source,
+                                      QRect Destination, int Rotation, qreal Scale = 1.0);
+    GLfloat* GetCachedVertices(GLuint Type, QRect Area);
     void  ExpireVertices(int Max = 0);
-    void  GetCachedVBO(GLuint Type, const QRect &Area);
+    void  GetCachedVBO(GLuint Type, QRect Area);
     void  ExpireVBOS(int Max = 0);
     bool  CreateDefaultShaders(void);
     void  DeleteDefaultShaders(void);
@@ -225,7 +225,6 @@ class MUI_PUBLIC MythRenderOpenGL : public QOpenGLContext, public QOpenGLFunctio
     int        m_extraFeaturesUsed { kGLFeatNone };
     int        m_maxTextureSize { 0 };
     int        m_maxTextureUnits { 0 };
-    int        m_colorDepth { 0 };
 
     // State
     QRect      m_viewport;

@@ -61,7 +61,7 @@
  * Demuxer code start
  */
 
-static bool eol(char p) {
+static bool isEol(char p) {
   return (p=='\r' || p=='\n' || p=='\0');
 }
 
@@ -204,7 +204,7 @@ static char *sub_readtext(char *source, std::string& dest) {
   int len=0;
   char *p=source;
 
-  while ( !eol(*p) && *p!= '|' ) {
+  while ( !isEol(*p) && *p!= '|' ) {
     p++,len++;
   }
 
@@ -225,8 +225,8 @@ static subtitle_t *sub_read_line_microdvd(demux_sputext_t *demuxstr, subtitle_t 
   current->end=-1;
   do {
     if (!read_line_from_input (demuxstr, line)) return nullptr;
-  } while ((sscanf (line.c_str(), "{%ld}{}%" LINE_LEN_QUOT "[^\r\n]", &(current->start), line2.data()) !=2) &&
-           (sscanf (line.c_str(), "{%ld}{%ld}%" LINE_LEN_QUOT "[^\r\n]", &(current->start), &(current->end),line2.data()) !=3)
+  } while ((sscanf (line.c_str(), "{%" SCNd64 "}{}%" LINE_LEN_QUOT "[^\r\n]", &(current->start), line2.data()) !=2) &&
+           (sscanf (line.c_str(), "{%" SCNd64 "}{%" SCNd64 "}%" LINE_LEN_QUOT "[^\r\n]", &(current->start), &(current->end),line2.data()) !=3)
           );
 
   char *next=line2.data();
@@ -516,7 +516,7 @@ static subtitle_t *sub_read_line_pjs (demux_sputext_t *demuxstr, subtitle_t *cur
       line.erase(0, mark);
   if (line.empty())
     return nullptr;
-  if (sscanf (line.data(), "%ld,%ld,", &(current->start),
+  if (sscanf (line.data(), "%" SCNd64 ",%" SCNd64 ",", &(current->start),
               &(current->end)) <2)
     return (subtitle_t *)ERR;
   /* the files I have are in tenths of second */
@@ -558,14 +558,14 @@ static subtitle_t *sub_read_line_mpsub (demux_sputext_t *demuxstr, subtitle_t *c
     if (mark != std::string::npos)
         line.erase(0, mark);
 
-    if (eol(line[0]) && !current->text.empty())
+    if (isEol(line[0]) && !current->text.empty())
       return current;
 
-    if (eol(line[0]))
+    if (isEol(line[0]))
       return nullptr;
 
     char *q = nullptr;
-    for (q=line.data(); !eol(*q); q++);
+    for (q=line.data(); !isEol(*q); q++);
     *q='\0';
     line.resize(strlen(line.c_str()));
     if (!line.empty()) {
@@ -588,7 +588,7 @@ static subtitle_t *sub_read_line_aqt (demux_sputext_t *demuxstr, subtitle_t *cur
     /* try to locate next subtitle_t */
     if (!read_line_from_input(demuxstr, line))
       return nullptr;
-    if (!(sscanf (line.c_str(), "-->> %ld", &(current->start)) <1))
+    if (!(sscanf (line.c_str(), "-->> %" SCNd64, &(current->start)) <1))
       break;
   }
 
@@ -746,7 +746,7 @@ static subtitle_t *sub_read_line_jacobsub(demux_sputext_t *demuxstr, subtitle_t 
             line2 = line1;
             p = line2.data();
         }
-        for (q = line1.data(); (!eol(*p)); ++p) {
+        for (q = line1.data(); (!isEol(*p)); ++p) {
             switch (*p) {
             case '{':
                 comment++;
@@ -801,7 +801,7 @@ static subtitle_t *sub_read_line_jacobsub(demux_sputext_t *demuxstr, subtitle_t 
                 if ((*(p + 1) == '\\') ||
                     (*(p + 1) == '~') || (*(p + 1) == '{')) {
                     ++p;
-                } else if (eol(*(p + 1))) {
+                } else if (isEol(*(p + 1))) {
                     std::string tmpstr {};
                     if (!read_line_from_input(demuxstr, tmpstr))
                         return nullptr;
@@ -888,7 +888,7 @@ static subtitle_t *sub_read_line_mpl2(demux_sputext_t *demuxstr, subtitle_t *cur
   do {
      if (!read_line_from_input (demuxstr, line)) return nullptr;
   } while ((sscanf (line.data(),
-                      "[%ld][%ld]%" LINE_LEN_QUOT "[^\r\n]",
+                      "[%" SCNd64 "][%" SCNd64 "]%" LINE_LEN_QUOT "[^\r\n]",
                       &(current->start), &(current->end), line2.data()) < 3));
   current->start *= 10;
   current->end *= 10;

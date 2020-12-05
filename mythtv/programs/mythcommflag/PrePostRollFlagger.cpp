@@ -89,10 +89,10 @@ bool PrePostRollFlagger::go()
     if (m_showProgress)
     {
         if (m_myTotalFrames)
-            cerr << "  0%/      ";
+            std::cerr << "  0%/      ";
         else
-            cerr << "     0/      ";
-        cerr.flush();
+            std::cerr << "     0/      ";
+        std::cerr.flush();
     }
 
     float aspect = m_player->GetVideoAspect();
@@ -199,11 +199,11 @@ bool PrePostRollFlagger::go()
         //float flagFPS = (elapsed > 0.0F) ? (framesProcessed / elapsed) : 0.0F;
 
         if (m_myTotalFrames)
-            cerr << "\b\b\b\b\b\b      \b\b\b\b\b\b";
+            std::cerr << "\b\b\b\b\b\b      \b\b\b\b\b\b";
         else
-            cerr << "\b\b\b\b\b\b\b\b\b\b\b\b\b             "
-                    "\b\b\b\b\b\b\b\b\b\b\b\b\b";
-        cerr.flush();
+            std::cerr << "\b\b\b\b\b\b\b\b\b\b\b\b\b             "
+                         "\b\b\b\b\b\b\b\b\b\b\b\b\b";
+        std::cerr.flush();
     }
 
     return true;
@@ -227,9 +227,9 @@ long long PrePostRollFlagger::findBreakInrange(long long startFrame,
     m_player->DiscardVideoFrame(m_player->GetRawVideoFrame(0));
 
     long long tmpStartFrame = startFrame;
-    VideoFrame* f = m_player->GetRawVideoFrame(tmpStartFrame);
+    MythVideoFrame* f = m_player->GetRawVideoFrame(tmpStartFrame);
     float aspect = m_player->GetVideoAspect();
-    long long currentFrameNumber = f->frameNumber;
+    long long currentFrameNumber = f->m_frameNumber;
     LOG(VB_COMMFLAG, LOG_INFO, QString("Starting with frame %1")
             .arg(currentFrameNumber));
     m_player->DiscardVideoFrame(f);
@@ -242,8 +242,8 @@ long long PrePostRollFlagger::findBreakInrange(long long startFrame,
         if (m_stillRecording)
             gettimeofday(&startTime, nullptr);
 
-        VideoFrame* currentFrame = m_player->GetRawVideoFrame();
-        currentFrameNumber = currentFrame->frameNumber;
+        MythVideoFrame* currentFrame = m_player->GetRawVideoFrame();
+        currentFrameNumber = currentFrame->m_frameNumber;
 
         if(currentFrameNumber % 1000 == 0)
         {
@@ -257,7 +257,7 @@ long long PrePostRollFlagger::findBreakInrange(long long startFrame,
             break;
         }
 
-        float newAspect = currentFrame->aspect;
+        float newAspect = currentFrame->m_aspect;
         if (newAspect != aspect)
         {
             SetVideoParams(aspect);
@@ -309,16 +309,16 @@ long long PrePostRollFlagger::findBreakInrange(long long startFrame,
                     QString tmp = QString("\b\b\b\b\b\b\b\b\b\b\b%1%/%2fps")
                         .arg(percentage, 3).arg((int)flagFPS, 3);
                     QByteArray ba = tmp.toLatin1();
-                    cerr << ba.constData() << flush;
+                    std::cerr << ba.constData() << std::flush;
                 }
                 else
                 {
                     QString tmp = QString("\b\b\b\b\b\b\b\b\b\b\b\b\b%1/%2fps")
                         .arg(currentFrameNumber, 6).arg((int)flagFPS, 3);
                     QByteArray ba = tmp.toLatin1();
-                    cerr << ba.constData() << flush;
+                    std::cerr << ba.constData() << std::flush;
                 }
-                cerr.flush();
+                std::cerr.flush();
             }
 
             if (stopFrame)

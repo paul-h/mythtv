@@ -2,7 +2,6 @@
 // Copyright (c) 2003-2004, Daniel Thor Kristjansson
 
 #include <algorithm> // for find & max
-using namespace std;
 
 // POSIX headers
 #include <sys/time.h> // for gettimeofday
@@ -200,7 +199,7 @@ void MPEGStreamData::DeletePartialPSIP(uint pid)
  *  \note This method makes the assumption that AddTSPacket
  *        correctly handles duplicate packets.
  *
- *  \param tspacket Pointer the the TS packet data.
+ *  \param tspacket Pointer to the TS packet data.
  *  \param moreTablePackets returns true if we need more packets
  */
 PSIPTable* MPEGStreamData::AssemblePSIP(const TSPacket* tspacket,
@@ -210,7 +209,9 @@ PSIPTable* MPEGStreamData::AssemblePSIP(const TSPacket* tspacket,
     moreTablePackets = true;
 
     PSIPTable* partial = GetPartialPSIP(tspacket->PID());
-    if (partial && partial->AddTSPacket(tspacket, broken) && !broken)
+
+    // Second and subsequent transport stream packets of PSIP packet
+    if (partial && partial->AddTSPacket(tspacket, m_cardId, broken) && !broken)
     {
         // check if it's safe to read pespacket's Length()
         if ((partial->PSIOffset() + 1 + 3) > partial->TSSizeInBuffer())
@@ -226,11 +227,12 @@ PSIPTable* MPEGStreamData::AssemblePSIP(const TSPacket* tspacket,
 
         // Discard broken packets
         bool buggy = m_haveCrcBug &&
-        ((TableID::PMT == partial->StreamID()) ||
-         (TableID::PAT == partial->StreamID()));
+            ((TableID::PMT == partial->StreamID()) ||
+             (TableID::PAT == partial->StreamID()));
         if (!buggy && !partial->IsGood())
         {
-            LOG(VB_SIPARSER, LOG_ERR, LOC + "Discarding broken PSIP packet");
+            LOG(VB_RECORD, LOG_ERR, LOC + QString("Discarding broken PSIP packet on PID 0x%1")
+                .arg(tspacket->PID(),2,16,QChar('0')));
             DeletePartialPSIP(tspacket->PID());
             return nullptr;
         }
@@ -272,9 +274,9 @@ PSIPTable* MPEGStreamData::AssemblePSIP(const TSPacket* tspacket,
         if (packetStart > partial->TSSizeInBuffer())
         {
             LOG(VB_RECORD, LOG_ERR, LOC +
+                QString("TSPacket pid(0x%3) ").arg(tspacket->PID(),2,16,QChar('0')) +
                 QString("Discarding broken PSIP packet. ") +
-                QString("Packet with %1 bytes doesn't fit "
-                        "into a buffer of %2 bytes.")
+                QString("Packet with %1 bytes doesn't fit into a buffer of %2 bytes.")
                     .arg(packetStart).arg(partial->TSSizeInBuffer()));
             delete psip;
             psip = nullptr;
@@ -287,12 +289,15 @@ PSIPTable* MPEGStreamData::AssemblePSIP(const TSPacket* tspacket,
     if (partial)
     {
         if (broken)
+        {
             DeletePartialPSIP(tspacket->PID());
+        }
 
         moreTablePackets = false;
         return nullptr; // partial packet is not yet complete.
     }
 
+    // First transport stream packet of PSIP packet after here
     if (!tspacket->PayloadStart())
     {
         // We didn't see this PSIP packet's start, so this must be the
@@ -304,32 +309,31 @@ PSIPTable* MPEGStreamData::AssemblePSIP(const TSPacket* tspacket,
     // table_id (8 bits) and section_length(12), syntax(1), priv(1), res(2)
     // pointer_field (+8 bits), since payload start is true if we are here.
     const unsigned int extra_offset = 4;
-
     const unsigned int offset = tspacket->AFCOffset() + tspacket->StartOfFieldPointer();
-    if (offset + extra_offset > TSPacket::kSize)
+    const unsigned char* pesdata = tspacket->data() + offset;
+
+    // Get the table length if it is in this packet
+    int pes_length = 0;
+    if (offset + 3  < TSPacket::kSize)
     {
-        LOG(VB_GENERAL, LOG_ERR, LOC + QString("Error: "
-                "AFCOffset(%1)+StartOfFieldPointer(%2)>184, "
-                "pes length & current cannot be queried")
-                .arg(tspacket->AFCOffset()).arg(tspacket->StartOfFieldPointer()));
-        return nullptr;
+        pes_length = (pesdata[2] & 0x0f) << 8 | pesdata[3];
     }
 
-    const unsigned char* pesdata = tspacket->data() + offset;
-    const unsigned int pes_length = (pesdata[2] & 0x0f) << 8 | pesdata[3];
-    if ((pes_length + offset + extra_offset) > TSPacket::kSize)
+    // If the table is not completely in this packet we need another packet.
+    if (pes_length == 0 || (pes_length + offset + extra_offset) > TSPacket::kSize)
     {
         SavePartialPSIP(tspacket->PID(), new PSIPTable(*tspacket));
         moreTablePackets = false;
         return nullptr;
     }
 
-    auto *psip = new PSIPTable(*tspacket); // must be complete packet
+    // Complete table in one packet after here
+    auto *psip = new PSIPTable(*tspacket);
 
     // There might be another section after this one in the
     // current packet. We need room before the end of the
     // packet, and it must not be packet stuffing.
-    if ((offset + psip->SectionLength() < TSPacket::kSize) &&
+    if ((offset + psip->SectionLength() + 1 < TSPacket::kSize) &&
         (pesdata[psip->SectionLength() + 1] != 0xff))
     {
         // This isn't stuffing, so we need to put this
@@ -377,8 +381,8 @@ bool MPEGStreamData::CreatePATSingleProgram(
 
     AddListeningPID(m_pidPmtSingleProgram);
 
-    vector<uint> pnums;
-    vector<uint> pids;
+    std::vector<uint> pnums;
+    std::vector<uint> pids;
 
     pnums.push_back(1);
     pids.push_back(m_pidPmtSingleProgram);
@@ -415,7 +419,7 @@ static desc_list_t extract_atsc_desc(const tvct_vec_t &tvct,
 {
     desc_list_t desc;
 
-    vector<const VirtualChannelTable*> vct;
+    std::vector<const VirtualChannelTable*> vct;
 
     for (const auto *i : tvct)
         vct.push_back(i);
@@ -496,16 +500,16 @@ bool MPEGStreamData::CreatePMTSingleProgram(const ProgramMapTable &pmt)
         }
     }
 
-    vector<uint> pids;
-    vector<uint> types;
-    vector<desc_list_t> pdesc;
+    std::vector<uint> pids;
+    std::vector<uint> types;
+    std::vector<desc_list_t> pdesc;
 
     uint video_cnt = 0;
     uint audio_cnt = 0;
 
-    vector<uint> videoPIDs;
-    vector<uint> audioPIDs;
-    vector<uint> dataPIDs;
+    std::vector<uint> videoPIDs;
+    std::vector<uint> audioPIDs;
+    std::vector<uint> dataPIDs;
 
     for (uint i = 0; i < pmt.StreamCount(); i++)
     {
@@ -1057,7 +1061,7 @@ bool MPEGStreamData::ProcessTSPacket(const TSPacket& tspacket)
         IsListeningPID(tspacket.PID()) &&
         !IsConditionalAccessPID(tspacket.PID()))
     {
-        HandleTSTables(&tspacket);
+        HandleTSTables(&tspacket);          // Table handling starts here....
     }
 
     return true;
@@ -1123,13 +1127,13 @@ uint MPEGStreamData::GetPIDs(pid_map_t &pids) const
         pids[m_pidVideoSingleProgram] = kPIDPriorityHigh;
 
     for (auto it = m_pidsListening.cbegin(); it != m_pidsListening.cend(); ++it)
-        pids[it.key()] = max(pids[it.key()], *it);
+        pids[it.key()] = std::max(pids[it.key()], *it);
 
     for (auto it = m_pidsAudio.cbegin(); it != m_pidsAudio.cend(); ++it)
-        pids[it.key()] = max(pids[it.key()], *it);
+        pids[it.key()] = std::max(pids[it.key()], *it);
 
     for (auto it = m_pidsWriting.cbegin(); it != m_pidsWriting.cend(); ++it)
-        pids[it.key()] = max(pids[it.key()], *it);
+        pids[it.key()] = std::max(pids[it.key()], *it);
 
     return pids.size() - sz;
 }
@@ -1426,7 +1430,7 @@ pmt_const_ptr_t MPEGStreamData::GetCachedPMT(
 pmt_vec_t MPEGStreamData::GetCachedPMTs(void) const
 {
     QMutexLocker locker(&m_cacheLock);
-    vector<const ProgramMapTable*> pmts;
+    std::vector<const ProgramMapTable*> pmts;
 
     for (auto *pmt : qAsConst(m_cachedPmts))
     {
@@ -1920,7 +1924,7 @@ void MPEGStreamData::ProcessEncryptedPacket(const TSPacket& tspacket)
 
             if (enc_cnt[kEncEncrypted])
                 status = kEncEncrypted;
-            else if (enc_cnt[kEncDecrypted] >= min((size_t) 2, pids.size()))
+            else if (enc_cnt[kEncDecrypted] >= std::min((size_t) 2, pids.size()))
                 status = kEncDecrypted;
         }
 

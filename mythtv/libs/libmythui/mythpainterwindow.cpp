@@ -1,3 +1,7 @@
+// Qt
+#include <QWindow>
+#include <QGuiApplication>
+
 // MythTV
 #include "mythcorecontext.h"
 #include "mythmainwindow.h"
@@ -15,6 +19,11 @@
 #include "vulkan/mythpaintervulkan.h"
 #endif
 
+#ifdef USING_WAYLANDEXTRAS
+#include "platforms/mythwaylandextras.h"
+#endif
+
+using namespace std::chrono_literals;
 #define MYTH_PAINTER_QT QString("Qt")
 
 using TryPainter = bool(*)(MythMainWindow*, MythPainterWindow*&, MythPainter*&, bool&);
@@ -132,6 +141,21 @@ void MythPainterWindow::DestroyPainters(MythPainterWindow *&PaintWin, MythPainte
 MythPainterWindow::MythPainterWindow(MythMainWindow *MainWin)
   : QWidget(MainWin)
 {
+#ifdef USING_WAYLANDEXTRAS
+    if (QGuiApplication::platformName().toLower().contains("wayland"))
+        m_waylandDev = new MythWaylandDevice(MainWin);
+#endif
+}
+
+// NOLINTNEXTLINE(modernize-use-equals-default)
+MythPainterWindow::~MythPainterWindow()
+{
+#ifdef USING_WAYLAND_EXPOSE_HACK
+    delete m_exposureCheckTimer;
+#endif
+#ifdef USING_WAYLANDEXTRAS
+    delete m_waylandDev;
+#endif
 }
 
 MythRender* MythPainterWindow::GetRenderDevice()
@@ -143,3 +167,42 @@ bool MythPainterWindow::RenderIsShared()
 {
     return m_render && m_render->IsShared();
 }
+
+void MythPainterWindow::resizeEvent(QResizeEvent* /*ResizeEvent*/)
+{
+#ifdef USING_WAYLANDEXTRAS
+    if (m_waylandDev)
+        m_waylandDev->SetOpaqueRegion(rect());
+#endif
+
+#ifdef USING_WAYLAND_EXPOSE_HACK
+    if (!m_exposureCheckTimer && (QGuiApplication::platformName().toLower().contains("wayland")))
+    {
+        m_exposureCheckTimer = new QTimer();
+        connect(m_exposureCheckTimer, &QTimer::timeout, this, &MythPainterWindow::CheckWindowIsExposed);
+        m_exposureCheckTimer->start(100ms);
+    }
+}
+
+void MythPainterWindow::CheckWindowIsExposed()
+{
+    auto handle = windowHandle();
+    if (handle && handle->isVisible())
+    {
+        if (handle->isExposed())
+        {
+            // Not sure whether this might re-occur and we should continue checking...
+            LOG(VB_GENERAL, LOG_INFO, "Stopping exposure check timer");
+            m_exposureCheckTimer->stop();
+        }
+        else
+        {
+            LOG(VB_GENERAL, LOG_INFO, "Trying to force window exposure");
+            setVisible(false);
+            setVisible(true);
+        }
+    }
+}
+#else
+}
+#endif

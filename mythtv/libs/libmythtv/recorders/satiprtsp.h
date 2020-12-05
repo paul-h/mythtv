@@ -24,7 +24,9 @@ class SatIPRTSP;
 class SatIPStreamHandler;
 using Headers = QMap<QString, QString>;
 
-class SatIPRTSPReadHelper : QObject
+// --- SatIPRTSPReadHelper ---------------------------------------------------
+
+class SatIPRTSPReadHelper : public QObject
 {
     friend class SatIPRTSP;
     Q_OBJECT
@@ -43,7 +45,9 @@ class SatIPRTSPReadHelper : QObject
     SatIPRTSP *m_parent   {nullptr};
 };
 
-class SatIPRTCPReadHelper : QObject
+// --- SatIPRTCPReadHelper ---------------------------------------------------
+
+class SatIPRTCPReadHelper : public QObject
 {
     friend class SatIPRTSP;
     Q_OBJECT
@@ -62,12 +66,14 @@ class SatIPRTCPReadHelper : QObject
     SatIPRTSP *m_parent   {nullptr};
 };
 
-class SatIPRTSPWriteHelper : QObject
+// --- SatIPRTSPWriteHelper --------------------------------------------------
+
+class SatIPRTSPWriteHelper : public QObject
 {
     Q_OBJECT
 
   public:
-    SatIPRTSPWriteHelper(SatIPRTSP* /*parent*/, SatIPStreamHandler* /*handler*/);
+    SatIPRTSPWriteHelper(SatIPRTSP* parent, SatIPStreamHandler* handler);
 
   protected:
     void timerEvent(QTimerEvent* /*event*/) override; // QObject
@@ -79,11 +85,11 @@ class SatIPRTSPWriteHelper : QObject
     uint                m_lastSequenceNumber          {0};
     uint                m_lastTimeStamp               {0};
     uint                m_previousLastSequenceNumber  {0};
-    int                 m_lost                        {0};
-    int                 m_lostInterval                {0};
 };
 
-class SatIPRTSP : QObject
+// --- SatIPRTSP -------------------------------------------------------------
+
+class SatIPRTSP : public QObject
 {
     friend class SatIPRTSPReadHelper;
     friend class SatIPRTCPReadHelper;
@@ -93,7 +99,7 @@ class SatIPRTSP : QObject
     Q_OBJECT
 
   public:
-    explicit SatIPRTSP(SatIPStreamHandler* /*handler*/);
+    explicit SatIPRTSP(SatIPStreamHandler* handler);
     ~SatIPRTSP() override;
 
     bool Setup(const QUrl& url);
@@ -143,7 +149,7 @@ class SatIPRTSP : QObject
 
     SatIPRTSPReadHelper  *m_readhelper        {nullptr};
     SatIPRTSPWriteHelper *m_writehelper       {nullptr};
-    SatIPRTCPReadHelper  *m_rtcpReadhelper   {nullptr};
+    SatIPRTCPReadHelper  *m_rtcpReadhelper    {nullptr};
 };
 
 #endif // SATIPRTSP_H

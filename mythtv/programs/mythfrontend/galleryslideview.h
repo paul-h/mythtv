@@ -51,13 +51,16 @@ private:
 
 private slots:
     void ShowPrevSlide(int inc = 1);
-    void ShowNextSlide(int inc = 1, bool useTransition = true);
+    void ShowNextSlide(int inc, bool useTransition = true);
+    void ShowNextSlide();
     void SlideAvailable(int count);
     void TransitionComplete();
     void ShowSlide(int direction = 0);
     void Stop();
-    void Play(bool useTransition = true);
-    static void RepeatOn(int on = 1)   { gCoreContext->SaveSetting("GalleryRepeat", on); }
+    void Play(bool useTransition);
+    void Play() { Play(true); };
+    static void RepeatOn(int on)       { gCoreContext->SaveSetting("GalleryRepeat", on); }
+    static void RepeatOn()             { RepeatOn(1); }
     static void RepeatOff()            { RepeatOn(0); }
     void ShowInfo();
     void HideInfo();

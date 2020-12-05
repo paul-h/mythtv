@@ -7,7 +7,6 @@
 
 // Std
 #include <vector>
-using namespace std;
 
 class MythRenderOpenGL;
 class MythVideoTexture;
@@ -19,25 +18,25 @@ class MythEGLDMABUF
     explicit MythEGLDMABUF(MythRenderOpenGL *Context);
    ~MythEGLDMABUF() = default;
     static bool HaveDMABuf(MythRenderOpenGL *Context);
-    vector<MythVideoTexture*> CreateTextures(AVDRMFrameDescriptor* Desc,
+    std::vector<MythVideoTexture*> CreateTextures(AVDRMFrameDescriptor* Desc,
                                              MythRenderOpenGL *Context,
-                                             VideoFrame *Frame,
+                                             MythVideoFrame *Frame,
                                              bool UseSeparate,
                                              FrameScanType Scan = kScan_Progressive);
     static void               ClearDMATextures(MythRenderOpenGL *Context,
-                                               vector<MythVideoTexture*>& Textures) ;
+                                               std::vector<MythVideoTexture*>& Textures) ;
 
   private:
-    vector<MythVideoTexture*> CreateComposed(AVDRMFrameDescriptor* Desc,
+    std::vector<MythVideoTexture*> CreateComposed(AVDRMFrameDescriptor* Desc,
                                              MythRenderOpenGL *Context,
-                                             VideoFrame *Frame,
+                                             MythVideoFrame *Frame,
                                              FrameScanType Scan) const;
-    vector<MythVideoTexture*> CreateSeparate(AVDRMFrameDescriptor* Desc,
+    std::vector<MythVideoTexture*> CreateSeparate(AVDRMFrameDescriptor* Desc,
                                              MythRenderOpenGL *Context,
-                                             VideoFrame *Frame) const;
-    vector<MythVideoTexture*> CreateSeparate2(AVDRMFrameDescriptor* Desc,
+                                             MythVideoFrame *Frame) const;
+    std::vector<MythVideoTexture*> CreateSeparate2(AVDRMFrameDescriptor* Desc,
                                              MythRenderOpenGL *Context,
-                                             VideoFrame *Frame) const;
+                                             MythVideoFrame *Frame) const;
     bool m_useModifiers { false };
 };
 

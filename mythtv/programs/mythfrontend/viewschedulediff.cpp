@@ -17,8 +17,6 @@
 //mythfrontend
 #include "viewschedulediff.h"
 
-using namespace std;
-
 bool ViewScheduleDiff::Create()
 {
     if (!LoadWindowFromXML("schedule-ui.xml", "schedulediff", this))
@@ -36,10 +34,10 @@ bool ViewScheduleDiff::Create()
         return false;
     }
 
-    connect(m_conflictList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(updateInfo(MythUIButtonListItem*)));
-    connect(m_conflictList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            SLOT(showStatus(MythUIButtonListItem*)));
+    connect(m_conflictList, &MythUIButtonList::itemSelected,
+            this, &ViewScheduleDiff::updateInfo);
+    connect(m_conflictList, &MythUIButtonList::itemClicked,
+            this, &ViewScheduleDiff::showStatus);
 
     if (m_titleText)
         m_titleText->SetText(m_title);

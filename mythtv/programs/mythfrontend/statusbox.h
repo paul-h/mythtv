@@ -11,7 +11,6 @@
 // Std
 #include <utility>
 #include <vector> // For std::vector
-using namespace std;
 
 class ProgramInfo;
 class MythUIText;
@@ -63,7 +62,8 @@ class StatusBox : public MythScreenType
     void doLogEntries();
     void doJobQueueStatus();
     void doMachineStatus();
-    void doAutoExpireList(bool updateExpList = true);
+    void doAutoExpireList(bool updateExpList);
+    void doAutoExpireList() { doAutoExpireList(true); }
     void doDisplayStatus();
     void doDecoderStatus();
 
@@ -85,7 +85,7 @@ class StatusBox : public MythScreenType
 
     recprof2bps_t      m_recordingProfilesBps;
 
-    vector<ProgramInfo *> m_expList;
+    std::vector<ProgramInfo *> m_expList;
 
     MythScreenStack   *m_popupStack      {nullptr};
 

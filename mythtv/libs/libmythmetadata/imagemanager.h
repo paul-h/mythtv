@@ -283,7 +283,7 @@ public:
     bool        UpdateDbImage(ImageItemK &im) const;
     QStringList RemoveFromDB(const ImageList &imList) const;
 
-    bool SetHidden(bool hide, QString ids) const;
+    bool SetHidden(bool hide, const QString &ids) const;
     bool SetCover(int dir, int id) const;
     bool SetOrientation(int id, int orientation) const;
 
@@ -292,7 +292,7 @@ public:
     void ClearDb(int devId, const QString &action);
 
     // ImageReader support
-    int  GetChildren(QString ids, ImageList &files, ImageList &dirs,
+    int  GetChildren(const QString &ids, ImageList &files, ImageList &dirs,
                      const QString &refine = "") const;
     bool GetImageTree(int id, ImageList &files, const QString &refine) const;
     int  GetDirectory(int id, ImagePtr &parent, ImageList &files, ImageList &dirs,
@@ -384,7 +384,7 @@ protected:
     ImageManagerBe()
     {
         // Cleanup & terminate child threads before application exits
-        connect(qApp, SIGNAL(aboutToQuit()), this, SLOT(deleteLater()));
+        connect(qApp, &QCoreApplication::aboutToQuit, this, &QObject::deleteLater);
     }
 
     //! BE Gallery instance
@@ -504,7 +504,7 @@ protected:
           m_dateFormat(std::move(dateFormat))
     {
         // Cleanup & terminate child threads before application exits
-        connect(qApp, SIGNAL(aboutToQuit()), this, SLOT(deleteLater()));
+        connect(qApp, &QCoreApplication::aboutToQuit, this, &QObject::deleteLater);
     }
 
     //! FE Gallery instance

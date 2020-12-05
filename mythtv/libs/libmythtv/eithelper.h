@@ -93,6 +93,7 @@ class EITHelper
 {
   public:
     EITHelper(void);
+    EITHelper &operator=(const EITHelper &) = delete;
     EITHelper(const EITHelper& rhs);
     virtual ~EITHelper(void);
 

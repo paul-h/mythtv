@@ -11,7 +11,6 @@
 #include "programinfo.h"
 #include "format.h"
 #include "decoderbase.h"
-#include "privatedecoder.h"
 #include "audiooutputsettings.h"
 #include "audiooutpututil.h"
 #include "spdifencoder.h"
@@ -259,8 +258,6 @@ class AvFormatDecoder : public DecoderBase
 
     virtual int ReadPacket(AVFormatContext *ctx, AVPacket *pkt, bool &storePacket);
 
-    PrivateDecoder    *m_privateDec                   {nullptr};
-
     bool               m_isDbIgnored;
 
     AVCParser         *m_avcParser                    {nullptr};
@@ -273,7 +270,7 @@ class AvFormatDecoder : public DecoderBase
     URLContext         m_readContext                  {};
 
     int                m_frameDecoded                 {0};
-    VideoFrame        *m_decodedVideoFrame            {nullptr};
+    MythVideoFrame    *m_decodedVideoFrame            {nullptr};
     MythAVFormatBuffer *m_avfRingBuffer               {nullptr};
 
     struct SwsContext *m_swsCtx                       {nullptr};
@@ -363,7 +360,6 @@ class AvFormatDecoder : public DecoderBase
     AudioInfo          m_audioIn;
     AudioInfo          m_audioOut;
 
-    float              m_fps                          {0.0F};
     bool               m_processFrames                {true};
 
     bool               m_streamsChanged               { false };

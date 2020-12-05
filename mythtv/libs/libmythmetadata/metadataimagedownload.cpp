@@ -342,7 +342,7 @@ QString getDownloadFilename(const QString& title, const QString& url)
 
     fileprefix += "/cache/metadata-thumbcache";
 
-    dir = QDir(fileprefix);
+    dir.setPath(fileprefix);;
     if (!dir.exists())
         dir.mkdir(fileprefix);
 

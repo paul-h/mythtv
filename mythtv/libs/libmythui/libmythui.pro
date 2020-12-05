@@ -24,6 +24,10 @@ QMAKE_CLEAN += $(TARGET) $(TARGETA) $(TARGETD) $(TARGET0) $(TARGET1) $(TARGET2)
 # Input
 HEADERS  = mythmainwindowprivate.h mythmainwindow.h mythpainter.h mythimage.h mythrect.h
 HEADERS += mythpainterwindow.h mythpainterwindowqt.h
+HEADERS += mythuithemecache.h
+HEADERS += mythuithemehelper.h
+HEADERS += mythuilocation.h
+HEADERS += mythuiscreenbounds.h
 HEADERS += myththemebase.h
 HEADERS += mythpainter_qt.h mythuihelper.h
 HEADERS += mythpaintergpu.h
@@ -33,7 +37,8 @@ HEADERS += mythuibutton.h myththemedmenu.h mythdialogbox.h
 HEADERS += mythuiclock.h mythuitextedit.h mythprogressdialog.h mythuispinbox.h
 HEADERS += mythuicheckbox.h mythuibuttonlist.h mythuigroup.h
 HEADERS += mythuiprogressbar.h mythuifilebrowser.h
-HEADERS += screensaver.h screensaver-null.h x11colors.h
+HEADERS += mythscreensaver.h
+HEADERS += x11colors.h
 HEADERS += themeinfo.h mythdisplaymode.h
 HEADERS += mythgenerictree.h mythuibuttontree.h mythuiutils.h
 HEADERS += mythvirtualkeyboard.h mythuishape.h mythuiguidegrid.h
@@ -48,6 +53,10 @@ HEADERS += devices/mythinputdevicehandler.h
 
 SOURCES  = mythmainwindowprivate.cpp mythmainwindow.cpp mythpainter.cpp mythimage.cpp mythrect.cpp
 SOURCES += mythpainterwindow.cpp mythpainterwindowqt.cpp
+SOURCES += mythuithemecache.cpp
+SOURCES += mythuithemehelper.cpp
+SOURCES += mythuilocation.cpp
+SOURCES += mythuiscreenbounds.cpp
 SOURCES += myththemebase.cpp
 SOURCES += mythrender.cpp
 SOURCES += mythpainter_qt.cpp xmlparsebase.cpp mythuihelper.cpp
@@ -59,7 +68,8 @@ SOURCES += mythuibutton.cpp myththemedmenu.cpp mythdialogbox.cpp
 SOURCES += mythuiclock.cpp mythuitextedit.cpp mythprogressdialog.cpp
 SOURCES += mythuispinbox.cpp mythuicheckbox.cpp mythuibuttonlist.cpp
 SOURCES += mythuigroup.cpp mythuiprogressbar.cpp
-SOURCES += screensaver.cpp screensaver-null.cpp x11colors.cpp
+SOURCES += mythscreensaver.cpp
+SOURCES += x11colors.cpp
 SOURCES += themeinfo.cpp mythdisplaymode.cpp
 SOURCES += mythgenerictree.cpp mythuibuttontree.cpp mythuiutils.cpp
 SOURCES += mythvirtualkeyboard.cpp mythuishape.cpp mythuiguidegrid.cpp
@@ -81,6 +91,8 @@ inc.path = $${PREFIX}/include/mythtv/libmythui/
 
 inc.files  = mythrect.h mythmainwindow.h mythpainter.h mythimage.h
 inc.files += myththemebase.h themeinfo.h
+inc.files += mythuiscreenbounds.h mythuithemecache.h mythuithemehelper.h
+inc.files += mythuilocation.h
 inc.files += mythpainter_qt.h mythuistatetype.h mythuihelper.h
 inc.files += mythscreenstack.h mythscreentype.h mythuitype.h mythuiimage.h
 inc.files += mythuitext.h mythuibutton.h mythlistbutton.h xmlparsebase.h
@@ -106,20 +118,33 @@ using_x11 {
     DEFINES += USING_X11
     HEADERS += platforms/mythxdisplay.h
     HEADERS += platforms/mythdisplayx11.h
-    HEADERS += screensaver-x11.h
+    HEADERS += platforms/mythscreensaverx11.h
     SOURCES += platforms/mythxdisplay.cpp
     SOURCES += platforms/mythdisplayx11.cpp
-    SOURCES += screensaver-x11.cpp
+    SOURCES += platforms/mythscreensaverx11.cpp
     freebsd:LIBS += -lXext -lXxf86vm
 }
 
 using_drm {
     DEFINES += USING_DRM
     HEADERS += platforms/mythdisplaydrm.h
+    HEADERS += platforms/mythscreensaverdrm.h
     HEADERS += platforms/mythdrmdevice.h
     SOURCES += platforms/mythdisplaydrm.cpp
+    SOURCES += platforms/mythscreensaverdrm.cpp
     SOURCES += platforms/mythdrmdevice.cpp
     QMAKE_CXXFLAGS += $${LIBDRM_CFLAGS}
+}
+
+using_waylandextras {
+    QT += gui-private
+    DEFINES += USING_WAYLANDEXTRAS
+    HEADERS += platforms/mythscreensaverwayland.h
+    HEADERS += platforms/mythwaylandextras.h
+    HEADERS += platforms/waylandprotocols/idle_inhibit_unstable_v1.h
+    SOURCES += platforms/mythscreensaverwayland.cpp
+    SOURCES += platforms/mythwaylandextras.cpp
+    SOURCES += platforms/waylandprotocols/idle_inhibit_unstable_v1.c
 }
 
 # Use MMAL as a proxy for Raspberry Pi support
@@ -134,15 +159,17 @@ using_mmal {
 using_qtdbus {
     QT      += dbus
     DEFINES += USING_DBUS
-    HEADERS += screensaver-dbus.h
-    SOURCES += screensaver-dbus.cpp
+    HEADERS += platforms/mythscreensaverdbus.h
+    SOURCES += platforms/mythscreensaverdbus.cpp
     HEADERS += platforms/mythdisplaymutter.h
     SOURCES += platforms/mythdisplaymutter.cpp
 }
 
 macx {
-    HEADERS += screensaver-osx.h   platforms/mythosxutils.h
-    SOURCES += screensaver-osx.cpp platforms/mythosxutils.cpp
+    HEADERS += platforms/mythscreensaverosx.h
+    HEADERS += platforms/mythosxutils.h
+    SOURCES += platforms/mythscreensaverosx.cpp
+    SOURCES += platforms/mythosxutils.cpp
     HEADERS += platforms/mythdisplayosx.h
     SOURCES += platforms/mythdisplayosx.cpp
     QMAKE_OBJECTIVE_CFLAGS += $$QMAKE_CXXFLAGS
@@ -160,8 +187,10 @@ macx {
 }
 
 android {
-    HEADERS += screensaver-android.h   platforms/mythdisplayandroid.h
-    SOURCES += screensaver-android.cpp platforms/mythdisplayandroid.cpp
+    HEADERS += platforms/mythscreensaverandroid.h
+    HEADERS += platforms/mythdisplayandroid.h
+    SOURCES += platforms/mythscreensaverandroid.cpp
+    SOURCES += platforms/mythdisplayandroid.cpp
 }
 
 using_joystick_menu {

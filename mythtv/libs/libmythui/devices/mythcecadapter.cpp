@@ -7,7 +7,6 @@
 #include "mythcorecontext.h"
 #include "mythlogging.h"
 #include "mythevent.h"
-#include "mythuihelper.h"
 #include "mythmainwindow.h"
 #include "mythdisplay.h"
 #include "mythcecadapter.h"
@@ -93,7 +92,7 @@ MythCECAdapter::~MythCECAdapter()
     Close();
 }
 
-void MythCECAdapter::Open(void)
+void MythCECAdapter::Open(MythMainWindow *Window)
 {
     Close();
 
@@ -145,7 +144,7 @@ void MythCECAdapter::Open(void)
     // NOTE We could listen for display changes here but the adapter will be recreated
     // following a screen change and realistically any setup with more than 1 display
     // and/or CEC adapter is going to be very hit and miss.
-    MythDisplay* display = MythDisplay::AcquireRelease();
+    MythDisplay* display = Window->GetDisplay();
     if (display->GetEDID().Valid())
     {
         uint16_t address = display->GetEDID().PhysicalAddress();
@@ -156,7 +155,6 @@ void MythCECAdapter::Open(void)
             configuration.iPhysicalAddress = address;
         }
     }
-    MythDisplay::AcquireRelease(false);
 
     // Set up the callbacks
 #if CEC_LIB_VERSION_MAJOR <= 3
@@ -312,7 +310,7 @@ int MythCECAdapter::HandleCommand(const cec_command &Command)
     return 1;
 }
 
-int MythCECAdapter::HandleKeyPress(const cec_keypress &Key) const
+int MythCECAdapter::HandleKeyPress(const cec_keypress Key) const
 {
     // Ignore key down events and wait for the key 'up'
     if (Key.duration < 1 || m_ignoreKeys)
@@ -641,13 +639,13 @@ int MythCECAdapter::HandleKeyPress(const cec_keypress &Key) const
     if (0 == action)
         return 1;
 
-    MythUIHelper::ResetScreensaver();
+    MythMainWindow::ResetScreensaver();
     auto* ke = new QKeyEvent(QEvent::KeyPress, action, modifier);
     QCoreApplication::postEvent(GetMythMainWindow(), ke);
     return 1;
 }
 
-int MythCECAdapter::HandleAlert(const libcec_alert Alert, const libcec_parameter &Data)
+int MythCECAdapter::HandleAlert(const libcec_alert Alert, const libcec_parameter Data)
 {
     // These aren't handled yet
     // Note that we *DON'T* want to just show these
@@ -709,7 +707,7 @@ void MythCECAdapter::HandleSource(const cec_logical_address Address, const uint8
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Source %1 %2")
         .arg(Address).arg(Activated ? "Activated" : "Deactivated"));
     if (Activated)
-        MythUIHelper::ResetScreensaver();
+        MythMainWindow::ResetScreensaver();
 }
 
 void MythCECAdapter::HandleActions(MythCECActions Actions)

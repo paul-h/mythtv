@@ -14,6 +14,7 @@
 
 // Qt headers
 #include <QMap>
+#include <QObject>
 #include <QString>
 #include <QCoreApplication>
 
@@ -65,9 +66,9 @@ class ChannelImporterUniquenessStats
     uint m_maxAtscMajCnt {0};
 };
 
-class MTV_PUBLIC ChannelImporter
+class MTV_PUBLIC ChannelImporter : public QObject
 {
-    Q_DECLARE_TR_FUNCTIONS(ChannelImporter)
+    Q_OBJECT
 
   public:
     ChannelImporter(bool gui, bool interactive,
@@ -263,6 +264,7 @@ class MTV_PUBLIC ChannelImporter
     bool m_fullChannelSearch            {false};    // Full search for old channels across transports in database
     bool m_removeDuplicates             {false};    // Remove duplicate transports and channels in scan
     bool m_success                      {false};    // To pass information IPTV channel scan succeeded
+    int  m_functorRetval                {0};
 
     ServiceRequirements m_serviceRequirements;  // Services desired post scan
     QEventLoop          m_eventLoop;

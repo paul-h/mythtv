@@ -13,7 +13,7 @@ vector<MythVideoTextureVulkan*> MythVideoTextureVulkan::CreateTextures(MythVulka
     if (!(Vulkan && Vulkan->IsValidVulkan() && !Size.isEmpty()))
         return vector<MythVideoTextureVulkan*>{};
 
-    if (format_is_hw(Type))
+    if (MythVideoFrame::HardwareFormat(Type))
         return vector<MythVideoTextureVulkan*>{};
 
     return CreateSoftwareTextures(Vulkan, CommandBuffer, Type, Format, Size);
@@ -25,7 +25,7 @@ MythVideoTextureVulkan::MythVideoTextureVulkan(VideoFrameType Type, VideoFrameTy
     m_frameFormat = Format;
     m_valid = false;
     m_plane = 0;
-    m_planeCount = planes(Format);
+    m_planeCount = MythVideoFrame::GetNumPlanes(Format);
 }
 
 void MythVideoTextureVulkan::DeleteTextures(MythVulkanObject *Vulkan,
@@ -73,7 +73,7 @@ vector<MythVideoTextureVulkan*> MythVideoTextureVulkan::CreateSoftwareTextures(M
 
     vector<MythVideoTextureVulkan*> result;
 
-    uint count = planes(Format);
+    uint count = MythVideoFrame::GetNumPlanes(Format);
     if (count < 1)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Invalid software frame format");

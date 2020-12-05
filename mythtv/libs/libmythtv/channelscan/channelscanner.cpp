@@ -28,7 +28,6 @@
  */
 
 #include <algorithm>
-using namespace std;
 
 #include "analogsignalmonitor.h"
 #include "iptvchannelfetcher.h"
@@ -429,6 +428,7 @@ void ChannelScanner::PreScanCommon(
 
     QString card_type = CardUtil::GetRawInputType(cardid);
 
+#ifdef USING_DVB
     if ("DVB" == card_type)
     {
         QString sub_type = CardUtil::ProbeDVBType(device).toUpper();
@@ -446,17 +446,17 @@ void ChannelScanner::PreScanCommon(
         }
 
         // ensure a minimal signal timeout of 1 second
-        signal_timeout = max(signal_timeout, 1000U);
+        signal_timeout = std::max(signal_timeout, 1000U);
 
         // Make sure that channel_timeout is at least 7 seconds to catch
         // at least one SDT section. kDVBTableTimeout in ChannelScanSM
         // ensures that we catch the NIT then.
-        channel_timeout = max(channel_timeout, static_cast<int>(need_nit) * 7 * 1000U);
-    }
+        channel_timeout = std::max(channel_timeout, static_cast<int>(need_nit) * 7 * 1000U);
 
-#ifdef USING_DVB
-    if ("DVB" == card_type)
         m_channel = new DVBChannel(device);
+    }
+#else
+    (void)do_ignore_signal_timeout;
 #endif
 
 #ifdef USING_V4L2

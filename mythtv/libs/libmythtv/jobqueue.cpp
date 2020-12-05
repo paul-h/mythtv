@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <pthread.h>
-using namespace std;
 
 #include <QDateTime>
 #include <QFileInfo>
@@ -39,6 +38,10 @@ using namespace std;
 
 #ifndef O_LARGEFILE
 #define O_LARGEFILE 0
+#endif
+
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#define qEnvironmentVariable getenv
 #endif
 
 #define LOC     QString("JobQueue: ")
@@ -1879,7 +1882,7 @@ QString JobQueue::PrettyPrint(off_t bytes)
         unsigned int  m_max;
         int           m_precision;
     };
-    static constexpr array<const PpTab_t,9> kPpTab {{
+    static constexpr std::array<const PpTab_t,9> kPpTab {{
         { "bytes", 9999, 0 },
         { "kB", 999, 0 },
         { "MB", 999, 1 },
@@ -2190,7 +2193,6 @@ void JobQueue::DoMetadataLookupThread(int jobID)
         return;
     }
 
-    QString msg = tr("Metadata Lookup Starting");
     LOG(VB_GENERAL, LOG_INFO,
         LOC + "Metadata Lookup Starting for " + detailstr);
 
@@ -2246,7 +2248,7 @@ void JobQueue::DoMetadataLookupThread(int jobID)
         program_info->SendUpdateEvent();
     }
 
-    msg = tr("Metadata Lookup %1", "Job ID")
+    QString msg = tr("Metadata Lookup %1", "Job ID")
         .arg(StatusText(GetJobStatus(jobID)));
 
     if (!comment.isEmpty())
@@ -2315,7 +2317,6 @@ void JobQueue::DoFlagCommercialsThread(int jobID)
         return;
     }
 
-    QString msg = tr("Commercial Detection Starting");
     LOG(VB_GENERAL, LOG_INFO,
         LOC + "Commercial Detection Starting for " + detailstr);
 
@@ -2397,7 +2398,7 @@ void JobQueue::DoFlagCommercialsThread(int jobID)
         }
     }
 
-    msg = tr("Commercial Detection %1", "Job ID")
+    QString msg = tr("Commercial Detection %1", "Job ID")
         .arg(StatusText(GetJobStatus(jobID)));
 
     if (!comment.isEmpty())
@@ -2476,7 +2477,7 @@ void JobQueue::DoUserJobThread(int jobID)
                       .arg(command);
         LOG(VB_GENERAL, LOG_ERR, LOC + msg);
         LOG(VB_GENERAL, LOG_NOTICE, LOC + QString("Current PATH: '%1'")
-                                            .arg(getenv("PATH")));
+                                            .arg(qEnvironmentVariable("PATH")));
 
         ChangeJobStatus(jobID, JOB_ERRORED,
             tr("ERROR: Unable to find executable, check backend logs."));

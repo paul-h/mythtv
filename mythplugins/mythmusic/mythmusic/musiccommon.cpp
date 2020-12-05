@@ -3,7 +3,6 @@
 
 // C++ includes
 #include <iostream>
-using namespace std;
 
 // Qt includes
 #include <QApplication>
@@ -118,41 +117,41 @@ bool MusicCommon::CreateCommon(void)
     UIUtilW::Assign(this, m_visualizerVideo, "visualizer", &err);
 
     if (m_prevButton)
-        connect(m_prevButton, SIGNAL(Clicked()), this, SLOT(previous()));
+        connect(m_prevButton, &MythUIButton::Clicked, this, &MusicCommon::previous);
 
     if (m_rewButton)
-        connect(m_rewButton, SIGNAL(Clicked()), this, SLOT(seekback()));
+        connect(m_rewButton, &MythUIButton::Clicked, this, &MusicCommon::seekback);
 
     if (m_pauseButton)
     {
         m_pauseButton->SetLockable(true);
-        connect(m_pauseButton, SIGNAL(Clicked()), this, SLOT(pause()));
+        connect(m_pauseButton, &MythUIButton::Clicked, this, &MusicCommon::pause);
     }
 
     if (m_playButton)
     {
         m_playButton->SetLockable(true);
-        connect(m_playButton, SIGNAL(Clicked()), this, SLOT(play()));
+        connect(m_playButton, &MythUIButton::Clicked, this, &MusicCommon::play);
     }
 
     if (m_stopButton)
     {
         m_stopButton->SetLockable(true);
-        connect(m_stopButton, SIGNAL(Clicked()), this, SLOT(stop()));
+        connect(m_stopButton, &MythUIButton::Clicked, this, &MusicCommon::stop);
     }
 
     if (m_ffButton)
-        connect(m_ffButton, SIGNAL(Clicked()), this, SLOT(seekforward()));
+        connect(m_ffButton, &MythUIButton::Clicked, this, &MusicCommon::seekforward);
 
     if (m_nextButton)
-        connect(m_nextButton, SIGNAL(Clicked()), this, SLOT(next()));
+        connect(m_nextButton, &MythUIButton::Clicked, this, &MusicCommon::next);
 
     if (m_currentPlaylist)
     {
-        connect(m_currentPlaylist, SIGNAL(itemClicked(MythUIButtonListItem*)),
-                this, SLOT(playlistItemClicked(MythUIButtonListItem*)));
-        connect(m_currentPlaylist, SIGNAL(itemVisible(MythUIButtonListItem*)),
-                this, SLOT(playlistItemVisible(MythUIButtonListItem*)));
+        connect(m_currentPlaylist, &MythUIButtonList::itemClicked,
+                this, &MusicCommon::playlistItemClicked);
+        connect(m_currentPlaylist, &MythUIButtonList::itemVisible,
+                this, &MusicCommon::playlistItemVisible);
 
         m_currentPlaylist->SetSearchFields("**search**");
     }
@@ -453,7 +452,7 @@ void MusicCommon::switchView(MusicView view)
             if (plview->Create())
             {
                 mainStack->AddScreen(plview);
-                connect(plview, SIGNAL(Exiting()), this, SLOT(viewExited()));
+                connect(plview, &MythScreenType::Exiting, this, &MusicCommon::viewExited);
             }
             else
                 delete plview;
@@ -477,14 +476,14 @@ void MusicCommon::switchView(MusicView view)
             if (pleview->Create())
             {
                 mainStack->AddScreen(pleview);
-                connect(pleview, SIGNAL(Exiting()), this, SLOT(viewExited()));
+                connect(pleview, &MythScreenType::Exiting, this, &MusicCommon::viewExited);
             }
             else
                 delete pleview;
 
             if (oldView)
             {
-                disconnect(this , SIGNAL(Exiting()));
+                disconnect(this, &MythScreenType::Exiting, nullptr, nullptr);
                 Close();
             }
 
@@ -507,14 +506,14 @@ void MusicCommon::switchView(MusicView view)
             if (pleview->Create())
             {
                 mainStack->AddScreen(pleview);
-                connect(pleview, SIGNAL(Exiting()), this, SLOT(viewExited()));
+                connect(pleview, &MythScreenType::Exiting, this, &MusicCommon::viewExited);
             }
             else
                 delete pleview;
 
             if (oldView)
             {
-                disconnect(this , SIGNAL(Exiting()));
+                disconnect(this, &MythScreenType::Exiting, nullptr, nullptr);
                 Close();
             }
 
@@ -528,7 +527,7 @@ void MusicCommon::switchView(MusicView view)
             if (sview->Create())
             {
                 mainStack->AddScreen(sview);
-                connect(sview, SIGNAL(Exiting()), this, SLOT(viewExited()));
+                connect(sview, &MythScreenType::Exiting, this, &MusicCommon::viewExited);
             }
             else
                 delete sview;
@@ -543,7 +542,7 @@ void MusicCommon::switchView(MusicView view)
             if (vview->Create())
             {
                 mainStack->AddScreen(vview);
-                connect(vview, SIGNAL(Exiting()), this, SLOT(viewExited()));
+                connect(vview, &MythScreenType::Exiting, this, &MusicCommon::viewExited);
             }
             else
                 delete vview;
@@ -558,7 +557,7 @@ void MusicCommon::switchView(MusicView view)
             if (lview->Create())
             {
                 mainStack->AddScreen(lview);
-                connect(lview, SIGNAL(Exiting()), this, SLOT(viewExited()));
+                connect(lview, &MythScreenType::Exiting, this, &MusicCommon::viewExited);
             }
             else
                 delete lview;
@@ -2323,9 +2322,9 @@ MythMenu* MusicCommon::createRepeatMenu(void)
 
     auto *menu = new MythMenu(label, this, "repeatmenu");
 
-    menu->AddItem(tr("None"),  QVariant::fromValue((int)MusicPlayer::REPEAT_OFF));
-    menu->AddItem(tr("Track"), QVariant::fromValue((int)MusicPlayer::REPEAT_TRACK));
-    menu->AddItem(tr("All"),   QVariant::fromValue((int)MusicPlayer::REPEAT_ALL));
+    menu->AddItemV(tr("None"),  QVariant::fromValue((int)MusicPlayer::REPEAT_OFF));
+    menu->AddItemV(tr("Track"), QVariant::fromValue((int)MusicPlayer::REPEAT_TRACK));
+    menu->AddItemV(tr("All"),   QVariant::fromValue((int)MusicPlayer::REPEAT_ALL));
 
     menu->SetSelectedByData(static_cast<int>(gPlayer->getRepeatMode()));
 
@@ -2338,11 +2337,11 @@ MythMenu* MusicCommon::createShuffleMenu(void)
 
     auto *menu = new MythMenu(label, this, "shufflemenu");
 
-    menu->AddItem(tr("None"),   QVariant::fromValue((int)MusicPlayer::SHUFFLE_OFF));
-    menu->AddItem(tr("Random"), QVariant::fromValue((int)MusicPlayer::SHUFFLE_RANDOM));
-    menu->AddItem(tr("Smart"),  QVariant::fromValue((int)MusicPlayer::SHUFFLE_INTELLIGENT));
-    menu->AddItem(tr("Album"),  QVariant::fromValue((int)MusicPlayer::SHUFFLE_ALBUM));
-    menu->AddItem(tr("Artist"), QVariant::fromValue((int)MusicPlayer::SHUFFLE_ARTIST));
+    menu->AddItemV(tr("None"),   QVariant::fromValue((int)MusicPlayer::SHUFFLE_OFF));
+    menu->AddItemV(tr("Random"), QVariant::fromValue((int)MusicPlayer::SHUFFLE_RANDOM));
+    menu->AddItemV(tr("Smart"),  QVariant::fromValue((int)MusicPlayer::SHUFFLE_INTELLIGENT));
+    menu->AddItemV(tr("Album"),  QVariant::fromValue((int)MusicPlayer::SHUFFLE_ALBUM));
+    menu->AddItemV(tr("Artist"), QVariant::fromValue((int)MusicPlayer::SHUFFLE_ARTIST));
 
     menu->SetSelectedByData(static_cast<int>(gPlayer->getShuffleMode()));
 
@@ -2379,7 +2378,7 @@ MythMenu* MusicCommon::createVisualizerMenu(void)
     auto *menu = new MythMenu(label, this, "visualizermenu");
 
     for (uint x = 0; x < static_cast<uint>(m_visualModes.count()); x++)
-        menu->AddItem(m_visualModes.at(x), QVariant::fromValue(x));
+        menu->AddItemV(m_visualModes.at(x), QVariant::fromValue(x));
 
     menu->SetSelectedByData(m_currentVisual);
 
@@ -2676,7 +2675,7 @@ bool MythMusicVolumeDialog::Create(void)
     updateDisplay();
 
     m_displayTimer = new QTimer(this);
-    connect(m_displayTimer, SIGNAL(timeout()), this, SLOT(Close()));
+    connect(m_displayTimer, &QTimer::timeout, this, &MythScreenType::Close);
     m_displayTimer->setSingleShot(true);
     m_displayTimer->start(MUSICVOLUMEPOPUPTIME);
 

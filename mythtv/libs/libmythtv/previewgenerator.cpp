@@ -21,7 +21,7 @@
 // MythTV headers
 #include "mythconfig.h"
 #include "io/mythmediabuffer.h"
-#include "mythplayer.h"
+#include "mythpreviewplayer.h"
 #include "previewgenerator.h"
 #include "tv_rec.h"
 #include "mythsocket.h"
@@ -423,7 +423,7 @@ bool PreviewGenerator::event(QEvent *e)
 
     auto *me = dynamic_cast<MythEvent*>(e);
     if (me == nullptr)
-        return false;
+        return QObject::event(e);
     if (me->Message() != "GENERATED_PIXMAP" || me->ExtraDataCount() < 3)
         return QObject::event(e);
 
@@ -433,7 +433,7 @@ bool PreviewGenerator::event(QEvent *e)
     for (; i < (uint) me->ExtraDataCount() && !ours; i++)
         ours |= me->ExtraData(i) == m_token;
     if (!ours)
-        return false;
+        return QObject::event(e);
 
     const QString& pginfokey = me->ExtraData(1);
 
@@ -460,7 +460,7 @@ bool PreviewGenerator::event(QEvent *e)
         m_pixmapOk = false;
         LOG(VB_GENERAL, LOG_ERR, LOC + pginfokey + "Got invalid date");
         m_previewWaitCondition.wakeAll();
-        return false;
+        return QObject::event(e);
     }
 
     size_t     length     = me->ExtraData(4).toULongLong();
@@ -566,8 +566,8 @@ bool PreviewGenerator::SavePreview(const QString &filename,
     const QImage img((unsigned char*) data,
                      width, height, QImage::Format_RGB32);
 
-    float ppw = max(desired_width, 0);
-    float pph = max(desired_height, 0);
+    float ppw = std::max(desired_width, 0);
+    float pph = std::max(desired_height, 0);
     bool desired_size_exactly_specified = true;
     if ((ppw < 1.0F) && (pph < 1.0F))
     {
@@ -588,8 +588,8 @@ bool PreviewGenerator::SavePreview(const QString &filename,
             ppw = (pph * aspect);
     }
 
-    ppw = max(1.0F, ppw);
-    pph = max(1.0F, pph);;
+    ppw = std::max(1.0F, ppw);
+    pph = std::max(1.0F, pph);;
 
     QImage small_img = img.scaled((int) ppw, (int) pph,
         Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
@@ -792,13 +792,6 @@ char *PreviewGenerator::GetScreenGrab(
     int &bufferlen,
     int &video_width, int &video_height, float &video_aspect)
 {
-    (void) pginfo;
-    (void) filename;
-    (void) seektime;
-    (void) time_in_secs;
-    (void) bufferlen;
-    (void) video_width;
-    (void) video_height;
     char *retbuf = nullptr;
     bufferlen = 0;
 
@@ -812,12 +805,11 @@ char *PreviewGenerator::GetScreenGrab(
     if (filename.startsWith("/"))
     {
         QFileInfo info(filename);
-        bool invalid = (!info.exists() || !info.isReadable() ||
-                        (info.isFile() && (info.size() < 8*1024)));
+        bool invalid = (!info.exists() || !info.isReadable() || (info.isFile() && (info.size() < 8*1024)));
         if (invalid)
         {
-            LOG(VB_GENERAL, LOG_ERR, LOC + "Previewer file " +
-                    QString("'%1'").arg(filename) + " is not valid.");
+            LOG(VB_GENERAL, LOG_ERR, LOC + QString("Previewer file '%1' is not valid.")
+                .arg(filename));
             return nullptr;
         }
     }
@@ -832,41 +824,35 @@ char *PreviewGenerator::GetScreenGrab(
     }
 
     auto *ctx = new PlayerContext(kPreviewGeneratorInUseID);
+    auto * player = new MythPreviewPlayer(ctx, static_cast<PlayerFlags>(kAudioMuted | kVideoIsNull | kNoITV));
     ctx->SetRingBuffer(buffer);
     ctx->SetPlayingInfo(&pginfo);
-    ctx->SetPlayer(new MythPlayer((PlayerFlags)(kAudioMuted | kVideoIsNull | kNoITV)));
-    ctx->m_player->SetPlayerInfo(nullptr, nullptr, ctx);
+    ctx->SetPlayer(player);
 
     if (time_in_secs)
     {
-        retbuf = ctx->m_player->GetScreenGrab(seektime, bufferlen,
-                                    video_width, video_height, video_aspect);
+        retbuf = player->GetScreenGrab(static_cast<int>(seektime), bufferlen,
+                                       video_width, video_height, video_aspect);
     }
     else
     {
-        retbuf = ctx->m_player->GetScreenGrabAtFrame(
-            seektime, true, bufferlen,
-            video_width, video_height, video_aspect);
+        retbuf = player->GetScreenGrabAtFrame(static_cast<uint64_t>(seektime), true,
+                                              bufferlen, video_width, video_height, video_aspect);
     }
-
     delete ctx;
 
     if (retbuf)
     {
-        LOG(VB_GENERAL, LOG_INFO, LOC +
-            QString("Grabbed preview '%0' %1x%2@%3%4")
+        LOG(VB_GENERAL, LOG_INFO, LOC + QString("Grabbed preview '%0' %1x%2@%3%4")
                 .arg(filename).arg(video_width).arg(video_height)
                 .arg(seektime).arg((time_in_secs) ? "s" : "f"));
     }
     else
     {
-        LOG(VB_GENERAL, LOG_ERR, LOC +
-            QString("Failed to grab preview '%0' %1x%2@%3%4")
+        LOG(VB_GENERAL, LOG_ERR, LOC + QString("Failed to grab preview '%0' %1x%2@%3%4")
             .arg(filename).arg(video_width).arg(video_height)
             .arg(seektime).arg((time_in_secs) ? "s" : "f"));
     }
 
     return retbuf;
 }
-
-/* vim: set expandtab tabstop=4 shiftwidth=4: */

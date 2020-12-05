@@ -34,7 +34,7 @@ class SatIPStreamHandler : public StreamHandler
     void AddListener(MPEGStreamData *data,
                      bool /*allow_section_reader*/ = false,
                      bool /*needs_drb*/            = false,
-                     QString output_file = QString()) override // StreamHandler
+                     const QString& output_file    = QString()) override // StreamHandler
     {
         StreamHandler::AddListener(data, false, false, output_file);
     } // StreamHandler
@@ -55,21 +55,22 @@ class SatIPStreamHandler : public StreamHandler
     static QMap<QString, uint>                s_handlersRefCnt;
     static QMutex                             s_handlersLock;
 
-  protected:
-    SatIPRTSP   *m_rtsp           {nullptr};
-
   public:
-    int          m_inputId;
+    int          m_inputId        {0};
 
   private:
     DTVTunerType m_tunerType;
     QString      m_device;
+    uint         m_frontend       {UINT_MAX};
     QUrl         m_baseurl;
     QUrl         m_tuningurl;
     QUrl         m_oldtuningurl;
     bool         m_setupinvoked   {false};
     QMutex       m_tunelock       {QMutex::Recursive};
     QStringList  m_oldpids;
+
+  protected:
+    SatIPRTSP   *m_rtsp           {nullptr};
 };
 
 #endif // _SATIPSTREAMHANDLER_H_

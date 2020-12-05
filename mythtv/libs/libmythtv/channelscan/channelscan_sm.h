@@ -60,7 +60,7 @@ class SignalMonitor;
 class DTVSignalMonitor;
 class DVBSignalMonitor;
 
-using pmt_vec_t = vector<const ProgramMapTable*>;
+using pmt_vec_t = std::vector<const ProgramMapTable*>;
 using pmt_map_t = QMap<uint, pmt_vec_t>;
 class ScannedChannelInfo;
 using ChannelListItem = QPair<transport_scan_items_it_t, ScannedChannelInfo*>;
@@ -169,8 +169,8 @@ class ChannelScanSM : public MPEGStreamListener,
 
     bool HasTimedOut(void);
     void HandleActiveScan(void);
-    bool Tune(const transport_scan_items_it_t &transport);
-    void ScanTransport(const transport_scan_items_it_t &transport);
+    bool Tune(transport_scan_items_it_t transport);
+    void ScanTransport(transport_scan_items_it_t transport);
     DTVTunerType GuessDTVTunerType(DTVTunerType type) const;
     static void LogLines(const QString& string);
 

@@ -76,7 +76,7 @@ MythBDBuffer::MythBDBuffer(const QString &Filename)
   : MythOpticalBuffer(kMythBufferBD),
     m_overlayPlanes(2, nullptr)
 {
-    m_tryHDMVNavigation = nullptr != getenv("MYTHTV_HDMV");
+    m_tryHDMVNavigation = qEnvironmentVariableIsSet("MYTHTV_HDMV");
     m_mainThread = QThread::currentThread();
     MythBDBuffer::OpenFile(Filename);
 }
@@ -302,7 +302,6 @@ bool MythBDBuffer::OpenFile(const QString &Filename, uint /*Retry*/)
         Close();
 
     QString keyfile = QString("%1/KEYDB.cfg").arg(GetConfDir());
-    const char *keyfilepath = keyfile.toLatin1().data();
 
     if (filename.startsWith("myth:") && MythCDROM::inspectImage(filename) != MythCDROM::kUnknown)
     {
@@ -322,7 +321,7 @@ bool MythBDBuffer::OpenFile(const QString &Filename, uint /*Retry*/)
     }
     else
     {
-        m_bdnav = bd_open(filename.toLocal8Bit().data(), keyfilepath);
+        m_bdnav = bd_open(filename.toLocal8Bit().data(), qPrintable(keyfile));
     }
 
     if (!m_bdnav)
@@ -382,22 +381,22 @@ bool MythBDBuffer::OpenFile(const QString &Filename, uint /*Retry*/)
     bd_set_player_setting(m_bdnav, BLURAY_PLAYER_SETTING_PARENTAL, 99);
 
     // Set preferred language to FE guide language
-    const char *langpref = gCoreContext->GetSetting("ISO639Language0", "eng").toLatin1().data();
+    std::string langpref = gCoreContext->GetSetting("ISO639Language0", "eng").toLatin1().data();
     QString QScountry    = gCoreContext->GetLocale()->GetCountryCode().toLower();
-    const char *country  = QScountry.toLatin1().data();
-    bd_set_player_setting_str(m_bdnav, BLURAY_PLAYER_SETTING_AUDIO_LANG, langpref);
+    std::string country  = QScountry.toLatin1().data();
+    bd_set_player_setting_str(m_bdnav, BLURAY_PLAYER_SETTING_AUDIO_LANG, langpref.c_str());
     // Set preferred presentation graphics language to the FE guide language
-    bd_set_player_setting_str(m_bdnav, BLURAY_PLAYER_SETTING_PG_LANG, langpref);
+    bd_set_player_setting_str(m_bdnav, BLURAY_PLAYER_SETTING_PG_LANG, langpref.c_str());
     // Set preferred menu language to the FE guide language
-    bd_set_player_setting_str(m_bdnav, BLURAY_PLAYER_SETTING_MENU_LANG, langpref);
+    bd_set_player_setting_str(m_bdnav, BLURAY_PLAYER_SETTING_MENU_LANG, langpref.c_str());
     // Set player country code via MythLocale. (not a region setting)
-    bd_set_player_setting_str(m_bdnav, BLURAY_PLAYER_SETTING_COUNTRY_CODE, country);
+    bd_set_player_setting_str(m_bdnav, BLURAY_PLAYER_SETTING_COUNTRY_CODE, country.c_str());
 
     uint32_t regioncode = static_cast<uint32_t>(gCoreContext->GetNumSetting("BlurayRegionCode"));
     if (regioncode > 0)
         bd_set_player_setting(m_bdnav, BLURAY_PLAYER_SETTING_REGION_CODE, regioncode);
 
-    LOG(VB_GENERAL, LOG_INFO, LOC + QString("Using %1 as keyfile...").arg(QString(keyfilepath)));
+    LOG(VB_GENERAL, LOG_INFO, LOC + QString("Using %1 as keyfile...").arg(keyfile));
 
     // Return an index of relevant titles (excludes dupe clips + titles)
     LOG(VB_GENERAL, LOG_INFO, LOC + "Retrieving title list (please wait).");
@@ -931,7 +930,7 @@ void MythBDBuffer::PressButton(int32_t Key, int64_t Pts)
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Key %1 (pts %2)").arg(Key).arg(Pts));
     // HACK for still frame menu navigation
     Pts = 1;
-    if (!m_bdnav || Pts <= 0 || Key < 0)
+    if (!m_bdnav || /*Pts <= 0 ||*/ Key < 0)
         return;
     bd_user_input(m_bdnav, Pts, static_cast<uint32_t>(Key));
 }
@@ -1358,7 +1357,7 @@ MythBDOverlay* MythBDBuffer::GetOverlay(void)
 
 void MythBDBuffer::SubmitOverlay(const bd_overlay_s* const Overlay)
 {
-    if (!Overlay || (Overlay && (Overlay->plane > m_overlayPlanes.size())))
+    if (!Overlay || (Overlay->plane > m_overlayPlanes.size()))
         return;
 
     LOG(VB_PLAYBACK, LOG_DEBUG, QString("--------------------"));
@@ -1438,7 +1437,7 @@ void MythBDBuffer::SubmitOverlay(const bd_overlay_s* const Overlay)
 
 void MythBDBuffer::SubmitARGBOverlay(const bd_argb_overlay_s * const Overlay)
 {
-    if (!Overlay || (Overlay && (Overlay->plane > m_overlayPlanes.size())))
+    if (!Overlay || (Overlay->plane > m_overlayPlanes.size()))
         return;
 
     LOG(VB_PLAYBACK, LOG_DEBUG, QString("--------------------"));

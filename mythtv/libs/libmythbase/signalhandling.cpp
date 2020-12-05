@@ -14,8 +14,6 @@
 #include <sys/socket.h>
 #endif
 
-using namespace std;
-
 #include "compat.h"
 #include "mythlogging.h"
 #include "exitcodes.h"
@@ -63,7 +61,7 @@ SignalHandler::SignalHandler(QList<int> &signallist, QObject *parent) :
     // Carry on without the signal stack if it fails
     if (sigaltstack(&stack, nullptr) == -1)
     {
-        cerr << "Couldn't create signal stack!" << endl;
+        std::cerr << "Couldn't create signal stack!" << std::endl;
         delete [] m_sigStack;
         m_sigStack = nullptr;
     }
@@ -80,17 +78,17 @@ SignalHandler::SignalHandler(QList<int> &signallist, QObject *parent) :
 
     if (::socketpair(AF_UNIX, SOCK_STREAM, 0, s_sigFd.data()))
     {
-        cerr << "Couldn't create socketpair" << endl;
+        std::cerr << "Couldn't create socketpair" << std::endl;
         return;
     }
     m_notifier = new QSocketNotifier(s_sigFd[1], QSocketNotifier::Read, this);
-    connect(m_notifier, SIGNAL(activated(int)), this, SLOT(handleSignal()));
+    connect(m_notifier, &QSocketNotifier::activated, this, &SignalHandler::handleSignal);
 
     for (int signum : qAsConst(signallist))
     {
         if (!s_defaultHandlerList.contains(signum))
         {
-            cerr << "No default handler for signal " << signum << endl;
+            std::cerr << "No default handler for signal " << signum << std::endl;
             continue;
         }
 
@@ -206,7 +204,7 @@ void SignalHandler::signalHandler(int signum, siginfo_t *info, void *context)
     signalInfo.m_code   = (info ? info->si_code : 0);
     signalInfo.m_pid    = (info ? (int)info->si_pid : 0);
     signalInfo.m_uid    = (info ? (int)info->si_uid : 0);
-    signalInfo.m_value  = (info ? *(uint64_t *)&info->si_value : 0);
+    signalInfo.m_value  = (info ? info->si_value.sival_int : 0);
 #endif
 
     // Keep trying if there's no room to write, but stop on error (-1)
@@ -284,13 +282,13 @@ void SignalHandler::handleSignal(void)
 
     if (infoComplete)
     {
-        char *signame = strsignal(signum);
-        signame = strdup(signame ? signame : "Unknown Signal");
+        QString signame = strsignal(signum);
+        if (signame.isEmpty())
+            signame = "Unknown Signal";
         LOG(VB_GENERAL, LOG_CRIT,
             QString("Received %1: Code %2, PID %3, UID %4, Value 0x%5")
             .arg(signame) .arg(signalInfo.m_code) .arg(signalInfo.m_pid)
             .arg(signalInfo.m_uid) .arg(signalInfo.m_value,8,16,QChar('0')));
-        free(signame);
     }
 
     SigHandlerFunc handler = nullptr;

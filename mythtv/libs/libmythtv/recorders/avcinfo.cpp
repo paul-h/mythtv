@@ -11,16 +11,6 @@ AVCInfo::AVCInfo()
     m_unit_table.fill(0xff);
 }
 
-AVCInfo::AVCInfo(const AVCInfo &o) :
-    m_port(o.m_port),         m_node(o.m_node),
-    m_guid(o.m_guid),         m_specid(o.m_specid),
-    m_vendorid(o.m_vendorid), m_modelid(o.m_modelid),
-    m_firmware_revision(o.m_firmware_revision),
-    m_product_name(o.m_product_name)
-{
-    m_unit_table = o.m_unit_table;
-}
-
 AVCInfo &AVCInfo::operator=(const AVCInfo &o)
 {
     if (this == &o)
@@ -45,8 +35,8 @@ bool AVCInfo::GetSubunitInfo(void)
 
     for (uint i = 0; i < 8; i++)
     {
-        vector<uint8_t> cmd;
-        vector<uint8_t> ret;
+        std::vector<uint8_t> cmd;
+        std::vector<uint8_t> ret;
 
         cmd.push_back(FirewireDevice::kAVCStatusInquiryCommand);
         cmd.push_back(FirewireDevice::kAVCSubunitTypeUnit |
@@ -75,16 +65,10 @@ bool AVCInfo::GetSubunitInfo(void)
 
 bool AVCInfo::IsSubunitType(int subunit_type) const
 {
-    for (int subunit : m_unit_table)
-    {
-        if ((subunit != 0xff) &&
-            (subunit & FirewireDevice::kAVCSubunitTypeUnit) == subunit_type)
-        {
-            return true;
-        }
-    }
-
-    return false;
+    return std::any_of(m_unit_table.cbegin(), m_unit_table.cend(),
+                       [subunit_type](int subunit)
+                           { return (subunit != 0xff) &&
+                                    (subunit & FirewireDevice::kAVCSubunitTypeUnit) == subunit_type; } );
 }
 
 QString AVCInfo::GetSubunitInfoString(void) const

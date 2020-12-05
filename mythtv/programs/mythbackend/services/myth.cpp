@@ -48,6 +48,10 @@
 #include "serviceUtil.h"
 #include "scheduler.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#define qEnvironmentVariable getenv
+#endif
+
 /////////////////////////////////////////////////////////////////////////////
 //
 /////////////////////////////////////////////////////////////////////////////
@@ -411,7 +415,7 @@ DTC::TimeZoneInfo *Myth::GetTimeZone(  )
 //
 /////////////////////////////////////////////////////////////////////////////
 
-QString Myth::GetFormatDate(const QDateTime Date, bool ShortDate)
+QString Myth::GetFormatDate(const QDateTime &Date, bool ShortDate)
 {
     uint dateFormat = MythDate::kDateFull | MythDate::kSimplify | MythDate::kAutoYear;
     if (ShortDate)
@@ -424,7 +428,7 @@ QString Myth::GetFormatDate(const QDateTime Date, bool ShortDate)
 //
 /////////////////////////////////////////////////////////////////////////////
 
-QString Myth::GetFormatDateTime(const QDateTime DateTime, bool ShortDate)
+QString Myth::GetFormatDateTime(const QDateTime &DateTime, bool ShortDate)
 {
     uint dateFormat = MythDate::kDateTimeFull | MythDate::kSimplify | MythDate::kAutoYear;
     if (ShortDate)
@@ -437,7 +441,7 @@ QString Myth::GetFormatDateTime(const QDateTime DateTime, bool ShortDate)
 //
 /////////////////////////////////////////////////////////////////////////////
 
-QString Myth::GetFormatTime(const QDateTime Time)
+QString Myth::GetFormatTime(const QDateTime &Time)
 {
     return MythDate::toString(Time, MythDate::kTime);
 }
@@ -1046,11 +1050,11 @@ DTC::BackendInfo* Myth::GetBackendInfo( void )
     pBuild->setVersion     ( MYTH_SOURCE_VERSION   );
     pBuild->setLibX264     ( CONFIG_LIBX264        );
     pBuild->setLibDNS_SD   ( CONFIG_LIBDNS_SD      );
-    pEnv->setLANG          ( getenv("LANG")        );
-    pEnv->setLCALL         ( getenv("LC_ALL")      );
-    pEnv->setLCCTYPE       ( getenv("LC_CTYPE")    );
-    pEnv->setHOME          ( getenv("HOME")        );
-    pEnv->setMYTHCONFDIR   ( getenv("MYTHCONFDIR") );
+    pEnv->setLANG          ( qEnvironmentVariable("LANG")        );
+    pEnv->setLCALL         ( qEnvironmentVariable("LC_ALL")      );
+    pEnv->setLCCTYPE       ( qEnvironmentVariable("LC_CTYPE")    );
+    pEnv->setHOME          ( qEnvironmentVariable("HOME")        );
+    pEnv->setMYTHCONFDIR   ( qEnvironmentVariable("MYTHCONFDIR") );
     pLog->setLogArgs       ( logPropagateArgs      );
 
     // ----------------------------------------------------------------------

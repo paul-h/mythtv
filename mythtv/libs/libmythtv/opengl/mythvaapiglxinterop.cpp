@@ -14,7 +14,7 @@ MythVAAPIInteropGLX::~MythVAAPIInteropGLX()
     delete [] m_vaapiPictureAttributes;
 }
 
-uint MythVAAPIInteropGLX::GetFlagsForFrame(VideoFrame *Frame, FrameScanType Scan)
+uint MythVAAPIInteropGLX::GetFlagsForFrame(MythVideoFrame *Frame, FrameScanType Scan)
 {
     uint flags = VA_FRAME_PICTURE;
     if (!Frame)
@@ -29,11 +29,11 @@ uint MythVAAPIInteropGLX::GetFlagsForFrame(VideoFrame *Frame, FrameScanType Scan
     {
         // As for VDPAU, only VAAPI can deinterlace these frames - so accept any deinterlacer
         bool doublerate = true;
-        MythDeintType driverdeint = GetDoubleRateOption(Frame, DEINT_DRIVER | DEINT_CPU | DEINT_SHADER);
+        MythDeintType driverdeint = Frame->GetDoubleRateOption(DEINT_DRIVER | DEINT_CPU | DEINT_SHADER);
         if (!driverdeint)
         {
             doublerate = false;
-            driverdeint = GetSingleRateOption(Frame, DEINT_DRIVER | DEINT_CPU | DEINT_SHADER);
+            driverdeint = Frame->GetSingleRateOption(DEINT_DRIVER | DEINT_CPU | DEINT_SHADER);
         }
 
         if (driverdeint)
@@ -42,20 +42,20 @@ uint MythVAAPIInteropGLX::GetFlagsForFrame(VideoFrame *Frame, FrameScanType Scan
             if (m_basicDeinterlacer != driverdeint)
             {
                 LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Enabled deinterlacer '%1'")
-                    .arg(DeinterlacerName(driverdeint | DEINT_DRIVER, doublerate, FMT_VAAPI)));
+                    .arg(MythVideoFrame::DeinterlacerName(driverdeint | DEINT_DRIVER, doublerate, FMT_VAAPI)));
             }
 
-            bool top = Frame->interlaced_reversed ? !Frame->top_field_first : Frame->top_field_first;
+            bool top = Frame->m_interlacedReverse ? !Frame->m_topFieldFirst : Frame->m_topFieldFirst;
             if (Scan == kScan_Interlaced)
             {
-                Frame->deinterlace_inuse = driverdeint | DEINT_DRIVER;
-                Frame->deinterlace_inuse2x = doublerate;
+                Frame->m_deinterlaceInuse = driverdeint | DEINT_DRIVER;
+                Frame->m_deinterlaceInuse2x = doublerate;
                 flags = top ? VA_TOP_FIELD : VA_BOTTOM_FIELD;
             }
             else if (Scan == kScan_Intr2ndField)
             {
-                Frame->deinterlace_inuse = driverdeint | DEINT_DRIVER;
-                Frame->deinterlace_inuse2x = doublerate;
+                Frame->m_deinterlaceInuse = driverdeint | DEINT_DRIVER;
+                Frame->m_deinterlaceInuse2x = doublerate;
                 flags = top ? VA_BOTTOM_FIELD : VA_TOP_FIELD;
             }
             m_basicDeinterlacer = driverdeint;
@@ -70,14 +70,14 @@ uint MythVAAPIInteropGLX::GetFlagsForFrame(VideoFrame *Frame, FrameScanType Scan
     // Update colourspace
     if (!m_vaapiColourSpace)
     {
-        switch (Frame->colorspace)
+        switch (Frame->m_colorspace)
         {
             case AVCOL_SPC_BT709:     m_vaapiColourSpace = VA_SRC_BT709; break;
             case AVCOL_SPC_SMPTE170M:
             case AVCOL_SPC_BT470BG:   m_vaapiColourSpace = VA_SRC_BT601; break;
             case AVCOL_SPC_SMPTE240M: m_vaapiColourSpace = VA_SRC_SMPTE_240; break;
             default:
-            m_vaapiColourSpace = ((Frame->width < 1280) ? VA_SRC_BT601 : VA_SRC_BT709); break;
+            m_vaapiColourSpace = ((Frame->m_width < 1280) ? VA_SRC_BT601 : VA_SRC_BT709); break;
         }
         LOG(VB_GENERAL, LOG_INFO, LOC + QString("Using '%1' VAAPI colourspace")
             .arg((m_vaapiColourSpace == VA_SRC_BT709) ? "bt709" : ((m_vaapiColourSpace == VA_SRC_BT601) ? "bt601" : "smpte240")));
@@ -244,10 +244,10 @@ MythVAAPIInteropGLXCopy::~MythVAAPIInteropGLXCopy()
 
 vector<MythVideoTexture*> MythVAAPIInteropGLXCopy::Acquire(MythRenderOpenGL *Context,
                                                            MythVideoColourSpace *ColourSpace,
-                                                           VideoFrame *Frame,
+                                                           MythVideoFrame *Frame,
                                                            FrameScanType Scan)
 {
-    vector<MythVideoTexture*> result;
+    std::vector<MythVideoTexture*> result;
     if (!Frame)
         return result;
 
@@ -340,10 +340,10 @@ MythVAAPIInteropGLXPixmap::~MythVAAPIInteropGLXPixmap()
 
 vector<MythVideoTexture*> MythVAAPIInteropGLXPixmap::Acquire(MythRenderOpenGL *Context,
                                                              MythVideoColourSpace *ColourSpace,
-                                                             VideoFrame *Frame,
+                                                             MythVideoFrame *Frame,
                                                              FrameScanType Scan)
 {
-    vector<MythVideoTexture*> result;
+    std::vector<MythVideoTexture*> result;
     if (!Frame)
         return result;
 
@@ -422,9 +422,9 @@ vector<MythVideoTexture*> MythVAAPIInteropGLXPixmap::Acquire(MythRenderOpenGL *C
         // Create a texture
         // N.B. as for GLX Copy there is no obvious 10/12/16bit support here.
         // too many unknowns in this pipeline
-        vector<QSize> size;
+        std::vector<QSize> size;
         size.push_back(m_openglTextureSize);
-        vector<MythVideoTexture*> textures = MythVideoTexture::CreateTextures(m_context, FMT_VAAPI, FMT_RGBA32, size);
+        std::vector<MythVideoTexture*> textures = MythVideoTexture::CreateTextures(m_context, FMT_VAAPI, FMT_RGBA32, size);
         if (textures.empty())
             return result;
         result.push_back(textures[0]);

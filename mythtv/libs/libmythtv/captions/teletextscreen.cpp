@@ -39,12 +39,12 @@ static QChar cvt_char(char ch, int lang)
     return QLatin1Char(ch);
 }
 
-TeletextScreen::TeletextScreen(MythPlayer *player, const char * name,
-                               int fontStretch) :
-    MythScreenType((MythScreenType*)nullptr, name),
-    m_player(player),
-    m_fontStretch(fontStretch)
+TeletextScreen::TeletextScreen(MythPlayer* Player, MythPainter *Painter, const QString& Name, int FontStretch)
+  : MythScreenType(static_cast<MythScreenType*>(nullptr), Name),
+    m_player(Player),
+    m_fontStretch(FontStretch)
 {
+    m_painter = Painter;
 }
 
 TeletextScreen::~TeletextScreen()
@@ -52,14 +52,14 @@ TeletextScreen::~TeletextScreen()
     ClearScreen();
 }
 
-bool TeletextScreen::Create(void)
+bool TeletextScreen::Create()
 {
     if (m_player)
         m_teletextReader = m_player->GetTeletextReader();
     return m_player && m_teletextReader;
 }
 
-void TeletextScreen::ClearScreen(void)
+void TeletextScreen::ClearScreen()
 {
     DeleteAllChildren();
     for (const auto & img : qAsConst(m_rowImages))
@@ -87,20 +87,13 @@ QImage* TeletextScreen::GetRowImage(int row, QRect &rect)
     return m_rowImages.value(y);
 }
 
-void TeletextScreen::OptimiseDisplayedArea(void)
+void TeletextScreen::OptimiseDisplayedArea()
 {
-    MythVideoOutput *vo = m_player->GetVideoOutput();
-    if (!vo)
-        return;
-    MythPainter *osd_painter = vo->GetOSDPainter();
-    if (!osd_painter)
-        return;
-
     QHashIterator<int, QImage*> it(m_rowImages);
     while (it.hasNext())
     {
         it.next();
-        MythImage *image = osd_painter->GetFormatImage();
+        MythImage *image = m_painter->GetFormatImage();
         if (!image || !it.value())
             continue;
 
@@ -110,8 +103,7 @@ void TeletextScreen::OptimiseDisplayedArea(void)
         if (uiimage)
         {
             uiimage->SetImage(image);
-            uiimage->SetArea(MythRect(0, row * m_rowHeight,
-                                      m_safeArea.width(), m_rowHeight * 2));
+            uiimage->SetArea(MythRect(0, row * m_rowHeight, m_safeArea.width(), m_rowHeight * 2));
         }
         image->DecrRef();
     }
@@ -142,7 +134,7 @@ void TeletextScreen::OptimiseDisplayedArea(void)
     }
 }
 
-void TeletextScreen::Pulse(void)
+void TeletextScreen::Pulse()
 {
     if (!InitialiseFont() || !m_displaying)
         return;
@@ -227,10 +219,10 @@ void TeletextScreen::Pulse(void)
     OptimiseDisplayedArea();
 }
 
-bool TeletextScreen::KeyPress(const QString &key)
+bool TeletextScreen::KeyPress(const QString& Key, bool& Exit)
 {
     if (m_teletextReader)
-        return m_teletextReader->KeyPress(key);
+        return m_teletextReader->KeyPress(Key, Exit);
     return false;
 }
 
@@ -247,7 +239,7 @@ void TeletextScreen::SetDisplaying(bool display)
         ClearScreen();
 }
 
-void TeletextScreen::Reset(void)
+void TeletextScreen::Reset()
 {
     if (m_teletextReader)
         m_teletextReader->Reset();
@@ -609,7 +601,7 @@ void TeletextScreen::DrawMosaic(int x, int y, int code, bool doubleheight)
         DrawRect(row, QRect(x + dx, y + dy,   dx, dy));
 }
 
-void TeletextScreen::DrawStatus(void)
+void TeletextScreen::DrawStatus()
 {
     SetForegroundColor(kTTColorWhite);
     SetBackgroundColor(kTTColorBlack);

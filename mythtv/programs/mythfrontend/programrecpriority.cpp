@@ -4,7 +4,6 @@
 
 // C/C++ headers
 #include <vector> // For std::vector
-using namespace std;
 
 // QT headers
 #include <QDateTime>
@@ -418,10 +417,10 @@ bool ProgramRecPriority::Create()
         return false;
     }
 
-    connect(m_programList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(updateInfo(MythUIButtonListItem*)));
-    connect(m_programList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            SLOT(edit(MythUIButtonListItem*)));
+    connect(m_programList, &MythUIButtonList::itemSelected,
+            this, &ProgramRecPriority::updateInfo);
+    connect(m_programList, &MythUIButtonList::itemClicked,
+            this, &ProgramRecPriority::edit);
 
     m_programList->SetLCDTitles(tr("Schedule Priorities"),
                           "rec_type|titlesubtitle|progpriority");
@@ -822,7 +821,7 @@ void ProgramRecPriority::customEvent(QEvent *event)
     }
 }
 
-void ProgramRecPriority::edit(MythUIButtonListItem *item)
+void ProgramRecPriority::edit(MythUIButtonListItem *item) const
 {
     if (!item)
         return;
@@ -841,8 +840,8 @@ void ProgramRecPriority::edit(MythUIButtonListItem *item)
     if (schededit->Create())
     {
         mainStack->AddScreen(schededit);
-        connect(schededit, SIGNAL(ruleSaved(int)), SLOT(scheduleChanged(int)));
-        connect(schededit, SIGNAL(ruleDeleted(int)), SLOT(scheduleChanged(int)));
+        connect(schededit, &ScheduleEditor::ruleSaved, this, &ProgramRecPriority::scheduleChanged);
+        connect(schededit, &ScheduleEditor::ruleDeleted, this, &ProgramRecPriority::scheduleChanged);
     }
     else
         delete schededit;
@@ -879,8 +878,8 @@ void ProgramRecPriority::newTemplate(QString category)
     if (schededit->Create())
     {
         mainStack->AddScreen(schededit);
-        connect(schededit, SIGNAL(ruleSaved(int)), SLOT(scheduleChanged(int)));
-        connect(schededit, SIGNAL(ruleDeleted(int)), SLOT(scheduleChanged(int)));
+        connect(schededit, &ScheduleEditor::ruleSaved, this, &ProgramRecPriority::scheduleChanged);
+        connect(schededit, &ScheduleEditor::ruleDeleted, this, &ProgramRecPriority::scheduleChanged);
     }
     else
         delete schededit;

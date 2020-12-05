@@ -39,7 +39,7 @@
 #endif
 
 // The following are a set of helper classes to allow easy translation
-// between the different string representations of various tuning params.
+// between the different string representations of various tuning parameters.
 
 struct DTVParamHelperStruct
 {
@@ -51,7 +51,7 @@ using DTVParamStringVec = std::vector<std::string>;
 
 /** \class DTVParamHelper
  *  \brief Helper abstract template to do some of the mundane portions
- *         of translating and comparing the paramater strings.
+ *         of translating and comparing the parameter strings.
  */
 class DTVParamHelper
 {
@@ -60,8 +60,8 @@ class DTVParamHelper
     DTVParamHelper &operator=(int _value) { m_value = _value; return *this; }
 
     operator int()                const { return m_value;        }
-    bool operator==(const int& v) const { return m_value == v;   }
-    bool operator!=(const int& v) const { return m_value != v;   }
+    bool operator==(const int v)  const { return m_value == v;   }
+    bool operator!=(const int v)  const { return m_value != v;   }
 
   protected:
     static bool ParseParam(const QString &symbol, int &value,
@@ -188,7 +188,7 @@ class DTVInversion : public DTVParamHelper
         { m_value = type; return *this; }
 #endif
 
-    bool IsCompatible(const DTVInversion &other) const
+    bool IsCompatible(const DTVInversion other) const
         { return m_value == other.m_value || m_value == kInversionAuto ||
                 other.m_value == kInversionAuto;
         }
@@ -251,7 +251,7 @@ class DTVBandwidth : public DTVParamHelper
         { m_value = bwidth; return *this; }
 #endif
 
-    bool IsCompatible(const DTVBandwidth &other) const
+    bool IsCompatible(const DTVBandwidth other) const
         { return m_value == other.m_value || m_value == kBandwidthAuto ||
                 other.m_value == kBandwidthAuto;
         }
@@ -324,7 +324,7 @@ class DTVCodeRate : public DTVParamHelper
         { m_value = rate; return *this; }
 #endif
 
-    bool IsCompatible(const DTVCodeRate &other) const
+    bool IsCompatible(const DTVCodeRate other) const
         { return m_value == other.m_value || m_value == kFECAuto ||
                 other.m_value == kFECAuto;
         }
@@ -395,7 +395,7 @@ class DTVModulation : public DTVParamHelper
         { m_value = modulation; return *this; }
 #endif
 
-    bool IsCompatible(const DTVModulation &other) const
+    bool IsCompatible(const DTVModulation other) const
         { return m_value == other.m_value || m_value == kModulationQAMAuto ||
                 other.m_value == kModulationQAMAuto;
         }
@@ -458,7 +458,7 @@ class DTVTransmitMode : public DTVParamHelper
         { m_value = mode; return *this; }
 #endif
 
-    bool IsCompatible(const DTVTransmitMode &other) const
+    bool IsCompatible(const DTVTransmitMode other) const
         { return m_value == other.m_value || m_value == kTransmissionModeAuto ||
                 other.m_value == kTransmissionModeAuto;
         }
@@ -523,7 +523,7 @@ class DTVGuardInterval : public DTVParamHelper
         { m_value = interval; return *this; }
 #endif
 
-    bool IsCompatible(const DTVGuardInterval &other) const
+    bool IsCompatible(const DTVGuardInterval other) const
         { return m_value == other.m_value || m_value == kGuardIntervalAuto ||
                 other.m_value == kGuardIntervalAuto;
         }
@@ -576,7 +576,7 @@ class DTVHierarchy : public DTVParamHelper
         { m_value = hierarchy; return *this; }
 #endif
 
-    bool IsCompatible(const DTVHierarchy &other) const
+    bool IsCompatible(const DTVHierarchy other) const
         { return m_value == other.m_value || m_value == kHierarchyAuto ||
                 other.m_value == kHierarchyAuto;
         }
@@ -694,15 +694,13 @@ class DTVModulationSystem : public DTVParamHelper
                   "Modulation System types don't match DVB includes.");
 #endif
 
-    explicit DTVModulationSystem(Types _default = kModulationSystem_UNDEFINED)
-        : DTVParamHelper(_default) { }
-    DTVModulationSystem& operator=(const Types _value)
+    explicit DTVModulationSystem(uint _value = kModulationSystem_UNDEFINED)
+        : DTVParamHelper(_value) { }
+
+    DTVModulationSystem& operator=(uint _value)
         { m_value = _value; return *this; }
-#ifdef USING_DVB
-    DTVModulationSystem& operator=(fe_delivery_system_t type)
-        { m_value = type; return *this; }
-#endif
-    bool IsCompatible(const DTVModulationSystem &other) const
+
+    bool IsCompatible(const DTVModulationSystem other) const
         { return
             (m_value == other.m_value) ||
             (m_value == kModulationSystem_DVBT  && other.m_value == kModulationSystem_DVBT2) ||
@@ -753,7 +751,7 @@ class DTVRollOff : public DTVParamHelper
         { m_value = type; return *this; }
 #endif
 
-    bool IsCompatible(const DTVRollOff &other) const
+    bool IsCompatible(const DTVRollOff other) const
         { return m_value == other.m_value || m_value == kRollOff_Auto ||
                 other.m_value == kRollOff_Auto;
         }

@@ -8,8 +8,6 @@
 #include <ctime>
 #include <iostream>
 
-using namespace std;
-
 // POSIX
 #include <unistd.h>
 #include <fcntl.h>
@@ -58,6 +56,10 @@ using namespace std;
 #include "mythsystemlegacy.h"
 
 #include "mythconfig.h" // for CONFIG_DARWIN
+
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#define qEnvironmentVariable getenv
+#endif
 
 /** \fn getUptime(time_t&)
  *  \brief Returns uptime statistics.
@@ -454,18 +456,18 @@ bool makeFileAccessible(const QString& filename)
 QString getResponse(const QString &query, const QString &def)
 {
     QByteArray tmp = query.toLocal8Bit();
-    cout << tmp.constData();
+    std::cout << tmp.constData();
 
     tmp = def.toLocal8Bit();
     if (!def.isEmpty())
-        cout << " [" << tmp.constData() << "]  ";
+        std::cout << " [" << tmp.constData() << "]  ";
     else
-        cout << "  ";
+        std::cout << "  ";
 
     if (!isatty(fileno(stdin)) || !isatty(fileno(stdout)))
     {
-        cout << endl << "[console is not interactive, using default '"
-             << tmp.constData() << "']" << endl;
+        std::cout << std::endl << "[console is not interactive, using default '"
+             << tmp.constData() << "']" << std::endl;
         return def;
     }
 
@@ -852,9 +854,9 @@ void setHttpProxy(void)
     QString       LOC = "setHttpProxy() - ";
 
     // Set http proxy for the application if specified in environment variable
-    QString var(getenv("http_proxy"));
+    QString var(qEnvironmentVariable("http_proxy"));
     if (var.isEmpty())
-        var = getenv("HTTP_PROXY");  // Sadly, some OS envs are case sensitive
+        var = qEnvironmentVariable("HTTP_PROXY");  // Sadly, some OS envs are case sensitive
     if (!var.isEmpty())
     {
         if (!var.startsWith("http://"))   // i.e. just a host name
@@ -960,7 +962,7 @@ void wrapList(QStringList &list, int width)
 {
     // if this is triggered, something has gone seriously wrong
     // the result won't really be usable, but at least it won't crash
-    width = max(width, 5);
+    width = std::max(width, 5);
 
     for (int i = 0; i < list.size(); i++)
     {

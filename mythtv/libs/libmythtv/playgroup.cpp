@@ -271,11 +271,11 @@ PlayGroupEditor::PlayGroupEditor()
     setLabel(tr("Playback Groups"));
     m_addGroupButton = new ButtonStandardSetting(tr("Create New Playback Group"));
     addChild(m_addGroupButton);
-    connect(m_addGroupButton, SIGNAL(clicked()),
-            this, SLOT(CreateNewPlayBackGroup()));
+    connect(m_addGroupButton, &ButtonStandardSetting::clicked,
+            this, &PlayGroupEditor::CreateNewPlayBackGroup);
 }
 
-void PlayGroupEditor::CreateNewPlayBackGroup()
+void PlayGroupEditor::CreateNewPlayBackGroup() const
 {
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
     auto *settingdialog = new MythTextInputDialog(popupStack,
@@ -283,8 +283,8 @@ void PlayGroupEditor::CreateNewPlayBackGroup()
 
     if (settingdialog->Create())
     {
-        connect(settingdialog, SIGNAL(haveResult(QString)),
-                SLOT(CreateNewPlayBackGroupSlot(const QString&)));
+        connect(settingdialog, &MythTextInputDialog::haveResult,
+                this, &PlayGroupEditor::CreateNewPlayBackGroupSlot);
         popupStack->AddScreen(settingdialog);
     }
     else

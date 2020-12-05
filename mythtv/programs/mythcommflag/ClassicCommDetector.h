@@ -62,7 +62,7 @@ class ClassicCommDetector : public CommDetectorBase
         void requestCommBreakMapUpdate(void) override; // CommDetectorBase
 
         void PrintFullMap(
-            ostream &out, const frm_dir_map_t *comm_breaks,
+            std::ostream &out, const frm_dir_map_t *comm_breaks,
             bool verbose) const override; // CommDetectorBase
 
         void logoDetectorBreathe();
@@ -96,7 +96,7 @@ class ClassicCommDetector : public CommDetectorBase
                                int64_t start_frame);
         frm_dir_map_t Combine2Maps(
             const frm_dir_map_t &a, const frm_dir_map_t &b) const;
-        static void UpdateFrameBlock(FrameBlock *fbp, FrameInfoEntry finfo,
+        static void UpdateFrameBlock(FrameBlock *fbp, const FrameInfoEntry& finfo,
                               int format, int aspect);
         void BuildAllMethodsCommList(void);
         void BuildBlankFrameCommList(void);
@@ -180,7 +180,7 @@ protected:
 
         void Init();
         void SetVideoParams(float aspect);
-        void ProcessFrame(VideoFrame *frame, long long frame_number);
+        void ProcessFrame(MythVideoFrame *frame, long long frame_number);
         QMap<long long, FrameInfoEntry> m_frameInfo;
 
 public slots:

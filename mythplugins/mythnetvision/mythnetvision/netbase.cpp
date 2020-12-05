@@ -171,12 +171,12 @@ void NetBase::ShowWebVideo()
 void NetBase::RunCmdWithoutScreensaver(const QString &cmd)
 {
     GetMythMainWindow()->PauseIdleTimer(true);
-    MythUIHelper::DisableScreensaver();
+    MythMainWindow::DisableScreensaver();
     GetMythMainWindow()->AllowInput(false);
     myth_system(cmd, kMSDontDisableDrawing);
     GetMythMainWindow()->AllowInput(true);
     GetMythMainWindow()->PauseIdleTimer(false);
-    MythUIHelper::RestoreScreensaver();
+    MythMainWindow::RestoreScreensaver();
 }
 
 void NetBase::SlotDeleteVideo()
@@ -188,8 +188,8 @@ void NetBase::SlotDeleteVideo()
     if (confirmdialog->Create())
     {
         m_popupStack->AddScreen(confirmdialog);
-        connect(confirmdialog, SIGNAL(haveResult(bool)),
-                SLOT(DoDeleteVideo(bool)));
+        connect(confirmdialog, &MythConfirmationDialog::haveResult,
+                this, &NetBase::DoDeleteVideo);
     }
     else
         delete confirmdialog;
@@ -314,4 +314,16 @@ void NetBase::DoPlayVideo(const QString &filename)
         return;
 
     GetMythMainWindow()->HandleMedia("Internal", filename);
+}
+
+void NetBase::DoPlayVideo(void)
+{
+    ResultItem *item = GetStreamItem();
+    if (!item)
+        return;
+
+    QString filename = GetDownloadFilename(item->GetTitle(),
+                                           item->GetMediaURL());
+
+    DoPlayVideo(filename);
 }
