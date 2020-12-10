@@ -853,7 +853,6 @@ int Transcode::TranscodeFile(const QString &inputname,
     // Do not use padding when compressing to RTjpeg or when in fifomode.
     // The RTjpeg compressor doesn't know how to handle strides different to
     // video width.
-    // cppcheck-suppress knownConditionTrueFalse
     bool nonAligned = vidsetting == "RTjpeg" || !fifodir.isEmpty(); 
     bool rescale = (video_width != newWidth) || (video_height != newHeight) || nonAligned;
 
@@ -870,7 +869,7 @@ int Transcode::TranscodeFile(const QString &inputname,
             uint8_t* newbuffer = MythVideoFrame::GetAlignedBuffer(newSize);
             if (!newbuffer)
                 return REENCODE_ERROR;
-            frame.Init(FMT_YV12, newbuffer, newSize, video_width, video_height, 0);
+            frame.Init(FMT_YV12, newbuffer, newSize, video_width, video_height, nullptr, 0);
         }
         else
         {

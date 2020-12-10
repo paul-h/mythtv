@@ -2518,13 +2518,8 @@ void TV::timerEvent(QTimerEvent *Event)
     if (timer_id == m_exitPlayerTimerId)
     {
         GetPlayerReadLock();
-        OSD *osd = GetOSDL();
-        if (osd)
-        {
-            osd->DialogQuit();
-            osd->HideAll();
-        }
-        ReturnOSDLock();
+        emit DialogQuit();
+        emit HideAll();
 
         if (m_jumpToProgram && m_lastProgram)
         {
@@ -2533,12 +2528,13 @@ void TV::timerEvent(QTimerEvent *Event)
                 emit ChangeOSDMessage(tr("Last Program: %1 Doesn't Exist").arg(m_lastProgram->GetTitle()));
                 lastProgramStringList.clear();
                 SetLastProgram(nullptr);
-                LOG(VB_PLAYBACK, LOG_ERR, LOC +
-                    "Last Program File does not exist");
+                LOG(VB_PLAYBACK, LOG_ERR, LOC + "Last Program File does not exist");
                 m_jumpToProgram = false;
             }
             else
+            {
                 ForceNextStateNone();
+            }
         }
         else
             ForceNextStateNone();
@@ -3008,7 +3004,7 @@ bool TV::eventFilter(QObject* Object, QEvent* Event)
         return TVPlaybackState::eventFilter(Object, Event);
 
     QScopedPointer<QEvent> sNewEvent(nullptr);
-    if (m_mainWindow->keyLongPressFilter(&Event, sNewEvent))
+    if (m_mainWindow->KeyLongPressFilter(&Event, sNewEvent))
         return true;
 
     if (QEvent::KeyPress == Event->type())
@@ -5864,7 +5860,6 @@ bool TV::ProcessSmartChannel(QString &InputStr)
 
     // Look for channel in line-up
     QString needed_spacer;
-    // cppcheck-suppress variableScope
     uint    pref_cardid = 0;
     bool    is_not_complete = true;
 
@@ -6256,29 +6251,17 @@ void TV::PopPreviousChannel(bool ImmediateChange)
     }
 }
 
-bool TV::ClearOSD()
+void TV::ClearOSD()
 {
-    bool res = false;
-
     if (HasQueuedInput() || HasQueuedChannel())
-    {
         ClearInputQueues(true);
-        res = true;
-    }
 
-    OSD *osd = GetOSDL();
-    if (osd)
-    {
-        osd->DialogQuit();
-        osd->HideAll(true, nullptr, true); // pop OSD screen
-        res = true;
-    }
-    ReturnOSDLock();
+    emit DialogQuit();
+    // pop OSD screen
+    emit HideAll(true, nullptr, true);
 
     if (m_overlayState.m_browsing)
         BrowseEnd(false);
-
-    return res;
 }
 
 /** \fn TV::ToggleOSD(const PlayerContext*, bool includeStatus)
@@ -6324,12 +6307,7 @@ void TV::ToggleOSD(bool IncludeStatusOSD)
     }
 
     if (hideAll || showStatus)
-    {
-        OSD *osd2 = GetOSDL();
-        if (osd2)
-            osd2->HideAll();
-        ReturnOSDLock();
-    }
+        emit HideAll();
 
     if (showStatus)
     {
@@ -6363,13 +6341,8 @@ void TV::UpdateOSDProgInfo(const char *WhichInfo)
         m_player->GetCodecDescription(infoMap);
 
     // Clear previous osd and add new info
-    OSD *osd = GetOSDL();
-    if (osd)
-    {
-        osd->HideAll();
-        emit ChangeOSDText(WhichInfo, infoMap, kOSDTimeout_Long);
-    }
-    ReturnOSDLock();
+    emit HideAll();
+    emit ChangeOSDText(WhichInfo, infoMap, kOSDTimeout_Long);
 }
 
 void TV::UpdateOSDStatus(osdInfo &Info, int Type, OSDTimeout Timeout)
@@ -6610,7 +6583,7 @@ void TV::UpdateOSDTimeoutMessage()
     if (!timed_out)
     {
         if (showing)
-            osd->DialogQuit();
+            emit DialogQuit();
         ReturnOSDLock();
         return;
     }
@@ -7976,7 +7949,7 @@ void TV::StartOsdNavigation()
     OSD *osd = GetOSDL();
     if (osd)
     {
-        osd->HideAll();
+        emit HideAll();
         ToggleOSD(true);
         emit ChangeOSDDialog({ OSD_DLG_NAVIGATE });
     }
@@ -8412,13 +8385,7 @@ void TV::OSDDialogEvent(int Result, const QString& Text, QString Action)
     }
 
     if (hide)
-    {
-        OSD *osd = GetOSDL();
-        if (osd)
-            osd->DialogQuit();
-        ReturnOSDLock();
-    }
-
+        emit DialogQuit();
     ReturnPlayerLock();
 }
 
@@ -10001,7 +9968,7 @@ void TV::ShowOSDPromptDeleteRecording(const QString& Title, bool Force)
     if (!m_playerContext.m_playingInfo->QueryIsDeleteCandidate(true))
     {
         LOG(VB_GENERAL, LOG_ERR, "This program cannot be deleted at this time.");
-        ProgramInfo pginfo(*m_playerContext.m_playingInfo); // cppcheck-suppress variableScope
+        ProgramInfo pginfo(*m_playerContext.m_playingInfo);
         m_playerContext.UnlockPlayingInfo(__FILE__, __LINE__);
 
         OSD *osd = GetOSDL();

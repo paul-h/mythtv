@@ -1,5 +1,3 @@
-#include <chrono>
-
 // MythTV
 #include "mythsystemevent.h"
 #include "audiooutput.h"
@@ -13,12 +11,14 @@
 #include "livetvchain.h"
 #include "mythplayerui.h"
 
+// Std
+#include <chrono>
 using namespace std::chrono_literals;
 
 #define LOC QString("PlayerUI: ")
 
 MythPlayerUI::MythPlayerUI(MythMainWindow* MainWindow, TV* Tv,
-                                         PlayerContext *Context, PlayerFlags Flags)
+                           PlayerContext *Context, PlayerFlags Flags)
   : MythPlayerVisualiserUI(MainWindow, Tv, Context, Flags),
     MythVideoScanTracker(this)
 {
@@ -34,7 +34,7 @@ MythPlayerUI::MythPlayerUI(MythMainWindow* MainWindow, TV* Tv,
     });
 
     // Seeking has finished
-    connect(this, &MythPlayerUI::SeekingComplete, [=]()
+    connect(this, &MythPlayerUI::SeekingComplete, [&]()
     {
         m_osdLock.lock();
         m_osd.HideWindow(OSD_WIN_MESSAGE);
@@ -79,11 +79,9 @@ bool MythPlayerUI::StartPlaying()
         return false;
     }
 
-    bool seek = m_bookmarkSeek > 30;
     EventStart();
     DecoderStart(true);
-    if (seek)
-        InitialSeek();
+    InitialSeek();
     VideoStart();
 
     m_playerThread->setPriority(QThread::TimeCriticalPriority);
@@ -873,9 +871,18 @@ void MythPlayerUI::OSDDebugVisibilityChanged(bool Visible)
 {
     m_osdDebug = Visible;
     if (Visible)
+    {
+        // This should already have enabled the required monitors
         m_osdDebugTimer.start();
+    }
     else
+    {
+        // If we have cleared/escaped the debug OSD screen, then ChangeOSDDebug
+        // is not called, so we need to ensure we turn off the monitors
         m_osdDebugTimer.stop();
+        EnableBitrateMonitor();
+        EnableFrameRateMonitor();
+    }
 }
 
 void MythPlayerUI::UpdateOSDDebug()
@@ -892,8 +899,7 @@ void MythPlayerUI::ChangeOSDDebug()
 {
     m_osdLock.lock();
     bool enable = !m_osdDebug;
-    if (m_playerCtx->m_buffer)
-        m_playerCtx->m_buffer->EnableBitrateMonitor(enable);
+    EnableBitrateMonitor(enable);
     EnableFrameRateMonitor(enable);
     if (enable)
         UpdateOSDDebug();
@@ -905,9 +911,14 @@ void MythPlayerUI::ChangeOSDDebug()
 
 void MythPlayerUI::EnableFrameRateMonitor(bool Enable)
 {
-    bool verbose = VERBOSE_LEVEL_CHECK(VB_PLAYBACK, LOG_ANY);
-    double rate = Enable ? m_videoFrameRate : verbose ? (m_videoFrameRate * 4) : 0.0;
-    m_outputJmeter.SetNumCycles(static_cast<int>(rate));
+    bool enable = VERBOSE_LEVEL_CHECK(VB_PLAYBACK, LOG_ANY) || Enable;
+    m_outputJmeter.SetNumCycles(enable ? static_cast<int>(m_videoFrameRate) : 0);
+}
+
+void MythPlayerUI::EnableBitrateMonitor(bool Enable)
+{
+    if (m_playerCtx->m_buffer)
+        m_playerCtx->m_buffer->EnableBitrateMonitor(Enable);
 }
 
 /* JumpToStream, JumpToProgram and SwitchToProgram all need to be moved into the

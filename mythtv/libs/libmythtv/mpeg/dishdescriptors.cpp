@@ -158,7 +158,7 @@ QDate DishEventTagsDescriptor::originalairdate(void) const
 
     QDate originalairdate = t.date();
 
-    if (originalairdate.year() < 1940)
+    if (originalairdate.year() < 1895)
         return {};
 
     return originalairdate;
@@ -300,7 +300,6 @@ volatile bool      DishContentDescriptor::s_dishCategoryDescExists = false;
 
 QString dish_theme_type_to_string(uint theme_type)
 {
-    // cppcheck-suppress variableScope
     static const std::array<const std::string,kThemeLast> s_themes =
     {
         "", "Movie", "Sports", "News/Business", "Family/Children", "Education",

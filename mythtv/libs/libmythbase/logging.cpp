@@ -19,7 +19,6 @@
 #include "mythdirs.h"
 #include "mythcorecontext.h"
 #include "mythsystemlegacy.h"
-#include "mythsignalingtimer.h"
 #include "dbutil.h"
 #include "exitcodes.h"
 #include "compat.h"
@@ -332,7 +331,6 @@ void LoggerThread::run(void)
 
     RunEpilog();
 
-    // cppcheck-suppress knownConditionTrueFalse
     if (dieNow)
     {
         qApp->processEvents();
