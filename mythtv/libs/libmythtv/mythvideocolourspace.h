@@ -26,10 +26,13 @@ class MythVideoColourSpace : public QObject, public QMatrix4x4, public Reference
   public slots:
     int   ChangePictureAttribute(PictureAttribute Attribute, bool Direction, int Value);
     void  SetPrimariesMode(PrimariesMode Mode);
+    void  RefreshState();
 
   signals:
     void  Updated(bool PrimariesChanged);
     void  PictureAttributeChanged(PictureAttribute Attribute, int Value);
+    void  SupportedAttributesChanged(PictureAttributeSupported Supported);
+    void  PictureAttributesUpdated(const std::map<PictureAttribute,int>& Values);
 
   public:
     MythVideoColourSpace();
@@ -75,7 +78,7 @@ class MythVideoColourSpace : public QObject, public QMatrix4x4, public Reference
 
   private:
     PictureAttributeSupported  m_supportedAttributes { kPictureAttributeSupported_None };
-    QMap<PictureAttribute,int> m_dbSettings;
+    std::map<PictureAttribute,int> m_dbSettings;
 
     bool              m_fullRange              { true };
     float             m_brightness             { 0.0F };

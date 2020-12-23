@@ -61,12 +61,8 @@ MythCodecID MythV4L2M2MContext::GetSupportedCodec(AVCodecContext **Context,
         return failure;
 
     if (!decodeonly)
-    {
-        // check for the correct player type and interop supprt
-        MythPlayerUI* player = GetPlayerUI(*Context);
-        if (MythOpenGLInterop::GetInteropType(FMT_DRMPRIME, player) == MythOpenGLInterop::Unsupported)
+        if (!FrameTypeIsSupported(*Context, FMT_DRMPRIME))
             return failure;
-    }
 
     // supported by device driver?
     MythCodecContext::CodecProfile mythprofile = MythCodecContext::NoProfile;
@@ -373,14 +369,14 @@ void MythV4L2M2MContext::GetDecoderList(QStringList &Decoders)
         Decoders.append(MythCodecContext::GetProfileDescription(profile, size));
 }
 
-bool MythV4L2M2MContext::HaveV4L2Codecs(void)
+bool MythV4L2M2MContext::HaveV4L2Codecs(bool Reinit /*=false*/)
 {
     static QMutex lock(QMutex::Recursive);
     QMutexLocker locker(&lock);
     static bool s_checked = false;
     static bool s_available = false;
 
-    if (s_checked)
+    if (s_checked && !Reinit)
         return s_available;
     s_checked = true;
 
@@ -419,26 +415,22 @@ int MythV4L2M2MContext::InitialiseV4L2RequestContext(AVCodecContext *Context)
     if (!Context || !gCoreContext->IsUIThread())
         return -1;
 
-    // We need a render device
-    MythRenderOpenGL* render = MythRenderOpenGL::GetOpenGLRender();
-    if (!render)
-        return -1;
-
     // The interop must have a reference to the ui player so it can be deleted
     // from the main thread.
     MythPlayerUI* player = GetPlayerUI(Context);
     if (!player)
         return -1;
 
-    // Check interop support
-    MythOpenGLInterop::Type type = MythOpenGLInterop::GetInteropType(FMT_DRMPRIME, player);
-    if (type == MythOpenGLInterop::Unsupported)
+    // Retrieve OpenGL render context
+    auto * render = dynamic_cast<MythRenderOpenGL*>(player->GetRender());
+    if (!render)
         return -1;
+    OpenGLLocker locker(render);
 
     // Create interop
     MythOpenGLInterop *interop = nullptr;
 #ifdef USING_EGL
-    interop = MythDRMPRIMEInterop::Create(render, type);
+    interop = MythDRMPRIMEInterop::CreateDRM(render);
 #endif
     if (!interop)
         return -1;

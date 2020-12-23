@@ -1,7 +1,7 @@
 // MythTV
 #include "osd.h"
 #include "mythplayer.h"
-#include "videodisplayprofile.h"
+#include "mythvideoprofile.h"
 #include "decoderbase.h"
 #include "mythcorecontext.h"
 #include "mythlogging.h"
@@ -10,20 +10,8 @@
 #include "mythavutil.h"
 #include "mthreadpool.h"
 #include "mythcodeccontext.h"
-
-#ifdef _WIN32
-#include "videoout_d3d.h"
-#endif
-
-#ifdef USING_OPENGL
-#include "opengl/mythvideooutopengl.h"
-#endif
-
-#ifdef USING_VULKAN
-#include "vulkan/mythvideooutputvulkan.h"
-#endif
-
 #include "mythvideooutnull.h"
+#include "mythvideooutgpu.h"
 #include "mythvideoout.h"
 
 // std
@@ -32,21 +20,10 @@
 
 #define LOC QString("VideoOutput: ")
 
-void MythVideoOutput::GetRenderOptions(RenderOptions& Options)
+void MythVideoOutput::GetRenderOptions(RenderOptions& Options, MythRender* Render)
 {
     MythVideoOutputNull::GetRenderOptions(Options);
-
-#ifdef _WIN32
-    VideoOutputD3D::GetRenderOptions(Options);
-#endif
-
-#ifdef USING_OPENGL
-    MythVideoOutputOpenGL::GetRenderOptions(Options);
-#endif
-
-#ifdef USING_VULKAN
-    MythVideoOutputVulkan::GetRenderOptions(Options);
-#endif
+    MythVideoOutputGPU::GetRenderOptions(Options, Render);
 }
 
 /**
@@ -124,15 +101,6 @@ MythVideoOutput::MythVideoOutput()
 }
 
 /**
- * \fn VideoOutput::~VideoOutput()
- * \brief Shuts down video output.
- */
-MythVideoOutput::~MythVideoOutput()
-{
-    delete m_dbDisplayProfile;
-}
-
-/**
  * \fn VideoOutput::Init(int,int,float,WId,int,int,int,int,WId)
  * \brief Performs most of the initialization for VideoOutput.
  * \return true if successful, false otherwise.
@@ -151,8 +119,8 @@ bool MythVideoOutput::Init(const QSize VideoDim, const QSize VideoDispDim,
 
     bool mainSuccess = InitBounds(VideoDim, VideoDispDim, VideoAspect, WindowRect);
 
-    if (m_dbDisplayProfile)
-        m_dbDisplayProfile->SetInput(GetVideoDispDim());
+    if (m_videoProfile)
+        m_videoProfile->SetInput(GetVideoDispDim());
 
     if (wasembedding)
         EmbedPlayback(true, oldrect);
@@ -164,8 +132,8 @@ bool MythVideoOutput::Init(const QSize VideoDim, const QSize VideoDispDim,
 
 void MythVideoOutput::SetVideoFrameRate(float playback_fps)
 {
-    if (m_dbDisplayProfile)
-        m_dbDisplayProfile->SetOutput(playback_fps);
+    if (m_videoProfile)
+        m_videoProfile->SetOutput(playback_fps);
 }
 
 void MythVideoOutput::SetDeinterlacing(bool Enable, bool DoubleRate, MythDeintType Force /*=DEINT_NONE*/)
@@ -195,11 +163,11 @@ void MythVideoOutput::SetDeinterlacing(bool Enable, bool DoubleRate, MythDeintTy
             doublerate = Force;
         LOG(VB_PLAYBACK, LOG_INFO, LOC + "Overriding deinterlacers");
     }
-    else if (m_dbDisplayProfile)
+    else if (m_videoProfile)
     {
-        singlerate = MythVideoFrame::ParseDeinterlacer(m_dbDisplayProfile->GetSingleRatePreferences());
+        singlerate = MythVideoFrame::ParseDeinterlacer(m_videoProfile->GetSingleRatePreferences());
         if (DoubleRate)
-            doublerate = MythVideoFrame::ParseDeinterlacer(m_dbDisplayProfile->GetDoubleRatePreferences());
+            doublerate = MythVideoFrame::ParseDeinterlacer(m_videoProfile->GetDoubleRatePreferences());
     }
 
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("SetDeinterlacing (Doublerate %1): Single %2 Double %3")
@@ -223,8 +191,8 @@ bool MythVideoOutput::InputChanged(const QSize VideoDim, const QSize VideoDispDi
     QString codecName;
     if (codec)
         codecName = codec->name;
-    if (m_dbDisplayProfile)
-        m_dbDisplayProfile->SetInput(GetVideoDispDim(), 0 ,codecName);
+    if (m_videoProfile)
+        m_videoProfile->SetInput(GetVideoDispDim(), 0 ,codecName);
     m_videoCodecID = CodecID;
     DiscardFrames(true, true);
     // Update deinterlacers for any input change
@@ -268,11 +236,6 @@ QRect MythVideoOutput::GetVisibleOSDBounds(float& VisibleAspect,
 PictureAttributeSupported MythVideoOutput::GetSupportedPictureAttributes()
 {
     return m_videoColourSpace.SupportedAttributes();
-}
-
-int MythVideoOutput::GetPictureAttribute(PictureAttribute AttributeType)
-{
-    return m_videoColourSpace.GetPictureAttribute(AttributeType);
 }
 
 void MythVideoOutput::SetFramesPlayed(long long FramesPlayed)

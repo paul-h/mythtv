@@ -11,7 +11,7 @@
 #include "videoouttypes.h"
 #include "opengl/mythrenderopengl.h"
 #include "mythavutil.h"
-#include "mythopenglinterop.h"
+#include "opengl/mythopenglinterop.h"
 
 // Std
 #include <vector>
@@ -32,13 +32,14 @@ class MythOpenGLVideo : public MythVideoGPU
         Progressive   = 1, // Progressive video frame
         InterlacedTop = 2, // Deinterlace with top field first
         InterlacedBot = 3, // Deinterlace with bottom field first
-        ShaderCount   = 4
+        BicubicUpsize = 4,
+        ShaderCount   = 5
     };
 
     static QString        TypeToProfile(VideoFrameType Type);
 
     MythOpenGLVideo(MythRenderOpenGL* Render, MythVideoColourSpace* ColourSpace,
-                    MythVideoBounds* Bounds, const QString &Profile);
+                    MythVideoBounds* Bounds, const MythVideoProfilePtr& VideoProfile, const QString &Profile);
     ~MythOpenGLVideo() override;
 
     void    StartFrame       () override {}
@@ -60,23 +61,23 @@ class MythOpenGLVideo : public MythVideoGPU
     bool    SetupFrameFormat (VideoFrameType InputType, VideoFrameType OutputType,
                               QSize Size, GLenum TextureTarget);
     bool    CreateVideoShader(VideoShaderType Type, MythDeintType Deint = DEINT_NONE);
-    void    BindTextures     (bool Deinterlacing, vector<MythVideoTexture*>& Current,
+    void    BindTextures     (bool Deinterlacing, vector<MythVideoTextureOpenGL*>& Current,
                               vector<MythGLTexture*>& Textures);
     bool    AddDeinterlacer  (const MythVideoFrame* Frame,  FrameScanType Scan,
                               MythDeintType Filter = DEINT_SHADER, bool CreateReferences = true);
-    QOpenGLFramebufferObject* CreateVideoFrameBuffer(VideoFrameType OutputType, QSize Size);
     void    CleanupDeinterlacers();
+    void    SetupBicubic(VideoResizing& Resize);
 
     MythRenderOpenGL* m_openglRender               { nullptr };
     int            m_gles                          { 0 };
     MythDeintType  m_fallbackDeinterlacer          { MythDeintType::DEINT_NONE };
     std::array<QOpenGLShaderProgram*,ShaderCount> m_shaders { nullptr };
     std::array<int,ShaderCount> m_shaderCost       { 1 };
-    vector<MythVideoTexture*> m_inputTextures;
-    vector<MythVideoTexture*> m_prevTextures;
-    vector<MythVideoTexture*> m_nextTextures;
+    vector<MythVideoTextureOpenGL*> m_inputTextures;
+    vector<MythVideoTextureOpenGL*> m_prevTextures;
+    vector<MythVideoTextureOpenGL*> m_nextTextures;
     QOpenGLFramebufferObject* m_frameBuffer        { nullptr };
-    MythVideoTexture*         m_frameBufferTexture { nullptr };
+    MythVideoTextureOpenGL*   m_frameBufferTexture { nullptr };
     QOpenGLFunctions::OpenGLFeatures m_features;
     int            m_extraFeatures                 { 0 };
     GLenum         m_textureTarget                 { QOpenGLTexture::Target2D };

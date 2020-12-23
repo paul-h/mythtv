@@ -1,7 +1,6 @@
 // MythTV
 #include "mythlogging.h"
 #include "mythvideooutnull.h"
-#include "videodisplayprofile.h"
 
 // Std
 #include <map>
@@ -100,9 +99,6 @@ bool MythVideoOutputNull::InputChanged(QSize        VideoDim,
         m_errorState = kError_Unknown;
     }
 
-    if (m_dbDisplayProfile)
-        m_dbDisplayProfile->SetVideoRenderer("null");
-
     return ok;
 }
 
@@ -128,11 +124,7 @@ bool MythVideoOutputNull::Init(const QSize VideoDim, const QSize VideoDispDim,
     if (!m_videoBuffers.CreateBuffers(FMT_YV12, videodim.width(), videodim.height(), m_renderFormats))
         return false;
 
-    if (m_dbDisplayProfile)
-        m_dbDisplayProfile->SetVideoRenderer("null");
-
     MoveResize();
-
     return true;
 }
 

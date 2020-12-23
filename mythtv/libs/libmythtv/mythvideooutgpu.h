@@ -13,7 +13,10 @@ class MythVideoOutputGPU : public MythVideoOutput
     Q_OBJECT
 
   public:
-    static MythVideoOutputGPU* Create(MythMainWindow* MainWindow, const QString& Decoder,
+    static void GetRenderOptions(RenderOptions& Options, MythRender* Render);
+    static MythVideoOutputGPU* Create(MythMainWindow* MainWindow, MythRender* Render,
+                                      MythPainter* Painter, MythDisplay* Display,
+                                      const QString& Decoder,
                                       MythCodecID CodecID,       QSize VideoDim,
                                       QSize VideoDispDim,        float VideoAspect,
                                       float FrameRate,           uint  PlayerFlags,
@@ -24,9 +27,14 @@ class MythVideoOutputGPU : public MythVideoOutput
   signals:
     void            ChangePictureAttribute(PictureAttribute Attribute, bool Direction, int Value);
     void            PictureAttributeChanged(PictureAttribute Attribute, int Value);
+    void            SupportedAttributesChanged(PictureAttributeSupported Supported);
+    void            PictureAttributesUpdated(const std::map<PictureAttribute,int>& Values);
+    void            RefreshState();
+    void            DoRefreshState();
 
   public slots:
     void            WindowResized         (QSize Size);
+    void            ResizeForVideo        (QSize Size = QSize());
 
   public:
     void            InitPictureAttributes () override;
@@ -39,10 +47,11 @@ class MythVideoOutputGPU : public MythVideoOutput
                                            int ReferenceFrames, bool ForceChange) override;
     void            EndFrame              () override;
     void            ClearAfterSeek        () override;
-    void            ResizeForVideo        (QSize Size = QSize()) override;
 
   protected:
-    MythVideoOutputGPU(MythRender* Render, QString &Profile);
+    MythVideoOutputGPU(MythMainWindow* MainWindow, MythRender* Render,
+                       MythPainterGPU* Painter, MythDisplay* Display,
+                       MythVideoProfilePtr VideoProfile, QString& Profile);
     virtual QRect   GetDisplayVisibleRectAdj();
     bool            Init                  (QSize VideoDim, QSize VideoDispDim, float Aspect,
                                            QRect DisplayVisibleRect, MythCodecID CodecId) override;
@@ -55,6 +64,7 @@ class MythVideoOutputGPU : public MythVideoOutput
     void            InitDisplayMeasurements();
     void            SetReferenceFrames    (int ReferenceFrames);
 
+    MythMainWindow* m_mainWindow          { nullptr };
     MythRender*     m_render              { nullptr };
     MythVideoGPU*   m_video               { nullptr };
     MythPainterGPU* m_painter             { nullptr };

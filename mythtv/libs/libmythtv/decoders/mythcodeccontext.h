@@ -36,6 +36,7 @@
 #include "mythcodecid.h"
 #include "mythframe.h"
 #include "decoderbase.h"
+#include "mythinteropgpu.h"
 
 extern "C" {
 #include "libavcodec/avcodec.h"
@@ -45,8 +46,7 @@ extern "C" {
 using CreateHWDecoder = int (*)(AVCodecContext *Context);
 
 class MythPlayerUI;
-class MythOpenGLInterop;
-class VideoDisplayProfile;
+class MythVideoProfile;
 
 class MTV_PUBLIC MythCodecContext
 {
@@ -124,7 +124,7 @@ class MTV_PUBLIC MythCodecContext
     virtual ~MythCodecContext() = default;
 
     static MythCodecContext* CreateContext (DecoderBase *Parent, MythCodecID Codec);
-    static void GetDecoders                (RenderOptions &Opts);
+    static void GetDecoders                (RenderOptions &Opts, bool Reinit = false);
     static QStringList GetDecoderDescription(void);
     static MythCodecID FindDecoder         (const QString &Decoder, AVStream *Stream,
                                             AVCodecContext **Context, AVCodec **Codec);
@@ -138,7 +138,8 @@ class MTV_PUBLIC MythCodecContext
     static void DeviceContextFinished      (AVHWDeviceContext *Context);
     static void CreateDecoderCallback      (void *Wait, void *Context, void *Callback);
     static MythPlayerUI* GetPlayerUI       (AVCodecContext* Context);
-    static AVBufferRef* CreateDevice       (AVHWDeviceType Type, MythOpenGLInterop *Interop, const QString &Device = QString());
+    static bool FrameTypeIsSupported       (AVCodecContext* Context, VideoFrameType Format);
+    static AVBufferRef* CreateDevice       (AVHWDeviceType Type, MythInteropGPU* Interop, const QString& Device = QString());
     static bool IsUnsupportedProfile       (AVCodecContext *Context);
     static QString GetProfileDescription   (CodecProfile Profile, QSize Size,
                                             VideoFrameType Format = FMT_NONE, uint ColorDepth = 0);
@@ -149,7 +150,7 @@ class MTV_PUBLIC MythCodecContext
     virtual int    HwDecoderInit           (AVCodecContext */*Context*/) { return 0; }
     virtual bool   RetrieveFrame           (AVCodecContext */*Context*/, MythVideoFrame */*Frame*/, AVFrame */*AvFrame*/) { return false; }
     virtual int    FilteredReceiveFrame    (AVCodecContext *Context, AVFrame *Frame);
-    virtual void   SetDeinterlacing        (AVCodecContext */*Context*/, VideoDisplayProfile */*Profile*/, bool /*DoubleRate*/) {}
+    virtual void   SetDeinterlacing        (AVCodecContext */*Context*/, MythVideoProfile */*Profile*/, bool /*DoubleRate*/) {}
     virtual void   PostProcessFrame        (AVCodecContext */*Context*/, MythVideoFrame */*Frame*/) {}
     virtual bool   IsDeinterlacing         (bool &/*DoubleRate*/, bool /*StreamChange*/ = false) { return false; }
     virtual void   SetDecoderOptions       (AVCodecContext */*Context*/, AVCodec */*Codec*/) { }
@@ -159,7 +160,7 @@ class MTV_PUBLIC MythCodecContext
 
   protected:
     virtual bool   RetrieveHWFrame         (MythVideoFrame* Frame, AVFrame* AvFrame);
-    static void    DestroyInterop          (MythOpenGLInterop *Interop);
+    static void    DestroyInterop          (MythInteropGPU* Interop);
     static void    NewHardwareFramesContext(void);
     static QAtomicInt s_hwFramesContextCount;
 
@@ -168,4 +169,4 @@ class MTV_PUBLIC MythCodecContext
     bool         m_resetRequired { false       };
 };
 
-#endif // MYTHCODECCONTEXT_H
+#endif

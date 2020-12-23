@@ -1,7 +1,7 @@
 // MythTV
 #include "mythvideocolourspace.h"
 #include "fourcc.h"
-#include "mythmmalinterop.h"
+#include "opengl/mythmmalinterop.h"
 
 extern "C" {
 #include "libavutil/pixdesc.h"
@@ -22,39 +22,33 @@ MythMMALInterop::~MythMMALInterop()
     LOG(VB_GENERAL, LOG_INFO, LOC + "Destructor");
 }
 
-MythOpenGLInterop::Type MythMMALInterop::GetInteropType(VideoFrameType Format)
+void MythMMALInterop::GetMMALTypes(MythRenderOpenGL* Render, MythInteropGPU::InteropMap& Types)
 {
-    if (FMT_MMAL != Format)
-        return Unsupported;
-
-    MythRenderOpenGL* context = MythRenderOpenGL::GetOpenGLRender();
-    if (!context)
-        return Unsupported;
-
-    OpenGLLocker locker(context);
-    if (!context->IsEGL())
-        return Unsupported;
+    OpenGLLocker locker(Render);
+    if (!Render->IsEGL())
+        return;
 
     // MMAL interop only works with the closed source driver
-    QString renderer = reinterpret_cast<const char*>(context->glGetString(GL_RENDERER));
+    QString renderer = reinterpret_cast<const char*>(Render->glGetString(GL_RENDERER));
     if (!renderer.contains("VideoCore", Qt::CaseInsensitive))
     {
         LOG(VB_GENERAL, LOG_WARNING, LOC +
-            QString("Interop requires the closed source/Broadcom driver - not '%1'")
-            .arg(renderer));
-        return Unsupported;
+            QString("Interop requires the closed source/Broadcom driver - not '%1'").arg(renderer));
+        return;
     }
 
-    return context->hasExtension("GL_OES_EGL_image") ? MMAL : Unsupported;
+    if (Render->hasExtension("GL_OES_EGL_image"))
+        Types[FMT_MMAL] = { MMAL };
 }
 
-MythMMALInterop* MythMMALInterop::Create(MythRenderOpenGL *Context, Type InteropType)
+/*! \brief Create an MMAL interop
+ *
+ * \note This is called directly from the decoder - hence we do not attempt
+ * to retrieve the list of supported types again. Assume it has already been verified.
+*/
+MythMMALInterop* MythMMALInterop::CreateMMAL(MythRenderOpenGL* Context)
 {
-    if (!Context)
-        return nullptr;
-    if (InteropType == MMAL)
-        return new MythMMALInterop(Context);
-    return nullptr;
+    return Context ? new MythMMALInterop(Context) : nullptr;
 }
 
 MMAL_BUFFER_HEADER_T* MythMMALInterop::VerifyBuffer(MythRenderOpenGL *Context, MythVideoFrame *Frame)
@@ -72,7 +66,7 @@ MMAL_BUFFER_HEADER_T* MythMMALInterop::VerifyBuffer(MythRenderOpenGL *Context, M
     }
 
     // Sanity check the context
-    if (m_context != Context)
+    if (m_openglContext != Context)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Mismatched OpenGL contexts!");
         return result;
@@ -80,23 +74,23 @@ MMAL_BUFFER_HEADER_T* MythMMALInterop::VerifyBuffer(MythRenderOpenGL *Context, M
 
     // Check size
     QSize surfacesize(Frame->m_width, Frame->m_height);
-    if (m_openglTextureSize != surfacesize)
+    if (m_textureSize != surfacesize)
     {
-        if (!m_openglTextureSize.isEmpty())
+        if (!m_textureSize.isEmpty())
             LOG(VB_GENERAL, LOG_WARNING, LOC + "Video texture size changed!");
-        m_openglTextureSize = surfacesize;
+        m_textureSize = surfacesize;
     }
 
     result = reinterpret_cast<MMAL_BUFFER_HEADER_T*>(Frame->m_buffer);
     return result;
 }
 
-vector<MythVideoTexture*> MythMMALInterop::Acquire(MythRenderOpenGL *Context,
-                                                   MythVideoColourSpace *ColourSpace,
-                                                   MythVideoFrame *Frame,
-                                                   FrameScanType Scan)
+vector<MythVideoTextureOpenGL*> MythMMALInterop::Acquire(MythRenderOpenGL *Context,
+                                                         MythVideoColourSpace *ColourSpace,
+                                                         MythVideoFrame *Frame,
+                                                         FrameScanType Scan)
 {
-    vector<MythVideoTexture*> result;
+    vector<MythVideoTextureOpenGL*> result;
     if (!Frame)
         return result;
 
@@ -133,7 +127,7 @@ vector<MythVideoTexture*> MythMMALInterop::Acquire(MythRenderOpenGL *Context,
         }
     }
 
-    OpenGLLocker locker(m_context);
+    OpenGLLocker locker(m_openglContext);
 
     VideoFrameType format = FMT_YV12;
     uint count = MythVideoFrame::GetNumPlanes(format);
@@ -143,13 +137,13 @@ vector<MythVideoTexture*> MythMMALInterop::Acquire(MythRenderOpenGL *Context,
         vector<QSize> sizes;
         for (uint plane = 0 ; plane < count; ++plane)
         {
-            QSize size(MythVideoFrame::GetWidthForPlan(format, Frame->m_width, plane),
+            QSize size(MythVideoFrame::GetWidthForPlane(format, Frame->m_width, plane),
                        MythVideoFrame::GetHeightForPlane(format, Frame->m_height, plane));
             sizes.push_back(size);
         }
 
-        vector<MythVideoTexture*> textures =
-                MythVideoTexture::CreateTextures(m_context, FMT_MMAL, format, sizes,GL_TEXTURE_EXTERNAL_OES);
+        vector<MythVideoTextureOpenGL*> textures =
+            MythVideoTextureOpenGL::CreateTextures(m_openglContext, FMT_MMAL, format, sizes,GL_TEXTURE_EXTERNAL_OES);
         if (textures.size() != count)
             LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create all textures");
 
@@ -167,23 +161,23 @@ vector<MythVideoTexture*> MythMMALInterop::Acquire(MythRenderOpenGL *Context,
 
     for (uint plane = 0; plane < result.size(); ++plane)
     {
-        MythVideoTexture* texture = result[plane];
+        MythVideoTextureOpenGL* texture = result[plane];
         EGLenum target = EGL_IMAGE_BRCM_MULTIMEDIA_Y;
         if (plane == 1)
             target = EGL_IMAGE_BRCM_MULTIMEDIA_U;
         else if (plane == 2)
             target = EGL_IMAGE_BRCM_MULTIMEDIA_V;
 
-        EGLImageKHR image = m_context->eglCreateImageKHR(m_context->GetEGLDisplay(), EGL_NO_CONTEXT, target,
+        EGLImageKHR image = m_openglContext->eglCreateImageKHR(m_openglContext->GetEGLDisplay(), EGL_NO_CONTEXT, target,
                                                         (EGLClientBuffer)buffer->data, nullptr);
         if (!image)
             LOG(VB_GENERAL, LOG_ERR, LOC + QString("No EGLImage for plane %1 %2")
-                .arg(plane).arg(m_context->GetEGLError()));
+                .arg(plane).arg(m_openglContext->GetEGLError()));
 
-        m_context->glBindTexture(texture->m_target, texture->m_textureId);
-        m_context->eglImageTargetTexture2DOES(texture->m_target, image);
-        m_context->glBindTexture(texture->m_target, 0);
-        m_context->eglDestroyImageKHR(m_context->GetEGLDisplay(), image);
+        m_openglContext->glBindTexture(texture->m_target, texture->m_textureId);
+        m_openglContext->eglImageTargetTexture2DOES(texture->m_target, image);
+        m_openglContext->glBindTexture(texture->m_target, 0);
+        m_openglContext->eglDestroyImageKHR(m_openglContext->GetEGLDisplay(), image);
     }
 
     return result;

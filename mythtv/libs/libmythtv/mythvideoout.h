@@ -16,10 +16,13 @@
 #include "videoouttypes.h"
 #include "mythvideobounds.h"
 #include "mythdisplay.h"
-#include "videodisplayprofile.h"
+#include "mythvideoprofile.h"
 #include "mythvideocolourspace.h"
 #include "mythavutil.h"
 #include "mythdeinterlacer.h"
+
+// Std
+#include <memory>
 
 class MythPlayer;
 class OSD;
@@ -27,14 +30,16 @@ class AudioPlayer;
 class MythRender;
 class MythPainter;
 
+using MythVideoProfilePtr = std::shared_ptr<MythVideoProfile>;
+
 class MythVideoOutput : public MythVideoBounds
 {
     Q_OBJECT
 
   public:
-    static void GetRenderOptions(RenderOptions& Options);
+    static void GetRenderOptions(RenderOptions& Options, MythRender* Render);
 
-    ~MythVideoOutput() override;
+    ~MythVideoOutput() override = default;
 
     virtual bool Init(QSize VideoDim, QSize VideoDispDim,
                       float VideoAspect, QRect WindowRect, MythCodecID CodecID);
@@ -76,9 +81,7 @@ class MythVideoOutput : public MythVideoBounds
     QRect        GetSafeRect();
 
     // These methods are only required by MythPlayerUI
-    virtual void ResizeForVideo(QSize /*Size*/ = QSize()) { }
     PictureAttributeSupported GetSupportedPictureAttributes();
-    int          GetPictureAttribute   (PictureAttribute AttributeType);
     virtual void InitPictureAttributes () { }
     bool         HasSoftwareFrames     () const { return codec_sw_copy(m_videoCodecID); }
     virtual void RenderOverlays        (OSD& /*Osd*/) {}
@@ -93,13 +96,13 @@ class MythVideoOutput : public MythVideoBounds
     LetterBoxColour      m_dbLetterboxColour  { kLetterBoxColour_Black };
     MythCodecID          m_videoCodecID       { kCodec_NONE };
     int                  m_maxReferenceFrames { 16 };
-    VideoDisplayProfile* m_dbDisplayProfile   { nullptr };
+    MythVideoProfilePtr  m_videoProfile       { nullptr };
     VideoBuffers         m_videoBuffers;
     VideoErrorState      m_errorState         { kError_None };
     long long            m_framesPlayed       { 0 };
     MythAVCopy           m_copyFrame;
     MythDeinterlacer     m_deinterlacer;
-    const VideoFrameTypes* m_renderFormats    { &MythVideoFrame::s_defaultRenderFormats };
+    const VideoFrameTypes* m_renderFormats    { &MythVideoFrame::kDefaultRenderFormats };
     bool                 m_deinterlacing      { false };
     bool                 m_deinterlacing2X    { false };
     MythDeintType        m_forcedDeinterlacer { DEINT_NONE };

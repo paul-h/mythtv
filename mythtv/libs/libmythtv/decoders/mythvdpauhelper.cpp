@@ -50,14 +50,14 @@ bool VDPAUCodec::Supported(int Width, int Height, int Level) const
     return result;
 }
 
-bool MythVDPAUHelper::HaveVDPAU(void)
+bool MythVDPAUHelper::HaveVDPAU(bool Reinit /*=false*/)
 {
     static QMutex s_mutex;
     static bool s_checked = false;
     static bool s_available = false;
 
     QMutexLocker locker(&s_mutex);
-    if (s_checked)
+    if (s_checked && !Reinit)
         return s_available;
 
     {
@@ -301,6 +301,7 @@ bool MythVDPAUHelper::InitProcs(void)
     GET_PROC(VDP_FUNC_ID_VIDEO_MIXER_SET_ATTRIBUTE_VALUES, m_vdpVideoMixerSetAttributeValues)
     GET_PROC(VDP_FUNC_ID_VIDEO_MIXER_SET_FEATURE_ENABLES, m_vdpVideoMixerSetFeatureEnables)
     GET_PROC(VDP_FUNC_ID_VIDEO_MIXER_QUERY_FEATURE_SUPPORT, m_vdpVideoMixerQueryFeatureSupport)
+    GET_PROC(VDP_FUNC_ID_VIDEO_MIXER_QUERY_ATTRIBUTE_SUPPORT, m_vdpVideoMixerQueryAttributeSupport)
     GET_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_CREATE, m_vdpOutputSurfaceCreate)
     GET_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_DESTROY, m_vdpOutputSurfaceDestroy)
     GET_PROC(VDP_FUNC_ID_VIDEO_SURFACE_GET_PARAMETERS, m_vdpVideoSurfaceGetParameters)
@@ -430,18 +431,16 @@ VdpVideoMixer MythVDPAUHelper::CreateMixer(QSize Size, VdpChromaType ChromaType,
 
     VdpVideoMixer result = 0;
 
-    static const std::array<const VdpVideoMixerParameter,4> parameters {
+    static const std::array<const VdpVideoMixerParameter,3> parameters {
         VDP_VIDEO_MIXER_PARAMETER_VIDEO_SURFACE_WIDTH,
         VDP_VIDEO_MIXER_PARAMETER_VIDEO_SURFACE_HEIGHT,
-        VDP_VIDEO_MIXER_PARAMETER_CHROMA_TYPE,
-        VDP_VIDEO_MIXER_PARAMETER_LAYERS,
+        VDP_VIDEO_MIXER_PARAMETER_CHROMA_TYPE
     };
 
 
     uint width  = static_cast<uint>(Size.width());
     uint height = static_cast<uint>(Size.height());
-    uint layers = 0;
-    std::array<void const *,4> parametervalues { &width, &height, &ChromaType, &layers};
+    std::array<void const *,3> parametervalues { &width, &height, &ChromaType};
 
     uint32_t featurecount = 0;
     std::array<VdpVideoMixerFeature,2> features {};
@@ -462,7 +461,7 @@ VdpVideoMixer MythVDPAUHelper::CreateMixer(QSize Size, VdpChromaType ChromaType,
 
     INIT_ST
     status = m_vdpVideoMixerCreate(m_device, featurecount, featurecount ? features.data() : nullptr,
-                                   4, parameters.data(), parametervalues.data(), &result);
+                                   3, parameters.data(), parametervalues.data(), &result);
     CHECK_ST
 
     if (!ok || !result)
@@ -471,8 +470,11 @@ VdpVideoMixer MythVDPAUHelper::CreateMixer(QSize Size, VdpChromaType ChromaType,
         return result;
     }
 
-    status = m_vdpVideoMixerSetFeatureEnables(result, featurecount, features.data(), enables.data());
-    CHECK_ST
+    if (featurecount)
+    {
+        status = m_vdpVideoMixerSetFeatureEnables(result, featurecount, features.data(), enables.data());
+        CHECK_ST
+    }
     return result;
 }
 
@@ -563,6 +565,18 @@ bool MythVDPAUHelper::IsFeatureAvailable(uint Feature)
     INIT_ST
     auto supported = static_cast<VdpBool>(false);
     status = m_vdpVideoMixerQueryFeatureSupport(m_device, Feature, &supported);
+    CHECK_ST
+    return ok && static_cast<bool>(supported);
+}
+
+bool MythVDPAUHelper::IsAttributeAvailable(uint Attribute)
+{
+    if (!m_valid)
+        return false;
+
+    INIT_ST
+    auto supported = static_cast<VdpBool>(false);
+    status = m_vdpVideoMixerQueryAttributeSupport(m_device, Attribute, &supported);
     CHECK_ST
     return ok && static_cast<bool>(supported);
 }

@@ -85,12 +85,8 @@ MythCodecID MythVTBContext::GetSupportedCodec(AVCodecContext **Context,
         return failure;
 
     if (!decodeonly)
-    {
-        // check for the correct player type and interop supprt
-        MythPlayerUI* player = GetPlayerUI(*Context);
-        if (MythOpenGLInterop::GetInteropType(FMT_VTB, player) == MythOpenGLInterop::Unsupported)
+        if (!FrameTypeIsSupported(*Context, FMT_VTB))
             return failure;
-    }
 
     // Check decoder support
     MythCodecContext::CodecProfile mythprofile = MythCodecContext::NoProfile;
@@ -136,25 +132,20 @@ int MythVTBContext::InitialiseDecoder(AVCodecContext *Context)
     if (!gCoreContext->IsUIThread())
         return -1;
 
-    // Retrieve OpenGL render context
-    MythRenderOpenGL* render = MythRenderOpenGL::GetOpenGLRender();
-    if (!render)
-        return -1;
-    OpenGLLocker locker(render);
-
     // The interop must have a reference to the ui player so it can be deleted
     // from the main thread.
     MythPlayerUI* player = GetPlayerUI(Context);
     if (!player)
         return -1;
 
-    // Check interop support
-    MythVTBInterop::Type type = MythOpenGLInterop::GetInteropType(FMT_VTB, player);
-    if (type == MythOpenGLInterop::Unsupported)
+    // Retrieve OpenGL render context
+    auto * render = dynamic_cast<MythRenderOpenGL*>(player->GetRender());
+    if (!render)
         return -1;
+    OpenGLLocker locker(render);
 
     // Create interop
-    MythVTBInterop* interop = MythVTBInterop::Create(render, type);
+    MythVTBInterop* interop = MythVTBInterop::CreateVTB(render);
     if (!interop)
         return -1;
 
@@ -244,13 +235,13 @@ const VTBProfiles& MythVTBContext::GetProfiles(void)
     return s_profiles;
 }
 
-bool MythVTBContext::HaveVTB(void)
+bool MythVTBContext::HaveVTB(bool Reinit /*=false*/)
 {
     static QMutex lock(QMutex::Recursive);
     QMutexLocker locker(&lock);
     static bool s_checked = false;
     static bool s_available = false;
-    if (!s_checked)
+    if (!s_checked || Reinit)
     {
         const VTBProfiles& profiles = MythVTBContext::GetProfiles();
         if (profiles.empty())

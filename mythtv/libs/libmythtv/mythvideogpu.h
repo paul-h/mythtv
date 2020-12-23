@@ -10,7 +10,12 @@
 #include "mythframe.h"
 #include "mythvideocolourspace.h"
 
+// Std
+#include <memory>
+
 class MythVideoBounds;
+class MythVideoProfile;
+using MythVideoProfilePtr = std::shared_ptr<MythVideoProfile>;
 
 class MythVideoGPU : public QObject
 {
@@ -24,7 +29,8 @@ class MythVideoGPU : public QObject
         Sampling     = 0x002,
         Performance  = 0x004,
         Framebuffer  = 0x008,
-        ToneMap      = 0x010
+        ToneMap      = 0x010,
+        Bicubic      = 0x020
     };
 
     Q_DECLARE_FLAGS(VideoResizing, VideoResize)
@@ -32,7 +38,7 @@ class MythVideoGPU : public QObject
     static QString VideoResizeToString(VideoResizing Resize);
 
     MythVideoGPU(MythRender* Render, MythVideoColourSpace* ColourSpace,
-                 MythVideoBounds* Bounds, QString Profile);
+                 MythVideoBounds* Bounds, const MythVideoProfilePtr& VideoProfile, QString Profile);
    ~MythVideoGPU() override;
 
     virtual void StartFrame        () = 0;
@@ -57,6 +63,7 @@ class MythVideoGPU : public QObject
     void         SetVideoDimensions(QSize VideoDim, QSize VideoDispDim);
     void         SetVideoRects     (QRect DisplayVideoRect, QRect VideoRect);
     void         SetViewportRect   (QRect DisplayVisibleRect);
+    void         UpscalerChanged   (const QString& Upscaler);
 
   protected:
     virtual void ColourSpaceUpdate (bool PrimariesChanged) = 0;
@@ -81,6 +88,7 @@ class MythVideoGPU : public QObject
     bool              m_viewportControl      { true };
     uint              m_lastStereo           { 0 }; // AV_STEREO3D_2D
     StereoscopicMode  m_stereoMode           { kStereoscopicModeSideBySideDiscard };
+    bool              m_bicubicUpsize        { false };
 };
 
 #endif

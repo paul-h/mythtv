@@ -398,10 +398,6 @@ bool MythRenderOpenGL::Init(void)
 
 void MythRenderOpenGL::DebugFeatures(void)
 {
-    static bool s_debugged = false;
-    if (s_debugged)
-        return;
-    s_debugged = true;
     QSurfaceFormat fmt = format();
     QString qtglversion = QString("OpenGL%1 %2.%3")
             .arg(fmt.renderableType() == QSurfaceFormat::OpenGLES ? "ES" : "")
@@ -757,6 +753,7 @@ QOpenGLFramebufferObject* MythRenderOpenGL::CreateFramebuffer(QSize &Size, bool 
     return nullptr;
 }
 
+/// This is no longer used but will probably be needed for future UI enhancements.
 MythGLTexture* MythRenderOpenGL::CreateFramebufferTexture(QOpenGLFramebufferObject *Framebuffer)
 {
     if (!Framebuffer)
@@ -956,7 +953,7 @@ void MythRenderOpenGL::DrawRect(QOpenGLFramebufferObject *Target,
                                 const QRect Area, const QBrush &FillBrush,
                                 const QPen &LinePen, int Alpha)
 {
-    DrawRoundRect(Target, Area, 0, FillBrush, LinePen, Alpha);
+    DrawRoundRect(Target, Area, 1, FillBrush, LinePen, Alpha);
 }
 
 
@@ -987,23 +984,18 @@ void MythRenderOpenGL::DrawRoundRect(QOpenGLFramebufferObject *Target,
     float halfwidth = Area.width() / 2.0F;
     float halfheight = Area.height() / 2.0F;
     float radius = CornerRadius;
+    if (radius < 1.0F) radius = 1.0F;
     if (radius > halfwidth) radius = halfwidth;
     if (radius > halfheight) radius = halfheight;
-    float innerradius = radius - LinePen.width();
-    if (innerradius < 0.0F) innerradius = 0.0F;
 
     // Set shader parameters
     // Centre of the rectangle
     m_parameters(0,0) = Area.left() + halfwidth;
     m_parameters(1,0) = Area.top() + halfheight;
     m_parameters(2,0) = radius;
-    m_parameters(3,0) = innerradius;
     // Rectangle 'size' - distances from the centre to the edge
     m_parameters(0,1) = halfwidth;
     m_parameters(1,1) = halfheight;
-    // Adjust the size for the inner radius (edge)
-    m_parameters(2,1) = halfwidth - LinePen.width();
-    m_parameters(3,1) = halfheight - LinePen.width();
 
     makeCurrent();
     BindFramebuffer(Target);
@@ -1021,10 +1013,15 @@ void MythRenderOpenGL::DrawRoundRect(QOpenGLFramebufferObject *Target,
 
     if (edge)
     {
+        float innerradius = radius - LinePen.width();
+        if (innerradius < 0.0F) innerradius = 0.0F;
+        m_parameters(3,0) = innerradius;
+        // Adjust the size for the inner radius (edge)
+        m_parameters(2,1) = halfwidth - LinePen.width();
+        m_parameters(3,1) = halfheight - LinePen.width();
         SetColor(LinePen.color());
         SetShaderProjection(m_defaultPrograms[kShaderEdge]);
         SetShaderProgramParams(m_defaultPrograms[kShaderEdge], m_parameters, "u_parameters");
-        glVertexAttribPointerI(VERTEX_INDEX, VERTEX_SIZE, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof(GLfloat), kVertexOffset);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     }
 
@@ -1529,21 +1526,20 @@ void MythRenderOpenGL::SetMatrixView(void)
     m_projection.ortho(m_viewport);
 }
 
-bool MythRenderOpenGL::GetGPUMemory(int &Available, int &Dedicated, int &Total)
+std::tuple<int, int, int> MythRenderOpenGL::GetGPUMemory()
 {
     OpenGLLocker locker(this);
     if (m_extraFeaturesUsed & kGLNVMemory)
     {
-        GLint kb = 0;
-        glGetIntegerv(GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX, &kb);
-        Total = kb / 1024;
-        glGetIntegerv(GPU_MEMORY_INFO_DEDICATED_VIDMEM_NVX, &kb);
-        Dedicated = kb / 1024;
-        glGetIntegerv(GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX, &kb);
-        Available = kb / 1024;
-        return true;
+        GLint total = 0;
+        GLint dedicated = 0;
+        GLint available = 0;
+        glGetIntegerv(GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX, &total);
+        glGetIntegerv(GPU_MEMORY_INFO_DEDICATED_VIDMEM_NVX, &dedicated);
+        glGetIntegerv(GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX, &available);
+        return { total / 1024, dedicated / 1024, available / 1024 };
     }
-    return false;
+    return { 0, 0, 0 };
 }
 
 /*! \brief Check for 16bit framebufferobject support

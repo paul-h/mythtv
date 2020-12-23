@@ -30,7 +30,7 @@ class MythNVDECContext : public MythCodecContext
     int  HwDecoderInit                   (AVCodecContext *Context) override;
     bool RetrieveFrame                   (AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame) override;
     void SetDeinterlacing                (AVCodecContext *Context,
-                                          VideoDisplayProfile *Profile, bool DoubleRate) override;
+                                          MythVideoProfile *Profile, bool DoubleRate) override;
     void PostProcessFrame                (AVCodecContext *Context, MythVideoFrame *Frame) override;
     bool IsDeinterlacing                 (bool &DoubleRate, bool StreamChange = false) override;
     bool DecoderWillResetOnFlush         (void) override;
@@ -43,7 +43,7 @@ class MythNVDECContext : public MythCodecContext
     static bool GetBuffer                (AVCodecContext *Context, MythVideoFrame *Frame,
                                           AVFrame *AvFrame, int Flags);
     static int  InitialiseDecoder        (AVCodecContext *Context);
-    static bool HaveNVDEC                (void);
+    static bool HaveNVDEC                (bool Reinit = false);
     static void GetDecoderList           (QStringList &Decoders);
 
   private:

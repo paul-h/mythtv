@@ -20,6 +20,21 @@
 #define DEINT_QUALITY_HIGH   QString("high")
 #define DEINT_QUALITY_SHADER QString("shader")
 #define DEINT_QUALITY_DRIVER QString("driver")
+#define UPSCALE_DEFAULT QString("bilinear")
+#define UPSCALE_HQ1     QString("bicubic")
+
+#define COND_WIDTH    "cond_width"
+#define COND_HEIGHT   "cond_height"
+#define COND_RATE     "cond_framerate"
+#define COND_CODECS   "cond_codecs"
+#define PREF_DEC      "pref_decoder"
+#define PREF_CPUS     "pref_max_cpus"
+#define PREF_LOOP     "pref_skiploop"
+#define PREF_RENDER   "pref_videorenderer"
+#define PREF_DEINT1X  "pref_deint0"
+#define PREF_DEINT2X  "pref_deint1"
+#define PREF_PRIORITY "pref_priority"
+#define PREF_UPSCALE  "pref_upscale"
 
 #define VIDEO_MAX_CPUS (16U)
 
@@ -33,22 +48,22 @@ struct RenderOptions
     QMap<QString,QStringList> *equiv_decoders;
 };
 
-class MTV_PUBLIC ProfileItem
+class MTV_PUBLIC MythVideoProfileItem
 {
   public:
-    ProfileItem() = default;
-   ~ProfileItem() = default;
+    MythVideoProfileItem() = default;
+   ~MythVideoProfileItem() = default;
 
     // Sets
-    void    Clear(void);
+    void    Clear();
     void    SetProfileID(uint Id);
     void    Set(const QString &Value, const QString &Data);
 
     // Gets
-    uint    GetProfileID(void) const;
+    uint    GetProfileID() const;
     QString Get(const QString &Value) const;
-    uint    GetPriority(void) const;
-    QMap<QString,QString> GetAll(void) const;
+    uint    GetPriority() const;
+    QMap<QString,QString> GetAll() const;
 
     // Other
     bool CheckRange(const QString& Key, float Value, bool *Ok = nullptr) const;
@@ -56,42 +71,48 @@ class MTV_PUBLIC ProfileItem
     bool CheckRange(const QString& Key, float FValue, int IValue, bool IsFloat, bool *Ok = nullptr) const;
     bool IsMatch(QSize Size, float Framerate, const QString &CodecName,
                  const QStringList &DisallowedDecoders = QStringList()) const;
-    bool IsValid(QString *Reason = nullptr) const;
-    bool operator<(const ProfileItem &Other) const;
-    QString toString(void) const;
+    auto IsValid() const;
+    bool operator<(const MythVideoProfileItem &Other) const;
+    QString toString() const;
 
   private:
     uint       m_profileid        { 0 };
     QMap<QString,QString> m_pref  { };
 };
 
-class MTV_PUBLIC VideoDisplayProfile
+class MTV_PUBLIC MythVideoProfile : public QObject
 {
+    Q_OBJECT
+
+  signals:
+    void DeinterlacersChanged(const QString& Single, const QString& Double);
+    void UpscalerChanged(const QString& Upscaler);
+
   public:
-    VideoDisplayProfile();
-   ~VideoDisplayProfile() = default;
+    MythVideoProfile();
+   ~MythVideoProfile() override = default;
 
     void    SetInput(QSize Size, float Framerate = 0, const QString &CodecName = QString(),
                      const QStringList &DisallowedDecoders = QStringList());
     void    SetOutput(float Framerate);
-    float   GetOutput(void) const;
+    float   GetOutput() const;
     void    SetVideoRenderer(const QString &VideoRenderer);
-    bool    CheckVideoRendererGroup(const QString &Renderer);
-    QString GetDecoder(void) const;
+    QString GetDecoder() const;
     bool    IsDecoderCompatible(const QString &Decoder) const;
-    uint    GetMaxCPUs(void) const ;
-    bool    IsSkipLoopEnabled(void) const;
-    QString GetVideoRenderer(void) const;
-    QString GetActualVideoRenderer(void) const;
-    QString toString(void) const;
-    QString GetSingleRatePreferences(void) const;
-    QString GetDoubleRatePreferences(void) const;
+    uint    GetMaxCPUs() const ;
+    bool    IsSkipLoopEnabled() const;
+    QString GetVideoRenderer() const;
+    QString toString() const;
+    QString GetSingleRatePreferences() const;
+    QString GetDoubleRatePreferences() const;
+    QString GetUpscaler() const;
 
     // Statics
     static void        InitStatics(bool Reinit = false);
-    static QList<QPair<QString,QString> > GetDeinterlacers(void);
-    static QStringList GetDecoders(void);
-    static QStringList GetDecoderNames(void);
+    static const QList<QPair<QString,QString> >& GetDeinterlacers();
+    static QStringList GetDecoders();
+    static QStringList GetDecoderNames();
+    static std::vector<std::pair<QString,QString>> GetUpscalers();
     static QString     GetDecoderName(const QString &Decoder);
     static QString     GetDecoderHelp(const QString &Decoder = QString());
     static QString     GetVideoRendererName(const QString &Renderer);
@@ -102,22 +123,23 @@ class MTV_PUBLIC VideoDisplayProfile
     static bool        DeleteProfileGroup(const QString &GroupName, const QString &HostName);
     static uint        CreateProfileGroup(const QString &ProfileName, const QString &HostName);
     static void        CreateProfile(uint GroupId, uint Priority,
-                                     const QString& Width, const QString& Height, const QString& Codecs,
-                                     const QString& Decoder, uint MaxCpus, bool SkipLoop, const QString& VideoRenderer,
-                                     const QString& Deint1, const QString& Deint2);
+                                     const QString& Width, const QString& Height,
+                                     const QString& Codecs, const QString& Decoder,
+                                     uint MaxCpus, bool SkipLoop, const QString& VideoRenderer,
+                                     const QString& Deint1, const QString& Deint2,
+                                     const QString& Upscale = UPSCALE_DEFAULT);
     static void        CreateProfiles(const QString &HostName);
     static QStringList GetVideoRenderers(const QString &Decoder);
     static QString     GetVideoRendererHelp(const QString &Renderer);
     static QString     GetPreferredVideoRenderer(const QString &Decoder);
-    static bool        IsFilterAllowed( const QString &VideoRenderer);
     static QStringList GetFilteredRenderers(const QString &Decoder, const QStringList &Renderers);
     static QString     GetBestVideoRenderer(const QStringList &Renderers);
-    static std::vector<ProfileItem> LoadDB(uint GroupId);
-    static bool        DeleteDB(uint GroupId, const std::vector<ProfileItem>& Items);
-    static bool        SaveDB(uint GroupId, std::vector<ProfileItem>& Items);
+    static std::vector<MythVideoProfileItem> LoadDB(uint GroupId);
+    static bool        DeleteDB(uint GroupId, const std::vector<MythVideoProfileItem>& Items);
+    static bool        SaveDB(uint GroupId, std::vector<MythVideoProfileItem>& Items);
 
   private:
-    std::vector<ProfileItem>::const_iterator
+    std::vector<MythVideoProfileItem>::const_iterator
             FindMatch(QSize Size, float Framerate, const QString &CodecName,
                       const QStringList& DisallowedDecoders = QStringList());
     void    LoadBestPreferences(QSize Size, float Framerate, const QString &CodecName,
@@ -130,21 +152,19 @@ class MTV_PUBLIC VideoDisplayProfile
     QSize                 m_lastSize            { 0, 0 };
     float                 m_lastRate            { 0.0F };
     QString               m_lastCodecName       { };
-    QString               m_lastVideoRenderer   { };
     QMap<QString,QString> m_currentPreferences  { };
-    std::vector<ProfileItem>   m_allowedPreferences  { };
+    std::vector<MythVideoProfileItem> m_allowedPreferences { };
 
-    static QMutex                    s_safe_lock;
-    static bool                      s_safe_initialized;
-    static QMap<QString,QStringList> s_safe_renderer;
-    static QMap<QString,QStringList> s_safe_renderer_group;
-    static QMap<QString,QStringList> s_safe_equiv_dec;
-    static QStringList               s_safe_custom;
-    static QMap<QString,uint>        s_safe_renderer_priority;
-    static QMap<QString,QString>     s_dec_name;
-    static QMap<QString,QString>     s_rend_name;
-    static QStringList               s_safe_decoders;
-    static QList<QPair<QString,QString> > s_deinterlacer_options;
+    static inline QMutex                    kSafeLock = QMutex(QMutex::Recursive);
+    static inline bool                      kSafeInitialized = false;
+    static inline QMap<QString,QStringList> kSafeRenderer = {};
+    static inline QMap<QString,QStringList> kSafeRendererGroup = {};
+    static inline QMap<QString,QStringList> kSafeEquivDec = {};
+    static inline QStringList               kSafeCustom = {};
+    static inline QMap<QString,uint>        kSafeRendererPriority = {};
+    static inline QMap<QString,QString>     kDecName = {};
+    static inline QMap<QString,QString>     kRendName = {};
+    static inline QStringList               kSafeDecoders = {};
 };
 
-#endif // VIDEO_DISPLAY_PROFILE_H_
+#endif

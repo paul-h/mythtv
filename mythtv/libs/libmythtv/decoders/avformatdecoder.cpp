@@ -30,7 +30,7 @@
 #include "captions/teletextdecoder.h"
 #include "captions/subtitlereader.h"
 #include "interactivetv.h"
-#include "videodisplayprofile.h"
+#include "mythvideoprofile.h"
 #include "mythuihelper.h"
 #include "DVD/mythdvdbuffer.h"
 #include "Bluray/mythbdbuffer.h"
@@ -302,13 +302,6 @@ static int get_canonical_lang(const char *lang_cstr)
     }
     int lang = iso639_str3_to_key(lang_cstr);
     return iso639_key_to_canonical_key(lang);
-}
-
-void AvFormatDecoder::GetDecoders(RenderOptions &opts)
-{
-    opts.decoders->append("ffmpeg");
-    (*opts.equiv_decoders)["ffmpeg"].append("dummy");
-    MythCodecContext::GetDecoders(opts);
 }
 
 AvFormatDecoder::AvFormatDecoder(MythPlayer *parent,

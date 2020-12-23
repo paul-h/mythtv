@@ -1,5 +1,6 @@
 // MythTV
 #include "avformatdecoder.h"
+#include "mythplayerui.h"
 #include "mythdrmprimecontext.h"
 
 #define LOC QString("DRMPRIMECtx: ")
@@ -79,8 +80,7 @@ MythCodecID MythDRMPRIMEContext::GetSupportedCodec(AVCodecContext **Context,
         return failure;
 
     // Direct rendering needs interop support
-    MythPlayerUI* player = GetPlayerUI(*Context);
-    if (MythOpenGLInterop::GetInteropType(FMT_DRMPRIME, player) == MythOpenGLInterop::Unsupported)
+    if (!FrameTypeIsSupported(*Context, FMT_DRMPRIME))
         return failure;
 
     // check support
@@ -110,8 +110,9 @@ int MythDRMPRIMEContext::HwDecoderInit(AVCodecContext *Context)
         return -1;
 
 #ifdef USING_EGL
-    MythRenderOpenGL *context = MythRenderOpenGL::GetOpenGLRender();
-    m_interop = MythDRMPRIMEInterop::Create(context, MythOpenGLInterop::DRMPRIME);
+    if (auto * player = GetPlayerUI(Context); player != nullptr)
+        if (FrameTypeIsSupported(Context, FMT_DRMPRIME))
+            m_interop = MythDRMPRIMEInterop::CreateDRM(dynamic_cast<MythRenderOpenGL*>(player->GetRender()));
 #endif
     return m_interop ? 0 : -1;
 }
@@ -183,14 +184,14 @@ bool MythDRMPRIMEContext::GetDRMBuffer(AVCodecContext *Context, MythVideoFrame *
     return true;
 }
 
-bool MythDRMPRIMEContext::HavePrimeDecoders(AVCodecID Codec)
+bool MythDRMPRIMEContext::HavePrimeDecoders(bool Reinit /*=false*/, AVCodecID Codec /*=AV_CODEC_ID_NONE*/)
 {
     static bool s_needscheck = true;
     static QVector<AVCodecID> s_supportedCodecs;
 
     QMutexLocker locker(&s_drmPrimeLock);
 
-    if (s_needscheck)
+    if (s_needscheck || Reinit)
     {
         s_needscheck = false;
         s_supportedCodecs.clear();
@@ -237,7 +238,7 @@ bool MythDRMPRIMEContext::HavePrimeDecoders(AVCodecID Codec)
 
         if (debugcodecs.isEmpty())
             debugcodecs.append("None");
-        LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("DRM PRIME codecs supported: %1 %2")
+        LOG(VB_GENERAL, LOG_INFO, LOC + QString("DRM PRIME codecs supported: %1 %2")
             .arg(debugcodecs.join(","))
             .arg(s_drmPrimeDecoders.isEmpty() ? "" : QString("using: %1").arg(s_drmPrimeDecoders.join(","))));
     }

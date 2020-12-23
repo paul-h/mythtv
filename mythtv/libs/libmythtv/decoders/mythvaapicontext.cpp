@@ -165,9 +165,7 @@ MythCodecID MythVAAPIContext::GetSupportedCodec(AVCodecContext **Context,
     }
     else
     {
-        // Direct rendering needs interop support
-        MythPlayerUI* player = GetPlayerUI(*Context);
-        if (MythOpenGLInterop::GetInteropType(FMT_VAAPI, player) == MythOpenGLInterop::Unsupported)
+        if (!FrameTypeIsSupported(*Context, FMT_VAAPI))
             return failure;
     }
 
@@ -240,24 +238,19 @@ int MythVAAPIContext::InitialiseContext(AVCodecContext *Context)
     if (!Context || !gCoreContext->IsUIThread())
         return -1;
 
-    // We need a render device
-    MythRenderOpenGL* render = MythRenderOpenGL::GetOpenGLRender();
-    if (!render)
-        return -1;
-
     // The interop must have a reference to the ui player so it can be deleted
     // from the main thread.
-    MythPlayerUI* player = GetPlayerUI(Context);
+    auto * player = GetPlayerUI(Context);
     if (!player)
         return -1;
 
-    // Check interop support
-    MythOpenGLInterop::Type type = MythOpenGLInterop::GetInteropType(FMT_VAAPI, player);
-    if (type == MythOpenGLInterop::Unsupported)
+    // Retrieve OpenGL render context
+    auto * render = dynamic_cast<MythRenderOpenGL*>(player->GetRender());
+    if (!render)
         return -1;
 
     // Create interop
-    MythVAAPIInterop *interop = MythVAAPIInterop::Create(render, type);
+    auto * interop = MythVAAPIInterop::CreateVAAPI(render);
     if (!interop)
         return -1;
     if (!interop->GetDisplay())
@@ -337,7 +330,7 @@ int MythVAAPIContext::InitialiseContext(AVCodecContext *Context)
         {
             auto vaapiid = static_cast<MythCodecID>(kCodec_MPEG1_VAAPI + (mpeg_version(Context->codec_id) - 1));
             LOG(VB_GENERAL, LOG_INFO, LOC + QString("Forcing surface format for %1 and %2 with driver '%3'")
-                .arg(toString(vaapiid)).arg(MythOpenGLInterop::TypeToString(type)).arg(vendor));
+                .arg(toString(vaapiid)).arg(MythOpenGLInterop::TypeToString(interop->GetType())).arg(vendor));
         }
 
         std::array<VASurfaceAttrib,3> prefs {{
@@ -588,21 +581,6 @@ const VAAPIProfiles &MythVAAPIContext::GetProfiles(void)
     }
     av_freep(&profilelist);
     av_buffer_unref(&hwdevicectx);
-
-    // Once only check for EGL support for best performance
-    MythRenderOpenGL* render = MythRenderOpenGL::GetOpenGLRender();
-    if (!s_profiles.isEmpty() && render)
-    {
-        if (render->IsEGL())
-        {
-            LOG(VB_GENERAL, LOG_INFO, LOC + "EGL DMABUF available for best VAAPI performance");
-        }
-        else
-        {
-            LOG(VB_GENERAL, LOG_WARNING, LOC + "No EGL support. VAAPI performance will be reduced");
-            LOG(VB_GENERAL, LOG_WARNING, LOC + "Consider setting MYTHTV_FORCE_EGL=1 to try and enable");
-        }
-    }
     return s_profiles;
 }
 

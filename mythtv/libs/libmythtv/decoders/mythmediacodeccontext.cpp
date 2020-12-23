@@ -167,19 +167,19 @@ int MythMediaCodecContext::InitialiseDecoder(AVCodecContext *Context)
 
     // The interop must have a reference to the ui player so it can be deleted
     // from the main thread.
-    MythPlayerUI* player = GetPlayerUI(Context);
+    auto * player = GetPlayerUI(Context);
     if (!player)
         return -1;
 
     // Retrieve OpenGL render context
-    MythRenderOpenGL* render = MythRenderOpenGL::GetOpenGLRender();
+    auto * render = dynamic_cast<MythRenderOpenGL*>(player->GetRender());
     if (!render)
         return -1;
     OpenGLLocker locker(render);
 
     // Create interop - NB no interop check here or in MythMediaCodecInterop
     QSize size(Context->width, Context->height);
-    MythMediaCodecInterop *interop = MythMediaCodecInterop::Create(render, size);
+    auto * interop = MythMediaCodecInterop::CreateMediaCodec(render, size);
     if (!interop)
         return -1;
     if (!interop->GetSurface())
@@ -227,12 +227,8 @@ MythCodecID MythMediaCodecContext::GetBestSupportedCodec(AVCodecContext **Contex
         return failure;
 
     if (!decodeonly)
-    {
-        // check for the correct player type and interop supprt
-        MythPlayerUI* player = GetPlayerUI(*Context);
-        if (MythOpenGLInterop::GetInteropType(FMT_MEDIACODEC, player) == MythOpenGLInterop::Unsupported)
+        if (!FrameTypeIsSupported(*Context, FMT_MEDIACODEC))
             return failure;
-    }
 
     bool found = false;
     MCProfiles& profiles = MythMediaCodecContext::GetProfiles();
@@ -499,14 +495,14 @@ void MythMediaCodecContext::GetDecoderList(QStringList &Decoders)
         Decoders.append(MythCodecContext::GetProfileDescription(profile.first, profile.second));
 }
 
-bool MythMediaCodecContext::HaveMediaCodec(void)
+bool MythMediaCodecContext::HaveMediaCodec(bool Reinit /*=false*/)
 {
     static QMutex lock(QMutex::Recursive);
     static bool s_initialised = false;
     static bool s_available   = false;
 
     QMutexLocker locker(&lock);
-    if (!s_initialised)
+    if (!s_initialised || Reinit)
     {
         MCProfiles& profiles = MythMediaCodecContext::GetProfiles();
         if (profiles.isEmpty())

@@ -44,12 +44,8 @@ MythCodecID MythNVDECContext::GetSupportedCodec(AVCodecContext **Context,
         return failure;
 
     if (!decodeonly)
-    {
-        // check for the correct player type and interop supprt
-        MythPlayerUI* player = GetPlayerUI(*Context);
-        if (MythOpenGLInterop::GetInteropType(FMT_NVDEC, player) == MythOpenGLInterop::Unsupported)
+        if (!FrameTypeIsSupported(*Context, FMT_NVDEC))
             return failure;
-    }
 
     QString codecstr = ff_codec_id_string((*Context)->codec_id);
     QString profile  = avcodec_profile_name((*Context)->codec_id, (*Context)->profile);
@@ -141,22 +137,18 @@ int MythNVDECContext::InitialiseDecoder(AVCodecContext *Context)
 
     // We need a player to release the interop. As we are using direct rendering
     // it must be a MythPlayerUI instance
-    MythPlayerUI* player = GetPlayerUI(Context);
+    auto * player = GetPlayerUI(Context);
     if (!player)
         return -1;
 
     // Retrieve OpenGL render context
-    MythRenderOpenGL* render = MythRenderOpenGL::GetOpenGLRender();
+    auto * render = dynamic_cast<MythRenderOpenGL*>(player->GetRender());
     if (!render)
         return -1;
     OpenGLLocker locker(render);
 
-    // Check interop type
-    if (MythOpenGLInterop::GetInteropType(FMT_NVDEC, player) == MythOpenGLInterop::Unsupported)
-        return -1;
-
     // Create interop (and CUDA context)
-    MythNVDECInterop *interop = MythNVDECInterop::Create(render);
+    auto * interop = MythNVDECInterop::CreateNVDEC(render);
     if (!interop)
         return -1;
     if (!interop->IsValid())
@@ -235,7 +227,7 @@ int MythNVDECContext::HwDecoderInit(AVCodecContext *Context)
  * and handle all deinterlacing.
 */
 void MythNVDECContext::SetDeinterlacing(AVCodecContext *Context,
-                                        VideoDisplayProfile *Profile, bool DoubleRate)
+                                        MythVideoProfile *Profile, bool DoubleRate)
 {
     if (!Context)
         return;
@@ -520,13 +512,13 @@ bool MythNVDECContext::MythNVDECCaps::Supports(cudaVideoCodec Codec, cudaVideoCh
     return result;
 }
 
-bool MythNVDECContext::HaveNVDEC(void)
+bool MythNVDECContext::HaveNVDEC(bool Reinit /*=false*/)
 {
     static QMutex lock(QMutex::Recursive);
     QMutexLocker locker(&lock);
     static bool s_checked = false;
     static bool s_available = false;
-    if (!s_checked)
+    if (!s_checked || Reinit)
     {
         if (gCoreContext->IsUIThread())
         {

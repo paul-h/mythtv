@@ -8,7 +8,7 @@
 #include "videoout_d3d.h"
 #include "osd.h"
 #include "fourcc.h"
-#include "videodisplayprofile.h"
+#include "mythvideoprofile.h"
 #include "mythmainwindow.h"
 #include "mythplayer.h"
 #include "mythavutil.h"
@@ -245,8 +245,8 @@ bool VideoOutputD3D::Init(const QSize &video_dim_buf,
 
 void VideoOutputD3D::SetProfile(void)
 {
-    if (m_dbDisplayProfile)
-        m_dbDisplayProfile->SetVideoRenderer("direct3d");
+    if (m_videoProfile)
+        m_videoProfile->SetVideoRenderer("direct3d");
 }
 
 bool VideoOutputD3D::CreateBuffers(void)

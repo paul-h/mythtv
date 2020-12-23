@@ -2,27 +2,25 @@
 #define MYTHVTBINTEROP_H
 
 // MythTV
-#include "mythopenglinterop.h"
+#include "opengl/mythopenglinterop.h"
 
 // OSX
 #include <CoreVideo/CoreVideo.h>
 
 class MythVTBInterop : public MythOpenGLInterop
 {
-    friend class MythOpenGLInterop;
-
   public:
-    static MythVTBInterop* Create(MythRenderOpenGL *Context, MythOpenGLInterop::Type Type);
-    vector<MythVideoTexture*> Acquire(MythRenderOpenGL *Context,
-                                      MythVideoColourSpace *ColourSpace,
-                                      MythVideoFrame       *Frame,
-                                      FrameScanType    Scan) override;
+    static void GetVTBTypes(MythRenderOpenGL* Render, MythInteropGPU::InteropMap& Types);
+    static MythVTBInterop* CreateVTB(MythRenderOpenGL* Context);
+    vector<MythVideoTextureOpenGL*> Acquire(MythRenderOpenGL*     Context,
+                                            MythVideoColourSpace* ColourSpace,
+                                            MythVideoFrame*       Frame,
+                                            FrameScanType         Scan) override;
 
   protected:
-    CVPixelBufferRef Verify(MythRenderOpenGL *Context, MythVideoColourSpace *ColourSpace,
-                            MythVideoFrame *Frame);
-    static Type GetInteropType(VideoFrameType Format);
-    MythVTBInterop(MythRenderOpenGL *Context, MythOpenGLInterop::Type Type);
+    CVPixelBufferRef Verify(MythRenderOpenGL* Context, MythVideoColourSpace* ColourSpace,
+                            MythVideoFrame* Frame);
+    MythVTBInterop(MythRenderOpenGL *Context, MythOpenGLInterop::InteropType Type);
    ~MythVTBInterop() override;
 };
 
@@ -32,16 +30,16 @@ class MythVTBSurfaceInterop : public MythVTBInterop
     explicit MythVTBSurfaceInterop(MythRenderOpenGL *Context);
    ~MythVTBSurfaceInterop() override;
 
-    vector<MythVideoTexture*> Acquire(MythRenderOpenGL *Context,
-                                      MythVideoColourSpace *ColourSpace,
-                                      MythVideoFrame       *Frame,
-                                      FrameScanType     Scan) override;
+    vector<MythVideoTextureOpenGL*> Acquire(MythRenderOpenGL*     Context,
+                                            MythVideoColourSpace* ColourSpace,
+                                            MythVideoFrame*       Frame,
+                                            FrameScanType         Scan) override;
 
   private:
 
-    void                      RotateReferenceFrames(IOSurfaceID Buffer);
-    vector<MythVideoTexture*> GetReferenceFrames(void);
-    QVector<IOSurfaceID>      m_referenceFrames { };
+    void RotateReferenceFrames(IOSurfaceID Buffer);
+    vector<MythVideoTextureOpenGL*> GetReferenceFrames(void);
+    QVector<IOSurfaceID> m_referenceFrames { };
 };
 
 #endif

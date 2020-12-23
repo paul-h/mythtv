@@ -42,13 +42,29 @@ MythNavigationState::MythNavigationState(int CurrentChapter, std::vector<int64_t
 }
 
 MythVideoBoundsState::MythVideoBoundsState(AdjustFillMode AdjustFill, AspectOverrideMode AspectOverride,
-                                           float HorizScale, float VertScale, QPoint Move)
+                                           float HorizScale, float VertScale, QPoint Move,
+                                           StereoscopicMode StereoOverride)
   : m_adjustFillMode(AdjustFill),
     m_aspectOverrideMode(AspectOverride),
     m_manualHorizScale(HorizScale),
     m_manualVertScale(VertScale),
-    m_manualMove(Move)
+    m_manualMove(Move),
+    m_stereoOverride(StereoOverride)
 {
+}
+
+MythVideoColourState::MythVideoColourState(PictureAttributeSupported Supported,
+                                           std::map<PictureAttribute, int> AttributeValues)
+  : m_supportedAttributes(Supported),
+    m_attributeValues(std::move(AttributeValues))
+{
+}
+
+int MythVideoColourState::GetValue(PictureAttribute Attribute)
+{
+    if (auto attr = m_attributeValues.find(Attribute); attr != m_attributeValues.end())
+        return attr->second;
+    return -1;
 }
 
 MythVisualiserState::MythVisualiserState(bool Embedding, bool Visualising,

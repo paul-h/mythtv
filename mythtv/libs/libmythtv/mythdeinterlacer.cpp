@@ -2,6 +2,7 @@
 #include "config.h"
 #include "mythlogging.h"
 #include "mythavutil.h"
+#include "mythvideoprofile.h"
 #include "mythdeinterlacer.h"
 
 extern "C" {
@@ -67,7 +68,7 @@ MythDeinterlacer::~MythDeinterlacer()
  * Used for preview images.
 */
 void MythDeinterlacer::Filter(MythVideoFrame *Frame, FrameScanType Scan,
-                              VideoDisplayProfile *Profile, bool Force)
+                              MythVideoProfile *Profile, bool Force)
 {
     // nothing to see here
 
@@ -295,7 +296,7 @@ void MythDeinterlacer::Cleanup(void)
 
 ///\brief Initialise deinterlacing using the given MythDeintType
 bool MythDeinterlacer::Initialise(MythVideoFrame *Frame, MythDeintType Deinterlacer,
-                                  bool DoubleRate, bool TopFieldFirst, VideoDisplayProfile *Profile)
+                                  bool DoubleRate, bool TopFieldFirst, MythVideoProfile *Profile)
 {
     auto autofieldorder = m_autoFieldOrder;
     auto lastfieldchange = m_lastFieldChange;
@@ -673,7 +674,7 @@ void MythDeinterlacer::Blend(MythVideoFrame *Frame, FrameScanType Scan)
             else
             {
                 BlendSIMD16x4(src->m_buffer + src->m_offsets[plane],
-                              MythVideoFrame::GetWidthForPlan(src->m_type, src->m_width, plane),
+                              MythVideoFrame::GetWidthForPlane(src->m_type, src->m_width, plane),
                               firstrow, height, src->m_pitches[plane],
                               Frame->m_buffer + Frame->m_offsets[plane], Frame->m_pitches[plane],
                               second);
@@ -687,7 +688,7 @@ void MythDeinterlacer::Blend(MythVideoFrame *Frame, FrameScanType Scan)
         if (width4 && height4 && !hidepth)
         {
             BlendC4x4(src->m_buffer + src->m_offsets[plane],
-                      MythVideoFrame::GetWidthForPlan(src->m_type, src->m_width, plane),
+                      MythVideoFrame::GetWidthForPlane(src->m_type, src->m_width, plane),
                       firstrow, height, src->m_pitches[plane],
                       Frame->m_buffer + Frame->m_offsets[plane], Frame->m_pitches[plane],
                       second);

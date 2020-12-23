@@ -80,12 +80,8 @@ MythCodecID MythMMALContext::GetSupportedCodec(AVCodecContext **Context,
         return failure;
 
     if (!decodeonly)
-    {
-        // Direct rendering needs interop support
-        MythPlayerUI* player = GetPlayerUI(*Context);
-        if (MythOpenGLInterop::GetInteropType(FMT_MMAL, player) == MythOpenGLInterop::Unsupported)
+        if (!FrameTypeIsSupported(*Context, FMT_MMAL))
             return failure;
-    }
 
     // look for a decoder
     QString name = QString((*Codec)->name) + "_mmal";
@@ -145,8 +141,10 @@ int MythMMALContext::HwDecoderInit(AVCodecContext *Context)
     if (!codec_is_mmal(m_codecID) || Context->pix_fmt != AV_PIX_FMT_MMAL)
         return -1;
 
-    MythRenderOpenGL *context = MythRenderOpenGL::GetOpenGLRender();
-    m_interop = MythMMALInterop::Create(context, MythOpenGLInterop::MMAL);
+    if (auto * player = GetPlayerUI(Context); player != nullptr)
+        if (FrameTypeIsSupported(Context, FMT_MMAL))
+            m_interop = MythMMALInterop::CreateMMAL(dynamic_cast<MythRenderOpenGL*>(player->GetRender()));
+
     return m_interop ? 0 : -1;
 }
 
@@ -243,14 +241,14 @@ AVPixelFormat MythMMALContext::GetFormat(AVCodecContext*, const AVPixelFormat *P
     return AV_PIX_FMT_NONE;
 }
 
-bool MythMMALContext::HaveMMAL(void)
+bool MythMMALContext::HaveMMAL(bool Reinit /*=false*/)
 {
     static QMutex lock(QMutex::Recursive);
     QMutexLocker locker(&lock);
     static bool s_checked = false;
     static bool s_available = false;
 
-    if (s_checked)
+    if (s_checked && !Reinit)
         return s_available;
     s_checked = true;
 

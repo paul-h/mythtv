@@ -41,9 +41,11 @@ QStringList MythVideoOutputVulkan::GetAllowedRenderers(MythCodecID CodecId)
     return allowed;
 }
 
-MythVideoOutputVulkan::MythVideoOutputVulkan(QString &Profile)
-  : MythVideoOutputGPU(MythRenderVulkan::GetVulkanRender(), Profile),
-    MythVulkanObject(MythRenderVulkan::GetVulkanRender())
+MythVideoOutputVulkan::MythVideoOutputVulkan(MythMainWindow* MainWindow, MythRenderVulkan* Render,
+                                             MythPainterVulkan* Painter, MythDisplay* Display,
+                                             const MythVideoProfilePtr& VideoProfile, QString& Profile)
+  : MythVideoOutputGPU(MainWindow, Render, Painter, Display, VideoProfile, Profile),
+    MythVulkanObject(Render)
 {
     static VideoFrameTypes s_vulkanRenderFormats =
     {
@@ -55,10 +57,9 @@ MythVideoOutputVulkan::MythVideoOutputVulkan(QString &Profile)
     };
 
     m_renderFormats = &s_vulkanRenderFormats;
-    m_render = MythVulkanObject::Render();
     if (IsValidVulkan())
     {
-        m_video = new MythVideoVulkan(this, &m_videoColourSpace, this, QString {});
+        m_video = new MythVideoVulkan(this, &m_videoColourSpace, this, m_videoProfile, QString {});
         if (m_video && !m_video->IsValid())
         {
             LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create valid Vulkan video");

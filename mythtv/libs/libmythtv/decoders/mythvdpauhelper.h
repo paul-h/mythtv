@@ -51,7 +51,7 @@ class MythVDPAUHelper : public QObject
 
     Q_DECLARE_FLAGS(VDPMixerFeatures, VDPMixerFeature)
 
-    static bool   HaveVDPAU(void);
+    static bool   HaveVDPAU(bool Reinit = false);
     static bool   CheckH264Decode(AVCodecContext *Context);
     static const VDPAUProfiles& GetProfiles(void);
     static void   GetDecoderList (QStringList &Decoders);
@@ -62,6 +62,7 @@ class MythVDPAUHelper : public QObject
     bool             IsValid(void) const;
     void             SetPreempted(void);
     bool             IsFeatureAvailable(uint Feature);
+    bool             IsAttributeAvailable(uint Attribute);
     VdpOutputSurface CreateOutputSurface(QSize Size);
     VdpVideoMixer    CreateMixer(QSize Size, VdpChromaType ChromaType = VDP_CHROMA_TYPE_420,
                                  MythDeintType Deinterlacer = DEINT_BASIC);
@@ -105,6 +106,7 @@ class MythVDPAUHelper : public QObject
     VdpVideoMixerSetAttributeValues  *m_vdpVideoMixerSetAttributeValues  { nullptr };
     VdpVideoMixerSetFeatureEnables   *m_vdpVideoMixerSetFeatureEnables   { nullptr };
     VdpVideoMixerQueryFeatureSupport *m_vdpVideoMixerQueryFeatureSupport { nullptr };
+    VdpVideoMixerQueryAttributeSupport *m_vdpVideoMixerQueryAttributeSupport { nullptr };
     VdpOutputSurfaceCreate           *m_vdpOutputSurfaceCreate           { nullptr };
     VdpOutputSurfaceDestroy          *m_vdpOutputSurfaceDestroy          { nullptr };
     VdpVideoSurfaceGetParameters     *m_vdpVideoSurfaceGetParameters     { nullptr };

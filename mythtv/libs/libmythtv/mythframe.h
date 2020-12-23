@@ -82,7 +82,7 @@ using FrameOffsets = std::array<int,3>;
 class MTV_PUBLIC MythVideoFrame
 {
   public:
-    static inline const VideoFrameTypes s_defaultRenderFormats { FMT_YV12 };
+    static inline const VideoFrameTypes kDefaultRenderFormats { FMT_YV12 };
 
     MythVideoFrame() = default;
     MythVideoFrame(VideoFrameType Type, int Width, int Height, const VideoFrameTypes* RenderFormats = nullptr);
@@ -138,7 +138,7 @@ class MTV_PUBLIC MythVideoFrame
     int            m_pixFmt            { 0 };
     int            m_swPixFmt          { 0 };
     bool           m_directRendering   { true };
-    const VideoFrameTypes* m_renderFormats { &s_defaultRenderFormats };
+    const VideoFrameTypes* m_renderFormats { &kDefaultRenderFormats };
     int            m_colorspace        { 1 };
     int            m_colorrange        { 1 };
     int            m_colorprimaries    { 1 };
@@ -338,7 +338,7 @@ class MTV_PUBLIC MythVideoFrame
         return 0;
     }
 
-    static inline int GetWidthForPlan(VideoFrameType Type, int Width, uint Plane)
+    static inline int GetWidthForPlane(VideoFrameType Type, int Width, uint Plane)
     {
         switch (Type)
         {
@@ -454,6 +454,12 @@ class MTV_PUBLIC MythVideoFrame
     {
         return FormatIs420(Type)  || FormatIs422(Type) || FormatIs444(Type) ||
                FormatIsNV12(Type) || PackedFormat(Type);
+    }
+
+    static inline bool FormatIsRGB(VideoFrameType Type)
+    {
+        return (FMT_RGB24  == Type) || (FMT_BGRA   == Type) || (FMT_RGB32 == Type) ||
+               (FMT_ARGB32 == Type) || (FMT_RGBA32 == Type);
     }
 
   private:

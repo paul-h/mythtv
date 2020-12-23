@@ -109,6 +109,12 @@ MythVideoColourSpace::~MythVideoColourSpace()
     delete m_customDisplayPrimaries;
 }
 
+void MythVideoColourSpace::RefreshState()
+{
+    emit SupportedAttributesChanged(m_supportedAttributes);
+    emit PictureAttributesUpdated(m_dbSettings);
+}
+
 PictureAttributeSupported MythVideoColourSpace::SupportedAttributes(void) const
 {
     return m_supportedAttributes;
@@ -121,14 +127,17 @@ PictureAttributeSupported MythVideoColourSpace::SupportedAttributes(void) const
 */
 void MythVideoColourSpace::SetSupportedAttributes(PictureAttributeSupported Supported)
 {
+    if (Supported == m_supportedAttributes)
+        return;
     m_supportedAttributes = Supported;
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("PictureAttributes: %1").arg(toString(m_supportedAttributes)));
+    emit SupportedAttributesChanged(m_supportedAttributes);
 }
 
 int MythVideoColourSpace::GetPictureAttribute(PictureAttribute Attribute)
 {
-    if (m_dbSettings.contains(Attribute))
-        return m_dbSettings.value(Attribute);
+    if (auto found = m_dbSettings.find(Attribute); found != m_dbSettings.end())
+        return found->second;
     return -1;
 }
 

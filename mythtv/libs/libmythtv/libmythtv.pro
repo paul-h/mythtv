@@ -475,24 +475,26 @@ using_frontend {
     HEADERS += mythvideogpu.h
     HEADERS += videobuffers.h
     HEADERS += jitterometer.h
-    HEADERS += videodisplayprofile.h    mythcodecid.h
+    HEADERS += mythvideoprofile.h mythcodecid.h
     HEADERS += videoouttypes.h
     HEADERS += mythvideobounds.h
     HEADERS += mythvideocolourspace.h
     HEADERS += visualisations/videovisual.h
     HEADERS += visualisations/videovisualdefs.h
     HEADERS += mythdeinterlacer.h
+    HEADERS += mythinteropgpu.h
     SOURCES += mythvideoout.cpp
     SOURCES += mythvideooutnull.cpp
     SOURCES += mythvideooutgpu.cpp
     SOURCES += mythvideogpu.cpp
     SOURCES += videobuffers.cpp
     SOURCES += jitterometer.cpp
-    SOURCES += videodisplayprofile.cpp  mythcodecid.cpp
+    SOURCES += mythvideoprofile.cpp mythcodecid.cpp
     SOURCES += mythvideobounds.cpp
     SOURCES += mythvideocolourspace.cpp
     SOURCES += visualisations/videovisual.cpp
     SOURCES += mythdeinterlacer.cpp
+    SOURCES += mythinteropgpu.cpp
 
     # Note - all OpenGL/EGL interop files are added under using_opengl...
     # They are however referenced, without ifdef guards, from the relevant
@@ -587,13 +589,13 @@ using_frontend {
         HEADERS += opengl/mythvideooutopengl.h
         HEADERS += opengl/mythopenglvideoshaders.h
         HEADERS += opengl/mythopenglinterop.h
-        HEADERS += opengl/mythvideotexture.h
+        HEADERS += opengl/mythvideotextureopengl.h
         HEADERS += opengl/mythopengltonemap.h
         HEADERS += opengl/mythopenglcomputeshaders.h
         SOURCES += opengl/mythopenglvideo.cpp
         SOURCES += opengl/mythvideooutopengl.cpp
         SOURCES += opengl/mythopenglinterop.cpp
-        SOURCES += opengl/mythvideotexture.cpp
+        SOURCES += opengl/mythvideotextureopengl.cpp
         SOURCES += opengl/mythopengltonemap.cpp
 
         using_vaapi {

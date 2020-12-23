@@ -12,7 +12,7 @@
 #include "programinfo.h"
 #include "mythcodecid.h"
 #include "mythavutil.h"
-#include "videodisplayprofile.h"
+#include "mythvideoprofile.h"
 
 class TeletextViewer;
 class MythPlayer;
@@ -260,7 +260,6 @@ class DecoderBase
     void TrackTotalDuration(bool track) { m_trackTotalDuration = track; }
     int GetfpsMultiplier(void) const { return m_fpsMultiplier; }
     MythCodecContext *GetMythCodecContext(void) { return m_mythCodecCtx; }
-    VideoDisplayProfile * GetVideoDisplayProfile(void) { return &m_videoDisplayProfile; }
     static AVPixelFormat GetBestVideoFormat(AVPixelFormat* Formats, const VideoFrameTypes* RenderFormats);
 
   protected:
@@ -356,8 +355,8 @@ class DecoderBase
     /// language preferences for auto-selection of streams
     std::vector<int>     m_languagePreference;
     MythCodecContext    *m_mythCodecCtx         { nullptr };
-    VideoDisplayProfile  m_videoDisplayProfile;
-    const VideoFrameTypes* m_renderFormats { &MythVideoFrame::s_defaultRenderFormats };
+    MythVideoProfile     m_videoDisplayProfile;
+    const VideoFrameTypes* m_renderFormats { &MythVideoFrame::kDefaultRenderFormats };
 
   private:
     Q_DISABLE_COPY(DecoderBase)

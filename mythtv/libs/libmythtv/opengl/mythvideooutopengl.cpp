@@ -5,7 +5,7 @@
 #include "mythcontext.h"
 #include "mythmainwindow.h"
 #include "mythplayer.h"
-#include "videodisplayprofile.h"
+#include "mythvideoprofile.h"
 #include "osd.h"
 #include "mythuihelper.h"
 #include "decoders/mythcodeccontext.h"
@@ -95,8 +95,14 @@ void MythVideoOutputOpenGL::GetRenderOptions(RenderOptions& Options)
 #endif
 }
 
-MythVideoOutputOpenGL::MythVideoOutputOpenGL(QString &Profile)
-  : MythVideoOutputGPU(MythRenderOpenGL::GetOpenGLRender(), Profile)
+MythVideoOutputOpenGL::MythVideoOutputOpenGL(MythMainWindow* MainWindow,
+                                             MythRenderOpenGL* Render,
+                                             MythOpenGLPainter* Painter,
+                                             MythDisplay *Display,
+                                             const MythVideoProfilePtr& VideoProfile,
+                                             QString &Profile)
+  : MythVideoOutputGPU(MainWindow, Render, Painter, Display, VideoProfile, Profile),
+    m_openglRender(Render)
 {
     // Complete list of formats supported for OpenGL 2.0 and higher and OpenGL ES3.X
     static VideoFrameTypes s_openglRenderFormats =
@@ -115,10 +121,9 @@ MythVideoOutputOpenGL::MythVideoOutputOpenGL(QString &Profile)
     };
 
     // Retrieve render context
-    m_openglRender = MythRenderOpenGL::GetOpenGLRender();
     if (!m_openglRender)
     {
-        LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to retrieve OpenGL context");
+        LOG(VB_GENERAL, LOG_ERR, LOC + "No OpenGL context");
         return;
     }
 
@@ -148,7 +153,7 @@ MythVideoOutputOpenGL::MythVideoOutputOpenGL(QString &Profile)
         LOG(VB_GENERAL, LOG_ERR, LOC + "No OpenGL painter");
 
     // Create OpenGLVideo
-    m_video = new MythOpenGLVideo(m_openglRender, &m_videoColourSpace, this, m_profile);
+    m_video = new MythOpenGLVideo(m_openglRender, &m_videoColourSpace, this, m_videoProfile, m_profile);
     if (m_video)
     {
         m_video->SetViewportRect(MythVideoOutputOpenGL::GetDisplayVisibleRectAdj());
@@ -201,11 +206,10 @@ bool MythVideoOutputOpenGL::Init(const QSize VideoDim, const QSize VideoDispDim,
 QRect MythVideoOutputOpenGL::GetDisplayVisibleRectAdj()
 {
     QRect dvr = GetDisplayVisibleRect();
-
-    MythMainWindow* mainwin = GetMythMainWindow();
-    if (!mainwin)
+    if (!m_mainWindow)
         return dvr;
-    QSize size = mainwin->size();
+
+    QSize size = m_mainWindow->size();
 
     // may be called before m_window is initialised fully
     if (dvr.isEmpty())
@@ -365,11 +369,10 @@ void MythVideoOutputOpenGL::EndFrame()
 
 /*! \brief Generate a list of supported OpenGL profiles.
 */
-QStringList MythVideoOutputOpenGL::GetAllowedRenderers(MythCodecID CodecId, QSize /*VideoDim*/)
+QStringList MythVideoOutputOpenGL::GetAllowedRenderers(MythRenderOpenGL *Render, MythCodecID CodecId, QSize /*VideoDim*/)
 {
     QStringList allowed;
-
-    if (MythRenderOpenGL::GetOpenGLRender() == nullptr)
+    if (!Render)
         return allowed;
 
     if (codec_sw_copy(CodecId))
@@ -394,9 +397,11 @@ QStringList MythVideoOutputOpenGL::GetAllowedRenderers(MythCodecID CodecId, QSiz
     else if (codec_is_mediacodec(CodecId))
         format = FMT_MEDIACODEC;
 
-    if (FMT_NONE == format)
-        return allowed;
-
-    allowed += MythOpenGLInterop::GetAllowedRenderers(format);
+    if (FMT_NONE != format)
+    {
+        MythInteropGPU::InteropMap supported;
+        if (MythOpenGLInterop::GetTypes(Render, supported); supported.find(format) != supported.cend())
+            allowed << "opengl-hw";
+    }
     return allowed;
 }

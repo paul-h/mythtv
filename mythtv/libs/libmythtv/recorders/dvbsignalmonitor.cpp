@@ -32,7 +32,8 @@
  *  \brief Initializes signal lock and signal values.
  *
  *   Start() must be called to actually begin continuous
- *   signal monitoring. The timeout is set to 3 seconds,
+ *   signal monitoring. The timeout value is retrieved from
+ *   the database but is set to at least 3 seconds,
  *   and the signal threshold is initialized to 0%.
  *
  *  \param db_cardnum Recorder number to monitor,
@@ -331,7 +332,7 @@ void DVBSignalMonitor::UpdateValues(void)
             m_uncorrectedBlocks.SetValue(ublocks);
     }
 
-    // Debug output
+    // Signal lock change
     if (wasLocked != isLocked)
     {
         LOG(VB_CHANNEL, LOG_INFO, LOC + "UpdateValues -- Signal " +
@@ -350,7 +351,7 @@ void DVBSignalMonitor::UpdateValues(void)
                    kDTVSigMon_WaitForMGT | kDTVSigMon_WaitForVCT |
                    kDTVSigMon_WaitForNIT | kDTVSigMon_WaitForSDT))
     {
-        GetStreamData()->AddListeningPID(MPEG_PAT_PID);
+        GetStreamData()->AddListeningPID(PID::MPEG_PAT_PID);
         m_streamHandler->AddListener(GetStreamData(), true, false);
         m_streamHandlerStarted = true;
     }
