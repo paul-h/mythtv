@@ -117,7 +117,7 @@ bool MythBDPlayer::VideoLoop(void)
         if (nbframes == 0)
         {
             LOG(VB_PLAYBACK, LOG_WARNING, LOC + "Warning: In BD Still but no video frames in queue");
-            usleep(10000);
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
             return !IsErrored();
         }
 
@@ -415,7 +415,7 @@ uint64_t MythBDPlayer::GetBookmark(void)
     }
 
     m_playerCtx->UnlockPlayingInfo(__FILE__, __LINE__);
-    return frames;;
+    return frames;
 }
 
 void MythBDPlayer::CreateDecoder(TestBufferVec & TestBuffer)

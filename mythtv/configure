@@ -136,7 +136,7 @@ Advanced options (experts only):
   --disable-x11            disable X11 support
   --enable-opengles        link to OpenGL ES (auto)
   --enable-vulkan          enable Vulkan rendering
-  --enable-waylandextras   enable optional Wayland integrations (requires Qt private headers)
+  --disable-waylandextras  disable optional Wayland integrations (requires Qt private headers)
   --enable-libglslang      enable runtime GLSL compilation for Vulkan (development only)
   --x11-path=X11LOC        location of X11 include files [$x11_path_default]
   --disable-vdpau          disable NVidia VDPAU hardware acceleration.
@@ -2061,6 +2061,7 @@ USING_LIST='
     libglslang
     videotoolbox
     waylandextras
+    qtprivateheaders
 '
 
 CMDLINE_SELECT="
@@ -2803,6 +2804,7 @@ enable systemd_notify
 enable systemd_journal
 enable libexiv2_external
 enable libbluray_external
+enable waylandextras
 
 # mythtv paths
 dvb_path_default="${sysinclude:-$sysroot/usr/include}"
@@ -3023,7 +3025,7 @@ for opt do
         ;;
         --enable-vulkan) enable vulkan
         ;;
-        --enable-waylandextras) enable waylandextras
+        --disable-waylandextras) disable waylandextras
         ;;
         --enable-libglslang) enable libglslang
         ;;
@@ -4926,6 +4928,7 @@ case $target_os in
         enable libudev
         enable pic
         enable drm
+        enable qtprivateheaders
 	if [ x`uname -m` = x"armv7l" ]; then
 	    disable vaapi
 	fi
@@ -5973,6 +5976,7 @@ if enabled libbluray_external; then
 fi
 
 antbin=""
+java_code_version=""
 if enabled bdjava; then
     enabled x86_64 && java_arch=amd64
     enabled x86_32 && java_arch=i386
@@ -5983,12 +5987,27 @@ if enabled bdjava; then
         die "ERROR: BD-J requires ANT, but ant was not found. Please install it."
     fi
 
-    if test "$bdj_type" = "j2me"; then
-        enable bdj_j2me
-    fi
-
     # Probably makes little sense to try to process Bluray menus without fontconfig
     enable fontconfig
+
+    if test "$bdj_type" = "j2me"; then
+        enable bdj_j2me
+    else
+        if test "x${JAVA_HOME}" = "x"; then
+            JAVAC=`which javac`
+        else
+            JAVAC=${JAVA_HOME}/bin/javac
+        fi
+
+        test -f ${JAVAC} -a -x ${JAVAC} || die "ERROR: javac not found but required by BD-J"
+
+        java_code_version=1.4
+
+        javac_version=`"${JAVAC}" -version 2>&1 | head -n 1`
+        
+        echo "${javac_version}" | grep -E -q '^javac\ (9|1[0-1])' && java_code_version=1.6
+        echo "${javac_version}" | grep -E -q '^javac\ (1[2-9])' && java_code_version=1.7
+    fi
 fi
 
 enabled pthreads &&
@@ -6588,9 +6607,21 @@ esac
 
 enabled vulkan && enabled libglslang && require_cpp libglslang glslang/SPIRV/GlslangToSpv.h "glslang::TIntermediate*" -lglslang ${EXTRA_GLSLANG_LIBS:-} -lOSDependent -lHLSL -lOGLCompiler -lSPVRemapper -lSPIRV -lSPIRV-Tools-opt -lSPIRV-Tools -lpthread
 
-# TODO This only checks for Wayland support but we also need to check for Qt private
-# headers - but I can't see how to do that here (private headers are normally
-# enabled in the .pro)
+# Qt private headers are required for wayland extras and some DRM functionality on linux
+if enabled qtprivateheaders ; then
+cat >$TMPPRO <<EOF
+QT += gui-private
+EOF
+qt_private_headers_incpath=`${qmakeconf} -makefile -Wnone -nocache -nomoc -nodepend -norecursive -o - $TMPPRO 2>/dev/null | sed -n -e 's/^\s*INCPATH\s*=//p'`
+check_ecxx $qt_private_headers_incpath <<EOF || disable qtprivateheaders
+#include <QGuiApplication>
+#include <qpa/qplatformnativeinterface.h>
+int x;
+EOF
+fi
+
+# Check for Wayland support
+enabled waylandextras && enabled qtprivateheaders || disable waylandextras
 enabled waylandextras && use_pkg_config wayland_client wayland-client "wayland-client.h" wl_surface_set_opaque_region || disable waylandextras
 
 enable enforce_wshadow
@@ -7486,6 +7517,9 @@ if test x"$target_os" = x"darwin" ; then
 fi
   echo "VAAPI support             ${vaapi-no}"
   echo "DRM support               ${drm-no}"
+  if enabled drm; then
+    echo "DRM Qt integration        ${qtprivateheaders-no}"
+  fi
   echo "Video4Linux codecs        ${v4l2-no} (DRM ${v4l2prime-no})"
   echo "MMAL decoder support      ${mmal-no}"
   echo "OpenGL                    ${opengl-no} (OpenGLES ${opengles-no})"
@@ -7503,6 +7537,7 @@ fi
 echo "# Misc Features"
 echo "Frontend                  ${frontend-no}"
 echo "Backend                   ${backend-no}"
+echo "Qt private headers        ${qtprivateheaders-no}"
 echo "Wayland extras            ${waylandextras-no}"
 echo "multi threaded libavcodec ${threads-no}"
 if enabled frontend; then
@@ -7720,6 +7755,7 @@ ANTBIN=$antbin
 BDJ_TYPE=$bdj_type
 JDK_HOME=$JDK_HOME
 JAVA_ARCH=$java_arch
+JAVA_CODE_VERSION=$java_code_version
 EOF
 
 get_version(){

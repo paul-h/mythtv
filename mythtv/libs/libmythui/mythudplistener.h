@@ -1,38 +1,49 @@
 #ifndef MYTHUDPLISTENER_H
 #define MYTHUDPLISTENER_H
 
+// Qt
 #include <QObject>
 
+// MythTV
+#include "mthread.h"
 #include "serverpool.h"
-
-class QByteArray;
-class QUdpSocket;
-class QDomElement;
 
 class MythUDPListener : public QObject
 {
+    friend class MythUDP;
+
     Q_OBJECT
 
-  public:
+  signals:
+    void EnableUDPListener(bool Enable = true);
+
+  protected:
     MythUDPListener();
-
-    void Enable(void);
-    void Disable(void);
-
-  public slots:
-    virtual void deleteLater(void);
+   ~MythUDPListener() override;
 
   private slots:
-    static void Process(const QByteArray &buf, const QHostAddress& sender,
-                 quint16 senderPort);
+    void DoEnable(bool Enable = true);
+    static void Process(const QByteArray &Buffer, const QHostAddress& /*Sender*/, quint16 /*SenderPort*/);
 
   private:
-    ~MythUDPListener(void) override { Disable(); }
-
-    void TeardownAll(void) { Disable(); }
-
-  private:
-    ServerPool *m_socketPool {nullptr};
+    Q_DISABLE_COPY(MythUDPListener)
+    ServerPool* m_socketPool { nullptr };
 };
 
-#endif // MYTHUDPLISTENER_H
+class MythUDP
+{
+  public:
+    static void EnableUDPListener(bool Enable = true);
+    static void StopUDPListener();
+
+  private:
+    Q_DISABLE_COPY(MythUDP)
+    static MythUDP& Instance();
+    MythUDP();
+   ~MythUDP();
+
+    MythUDPListener* m_listener { nullptr };
+    MThread*         m_thread   { nullptr };
+};
+
+#endif

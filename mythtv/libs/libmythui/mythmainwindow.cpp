@@ -160,7 +160,7 @@ MythMainWindow::MythMainWindow(const bool UseDB)
 
     installEventFilter(this);
 
-    m_priv->m_udpListener = new MythUDPListener();
+    MythUDP::EnableUDPListener();
 
     InitKeys();
 
@@ -211,6 +211,8 @@ MythMainWindow::~MythMainWindow()
 
     if (gCoreContext != nullptr)
         gCoreContext->removeListener(this);
+
+    MythUDP::StopUDPListener();
 
     while (!m_priv->m_stackList.isEmpty())
     {
@@ -1925,11 +1927,11 @@ void MythMainWindow::customEvent(QEvent* Event)
     }
     else if (Event->type() == MythEvent::kDisableUDPListenerEventType)
     {
-        m_priv->m_udpListener->Disable();
+        MythUDP::EnableUDPListener(false);
     }
     else if (Event->type() == MythEvent::kEnableUDPListenerEventType)
     {
-        m_priv->m_udpListener->Enable();
+        MythUDP::EnableUDPListener(true);
     }
     else if (Event->type() == MythEvent::MythEventMessage)
     {

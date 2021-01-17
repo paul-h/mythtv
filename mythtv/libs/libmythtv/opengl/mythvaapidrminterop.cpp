@@ -14,8 +14,8 @@ extern "C" {
 
 #define LOC QString("VAAPIDRM: ")
 
-MythVAAPIInteropDRM::MythVAAPIInteropDRM(MythRenderOpenGL* Context)
-  : MythVAAPIInterop(Context, VAAPIEGLDRM),
+MythVAAPIInteropDRM::MythVAAPIInteropDRM(MythPlayerUI *Player, MythRenderOpenGL* Context)
+  : MythVAAPIInterop(Player, Context, GL_VAAPIEGLDRM),
     MythEGLDMABUF(Context)
 {
     QString device = gCoreContext->GetSetting("VAAPIDevice");
@@ -153,11 +153,9 @@ vector<MythVideoTextureOpenGL*> MythVAAPIInteropDRM::GetReferenceFrames()
         return result;
     }
 
-    result = m_openglTextures[last];
-    for (MythVideoTextureOpenGL* tex : qAsConst(m_openglTextures[current]))
-        result.push_back(tex);
-    for (MythVideoTextureOpenGL* tex : qAsConst(m_openglTextures[next]))
-        result.push_back(tex);
+    std::copy(m_openglTextures[last].cbegin(),    m_openglTextures[last].cend(),    std::back_inserter(result));
+    std::copy(m_openglTextures[current].cbegin(), m_openglTextures[current].cend(), std::back_inserter(result));
+    std::copy(m_openglTextures[next].cbegin(),    m_openglTextures[next].cend(),    std::back_inserter(result));
     return result;
 }
 
@@ -405,20 +403,7 @@ vector<MythVideoTextureOpenGL*> MythVAAPIInteropDRM::AcquirePrime(VASurfaceID Id
 
 #if VA_CHECK_VERSION(1, 1, 0)
     if (!m_drmFrames.contains(Id))
-    {
-        INIT_ST;
-        uint32_t exportflags = VA_EXPORT_SURFACE_SEPARATE_LAYERS | VA_EXPORT_SURFACE_READ_ONLY;
-        VADRMPRIMESurfaceDescriptor vadesc;
-        va_status = vaExportSurfaceHandle(m_vaDisplay, Id,
-                                          VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
-                                          exportflags, &vadesc);
-        CHECK_ST;
-
-        auto *drmdesc = reinterpret_cast<AVDRMFrameDescriptor*>(av_mallocz(sizeof(AVDRMFrameDescriptor)));
-        VADRMtoPRIME(&vadesc, drmdesc);
-        m_drmFrames.insert(Id, drmdesc);
-    }
-
+        m_drmFrames.insert(Id, GetDRMFrameDescriptor(Id));
     if (!m_drmFrames.contains(Id))
         return result;
     result = CreateTextures(m_drmFrames[Id], Context, Frame, false);
@@ -428,6 +413,26 @@ vector<MythVideoTextureOpenGL*> MythVAAPIInteropDRM::AcquirePrime(VASurfaceID Id
     (void)Frame;
 #endif
     return result;
+}
+
+AVDRMFrameDescriptor* MythVAAPIInteropDRM::GetDRMFrameDescriptor(VASurfaceID Id)
+{
+#if VA_CHECK_VERSION(1, 1, 0)
+    INIT_ST;
+    uint32_t exportflags = VA_EXPORT_SURFACE_SEPARATE_LAYERS | VA_EXPORT_SURFACE_READ_ONLY;
+    VADRMPRIMESurfaceDescriptor vadesc;
+    va_status = vaExportSurfaceHandle(m_vaDisplay, Id,
+                                      VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
+                                      exportflags, &vadesc);
+    CHECK_ST;
+
+    auto * drmdesc = reinterpret_cast<AVDRMFrameDescriptor*>(av_mallocz(sizeof(AVDRMFrameDescriptor)));
+    VADRMtoPRIME(&vadesc, drmdesc);
+    return drmdesc;
+#else
+    (void)Id;
+    return nullptr;
+#endif
 }
 
 void MythVAAPIInteropDRM::CleanupDRMPRIME()
@@ -447,8 +452,8 @@ void MythVAAPIInteropDRM::CleanupDRMPRIME()
 
 bool MythVAAPIInteropDRM::TestPrimeInterop()
 {
-    static bool s_supported = false;
 #if VA_CHECK_VERSION(1, 1, 0)
+    static bool s_supported = false;
     static bool s_checked = false;
 
     if (s_checked)
@@ -494,8 +499,10 @@ bool MythVAAPIInteropDRM::TestPrimeInterop()
         }
         vaDestroySurfaces(m_vaDisplay, &surface, 1);
     }
-#endif
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("VAAPI DRM PRIME interop is %1supported")
         .arg(s_supported ? "" : "not "));
     return s_supported;
+#else
+    return false;
+#endif
 }

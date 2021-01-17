@@ -736,14 +736,14 @@ int MythDisplay::GetRefreshInterval(int Fallback) const
     return Fallback;
 }
 
-std::vector<double> MythDisplay::GetRefreshRates(QSize Size)
+MythDisplayRates MythDisplay::GetRefreshRates(QSize Size)
 {
     auto targetrate = static_cast<double>(NAN);
     const MythDisplayMode mode(Size, QSize(0, 0), -1.0, 0.0);
-    const std::vector<MythDisplayMode>& modes = GetVideoModes();
+    const auto & modes = GetVideoModes();
     int match = MythDisplayMode::FindBestMatch(modes, mode, targetrate);
     if (match < 0)
-        return std::vector<double>();
+        return {};
     return modes[static_cast<size_t>(match)].RefreshRates();
 }
 
@@ -752,7 +752,7 @@ bool MythDisplay::SwitchToVideoMode(QSize /*Size*/, double /*Framerate*/)
     return false;
 }
 
-const std::vector<MythDisplayMode> &MythDisplay::GetVideoModes()
+const MythDisplayModes& MythDisplay::GetVideoModes()
 {
     return m_videoModes;
 }
@@ -985,7 +985,7 @@ void MythDisplay::WaitForNewScreen()
     // exiting deliberately. It does however somehow filter out unwanted screenChanged
     // events that otherwise often put the widget in the wrong screen.
     // Needs more investigation - but for now it works:)
-    if (!m_widget || (m_widget && !m_widget->windowHandle()))
+    if (!m_widget || !m_widget->windowHandle())
         return;
     LOG(VB_GENERAL, LOG_INFO, LOC + "Waiting for new screen");
     QEventLoop loop;

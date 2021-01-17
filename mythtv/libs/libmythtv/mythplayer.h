@@ -1,10 +1,6 @@
 ﻿#ifndef MYTHPLAYER_H
 #define MYTHPLAYER_H
 
-// Std
-#include <cstdint>
-#include <utility>
-
 // Qt
 #include <QCoreApplication>
 #include <QList>
@@ -38,6 +34,11 @@
 #include "mythmiscutil.h"
 #include "mythplayeravsync.h"
 #include "mythtvexp.h"
+
+// Std
+#include <cstdint>
+#include <utility>
+#include <thread>
 
 class ProgramInfo;
 class InteractiveTV;
@@ -282,7 +283,7 @@ class MTV_PUBLIC MythPlayer : public QObject
         { m_commBreakMap.SetAutoCommercialSkip(autoskip, m_framesPlayed); }
     void SkipCommercials(int direction)
         { m_commBreakMap.SkipCommercials(direction); }
-    void SetCommBreakMap(frm_dir_map_t &newMap);
+    void SetCommBreakMap(const frm_dir_map_t& NewMap);
     CommSkipMode GetAutoCommercialSkip(void)
         { return m_commBreakMap.GetAutoCommercialSkip(); }
 

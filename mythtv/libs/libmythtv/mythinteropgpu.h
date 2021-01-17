@@ -26,16 +26,17 @@ class MythInteropGPU : public QObject, public ReferenceCounter
     enum InteropType
     {
         Unsupported  = 0,
-        VAAPIGLXCOPY,
-        VAAPIGLXPIX,
-        VAAPIEGLDRM,
-        VTBOPENGL,
-        VTBSURFACE,
-        MEDIACODEC,
-        VDPAU,
-        NVDEC,
-        MMAL,
-        DRMPRIME,
+        GL_VAAPIGLXCOPY,
+        GL_VAAPIGLXPIX,
+        GL_VAAPIEGLDRM,
+        GL_VTB,
+        GL_VTBSURFACE,
+        GL_MEDIACODEC,
+        GL_VDPAU,
+        GL_NVDEC,
+        GL_MMAL,
+        GL_DRMPRIME,
+        DRM_DRMPRIME,
         // used for default free/user_opaque storage
         DUMMY
     };
@@ -47,12 +48,11 @@ class MythInteropGPU : public QObject, public ReferenceCounter
     static QString         TypesToString(const InteropMap& Types);
     static MythInteropGPU* CreateDummy();
 
-    MythInteropGPU(MythRender* Context, InteropType Type);
+    MythInteropGPU(MythRender* Context, InteropType Type, MythPlayerUI* Player = nullptr);
    ~MythInteropGPU() override;
 
     InteropType    GetType               ();
     MythPlayerUI*  GetPlayer             ();
-    void           SetPlayer             (MythPlayerUI *Player);
     void           SetDefaultFree        (FreeAVHWDeviceContext FreeContext);
     void           SetDefaultUserOpaque  (void* UserOpaque);
     FreeAVHWDeviceContext GetDefaultFree ();

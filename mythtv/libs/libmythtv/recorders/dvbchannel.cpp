@@ -54,6 +54,7 @@
 #include "dvbcam.h"
 #include "tv_rec.h"
 
+
 // Local functions
 static struct dvb_frontend_parameters dtvmultiplex_to_dvbparams(
     DTVTunerType tuner_type, const DTVMultiplex& tuning, uint intermediate_freq, bool can_fec_auto);
@@ -67,6 +68,8 @@ static const int64_t concurrent_tunings_delay = 1000;
 int64_t DVBChannel::s_lastTuning = QDateTime::currentMSecsSinceEpoch();
 
 #define LOC QString("DVBChan[%1](%2): ").arg(m_inputId).arg(DVBChannel::GetDevice())
+
+#define DTV_STAT_FULL_DEBUG 0       // All DTV_STAT_xxx values
 
 /** \class DVBChannel
  *  \brief Provides interface to the tuning hardware when using DVB drivers
@@ -186,6 +189,12 @@ bool DVBChannel::Open(DVBChannel *who)
 
     LOG(VB_CHANNEL, LOG_INFO, LOC + "Opening DVB channel");
 
+    m_legacyFe = gCoreContext->GetDVBv3();
+    if (m_legacyFe)
+    {
+        LOG(VB_CHANNEL, LOG_INFO, LOC + "Use legacy DVBv3 API");
+    }
+
     QMutexLocker locker(&m_hwLock);
 
     if (m_fdFrontend >= 0)
@@ -242,9 +251,12 @@ bool DVBChannel::Open(DVBChannel *who)
         m_fdFrontend = open(devn.constData(), O_RDWR | O_NONBLOCK);
         if (m_fdFrontend >= 0)
             break;
-        LOG(VB_GENERAL, LOG_WARNING, LOC +
-            "Opening DVB frontend device failed." + ENO);
-        if (tries >= 20 || (errno != EBUSY && errno != EAGAIN))
+        if (tries == 1)
+        {
+            LOG(VB_GENERAL, LOG_WARNING, LOC +
+                "Opening DVB frontend device failed." + ENO);
+        }
+        if (tries >= 5 || (errno != EBUSY && errno != EAGAIN))
         {
             LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("Failed to open DVB frontend device due to "
@@ -1199,12 +1211,14 @@ double DVBChannel::GetSignalStrengthDVBv5(bool *ok) const
     }
     else
     {
+#if DTV_STAT_FULL_DEBUG
         LOG(VB_CHANNEL, LOG_DEBUG, LOC + "DTV_STAT_SIGNAL_STRENGTH " +
             QString("res=%1 len=%2 scale=%3 val=%4")
             .arg(cmd.props->result)
             .arg(cmd.props->u.st.len)
             .arg(cmd.props->u.st.stat[0].scale)
             .arg(cmd.props->u.st.stat[0].svalue));
+#endif
     }
 
     bool tmpOk = (ret == 0) && (cmd.props->u.st.len > 0);
@@ -1216,24 +1230,23 @@ double DVBChannel::GetSignalStrengthDVBv5(bool *ok) const
     {
         if (cmd.props->u.st.stat[0].scale == FE_SCALE_DECIBEL)
         {
-            // -20dBm is a great signal so make that 100%
-            // -100dBm lower than the noise floor so that is 0%
-            // svalue is in 0.001 dBm
-            // If the value is outside the range -100 to 0 dBm
-            // we do not believe it.
-            int svalue = cmd.props->u.st.stat[0].svalue;
-            if (svalue >= -100000 && svalue <= -0)
+            // Convert range of -100dBm .. 0dBm to 0% .. 100%
+            // Note that -100dBm is lower than the noise floor.
+            // The measured svalue is in units of 0.001 dBm.
+            // If the value is outside the range -100 to 0 dBm we do not believe it.
+            int64_t svalue = cmd.props->u.st.stat[0].svalue;
+            if (svalue >= -100000 && svalue <= 0)
             {
-                // convert value from -100dBm to -20dBm to a 0-1 range
-                value = svalue + 100000.0;
-                value = value / 80000.0;
+                // convert value from -100dBm to 0dBm to a 0-1 range
+                value = svalue + 100000;
+                value = value / 100000.0;
                 if (value > 1.0)
                     value = 1.0;
             }
         }
         else if (cmd.props->u.st.stat[0].scale == FE_SCALE_RELATIVE)
         {
-            // returned as 16 bit unsigned
+            // Return as 16 bit unsigned
             value = cmd.props->u.st.stat[0].uvalue / 65535.0;
         }
     }
@@ -1253,9 +1266,14 @@ double DVBChannel::GetSignalStrength(bool *ok) const
 
     if (!m_legacyFe && m_hasV5Stats)
     {
-        double value = GetSignalStrengthDVBv5(ok);
-        if (ok && *ok)
+        bool v5_ok = false;
+        double value = GetSignalStrengthDVBv5(&v5_ok);
+        if (v5_ok)
+        {
+            if (ok)
+                *ok = v5_ok;
             return value;
+        }
     }
 
     // We use uint16_t for sig because this is correct for DVB API 4.0,
@@ -1283,12 +1301,14 @@ double DVBChannel::GetSNRDVBv5(bool *ok) const
     }
     else
     {
+#if DTV_STAT_FULL_DEBUG
         LOG(VB_CHANNEL, LOG_DEBUG, LOC + "DTV_STAT_CNR " +
             QString("res=%1 len=%2 scale=%3 val=%4")
             .arg(cmd.props->result)
             .arg(cmd.props->u.st.len)
             .arg(cmd.props->u.st.stat[0].scale)
             .arg(cmd.props->u.st.stat[0].svalue));
+#endif
     }
 
     bool tmpOk = (ret == 0) && (cmd.props->u.st.len > 0);
@@ -1299,10 +1319,10 @@ double DVBChannel::GetSNRDVBv5(bool *ok) const
     {
         if (cmd.props->u.st.stat[0].scale == FE_SCALE_DECIBEL)
         {
-            // svalue is in 0.001 dB
+            // The measured svalue is in units of 0.001 dB
+            // Let 50dB+ CNR be 100% quality and 0dB be 0%
+            // Convert 0.001 dB from 0-50000 to a 0-1 range
             value = cmd.props->u.st.stat[0].svalue;
-            // let 50dB+ CNR be 100% quality and 0dB be 0%
-            // convert 0.001 dB from 0-50000 to a 0-1 range
             value = value / 50000.0;
             if (value > 1.0)
                 value = 1.0;
@@ -1311,7 +1331,7 @@ double DVBChannel::GetSNRDVBv5(bool *ok) const
         }
         else if (cmd.props->u.st.stat[0].scale == FE_SCALE_RELATIVE)
         {
-            // returned as 16 bit unsigned
+            // Return as 16 bit unsigned
             value = cmd.props->u.st.stat[0].uvalue / 65535.0;
         }
     }
@@ -1331,9 +1351,14 @@ double DVBChannel::GetSNR(bool *ok) const
 
     if (!m_legacyFe && m_hasV5Stats)
     {
-        double value = GetSNRDVBv5(ok);
-        if (ok && *ok)
+        bool v5_ok = false;
+        double value = GetSNRDVBv5(&v5_ok);
+        if (v5_ok)
+        {
+            if (ok)
+                *ok = v5_ok;
             return value;
+        }
     }
 
     // We use uint16_t for sig because this is correct for DVB API 4.0,
@@ -1362,6 +1387,7 @@ double DVBChannel::GetBitErrorRateDVBv5(bool *ok) const
     }
     else
     {
+#if DTV_STAT_FULL_DEBUG
         LOG(VB_CHANNEL, LOG_DEBUG, LOC + "DTV_STAT_POST_ERROR_BIT_COUNT " +
             QString("res=%1 len=%2 scale=%3 val=%4 res=%5 len=%6 scale=%7 val=%8")
             .arg(cmd.props[0].result)
@@ -1372,6 +1398,7 @@ double DVBChannel::GetBitErrorRateDVBv5(bool *ok) const
             .arg(cmd.props[1].u.st.len)
             .arg(cmd.props[1].u.st.stat[0].scale)
             .arg(cmd.props[1].u.st.stat[0].uvalue));
+#endif
     }
 
     bool tmpOk = (ret == 0) &&
@@ -1394,7 +1421,6 @@ double DVBChannel::GetBitErrorRateDVBv5(bool *ok) const
     return value;
 }
 
-// documented in dvbchannel.h
 double DVBChannel::GetBitErrorRate(bool *ok) const
 {
     DVBChannel *master = GetMasterLock();
@@ -1408,9 +1434,14 @@ double DVBChannel::GetBitErrorRate(bool *ok) const
 
     if (!m_legacyFe && m_hasV5Stats)
     {
-        double value = GetBitErrorRateDVBv5(ok);
-        if (ok && *ok)
+        bool v5_ok = false;
+        double value = GetBitErrorRateDVBv5(&v5_ok);
+        if (v5_ok)
+        {
+            if (ok)
+                *ok = v5_ok;
             return value;
+        }
     }
 
     uint32_t ber = 0;
@@ -1436,12 +1467,14 @@ double DVBChannel::GetUncorrectedBlockCountDVBv5(bool *ok) const
     }
     else
     {
+#if DTV_STAT_FULL_DEBUG
         LOG(VB_CHANNEL, LOG_DEBUG, LOC + "DTV_STAT_ERROR_BLOCK_COUNT " +
             QString("res=%1 len=%2 scale=%3 val=%4")
             .arg(cmd.props[0].result)
             .arg(cmd.props[0].u.st.len)
             .arg(cmd.props[0].u.st.stat[0].scale)
             .arg(cmd.props[0].u.st.stat[0].svalue));
+#endif
     }
 
     bool tmpOk = (ret == 0) && (cmd.props->u.st.len > 0);
@@ -1456,7 +1489,6 @@ double DVBChannel::GetUncorrectedBlockCountDVBv5(bool *ok) const
     return value;
 }
 
-// documented in dvbchannel.h
 double DVBChannel::GetUncorrectedBlockCount(bool *ok) const
 {
     DVBChannel *master = GetMasterLock();
@@ -1470,9 +1502,14 @@ double DVBChannel::GetUncorrectedBlockCount(bool *ok) const
 
     if (!m_legacyFe && m_hasV5Stats)
     {
-        double value = GetUncorrectedBlockCountDVBv5(ok);
-        if (ok && *ok)
+        bool v5_ok = false;
+        double value = GetUncorrectedBlockCountDVBv5(&v5_ok);
+        if (v5_ok)
+        {
+            if (ok)
+                *ok = v5_ok;
             return value;
+        }
     }
 
     uint32_t ublocks = 0;
@@ -1480,7 +1517,7 @@ double DVBChannel::GetUncorrectedBlockCount(bool *ok) const
     if (ok)
         *ok = (0 == ret);
 
-    return (double) ublocks;
+    return static_cast<double>(ublocks);
 }
 
 void DVBChannel::ReturnMasterLock(DVBChannel* &dvbm)
@@ -1509,7 +1546,7 @@ bool DVBChannel::IsMaster(void) const
 
 // Reads all the events off the queue, so we can use select in WaitForBackend.
 //
-// Note that FE_GET_EVENT is deprecated.
+// Note that FE_GET_EVENT is deprecated but there is no alternative yet.
 //
 void DVBChannel::DrainDVBEvents(void)
 {

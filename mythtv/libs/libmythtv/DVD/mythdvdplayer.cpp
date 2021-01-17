@@ -1,12 +1,8 @@
 // MythTV
 #include "mythdvdbuffer.h"
-#include "DetectLetterbox.h"
 #include "audiooutput.h"
 #include "mythdvddecoder.h"
 #include "mythdvdplayer.h"
-
-// Std
-#include <unistd.h> // for usleep()
 
 #define LOC      QString("DVDPlayer: ")
 
@@ -208,9 +204,8 @@ bool MythDVDPlayer::VideoLoop(void)
             // flag if we have no frame
             if (nbframes == 0)
             {
-                LOG(VB_PLAYBACK, LOG_WARNING, LOC +
-                        "In DVD Menu: No video frames in queue");
-                usleep(10000);
+                LOG(VB_PLAYBACK, LOG_WARNING, LOC + "In DVD Menu: No video frames in queue");
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 return !IsErrored();
             }
 
@@ -296,7 +291,7 @@ void MythDVDPlayer::InitialSeek(void)
         m_decodeOneFrame = true;
         int count = 0;
         while (count++ < 100 && m_decodeOneFrame)
-            usleep(50000);
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
     MythPlayerUI::InitialSeek();
     m_playerCtx->m_buffer->IgnoreWaitStates(false);
@@ -415,7 +410,7 @@ uint64_t MythDVDPlayer::GetBookmark(void)
         }
     }
     m_playerCtx->UnlockPlayingInfo(__FILE__, __LINE__);
-    return frames;;
+    return frames;
 }
 
 void MythDVDPlayer::ChangeSpeed(void)

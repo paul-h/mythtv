@@ -12,32 +12,34 @@ void MythVTBInterop::GetVTBTypes(MythRenderOpenGL* Render, MythInteropGPU::Inter
         return;
     MythInteropGPU::InteropTypes types;
     if (Render->hasExtension("GL_ARB_texture_rg"))
-        types.emplace_back(VTBSURFACE);
-    types.emplace_back(VTBOPENGL);
+        types.emplace_back(GL_VTBSURFACE);
+    types.emplace_back(GL_VTB);
     Types[FMT_VTB] = types;
 }
 
-MythVTBInterop* MythVTBInterop::CreateVTB(MythRenderOpenGL* Context)
+MythVTBInterop* MythVTBInterop::CreateVTB(MythPlayerUI* Player, MythRenderOpenGL* Context)
 {
-    if (!Context)
+    if (!(Context && Player))
         return nullptr;
+
     MythInteropGPU::InteropMap types;
     GetVTBTypes(Context, types);
     if (auto vtb = types.find(FMT_VTB); vtb != types.end())
     {
         for (auto type : vtb->second)
         {
-            if (type == VTBSURFACE)
-                return new MythVTBSurfaceInterop(Context);
-            else if (type == VTBOPENGL)
-                return new MythVTBInterop(Context, VTBOPENGL);
+            if (type == GL_VTBSURFACE)
+                return new MythVTBSurfaceInterop(Player, Context);
+            else if (type == GL_VTB)
+                return new MythVTBInterop(Player, Context, GL_VTB);
         }
     }
     return nullptr;
 }
 
-MythVTBInterop::MythVTBInterop(MythRenderOpenGL* Context, MythOpenGLInterop::InteropType Type)
-  : MythOpenGLInterop(Context, Type)
+MythVTBInterop::MythVTBInterop(MythPlayerUI* Player, MythRenderOpenGL* Context,
+                               MythOpenGLInterop::InteropType Type)
+  : MythOpenGLInterop(Context, Type, Player)
 {
 }
 
@@ -164,8 +166,8 @@ vector<MythVideoTextureOpenGL*> MythVTBInterop::Acquire(MythRenderOpenGL* Contex
     return result;
 }
 
-MythVTBSurfaceInterop::MythVTBSurfaceInterop(MythRenderOpenGL* Context)
-  : MythVTBInterop(Context, VTBSURFACE)
+MythVTBSurfaceInterop::MythVTBSurfaceInterop(MythPlayerUI* Player, MythRenderOpenGL* Context)
+  : MythVTBInterop(Player, Context, GL_VTBSURFACE)
 {
 }
 

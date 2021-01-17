@@ -17,8 +17,8 @@
 
 #define LOC QString("EDID: ")
 
-MythEDID::MythEDID(QByteArray &Data)
-  : m_data(Data)
+MythEDID::MythEDID(QByteArray  Data)
+  : m_data(std::move(Data))
 {
     Parse();
 }
@@ -29,52 +29,52 @@ MythEDID::MythEDID(const char* Data, int Length)
     Parse();
 }
 
-bool MythEDID::Valid(void) const
+bool MythEDID::Valid() const
 {
     return m_valid;
 }
 
-QStringList MythEDID::SerialNumbers(void) const
+QStringList MythEDID::SerialNumbers() const
 {
     return m_serialNumbers;
 }
 
-QSize MythEDID::DisplaySize(void) const
+QSize MythEDID::DisplaySize() const
 {
     return m_displaySize;
 }
 
-double MythEDID::DisplayAspect(void) const
+double MythEDID::DisplayAspect() const
 {
     return m_displayAspect;
 }
 
-uint16_t MythEDID::PhysicalAddress(void) const
+uint16_t MythEDID::PhysicalAddress() const
 {
     return m_physicalAddress;
 }
 
-float MythEDID::Gamma(void) const
+float MythEDID::Gamma() const
 {
     return m_gamma;
 }
 
-bool MythEDID::IsHDMI(void) const
+bool MythEDID::IsHDMI() const
 {
     return m_isHDMI;
 }
 
-bool MythEDID::IsSRGB(void) const
+bool MythEDID::IsSRGB() const
 {
     return m_sRGB;
 }
 
-bool MythEDID::IsLikeSRGB(void) const
+bool MythEDID::IsLikeSRGB() const
 {
     return m_likeSRGB;
 }
 
-MythEDID::Primaries MythEDID::ColourPrimaries(void) const
+MythEDID::Primaries MythEDID::ColourPrimaries() const
 {
     return m_primaries;
 }
@@ -90,7 +90,7 @@ int MythEDID::VideoLatency(bool Interlaced) const
 }
 
 // from QEdidParser
-static QString ParseEdidString(const quint8 *data, bool Replace)
+static QString ParseEdidString(const quint8* data, bool Replace)
 {
     QByteArray buffer(reinterpret_cast<const char *>(data), 13);
 
@@ -110,7 +110,7 @@ static QString ParseEdidString(const quint8 *data, bool Replace)
     return QString::fromLatin1(buffer.trimmed());
 }
 
-void MythEDID::Parse(void)
+void MythEDID::Parse()
 {
     // This is adapted from various sources including QEdidParser, edid-decode and xrandr
     if (!m_data.constData() || m_data.isEmpty())
@@ -130,12 +130,10 @@ void MythEDID::Parse(void)
     }
 
     // checksum
-    qint8 sum = 0;
-    for (char i : qAsConst(m_data))
-        sum += i;
-    if (sum != 0)
+    // NOLINTNEXTLINE(modernize-use-transparent-functors)
+    if (auto sum = std::accumulate(m_data.cbegin(), m_data.cend(), 0, std::plus<char>()); (sum % 0xff) != 0)
     {
-        LOG(VB_GENERAL, LOG_DEBUG, LOC + "Checksum error");
+        LOG(VB_GENERAL, LOG_INFO, LOC + "Checksum error");
         return;
     }
 
@@ -166,7 +164,7 @@ void MythEDID::Parse(void)
     }
 }
 
-bool MythEDID::ParseBaseBlock(const quint8 *Data)
+bool MythEDID::ParseBaseBlock(const quint8* Data)
 {
     // retrieve version
     if (Data[VERSION_OFFSET] != 1)
@@ -277,15 +275,14 @@ bool MythEDID::ParseBaseBlock(const quint8 *Data)
     }
 
     // Set status
-    for (const auto & sn : qAsConst(m_serialNumbers))
-        if (!sn.isEmpty())
-            m_valid = true;
+    m_valid = std::any_of(m_serialNumbers.cbegin(), m_serialNumbers.cend(),
+                          [](const QString& Serial) { return !Serial.isEmpty(); });
     if (!m_valid)
         LOG(VB_GENERAL, LOG_WARNING, LOC + "No serial number(s) in EDID");
     return m_valid;
 }
 
-bool MythEDID::ParseCTA861(const quint8 *Data, uint Offset)
+bool MythEDID::ParseCTA861(const quint8* Data, uint Offset)
 {
     if (Offset >= m_size)
         return false;
@@ -302,7 +299,7 @@ bool MythEDID::ParseCTA861(const quint8 *Data, uint Offset)
     return result;
 }
 
-bool MythEDID::ParseCTABlock(const quint8 *Data, uint Offset)
+bool MythEDID::ParseCTABlock(const quint8* Data, uint Offset)
 {
     uint length = Data[Offset] & 0x1F;
     uint type  = (Data[Offset] & 0xE0) >> 5;
@@ -319,7 +316,7 @@ bool MythEDID::ParseCTABlock(const quint8 *Data, uint Offset)
     return true;
 }
 
-bool MythEDID::ParseVSDB(const quint8 *Data, uint Offset, uint Length)
+bool MythEDID::ParseVSDB(const quint8* Data, uint Offset, uint Length)
 {
     if (Offset + 3 >= m_size)
         return false;
@@ -373,7 +370,7 @@ bool MythEDID::ParseVSDB(const quint8 *Data, uint Offset, uint Length)
     return true;
 }
 
-void MythEDID::Debug(void) const
+void MythEDID::Debug() const
 {
     if (!m_valid)
     {

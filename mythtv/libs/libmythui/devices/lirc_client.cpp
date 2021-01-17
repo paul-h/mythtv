@@ -890,11 +890,10 @@ int lirc_readconfig(const struct lirc_state *state,
 		lirc_freeconfig(*config);
 		return -1;
 	}
-	close(sockfd);
-	sockfd = -1;
+    close(sockfd);
 	
 	/* launch lircrcd */
-	sha_bang2=sha_bang!=nullptr ? sha_bang:"lircrcd";
+    sha_bang2=sha_bang;
 	
 	command=static_cast<char*>(malloc(strlen(sha_bang2)+1+strlen(filename)+1));
 	if(command==nullptr)
@@ -936,8 +935,7 @@ int lirc_readconfig(const struct lirc_state *state,
 	return -1;
 	
  lirc_readconfig_compat:
-	/* compat fallback */
-	if(sockfd != -1) close(sockfd);
+    /* compat fallback */
 	if(sha_bang!=nullptr) free(sha_bang);
 	free(filename);
 	return 0;

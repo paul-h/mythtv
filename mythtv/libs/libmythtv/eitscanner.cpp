@@ -4,8 +4,10 @@
 #include <sys/time.h>
 #include "compat.h"
 
+// C++
 #include <cstdlib>
 
+// MythTV
 #include "scheduledrecording.h"
 #include "channelbase.h"
 #include "channelutil.h"
@@ -23,12 +25,11 @@
 #define LOC_ID QString("EITScanner[%1]: ").arg(m_cardnum)
 
 /** \class EITScanner
- *  \brief Acts as glue between ChannelBase, EITSource, and EITHelper.
+ *  \brief Acts as glue between ChannelBase, EITSource and EITHelper.
  *
  *   This is the class where the "EIT Crawl" is implemented.
  *
  */
-
 EITScanner::EITScanner(uint cardnum)
     : m_eitHelper(new EITHelper(cardnum)),
       m_eventThread(new MThread("EIT", this)),
@@ -37,6 +38,7 @@ EITScanner::EITScanner(uint cardnum)
     QStringList langPref = iso639_get_language_list();
     m_eitHelper->SetLanguagePreferences(langPref);
 
+    LOG(VB_EIT, LOG_INFO, LOC_ID + "Start EIT scanner thread");
     m_eventThread->start(QThread::IdlePriority);
 }
 
@@ -66,9 +68,6 @@ void EITScanner::TeardownAll(void)
  */
 void EITScanner::run(void)
 {
-    static constexpr std::array<const uint,5>  kSz { 2000, 1800, 1600, 1400, 1200, };
-    static constexpr std::array<const float,5> kRt { 0.0F, 0.2F, 0.4F, 0.6F, 0.8F, };
-
     m_lock.lock();
 
     MythTimer t;
@@ -79,19 +78,9 @@ void EITScanner::run(void)
         m_lock.unlock();
         uint list_size = m_eitHelper->GetListSize();
 
-        float rate = 1.0F;
-        for (uint i = 0; i < 5; i++)
-        {
-            if (list_size >= kSz[i])
-            {
-                rate = kRt[i];
-                break;
-            }
-        }
-
         m_lock.lock();
         if (m_eitSource)
-            m_eitSource->SetEITRate(rate);
+            m_eitSource->SetEITRate(1.0F);
         m_lock.unlock();
 
         if (list_size)
@@ -100,14 +89,13 @@ void EITScanner::run(void)
             t.start();
         }
 
-        // Tell the scheduler to run if
-        // we are in passive scan
+        // Tell the scheduler to run if we are in passive scan
         // and there have been updated events since the last scheduler run
         // but not in the last 60 seconds
         if (!m_activeScan && eitCount && (t.elapsed() > 60 * 1000))
         {
             LOG(VB_EIT, LOG_INFO,
-                LOC_ID + QString("Added %1 EIT Events").arg(eitCount));
+                LOC_ID + QString("Added %1 EIT events in passive scan").arg(eitCount));
             eitCount = 0;
             RescheduleRecordings();
         }
@@ -119,7 +107,7 @@ void EITScanner::run(void)
             if (eitCount)
             {
                 LOG(VB_EIT, LOG_INFO,
-                    LOC_ID + QString("Added %1 EIT Events").arg(eitCount));
+                    LOC_ID + QString("Added %1 EIT events in active scan").arg(eitCount));
                 eitCount = 0;
                 RescheduleRecordings();
             }
@@ -179,9 +167,6 @@ void EITScanner::run(void)
 
 /** \fn EITScanner::RescheduleRecordings(void)
  *  \brief Tells scheduler about programming changes.
- *
- *  This implements some very basic rate limiting. If a call is made
- *  to this within kMinRescheduleInterval of the last call it is ignored.
  */
 void EITScanner::RescheduleRecordings(void)
 {
@@ -206,7 +191,7 @@ void EITScanner::StartPassiveScan(ChannelBase *channel,
     m_eitHelper->SetChannelID(chanid);
     m_eitHelper->SetSourceID(ChannelUtil::GetSourceIDForChannel(chanid));
 
-    LOG(VB_EIT, LOG_INFO, LOC_ID + "Started passive scan.");
+    LOG(VB_EIT, LOG_INFO, LOC_ID + "Started passive scan");
 }
 
 /** \fn EITScanner::StopPassiveScan(void)
@@ -226,7 +211,7 @@ void EITScanner::StopPassiveScan(void)
     EITHelper::WriteEITCache();
     m_eitHelper->SetChannelID(0);
     m_eitHelper->SetSourceID(0);
-    LOG(VB_EIT, LOG_INFO, LOC_ID + "Stopped passive scan.");
+    LOG(VB_EIT, LOG_INFO, LOC_ID + "Stopped passive scan");
 }
 
 void EITScanner::StartActiveScan(TVRec *_rec, uint max_seconds_per_source)
@@ -306,7 +291,7 @@ void EITScanner::StopActiveScan(void)
     StopPassiveScan();
     locker.relock();
 
-    LOG(VB_EIT, LOG_INFO, LOC_ID + "Stopped active scan.");
+    LOG(VB_EIT, LOG_INFO, LOC_ID + "Stopped active scan");
 
     while (!m_activeScan && !m_activeScanStopped)
         m_activeScanCond.wait(&m_lock, 100);

@@ -592,25 +592,16 @@ static subtitle_t *sub_read_line_aqt (demux_sputext_t *demuxstr, subtitle_t *cur
       break;
   }
 
-  if (!read_line_from_input(demuxstr, line))
-    return nullptr;
-
-  std::string out {};
-  sub_readtext(line.data(),out);
-  current->text.push_back(out);
-  current->end = -1;
-
-  if (!read_line_from_input(demuxstr, line))
-    return current;;
-
-  sub_readtext(line.data(),out);
-  current->text.push_back(out);
-
-  if ((current->text[0][0]==0) && (current->text[1][0]==0)) {
-    return nullptr;
+  while (read_line_from_input(demuxstr, line))
+  {
+      std::string out {};
+      sub_readtext(line.data(),out);
+      if (out.empty())
+          break;
+      current->text.push_back(out);
+      current->end = -1;
   }
-
-  return current;
+  return (!current->text.empty())? current : nullptr;
 }
 
 static subtitle_t *sub_read_line_jacobsub(demux_sputext_t *demuxstr, subtitle_t *current) {
@@ -1066,15 +1057,10 @@ bool sub_read_file (demux_sputext_t *demuxstr) {
       demuxstr->subtitles.push_back(*sub);
       if (demuxstr->num > 0 && demuxstr->subtitles[demuxstr->num-1].end == -1) {
         /* end time not defined in the subtitle */
-        if (timeout > 0) {
-          /* timeout */
-          if (timeout > sub->start - demuxstr->subtitles[demuxstr->num-1].start) {
-            demuxstr->subtitles[demuxstr->num-1].end = sub->start;
-          } else
-            demuxstr->subtitles[demuxstr->num-1].end = demuxstr->subtitles[demuxstr->num-1].start + timeout;
-        } else {
-          /* no timeout */
+        if (timeout > sub->start - demuxstr->subtitles[demuxstr->num-1].start) {
           demuxstr->subtitles[demuxstr->num-1].end = sub->start;
+        } else {
+          demuxstr->subtitles[demuxstr->num-1].end = demuxstr->subtitles[demuxstr->num-1].start + timeout;
         }
       }
       ++demuxstr->num; /* Error vs. Valid */
@@ -1083,9 +1069,7 @@ bool sub_read_file (demux_sputext_t *demuxstr) {
   /* timeout of last subtitle */
   if (demuxstr->num > 0 && demuxstr->subtitles[demuxstr->num-1].end == -1)
   {
-    if (timeout > 0) {
-      demuxstr->subtitles[demuxstr->num-1].end = demuxstr->subtitles[demuxstr->num-1].start + timeout;
-    }
+    demuxstr->subtitles[demuxstr->num-1].end = demuxstr->subtitles[demuxstr->num-1].start + timeout;
   }
 
 #if DEBUG_XINE_DEMUX_SPUTEXT

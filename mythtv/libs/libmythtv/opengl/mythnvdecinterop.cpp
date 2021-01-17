@@ -20,8 +20,8 @@
     } \
 }
 
-MythNVDECInterop::MythNVDECInterop(MythRenderOpenGL* Context)
-  : MythOpenGLInterop(Context, NVDEC),
+MythNVDECInterop::MythNVDECInterop(MythPlayerUI* Player, MythRenderOpenGL* Context)
+  : MythOpenGLInterop(Context, GL_NVDEC, Player),
     m_cudaContext()
 {
     InitialiseCuda();
@@ -75,9 +75,9 @@ CUcontext MythNVDECInterop::GetCUDAContext()
     return m_cudaContext;
 }
 
-MythNVDECInterop* MythNVDECInterop::CreateNVDEC(MythRenderOpenGL* Context)
+MythNVDECInterop* MythNVDECInterop::CreateNVDEC(MythPlayerUI* Player, MythRenderOpenGL* Context)
 {
-    if (!Context)
+    if (!(Context && Player))
         return nullptr;
 
     MythInteropGPU::InteropMap types;
@@ -85,8 +85,8 @@ MythNVDECInterop* MythNVDECInterop::CreateNVDEC(MythRenderOpenGL* Context)
     if (auto nvdec = types.find(FMT_NVDEC); nvdec != types.end())
     {
         for (auto type : nvdec->second)
-            if (type == NVDEC)
-                return new MythNVDECInterop(Context);
+            if (type == GL_NVDEC)
+                return new MythNVDECInterop(Player, Context);
     }
     return nullptr;
 }
@@ -94,7 +94,7 @@ MythNVDECInterop* MythNVDECInterop::CreateNVDEC(MythRenderOpenGL* Context)
 void MythNVDECInterop::GetNVDECTypes(MythRenderOpenGL* Render, MythInteropGPU::InteropMap& Types)
 {
     if (Render)
-        Types[FMT_NVDEC] = { NVDEC };
+        Types[FMT_NVDEC] = { GL_NVDEC };
 }
 
 /*! \brief Map CUDA video memory to OpenGL textures.

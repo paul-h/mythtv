@@ -290,11 +290,9 @@ void MythVideoOutputOpenGL::RenderFrame(MythVideoFrame* Frame, FrameScanType Sca
     if (VERBOSE_LEVEL_CHECK(VB_GPU, LOG_INFO))
         m_openglRender->logDebugMarker(LOC + "CLEAR_START");
 
-    uint8_t gray = m_dbLetterboxColour == kLetterBoxColour_Gray25 ? 64 : 0;
-
-    if (!Frame || Frame->m_dummy || ((m_openglRender->GetExtraFeatures() & kGLTiled) != 0))
+    if (!Frame || Frame->m_dummy || m_needFullClear || ((m_openglRender->GetExtraFeatures() & kGLTiled) != 0))
     {
-        m_openglRender->SetBackground(gray, gray, gray, 255);
+        m_openglRender->SetBackground(m_clearColor, m_clearColor, m_clearColor, m_clearAlpha);
         m_openglRender->ClearFramebuffer();
     }
     // Avoid clearing the framebuffer if it will be entirely overwritten by video
@@ -303,7 +301,7 @@ void MythVideoOutputOpenGL::RenderFrame(MythVideoFrame* Frame, FrameScanType Sca
         if (IsEmbedding())
         {
             // use MythRenderOpenGL rendering as it will clear to the appropriate 'black level'
-            m_openglRender->ClearRect(nullptr, GetWindowRect(), gray);
+            m_openglRender->ClearRect(nullptr, GetWindowRect(), m_clearColor, m_clearAlpha);
         }
         else
         {
@@ -311,7 +309,7 @@ void MythVideoOutputOpenGL::RenderFrame(MythVideoFrame* Frame, FrameScanType Sca
             // clear the unused portions of the screen
             QRegion toclear = GetBoundingRegion();
             for (auto rect : qAsConst(toclear))
-                m_openglRender->ClearRect(nullptr, rect, gray);
+                m_openglRender->ClearRect(nullptr, rect, m_clearColor, m_clearAlpha);
         }
     }
 
@@ -381,23 +379,7 @@ QStringList MythVideoOutputOpenGL::GetAllowedRenderers(MythRenderOpenGL *Render,
         return allowed;
     }
 
-    VideoFrameType format = FMT_NONE;
-    if (codec_is_vaapi(CodecId))
-        format = FMT_VAAPI;
-    else if (codec_is_vdpau(CodecId))
-        format = FMT_VDPAU;
-    else if (codec_is_nvdec(CodecId))
-        format = FMT_NVDEC;
-    else if (codec_is_vtb(CodecId))
-        format = FMT_VTB;
-    else if (codec_is_mmal(CodecId))
-        format = FMT_MMAL;
-    else if (codec_is_v4l2(CodecId) || codec_is_drmprime(CodecId))
-        format = FMT_DRMPRIME;
-    else if (codec_is_mediacodec(CodecId))
-        format = FMT_MEDIACODEC;
-
-    if (FMT_NONE != format)
+    if (auto format = FrameTypeForCodec(CodecId); FMT_NONE != format)
     {
         MythInteropGPU::InteropMap supported;
         if (MythOpenGLInterop::GetTypes(Render, supported); supported.find(format) != supported.cend())

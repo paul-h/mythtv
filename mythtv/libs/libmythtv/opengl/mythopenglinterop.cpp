@@ -1,6 +1,3 @@
-// Qt
-#include <QWaitCondition>
-
 // MythTV
 #include "mythplayerui.h"
 #include "mythcorecontext.h"
@@ -39,7 +36,7 @@ void MythOpenGLInterop::GetTypes(MythRender* Render, InteropMap& Types)
         return;
 
 #ifdef USING_MEDIACODEC
-    Types[FMT_MEDIACODEC] = { MEDIACODEC };
+    Types[FMT_MEDIACODEC] = { GL_MEDIACODEC };
 #endif
 
 #ifdef USING_VDPAU
@@ -117,8 +114,8 @@ vector<MythVideoTextureOpenGL*> MythOpenGLInterop::Retrieve(MythRenderOpenGL *Co
     return result;
 }
 
-MythOpenGLInterop::MythOpenGLInterop(MythRenderOpenGL *Context, InteropType Type)
-  : MythInteropGPU(Context, Type),
+MythOpenGLInterop::MythOpenGLInterop(MythRenderOpenGL *Context, InteropType Type, MythPlayerUI *Player)
+  : MythInteropGPU(Context, Type, Player),
     m_openglContext(Context)
 {
 }

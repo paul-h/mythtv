@@ -22,6 +22,7 @@ class MythVideoOutputGPU : public MythVideoOutput
                                       float FrameRate,           uint  PlayerFlags,
                                       const QString& Codec,      int ReferenceFrames,
                                       const VideoFrameTypes*& RenderFormats);
+    static VideoFrameType FrameTypeForCodec(MythCodecID CodecId);
    ~MythVideoOutputGPU() override;
 
   signals:
@@ -75,6 +76,7 @@ class MythVideoOutputGPU : public MythVideoOutput
     bool            m_newFrameRate        { false };
     bool            m_buffersCreated      { false };
     QString         m_profile;
+    bool            m_needFullClear       { false };
 
   private:
     Q_DISABLE_COPY(MythVideoOutputGPU)

@@ -170,6 +170,18 @@ MythVideoOutputGPU *MythVideoOutputGPU::Create(MythMainWindow* MainWindow, MythR
     return nullptr;
 }
 
+VideoFrameType MythVideoOutputGPU::FrameTypeForCodec(MythCodecID CodecId)
+{
+    if (codec_is_vaapi(CodecId)) return FMT_VAAPI;
+    if (codec_is_vdpau(CodecId)) return FMT_VDPAU;
+    if (codec_is_nvdec(CodecId)) return FMT_NVDEC;
+    if (codec_is_vtb(CodecId))   return FMT_VTB;
+    if (codec_is_mmal(CodecId))  return FMT_MMAL;
+    if (codec_is_v4l2(CodecId) || codec_is_drmprime(CodecId)) return FMT_DRMPRIME;
+    if (codec_is_mediacodec(CodecId)) return FMT_MEDIACODEC;
+    return FMT_NONE;
+}
+
 /*! \class MythVideoOutputGPU
  * \brief Common code shared between GPU accelerated sub-classes (e.g. OpenGL)
  *
@@ -200,6 +212,15 @@ MythVideoOutputGPU::MythVideoOutputGPU(MythMainWindow* MainWindow, MythRender* R
     m_render->IncrRef();
     SetDisplay(Display);
     m_painter->SetViewControl(MythPainterGPU::None);
+
+    // If our rendering context is overlaid on top of a video plane, we need transparency
+    // and we need to ensure we are clearing the entire framebuffer.
+    // Note: an alpha of zero is probably safe to use everywhere. tbc.
+    if (m_display->IsPlanar())
+    {
+        m_clearAlpha = 0;
+        m_needFullClear = true;
+    }
 
     connect(this, &MythVideoOutputGPU::RefreshState,   this, &MythVideoOutputGPU::DoRefreshState);
     connect(this, &MythVideoOutputGPU::DoRefreshState, this, &MythVideoOutputGPU::RefreshVideoBoundsState);
