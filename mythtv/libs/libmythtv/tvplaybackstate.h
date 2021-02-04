@@ -38,7 +38,7 @@ class MTV_PUBLIC TVPlaybackState : public QObject
     void ChangeMuteState(bool CycleChannels = false);
     void ChangeVolume(bool Direction, int Volume);
     void ChangeUpmix(bool Enable, bool Toggle = false);
-    void ChangeAudioOffset(int64_t Delta, int Value = -9999);
+    void ChangeAudioOffset(std::chrono::milliseconds Delta, std::chrono::milliseconds Value = -9999ms);
 
     // Audio and captions
     void SetTrack(uint Type, uint TrackNo);
@@ -61,7 +61,7 @@ class MTV_PUBLIC TVPlaybackState : public QObject
     void RestartITV(uint Chanid, uint Cardid, bool IsLiveTV);
     void HandleITVAction(const QString& Action, bool& Handled);
     void AdjustSubtitleZoom(int Delta);
-    void AdjustSubtitleDelay(int Delta);
+    void AdjustSubtitleDelay(std::chrono::milliseconds Delta);
 
     // Video
     void RequestEmbedding(bool Embed, const QRect& Rect = {}, const QStringList& Data = {});

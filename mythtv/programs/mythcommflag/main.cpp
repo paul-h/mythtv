@@ -7,7 +7,6 @@
 
 // POSIX headers
 #include <unistd.h>
-#include <sys/time.h> // for gettimeofday
 
 // ANSI C headers
 #include <cstdlib>
@@ -631,7 +630,7 @@ static qint64 GetFileSize(ProgramInfo *program_info)
 
     if (filename.startsWith("myth://"))
     {
-        RemoteFile remotefile(filename, false, false, 0);
+        RemoteFile remotefile(filename, false, false, 0s);
         size = remotefile.GetFileSize();
     }
     else

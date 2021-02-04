@@ -691,7 +691,7 @@ static void RunVideoScreen(VideoDialog::DialogType type, bool fromJump = false)
             video_list = saved->GetSaved();
             LOG(VB_GENERAL, LOG_INFO,
                 QString("Reusing saved video list because MythVideo was resumed"
-                        " within %1ms").arg(VideoListDeathDelay::kDelayTimeMS));
+                        " within %1ms").arg(VideoListDeathDelay::kDelayTimeMS.count()));
         }
     }
 
@@ -759,7 +759,7 @@ static void playDisc()
         QString filename = QString("bd:/%1").arg(bluray_mountpoint);
 
         GetMythMainWindow()->HandleMedia("Internal", filename, "", "", "", "",
-                                         0, 0, "", 0, "", "", true);
+                                         0, 0, "", 0min, "", "", true);
 
         GetMythUI()->RemoveCurrentLocation();
     }
@@ -787,7 +787,7 @@ static void playDisc()
 
             command_string = "Internal";
             GetMythMainWindow()->HandleMedia(command_string, filename, "", "",
-                                             "", "", 0, 0, "", 0, "", "", true);
+                                             "", "", 0, 0, "", 0min, "", "", true);
             GetMythUI()->RemoveCurrentLocation();
 
             return;
@@ -1263,7 +1263,8 @@ static void WriteDefaults()
 static int internal_play_media(const QString &mrl, const QString &plot,
                         const QString &title, const QString &subtitle,
                         const QString &director, int season, int episode,
-                        const QString &inetref, int lenMins, const QString &year,
+                        const QString &inetref, std::chrono::minutes lenMins,
+                        const QString &year,
                         const QString &id, const bool useBookmark)
 {
     int res = -1;
@@ -1728,21 +1729,20 @@ static bool WasAutomaticStart(void)
             // if we don't have a valid startup time assume we were started manually
             if (startupTime.isValid())
             {
-                int startupSecs = gCoreContext->GetNumSetting("StartupSecsBeforeRecording");
+                auto startupSecs = gCoreContext->GetDurSetting<std::chrono::seconds>("StartupSecsBeforeRecording");
+                startupSecs = std::max(startupSecs, 15 * 60s);
                 // If we started within 'StartupSecsBeforeRecording' OR 15 minutes
                 // of the saved wakeup time assume we either started automatically
                 // to record, to obtain guide data or or for a
                 // daily wakeup/shutdown period
-                if (abs(startupTime.secsTo(MythDate::current())) <
-                    std::max(startupSecs, 15 * 60))
+                if (abs(MythDate::secsInPast(startupTime)) < startupSecs)
                 {
                     LOG(VB_GENERAL, LOG_INFO,
                         "Close to auto-start time, AUTO-Startup assumed");
 
                     QString str = gCoreContext->GetSetting("MythFillSuggestedRunTime");
                     QDateTime guideRunTime = MythDate::fromString(str);
-                    if (guideRunTime.secsTo(MythDate::current()) <
-                        std::max(startupSecs, 15 * 60))
+                    if (MythDate::secsInPast(guideRunTime) < startupSecs)
                     {
                         LOG(VB_GENERAL, LOG_INFO,
                             "Close to MythFillDB suggested run time, AUTO-Startup to fetch guide data?");
@@ -1784,7 +1784,7 @@ static bool WasAutomaticStart(void)
                     }
 
                     if (!nextRecordingStart.isNull() &&
-                        (abs(nextRecordingStart.secsTo(MythDate::current())) < (4 * 60)))
+                        (abs(MythDate::secsInPast(nextRecordingStart)) < 4min))
                     {
                         LOG(VB_GENERAL, LOG_INFO,
                             "Close to start time, AUTO-Startup assumed");
@@ -1844,7 +1844,7 @@ int main(int argc, char **argv)
         return GENERIC_EXIT_OK;
     }
 
-    MythDisplay::ConfigureQtGUI(1, cmdline.toString("display"));
+    MythDisplay::ConfigureQtGUI(1, cmdline);
     QApplication::setSetuidAllowed(true);
     QApplication a(argc, argv);
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHFRONTEND);
@@ -2107,7 +2107,7 @@ int main(int argc, char **argv)
     BackendConnectionManager bcm;
 
     PreviewGeneratorQueue::CreatePreviewGeneratorQueue(
-        PreviewGenerator::kRemote, 50, 60);
+        PreviewGenerator::kRemote, 50, 60s);
 
     fe_sd_notify("STATUS=Creating housekeeper");
     auto *housekeeping = new HouseKeeper();

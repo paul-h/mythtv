@@ -12,7 +12,7 @@ CONFIG += thread dll
 target.path = $${LIBDIR}
 INSTALLS = target
 
-DEPENDPATH  += ./opengl ./platforms ./devices ./vulkan
+DEPENDPATH  += ./opengl ./platforms ./platforms/drm ./devices ./vulkan
 INCLUDEPATH += $$DEPENDPATH
 INCLUDEPATH += ../libmythbase
 INCLUDEPATH += ../.. ../
@@ -49,6 +49,8 @@ HEADERS += mythuianimation.h mythuiscrollbar.h
 HEADERS += mythnotificationcenter.h mythnotificationcenter_private.h
 HEADERS += mythuicomposite.h mythnotification.h
 HEADERS += mythedid.h
+HEADERS += mythhdr.h
+HEADERS += mythcolourspace.h
 HEADERS += devices/mythinputdevicehandler.h
 
 SOURCES  = mythmainwindowprivate.cpp mythmainwindow.cpp mythpainter.cpp mythimage.cpp mythrect.cpp
@@ -80,6 +82,8 @@ SOURCES += mythuianimation.cpp mythuiscrollbar.cpp
 SOURCES += mythnotificationcenter.cpp mythnotification.cpp
 SOURCES += mythuicomposite.cpp
 SOURCES += mythedid.cpp
+SOURCES += mythhdr.cpp
+SOURCES += mythcolourspace.cpp
 SOURCES += devices/mythinputdevicehandler.cpp
 
 using_qtwebkit {
@@ -130,9 +134,25 @@ using_drm {
     HEADERS += platforms/mythdisplaydrm.h
     HEADERS += platforms/mythscreensaverdrm.h
     HEADERS += platforms/mythdrmdevice.h
+    HEADERS += platforms/drm/mythdrmresources.h
+    HEADERS += platforms/drm/mythdrmplane.h
+    HEADERS += platforms/drm/mythdrmmode.h
+    HEADERS += platforms/drm/mythdrmcrtc.h
+    HEADERS += platforms/drm/mythdrmproperty.h
+    HEADERS += platforms/drm/mythdrmconnector.h
+    HEADERS += platforms/drm/mythdrmencoder.h
+    HEADERS += platforms/drm/mythdrmframebuffer.h
     SOURCES += platforms/mythdisplaydrm.cpp
     SOURCES += platforms/mythscreensaverdrm.cpp
     SOURCES += platforms/mythdrmdevice.cpp
+    SOURCES += platforms/drm/mythdrmresources.cpp
+    SOURCES += platforms/drm/mythdrmplane.cpp
+    SOURCES += platforms/drm/mythdrmmode.cpp
+    SOURCES += platforms/drm/mythdrmcrtc.cpp
+    SOURCES += platforms/drm/mythdrmproperty.cpp
+    SOURCES += platforms/drm/mythdrmconnector.cpp
+    SOURCES += platforms/drm/mythdrmencoder.cpp
+    SOURCES += platforms/drm/mythdrmframebuffer.cpp
     QMAKE_CXXFLAGS += $${LIBDRM_CFLAGS}
 }
 

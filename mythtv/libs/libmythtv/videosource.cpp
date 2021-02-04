@@ -298,7 +298,7 @@ class XMLTVGrabber : public MythUIComboBoxSetting
 
             MythSystemLegacy find_grabber_proc("tv_find_grabbers", args,
                                                 kMSStdOut | kMSRunShell);
-            find_grabber_proc.Run(25);
+            find_grabber_proc.Run(25s);
             LOG(VB_GENERAL, LOG_INFO,
                 loc + "Running 'tv_find_grabbers " + args.join(" ") + "'.");
             uint status = find_grabber_proc.Wait();
@@ -393,12 +393,21 @@ class CaptureCardSpinBoxSetting : public MythUISpinBoxSetting
 {
   public:
     CaptureCardSpinBoxSetting(const CaptureCard &parent,
-                              uint min_val, uint max_val, uint step,
+                              std::chrono::milliseconds min_val,
+                              std::chrono::milliseconds max_val,
+                              std::chrono::milliseconds step,
                               const QString &setting) :
         MythUISpinBoxSetting(new CaptureCardDBStorage(this, parent, setting),
-                             min_val, max_val, step)
+                             min_val.count(), max_val.count(), step.count())
     {
     }
+    // Handles integer milliseconds (compiler converts seconds to milliseconds)
+    void setValueMs (std::chrono::milliseconds newValue)
+        { setValue(newValue.count()); }
+    // Handle non-integer seconds
+    template<typename T, typename = typename std::enable_if<!std::is_integral<T>()>>
+    void setValueMs (std::chrono::duration<T> newSecs)
+        { setValueMs(duration_cast<std::chrono::milliseconds>(newSecs)); }
 };
 
 class CaptureCardTextEditSetting : public MythUITextEditSetting
@@ -1007,31 +1016,50 @@ class AudioDevice : public CaptureCardComboBoxSetting
 class SignalTimeout : public CaptureCardSpinBoxSetting
 {
   public:
-    SignalTimeout(const CaptureCard &parent, uint value, uint min_val) :
-        CaptureCardSpinBoxSetting(parent, min_val, 60000, 250, "signal_timeout")
+    // Handles integer milliseconds (compiler converts seconds to milliseconds)
+    SignalTimeout(const CaptureCard &parent, std::chrono::milliseconds value,
+                  std::chrono::milliseconds min_val) :
+        CaptureCardSpinBoxSetting(parent, min_val, 60s, 250ms, "signal_timeout")
     {
         setLabel(QObject::tr("Signal timeout (ms)"));
-        setValue(QString::number(value));
+        setValueMs(value);
         setHelpText(QObject::tr(
                         "Maximum time (in milliseconds) MythTV waits for "
                         "a signal when scanning for channels."));
     };
+    // Handle non-integer seconds
+    template<typename T, typename = typename std::enable_if<std::is_floating_point<T>::value>::type >
+    SignalTimeout(const CaptureCard &parent, std::chrono::milliseconds value, std::chrono::duration<T> min_secs) :
+        SignalTimeout(parent, value, duration_cast<std::chrono::milliseconds>(min_secs)) {};
+    template<typename T, typename = typename std::enable_if<std::is_floating_point<T>::value>::type >
+    SignalTimeout(const CaptureCard &parent, std::chrono::duration<T> value, std::chrono::duration<T> min_secs) :
+        SignalTimeout(parent,
+                      duration_cast<std::chrono::milliseconds>(value),
+                      duration_cast<std::chrono::milliseconds>(min_secs)) {};
 };
 
 class ChannelTimeout : public CaptureCardSpinBoxSetting
 {
   public:
-    ChannelTimeout(const CaptureCard &parent, uint value, uint min_val) :
-        CaptureCardSpinBoxSetting(parent, min_val, 65000, 250,
-                                  "channel_timeout")
+    // Handles integer milliseconds (compiler converts seconds to milliseconds)
+    ChannelTimeout(const CaptureCard &parent, std::chrono::milliseconds value,
+                   std::chrono::milliseconds min_val) :
+        CaptureCardSpinBoxSetting(parent, min_val, 65s, 250ms, "channel_timeout")
     {
         setLabel(QObject::tr("Tuning timeout (ms)"));
-        setValue(value);
+        setValueMs(value);
         setHelpText(QObject::tr(
                         "Maximum time (in milliseconds) MythTV waits for "
                         "a channel lock.  For recordings, if this time is "
                         "exceeded, the recording will be marked as failed."));
     };
+    // Handle non-integer seconds
+    template<typename T, typename = typename std::enable_if<std::is_floating_point<T>::value>::type >
+    ChannelTimeout(const CaptureCard &parent, std::chrono::milliseconds value, std::chrono::duration<T> min_secs) :
+        ChannelTimeout(parent, value, duration_cast<std::chrono::milliseconds>(min_secs)) {};
+    template<typename T, typename = typename std::enable_if<std::is_floating_point<T>::value>::type >
+    ChannelTimeout(const CaptureCard &parent, std::chrono::duration<T> value, std::chrono::duration<T> min_secs) :
+        ChannelTimeout(parent, value, duration_cast<std::chrono::milliseconds>(min_secs)) {};
 };
 
 class AudioRateLimit : public CaptureCardComboBoxSetting
@@ -1216,11 +1244,10 @@ class DVBTuningDelay : public CaptureCardSpinBoxSetting
 {
   public:
     explicit DVBTuningDelay(const CaptureCard &parent) :
-        CaptureCardSpinBoxSetting(parent, 0, 2000, 25, "dvb_tuning_delay")
+        CaptureCardSpinBoxSetting(parent, 0ms, 2s, 25ms, "dvb_tuning_delay")
     {
-        setValue("0");
         setLabel(QObject::tr("DVB tuning delay (ms)"));
-        setValue(static_cast<int>(true));
+        setValueMs(0ms);
         setHelpText(
             QObject::tr("Some Linux DVB drivers, in particular for the "
                         "Hauppauge Nova-T, require that we slow down "
@@ -1356,8 +1383,8 @@ static void FirewireConfigurationGroup(CaptureCard& parent, CardType& cardtype)
     cardtype.addTargetedChild("FIREWIRE", new FirewireSpeed(parent));
 #endif // USING_LINUX_FIREWIRE
 
-    cardtype.addTargetedChild("FIREWIRE", new SignalTimeout(parent, 2000, 1000));
-    cardtype.addTargetedChild("FIREWIRE", new ChannelTimeout(parent, 9000, 1750));
+    cardtype.addTargetedChild("FIREWIRE", new SignalTimeout(parent, 2s, 1s));
+    cardtype.addTargetedChild("FIREWIRE", new ChannelTimeout(parent, 9s, 1.75s));
 
     model->SetGUID(dev->getValue());
     desc->SetGUID(dev->getValue());
@@ -1452,8 +1479,8 @@ HDHomeRunConfigurationGroup::HDHomeRunConfigurationGroup
 
     auto *buttonRecOpt = new GroupSetting();
     buttonRecOpt->setLabel(tr("Recording Options"));
-    buttonRecOpt->addChild(new SignalTimeout(m_parent, 3000, 250));
-    buttonRecOpt->addChild(new ChannelTimeout(m_parent, 6000, 1750));
+    buttonRecOpt->addChild(new SignalTimeout(m_parent, 3s, 0.25s));
+    buttonRecOpt->addChild(new ChannelTimeout(m_parent, 6s, 1.75s));
     buttonRecOpt->addChild(new HDHomeRunEITScan(m_parent));
     a_cardtype.addTargetedChild("HDHOMERUN", buttonRecOpt);
 };
@@ -1761,7 +1788,7 @@ class IPTVHost : public CaptureCardTextEditSetting
 static void IPTVConfigurationGroup(CaptureCard& parent, CardType& cardType)
 {
     cardType.addTargetedChild("FREEBOX", new IPTVHost(parent));
-    cardType.addTargetedChild("FREEBOX", new ChannelTimeout(parent, 30000, 1750));
+    cardType.addTargetedChild("FREEBOX", new ChannelTimeout(parent, 30s, 1.75s));
     cardType.addTargetedChild("FREEBOX", new EmptyAudioDevice(parent));
     cardType.addTargetedChild("FREEBOX", new EmptyVBIDevice(parent));
 }
@@ -1981,8 +2008,8 @@ VBoxConfigurationGroup::VBoxConfigurationGroup
     a_cardtype.addTargetedChild("VBOX", m_desc);
     a_cardtype.addTargetedChild("VBOX", m_cardIp);
     a_cardtype.addTargetedChild("VBOX", m_cardTuner);
-    a_cardtype.addTargetedChild("VBOX", new SignalTimeout(m_parent, 7000, 1000));
-    a_cardtype.addTargetedChild("VBOX", new ChannelTimeout(m_parent, 10000, 1750));
+    a_cardtype.addTargetedChild("VBOX", new SignalTimeout(m_parent, 7s, 1s));
+    a_cardtype.addTargetedChild("VBOX", new ChannelTimeout(m_parent, 10s, 1.75s));
 
     connect(m_cardIp,    &VBoxIP::NewIP,
             m_deviceId,  &VBoxDeviceID::SetIP);
@@ -2113,8 +2140,8 @@ void CetonSetting::CetonConfigurationGroup(CaptureCard& parent, CardType& cardty
     cardtype.addTargetedChild("CETON", tuner);
     cardtype.addTargetedChild("CETON", deviceid);
     cardtype.addTargetedChild("CETON", desc);
-    cardtype.addTargetedChild("CETON", new SignalTimeout(parent, 1000, 250));
-    cardtype.addTargetedChild("CETON", new ChannelTimeout(parent, 3000, 1750));
+    cardtype.addTargetedChild("CETON", new SignalTimeout(parent, 1s, 0.25s));
+    cardtype.addTargetedChild("CETON", new ChannelTimeout(parent, 3s, 1.75s));
 
     QObject::connect(ip,       &CetonSetting::NewValue,
                      deviceid, &CetonDeviceID::SetIP);
@@ -2191,7 +2218,7 @@ MPEGConfigurationGroup::MPEGConfigurationGroup(CaptureCard &a_parent,
     a_cardtype.addTargetedChild("MPEG", m_device);
     a_cardtype.addTargetedChild("MPEG", m_vbiDevice);
     a_cardtype.addTargetedChild("MPEG", m_cardInfo);
-    a_cardtype.addTargetedChild("MPEG", new ChannelTimeout(m_parent, 12000, 2000));
+    a_cardtype.addTargetedChild("MPEG", new ChannelTimeout(m_parent, 12s, 2s));
 
     connect(m_device, qOverload<const QString&>(&StandardSetting::valueChanged),
             this,     &MPEGConfigurationGroup::probeCard);
@@ -2289,7 +2316,7 @@ ExternalConfigurationGroup::ExternalConfigurationGroup(CaptureCard &a_parent,
     a_cardtype.addTargetedChild("EXTERNAL", m_info);
 
     a_cardtype.addTargetedChild("EXTERNAL",
-                                new ChannelTimeout(m_parent, 20000, 1750));
+                                new ChannelTimeout(m_parent, 20s, 1.75s));
 
     connect(device, qOverload<const QString&>(&StandardSetting::valueChanged),
             this,   &ExternalConfigurationGroup::probeApp);
@@ -2343,7 +2370,7 @@ HDPVRConfigurationGroup::HDPVRConfigurationGroup(CaptureCard &a_parent,
     a_cardtype.addTargetedChild("HDPVR", new EmptyVBIDevice(m_parent));
     a_cardtype.addTargetedChild("HDPVR", m_cardInfo);
     a_cardtype.addTargetedChild("HDPVR", m_audioInput);
-    a_cardtype.addTargetedChild("HDPVR", new ChannelTimeout(m_parent, 15000, 2000));
+    a_cardtype.addTargetedChild("HDPVR", new ChannelTimeout(m_parent, 15s, 2s));
 
     connect(device, qOverload<const QString&>(&StandardSetting::valueChanged),
             this,   &HDPVRConfigurationGroup::probeCard);
@@ -2437,7 +2464,7 @@ void V4L2encGroup::probeCard(const QString &device_name)
 
         m_device->addTargetedChild(m_driverName, new EmptyVBIDevice(m_parent));
         m_device->addTargetedChild(m_driverName,
-                                   new ChannelTimeout(m_parent, 15000, 2000));
+                                   new ChannelTimeout(m_parent, 15s, 2s));
     }
 #else
     Q_UNUSED(device_name);
@@ -3778,37 +3805,37 @@ void DVBConfigurationGroup::probeCard(const QString &videodevice)
         case CardUtil::QPSK:
             m_cardType->setValue("DVB-S");
             m_cardName->setValue(frontend_name);
-            m_signalTimeout->setValue(7000);
-            m_channelTimeout->setValue(10000);
+            m_signalTimeout->setValueMs(7s);
+            m_channelTimeout->setValueMs(10s);
             break;
         case CardUtil::DVBS2:
             m_cardType->setValue("DVB-S2");
             m_cardName->setValue(frontend_name);
-            m_signalTimeout->setValue(7000);
-            m_channelTimeout->setValue(10000);
+            m_signalTimeout->setValueMs(7s);
+            m_channelTimeout->setValueMs(10s);
             break;
         case CardUtil::QAM:
             m_cardType->setValue("DVB-C");
             m_cardName->setValue(frontend_name);
-            m_signalTimeout->setValue(3000);
-            m_channelTimeout->setValue(6000);
+            m_signalTimeout->setValueMs(3s);
+            m_channelTimeout->setValueMs(6s);
             break;
         case CardUtil::DVBT2:
             m_cardType->setValue("DVB-T2");
             m_cardName->setValue(frontend_name);
-            m_signalTimeout->setValue(3000);
-            m_channelTimeout->setValue(6000);
+            m_signalTimeout->setValueMs(3s);
+            m_channelTimeout->setValueMs(6s);
             break;
         case CardUtil::OFDM:
         {
             m_cardType->setValue("DVB-T");
             m_cardName->setValue(frontend_name);
-            m_signalTimeout->setValue(3000);
-            m_channelTimeout->setValue(6000);
+            m_signalTimeout->setValueMs(3s);
+            m_channelTimeout->setValueMs(6s);
             if (frontend_name.toLower().indexOf("usb") >= 0)
             {
-                m_signalTimeout->setValue(40000);
-                m_channelTimeout->setValue(42500);
+                m_signalTimeout->setValueMs(40s);
+                m_channelTimeout->setValueMs(42.5s);
             }
 
             // slow down tuning for buggy drivers
@@ -3816,7 +3843,7 @@ void DVBConfigurationGroup::probeCard(const QString &videodevice)
                 (frontend_name ==
                  "TerraTec/qanu USB2.0 Highspeed DVB-T Receiver"))
             {
-                m_tuningDelay->setValue(200);
+                m_tuningDelay->setValueMs(200ms);
             }
 
 #if 0 // frontends on hybrid DVB-T/Analog cards
@@ -3836,15 +3863,15 @@ void DVBConfigurationGroup::probeCard(const QString &videodevice)
             QString short_name = remove_chaff(frontend_name);
             m_cardType->setValue("ATSC");
             m_cardName->setValue(short_name);
-            m_signalTimeout->setValue(2000);
-            m_channelTimeout->setValue(4000);
+            m_signalTimeout->setValueMs(2s);
+            m_channelTimeout->setValueMs(4s);
 
             // According to #1779 and #1935 the AverMedia 180 needs
             // a 3000 ms signal timeout, at least for QAM tuning.
             if (frontend_name == "Nextwave NXT200X VSB/QAM frontend")
             {
-                m_signalTimeout->setValue(3000);
-                m_channelTimeout->setValue(5500);
+                m_signalTimeout->setValueMs(3s);
+                m_channelTimeout->setValueMs(5.5s);
             }
 
 #if 0 // frontends on hybrid DVB-T/Analog cards
@@ -3933,8 +3960,8 @@ DVBConfigurationGroup::DVBConfigurationGroup(CaptureCard& a_parent,
     m_cardName = new DVBCardName();
     m_cardType = new DVBCardType(m_parent);
 
-    m_signalTimeout = new SignalTimeout(m_parent, 500, 250);
-    m_channelTimeout = new ChannelTimeout(m_parent, 3000, 1750);
+    m_signalTimeout = new SignalTimeout(m_parent, 0.5s, 0.25s);
+    m_channelTimeout = new ChannelTimeout(m_parent, 3s, 1.75s);
 
     cardType.addTargetedChild("DVB", m_cardNum);
 
@@ -4020,8 +4047,8 @@ SatIPConfigurationGroup::SatIPConfigurationGroup
     a_cardtype.addTargetedChild("SATIP", m_tunerType);
     a_cardtype.addTargetedChild("SATIP", m_tunerIndex);
     a_cardtype.addTargetedChild("SATIP", m_deviceId);
-    a_cardtype.addTargetedChild("SATIP", new SignalTimeout(m_parent, 7000, 1000));
-    a_cardtype.addTargetedChild("SATIP", new ChannelTimeout(m_parent, 10000, 2000));
+    a_cardtype.addTargetedChild("SATIP", new SignalTimeout(m_parent, 7s, 1s));
+    a_cardtype.addTargetedChild("SATIP", new ChannelTimeout(m_parent, 10s, 2s));
     a_cardtype.addTargetedChild("SATIP", new DVBEITScan(m_parent));
 
     connect(m_deviceIdList, &SatIPDeviceIDList::NewTuner,

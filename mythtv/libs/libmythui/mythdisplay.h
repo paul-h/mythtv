@@ -8,14 +8,17 @@
 
 // MythTV
 #include "mythuiexp.h"
-#include "referencecounter.h"
 #include "mythdisplaymode.h"
 #include "mythedid.h"
+#include "mythhdr.h"
+#include "mythcommandlineparser.h"
 
 // Std
 #include <cmath>
 
-class MUI_PUBLIC MythDisplay : public QObject, public ReferenceCounter
+class MythMainWindow;
+
+class MUI_PUBLIC MythDisplay : public QObject
 {
     Q_OBJECT
 
@@ -27,7 +30,7 @@ class MUI_PUBLIC MythDisplay : public QObject, public ReferenceCounter
     virtual bool  IsPlanar             () { return false; }
     virtual const MythDisplayModes& GetVideoModes();
 
-    static void  ConfigureQtGUI        (int SwapInterval = 1, const QString& Display = QString());
+    static void  ConfigureQtGUI        (int SwapInterval, const MythCommandLineParser& CmdLine);
     static bool  SpanAllScreens        ();
     static QString GetExtraScreenInfo  (QScreen *qScreen);
     QStringList  GetDescription        ();
@@ -43,11 +46,12 @@ class MUI_PUBLIC MythDisplay : public QObject, public ReferenceCounter
     QSize        GetResolution         ();
     QSize        GetPhysicalSize       ();
     double       GetRefreshRate        () const;
-    int          GetRefreshInterval    (int Fallback) const;
+    std::chrono::microseconds GetRefreshInterval (std::chrono::microseconds Fallback) const;
     double       GetAspectRatio        (QString &Source, bool IgnoreModeOverride = false);
     double       EstimateVirtualAspectRatio();
     MythEDID&    GetEDID               ();
     MythDisplayRates GetRefreshRates   (QSize Size);
+    MythHDRPtr   GetHDRState           ();
 
   public slots:
     virtual void ScreenChanged         (QScreen *qScreen);
@@ -63,12 +67,13 @@ class MUI_PUBLIC MythDisplay : public QObject, public ReferenceCounter
     void         CurrentDPIChanged     (qreal    DPI);
 
   protected:
-    static MythDisplay* Create();
+    static MythDisplay* Create(MythMainWindow* MainWindow);
     MythDisplay();
    ~MythDisplay() override;
 
     virtual void    UpdateCurrentMode  ();
     virtual bool    SwitchToVideoMode  (QSize Size, double Framerate);
+    virtual void    InitHDR            ();
 
     void            DebugModes         () const;
     void            SetWidget          (QWidget *MainWindow);
@@ -90,6 +95,7 @@ class MUI_PUBLIC MythDisplay : public QObject, public ReferenceCounter
     QWindow*        m_window           { nullptr };
     QScreen*        m_screen           { nullptr };
     MythDisplayModes m_videoModes      { };
+    MythHDRPtr      m_hdrState         { nullptr };
 
   private:
     Q_DISABLE_COPY(MythDisplay)

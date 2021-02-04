@@ -91,11 +91,11 @@ int     g_majorVersion = 0;
 int     g_minorVersion = 0;
 int     g_revisionVersion = 0;
 
-time_t  g_lastHousekeeping = 0;
-time_t  g_lastDBKick = 0;
+TimePoint  g_lastHousekeeping {};
+TimePoint  g_lastDBKick {};
 
-bool    g_pendingZmAudit = false;
-time_t  g_lastZmAudit = 0;
+bool      g_pendingZmAudit = false;
+TimePoint g_lastZmAudit {};
 
 // returns true if the ZM version >= the requested version
 bool checkVersion(int major, int minor, int revision)
@@ -207,12 +207,12 @@ void houseKeeping(bool debug)
     kickDatabase(debug);
     checkZmAudit(debug);
 
-    g_lastHousekeeping = time(NULL);
+    g_lastHousekeeping = Clock::now();
 }
 
 void checkZmAudit(bool debug)
 {
-    if (!g_pendingZmAudit || time(NULL) < g_lastZmAudit + ZMAUDIT_TIME)
+    if (!g_pendingZmAudit || Clock::now() < g_lastZmAudit + ZMAUDIT_TIME)
         return;
 
     if (debug)
@@ -228,19 +228,19 @@ void checkZmAudit(bool debug)
     if (system(command.c_str()) < 0 && errno)
         std::cerr << "Failed to run '" << command << "'" << std::endl;
 
-    g_lastZmAudit = time(NULL);
+    g_lastZmAudit = Clock::now();
     g_pendingZmAudit = false;
 }
 
 void kickDatabase(bool debug)
 {
-    if (time(nullptr) < g_lastDBKick + DB_CHECK_TIME)
+    if (Clock::now() < g_lastDBKick + DB_CHECK_TIME)
         return;
 
     if (debug)
         std::cout << "Kicking database connection" << std::endl;
 
-    g_lastDBKick = time(nullptr);
+    g_lastDBKick = Clock::now();
 
     if (mysql_query(&g_dbConn, "SELECT NULL;") == 0)
     {

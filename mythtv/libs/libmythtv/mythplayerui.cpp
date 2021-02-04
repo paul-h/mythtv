@@ -1,3 +1,5 @@
+#include <algorithm>
+
 // MythTV
 #include "mythsystemevent.h"
 #include "audiooutput.h"
@@ -10,10 +12,6 @@
 #include "tv_play.h"
 #include "livetvchain.h"
 #include "mythplayerui.h"
-
-// Std
-#include <chrono>
-using namespace std::chrono_literals;
 
 #define LOC QString("PlayerUI: ")
 
@@ -166,7 +164,7 @@ void MythPlayerUI::EventLoop()
     if (m_isDummy && m_playerCtx->m_tvchain && m_playerCtx->m_tvchain->HasNext())
     {
         // Switch from the dummy recorder to the tuned program in livetv
-        m_playerCtx->m_tvchain->JumpToNext(true, 0);
+        m_playerCtx->m_tvchain->JumpToNext(true, 0s);
         JumpToProgram();
     }
     else if ((!m_allPaused || GetEof() != kEofStateNone) &&
@@ -246,7 +244,7 @@ void MythPlayerUI::EventLoop()
         if (m_playerCtx->m_tvchain && m_playerCtx->m_tvchain->HasNext())
         {
             LOG(VB_GENERAL, LOG_NOTICE, LOC + "LiveTV forcing JumpTo 1");
-            m_playerCtx->m_tvchain->JumpToNext(true, 0);
+            m_playerCtx->m_tvchain->JumpToNext(true, 0s);
             return;
         }
 
@@ -255,7 +253,7 @@ void MythPlayerUI::EventLoop()
         bool audioDrained =
             !m_audio.GetAudioOutput() ||
             m_audio.IsPaused() ||
-            m_audio.GetAudioOutput()->GetAudioBufferedTime() < 100;
+            m_audio.GetAudioOutput()->GetAudioBufferedTime() < 100ms;
         if (eof != kEofStateDelayed || (videoDrained && audioDrained))
         {
             if (eof == kEofStateDelayed)
@@ -505,11 +503,11 @@ void MythPlayerUI::InitFrameInterval()
     SetFrameInterval(GetScanType(), 1.0 / (m_videoFrameRate * static_cast<double>(m_playSpeed)));
     MythPlayer::InitFrameInterval();
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Display Refresh Rate: %1 Video Frame Rate: %2")
-        .arg(1000000.0 / m_display->GetRefreshInterval(m_frameInterval), 0, 'f', 3)
-        .arg(1000000.0 / m_frameInterval, 0, 'f', 3));
+        .arg(1000000.0 / m_display->GetRefreshInterval(m_frameInterval).count(), 0, 'f', 3)
+        .arg(1000000.0 / m_frameInterval.count(), 0, 'f', 3));
 }
 
-void MythPlayerUI::RenderVideoFrame(MythVideoFrame *Frame, FrameScanType Scan, bool Prepare, int64_t Wait)
+void MythPlayerUI::RenderVideoFrame(MythVideoFrame *Frame, FrameScanType Scan, bool Prepare, std::chrono::microseconds Wait)
 {
     if (!m_videoOutput)
         return;
@@ -523,7 +521,7 @@ void MythPlayerUI::RenderVideoFrame(MythVideoFrame *Frame, FrameScanType Scan, b
     m_videoOutput->RenderOverlays(m_osd);
     m_videoOutput->RenderEnd();
 
-    if (Wait > 0)
+    if (Wait > 0us)
         m_avSync.WaitForFrame(Wait);
 
     m_videoOutput->EndFrame();
@@ -578,9 +576,9 @@ void MythPlayerUI::RefreshPauseFrame()
     }
 }
 
-void MythPlayerUI::DoDisplayVideoFrame(MythVideoFrame* Frame, int64_t Due)
+void MythPlayerUI::DoDisplayVideoFrame(MythVideoFrame* Frame, std::chrono::microseconds Due)
 {
-    if (Due < 0)
+    if (Due < 0us)
     {
         m_videoOutput->SetFramesPlayed(static_cast<long long>(++m_framesPlayed));
     }
@@ -643,7 +641,7 @@ void MythPlayerUI::DisplayPauseFrame()
 
     FrameScanType scan = GetScanType();
     scan = (kScan_Detect == scan || kScan_Ignore == scan) ? kScan_Progressive : scan;
-    RenderVideoFrame(nullptr, scan, true, 0);
+    RenderVideoFrame(nullptr, scan, true, 0ms);
 }
 
 void MythPlayerUI::DisplayNormalFrame(bool CheckPrebuffer)
@@ -687,7 +685,7 @@ void MythPlayerUI::DisplayNormalFrame(bool CheckPrebuffer)
     }
 
     // When is the next frame due
-    int64_t due = m_avSync.AVSync(&m_audio, frame, m_frameInterval, m_playSpeed, !m_videoDim.isEmpty(),
+    std::chrono::microseconds due = m_avSync.AVSync(&m_audio, frame, m_frameInterval, m_playSpeed, !m_videoDim.isEmpty(),
                                   !m_normalSpeed || FlagIsSet(kMusicChoice));
     // Display it
     DoDisplayVideoFrame(frame, due);
@@ -766,18 +764,15 @@ void MythPlayerUI::SetWatched(bool ForceWatched)
         numFrames = static_cast<uint64_t>((endtime - starttime) * m_videoFrameRate);
     }
 
-    auto offset = static_cast<int>(round(0.14 * (numFrames / m_videoFrameRate)));
+    // 4 minutes min, 12 minutes max
+    auto offset = std::chrono::seconds(lround(0.14 * (numFrames / m_videoFrameRate)));
+    offset = std::clamp(offset, 240s, 720s);
 
-    if (offset < 240)
-        offset = 240; // 4 Minutes Min
-    else if (offset > 720)
-        offset = 720; // 12 Minutes Max
-
-    if (ForceWatched || (m_framesPlayed > (numFrames - (offset * m_videoFrameRate))))
+    if (ForceWatched || (m_framesPlayed > (numFrames - (offset.count() * m_videoFrameRate))))
     {
         m_playerCtx->m_playingInfo->SaveWatched(true);
         LOG(VB_GENERAL, LOG_INFO, LOC + QString("Marking recording as watched using offset %1 minutes")
-            .arg(offset/60));
+            .arg(offset.count()/60));
     }
 
     m_playerCtx->UnlockPlayingInfo(__FILE__, __LINE__);
@@ -793,7 +788,7 @@ void MythPlayerUI::SetBookmark(bool Clear)
 
 bool MythPlayerUI::CanSupportDoubleRate()
 {
-    int refreshinterval = 1;
+    std::chrono::microseconds refreshinterval = 1us;
     if (m_display)
         refreshinterval = m_display->GetRefreshInterval(m_frameInterval);
 
@@ -801,10 +796,10 @@ bool MythPlayerUI::CanSupportDoubleRate()
     // Since interlaced is always at 25 or 30 fps, if the interval
     // is less than 30000 (33fps) it must be representing one
     // field and not one frame, so multiply by 2.
-    int realfi = m_frameInterval;
-    if (m_frameInterval < 30000)
+    std::chrono::microseconds realfi = m_frameInterval;
+    if (m_frameInterval < 30ms)
         realfi = m_frameInterval * 2;
-    return ((realfi / 2.0) > (refreshinterval * 0.995));
+    return (duration_cast<floatusecs>(realfi) / 2.0) > (duration_cast<floatusecs>(refreshinterval) * 0.995);
 }
 
 void MythPlayerUI::GetPlaybackData(InfoMap& Map)
@@ -953,9 +948,9 @@ void MythPlayerUI::JumpToStream(const QString &stream)
     }
 
     m_watchingRecording = false;
-    m_totalLength = 0;
+    m_totalLength = 0s;
     m_totalFrames = 0;
-    m_totalDuration = 0;
+    m_totalDuration = 0s;
 
     // 120 retries ~= 60 seconds
     if (OpenFile(120) < 0)
@@ -966,16 +961,16 @@ void MythPlayerUI::JumpToStream(const QString &stream)
         return;
     }
 
-    if (m_totalLength == 0)
+    if (m_totalLength == 0s)
     {
         long long len = m_playerCtx->m_buffer->GetRealFileSize();
-        m_totalLength = static_cast<int>(len / ((m_decoder->GetRawBitrate() * 1000) / 8));
-        m_totalFrames = static_cast<uint64_t>(m_totalLength * SafeFPS());
+        m_totalLength = std::chrono::seconds(len / ((m_decoder->GetRawBitrate() * 1000) / 8));
+        m_totalFrames = static_cast<uint64_t>(m_totalLength.count() * SafeFPS());
     }
 
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("JumpToStream length %1 bytes @ %2 Kbps = %3 Secs, %4 frames @ %5 fps")
         .arg(m_playerCtx->m_buffer->GetRealFileSize()).arg(m_decoder->GetRawBitrate())
-        .arg(m_totalLength).arg(m_totalFrames).arg(m_decoder->GetFPS()) );
+        .arg(m_totalLength.count()).arg(m_totalFrames).arg(m_decoder->GetFPS()) );
 
     SetEof(kEofStateNone);
 
@@ -1034,7 +1029,7 @@ void MythPlayerUI::SwitchToProgram()
         delete ic;
     }
 
-    m_playerCtx->m_buffer->OpenFile(pginfo->GetPlaybackURL(), static_cast<uint>(MythMediaBuffer::kLiveTVOpenTimeout));
+    m_playerCtx->m_buffer->OpenFile(pginfo->GetPlaybackURL(), MythMediaBuffer::kLiveTVOpenTimeout);
 
     if (!m_playerCtx->m_buffer->IsOpen())
     {
@@ -1113,7 +1108,7 @@ void MythPlayerUI::JumpToProgram()
     bool discontinuity = false;
     bool newtype = false;
     int newid = -1;
-    long long nextpos = m_playerCtx->m_tvchain->GetJumpPos();
+    std::chrono::seconds nextpos = m_playerCtx->m_tvchain->GetJumpPos();
     ProgramInfo *pginfo = m_playerCtx->m_tvchain->GetSwitchProgram(discontinuity, newtype, newid);
     if (!pginfo)
         return;
@@ -1154,7 +1149,7 @@ void MythPlayerUI::JumpToProgram()
         delete ic;
     }
 
-    m_playerCtx->m_buffer->OpenFile(pginfo->GetPlaybackURL(), static_cast<uint>(MythMediaBuffer::kLiveTVOpenTimeout));
+    m_playerCtx->m_buffer->OpenFile(pginfo->GetPlaybackURL(), MythMediaBuffer::kLiveTVOpenTimeout);
     if (!m_playerCtx->m_buffer->IsOpen())
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + QString("JumpToProgram's OpenFile failed (input type: %1)")
@@ -1206,26 +1201,26 @@ void MythPlayerUI::JumpToProgram()
     // check that we aren't too close to the end of program.
     // and if so set it to 10s from the end if completed recordings
     // or 3s if live
-    long long duration = m_playerCtx->m_tvchain->GetLengthAtCurPos();
-    int maxpos = m_playerCtx->m_tvchain->HasNext() ? 10 : 3;
+    std::chrono::seconds duration = m_playerCtx->m_tvchain->GetLengthAtCurPos();
+    std::chrono::seconds maxpos = m_playerCtx->m_tvchain->HasNext() ? 10s : 3s;
 
     if (nextpos > (duration - maxpos))
     {
         nextpos = duration - maxpos;
-        if (nextpos < 0)
-            nextpos = 0;
+        if (nextpos < 0s)
+            nextpos = 0s;
     }
-    else if (nextpos < 0)
+    else if (nextpos < 0s)
     {
         // it's a relative position to the end
         nextpos += duration;
     }
 
     // nextpos is the new position to use in seconds
-    nextpos = static_cast<int64_t>(TranslatePositionMsToFrame(static_cast<uint64_t>(nextpos) * 1000, true));
+    uint64_t nextframe = TranslatePositionMsToFrame(nextpos, true);
 
-    if (nextpos > 10)
-        DoJumpToFrame(static_cast<uint64_t>(nextpos), kInaccuracyNone);
+    if (nextpos > 10s)
+        DoJumpToFrame(nextframe, kInaccuracyNone);
 
     m_playerCtx->SetPlayerChangingBuffers(false);
     LOG(VB_PLAYBACK, LOG_INFO, LOC + "JumpToProgram - end");
@@ -1292,7 +1287,7 @@ void MythPlayerUI::EnableEdit()
     SetupAudioGraph(m_videoFrameRate);
 
     m_savedAudioTimecodeOffset = m_tcWrap[TC_AUDIO];
-    m_tcWrap[TC_AUDIO] = 0;
+    m_tcWrap[TC_AUDIO] = 0ms;
 
     m_speedBeforeEdit = m_playSpeed;
     m_pausedBeforeEdit = Pause();
@@ -1338,7 +1333,7 @@ void MythPlayerUI::DisableEdit(int HowToSave)
     m_playerCtx->UnlockPlayingInfo(__FILE__, __LINE__);
     ClearAudioGraph();
     m_tcWrap[TC_AUDIO] = m_savedAudioTimecodeOffset;
-    m_savedAudioTimecodeOffset = 0;
+    m_savedAudioTimecodeOffset = 0ms;
 
     if (!m_pausedBeforeEdit)
         Play(m_speedBeforeEdit);

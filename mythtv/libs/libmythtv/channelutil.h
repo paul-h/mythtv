@@ -267,7 +267,8 @@ class MTV_PUBLIC ChannelUtil
                                   uint chanid_restriction,
                                   ChannelChangeDirection direction,
                                   bool skip_non_visible = true,
-                                  bool skip_same_channum_and_callsign = false);
+                                  bool skip_same_channum_and_callsign = false,
+                                  bool skip_other_sources = false);
 
     static QString GetChannelValueStr(const QString &channel_field,
                                       uint           sourceid,
@@ -305,7 +306,7 @@ class MTV_PUBLIC ChannelUtil
      * \brief Returns the listings time offset in minutes for given channel.
      * \param chanid primary key for channel record
      */
-    static int     GetTimeOffset(int chan_id);
+    static std::chrono::minutes GetTimeOffset(int chan_id);
     static int     GetSourceID(int mplexid);
     static uint    GetSourceIDForChannel(uint chanid);
 

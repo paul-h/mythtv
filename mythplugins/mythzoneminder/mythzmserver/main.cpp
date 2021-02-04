@@ -305,7 +305,7 @@ int main(int argc, char **argv)
     while (!quit)
     {
         // the maximum time select() should wait
-        struct timeval timeout {DB_CHECK_TIME, 0};
+        struct timeval timeout {DB_CHECK_TIME.count(), 0};
 
         read_fds = master; // copy it
         int res = select(fdmax+1, &read_fds, nullptr, nullptr, &timeout);
@@ -388,7 +388,7 @@ int main(int argc, char **argv)
                         ZMServer *server = serverList[i];
                         quit = server->processRequest(buf.data(), nbytes);
 
-                        if (time(NULL) > g_lastHousekeeping + HOUSEKEEPING_TIME)
+                        if (Clock::now() > g_lastHousekeeping + HOUSEKEEPING_TIME)
                             houseKeeping(debug);
                     }
                 }

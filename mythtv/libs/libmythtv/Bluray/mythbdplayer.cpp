@@ -31,10 +31,10 @@ bool MythBDPlayer::GoToMenu(const QString& Menu)
     if (!(m_playerCtx->m_buffer->BD() && m_videoOutput))
         return false;
 
-    int64_t pts = 0;
+    mpeg::chrono::pts pts = 0_pts;
     MythVideoFrame *frame = m_videoOutput->GetLastShownFrame();
     if (frame)
-        pts = static_cast<int64_t>(frame->m_timecode  * 90);
+        pts = duration_cast<mpeg::chrono::pts>(frame->m_timecode);
     return m_playerCtx->m_buffer->BD()->GoToMenu(Menu, pts);
 }
 
@@ -117,7 +117,7 @@ bool MythBDPlayer::VideoLoop(void)
         if (nbframes == 0)
         {
             LOG(VB_PLAYBACK, LOG_WARNING, LOC + "Warning: In BD Still but no video frames in queue");
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(10ms);
             return !IsErrored();
         }
 
@@ -185,11 +185,11 @@ int64_t MythBDPlayer::GetChapter(int Chapter)
     return static_cast<int64_t>(m_playerCtx->m_buffer->BD()->GetChapterStartFrame(chapter));
 }
 
-void MythBDPlayer::GetChapterTimes(QList<long long> &ChapterTimes)
+void MythBDPlayer::GetChapterTimes(QList<std::chrono::seconds> &ChapterTimes)
 {
     uint total = static_cast<uint>(GetNumChapters());
     for (uint i = 0; i < total; i++)
-        ChapterTimes.push_back(static_cast<long long>(m_playerCtx->m_buffer->BD()->GetChapterStartTime(i)));
+        ChapterTimes.push_back(m_playerCtx->m_buffer->BD()->GetChapterStartTime(i));
 }
 
 int MythBDPlayer::GetNumTitles(void) const
@@ -223,14 +223,14 @@ int MythBDPlayer::GetCurrentAngle(void) const
     return -1;
 }
 
-int MythBDPlayer::GetTitleDuration(int Title) const
+std::chrono::seconds MythBDPlayer::GetTitleDuration(int Title) const
 {
     if (m_playerCtx->m_buffer->BD() && m_playerCtx->m_buffer->BD()->IsOpen() &&
         Title >= 0 && Title < GetNumTitles())
     {
         return m_playerCtx->m_buffer->BD()->GetTitleDuration(Title);
     }
-    return 0;
+    return 0s;
 }
 
 QString MythBDPlayer::GetTitleName(int Title) const

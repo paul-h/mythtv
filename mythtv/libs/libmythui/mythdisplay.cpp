@@ -1,5 +1,3 @@
-#include <chrono>
-
 //Qt
 #include <QTimer>
 #include <QThread>
@@ -16,10 +14,11 @@
 #include "mythegl.h"
 #include "mythmainwindow.h"
 
-using namespace std::chrono_literals;
-
 #ifdef USING_DBUS
 #include "platforms/mythdisplaymutter.h"
+#endif
+#ifdef USING_WAYLANDEXTRAS
+#include "platforms/mythwaylandextras.h"
 #endif
 #ifdef Q_OS_ANDROID
 #include "platforms/mythdisplayandroid.h"
@@ -76,7 +75,7 @@ using namespace std::chrono_literals;
 /*! \brief Create a MythDisplay object appropriate for the current platform.
  * \note This function always returns a valid MythDisplay object.
 */
-MythDisplay* MythDisplay::Create()
+MythDisplay* MythDisplay::Create(MythMainWindow* MainWindow)
 {
     MythDisplay* result = nullptr;
 #ifdef USING_X11
@@ -84,19 +83,35 @@ MythDisplay* MythDisplay::Create()
         result = new MythDisplayX11();
 #endif
 #ifdef USING_DBUS
-    /* disabled until testing can be completed (add docs on subclass choice when done)
+    // Disabled for now as org.gnome.Mutter.DisplayConfig.ApplyConfiguration does
+    // not seem to be actually implemented by anyone.
+#ifdef USING_WAYLANDEXTRAS
+    //if (MythWaylandDevice::IsAvailable())
+#endif
+    //{
+    //    if (!result)
+    //        result = MythDisplayMutter::Create();
+    //}
+#endif
+#ifdef USING_DRM
     if (!result)
-        result = MythDisplayMutter::Create();
-    */
+    {
+        result = new MythDisplayDRM(MainWindow);
+        // On the Pi, use MythDisplayRPI if mode switching is not available via DRM
+#ifdef USING_MMAL
+        if (!result->VideoModesAvailable())
+        {
+            delete result;
+            result = nullptr;
+        }
+#endif
+    }
+#else
+    (void)MainWindow;
 #endif
 #ifdef USING_MMAL
     if (!result)
         result = new MythDisplayRPI();
-#endif
-#ifdef USING_DRM
-    // this will only work by validating the screen's serial number
-    if (!result)
-        result = new MythDisplayDRM();
 #endif
 #if defined(Q_OS_MAC)
     if (!result)
@@ -129,15 +144,15 @@ QStringList MythDisplay::GetDescription()
         result.append("");
     }
 
-    QScreen *current = GetCurrentScreen();
-    QList<QScreen*> screens = QGuiApplication::screens();
+    auto * current = GetCurrentScreen();
+    const auto screens = QGuiApplication::screens();
     bool first = true;
     for (auto *screen : qAsConst(screens))
     {
         if (!first)
             result.append("");
         first = false;
-        QString id = QString("(%1)").arg(screen->manufacturer());
+        auto id = QString("(%1)").arg(screen->manufacturer());
         if (screen == current && !spanall)
             result.append(tr("Current screen %1 %2:").arg(screen->name()).arg(id));
         else
@@ -147,7 +162,7 @@ QStringList MythDisplay::GetDescription()
         if (screen == current)
         {
             QString source;
-            double aspect = GetAspectRatio(source);
+            auto aspect = GetAspectRatio(source);
             result.append(tr("Aspect ratio") + QString("\t: %1 (%2)")
                     .arg(aspect, 0, 'f', 3).arg(source));
             if (!spanall)
@@ -158,11 +173,19 @@ QStringList MythDisplay::GetDescription()
             }
         }
     }
+
+    if (m_hdrState.get())
+    {
+        auto types = m_hdrState->m_supportedTypes;
+        auto hdr = m_hdrState->TypesToString();
+        result.append(tr("Supported HDR formats\t: %1").arg(hdr.join(",")));
+        if (types && !m_hdrState->m_controllable)
+            result.append(tr("HDR mode switching is not available"));
+    }
     return result;
 }
 
 MythDisplay::MythDisplay()
-  : ReferenceCounter("Display")
 {
     m_screen = GetDesiredScreen();
     DebugScreen(m_screen, "Using");
@@ -465,11 +488,9 @@ void MythDisplay::DebugScreen(QScreen *qScreen, const QString &Message)
     if (!qScreen)
         return;
 
-    QRect geom = qScreen->geometry();
-    QString extra = GetExtraScreenInfo(qScreen);
-
+    auto geom = qScreen->geometry();
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("%1 screen '%2' %3")
-        .arg(Message).arg(qScreen->name()).arg(extra));
+        .arg(Message).arg(qScreen->name()).arg(GetExtraScreenInfo(qScreen)));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Qt screen pixel ratio: %1")
         .arg(qScreen->devicePixelRatio(), 2, 'f', 2, '0'));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Geometry: %1x%2+%3+%4 Size(Qt): %5mmx%6mm")
@@ -506,6 +527,8 @@ void MythDisplay::Initialise()
                 LOG(VB_GENERAL, LOG_NOTICE, LOC + "Display is using sRGB colourspace");
             else
                 LOG(VB_GENERAL, LOG_NOTICE, LOC + "Display has custom colourspace");
+
+            InitHDR();
         }
     }
 
@@ -559,20 +582,31 @@ void MythDisplay::Initialise()
 */
 void MythDisplay::InitScreenBounds()
 {
-    QList<QScreen*> screens = QGuiApplication::screens();
-    for (auto *screen : screens)
+    const auto screens = QGuiApplication::screens();
+    for (auto * screen : qAsConst(screens))
     {
-        QRect dim = screen->geometry();
-        QString extra = MythDisplay::GetExtraScreenInfo(screen);
+        auto dim = screen->geometry();
+        auto extra = MythDisplay::GetExtraScreenInfo(screen);
         LOG(VB_GUI, LOG_INFO, LOC + QString("Screen %1: %2x%3 %4")
             .arg(screen->name()).arg(dim.width()).arg(dim.height()).arg(extra));
     }
 
-    QScreen *primary = QGuiApplication::primaryScreen();
+    const auto * primary = QGuiApplication::primaryScreen();
+    if (!primary)
+    {
+        if (!screens.empty())
+            primary = screens.front();
+        if (!primary)
+        {
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Qt has no screens!");
+            return;
+        }
+    }
+
     LOG(VB_GUI, LOG_INFO, LOC +QString("Primary screen: %1.").arg(primary->name()));
 
-    int numScreens = MythDisplay::GetScreenCount();
-    QSize dim = primary->virtualSize();
+    auto numScreens = MythDisplay::GetScreenCount();
+    auto dim = primary->virtualSize();
     LOG(VB_GUI, LOG_INFO, LOC + QString("Total desktop dim: %1x%2, over %3 screen[s].")
         .arg(dim.width()).arg(dim.height()).arg(numScreens));
 
@@ -727,11 +761,11 @@ double MythDisplay::GetRefreshRate() const
     return m_refreshRate;
 }
 
-int MythDisplay::GetRefreshInterval(int Fallback) const
+std::chrono::microseconds MythDisplay::GetRefreshInterval(std::chrono::microseconds Fallback) const
 {
     if (m_refreshRate > 20.0 && m_refreshRate < 200.0)
-        return static_cast<int>(lround(1000000.0 / m_refreshRate));
-    if (Fallback > 33000) // ~30Hz
+        return microsecondsFromFloat(1000000.0 / m_refreshRate);
+    if (Fallback > 33ms) // ~30Hz
         Fallback /= 2;
     return Fallback;
 }
@@ -841,6 +875,26 @@ double MythDisplay::GetAspectRatio(QString &Source, bool IgnoreModeOverride)
 MythEDID& MythDisplay::GetEDID()
 {
     return m_edid;
+}
+
+MythHDRPtr MythDisplay::GetHDRState()
+{
+    return m_hdrState;
+}
+
+void MythDisplay::InitHDR()
+{
+    if (m_edid.Valid())
+    {
+        m_hdrState = m_edid.GetHDRSupport();
+        auto hdr = m_hdrState->TypesToString();
+        if (m_hdrState->m_metadataType != MythHDR::StaticType1 &&
+            m_hdrState->m_supportedTypes > MythHDR::SDR)
+        {
+            LOG(VB_GENERAL, LOG_WARNING, LOC + "Display does not report support for Static Metadata Type 1");
+        }
+        LOG(VB_GENERAL, LOG_NOTICE, LOC + QString("Supported HDR formats: %1").arg(hdr.join(",")));
+    }
 }
 
 /*! \brief Estimate the overall display aspect ratio for multi screen setups.
@@ -1041,7 +1095,7 @@ void MythDisplay::DebugModes() const
  * \note This function must be called before Qt/QPA is initialised i.e. before
  * any call to QApplication.
 */
-void MythDisplay::ConfigureQtGUI(int SwapInterval, const QString& _Display)
+void MythDisplay::ConfigureQtGUI(int SwapInterval, const MythCommandLineParser& CmdLine)
 {
 #ifdef USING_QTWEBENGINE
     QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
@@ -1049,8 +1103,20 @@ void MythDisplay::ConfigureQtGUI(int SwapInterval, const QString& _Display)
 
     // Set the default surface format. Explicitly required on some platforms.
     QSurfaceFormat format;
-    format.setDepthBufferSize(0);
-    format.setStencilBufferSize(0);
+    // Allow overriding the default depth - use with caution as Qt will likely
+    // crash if it cannot find a matching visual.
+    if (qEnvironmentVariableIsSet("MYTHTV_DEPTH"))
+    {
+        // Note: Don't set depth and stencil to give Qt as much flexibility as possible
+        int depth = qBound(6, qEnvironmentVariableIntValue("MYTHTV_DEPTH"), 16);
+        LOG(VB_GENERAL, LOG_INFO, LOC + QString("Trying to force depth to '%1'").arg(depth));
+        format.setRedBufferSize(depth);
+    }
+    else
+    {
+        format.setDepthBufferSize(0);
+        format.setStencilBufferSize(0);
+    }
     format.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
     format.setProfile(QSurfaceFormat::CompatibilityProfile);
     format.setSwapInterval(SwapInterval);
@@ -1062,12 +1128,28 @@ void MythDisplay::ConfigureQtGUI(int SwapInterval, const QString& _Display)
     QApplication::setDesktopSettingsAware(false);
 #endif
 
+#if defined (USING_DRM) && defined (USING_QTPRIVATEHEADERS)
+    // Avoid trying to setup DRM if we are definitely not going to use it.
+#ifdef USING_X11
+    if (!MythDisplayX11::IsAvailable())
+#endif
+    {
+#ifdef USING_WAYLANDEXTRAS
+        // When vt switching this still detects wayland servers, so disabled for now
+        //if (!MythWaylandDevice::IsAvailable())
+#endif
+        {
+            MythDRMDevice::SetupDRM(CmdLine);
+        }
+    }
+#endif
+
 #if defined (Q_OS_LINUX) && defined (USING_EGL) && defined (USING_X11)
     // We want to use EGL for VAAPI/MMAL/DRMPRIME rendering to ensure we
-    // can use zero copy video buffers for the best performance (N.B. not tested
-    // on AMD desktops). To force Qt to use EGL we must set 'QT_XCB_GL_INTEGRATION'
-    // to 'xcb_egl' and this must be done before any GUI is created. If the platform
-    // plugin is not xcb then this should have no effect.
+    // can use zero copy video buffers for the best performance.
+    // To force Qt to use EGL we must set 'QT_XCB_GL_INTEGRATION' to 'xcb_egl'
+    // and this must be done before any GUI is created. If the platform plugin is
+    // not xcb then this should have no effect.
     // This does however break when using NVIDIA drivers - which do not support
     // EGL like other drivers so we try to check the EGL vendor - and we currently
     // have no need for EGL with NVIDIA (that may change however).
@@ -1084,11 +1166,11 @@ void MythDisplay::ConfigureQtGUI(int SwapInterval, const QString& _Display)
         QString vendor = MythEGL::GetEGLVendor();
         if (vendor.contains("nvidia", Qt::CaseInsensitive) && !force)
         {
-            qInfo() << LOC + QString("Not requesting EGL for vendor '%1'").arg(vendor);
+            LOG(VB_GENERAL, LOG_INFO, LOC + QString("Not requesting EGL for vendor '%1'").arg(vendor));
         }
         else if (!vendor.isEmpty() || force)
         {
-            qInfo() << LOC + QString("Requesting EGL for '%1'").arg(vendor);
+            LOG(VB_GENERAL, LOG_INFO, LOC + QString("Requesting EGL for vendor '%1'").arg(vendor));
             setenv("QT_XCB_GL_INTEGRATION", "xcb_egl", 0);
         }
     }
@@ -1098,8 +1180,9 @@ void MythDisplay::ConfigureQtGUI(int SwapInterval, const QString& _Display)
     QApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
 
 #ifdef USING_X11
-    MythXDisplay::SetQtX11Display(_Display);
+    if (auto display = CmdLine.toString("display"); !display.isEmpty())
+        MythXDisplay::SetQtX11Display(display);
 #else
-    (void)_Display;
+    (void)CmdLine;
 #endif
 }

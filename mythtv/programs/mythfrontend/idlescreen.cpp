@@ -17,8 +17,6 @@
 
 #include <tvremoteutil.h>
 
-using namespace std::chrono_literals;
-
 static constexpr std::chrono::milliseconds UPDATE_INTERVAL { 15s };
 
 IdleScreen::IdleScreen(MythScreenStack *parent)
@@ -37,7 +35,7 @@ IdleScreen::IdleScreen(MythScreenStack *parent)
         && !gCoreContext->GetSetting("HaltCommand", "").isEmpty())
     {
         m_FEShutdownEnabled = true;
-        m_secondsToShutdown = gCoreContext->GetNumSetting("FrontendShutdownTimeout", 0);
+        m_secondsToShutdown = std::chrono::seconds(gCoreContext->GetNumSetting("FrontendShutdownTimeout", 0));
     }
 }
 
@@ -133,12 +131,12 @@ void IdleScreen::IsShutdownLocked()
     if (m_shutdownLocked)
     {
         m_shuttingDown = false;
-        m_secondsToShutdown = -1;
+        m_secondsToShutdown = -1s;
     }
     else
     {
         if (wasLocked && gCoreContext->IsFrontendOnly())
-            m_secondsToShutdown = gCoreContext->GetNumSetting("FrontendShutdownTimeout", 0);
+            m_secondsToShutdown = std::chrono::seconds(gCoreContext->GetNumSetting("FrontendShutdownTimeout", 0));
     }
 }
 
@@ -157,18 +155,18 @@ void IdleScreen::UpdateShutdownCountdown()
     {
         // we wait a maximum of 10 seconds before assuming the shutdown failed
         m_secondsToShutdown--;
-        if (m_secondsToShutdown == 0)
+        if (m_secondsToShutdown == 0s)
         {
             LOG(VB_GENERAL, LOG_ERR, "Failed to shutdown! Check the 'Halt Command' "
                                      "setting on the 'Shutdown/Reboot Settings' page.");
-            m_secondsToShutdown = -1;
+            m_secondsToShutdown = -1s;
             m_shutdownFailed = true;
         }
     }
     else
     {
         m_secondsToShutdown--;
-        if (m_secondsToShutdown == 0)
+        if (m_secondsToShutdown == 0s)
             DoShutdown();
     }
 }
@@ -180,7 +178,7 @@ void IdleScreen::DoShutdown()
     {
         m_shuttingDown = true;
         m_shutdownFailed = false;
-        m_secondsToShutdown = 10;
+        m_secondsToShutdown = 10s;
         myth_system(poweroff_cmd);
     }
 }
@@ -193,7 +191,7 @@ void IdleScreen::UpdateStatus(void)
     {
         state = "error";
     }
-    else if (m_secondsToShutdown >= 0)
+    else if (m_secondsToShutdown >= 0s)
     {
         state = "shuttingdown";
     }
@@ -233,10 +231,10 @@ void IdleScreen::UpdateStatus(void)
             }
             else if (gCoreContext->IsFrontendOnly() && m_shuttingDown)
                 status = tr("Frontend is shutting down");
-            else if (gCoreContext->IsFrontendOnly() &&  m_secondsToShutdown > 0)
-                status = tr("Frontend will shutdown in %n second(s)", "", m_secondsToShutdown);
-            else if (m_secondsToShutdown >= 0)
-                status = tr("Backend will shutdown in %n second(s)", "", m_secondsToShutdown);
+            else if (gCoreContext->IsFrontendOnly() &&  m_secondsToShutdown > 0s)
+                status = tr("Frontend will shutdown in %n second(s)", "", m_secondsToShutdown.count());
+            else if (m_secondsToShutdown >= 0s)
+                status = tr("Backend will shutdown in %n second(s)", "", m_secondsToShutdown.count());
 
             if (!status.isEmpty())
                 statusText->SetText(status);
@@ -367,9 +365,9 @@ bool IdleScreen::keyPressEvent(QKeyEvent* event)
 
         if (action == "ESCAPE")
         {
-            if (m_secondsToShutdown >= 0)
+            if (m_secondsToShutdown >= 0s)
             {
-                m_secondsToShutdown = -1;
+                m_secondsToShutdown = -1s;
                 UpdateStatus();
             }
             else
@@ -395,13 +393,13 @@ void IdleScreen::customEvent(QEvent* event)
 
         if (me->Message().startsWith("RECONNECT_"))
         {
-            m_secondsToShutdown = -1;
+            m_secondsToShutdown = -1s;
             UpdateStatus();
         }
         else if (me->Message().startsWith("SHUTDOWN_COUNTDOWN"))
         {
             QString secs = me->Message().mid(19);
-            m_secondsToShutdown = secs.toInt();
+            m_secondsToShutdown = std::chrono::seconds(secs.toInt());
             UpdateStatus();
         }
         else if (me->Message().startsWith("SHUTDOWN_NOW"))

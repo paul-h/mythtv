@@ -51,7 +51,7 @@ void GrabberScript::run()
     QString commandline = m_commandline;
     MythSystemLegacy getTree(commandline, QStringList("-T"),
                        kMSRunShell | kMSStdOut);
-    getTree.Run(900);
+    getTree.Run(15min);
     uint status = getTree.Wait();
 
     if( status == GENERIC_EXIT_CMD_NOT_FOUND )
@@ -146,8 +146,7 @@ void GrabberScript::parseDBTree(const QString &feedtitle, const QString &path,
 
 GrabberManager::GrabberManager()
 {
-    m_updateFreq = (gCoreContext->GetNumSetting(
-                       "netsite.updateFreq", 24) * 3600 * 1000);
+    m_updateFreq = gCoreContext->GetDurSetting<std::chrono::hours>("netsite.updateFreq", 24h);
     m_timer = new QTimer();
     connect( m_timer, &QTimer::timeout,
                       this, &GrabberManager::timeout);
@@ -223,8 +222,8 @@ void GrabberDownloadThread::run()
     RunProlog();
 
     m_scripts = findAllDBTreeGrabbers();
-    uint updateFreq = gCoreContext->GetNumSetting(
-               "netsite.updateFreq", 24);
+    auto updateFreq = gCoreContext->GetDurSetting<std::chrono::hours>(
+               "netsite.updateFreq", 24h);
 
     while (!m_scripts.isEmpty())
     {
@@ -291,7 +290,7 @@ void Search::executeSearch(const QString &script, const QString &query,
 
     uint flags = kMSRunShell | kMSStdOut | kMSRunBackground;
     m_searchProcess->SetCommand(cmd, args, flags);
-    m_searchProcess->Run(40);
+    m_searchProcess->Run(40s);
 }
 
 void Search::resetSearch()

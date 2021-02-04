@@ -14,8 +14,8 @@ extern "C" {
 
 #define LOC QString("VAAPIDRM: ")
 
-MythVAAPIInteropDRM::MythVAAPIInteropDRM(MythPlayerUI *Player, MythRenderOpenGL* Context)
-  : MythVAAPIInterop(Player, Context, GL_VAAPIEGLDRM),
+MythVAAPIInteropDRM::MythVAAPIInteropDRM(MythPlayerUI *Player, MythRenderOpenGL* Context, InteropType Type)
+  : MythVAAPIInterop(Player, Context, Type),
     MythEGLDMABUF(Context)
 {
     QString device = gCoreContext->GetSetting("VAAPIDevice");
@@ -48,6 +48,9 @@ MythVAAPIInteropDRM::MythVAAPIInteropDRM(MythPlayerUI *Player, MythRenderOpenGL*
 
 MythVAAPIInteropDRM::~MythVAAPIInteropDRM()
 {
+#ifdef USING_DRM_VIDEO
+    delete m_drm;
+#endif
     OpenGLLocker locker(m_openglContext);
     CleanupDRMPRIME();
     CleanupReferenceFrames();
@@ -248,6 +251,12 @@ vector<MythVideoTextureOpenGL*> MythVAAPIInteropDRM::Acquire(MythRenderOpenGL* C
     }
     m_discontinuityCounter = Frame->m_frameCounter;
 
+#ifdef USING_DRM_VIDEO
+    if (!m_drmTriedAndFailed)
+        if (HandleDRMVideo(ColourSpace, id, Frame))
+            return result;
+#endif
+
     // return cached texture if available
     if (m_openglTextures.contains(id))
     {
@@ -269,7 +278,7 @@ vector<MythVideoTextureOpenGL*> MythVAAPIInteropDRM::Acquire(MythRenderOpenGL* C
 #define DRM_FORMAT_R8       MKTAG2('R', '8', ' ', ' ')
 #define DRM_FORMAT_GR88     MKTAG2('G', 'R', '8', '8')
 #define DRM_FORMAT_R16      MKTAG2('R', '1', '6', ' ')
-#define DRM_FORMAT_GR32     MKTAG2('G', 'R', '3', '2')
+#define DRM_FORMAT_GR1616   MKTAG2('G', 'R', '3', '2')
 #endif
 
 vector<MythVideoTextureOpenGL*> MythVAAPIInteropDRM::AcquireVAAPI(VASurfaceID Id,
@@ -319,7 +328,7 @@ vector<MythVideoTextureOpenGL*> MythVAAPIInteropDRM::AcquireVAAPI(VASurfaceID Id
             {
                 uint32_t fourcc = (format == FMT_P010) ? DRM_FORMAT_R16 : DRM_FORMAT_R8;
                 if (i > 0)
-                    fourcc = (format == FMT_P010) ? DRM_FORMAT_GR32 : DRM_FORMAT_GR88;
+                    fourcc = (format == FMT_P010) ? DRM_FORMAT_GR1616 : DRM_FORMAT_GR88;
                 drmdesc.layers[i].nb_planes = 1;
                 drmdesc.layers[i].format = fourcc;
                 drmdesc.layers[i].planes[0].object_index = 0;
@@ -506,3 +515,35 @@ bool MythVAAPIInteropDRM::TestPrimeInterop()
     return false;
 #endif
 }
+
+#ifdef USING_DRM_VIDEO
+bool MythVAAPIInteropDRM::HandleDRMVideo(MythVideoColourSpace* ColourSpace, VASurfaceID Id, MythVideoFrame* Frame)
+{
+    if (!((m_type == DRM_DRMPRIME) && m_usePrime && Id && Frame && ColourSpace))
+        return false;
+
+    if (!m_drm)
+        m_drm = new MythVideoDRM(ColourSpace);
+
+    if (m_drm)
+    {
+        if (m_drm->IsValid())
+        {
+            if (!m_drmFrames.contains(Id))
+                m_drmFrames.insert(Id, GetDRMFrameDescriptor(Id));
+            if (m_drm->RenderFrame(m_drmFrames[Id], Frame))
+                return true;
+        }
+
+        // RenderFrame may have decided we should give up
+        if (!m_drm->IsValid())
+        {
+            LOG(VB_GENERAL, LOG_INFO, LOC + "Disabling DRM video");
+            m_drmTriedAndFailed = true;
+            delete m_drm;
+            m_drm = nullptr;
+        }
+    }
+    return false;
+}
+#endif

@@ -92,7 +92,7 @@ void EITScanner::run(void)
         // Tell the scheduler to run if we are in passive scan
         // and there have been updated events since the last scheduler run
         // but not in the last 60 seconds
-        if (!m_activeScan && eitCount && (t.elapsed() > 60 * 1000))
+        if (!m_activeScan && eitCount && (t.elapsed() > 60s))
         {
             LOG(VB_EIT, LOG_INFO,
                 LOC_ID + QString("Added %1 EIT events in passive scan").arg(eitCount));
@@ -132,7 +132,7 @@ void EITScanner::run(void)
             }
 
             m_activeScanNextTrig = MythDate::current()
-                .addSecs(m_activeScanTrigTime);
+                .addSecs(m_activeScanTrigTime.count());
             if (!m_activeScanChannels.empty())
             {
                 ++m_activeScanNextChan;
@@ -214,7 +214,7 @@ void EITScanner::StopPassiveScan(void)
     LOG(VB_EIT, LOG_INFO, LOC_ID + "Stopped passive scan");
 }
 
-void EITScanner::StartActiveScan(TVRec *_rec, uint max_seconds_per_source)
+void EITScanner::StartActiveScan(TVRec *_rec, std::chrono::seconds max_seconds_per_source)
 {
     m_rec = _rec;
 
@@ -273,7 +273,7 @@ void EITScanner::StartActiveScan(TVRec *_rec, uint max_seconds_per_source)
         m_activeScanTrigTime = max_seconds_per_source;
         // Add a little randomness to trigger time so multiple
         // cards will have a staggered channel changing time.
-        m_activeScanTrigTime += MythRandom() % 29;
+        m_activeScanTrigTime += std::chrono::seconds(MythRandom() % 29);
         m_activeScanStopped = false;
         m_activeScan = true;
     }

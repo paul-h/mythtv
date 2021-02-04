@@ -1059,7 +1059,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     command.replace("%FILENAME%", importItem.filename);
 
     QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
-    cmd->Wait(0);
+    cmd->Wait(0s);
     if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
@@ -1085,7 +1085,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     recCommand.replace("%DURATION%", QString("%1").arg(duration));
 
     QScopedPointer<MythSystem> recCmd(MythSystem::Create(recCommand, kMSRunShell));
-    recCmd->Wait(0);
+    recCmd->Wait(0s);
     if (recCmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start recording file: %1").arg(importItem.filename));
@@ -1227,7 +1227,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
     command.replace("%FILENAME%", importItem.filename);
 
     QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
-    cmd->Wait(0);
+    cmd->Wait(0s);
     if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
@@ -1251,7 +1251,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
                               .arg(frames).arg(videoFile);
 
     QScopedPointer<MythSystem> cmd2(MythSystem::Create(recCommand, kMSRunShell));
-    cmd2->Wait(0);
+    cmd2->Wait(0s);
     if (cmd2.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - bmdcapture exited with result: %1").arg(cmd2.data()->GetExitCode()));
@@ -1265,7 +1265,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
     QString ffmpgCommand = QString("mythffmpeg -y -i %1 %2").arg(videoFile).arg(ffmpegFile);
 
     QScopedPointer<MythSystem> cmd3(MythSystem::Create(ffmpgCommand, kMSRunShell));
-    cmd3->Wait(0);
+    cmd3->Wait(0s);
     if (cmd3.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("ERROR - mythffmpeg exited with result: %1").arg(cmd3.data()->GetExitCode()));
@@ -1386,7 +1386,7 @@ bool NativeArchive::importMagewellFile(const ImportItem &importItem)
     command.replace("%FILENAME%", importItem.filename);
 
     QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
-    cmd->Wait(0);
+    cmd->Wait(0s);
     if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
@@ -1413,7 +1413,7 @@ bool NativeArchive::importMagewellFile(const ImportItem &importItem)
                               .arg(FPS).arg(time).arg(videoFile);
 
     QScopedPointer<MythSystem> cmd2(MythSystem::Create(recCommand, kMSRunShell));
-    cmd2->Wait(0);
+    cmd2->Wait(0s);
     if (cmd2.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - mythffmpeg exited with result: %1").arg(cmd2.data()->GetExitCode()));
@@ -1427,7 +1427,7 @@ bool NativeArchive::importMagewellFile(const ImportItem &importItem)
     QString ffmpgCommand = QString("mythffmpeg -y -c:v libx264 -preset slow -crf 22 -i %1 %2").arg(videoFile).arg(ffmpegFile);
 
     QScopedPointer<MythSystem> cmd3(MythSystem::Create(ffmpgCommand, kMSRunShell));
-    cmd3->Wait(0);
+    cmd3->Wait(0s);
     if (cmd3.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("ERROR - mythffmpeg exited with result: %1").arg(cmd3.data()->GetExitCode()));
