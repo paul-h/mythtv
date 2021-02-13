@@ -11,6 +11,7 @@
 
 // MythTV
 #include "mythedid.h"
+#include "platforms/drm/mythdrmvrr.h"
 #include "platforms/drm/mythdrmencoder.h"
 #include "platforms/drm/mythdrmframebuffer.h"
 #include "platforms/mythdrmdevice.h"
@@ -40,6 +41,7 @@ extern "C" {
  * 1. Set the video mode
  * 2. Improve performance on SoCs by rendering YUV video directly to the framebuffer
  * 3. Implement HDR support and/or setup 10bit output
+ * 4. Enable/disable FreeSync
  *
  * There are a variety of use cases, depending on hardware, user preferences and
  * compile time support (and assuming neither X or Wayland are running):-
@@ -111,8 +113,37 @@ extern "C" {
  * reference is the MythCommandLineParsers instance and any environment variables.
 */
 #ifdef USING_QTPRIVATEHEADERS
+MythDRMPtr MythDRMDevice::FindDevice(bool NeedPlanes)
+{
+    // Retrieve possible devices and analyse them.
+    // We are only interested in authenticated devices with a connected connector.
+    // We can only use one device, so if there are multiple devices (RPI4 only?) then
+    // take the first with a connected connector (which on the RPI4 at least is
+    // usually the better choice anyway).
+    auto [root, devices] = GetDeviceList();
+
+    // Allow the user to specify the device
+    if (!s_mythDRMDevice.isEmpty())
+    {
+        LOG(VB_GENERAL, LOG_INFO, QString("Forcing '%1' as DRM device").arg(s_mythDRMDevice));
+        root.clear();
+        devices.clear();
+        devices.append(s_mythDRMDevice);
+    }
+
+    for (const auto & dev : devices)
+        if (auto device = MythDRMDevice::Create(nullptr, root + dev, NeedPlanes); device && device->Authenticated())
+            return device;
+
+    return nullptr;
+}
+
 void MythDRMDevice::SetupDRM(const MythCommandLineParser& CmdLine)
 {
+    // Try and enable/disable FreeSync if requested by the user
+    if (CmdLine.toBool("vrr"))
+        MythDRMVRR::ForceFreeSync(FindDevice(false), CmdLine.toUInt("vrr") > 0);
+
 #if QT_VERSION >= QT_VERSION_CHECK(5,12,0)
     // Return early if eglfs is not *explicitly* requested via the command line or environment.
     // Note: On some setups it is not necessary to explicitly request eglfs for Qt to use it.
@@ -204,30 +235,8 @@ void MythDRMDevice::SetupDRM(const MythCommandLineParser& CmdLine)
         return;
     }
 
-    // Retrieve possible devices and analyse them.
-    // We are only interested in authenticated devices with a connected connector.
-    // We can only use one device, so if there are multiple devices (RPI4 only?) then
-    // take the first with a connected connector (which on the RPI4 at least is
-    // usually the better choice anyway).
-    auto [root, devices] = GetDeviceList();
-
-    // Allow the user to specify the device
-    if (!s_mythDRMDevice.isEmpty())
-    {
-        LOG(VB_GENERAL, LOG_INFO, QString("Forcing '%1' as DRM device").arg(s_mythDRMDevice));
-        root.clear();
-        devices.clear();
-        devices.append(s_mythDRMDevice);
-    }
-
-    MythDRMPtr device = nullptr;
-    for (const auto & dev : devices)
-    {
-        if (device = MythDRMDevice::Create(nullptr, root + dev); device.get() && device->Authenticated())
-            break;
-        device = nullptr;
-    }
-    if (!device.get())
+    MythDRMPtr device = FindDevice();
+    if (!device)
     {
         LOG(VB_GENERAL, LOG_WARNING, "Failed to open any suitable DRM devices with privileges");
         return;
@@ -314,7 +323,7 @@ void MythDRMDevice::SetupDRM(const MythCommandLineParser& CmdLine)
 /*! \brief Create a MythDRMDevice instance.
  * \returns A valid instance or nullptr on error.
 */
-MythDRMPtr MythDRMDevice::Create(QScreen *qScreen, const QString &Device)
+MythDRMPtr MythDRMDevice::Create(QScreen *qScreen, const QString &Device, bool NeedPlanes)
 {
 #ifdef USING_QTPRIVATEHEADERS
     if (qScreen && qGuiApp && qGuiApp->platformName().contains("eglfs", Qt::CaseInsensitive))
@@ -360,11 +369,10 @@ MythDRMPtr MythDRMDevice::Create(QScreen *qScreen, const QString &Device)
     }
 
 #ifdef USING_QTPRIVATEHEADERS
-    if (auto result = std::shared_ptr<MythDRMDevice>(new MythDRMDevice(Device));
-        result.get() && result->m_valid)
-    {
+    if (auto result = std::shared_ptr<MythDRMDevice>(new MythDRMDevice(Device, NeedPlanes)); result && result->m_valid)
         return result;
-    }
+#else
+    (void)NeedPlanes;
 #endif
     return nullptr;
 }
@@ -483,7 +491,7 @@ MythDRMDevice::MythDRMDevice(int Fd, uint32_t CrtcId, uint32_t ConnectorId, bool
  * other DRM clients running (i.e. no X or Wayland), finds a connected connector
  * and analyses planes. If any steps fail, the device is deemed invalid.
 */
-MythDRMDevice::MythDRMDevice(const QString& Device)
+MythDRMDevice::MythDRMDevice(const QString& Device, bool NeedPlanes)
   : m_deviceName(Device),
     m_atomic(true), // Just squashes some logging
     m_verbose(LOG_INFO)
@@ -500,6 +508,7 @@ MythDRMDevice::MythDRMDevice(const QString& Device)
         return;
     }
     Load();
+    m_valid = false;
 
     // Find a user suggested connector or the first connected
     if (!s_mythDRMConnector.isEmpty())
@@ -532,9 +541,15 @@ MythDRMDevice::MythDRMDevice(const QString& Device)
     if (!m_crtc)
         return;
 
-    AnalysePlanes();
-
-    m_valid = m_videoPlane.get() && m_guiPlane.get();
+    if (NeedPlanes)
+    {
+        AnalysePlanes();
+        m_valid = m_videoPlane.get() && m_guiPlane.get();
+    }
+    else
+    {
+        m_valid = true;
+    }
 }
 #endif
 
@@ -854,6 +869,16 @@ bool MythDRMDevice::ConfirmDevice(const QString& Device)
     return result;
 }
 
+DRMCrtc MythDRMDevice::GetCrtc() const
+{
+    return m_crtc;
+}
+
+DRMConn MythDRMDevice::GetConnector() const
+{
+    return m_connector;
+}
+
 #if defined (USING_QTPRIVATEHEADERS)
 void MythDRMDevice::MainWindowReady()
 {
@@ -885,16 +910,6 @@ void MythDRMDevice::MainWindowReady()
         }
     }
     */
-}
-
-DRMCrtc MythDRMDevice::GetCrtc() const
-{
-    return m_crtc;
-}
-
-DRMConn MythDRMDevice::GetConnector() const
-{
-    return m_connector;
 }
 
 bool MythDRMDevice::QueueAtomics(const MythAtomics& Atomics)

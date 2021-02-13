@@ -16,7 +16,7 @@ class MUI_PUBLIC MythHDRMetadata
 {
   public:
     MythHDRMetadata() = default;
-    explicit MythHDRMetadata(const MythHDRMetadata& Other);
+    explicit MythHDRMetadata(const MythHDRMetadata& Other) = default;
     bool Equals(MythHDRMetadata* Other);
 
     MythPrimariesUInt16 m_displayPrimaries {{{ 0 }}};
@@ -42,29 +42,26 @@ class MUI_PUBLIC MythHDR
     Q_DECLARE_FLAGS(HDRTypes, HDRType)
     Q_FLAG(HDRTypes)
 
-    enum HDRMeta
-    {
-        Unknown     = 0,
-        StaticType1 = 1
-    };
-
-    static MythHDRPtr  Create();
+    using MythHDRDesc = std::tuple<HDRTypes,double,double,double>;
+    static MythHDRPtr  Create(class MythDisplay* _Display, const MythHDRDesc& Desc);
+    virtual ~MythHDR() = default;
+    virtual void SetHDRMetadata(HDRType /*Type*/, const MythHDRMetaPtr& /*Metadata*/) {}
 
     static QString     TypeToString (HDRType Type);
     static QStringList TypesToString(HDRTypes Types);
-    QStringList        TypesToString();
+    QStringList        TypesToString() const;
+    bool               IsControllable() const;
 
-    bool     m_controllable    { false };
     HDRType  m_currentType     { SDR };
     HDRTypes m_supportedTypes  { SDR };
-    double   m_maxLuminance    { 0.0 };
-    double   m_maxAvgLuminance { 0.0 };
-    double   m_minLuminance    { 0.0 };
-    HDRMeta  m_metadataType    { Unknown };
-    MythHDRMetaPtr m_metadata  { nullptr };
 
   protected:
-    MythHDR() = default;
+    explicit MythHDR(const MythHDRDesc& Desc);
+
+    bool     m_controllable    { false };
+    double   m_minLuminance    { 0.0 };
+    double   m_maxAvgLuminance { 0.0 };
+    double   m_maxLuminance    { 0.0 };
 
   private:
     Q_DISABLE_COPY(MythHDR)

@@ -96,15 +96,27 @@ int MythEDID::VideoLatency(bool Interlaced) const
     return m_videoLatency[Interlaced ? 1 : 0];
 }
 
-MythHDRPtr MythEDID::GetHDRSupport() const
+MythHDRDesc MythEDID::GetHDRSupport() const
 {
-    auto result = MythHDR::Create();
-    result->m_supportedTypes  = m_hdrSupport;
-    result->m_minLuminance    = m_minLuminance;
-    result->m_maxAvgLuminance = m_maxAvgLuminance;
-    result->m_maxLuminance    = m_maxLuminance;
-    result->m_metadataType    = static_cast<MythHDR::HDRMeta>(m_hdrMetaTypes);
-    return result;
+    return { m_hdrSupport, m_minLuminance, m_maxAvgLuminance, m_maxLuminance };
+}
+
+/*! \brief Return the range of supported refresh rates
+ *
+ * If the VRR range is explicit in the EDID then the third element of MythVRRRange
+ * is set to true, otherwise 'false' indicates that the VRR range is assumed from
+ * the vertical refresh range indicated in the EDID. In both cases the behaviour
+ * of the display below any minimum is undefined (e.g. there is no current indication
+ * whether the display supports 'FreeSync Premium' - in which case low frame rates
+ * may produce significant jitter).
+*/
+MythVRRRange MythEDID::GetVRRRange() const
+{
+    if (m_valid && m_vrrMin && m_vrrMax)
+        return { m_vrrMin, m_vrrMax, true };
+    if (m_valid && m_vrangeMin && m_vrangeMax)
+        return { m_vrangeMin, m_vrangeMax, false };
+    return { 0, 0, false };
 }
 
 // from QEdidParser

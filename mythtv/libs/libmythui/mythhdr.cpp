@@ -1,19 +1,14 @@
 // MythTV
 #include "mythhdr.h"
+#include "mythdisplay.h"
+
+#if defined (USING_DRM) && defined (USING_QTPRIVATEHEADERS)
+#include "platforms/drm/mythdrmhdr.h"
+#endif
 
 /*! \class MythHDRMetadata
  * \brief Encapsulates HDR metadata conformant with Static Metadata Type 1 per CTA-861-G Final.
  */
-MythHDRMetadata::MythHDRMetadata(const MythHDRMetadata &Other)
-  : m_displayPrimaries(std::move(Other.m_displayPrimaries)),
-    m_whitePoint(std::move(Other.m_whitePoint)),
-    m_maxMasteringLuminance(Other.m_maxMasteringLuminance),
-    m_minMasteringLuminance(Other.m_minMasteringLuminance),
-    m_maxContentLightLevel(Other.m_maxContentLightLevel),
-    m_maxFrameAverageLightLevel(Other.m_maxFrameAverageLightLevel)
-{
-}
-
 bool MythHDRMetadata::Equals(MythHDRMetadata* Other)
 {
     return Other &&
@@ -31,15 +26,42 @@ bool MythHDRMetadata::Equals(MythHDRMetadata* Other)
            m_displayPrimaries[2][1]    == Other->m_displayPrimaries[2][1];
 }
 
-MythHDRPtr MythHDR::Create()
+MythHDRPtr MythHDR::Create(MythDisplay* _Display, const MythHDRDesc& Desc)
 {
-    return std::shared_ptr<MythHDR>(new MythHDR());
+    MythHDRPtr result = nullptr;
+
+    // Only try and create a controllable device if the display supports HDR
+    if (std::get<0>(Desc) > SDR)
+    {
+#if defined (USING_DRM) && defined (USING_QTPRIVATEHEADERS)
+        result = MythDRMHDR::Create(_Display, Desc);
+#else
+        (void)_Display;
+#endif
+    }
+
+    if (!result)
+        result = std::shared_ptr<MythHDR>(new MythHDR(Desc));
+    return result;
+}
+
+MythHDR::MythHDR(const MythHDRDesc& Desc)
+  : m_supportedTypes(std::get<0>(Desc)),
+    m_minLuminance(std::get<1>(Desc)),
+    m_maxAvgLuminance(std::get<2>(Desc)),
+    m_maxLuminance(std::get<3>(Desc))
+{
+}
+
+bool MythHDR::IsControllable() const
+{
+    return m_controllable;
 }
 
 QString MythHDR::TypeToString(HDRType Type)
 {
-    if (Type & HDR10)   return QObject::tr("HDR10");
-    if (Type & HLG)     return QObject::tr("Hybrid Log-Gamma");
+    if (Type & HDR10) return QObject::tr("HDR10");
+    if (Type & HLG)   return QObject::tr("Hybrid Log-Gamma");
     return QObject::tr("Unknown");
 }
 
@@ -52,7 +74,7 @@ QStringList MythHDR::TypesToString(HDRTypes Types)
     return res;
 }
 
-QStringList MythHDR::TypesToString()
+QStringList MythHDR::TypesToString() const
 {
     return MythHDR::TypesToString(m_supportedTypes);
 }

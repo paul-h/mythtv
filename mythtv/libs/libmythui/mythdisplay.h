@@ -11,6 +11,7 @@
 #include "mythdisplaymode.h"
 #include "mythedid.h"
 #include "mythhdr.h"
+#include "mythvrr.h"
 #include "mythcommandlineparser.h"
 
 // Std
@@ -73,7 +74,6 @@ class MUI_PUBLIC MythDisplay : public QObject
 
     virtual void    UpdateCurrentMode  ();
     virtual bool    SwitchToVideoMode  (QSize Size, double Framerate);
-    virtual void    InitHDR            ();
 
     void            DebugModes         () const;
     void            SetWidget          (QWidget *MainWindow);
@@ -83,6 +83,7 @@ class MUI_PUBLIC MythDisplay : public QObject
     void            InitScreenBounds   ();
     void            WaitForScreenChange();
     void            WaitForNewScreen   ();
+    void            InitHDR            ();
 
     bool            m_waitForModeChanges { true };
     bool            m_modeComplete     { false };
@@ -96,6 +97,7 @@ class MUI_PUBLIC MythDisplay : public QObject
     QScreen*        m_screen           { nullptr };
     MythDisplayModes m_videoModes      { };
     MythHDRPtr      m_hdrState         { nullptr };
+    MythVRRPtr      m_vrrState         { nullptr };
 
   private:
     Q_DISABLE_COPY(MythDisplay)

@@ -23,7 +23,7 @@ class MUI_PUBLIC MythDRMDevice
 {
   public:
     static std::tuple<QString,QStringList> GetDeviceList();
-    static MythDRMPtr Create(QScreen *qScreen, const QString& Device = QString());
+    static MythDRMPtr Create(QScreen *qScreen, const QString& Device = QString(), bool NeedPlanes = true);
    ~MythDRMDevice();
 
     bool     Authenticated  () const;
@@ -35,6 +35,8 @@ class MUI_PUBLIC MythDRMDevice
     QSize    GetPhysicalSize() const;
     double   GetRefreshRate () const;    
     MythEDID GetEDID        () const;
+    DRMCrtc  GetCrtc        () const;
+    DRMConn  GetConnector   () const;
     const DRMModes& GetModes() const;
     bool     CanSwitchModes () const;
     bool     SwitchMode     (int ModeIndex);
@@ -52,17 +54,16 @@ class MUI_PUBLIC MythDRMDevice
     static inline QString s_mythDRMConnector = qEnvironmentVariable("MYTHTV_DRM_CONNECTOR");
     static inline QString s_mythDRMVideoMode = qEnvironmentVariable("MYTHTV_DRM_MODE");
 #endif
+    static MythDRMPtr FindDevice(bool NeedPlanes = true);
     static void SetupDRM      (const MythCommandLineParser& CmdLine);
     DRMPlane GetVideoPlane    () const;
     DRMPlane GetGUIPlane      () const;
-    DRMCrtc  GetCrtc          () const;
-    DRMConn  GetConnector     () const;
     bool     QueueAtomics     (const MythAtomics& Atomics);
     void     DisableVideoPlane();
     void     MainWindowReady  ();
 
   protected:
-    explicit MythDRMDevice(const QString& Device);
+    MythDRMDevice(const QString& Device, bool NeedPlanes);
     MythDRMDevice(int Fd, uint32_t CrtcId, uint32_t ConnectorId, bool Atomic);
 
   private:
