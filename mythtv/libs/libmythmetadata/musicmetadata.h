@@ -72,7 +72,7 @@ enum RepoType
 
 #define METADATA_INVALID_FILENAME "**NOT FOUND**"
 
-#define STREAMUPDATEURL "https://services.mythtv.org/music/data/?data=streams"
+#define STREAMUPDATEURL "https://mythqml.net/downloads/music/radio_streams.gz"
 #define STREAMURLCOUNT 5
 
 using UrlList = std::array<QString,STREAMURLCOUNT>;
