@@ -1,4 +1,5 @@
 // MythTV
+#include "tv_play.h"
 #include "mythdvdbuffer.h"
 #include "audiooutput.h"
 #include "mythdvddecoder.h"
@@ -9,6 +10,9 @@
 MythDVDPlayer::MythDVDPlayer(MythMainWindow* MainWindow, TV* Tv, PlayerContext* Context, PlayerFlags Flags)
   : MythPlayerUI(MainWindow, Tv, Context, Flags)
 {
+    connect(Tv, &TV::GoToMenu, this, &MythDVDPlayer::GoToMenu);
+    connect(Tv, &TV::GoToDVDProgram, this, &MythDVDPlayer::GoToDVDProgram);
+    connect(this, &MythDVDPlayer::DisableDVDSubtitles, this, &MythDVDPlayer::DoDisableDVDSubtitles);
 }
 
 void MythDVDPlayer::AutoDeint(MythVideoFrame *Frame, MythVideoOutput *VideoOutput,
@@ -44,6 +48,12 @@ bool MythDVDPlayer::HasReachedEof(void) const
     // DeleteMap and EditMode from the parent MythPlayer should not be
     // relevant here.
     return eof != kEofStateNone && !m_allPaused;
+}
+
+void MythDVDPlayer::DoDisableDVDSubtitles()
+{
+    if (kDisplayAVSubtitle == m_captionsState.m_textDisplayMode)
+        SetCaptionsEnabled(false, false);
 }
 
 void MythDVDPlayer::DisableCaptions(uint Mode, bool OSDMsg)
@@ -611,35 +621,32 @@ void MythDVDPlayer::DisplayDVDButton(void)
     m_playerCtx->m_buffer->DVD()->ReleaseMenuButton();
 }
 
-bool MythDVDPlayer::GoToMenu(const QString& Menu)
+void MythDVDPlayer::GoToMenu(const QString& Menu)
 {
     if (!m_playerCtx->m_buffer->IsDVD())
-        return false;
+        return;
+
     uint oldcaptions = m_captionsState.m_textDisplayMode;
     m_captionsState.m_textDisplayMode = kDisplayNone;
     if (oldcaptions != m_captionsState.m_textDisplayMode)
         emit CaptionsStateChanged(m_captionsState);
 
-    bool ret = m_playerCtx->m_buffer->DVD()->GoToMenu(Menu);
-
-    if (!ret)
+    if (!m_playerCtx->m_buffer->DVD()->GoToMenu(Menu))
     {
         UpdateOSDMessage(tr("DVD Menu Not Available"), kOSDTimeout_Med);
         LOG(VB_GENERAL, LOG_ERR, "No DVD Menu available.");
-        return false;
     }
-
-    return true;
 }
 
 void MythDVDPlayer::GoToDVDProgram(bool Direction)
 {
-    if (!m_playerCtx->m_buffer->IsDVD())
-        return;
-    if (Direction)
-        m_playerCtx->m_buffer->DVD()->GoToPreviousProgram();
-    else
-        m_playerCtx->m_buffer->DVD()->GoToNextProgram();
+    if (auto * dvd = m_playerCtx->m_buffer->DVD(); dvd)
+    {
+        if (Direction)
+            dvd->GoToPreviousProgram();
+        else
+            dvd->GoToNextProgram();
+    }
 }
 
 bool MythDVDPlayer::IsInStillFrame() const

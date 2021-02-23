@@ -508,6 +508,14 @@ bool MythRenderOpenGL::IsReady(void)
 void MythRenderOpenGL::swapBuffers()
 {
     QOpenGLContext::swapBuffers(m_window);
+    m_swapCount++;
+}
+
+uint64_t MythRenderOpenGL::GetSwapCount()
+{
+    auto result = m_swapCount;
+    m_swapCount = 0;
+    return result;
 }
 
 void MythRenderOpenGL::SetWidget(QWidget *Widget)
@@ -1009,7 +1017,7 @@ void MythRenderOpenGL::DrawRoundRect(QOpenGLFramebufferObject *Target,
     if (edge)
     {
         float innerradius = radius - LinePen.width();
-        if (innerradius < 0.0F) innerradius = 0.0F;
+        if (innerradius < 1.0F) innerradius = 1.0F;
         m_parameters(3,0) = innerradius;
         // Adjust the size for the inner radius (edge)
         m_parameters(2,1) = halfwidth - LinePen.width();

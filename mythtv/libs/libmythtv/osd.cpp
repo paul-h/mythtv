@@ -74,6 +74,11 @@ bool OSD::Init(QRect Rect, float FontAspect)
     return true;
 }
 
+void OSD::Embed(bool Embedding)
+{
+    m_embedded = Embedding;
+}
+
 void OSD::IsOSDVisible(bool& Visible)
 {
     if (m_mainWindow->GetCurrentNotificationCenter()->DisplayedNotifications() > 0)
@@ -447,8 +452,11 @@ void OSD::SetGraph(const QString &Window, const QString &Graph, std::chrono::mil
         image->SetImage(mi);
 }
 
-void OSD::Draw(QRect Rect)
+void OSD::Draw()
 {
+    if (m_embedded)
+        return;
+
     bool visible = false;
     QTime now = MythDate::current().time();
 
@@ -517,7 +525,7 @@ void OSD::Draw(QRect Rect)
         {
             if (screen->IsVisible())
             {
-                screen->Draw(m_painter, 0, 0, 255, Rect);
+                screen->Draw(m_painter, 0, 0, 255, m_rect);
                 screen->SetAlpha(255);
                 screen->ResetNeedsRedraw();
             }
@@ -526,7 +534,7 @@ void OSD::Draw(QRect Rect)
         {
             if (notif->IsVisible())
             {
-                notif->Draw(m_painter, 0, 0, 255, Rect);
+                notif->Draw(m_painter, 0, 0, 255, m_rect);
                 notif->SetAlpha(255);
                 notif->ResetNeedsRedraw();
             }

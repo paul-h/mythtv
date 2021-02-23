@@ -6,7 +6,6 @@
 #include <QEvent>
 #include <QFile>
 #include <QKeyEvent>
-#include <QRegExp>
 #include <QRegularExpression>
 #include <QRunnable>
 #include <QTimerEvent>
@@ -90,63 +89,6 @@
     if (osd) \
         osd->HideWindow(WINDOW); \
     ReturnOSDLock(); }
-
-const int  TV::kInitFFRWSpeed                = 0;
-const uint TV::kInputKeysMax                 = 6;
-const uint TV::kNextSource                   = 1;
-const uint TV::kPreviousSource               = 2;
-
-const std::chrono::milliseconds TV::kInputModeTimeout             = 5s;
-const std::chrono::milliseconds TV::kLCDTimeout                   = 1s;
-const std::chrono::milliseconds TV::kBrowseTimeout                = 30s;
-const std::chrono::milliseconds TV::kKeyRepeatTimeout             = 300ms;
-const std::chrono::milliseconds TV::kPrevChanTimeout              = 750ms;
-const std::chrono::milliseconds TV::kSleepTimerDialogTimeout      = 45s;
-const std::chrono::milliseconds TV::kIdleTimerDialogTimeout       = 45s;
-const std::chrono::milliseconds TV::kVideoExitDialogTimeout       = 2min;
-
-const std::chrono::milliseconds TV::kEndOfPlaybackCheckFrequency  = 250ms;
-const std::chrono::milliseconds TV::kEndOfRecPromptCheckFrequency = 250ms;
-const std::chrono::milliseconds TV::kEmbedCheckFrequency          = 250ms;
-const std::chrono::milliseconds TV::kSpeedChangeCheckFrequency    = 250ms;
-const std::chrono::milliseconds TV::kErrorRecoveryCheckFrequency  = 250ms;
-#ifdef USING_VALGRIND
-const std::chrono::milliseconds TV::kEndOfPlaybackFirstCheckTimer = 1min;
-#else
-const std::chrono::milliseconds TV::kEndOfPlaybackFirstCheckTimer = 5s;
-#endif
-const std::chrono::milliseconds TV::kSaveLastPlayPosTimeout       = 30s;
-
-/**
- * \brief stores last program info. maintains info so long as
- * mythfrontend is active
- */
-QStringList TV::lastProgramStringList = QStringList();
-
-/**
- * \brief function pointer for RunPlaybackBox in playbackbox.cpp
- */
-EMBEDRETURNVOID TV::RunPlaybackBoxPtr = nullptr;
-
-/**
- * \brief function pointer for RunViewScheduled in viewscheduled.cpp
- */
-EMBEDRETURNVOID TV::RunViewScheduledPtr = nullptr;
-
-/**
- * \brief function pointer for RunScheduleEditor in scheduleeditor.cpp
- */
-EMBEDRETURNVOIDSCHEDIT TV::RunScheduleEditorPtr = nullptr;
-
-/**
- * \brief function pointer for RunProgramGuide in guidegrid.cpp
- */
-EMBEDRETURNVOIDEPG TV::RunProgramGuidePtr = nullptr;
-
-/**
- * \brief function pointer for RunProgramFinder in progfind.cpp
- */
-EMBEDRETURNVOIDFINDER TV::RunProgramFinderPtr = nullptr;
 
 /**
  * \brief If any cards are configured, return the number.
@@ -1041,7 +983,6 @@ TV::TV(MythMainWindow* MainWindow)
 
 {
     LOG(VB_GENERAL, LOG_INFO, LOC + "Creating TV object");
-    m_ctorTime.start();
 
     QObject::setObjectName("TV");
     m_keyRepeatTimer.start();
@@ -1127,13 +1068,10 @@ void TV::InitFromDB()
     m_dbClearSavedPosition = (kv["ClearSavedPosition"].toInt() != 0);
     m_dbRunJobsOnRemote    = (kv["JobsRunOnRecordHost"].toInt() != 0);
     m_dbContinueEmbedded   = (kv["ContinueEmbeddedTVPlay"].toInt() != 0);
-    m_dbRunFrontendInWindow= (kv["RunFrontendInWindow"].toInt() != 0);
     m_dbBrowseAlways       = (kv["PersistentBrowseMode"].toInt() != 0);
     m_dbBrowseAllTuners    = (kv["BrowseAllTuners"].toInt() != 0);
     db_channel_ordering    = kv["ChannelOrdering"];
-    m_baseFilters         += kv["CustomFilters"];
     m_dbChannelFormat      = kv["ChannelFormat"];
-    m_tryUnflaggedSkip     = (kv["TryUnflaggedSkip"].toInt() != 0);
     m_smartForward         = (kv["SmartForward"].toInt() != 0);
     m_ffRewRepos           = kv["FFRewReposTime"].toFloat() * 0.01F;
     m_ffRewReverse         = (kv["FFRewReverse"].toInt() != 0);
@@ -3381,23 +3319,18 @@ bool TV::ProcessKeypressOrGesture(QEvent* Event)
             }
             if (IsActionable("ESCAPE", actions))
             {
-                if (!m_player->IsCutListSaved())
+                emit RefreshEditorState(true);
+                if (!m_editorState.m_saved)
                     ShowOSDCutpoint("EXIT_EDIT_MODE");
                 else
-                {
-                    m_playerContext.LockDeletePlayer(__FILE__, __LINE__);
-                    m_player->DisableEdit(0);
-                    m_playerContext.UnlockDeletePlayer(__FILE__, __LINE__);
-                }
+                    emit DisableEdit(0);
                 handled = true;
             }
             else
             {
-                m_playerContext.LockDeletePlayer(__FILE__, __LINE__);
-                auto current_frame = m_player->GetFramesPlayed();
-                m_playerContext.UnlockDeletePlayer(__FILE__, __LINE__);
-                if ((IsActionable(ACTION_SELECT, actions)) && (m_player->IsInDelete(current_frame)) &&
-                    (!(m_player->HasTemporaryMark())))
+                emit RefreshEditorState();
+                if ((IsActionable(ACTION_SELECT, actions)) && m_editorState.m_frameInDelete &&
+                    !m_editorState.m_hasTempMark)
                 {
                     ShowOSDCutpoint("EDIT_CUT_POINTS");
                     handled = true;
@@ -4211,33 +4144,13 @@ bool TV::ActivePostQHandleAction(const QStringList &Actions)
         ShowOSDPromptDeleteRecording(tr("Are you sure you want to delete:"));
     }
     else if (IsActionable(ACTION_JUMPTODVDROOTMENU, Actions) && isdisc)
-    {
-        m_playerContext.LockDeletePlayer(__FILE__, __LINE__);
-        if (m_player)
-            m_player->GoToMenu("root");
-        m_playerContext.UnlockDeletePlayer(__FILE__, __LINE__);
-    }
+        emit GoToMenu("root");
     else if (IsActionable(ACTION_JUMPTODVDCHAPTERMENU, Actions) && isdisc)
-    {
-        m_playerContext.LockDeletePlayer(__FILE__, __LINE__);
-        if (m_player)
-            m_player->GoToMenu("chapter");
-        m_playerContext.UnlockDeletePlayer(__FILE__, __LINE__);
-    }
+        emit GoToMenu("chapter");
     else if (IsActionable(ACTION_JUMPTODVDTITLEMENU, Actions) && isdisc)
-    {
-        m_playerContext.LockDeletePlayer(__FILE__, __LINE__);
-        if (m_player)
-            m_player->GoToMenu("title");
-        m_playerContext.UnlockDeletePlayer(__FILE__, __LINE__);
-    }
+        emit GoToMenu("title");
     else if (IsActionable(ACTION_JUMPTOPOPUPMENU, Actions) && isdisc)
-    {
-        m_playerContext.LockDeletePlayer(__FILE__, __LINE__);
-        if (m_player)
-            m_player->GoToMenu("popup");
-        m_playerContext.UnlockDeletePlayer(__FILE__, __LINE__);
-    }
+        emit GoToMenu("popup");
     else if (IsActionable(ACTION_FINDER, Actions))
         EditSchedule(kScheduleProgramFinder);
     else
@@ -4725,8 +4638,6 @@ void TV::ProcessNetworkControlCommand(const QString &Command)
 bool TV::StartPlayer(TVState desiredState)
 {
     LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("(%1) -- begin").arg(StateToString(desiredState)));
-    LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Elapsed time since TV constructor was called: %1 ms")
-        .arg(m_ctorTime.elapsed()));
 
     bool ok = CreatePlayer(desiredState);
     ScheduleStateChange();
@@ -7471,8 +7382,7 @@ void TV::customEvent(QEvent *Event)
         GetPlayerReadLock();
         PrepareToExitPlayer(__LINE__);
         SetExitPlayer(true, true);
-        if (m_player)
-            m_player->DisableEdit(-1);
+        emit DisableEdit(-1);
         ReturnPlayerLock();
     }
 
@@ -7832,10 +7742,7 @@ void TV::StartProgramEditMode()
         return;
     }
 
-    m_playerContext.LockDeletePlayer(__FILE__, __LINE__);
-    if (m_player)
-        m_player->EnableEdit();
-    m_playerContext.UnlockDeletePlayer(__FILE__, __LINE__);
+    emit EnableEdit();
 }
 
 void TV::ShowOSDAlreadyEditing()
@@ -7871,13 +7778,10 @@ void TV::HandleOSDAlreadyEditing(const QString& Action, bool WasPaused)
     else // action == "CONTINUE"
     {
         m_playerContext.LockDeletePlayer(__FILE__, __LINE__);
-        if (m_player)
-        {
-            m_playerContext.m_playingInfo->SaveEditing(false);
-            m_player->EnableEdit();
-            if (!m_overlayState.m_editing && !WasPaused && paused)
-                DoTogglePause(false);
-        }
+        m_playerContext.m_playingInfo->SaveEditing(false);
+        emit EnableEdit();
+        if (!m_overlayState.m_editing && !WasPaused && paused)
+            DoTogglePause(false);
         m_playerContext.UnlockDeletePlayer(__FILE__, __LINE__);
     }
 
@@ -8280,17 +8184,14 @@ void TV::OSDDialogEvent(int Result, const QString& Text, QString Action)
         if (IsActionable(Action, { ACTION_JUMPTODVDROOTMENU, ACTION_JUMPTODVDCHAPTERMENU,
                                    ACTION_JUMPTOPOPUPMENU, ACTION_JUMPTODVDTITLEMENU}))
         {
-            QString menu = "root";
             if (Action == ACTION_JUMPTODVDCHAPTERMENU)
-                menu = "chapter";
+                emit GoToMenu("chapter");
             else if (Action == ACTION_JUMPTODVDTITLEMENU)
-                menu = "title";
+                emit GoToMenu("title");
             else if (Action == ACTION_JUMPTOPOPUPMENU)
-                menu = "popup";
-            m_playerContext.LockDeletePlayer(__FILE__, __LINE__);
-            if (m_player)
-                m_player->GoToMenu(menu);
-            m_playerContext.UnlockDeletePlayer(__FILE__, __LINE__);
+                emit GoToMenu("popup");
+            else
+                emit GoToMenu("root");
         }
         else if (Action.startsWith(ACTION_JUMPCHAPTER))
         {
@@ -8419,82 +8320,72 @@ bool TV::MenuItemDisplayCutlist(const MythTVMenuItemContext& Context, MythOSDDia
         }
         return result;
     }
-    m_playerContext.LockDeletePlayer(__FILE__, __LINE__);
-    uint64_t frame   = m_player->GetFramesPlayed();
-    uint64_t previous_cut = m_player->GetNearestMark(frame, false);
-    uint64_t next_cut = m_player->GetNearestMark(frame, true);
-    uint64_t total_frames = m_player->GetTotalFrameCount();
-    bool is_in_delete = m_player->IsInDelete(frame);
-    bool is_temporary_mark = m_player->IsTemporaryMark(frame);
+
+    emit RefreshEditorState();
+
     if (category == kMenuCategoryItem)
     {
         bool active = true;
         if (actionName == "DIALOG_CUTPOINT_MOVEPREV_0")
         {
-            if ((is_in_delete && is_temporary_mark &&
-                 previous_cut > 0) ||
-                (is_in_delete && !is_temporary_mark) ||
-                (!is_temporary_mark && previous_cut > 0))
+            if ((m_editorState.m_frameInDelete && m_editorState.m_isTempMark &&
+                 m_editorState.m_previousCut > 0) ||
+                (m_editorState.m_frameInDelete && !m_editorState.m_isTempMark) ||
+                (!m_editorState.m_isTempMark && m_editorState.m_previousCut > 0))
             {
-                active = !(is_in_delete && !is_temporary_mark);
-                BUTTON2(actionName, tr("Move Previous Cut End Here"),
-                        tr("Move Start of Cut Here"));
+                active = !(m_editorState.m_frameInDelete && !m_editorState.m_isTempMark);
+                BUTTON2(actionName, tr("Move Previous Cut End Here"), tr("Move Start of Cut Here"));
             }
         }
         else if (actionName == "DIALOG_CUTPOINT_MOVENEXT_0")
         {
-            if ((is_in_delete && is_temporary_mark &&
-                 next_cut != total_frames) ||
-                (is_in_delete && !is_temporary_mark) ||
-                (!is_temporary_mark && next_cut != total_frames))
+            if ((m_editorState.m_frameInDelete && m_editorState.m_isTempMark &&
+                 m_editorState.m_nextCut != m_editorState.m_totalFrames) ||
+                (m_editorState.m_frameInDelete && !m_editorState.m_isTempMark) ||
+                (!m_editorState.m_isTempMark && m_editorState.m_nextCut != m_editorState.m_totalFrames))
             {
-                active = !(is_in_delete && !is_temporary_mark);
-                BUTTON2(actionName, tr("Move Next Cut Start Here"),
-                        tr("Move End of Cut Here"));
+                active = !(m_editorState.m_frameInDelete && !m_editorState.m_isTempMark);
+                BUTTON2(actionName, tr("Move Next Cut Start Here"), tr("Move End of Cut Here"));
             }
         }
         else if (actionName == "DIALOG_CUTPOINT_CUTTOBEGINNING_0")
         {
-            if (previous_cut == 0 &&
-                (is_temporary_mark || !is_in_delete))
-            {
+            if (m_editorState.m_previousCut == 0 && (m_editorState.m_isTempMark || !m_editorState.m_frameInDelete))
                 BUTTON(actionName, tr("Cut to Beginning"));
-            }
         }
         else if (actionName == "DIALOG_CUTPOINT_CUTTOEND_0")
         {
-            if (next_cut == total_frames &&
-                (is_temporary_mark || !is_in_delete))
+            if (m_editorState.m_nextCut == m_editorState.m_totalFrames &&
+                (m_editorState.m_isTempMark || !m_editorState.m_frameInDelete))
             {
                 BUTTON(actionName, tr("Cut to End"));
             }
         }
         else if (actionName == "DIALOG_CUTPOINT_DELETE_0")
         {
-            active = is_in_delete;
-            BUTTON2(actionName, tr("Delete This Cut"),
-                    tr("Join Surrounding Cuts"));
+            active = m_editorState.m_frameInDelete;
+            BUTTON2(actionName, tr("Delete This Cut"), tr("Join Surrounding Cuts"));
         }
         else if (actionName == "DIALOG_CUTPOINT_NEWCUT_0")
         {
-            if (!is_in_delete)
+            if (!m_editorState.m_frameInDelete)
                 BUTTON(actionName, tr("Add New Cut"));
         }
         else if (actionName == "DIALOG_CUTPOINT_UNDO_0")
         {
-            active = m_player->DeleteMapHasUndo();
+            active = m_editorState.m_hasUndo;
             //: %1 is the undo message
             QString text = tr("Undo - %1");
             result = Context.AddButton(Menu, active, actionName, text, "", false,
-                                       m_player->DeleteMapGetUndoMessage());
+                                       m_editorState.m_undoMessage);
         }
         else if (actionName == "DIALOG_CUTPOINT_REDO_0")
         {
-            active = m_player->DeleteMapHasRedo();
+            active = m_editorState.m_hasRedo;
             //: %1 is the redo message
             QString text = tr("Redo - %1");
             result = Context.AddButton(Menu, active, actionName, text, "", false,
-                                       m_player->DeleteMapGetRedoMessage());
+                                       m_editorState.m_redoMessage);
         }
         else if (actionName == "DIALOG_CUTPOINT_CLEARMAP_0")
         {
@@ -8540,7 +8431,7 @@ bool TV::MenuItemDisplayCutlist(const MythTVMenuItemContext& Context, MythOSDDia
                 BUTTON(actionName, text);
         }
     }
-    m_playerContext.UnlockDeletePlayer(__FILE__, __LINE__);
+
     return result;
 }
 
@@ -8601,7 +8492,7 @@ bool TV::MenuItemDisplayPlayback(const MythTVMenuItemContext& Context, MythOSDDi
     {
         for (int i = kPictureAttribute_MIN; i < kPictureAttribute_MAX; i++)
         {
-            if (toMask(static_cast<PictureAttribute>(i)) & m_tvmSup)
+            if (toMask(static_cast<PictureAttribute>(i)) & m_videoColourState.m_supportedAttributes)
             {
                 QString action = prefix + QString::number(i - kPictureAttribute_MIN);
                 if (static_cast<PictureAttribute>(i) != kPictureAttribute_Range)
@@ -8611,13 +8502,13 @@ bool TV::MenuItemDisplayPlayback(const MythTVMenuItemContext& Context, MythOSDDi
     }
     else if (MythTVMenu::MatchesGroup(actionName, "3D", category, prefix))
     {
-        active = (m_tvmStereoMode == kStereoscopicModeAuto);
+        active = (m_videoBoundsState.m_stereoOverride == kStereoscopicModeAuto);
         BUTTON(ACTION_3DNONE, tr("Auto"));
-        active = (m_tvmStereoMode == kStereoscopicModeIgnore3D);
+        active = (m_videoBoundsState.m_stereoOverride == kStereoscopicModeIgnore3D);
         BUTTON(ACTION_3DIGNORE, tr("Ignore"));
-        active = (m_tvmStereoMode == kStereoscopicModeSideBySideDiscard);
+        active = (m_videoBoundsState.m_stereoOverride == kStereoscopicModeSideBySideDiscard);
         BUTTON(ACTION_3DSIDEBYSIDEDISCARD, tr("Discard Side by Side"));
-        active = (m_tvmStereoMode == kStereoscopicModeTopAndBottomDiscard);
+        active = (m_videoBoundsState.m_stereoOverride == kStereoscopicModeTopAndBottomDiscard);
         BUTTON(ACTION_3DTOPANDBOTTOMDISCARD, tr("Discard Top and Bottom"));
     }
     else if (MythTVMenu::MatchesGroup(actionName, "SELECTSCAN_", category, prefix) && m_player)
@@ -8835,17 +8726,17 @@ bool TV::MenuItemDisplayPlayback(const MythTVMenuItemContext& Context, MythOSDDi
         }
         else if (actionName == "DISABLEUPMIX")
         {
-            if (m_tvmCanUpmix)
+            if (m_audioState.m_canUpmix)
             {
-                active = !m_tvmUpmixing;
+                active = !m_audioState.m_isUpmixing;
                 BUTTON(actionName, tr("Disable Audio Upmixer"));
             }
         }
         else if (actionName == "ENABLEUPMIX")
         {
-            if (m_tvmCanUpmix)
+            if (m_audioState.m_canUpmix)
             {
-                active = m_tvmUpmixing;
+                active = m_audioState.m_isUpmixing;
                 BUTTON(actionName, tr("Auto Detect"));
             }
         }
@@ -8865,13 +8756,13 @@ bool TV::MenuItemDisplayPlayback(const MythTVMenuItemContext& Context, MythOSDDi
         }
         else if (actionName == "DISABLESUBS")
         {
-            active = !m_tvmSubsEnabled;
+            active = !OptionalCaptionEnabled(m_captionsState.m_textDisplayMode);
             if (m_tvmSubsHaveSubs)
                 BUTTON(actionName, tr("Disable Subtitles"));
         }
         else if (actionName == "ENABLESUBS")
         {
-            active = m_tvmSubsEnabled;
+            active = OptionalCaptionEnabled(m_captionsState.m_textDisplayMode);
             if (m_tvmSubsHaveSubs)
                 BUTTON(actionName, tr("Enable Subtitles"));
         }
@@ -8895,14 +8786,14 @@ bool TV::MenuItemDisplayPlayback(const MythTVMenuItemContext& Context, MythOSDDi
         }
         else if (actionName == "DISABLEEXTTEXT")
         {
-            active = m_tvmSubsCapMode != kDisplayTextSubtitle;
-            if (m_tvmSubsHaveText)
+            active = m_captionsState.m_textDisplayMode != kDisplayTextSubtitle;
+            if (m_captionsState.m_externalTextSubs)
                 BUTTON(actionName, tr("Disable External Subtitles"));
         }
         else if (actionName == "ENABLEEXTTEXT")
         {
-            active = m_tvmSubsCapMode == kDisplayTextSubtitle;
-            if (m_tvmSubsHaveText)
+            active = m_captionsState.m_textDisplayMode == kDisplayTextSubtitle;
+            if (m_captionsState.m_externalTextSubs)
                 BUTTON(actionName, tr("Enable External Subtitles"));
         }
         else if (actionName == "TOGGLETTM")
@@ -8912,14 +8803,14 @@ bool TV::MenuItemDisplayPlayback(const MythTVMenuItemContext& Context, MythOSDDi
         }
         else if (actionName == "TOGGLESUBZOOM")
         {
-            if (m_tvmSubsEnabled)
+            if (OptionalCaptionEnabled(m_captionsState.m_textDisplayMode))
                 BUTTON(actionName, tr("Adjust Subtitle Zoom"));
         }
         else if (actionName == "TOGGLESUBDELAY")
         {
-            if (m_tvmSubsEnabled &&
-                (m_tvmSubsCapMode == kDisplayRawTextSubtitle ||
-                 m_tvmSubsCapMode == kDisplayTextSubtitle))
+            if (OptionalCaptionEnabled(m_captionsState.m_textDisplayMode) &&
+                (m_captionsState.m_textDisplayMode == kDisplayRawTextSubtitle ||
+                 m_captionsState.m_textDisplayMode == kDisplayTextSubtitle))
             {
                 BUTTON(actionName, tr("Adjust Subtitle Delay"));
             }
@@ -9113,12 +9004,8 @@ void TV::PlaybackMenuInit(const MythTVMenu &Menu)
         return;
 
     m_tvmAvsync   = true;
-    m_tvmUpmixing = false;
-    m_tvmCanUpmix = false;
 
     m_tvmFillAutoDetect    = false;
-    m_tvmSup               = kPictureAttributeSupported_None;
-    m_tvmStereoMode        = kStereoscopicModeAuto;
 
     m_tvmSpeedX100         = static_cast<int>(round(m_playerContext.m_tsNormal * 100));
     m_tvmState             = m_playerContext.GetState();
@@ -9146,10 +9033,7 @@ void TV::PlaybackMenuInit(const MythTVMenu &Menu)
     m_tvmChapterTimes.clear();
     GetChapterTimes(m_tvmChapterTimes);
 
-    m_tvmSubsCapMode   = 0;
-    m_tvmSubsHaveText  = false;
     m_tvmSubsForcedOn  = true;
-    m_tvmSubsEnabled   = false;
     m_tvmSubsHaveSubs  = false;
 
     for (int i = kTrackTypeUnknown ; i < kTrackTypeCount ; ++i)
@@ -9177,23 +9061,16 @@ void TV::PlaybackMenuInit(const MythTVMenu &Menu)
         }
         m_tvmSubsHaveSubs =
             !m_tvmTracks[kTrackTypeSubtitle].empty() ||
-            m_tvmSubsHaveText ||
+            m_captionsState.m_externalTextSubs ||
             !m_tvmTracks[kTrackTypeCC708].empty() ||
             !m_tvmTracks[kTrackTypeCC608].empty() ||
             !m_tvmTracks[kTrackTypeTeletextCaptions].empty() ||
             !m_tvmTracks[kTrackTypeRawText].empty();
         m_tvmAvsync = (m_player->GetTrackCount(kTrackTypeVideo) > 0) &&
             !m_tvmTracks[kTrackTypeAudio].empty();
-        m_tvmUpmixing         = m_audioState.m_isUpmixing;
-        m_tvmCanUpmix         = m_audioState.m_canUpmix;
         m_tvmCurSkip          = m_player->GetAutoCommercialSkip();
         m_tvmIsPaused         = m_player->IsPaused();
-        m_tvmSubsCapMode      = m_captionsState.m_textDisplayMode;
-        m_tvmSubsEnabled      = OptionalCaptionEnabled(m_captionsState.m_textDisplayMode);
-        m_tvmSubsHaveText     = m_captionsState.m_externalTextSubs;
         m_tvmSubsForcedOn     = m_player->GetAllowForcedSubtitles();
-        m_tvmSup              = m_videoColourState.m_supportedAttributes;
-        m_tvmStereoMode       = m_videoBoundsState.m_stereoOverride;
         MythVideoOutput *vo = m_player->GetVideoOutput();
         if (vo)
         {
@@ -9784,11 +9661,7 @@ void TV::DVDJumpBack()
         }
         else
         {
-            m_playerContext.LockDeletePlayer(__FILE__, __LINE__);
-            if (m_player)
-                m_player->GoToDVDProgram(false);
-            m_playerContext.UnlockDeletePlayer(__FILE__, __LINE__);
-
+            emit GoToDVDProgram(false);
             UpdateOSDSeekMessage(tr("Previous Title"), kOSDTimeout_Med);
         }
     }
@@ -9826,11 +9699,7 @@ void TV::DVDJumpForward()
         }
         else
         {
-            m_playerContext.LockDeletePlayer(__FILE__, __LINE__);
-            if (m_player)
-                m_player->GoToDVDProgram(true);
-            m_playerContext.UnlockDeletePlayer(__FILE__, __LINE__);
-
+            emit GoToDVDProgram(true);
             UpdateOSDSeekMessage(tr("Next Title"), kOSDTimeout_Med);
         }
     }

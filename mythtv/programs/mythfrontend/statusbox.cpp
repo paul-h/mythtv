@@ -134,6 +134,10 @@ void StatusBox::Init()
                                     &StatusBox::doDisplayStatus);
     item->DisplayState("display", "icon");
 
+    item = new MythUIButtonListItem(m_categoryList, tr("Rendering"),
+                                    &StatusBox::doRenderStatus);
+    item->DisplayState("render", "icon");
+
     item = new MythUIButtonListItem(m_categoryList, tr("Machine Status"),
                                     &StatusBox::doMachineStatus);
     item->DisplayState("machine", "icon");
@@ -1329,8 +1333,8 @@ void StatusBox::doMachineStatus()
         auto UpdateUptime = [](StatusBoxItem* Item)
         {
             std::chrono::seconds time = 0s;
-            getUptime(time);
-            Item->SetText(uptimeStr(time));
+            if (getUptime(time))
+                Item->SetText(uptimeStr(time));
         };
         StatusBoxItem *uptimeitem = AddLogLine(uptimeStr(uptime));
         connect(uptimeitem, &StatusBoxItem::UpdateRequired, UpdateUptime);
@@ -1550,22 +1554,52 @@ void StatusBox::doDisplayStatus()
     if (m_iconState)
         m_iconState->DisplayState("display");
     m_logList->Reset();
-    QString displayhelp = tr("Display and rendering information.");
+    auto displayhelp = tr("Display information.");
     if (m_helpText)
         m_helpText->SetText(displayhelp);
     if (m_justHelpText)
         m_justHelpText->SetText(displayhelp);
 
-    auto * window = GetMythMainWindow();
-    QStringList desc = window->GetDisplay()->GetDescription();
+    auto desc = GetMythMainWindow()->GetDisplay()->GetDescription();
     for (const auto & line : qAsConst(desc))
         AddLogLine(line);
-    AddLogLine("");
+}
 
-    auto * render = window->GetRenderDevice();
+void StatusBox::doRenderStatus()
+{
+    if (m_iconState)
+        m_iconState->DisplayState("render");
+    m_logList->Reset();
+    auto displayhelp = tr("Render information.");
+    if (m_helpText)
+        m_helpText->SetText(displayhelp);
+    if (m_justHelpText)
+        m_justHelpText->SetText(displayhelp);
+
+    auto * render = GetMythMainWindow()->GetRenderDevice();
     if (render && render->Type() == kRenderOpenGL)
     {
         auto * opengl = dynamic_cast<MythRenderOpenGL*>(render);
+
+        if (opengl)
+        {
+            auto UpdateFPS = [](StatusBoxItem* Item)
+            {
+                uint64_t swapcount = 0;
+                auto * rend = GetMythMainWindow()->GetRenderDevice();
+                if (auto * gl = dynamic_cast<MythRenderOpenGL*>(rend); gl != nullptr)
+                    swapcount = gl->GetSwapCount();
+                Item->SetText(tr("Current fps: %1").arg(swapcount));
+            };
+
+            auto * fps = AddLogLine("");
+            // Reset the frame counter
+            (void)opengl->GetSwapCount();
+            UpdateFPS(fps);
+            connect(fps, &StatusBoxItem::UpdateRequired, UpdateFPS);
+            fps->Start();
+        }
+
         if (opengl && (opengl->GetExtraFeatures() & kGLNVMemory))
         {
             auto GetGPUMem = []()
@@ -1612,7 +1646,7 @@ void StatusBox::doDisplayStatus()
             freemem->Start();
         }
 
-        desc = render->GetDescription();
+        auto desc = render->GetDescription();
         for (const auto & line : qAsConst(desc))
             AddLogLine(line);
     }

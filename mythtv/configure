@@ -5920,7 +5920,7 @@ if enabled taglib; then
 fi
 
 # Attempt to use libudev for mediamonitor
-enabled libudev && check_lib udev libudev.h udev_new  || disable libudev
+enabled libudev && check_lib udev libudev.h udev_new -ludev || disable libudev
 
 # libexiv2
 if enabled libexiv2_external ; then
@@ -6765,6 +6765,7 @@ fi
 enabled x11 && check_lib X11 "X11/Xdefs.h X11/Xlib.h" XQueryExtension  -lX11 || disable x11
 
 if enabled x11; then
+    require libXext "X11/Xdefs.h X11/Xlib.h X11/extensions/Xext.h" XMissingExtension -lXext
     require libXrandr "X11/Xdefs.h X11/Xlib.h X11/extensions/Xrandr.h" XRRSelectInput -lXrandr
 fi
 

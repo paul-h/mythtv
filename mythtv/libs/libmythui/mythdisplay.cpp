@@ -146,6 +146,25 @@ QStringList MythDisplay::GetDescription()
         result.append("");
     }
 
+    if (m_hdrState)
+    {
+        auto types = m_hdrState->m_supportedTypes;
+        auto hdr = m_hdrState->TypesToString();
+        result.append(tr("Supported HDR formats\t: %1").arg(hdr.join(",")));
+        if (types && !m_hdrState->IsControllable())
+            result.append(tr("HDR mode switching is not available"));
+        if (auto brightness = m_hdrState->GetMaxLuminance(); brightness > 1.0)
+            result.append(tr("Max display brightness\t: %1 nits").arg(static_cast<int>(brightness)));
+    }
+
+    if (m_vrrState)
+    {
+        result.append(tr("Variable refresh rate '%1': %2 %3")
+                      .arg(m_vrrState->TypeToString())
+                      .arg(m_vrrState->Enabled() ? tr("Enabled") : tr("Disabled"))
+                      .arg(m_vrrState->RangeDescription()));
+    }
+
     auto * current = GetCurrentScreen();
     const auto screens = QGuiApplication::screens();
     bool first = true;
@@ -172,25 +191,15 @@ QStringList MythDisplay::GetDescription()
                 result.append(tr("Current mode") + QString("\t: %1x%2@%3Hz")
                               .arg(GetResolution().width()).arg(GetResolution().height())
                               .arg(GetRefreshRate(), 0, 'f', 2));
+                const auto & modes = GetVideoModes();
+                if (!modes.empty())
+                {
+                    result.append(tr("Available modes:"));
+                    for (auto it = modes.crbegin(); it != modes.crend(); ++it)
+                        result.append("  " + it->ToString());
+                }
             }
         }
-    }
-
-    if (m_hdrState)
-    {
-        auto types = m_hdrState->m_supportedTypes;
-        auto hdr = m_hdrState->TypesToString();
-        result.append(tr("Supported HDR formats\t: %1").arg(hdr.join(",")));
-        if (types && !m_hdrState->IsControllable())
-            result.append(tr("HDR mode switching is not available"));
-    }
-
-    if (m_vrrState)
-    {
-        result.append(tr("Variable refresh rate '%1': %2 %3")
-                      .arg(m_vrrState->TypeToString())
-                      .arg(m_vrrState->Enabled() ? tr("Enabled") : tr("Disabled"))
-                      .arg(m_vrrState->RangeDescription()));
     }
 
     return result;
@@ -706,7 +715,7 @@ bool MythDisplay::SwitchToVideo(QSize Size, double Rate)
     }
 
     // need to change video mode?
-    MythDisplayMode::FindBestMatch(GetVideoModes(), next, targetrate);
+    (void)MythDisplayMode::FindBestMatch(GetVideoModes(), next, targetrate);
 
     // If GSync or FreeSync are enabled, ignore refresh rate only changes.
     // N.B. This check is not used when switching to GUI (which already ignores
@@ -934,6 +943,11 @@ void MythDisplay::InitHDR()
         m_hdrState = MythHDR::Create(this, hdrdesc);
         LOG(VB_GENERAL, LOG_NOTICE, LOC + QString("Supported HDR formats: %1")
             .arg(m_hdrState->TypesToString().join(",")));
+        if (auto brightness = m_hdrState->GetMaxLuminance(); brightness > 1.0)
+        {
+            LOG(VB_GENERAL, LOG_NOTICE, LOC + QString("Display reports max brightness of %1 nits")
+                .arg(static_cast<int>(brightness)));
+        }
     }
 }
 

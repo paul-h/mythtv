@@ -191,14 +191,12 @@ class MTV_PUBLIC MythPlayer : public QObject
     virtual bool PrepareAudioSample(std::chrono::milliseconds &timecode);
 
     // Public Closed caption and teletext stuff
-    virtual uint GetCaptionMode() const    { return kDisplayNone; }
     virtual CC708Reader    *GetCC708Reader(uint /*id*/=0) { return &m_cc708; }
     virtual CC608Reader    *GetCC608Reader(uint /*id*/=0) { return &m_cc608; }
     virtual SubtitleReader *GetSubReader(uint /*id*/=0) { return &m_subReader; }
     virtual TeletextReader *GetTeletextReader(uint /*id*/=0) { return &m_ttxReader; }
 
     // Public Audio/Subtitle/EIA-608/EIA-708 stream selection - thread safe
-    void EnableSubtitles(bool enable);
     void EnableForcedSubtitles(bool enable);
     bool ForcedSubtitlesFavored(void) const {
         return m_allowForcedSubtitles && !m_captionsEnabledbyDefault;
@@ -230,8 +228,6 @@ class MTV_PUBLIC MythPlayer : public QObject
     virtual QString GetAngleName(int /*title*/) const { return QString(); }
 
     // DVD public stuff
-    virtual bool GoToMenu(const QString& /*str*/) { return false;     }
-    virtual void GoToDVDProgram(bool direction) { (void) direction; }
     virtual bool IsInStillFrame() const         { return false;     }
 
     // Position Map Stuff
@@ -465,8 +461,6 @@ class MTV_PUBLIC MythPlayer : public QObject
     /// This allows us to enable captions/subtitles later if the streams
     /// are not immediately available when the video starts playing.
     bool      m_captionsEnabledbyDefault  {false};
-    bool      m_enableCaptions            {false};
-    bool      m_disableCaptions           {false};
     bool      m_enableForcedSubtitles     {false};
     bool      m_disableForcedSubtitles    {false};
     bool      m_allowForcedSubtitles      {true};

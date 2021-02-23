@@ -34,6 +34,7 @@ SatIPRTSP::SatIPRTSP(SatIPStreamHandler *handler)
     : m_streamHandler(handler)
 {
     uint port = 0;
+
     connect(this, &SatIPRTSP::startKeepAlive, this, &SatIPRTSP::startKeepAliveRequested);
     connect(this, &SatIPRTSP::stopKeepAlive, this, &SatIPRTSP::stopKeepAliveRequested);
 
