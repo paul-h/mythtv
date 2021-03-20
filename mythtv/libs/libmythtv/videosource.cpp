@@ -779,7 +779,7 @@ class VideoDevice : public CaptureCardComboBoxSetting
                 uint    minor_min = 0,
                 uint    minor_max = UINT_MAX,
                 const QString& card      = QString(),
-                const QString& driver    = QString()) :
+                const QRegularExpression& driver = QRegularExpression()) :
         CaptureCardComboBoxSetting(parent, true, "videodevice")
     {
         setLabel(QObject::tr("Video device"));
@@ -815,19 +815,15 @@ class VideoDevice : public CaptureCardComboBoxSetting
         // Needed to make both compiler and doxygen happy.
         (void) absPath;
 
-        fillSelectionsFromDir(dir, 0, 255, QString(), QString(), false);
+        fillSelectionsFromDir(dir, 0, 255, QString(), QRegularExpression(), false);
     }
 
     uint fillSelectionsFromDir(const QDir& dir,
                                uint minor_min, uint minor_max,
-                               const QString& card, const QString& driver,
+                               const QString& card, const QRegularExpression& driver,
                                bool allow_duplicates)
     {
         uint cnt = 0;
-        QRegExp *driverExp = nullptr;
-        if (!driver.isEmpty())
-            driverExp = new QRegExp(driver);
-
         QFileInfoList entries = dir.entryInfoList();
         for (const auto & fi : qAsConst(entries))
         {
@@ -862,12 +858,15 @@ class VideoDevice : public CaptureCardComboBoxSetting
             {
                 QString card_name;
                 QString driver_name;
-                if (CardUtil::GetV4LInfo(videofd, card_name, driver_name) &&
-                    (!driverExp     || (driverExp->exactMatch(driver_name)))  &&
-                    (card.isEmpty() || (card_name == card)))
+                if (CardUtil::GetV4LInfo(videofd, card_name, driver_name))
                 {
-                    addSelection(filepath);
-                    cnt++;
+                    auto match = driver.match(driver_name);
+                    if ((!driver.pattern().isEmpty() || match.hasMatch()) &&
+                        (card.isEmpty() || (card_name == card)))
+                    {
+                        addSelection(filepath);
+                        cnt++;
+                    }
                 }
                 close(videofd);
             }
@@ -875,7 +874,6 @@ class VideoDevice : public CaptureCardComboBoxSetting
             // add to list of minors discovered to avoid duplicates
             m_minorList[minor_num] = 1;
         }
-        delete driverExp;
 
         return cnt;
     }
@@ -1632,7 +1630,7 @@ VBoxDeviceID::VBoxDeviceID(const CaptureCard &parent) :
 {
     setLabel(tr("Device ID"));
     setHelpText(tr("Device ID of VBox device"));
-    setEnabled(false);
+    setReadOnly(true);
 }
 
 void VBoxDeviceID::SetIP(const QString &ip)
@@ -2093,8 +2091,10 @@ CetonDeviceID::CetonDeviceID(const CaptureCard &parent) :
 
 void CetonDeviceID::SetIP(const QString &ip)
 {
-    QString regexp = "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){4}$";
-    if (QRegExp(regexp).exactMatch(ip + "."))
+    static const QRegularExpression ipV4Regex
+        { "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){4}$" };
+    auto match = ipV4Regex.match(ip + ".");
+    if (match.hasMatch())
     {
         m_ip = ip;
         setValue(QString("%1-RTP.%3").arg(m_ip).arg(m_tuner));
@@ -2103,7 +2103,9 @@ void CetonDeviceID::SetIP(const QString &ip)
 
 void CetonDeviceID::SetTuner(const QString &tuner)
 {
-    if (QRegExp("^\\d$").exactMatch(tuner))
+    static const QRegularExpression oneDigit { "^\\d$" };
+    auto match = oneDigit.match(tuner);
+    if (match.hasMatch())
     {
         m_tuner = tuner;
         setValue(QString("%1-RTP.%2").arg(m_ip).arg(m_tuner));
@@ -2118,11 +2120,12 @@ void CetonDeviceID::Load(void)
 
 void CetonDeviceID::UpdateValues(void)
 {
-    QRegExp newstyle(R"(^([0-9.]+)-(\d|RTP)\.(\d)$)");
-    if (newstyle.exactMatch(getValue()))
+    QRegularExpression newstyle { R"(^([0-9.]+)-(\d|RTP)\.(\d)$)" };
+    auto match = newstyle.match(getValue());
+    if (match.hasMatch())
     {
-        emit LoadedIP(newstyle.cap(1));
-        emit LoadedTuner(newstyle.cap(3));
+        emit LoadedIP(match.captured(1));
+        emit LoadedTuner(match.captured(3));
     }
 }
 
@@ -2155,24 +2158,42 @@ void CetonSetting::CetonConfigurationGroup(CaptureCard& parent, CardType& cardty
 }
 #endif
 
-V4LConfigurationGroup::V4LConfigurationGroup(CaptureCard& a_parent,
-                                             CardType& a_cardtype) :
-    m_parent(a_parent),
-    m_cardInfo(new TransTextEditSetting()),  m_vbiDev(new VBIDevice(m_parent))
+// Override database schema default, set schedgroup false
+class SchedGroupFalse : public MythUICheckBoxSetting
+{
+  public:
+    explicit SchedGroupFalse(const CaptureCard &parent) :
+        MythUICheckBoxSetting(new CaptureCardDBStorage(this, parent,
+                                                       "schedgroup"))
+    {
+        setValue(false);
+        setVisible(false);
+   };
+};
+
+V4LConfigurationGroup::V4LConfigurationGroup(CaptureCard& parent,
+                                             CardType& cardtype,
+                                             const QString &inputtype) :
+    m_parent(parent),
+    m_cardInfo(new GroupSetting()),
+    m_vbiDev(new VBIDevice(m_parent))
 {
     setVisible(false);
-    QString drv = "(?!ivtv|hdpvr|(saa7164(.*))).*";
+    QRegularExpression drv { "^(?!ivtv|hdpvr|(saa7164(.*))).*$" };
     auto *device = new VideoDevice(m_parent, 0, 15, QString(), drv);
 
     m_cardInfo->setLabel(tr("Probed info"));
-    m_cardInfo->setEnabled(false);
+    m_cardInfo->setReadOnly(true);
 
-    a_cardtype.addTargetedChild("V4L", device);
-    a_cardtype.addTargetedChild("V4L", m_cardInfo);
-    a_cardtype.addTargetedChild("V4L", m_vbiDev);
-    a_cardtype.addTargetedChild("V4L", new AudioDevice(m_parent));
-    a_cardtype.addTargetedChild("V4L", new AudioRateLimit(m_parent));
-    a_cardtype.addTargetedChild("V4L", new SkipBtAudio(m_parent));
+    cardtype.addTargetedChild(inputtype, device);
+    cardtype.addTargetedChild(inputtype, m_cardInfo);
+    cardtype.addTargetedChild(inputtype, m_vbiDev);
+    cardtype.addTargetedChild(inputtype, new AudioDevice(m_parent));
+    cardtype.addTargetedChild(inputtype, new AudioRateLimit(m_parent));
+    cardtype.addTargetedChild(inputtype, new SkipBtAudio(m_parent));
+
+    // Override database schema default, set schedgroup false
+    cardtype.addTargetedChild(inputtype, new SchedGroupFalse(m_parent));
 
     connect(device, qOverload<const QString&>(&StandardSetting::valueChanged),
             this,   &V4LConfigurationGroup::probeCard);
@@ -2201,24 +2222,27 @@ void V4LConfigurationGroup::probeCard(const QString &device)
     m_vbiDev->setFilter(cn, dn);
 }
 
-MPEGConfigurationGroup::MPEGConfigurationGroup(CaptureCard &a_parent,
-                                               CardType &a_cardtype) :
-    m_parent(a_parent),
-    m_cardInfo(new TransTextEditSetting())
+MPEGConfigurationGroup::MPEGConfigurationGroup(CaptureCard &parent,
+                                               CardType &cardtype) :
+    m_parent(parent),
+    m_cardInfo(new GroupSetting())
 {
     setVisible(false);
-    QString drv = "ivtv|(saa7164(.*))";
+    QRegularExpression drv { "^(ivtv|(saa7164(.*)))$" };
     m_device    = new VideoDevice(m_parent, 0, 15, QString(), drv);
     m_vbiDevice = new VBIDevice(m_parent);
     m_vbiDevice->setVisible(false);
 
     m_cardInfo->setLabel(tr("Probed info"));
-    m_cardInfo->setEnabled(false);
+    m_cardInfo->setReadOnly(true);
 
-    a_cardtype.addTargetedChild("MPEG", m_device);
-    a_cardtype.addTargetedChild("MPEG", m_vbiDevice);
-    a_cardtype.addTargetedChild("MPEG", m_cardInfo);
-    a_cardtype.addTargetedChild("MPEG", new ChannelTimeout(m_parent, 12s, 2s));
+    cardtype.addTargetedChild("MPEG", m_device);
+    cardtype.addTargetedChild("MPEG", m_vbiDevice);
+    cardtype.addTargetedChild("MPEG", m_cardInfo);
+    cardtype.addTargetedChild("MPEG", new ChannelTimeout(m_parent, 12s, 2s));
+
+    // Override database schema default, set schedgroup false
+    cardtype.addTargetedChild("MPEG", new SchedGroupFalse(m_parent));
 
     connect(m_device, qOverload<const QString&>(&StandardSetting::valueChanged),
             this,     &MPEGConfigurationGroup::probeCard);
@@ -2360,10 +2384,11 @@ HDPVRConfigurationGroup::HDPVRConfigurationGroup(CaptureCard &a_parent,
 {
     setVisible(false);
 
-    auto *device = new VideoDevice(m_parent, 0, 15, QString(), "hdpvr");
+    auto *device = new VideoDevice(m_parent, 0, 15, QString(),
+                                   QRegularExpression("^hdpvr$"));
 
     m_cardInfo->setLabel(tr("Probed info"));
-    m_cardInfo->setEnabled(false);
+    m_cardInfo->setReadOnly(true);
 
     a_cardtype.addTargetedChild("HDPVR", device);
     a_cardtype.addTargetedChild("HDPVR", new EmptyAudioDevice(m_parent));
@@ -2371,6 +2396,9 @@ HDPVRConfigurationGroup::HDPVRConfigurationGroup(CaptureCard &a_parent,
     a_cardtype.addTargetedChild("HDPVR", m_cardInfo);
     a_cardtype.addTargetedChild("HDPVR", m_audioInput);
     a_cardtype.addTargetedChild("HDPVR", new ChannelTimeout(m_parent, 15s, 2s));
+
+    // Override database schema default, set schedgroup false
+    a_cardtype.addTargetedChild("HDPVR", new SchedGroupFalse(m_parent));
 
     connect(device, qOverload<const QString&>(&StandardSetting::valueChanged),
             this,   &HDPVRConfigurationGroup::probeCard);
@@ -2400,16 +2428,22 @@ void HDPVRConfigurationGroup::probeCard(const QString &device)
 
 V4L2encGroup::V4L2encGroup(CaptureCard &parent, CardType& cardtype) :
     m_parent(parent),
-    m_cardInfo(new TransTextEditSetting())
+    m_cardInfo(new GroupSetting())
 {
-    setLabel(QObject::tr("V4L2 encoder devices (multirec capable)"));
+    setVisible(false);
+
     m_device = new VideoDevice(m_parent, 0, 15);
 
-    cardtype.addTargetedChild("V4L2ENC", m_device);
+    setLabel(QObject::tr("V4L2 encoder devices (multirec capable)"));
+
     m_cardInfo->setLabel(tr("Probed info"));
+    m_cardInfo->setReadOnly(true);
+
+    cardtype.addTargetedChild("V4L2ENC", m_device);
     cardtype.addTargetedChild("V4L2ENC", m_cardInfo);
 
-    setVisible(false);
+    // Override database schema default, set schedgroup false
+    cardtype.addTargetedChild("V4L2ENC", new SchedGroupFalse(m_parent));
 
     connect(m_device, qOverload<const QString&>(&StandardSetting::valueChanged),
             this,     &V4L2encGroup::probeCard);
@@ -2520,11 +2554,11 @@ CaptureCardGroup::CaptureCardGroup(CaptureCard &parent)
 #ifdef USING_V4L2
     cardtype->addTargetedChild("V4L2ENC", new V4L2encGroup(parent, *cardtype));
     cardtype->addTargetedChild("V4L",
-                               new V4LConfigurationGroup(parent, *cardtype));
+                               new V4LConfigurationGroup(parent, *cardtype, "V4L"));
     cardtype->addTargetedChild("MJPEG",
-                               new V4LConfigurationGroup(parent, *cardtype));
+                               new V4LConfigurationGroup(parent, *cardtype, "MJPEG"));
     cardtype->addTargetedChild("GO7007",
-                               new V4LConfigurationGroup(parent, *cardtype));
+                               new V4LConfigurationGroup(parent, *cardtype, "GO7007"));
 # ifdef USING_IVTV
     cardtype->addTargetedChild("MPEG",
                                new MPEGConfigurationGroup(parent, *cardtype));
@@ -2688,7 +2722,7 @@ void CardType::fillSelections(MythUIComboBoxSetting* setting)
 #ifdef USING_HDPVR
     setting->addSelection(
         QObject::tr("HD-PVR H.264 encoder"), "HDPVR");
-# endif // USING_HDPVR
+#endif // USING_HDPVR
 #endif // USING_V4L2
 
 #ifdef USING_HDHOMERUN
@@ -2721,10 +2755,10 @@ void CardType::fillSelections(MythUIComboBoxSetting* setting)
 #endif // USING_IPTV
 
 #ifdef USING_V4L2
-# ifdef USING_IVTV
+#ifdef USING_IVTV
     setting->addSelection(
         QObject::tr("Analog to MPEG-2 encoder card (PVR-150/250/350, etc)"), "MPEG");
-# endif // USING_IVTV
+#endif // USING_IVTV
     setting->addSelection(
         QObject::tr("Analog to MJPEG encoder card (Matrox G200, DC10, etc)"), "MJPEG");
     setting->addSelection(

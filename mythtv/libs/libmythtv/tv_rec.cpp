@@ -2650,7 +2650,7 @@ long long TVRec::GetMaxBitrate(void) const
     }
     else if (m_genOpt.m_inputType == "HDPVR")
     {
-        bitrate = 20200000LL; // Peek bit rate for HD-PVR
+        bitrate = 20200000LL; // Peak bit rate for HD-PVR
     }
     else if (!CardUtil::IsEncoder(m_genOpt.m_inputType))
     {
@@ -3935,7 +3935,7 @@ MPEGStreamData *TVRec::TuningSignalCheck(void)
                                 "Recording", title,
                                 tr("See 'Tuning timeout' in mythtv-setup "
                                    "for this input."));
-            gCoreContext->SendEvent(MythEvent(mn));
+            gCoreContext->SendEvent(mn);
 
             LOG(VB_GENERAL, LOG_WARNING, LOC +
                 QString("It took longer than %1 ms to get a signal lock. "
@@ -3991,7 +3991,7 @@ MPEGStreamData *TVRec::TuningSignalCheck(void)
                             tr("See 'Tuning timeout' in mythtv-setup "
                                "for this input."));
         mn.SetDuration(30s);
-        gCoreContext->SendEvent(MythEvent(mn));
+        gCoreContext->SendEvent(mn);
 
         LOG(VB_GENERAL, LOG_WARNING, LOC +
             QString("TuningSignalCheck: taking more than %1 ms to get a lock. "

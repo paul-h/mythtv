@@ -17,8 +17,11 @@
 #include <cstdlib>
 
 // Qt headers
+#include <QtGlobal>
+#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
+#include <QStringConverter>
+#endif
 #include <QTextStream>
-#include <QRegExp>
 
 // MythTV headers
 #include "httpstatus.h"
@@ -143,7 +146,11 @@ void HttpStatus::GetStatusXML( HTTPRequest *pRequest )
     pRequest->m_mapRespHeaders[ "Cache-Control" ] = "no-cache=\"Ext\", max-age = 5000";
 
     QTextStream stream( &pRequest->m_response );
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     stream.setCodec("UTF-8");   // Otherwise locale default is used.
+#else
+    stream.setEncoding(QStringConverter::Utf8);
+#endif
     stream << doc.toString();
 }
 
@@ -622,7 +629,11 @@ void HttpStatus::FillStatusXML( QDomDocument *pDoc )
 
 void HttpStatus::PrintStatus( QTextStream &os, QDomDocument *pDoc )
 {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     os.setCodec("UTF-8");
+#else
+    os.setEncoding(QStringConverter::Utf8);
+#endif
 
     QDateTime qdtNow = MythDate::current();
 
@@ -1127,7 +1138,7 @@ int HttpStatus::PrintJobQueue( QTextStream &os, const QDomElement& jobs )
                             break;
                     }
 
-                    QString   sTitle       = p.attribute( "title"   , "" );       //.replace(QRegExp("\""), "&quot;");
+                    QString   sTitle       = p.attribute( "title"   , "" );       //.replace("\"", "&quot;");
                     QString   sSubTitle    = p.attribute( "subTitle", "" );
                     QDateTime startTs      = MythDate::fromString( p.attribute( "startTime" ,"" ));
                     QDateTime endTs        = MythDate::fromString( p.attribute( "endTime"   ,"" ));
@@ -1261,7 +1272,7 @@ int HttpStatus::PrintMachineInfo( QTextStream &os, const QDomElement& info )
                 int nExpirable = g.attribute("expirable" , "0" ).toInt();
                 QString nDir = g.attribute("dir"  , "" );
 
-                nDir.replace(QRegExp(","), ", ");
+                nDir.replace(",", ", ");
 
                 os << "      Disk Usage Summary:<br />\r\n";
                 os << "      <ul>\r\n";
@@ -1335,7 +1346,7 @@ int HttpStatus::PrintMachineInfo( QTextStream &os, const QDomElement& info )
             QString nDir = g.attribute("dir"  , "" );
             QString id   = g.attribute("id"   , "" );
 
-            nDir.replace(QRegExp(","), ", ");
+            nDir.replace(",", ", ");
 
 
             if (id != "total")

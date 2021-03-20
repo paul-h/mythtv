@@ -175,7 +175,7 @@ long long MythDVDBuffer::Seek(long long Time)
 
     if (ffrewSkip != 1 && ffrewSkip != 0 && Time != 0)
     {
-        auto it = kSeekSpeedMap.lowerBound(static_cast<int>(labs(Time)));
+        auto it = kSeekSpeedMap.lowerBound(static_cast<int>(std::abs(Time)));
         if (it == kSeekSpeedMap.end())
             seekSpeed = *(it - 1);
         else
@@ -1817,7 +1817,7 @@ uint MythDVDBuffer::ConvertLangCode(uint16_t Code)
     if (Code == 0)
         return 0;
 
-    std::array<QChar,2> str2 { Code >> 8, Code & 0xff };
+    std::array<QChar,2> str2 { QChar(Code >> 8), QChar(Code & 0xff) };
     QString str3 = iso639_str2_to_str3(QString(str2.data(), str2.size()));
 
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("code: %1; iso639: %2").arg(Code).arg(str3));
