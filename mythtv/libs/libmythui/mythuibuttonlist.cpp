@@ -2390,7 +2390,7 @@ void MythUIButtonList::Init()
     {
         LOG(VB_GENERAL, LOG_ERR, QString("(%1) Statetype buttonitem is "
                                          "required in mythuibuttonlist: %2")
-            .arg(GetXMLLocation()).arg(objectName()));
+            .arg(GetXMLLocation(), objectName()));
         return;
     }
 
@@ -2494,12 +2494,12 @@ bool MythUIButtonList::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
     // Handle action remappings
-    for (int i = 0; i < actions.size(); ++i)
+    for (const QString& action : qAsConst(actions))
     {
-        if (!m_actionRemap.contains(actions[i]))
+        if (!m_actionRemap.contains(action))
             continue;
 
-        QString key = m_actionRemap[actions[i]];
+        QString key = m_actionRemap[action];
         if (key.isEmpty())
             return true;
 
@@ -2507,6 +2507,7 @@ bool MythUIButtonList::keyPressEvent(QKeyEvent *event)
         if (a.isEmpty())
             continue;
 
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
         int keyCode = a[0];
         Qt::KeyboardModifiers modifiers = Qt::NoModifier;
         QStringList parts = key.split('+');
@@ -2521,6 +2522,10 @@ bool MythUIButtonList::keyPressEvent(QKeyEvent *event)
             if (parts[j].toUpper() == "META")
                 modifiers |= Qt::MetaModifier;
         }
+#else
+        int keyCode = a[0].key();
+        Qt::KeyboardModifiers modifiers = a[0].keyboardModifiers();
+#endif
 
         QCoreApplication::postEvent(
             GetMythMainWindow(),
@@ -3723,10 +3728,10 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
                     if (!value.isEmpty())
                     {
                         replacement = QString("%1%2%3%4")
-                                      .arg(match.captured(2))
-                                      .arg(match.captured(3))
-                                      .arg(m_strings.value(key).text)
-                                      .arg(match.captured(6));
+                                      .arg(match.captured(2),
+                                           match.captured(3),
+                                           m_strings.value(key).text,
+                                           match.captured(6));
                     }
 
                     tempString.replace(match.captured(0), replacement);

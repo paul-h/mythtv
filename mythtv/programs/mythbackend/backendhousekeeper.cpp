@@ -464,8 +464,8 @@ bool ThemeUpdateTask::LoadVersion(const QString &version, int download_log_level
 
     m_url = QString("%1/%2/themes.zip")
             .arg(gCoreContext->GetSetting("ThemeRepositoryURL",
-                          "http://themes.mythtv.org/themes/repository"))
-            .arg(version);
+                          "http://themes.mythtv.org/themes/repository"),
+                 version);
 
     m_running = true;
     bool result = GetMythDownloadManager()->download(m_url, remoteThemesFile);
@@ -520,7 +520,7 @@ bool RadioStreamUpdateTask::DoRun(void)
     args << logPropagateArgs;
 
     LOG(VB_GENERAL, LOG_INFO, QString("Performing Radio Streams Update: %1 %2")
-        .arg(command).arg(args.join(" ")));
+        .arg(command, args.join(" ")));
 
     m_msMU = new MythSystemLegacy(command, args, kMSRunShell | kMSAutoCleanup);
 
@@ -537,7 +537,7 @@ bool RadioStreamUpdateTask::DoRun(void)
         return false;
     }
 
-    LOG(VB_GENERAL, LOG_INFO, QString("Radio Stream Update Complete"));
+    LOG(VB_GENERAL, LOG_INFO, QString("Radio Streams Update Complete"));
     return true;
 }
 
@@ -550,7 +550,11 @@ RadioStreamUpdateTask::~RadioStreamUpdateTask(void)
 bool RadioStreamUpdateTask::DoCheckRun(const QDateTime& now)
 {
     // we are only interested in the global setting so remove any local host setting just in case
-    GetMythDB()->ClearSetting("MusicStreamListModified");
+    QString setting = GetMythDB()->GetSettingOnHost("MusicStreamListModified", gCoreContext->GetHostName(), "");
+    if (!setting.isEmpty())
+    {
+        GetMythDB()->ClearSetting("MusicStreamListModified");
+    }
 
     // check we are not already running a radio stream update
     return gCoreContext->GetSetting("MusicStreamListModified") == "Updating" &&
@@ -586,7 +590,7 @@ bool ArtworkTask::DoRun(void)
     args << logPropagateArgs;
 
     LOG(VB_GENERAL, LOG_INFO, QString("Performing Artwork Refresh: %1 %2")
-        .arg(command).arg(args.join(" ")));
+        .arg(command, args.join(" ")));
 
     m_msMML = new MythSystemLegacy(command, args, kMSRunShell | kMSAutoCleanup);
 
@@ -737,7 +741,7 @@ bool MythFillDatabaseTask::DoRun(void)
         mfpath = GetAppBinDir() + "mythfilldatabase";
     }
 
-    QString cmd = QString("%1 %2").arg(mfpath).arg(mfarg);
+    QString cmd = QString("%1 %2").arg(mfpath, mfarg);
 
     m_msMFD = new MythSystemLegacy(cmd, opts);
 

@@ -1149,7 +1149,7 @@ protected:
                         QString("download failed, retry #%1").arg(retries));
                     if (retries == 1)   // first error
                         continue;       // will retry immediately
-                    usleep(500ms);      // sleep 0.5s
+                    usleep(500ms);      // cppcheck-suppress usleepCalled
                     if (retries == 2)   // and retry once again
                         continue;
                     if (!m_parent->m_meta) // NOLINT(bugprone-branch-clone)
@@ -1461,7 +1461,7 @@ private:
                         .arg(p->Duration().count()).arg(segment->Duration().count()));
                     LOG(VB_PLAYBACK, LOG_WARNING, LOC +
                         QString("-     file: new=%1 old=%2")
-                        .arg(p->Url()).arg(segment->Url()));
+                        .arg(p->Url(), segment->Url()));
 
                     /* Resetting content */
                     *segment = *p;
@@ -2531,7 +2531,7 @@ bool HLSRingBuffer::OpenFile(const QString &lfilename, std::chrono::milliseconds
     if (m_filename != finalURL)
     {
         LOG(VB_PLAYBACK, LOG_INFO, LOC +
-            QString("Redirected %1 -> %2 ").arg(m_filename).arg(finalURL));
+            QString("Redirected %1 -> %2 ").arg(m_filename, finalURL));
         m_filename = finalURL;
     }
     if (!IsHTTPLiveStreaming(&buffer))

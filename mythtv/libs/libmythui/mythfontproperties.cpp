@@ -91,8 +91,8 @@ void MythFontProperties::CalcHash(void)
     if (m_bFreeze)
         return;
 
-    m_hash = QString("%1%2%3%4").arg(m_face.toString())
-                                .arg(m_brush.color().name())
+    m_hash = QString("%1%2%3%4").arg(m_face.toString(),
+                                     m_brush.color().name())
                                 .arg(static_cast<int>(m_hasShadow))
                                 .arg(static_cast<int>(m_hasOutline));
 
@@ -253,8 +253,8 @@ MythFontProperties *MythFontProperties::ParseFromXml(
                 QString("Attempting to define '%1'\n\t\t\t"
                         "with face '%2', but it already "
                         "exists with face '%3'")
-                .arg(name).arg(QFontInfo(newFont->m_face).family())
-                .arg((tmp) ? QFontInfo(tmp->m_face).family() : "ERROR"));
+                .arg(name, QFontInfo(newFont->m_face).family(),
+                     (tmp) ? QFontInfo(tmp->m_face).family() : "ERROR"));
         }
         delete newFont;
         return nullptr;
@@ -454,28 +454,39 @@ MythFontProperties *MythFontProperties::ParseFromXml(
     {
         VERBOSE_XML(VB_GENERAL, LOG_ERR, filename, element,
                     QString("Failed to load '%1', got '%2' instead")
-            .arg(newFont->m_face.family()).arg(fi.family()));
+            .arg(newFont->m_face.family(), fi.family()));
 
         if (s_showAvailable)
         {
             LOG(VB_GUI, LOG_DEBUG, "Available fonts:");
 
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
             QFontDatabase database;
-
             QStringList families = database.families();
+#else
+            QStringList families = QFontDatabase::families();
+#endif
             for (const QString & family : qAsConst(families))
             {
                 QStringList family_styles;
 
                 family_styles << family + "::";
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
                 QStringList styles = database.styles(family);
+#else
+                QStringList styles = QFontDatabase::styles(family);
+#endif
                 for (const QString & style : qAsConst(styles))
                 {
                     family_styles << style + ":";
 
                     QString sizes;
                     bool    tic = false;
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
                     QList<int> pointList = database.smoothSizes(family, style);
+#else
+                    QList<int> pointList = QFontDatabase::smoothSizes(family, style);
+#endif
                     for (int points : qAsConst(pointList))
                     {
                         if (tic)

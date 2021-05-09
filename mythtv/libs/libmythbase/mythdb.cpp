@@ -133,7 +133,13 @@ QString MythDB::toCommaList(const QMap<QString, QVariant> &bindings,
         {
             val = "NULL";
         }
-        else if (it->type() == QVariant::String)
+        else if (
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+            it->type() == QVariant::String
+#else
+            it->typeId() == QMetaType::QString
+#endif
+            )
         {
             val = (it->toString().isNull()) ?
                 "NULL" : QString("\"%1\"").arg(val);
@@ -206,9 +212,9 @@ QString MythDB::DBErrorMessage(const QSqlError& err)
                    "Database error was:\n"
                    "%4\n")
         .arg(err.type())
-        .arg(err.nativeErrorCode())
-        .arg(err.driverText())
-        .arg(err.databaseText());
+        .arg(err.nativeErrorCode(),
+             err.driverText(),
+             err.databaseText());
 }
 
 DatabaseParams MythDB::GetDatabaseParams(void) const
@@ -536,7 +542,7 @@ bool MythDB::GetSettings(QMap<QString,QString> &_key_value_pairs)
                 "WHERE (hostname = '%1' OR hostname IS NULL) AND "
                 "      value IN (%2) "
                 "ORDER BY hostname DESC")
-            .arg(d->m_localhostname).arg(keylist)))
+            .arg(d->m_localhostname, keylist)))
     {
         if (!d->m_suppressDBMessages)
             DBError("GetSettings", query);

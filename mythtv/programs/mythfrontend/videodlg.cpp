@@ -176,24 +176,23 @@ namespace
                     if (isScreenshot)
                     {
                         sfn += hntm.arg(QString("%1 Season %2x%3_%4")
-                                 .arg(title).arg(QString::number(season))
-                                 .arg(QString::number(episode))
-                                 .arg(suffix))
-                                 .arg(ext);
+                                        .arg(title, QString::number(season),
+                                             QString::number(episode), suffix),
+                                        ext);
                     }
                     else
                     {
                         sfn += hntm.arg(QString("%1 Season %2_%3")
-                                 .arg(title).arg(QString::number(season))
-                                 .arg(suffix))
-                                 .arg(ext);
+                                        .arg(title, QString::number(season),
+                                             suffix),
+                                        ext);
                     }
 
                 }
                 else
                 {
-                sfn += hntm.arg(base_name + "_%1").arg(suffix).arg(ext);
-                sfn += hntm.arg(video_uid + "_%1").arg(suffix).arg(ext);
+                sfn += hntm.arg(base_name + "_%1", suffix, ext);
+                sfn += hntm.arg(video_uid + "_%1", suffix, ext);
                 }
 
                 for (const auto & str : qAsConst(sfn))
@@ -220,28 +219,30 @@ namespace
                 {
                     if (isScreenshot)
                     {
-                        sfn += fntm.arg(dir).arg(QString("%1 Season %2x%3_%4")
-                                 .arg(title).arg(QString::number(season))
-                                 .arg(QString::number(episode))
-                                 .arg(suffix))
-                                 .arg(ext);
+                        sfn += fntm.arg(dir,
+                                        QString("%1 Season %2x%3_%4")
+                                            .arg(title, QString::number(season),
+                                                 QString::number(episode),
+                                                 suffix),
+                                        ext);
                     }
                     else
                     {
-                        sfn += fntm.arg(dir).arg(QString("%1 Season %2_%3")
-                                 .arg(title).arg(QString::number(season))
-                                 .arg(suffix))
-                                 .arg(ext);
+                        sfn += fntm.arg(dir,
+                                        QString("%1 Season %2_%3")
+                                            .arg(title, QString::number(season),
+                                                 suffix),
+                                        ext);
                     }
                 }
                 if (!isScreenshot)
                 {
-                sfn += fntm.arg(dir)
-                    .arg(base_name + QString("_%1").arg(suffix))
-                    .arg(ext);
-                sfn += fntm.arg(dir)
-                    .arg(video_uid + QString("_%1").arg(suffix))
-                    .arg(ext);
+                sfn += fntm.arg(dir,
+                                base_name + QString("_%1").arg(suffix),
+                                ext);
+                sfn += fntm.arg(dir,
+                                video_uid + QString("_%1").arg(suffix),
+                                ext);
                 }
 
                 for (const auto & file : qAsConst(sfn))
@@ -1242,7 +1243,7 @@ void VideoDialog::UpdateItem(MythUIButtonListItem *item)
                             parent->GetText().startsWith(tr("Season"), Qt::CaseInsensitive)))
         item->SetText(metadata->GetSubtitle());
     else if (metadata && !metadata->GetSubtitle().isEmpty())
-        item->SetText(QString("%1: %2").arg(metadata->GetTitle()).arg(metadata->GetSubtitle()));
+        item->SetText(QString("%1: %2").arg(metadata->GetTitle(), metadata->GetSubtitle()));
     else
         item->SetText(metadata ? metadata->GetTitle() : node->GetText());
 
@@ -1364,7 +1365,7 @@ QString VideoDialog::RemoteImageCheck(const QString& host, const QString& filena
             QUrl sgurl = dir;
             QString path = sgurl.path();
 
-            QString fname = QString("%1/%2").arg(path).arg(filename);
+            QString fname = QString("%1/%2").arg(path, filename);
 
             QStringList list( QString("QUERY_SG_FILEQUERY") );
             list << host;
@@ -1406,6 +1407,9 @@ QString VideoDialog::RemoteImageCheck(const QString& host, const QString& filena
  */
 QString VideoDialog::GetCoverImage(MythGenericTree *node)
 {
+    if (!node)
+        return QString();
+
     int nodeInt = node->getInt();
 
     QString icon_file;
@@ -1413,7 +1417,7 @@ QString VideoDialog::GetCoverImage(MythGenericTree *node)
     if (nodeInt  == kSubFolder)  // subdirectory
     {
         // First validate that the data can be converted
-        if (!node || !node->GetData().canConvert<TreeNodeData>())
+        if (!node->GetData().canConvert<TreeNodeData>())
             return icon_file;
 
         // load folder icon
@@ -1583,9 +1587,7 @@ QString VideoDialog::GetCoverImage(MythGenericTree *node)
             {
                 if (host.isEmpty())
                 {
-                    icon_file = QString("%1/%2")
-                                    .arg(folder_path)
-                                    .arg(fList.at(0));
+                    icon_file = QString("%1/%2").arg(folder_path, fList.at(0));
                 }
                 else
                 {
@@ -1655,7 +1657,7 @@ QString VideoDialog::GetFirstImage(MythGenericTree *node, const QString& type,
     if (list_count > 0)
     {
         QList<MythGenericTree *> subDirs;
-        int maxRecurse = 1;
+        static constexpr int maxRecurse { 1 };
 
         for (int i = 0; i < list_count; i++)
         {
@@ -2076,7 +2078,6 @@ void VideoDialog::searchComplete(const QString& string)
     LOG(VB_GENERAL, LOG_DEBUG, QString("Jumping to: %1").arg(string));
 
     MythGenericTree *parent = m_d->m_currentNode->getParent();
-    QStringList childList;
     QList<MythGenericTree*> *children = nullptr;
     QMap<int, QString> idTitle;
 
@@ -2275,8 +2276,8 @@ void VideoDialog::VideoMenu()
     {
         if (!metadata->GetSubtitle().isEmpty())
         {
-            label = tr("Video Options\n%1\n%2").arg(metadata->GetTitle())
-                                           .arg(metadata->GetSubtitle());
+            label = tr("Video Options\n%1\n%2").arg(metadata->GetTitle(),
+                                                    metadata->GetSubtitle());
         }
         else
         {
@@ -3382,12 +3383,12 @@ void VideoDialog::OnVideoSearchListSelection(RefCountHandler<MetadataLookup> loo
     {
         LOG(VB_GENERAL, LOG_INFO, LOC_MML +
             QString("Selected Item: Type: %1%2 : Subtype: %3%4%5 : InetRef: %6")
-                .arg(lookup->GetType() == kMetadataVideo ? "Video" : "")
-                .arg(lookup->GetType() == kMetadataRecording ? "Recording" : "")
-                .arg(lookup->GetSubtype() == kProbableMovie ? "Movie" : "")
-                .arg(lookup->GetSubtype() == kProbableTelevision ? "Television" : "")
-                .arg(lookup->GetSubtype() == kUnknownVideo ? "Unknown" : "")
-                .arg(lookup->GetInetref()));
+                .arg(lookup->GetType() == kMetadataVideo ? "Video" : "",
+                     lookup->GetType() == kMetadataRecording ? "Recording" : "",
+                     lookup->GetSubtype() == kProbableMovie ? "Movie" : "",
+                     lookup->GetSubtype() == kProbableTelevision ? "Television" : "",
+                     lookup->GetSubtype() == kUnknownVideo ? "Unknown" : "",
+                     lookup->GetInetref()));
 
         lookup->SetStep(kLookupData);
         lookup->IncrRef();

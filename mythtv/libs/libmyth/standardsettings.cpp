@@ -187,8 +187,7 @@ bool StandardSetting::haveChanged()
     if (m_haveChanged)
     {
         LOG(VB_GENERAL, LOG_DEBUG,
-            QString("Setting '%1' changed to %2").arg(getLabel())
-            .arg(getValue()));
+            QString("Setting '%1' changed to %2").arg(getLabel(), getValue()));
         return true;
     }
 
@@ -346,7 +345,12 @@ void AutoIncrementSetting::Save(void)
 
         QVariant var = query.lastInsertId();
 
-        if (var.type())
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        auto id = static_cast<QMetaType::Type>(var.type());
+#else
+        auto id = var.typeId();
+#endif
+        if (id != QMetaType::UnknownType)
             setValue(var.toInt());
         else
         {

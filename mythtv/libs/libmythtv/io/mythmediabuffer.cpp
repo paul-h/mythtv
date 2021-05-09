@@ -473,8 +473,8 @@ long long MythMediaBuffer::Seek(long long Position, int Whence, bool HasLock)
 {
     LOG(VB_FILE, LOG_INFO, LOC + QString("Seek: Position:%1 Type: %2 Locked: %3)")
         .arg(Position)
-        .arg((SEEK_SET == Whence) ? "SEEK_SET" : ((SEEK_CUR == Whence) ? "SEEK_CUR" : "SEEK_END"))
-        .arg(HasLock?"locked":"unlocked"));
+        .arg((SEEK_SET == Whence) ? "SEEK_SET" : ((SEEK_CUR == Whence) ? "SEEK_CUR" : "SEEK_END"),
+             HasLock?"locked":"unlocked"));
 
     if (!HasLock)
         m_rwLock.lockForWrite();
@@ -1343,8 +1343,14 @@ int MythMediaBuffer::ReadPriv(void *Buffer, int Count, bool Peek)
         if (m_requestPause || m_stopReads || !m_readAheadRunning || (m_ignoreReadPos >= 0))
         {
             int result = ReadDirect(Buffer, Count, Peek);
-            LOG(VB_FILE, LOG_DEBUG, LOC + desc + QString(": ReadDirect checksum %1")
-                    .arg(qChecksum(reinterpret_cast<char*>(Buffer), static_cast<uint>(Count))));
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+            quint16 checksum = qChecksum(reinterpret_cast<char*>(Buffer), static_cast<uint>(Count));
+#else
+            QByteArrayView BufferView(reinterpret_cast<char*>(Buffer), Count);
+            quint16 checksum = qChecksum(BufferView);
+#endif
+           LOG(VB_FILE, LOG_DEBUG, LOC + desc + QString(": ReadDirect checksum %1")
+                    .arg(checksum));
             m_rwLock.unlock();
             return result;
         }
@@ -1443,8 +1449,13 @@ int MythMediaBuffer::ReadPriv(void *Buffer, int Count, bool Peek)
     {
         memcpy(Buffer, m_readAheadBuffer + readposition, static_cast<uint>(Count));
     }
-    LOG(VB_FILE, LOG_DEBUG, LOC + desc + QString(": Checksum %1")
-            .arg(qChecksum(reinterpret_cast<char*>(Buffer), static_cast<uint>(Count))));
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+    quint16 checksum = qChecksum(reinterpret_cast<char*>(Buffer), static_cast<uint>(Count));
+#else
+    QByteArrayView BufferView(reinterpret_cast<char*>(Buffer), Count);
+    quint16 checksum = qChecksum(BufferView);
+#endif
+    LOG(VB_FILE, LOG_DEBUG, LOC + desc + QString(": Checksum %1").arg(checksum));
 
     if (!Peek)
     {

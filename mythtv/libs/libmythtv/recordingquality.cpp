@@ -64,12 +64,12 @@ RecordingQuality::RecordingQuality(
 
     // account for late start
     int start_gap = (first.isValid()) ? start.secsTo(first) : 0;
-    if (start_gap > 15)
+    if (start_gap >  gCoreContext->GetNumSetting("MaxStartGap", 15))
         m_recordingGaps.push_front(RecordingGap(start, first));
 
     // account for missing end
     int end_gap = (latest.isValid()) ? latest.secsTo(end) : 0;
-    if (end_gap > 15)
+    if (end_gap > gCoreContext->GetNumSetting("MaxEndGap", 15))
         m_recordingGaps.push_back(RecordingGap(latest, end));
 
     std::stable_sort(m_recordingGaps.begin(), m_recordingGaps.end());
@@ -79,9 +79,9 @@ RecordingQuality::RecordingQuality(
 
     LOG(VB_RECORD, LOG_INFO,
         QString("RecordingQuality() start(%1) end(%2) score(%3)")
-        .arg(MythDate::toString(start, MythDate::ISODate))
-        .arg(MythDate::toString(end, MythDate::ISODate))
-        .arg(m_overallScore));
+        .arg(MythDate::toString(start, MythDate::ISODate),
+             MythDate::toString(end, MythDate::ISODate),
+             QString::number(m_overallScore)));
 }
 
 void RecordingQuality::AddTSStatistics(

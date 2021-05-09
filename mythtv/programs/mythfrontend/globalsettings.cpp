@@ -627,6 +627,51 @@ static GlobalSpinBoxSetting *RecordOverTime()
     return bs;
 }
 
+static GlobalSpinBoxSetting *MaxStartGap()
+{
+    auto *bs = new GlobalSpinBoxSetting("MaxStartGap", 0, 300, 1, 15);
+
+    bs->setLabel(GeneralSettings::tr("Maximum Start Gap (secs)"));
+
+    bs->setValue(15);
+
+    bs->setHelpText(GeneralSettings::tr("If more than this number of seconds "
+                                        "is missing at the start of a recording "
+                                        "that will be regarded as a gap for "
+                                        "assessing recording quality. The recording "
+                                        "may be marked as damaged."));
+    return bs;
+}
+
+static GlobalSpinBoxSetting *MaxEndGap()
+{
+    auto *bs = new GlobalSpinBoxSetting("MaxEndGap", 0, 300, 1, 15);
+
+    bs->setLabel(GeneralSettings::tr("Maximum End Gap (secs)"));
+
+    bs->setValue(15);
+
+    bs->setHelpText(GeneralSettings::tr("If more than this number of seconds "
+                                        "is missing at the end of a recording "
+                                        "that will be regarded as a gap for "
+                                        "assessing recording quality. The recording "
+                                        "may be marked as damaged."));
+    return bs;
+}
+
+static GlobalSpinBoxSetting *MinimumRecordingQuality()
+{
+    auto *bs = new GlobalSpinBoxSetting("MinimumRecordingQuality", 0, 100, 1, 10);
+
+    bs->setLabel(GeneralSettings::tr("Minimum Recording Quality (percent)"));
+
+    bs->setValue(95);
+
+    bs->setHelpText(GeneralSettings::tr("If recording quality is below this value the "
+                                        "recording is marked as damaged."));
+    return bs;
+}
+
 static GlobalComboBoxSetting *OverTimeCategory()
 {
     auto *gc = new GlobalComboBoxSetting("OverTimeCategory");
@@ -4234,10 +4279,11 @@ void PlayBackScaling::updateButton(MythUIButtonListItem *item)
     else
     {
         item->SetText(QString("%1%x%2%+%3%+%4%")
-                .arg(m_horizScan->getValue())
-                .arg(m_vertScan->getValue())
-                .arg(m_xScan->getValue())
-                .arg(m_yScan->getValue()), "value");
+                      .arg(m_horizScan->getValue(),
+                           m_vertScan->getValue(),
+                           m_xScan->getValue(),
+                           m_yScan->getValue()),
+                      "value");
     }
 }
 
@@ -4521,6 +4567,9 @@ GeneralSettings::GeneralSettings()
 
     general2->addChild(RecordPreRoll());
     general2->addChild(RecordOverTime());
+    general2->addChild(MaxStartGap());
+    general2->addChild(MaxEndGap());
+    general2->addChild(MinimumRecordingQuality());
     general2->addChild(CategoryOverTimeSettings());
     addChild(general2);
 
@@ -4615,10 +4664,11 @@ void GuiDimension::updateButton(MythUIButtonListItem *item)
     else
     {
         item->SetText(QString("%1x%2+%3+%4")
-                      .arg(m_width->getValue())
-                      .arg(m_height->getValue())
-                      .arg(m_offsetX->getValue())
-                      .arg(m_offsetY->getValue()), "value");
+                      .arg(m_width->getValue(),
+                           m_height->getValue(),
+                           m_offsetX->getValue(),
+                           m_offsetY->getValue()),
+                      "value");
     }
 }
 
@@ -4722,7 +4772,7 @@ ChannelCheckBoxSetting::ChannelCheckBoxSetting(uint chanid,
         const QString &channum, const QString &channame)
     : m_channelId(chanid)
 {
-    setLabel(QString("%1 %2").arg(channum).arg(channame));
+    setLabel(QString("%1 %2").arg(channum, channame));
     setHelpText(ChannelGroupSettings::tr("Select/Unselect channels for this channel group"));
 }
 

@@ -538,8 +538,8 @@ bool MythMainWindow::SaveScreenShot(const QImage& Image, QString Filename)
     if (Filename.isEmpty())
     {
         QString fpath = GetMythDB()->GetSetting("ScreenShotPath", "/tmp");
-        Filename = QString("%1/myth-screenshot-%2.png").arg(fpath)
-            .arg(MythDate::toString(MythDate::current(), MythDate::kScreenShotFilename));
+        Filename = QString("%1/myth-screenshot-%2.png")
+            .arg(fpath, MythDate::toString(MythDate::current(), MythDate::kScreenShotFilename));
     }
 
     QString extension = Filename.section('.', -1, -1);
@@ -1225,13 +1225,17 @@ void MythMainWindow::BindKey(const QString& Context, const QString& Action, cons
     QKeySequence keyseq(Key);
     for (unsigned int i = 0; i < static_cast<uint>(keyseq.count()); i++)
     {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
         int keynum = keyseq[i];
+#else
+        int keynum = keyseq[i].toCombined();
+#endif
 
         QStringList dummyaction("");
         if (keycontext->GetMapping(keynum, dummyaction))
         {
             LOG(VB_GENERAL, LOG_WARNING, QString("Key %1 is bound to multiple actions in context %2.")
-                .arg(Key).arg(Context));
+                .arg(Key, Context));
         }
 
         keycontext->AddMapping(keynum, Action);
@@ -1380,7 +1384,11 @@ void MythMainWindow::BindJump(const QString& Destination, const QString& Key)
 
     for (unsigned int i = 0; i < static_cast<uint>(keyseq.count()); i++)
     {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
         int keynum = keyseq[i];
+#else
+        int keynum = keyseq[i].toCombined();
+#endif
 
         if (m_priv->m_jumpMap.count(keynum) == 0)
         {
@@ -1868,7 +1876,7 @@ void MythMainWindow::customEvent(QEvent* Event)
             if (auto * screen = toplevel->GetTopScreen(); screen)
                 screen->gestureEvent(gesture);
         LOG(VB_GUI, LOG_DEBUG, QString("Gesture: %1 (Button: %2)")
-            .arg(gesture->GetName()).arg(gesture->GetButtonName()));
+            .arg(gesture->GetName(), gesture->GetButtonName()));
     }
     else if (Event->type() == MythEvent::kExitToMainMenuEventType && m_priv->m_exitingtomain)
     {

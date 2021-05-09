@@ -628,9 +628,8 @@ void RecordingInfo::ApplyRecordRecGroupChange(const QString &newrecgroup)
     }
 
     LOG(VB_GENERAL, LOG_NOTICE,
-            QString("ApplyRecordRecGroupChange: %1 to %2 (%3)").arg(m_recGroup)
-                                                               .arg(newrecgroup)
-                                                               .arg(newrecgroupid));
+            QString("ApplyRecordRecGroupChange: %1 to %2 (%3)")
+                .arg(m_recGroup, newrecgroup, QString::number(newrecgroupid)));
 
     query.prepare("UPDATE recorded"
                   " SET recgroup = :RECGROUP, "
@@ -680,9 +679,8 @@ void RecordingInfo::ApplyRecordRecGroupChange(int newrecgroupid)
     }
 
     LOG(VB_GENERAL, LOG_NOTICE,
-            QString("ApplyRecordRecGroupChange: %1 to %2 (%3)").arg(m_recGroup)
-                                                               .arg(newrecgroup)
-                                                               .arg(newrecgroupid));
+            QString("ApplyRecordRecGroupChange: %1 to %2 (%3)")
+                .arg(m_recGroup, newrecgroup).arg(newrecgroupid));
 }
 
 /** \fn RecordingInfo::ApplyRecordPlayGroupChange(const QString &newplaygroup)
@@ -934,32 +932,10 @@ bool RecordingInfo::QueryRecordedIdForKey(int & recordedid,
  */
 void RecordingInfo::StartedRecording(const QString& ext)
 {
-    QString dirname = m_pathname;
-
-    if (!m_record)
-    {
-        m_record = new RecordingRule();
-        m_record->LoadByProgram(this);
-    }
-
     m_hostname = gCoreContext->GetHostName();
-    m_pathname = CreateRecordBasename(ext);
 
-    int count = 0;
-    while (!InsertProgram(this, m_record) && count < 50)
-    {
-        m_recStartTs = m_recStartTs.addSecs(1);
-        m_pathname = CreateRecordBasename(ext);
-        count++;
-    }
-
-    if (count >= 50)
-    {
-        LOG(VB_GENERAL, LOG_ERR, "Couldn't insert program");
+    if (!InsertRecording(ext))
         return;
-    }
-
-    m_pathname = dirname + "/" + m_pathname;
 
     LOG(VB_FILE, LOG_INFO, LOC + QString("StartedRecording: Recording to '%1'")
                              .arg(m_pathname));
@@ -1009,16 +985,53 @@ void RecordingInfo::StartedRecording(const QString& ext)
     if (!query.exec() || !query.isActive())
         MythDB::DBError("Copy program ratings on record", query);
 
-    // File
-    if (!GetRecordingFile())
-        LoadRecordingFile();
-    RecordingFile *recFile = GetRecordingFile();
-    recFile->m_fileName = GetBasename();
-    recFile->m_storageDeviceID = GetHostname();
-    recFile->m_storageGroup = GetStorageGroup();
-    recFile->Save();
+    InsertFile();
+}
 
-    SendAddedEvent();
+bool RecordingInfo::InsertRecording(const QString &ext, bool force_match)
+{
+    QString dirname = m_pathname;
+
+#if 1
+    if (!dirname.isEmpty())
+    {
+        LOG(VB_GENERAL, LOG_WARNING, LOC +
+            QString("InsertRecording: m_pathname was '%1'. "
+                    "This is usually blank.").arg(dirname));
+    }
+#endif
+
+    m_pathname = CreateRecordBasename(ext);
+
+    if (!m_record)
+    {
+        m_record = new RecordingRule();
+        m_record->LoadByProgram(this);
+    }
+
+    int count = 0;
+    while (!InsertProgram(this, m_record) && count < 50)
+    {
+        if (force_match)
+        {
+            LOG(VB_GENERAL, LOG_ERR, "Failed to insert new recording.");
+            return false;
+        }
+
+        m_recStartTs = m_recStartTs.addSecs(1);
+        m_pathname = CreateRecordBasename(ext);
+        ++count;
+    }
+
+    if (count >= 50)
+    {
+        LOG(VB_GENERAL, LOG_ERR, "Could not insert program");
+        return false;
+    }
+
+    m_pathname = dirname + "/" + m_pathname;
+
+    return true;
 }
 
 bool RecordingInfo::InsertProgram(RecordingInfo *pg,
@@ -1178,6 +1191,20 @@ bool RecordingInfo::InsertProgram(RecordingInfo *pg,
     return ok;
 }
 
+void RecordingInfo::InsertFile(void)
+{
+    // File
+    if (!GetRecordingFile())
+        LoadRecordingFile();
+    RecordingFile *recFile = GetRecordingFile();
+    recFile->m_fileName = GetBasename();
+    recFile->m_storageDeviceID = GetHostname();
+    recFile->m_storageGroup = GetStorageGroup();
+    recFile->Save();
+
+    SendAddedEvent();
+}
+
 /**
  *  \brief If not a premature stop, adds program to history of recorded
  *         programs.
@@ -1214,11 +1241,9 @@ void RecordingInfo::FinishedRecording(bool allowReRecord)
         QString msg_subtitle = m_subtitle.isEmpty() ? "" :
                                         QString(" \"%1\"").arg(m_subtitle);
         QString details = QString("%1%2: channel %3")
-                                        .arg(m_title)
-                                        .arg(msg_subtitle)
-                                        .arg(m_chanId);
+            .arg(m_title, msg_subtitle, QString::number(m_chanId));
 
-        LOG(VB_GENERAL, LOG_INFO, QString("%1 %2").arg(msg).arg(details));
+        LOG(VB_GENERAL, LOG_INFO, QString("%1 %2").arg(msg, details));
     }
 
     SendUpdateEvent();
@@ -1276,7 +1301,7 @@ void RecordingInfo::AddHistory(bool resched, bool forcedup, bool future)
                         !future) ? RecStatus::PreviousRecording : GetRecordingStatus();
     LOG(VB_SCHEDULE, LOG_INFO, QString("AddHistory: %1/%2, %3, %4, %5/%6")
         .arg(int(rs)).arg(int(m_oldrecstatus)).arg(future).arg(dup)
-        .arg(GetScheduledStartTime(MythDate::ISODate)).arg(GetTitle()));
+        .arg(GetScheduledStartTime(MythDate::ISODate), GetTitle()));
     if (!future)
         m_oldrecstatus = GetRecordingStatus();
     if (dup)

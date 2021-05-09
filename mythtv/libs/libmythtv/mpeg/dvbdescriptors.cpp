@@ -317,33 +317,33 @@ void ContentDescriptor::Init(void)
 
     s_categoryDesc[0x10] = QCoreApplication::translate("(Categories)", "Movie");
     s_categoryDesc[0x11] = subCatStr
-        .arg(QCoreApplication::translate("(Categories)", "Movie"))
-        .arg(QCoreApplication::translate("(Categories)", "Detective/Thriller"));
+        .arg(QCoreApplication::translate("(Categories)", "Movie"),
+             QCoreApplication::translate("(Categories)", "Detective/Thriller"));
     s_categoryDesc[0x12] = subCatStr
-        .arg(QCoreApplication::translate("(Categories)", "Movie"))
-        .arg(QCoreApplication::translate("(Categories)",
+        .arg(QCoreApplication::translate("(Categories)", "Movie"),
+             QCoreApplication::translate("(Categories)",
                                          "Adventure/Western/War"));
     s_categoryDesc[0x13] = subCatStr
-        .arg(QCoreApplication::translate("(Categories)", "Movie"))
-        .arg(QCoreApplication::translate("(Categories)",
+        .arg(QCoreApplication::translate("(Categories)", "Movie"),
+             QCoreApplication::translate("(Categories)",
                                          "Science Fiction/Fantasy/Horror"));
     s_categoryDesc[0x14] = subCatStr
-        .arg(QCoreApplication::translate("(Categories)", "Movie"))
-        .arg(QCoreApplication::translate("(Categories)", "Comedy"));
+        .arg(QCoreApplication::translate("(Categories)", "Movie"),
+             QCoreApplication::translate("(Categories)", "Comedy"));
     s_categoryDesc[0x15] = subCatStr
-        .arg(QCoreApplication::translate("(Categories)", "Movie"))
-        .arg(QCoreApplication::translate("(Categories)",
+        .arg(QCoreApplication::translate("(Categories)", "Movie"),
+             QCoreApplication::translate("(Categories)",
                                          "Soap/melodrama/folkloric"));
     s_categoryDesc[0x16] = subCatStr
-        .arg(QCoreApplication::translate("(Categories)", "Movie"))
-        .arg(QCoreApplication::translate("(Categories)", "Romance"));
+        .arg(QCoreApplication::translate("(Categories)", "Movie"),
+             QCoreApplication::translate("(Categories)", "Romance"));
     s_categoryDesc[0x17] = subCatStr
-        .arg(QCoreApplication::translate("(Categories)","Movie"))
-        .arg(QCoreApplication::translate("(Categories)",
+        .arg(QCoreApplication::translate("(Categories)","Movie"),
+             QCoreApplication::translate("(Categories)",
             "Serious/Classical/Religious/Historical Movie/Drama"));
     s_categoryDesc[0x18] = subCatStr
-        .arg(QCoreApplication::translate("(Categories)","Movie"))
-        .arg(QCoreApplication::translate("(Categories)", "Adult",
+        .arg(QCoreApplication::translate("(Categories)","Movie"),
+             QCoreApplication::translate("(Categories)", "Adult",
                                          "Adult Movie"));
 
     s_categoryDesc[0x20] = QCoreApplication::translate("(Categories)", "News");
@@ -532,68 +532,92 @@ QString ServiceDescriptorMapping::toString() const
     return str;
 }
 
-QString TeletextDescriptor::toString(void) const
+QString SubtitlingDescriptor::toString(void) const
 {
-    QString str = QString("Teletext Descriptor: %1 pages")
-        .arg(StreamCount());
+    QString ret = QString("Subtitling Descriptor ");
+    ret += QString("tag(0x%1) ").arg(DescriptorTag(),2,16,QChar('0'));
+    ret += QString("length(%1)").arg(DescriptorLength());
 
     for (uint i = 0; i < StreamCount(); i++)
     {
-        if (1 != StreamCount())
-            str.append("\n ");
+        ret.append("\n      ");
+        ret.append(QString("type(0x%1) composition_page_id(%2) ancillary_page_id(%3) lang(%4)")
+            .arg(SubtitleType(i),2,16,QChar('0'))
+            .arg(CompositionPageID(i))
+            .arg(AncillaryPageID(i))
+            .arg(LanguageString(i)));
+    }
 
-        str.append(QString("     type(%1) mag(%2) page(%3) lang(%4)")
+    return ret;
+}
+
+QString TeletextDescriptor::toString(void) const
+{
+    QString ret = QString("Teletext Descriptor ");
+    ret += QString("tag(0x%1) ").arg(DescriptorTag(),2,16,QChar('0'));
+    ret += QString("length(%1)").arg(DescriptorLength());
+
+    for (uint i = 0; i < StreamCount(); i++)
+    {
+        ret.append("\n      ");
+        ret.append(QString("type(%1) mag(%2) page(%3) lang(%4)")
                    .arg(TeletextType(i))
                    .arg(TeletextMagazineNum(i), 0, 16)
                    .arg(TeletextPageNum(i), 2, 16, QChar('0'))
                    .arg(LanguageString(i)));
     }
 
-    return str;
+    return ret;
 }
 
 QString CableDeliverySystemDescriptor::toString() const
 {
-    QString str = QString("CableDeliverySystemDescriptor: ");
+    QString str = QString("CableDeliverySystemDescriptor ");
+    str += QString("tag(0x%1) ").arg(DescriptorTag(),2,16,QChar('0'));
+    str += QString("length(%1)").arg(DescriptorLength());
 
     str.append(QString("Frequency: %1\n").arg(FrequencyHz()));
     str.append(QString("      Mod=%1, SymbR=%2, FECInner=%3, FECOuter=%4")
-        .arg(ModulationString())
-        .arg(SymbolRateHz())
-        .arg(FECInnerString())
-        .arg(FECOuterString()));
+        .arg(ModulationString(),
+             QString::number(SymbolRateHz()),
+             FECInnerString(),
+             FECOuterString()));
 
     return str;
 }
 
 QString SatelliteDeliverySystemDescriptor::toString() const
 {
-    QString str = QString("SatelliteDeliverySystemDescriptor: ");
+    QString str = QString("SatelliteDeliverySystemDescriptor ");
+    str += QString("tag(0x%1) ").arg(DescriptorTag(),2,16,QChar('0'));
+    str += QString("length(%1) ").arg(DescriptorLength());
 
     str.append(QString("Frequency: %1, Type: %2\n").arg(FrequencykHz())
         .arg(ModulationSystemString()));
     str.append(QString("      Mod=%1, SymbR=%2, FECInner=%3, Orbit=%4, Pol=%5")
-        .arg(ModulationString())
-        .arg(SymbolRateHz())
-        .arg(FECInnerString())
-        .arg(OrbitalPositionString())
-        .arg(PolarizationString()));
+        .arg(ModulationString(),
+             QString::number(SymbolRateHz()),
+             FECInnerString(),
+             OrbitalPositionString(),
+             PolarizationString()));
 
     return str;
 }
 
 QString TerrestrialDeliverySystemDescriptor::toString() const
 {
-    QString str = QString("TerrestrialDeliverySystemDescriptor: ");
+    QString str = QString("TerrestrialDeliverySystemDescriptor ");
+    str += QString("tag(0x%1) ").arg(DescriptorTag(),2,16,QChar('0'));
+    str += QString("length(%1) ").arg(DescriptorLength());
 
     str.append(QString("Frequency: %1\n").arg(FrequencyHz()));
     str.append(QString("      BW=%1MHz C=%2 HP=%3 LP=%4 GI=%5 TransMode=%6k")
-        .arg(BandwidthString())
-        .arg(ConstellationString())
-        .arg(CodeRateHPString())
-        .arg(CodeRateLPString())
-        .arg(GuardIntervalString())
-        .arg(TransmissionModeString()));
+        .arg(BandwidthString(),
+             ConstellationString(),
+             CodeRateHPString(),
+             CodeRateLPString(),
+             GuardIntervalString(),
+             TransmissionModeString()));
 
     return str;
 }
@@ -602,9 +626,9 @@ QString TerrestrialDeliverySystemDescriptor::toString() const
 QString ImageIconDescriptor::toString() const
 {
     QString str = QString("ImageIconDescriptor ");
-    str += QString("(0x%1 ").arg(DescriptorTag(),2,16,QChar('0'));
-    str += QString("0x%1) ").arg(DescriptorTagExtension(),2,16,QChar('0'));
+    str += QString("tag(0x%1) ").arg(DescriptorTag(),2,16,QChar('0'));
     str += QString("length(%1) ").arg(DescriptorLength());
+    str += QString("extension(0x%1) ").arg(DescriptorTagExtension(),2,16,QChar('0'));
     str += QString("number %1/%2").arg(DescriptorNumber()).arg(LastDescriptorNumber());
     //
     // TBD
@@ -633,9 +657,9 @@ void T2DeliverySystemDescriptor::Parse(void) const
 QString T2DeliverySystemDescriptor::toString() const
 {
     QString str = QString("T2DeliverySystemDescriptor ");
-    str += QString("(0x%1 ").arg(DescriptorTag(),2,16,QChar('0'));
-    str += QString("0x%1) ").arg(DescriptorTagExtension(),2,16,QChar('0'));
+    str += QString("tag(0x%1) ").arg(DescriptorTag(),2,16,QChar('0'));
     str += QString("length(%1) ").arg(DescriptorLength());
+    str += QString("extension(0x%1) ").arg(DescriptorTagExtension(),2,16,QChar('0'));
     str += QString("plp_id(%1) ").arg(PlpID());
     str += QString("T2_system_id(%1)").arg(T2SystemID());
     if (DescriptorLength() > 4)
@@ -682,9 +706,9 @@ QString T2DeliverySystemDescriptor::toString() const
 QString SHDeliverySystemDescriptor::toString() const
 {
     QString str = QString("SHDeliverySystemDescriptor ");
-    str += QString("(0x%1 ").arg(DescriptorTag(),2,16,QChar('0'));
+    str += QString("tag(0x%1 ").arg(DescriptorTag(),2,16,QChar('0'));
+    str += QString("length(%1) ").arg(DescriptorLength());
     str += QString("0x%1) ").arg(DescriptorTagExtension(),2,16,QChar('0'));
-    str += QString("length(%1)").arg(DescriptorLength());
     //
     // TBD
     //
@@ -900,7 +924,7 @@ QString FreesatRegionDescriptor::toString() const
         QString language = Language(i);
         QString region_name = RegionName(i);
         ret += QString("\n    Region (%1) (%2) '%3'")
-            .arg(region_id,2).arg(language).arg(region_name);
+            .arg(region_id,2).arg(language, region_name);
     }
     return ret;
 }
@@ -908,9 +932,9 @@ QString FreesatRegionDescriptor::toString() const
 QString FreesatCallsignDescriptor::toString(void) const
 {
     QString ret = QString("Freesat Callsign Descriptor ");
-    ret += QString("(0x%1)").arg(DescriptorTag(),2,16,QChar('0'));
-    ret += QString(" length(%1)").arg(DescriptorLength());
-    ret += QString("  (%1) '%2'").arg(Language()).arg(Callsign());
+    ret += QString("tag(0x%1) ").arg(DescriptorTag(),2,16,QChar('0'));
+    ret += QString("length(%1)").arg(DescriptorLength());
+    ret += QString("  (%1) '%2'").arg(Language(), Callsign());
     return ret;
 }
 
@@ -921,6 +945,20 @@ QString OpenTVChannelListDescriptor::toString() const
     {
         ret += QString("%1->%2(%3)").arg(ServiceID(i)).arg(ChannelNumber(i)).arg(ChannelID(i));
         ret += (i+1<ChannelCount()) ? ", " : "";
+    }
+    return ret;
+}
+
+QString ApplicationSignallingDescriptor::toString(void) const
+{
+    QString ret = QString("ApplicationSignallingDescriptor ");
+    ret += QString("tag(0x%1) ").arg(DescriptorTag(),2,16,QChar('0'));
+    ret += QString("length(%1)").arg(DescriptorLength());
+    for (uint i = 0; i < Count(); ++i)
+    {
+        ret += "\n      ";
+        ret += QString("application_type(%1) ").arg(ApplicationType(i));
+        ret += QString("AIT_version_number(%1)").arg(AITVersionNumber(i));
     }
     return ret;
 }
@@ -997,16 +1035,16 @@ QString PartialTransportStreamDescriptor::toString(void) const
 
 QString AC3Descriptor::toString(void) const
 {
-    QString ret = QString("AC3DescriptorDescriptor ");
+    QString ret = QString("AC-3 Descriptor ");
+    ret += QString("tag(%1) length(%2) ").arg(DescriptorTag(), DescriptorLength());
     if (HasComponentType())
-        ret += QString("component_type(%1) ")
-        .arg(ComponentType(), 0, 10);
+        ret += QString("type(0x%1) ").arg(ComponentType(), 2, 16, QChar('0'));
     if (HasBSID())
-        ret += QString("bsid(0x%1) ").arg(BSID(),0,16);
+        ret += QString("bsid(0x%1) ").arg(BSID(), 2, 16, QChar('0'));
     if (HasMainID())
-        ret += QString("mainid(0x%1) ").arg(MainID(),0,16);
+        ret += QString("mainid(0x%1) ").arg(MainID(), 2, 16, QChar('0'));
     if (HasASVC())
-        ret += QString("asvc(%1) ").arg(ASVC());
+        ret += QString("asvc(0x%1) ").arg(ASVC(), 2, 16, QChar('0'));
     return ret;
 }
 

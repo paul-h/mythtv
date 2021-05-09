@@ -446,9 +446,9 @@ void UPnpCDSMusic::PopulateArtworkURIS(CDSObject* pItem, int nSongID)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("Unable to designate album artwork "
                                          "for '%1' with class '%2' and id '%3'")
-                                            .arg(pItem->m_sId)
-                                            .arg(pItem->m_sClass)
-                                            .arg(nSongID));
+                                            .arg(pItem->m_sId,
+                                                 pItem->m_sClass,
+                                                 QString::number(nSongID)));
     }
 }
 
@@ -591,7 +591,7 @@ bool UPnpCDSMusic::LoadArtists(const UPnpCDSRequest *pRequest,
     {
         int nArtistId = query.value(0).toInt();
         QString sArtistName = query.value(1).toString();
-        QStringList sGenres = query.value(2).toString().split(',');
+//      QStringList sGenres = query.value(2).toString().split(',');
         int nAlbumCount = query.value(3).toInt();
 
         CDSObject* pContainer = CDSObject::CreateMusicArtist( CreateIDString(sRequestId, "Artist", nArtistId),

@@ -1849,7 +1849,7 @@ static bool doUpgradeTVDatabaseSchema(void)
                 LOG(VB_GENERAL, LOG_CRIT,
                     QString("Invalid address string '%1' found on %2. "
                             "Reverting to localhost defaults.")
-                        .arg(query.value(0).toString()).arg(hostname));
+                        .arg(query.value(0).toString(), hostname));
             }
 
             if (!update.exec() || !insert.exec())
@@ -3799,6 +3799,36 @@ static bool doUpgradeTVDatabaseSchema(void)
                                  updates, "1368", dbver))
             return false;
     }
+    if (dbver == "1368")
+    {
+        DBUpdates updates {
+            // NOLINTNEXTLINE(bugprone-suspicious-missing-comma)
+            "ALTER TABLE credits ADD COLUMN priority "
+            "    TINYINT UNSIGNED DEFAULT 0;",
+            "ALTER TABLE credits ADD COLUMN roleid "
+            "    MEDIUMINT UNSIGNED DEFAULT 0;",
+            "ALTER TABLE credits drop key chanid, "
+            "     add unique key `chanid` "
+            "          (chanid, starttime, person, role, roleid);"
+            "ALTER TABLE recordedcredits ADD COLUMN priority "
+            "    TINYINT UNSIGNED DEFAULT 0;",
+            "ALTER TABLE recordedcredits ADD COLUMN roleid "
+            "    MEDIUMINT UNSIGNED DEFAULT 0;",
+            "ALTER TABLE recordedcredits drop key chanid, "
+            "     add unique key `chanid` "
+            "          (chanid, starttime, person, role, roleid);"
+            "CREATE TABLE roles (roleid MEDIUMINT UNSIGNED NOT NULL AUTO_INCREMENT,"
+            "  `name` varchar(128) CHARACTER SET utf8 COLLATE utf8_bin"
+            "    NOT NULL DEFAULT '',"
+            "  PRIMARY KEY (roleid),"
+            "  UNIQUE KEY `name` (`name`)"
+            ") ENGINE=MyISAM DEFAULT CHARSET=utf8;",
+        };
+        if (!performActualUpdate("MythTV", "DBSchemaVer",
+                                 updates, "1369", dbver))
+            return false;
+    }
+
 
     return true;
 }

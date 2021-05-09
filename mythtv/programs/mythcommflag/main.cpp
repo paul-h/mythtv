@@ -243,12 +243,12 @@ static int SetCutList(uint chanid, const QDateTime& starttime, QString newCutLis
     QStringList tokens = newCutList.split(",", Qt::SkipEmptyParts);
 #endif
 
-    for (int i = 0; i < tokens.size(); i++)
+    for (const QString& token : qAsConst(tokens))
     {
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
-        QStringList cutpair = tokens[i].split("-", QString::SkipEmptyParts);
+        QStringList cutpair = token.split("-", QString::SkipEmptyParts);
 #else
-        QStringList cutpair = tokens[i].split("-", Qt::SkipEmptyParts);
+        QStringList cutpair = token.split("-", Qt::SkipEmptyParts);
 #endif
         cutlist[cutpair[0].toInt()] = MARK_CUT_START;
         cutlist[cutpair[1].toInt()] = MARK_CUT_END;
@@ -718,8 +718,9 @@ static bool IsMarked(uint chanid, const QDateTime& starttime)
 
             LOG(VB_COMMFLAG, LOG_INFO,
                 QString("Status for chanid %1 @ %2 is '%3'")
-                    .arg(chanid).arg(starttime.toString(Qt::ISODate))
-                    .arg(flagStatusStr));
+                    .arg(QString::number(chanid),
+                         starttime.toString(Qt::ISODate),
+                         flagStatusStr));
 
             if ((flagStatus == COMM_FLAG_NOT_FLAGGED) && (marksFound == 0))
                 return false;
@@ -1026,7 +1027,7 @@ static int RebuildSeekTable(ProgramInfo *pginfo, int jobid, bool writefile = fal
         // and try again
 
         filename = QString("myth://Videos@%1/%2")
-                            .arg(gCoreContext->GetHostName()).arg(filename);
+                            .arg(gCoreContext->GetHostName(), filename);
         pginfo->SetPathname(filename);
         if (!DoesFileExist(pginfo))
         {

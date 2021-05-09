@@ -138,7 +138,7 @@ HttpServer::HttpServer() :
         struct utsname uname_info {};
         uname( &uname_info );
         s_platform = QString("%1/%2")
-            .arg(uname_info.sysname).arg(uname_info.release);
+            .arg(uname_info.sysname, uname_info.release);
 #endif
     }
 
@@ -287,8 +287,8 @@ QString HttpServer::GetServerVersion(void)
     QString mythVersion = GetMythSourceVersion();
     if (mythVersion.startsWith("v"))
         mythVersion = mythVersion.right(mythVersion.length() - 1); // Trim off the leading 'v'
-    return QString("MythTV/%2 %1 UPnP/1.0").arg(HttpServer::GetPlatform())
-                                             .arg(mythVersion);
+    return QString("MythTV/%2 %1 UPnP/1.0").arg(HttpServer::GetPlatform(),
+                                                mythVersion);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -327,8 +327,8 @@ void HttpServer::RegisterExtension( HttpServerExtension *pExtension )
 
         QStringList list = pExtension->GetBasePaths();
 
-        for( int nIdx = 0; nIdx < list.size(); nIdx++)
-            m_basePaths.insert( list[ nIdx ], pExtension );
+        for( const QString& base : qAsConst(list))
+            m_basePaths.insert( base, pExtension );
 
         m_rwlock.unlock();
     }
@@ -346,8 +346,8 @@ void HttpServer::UnregisterExtension( HttpServerExtension *pExtension )
 
         QStringList list = pExtension->GetBasePaths();
 
-        for( int nIdx = 0; nIdx < list.size(); nIdx++)
-            m_basePaths.remove( list[ nIdx ], pExtension );
+        for( const QString& base : qAsConst(list))
+            m_basePaths.remove( base, pExtension );
 
         m_extensions.removeAll(pExtension);
 

@@ -184,7 +184,7 @@ void EITFixUp::Fix(DBEventEIT &event)
         {
             LOG(VB_EIT, LOG_DEBUG, QString("Unhandled item in EIT for"
                 " channel id \"%1\", \"%2\": %3").arg(event.m_chanid)
-                .arg(i.key()).arg(i.value()));
+                .arg(i.key(), i.value()));
         }
     }
 }
@@ -332,6 +332,9 @@ void EITFixUp::FixBellExpressVu(DBEventEIT &event)
             QStringList actors =
                 tmp.split(bellActors, Qt::SkipEmptyParts);
 #endif
+
+            /* Possible TODO: if EIT inlcude the priority and/or character
+             * names for the actors, include them in AddPerson call. */
             for (const auto & actor : qAsConst(actors))
                 event.AddPerson(DBPerson::kActor, actor);
         }
@@ -873,6 +876,8 @@ void EITFixUp::FixUK(DBEventEIT &event)
     if (match.hasMatch())
     {
         // if we match this we've captured 2 actors and an (optional) airdate
+        /* Possible TODO: if EIT inlcude the priority and/or character
+         * names for the actors, include them in AddPerson call. */
         event.AddPerson(DBPerson::kActor, match.captured(1));
         event.AddPerson(DBPerson::kActor, match.captured(2));
         if (match.captured(3).length() > 0)
@@ -1159,6 +1164,8 @@ void EITFixUp::FixComHem(DBEventEIT &event, bool process_subtitle)
             const QStringList actors =
                 match.captured(5).split(comHemPersSeparator, Qt::SkipEmptyParts);
 #endif
+            /* Possible TODO: if EIT inlcude the priority and/or character
+             * names for the actors, include them in AddPerson call. */
             for (const auto & actor : qAsConst(actors))
                 event.AddPerson(DBPerson::kActor, actor);
         }
@@ -1206,6 +1213,8 @@ void EITFixUp::FixComHem(DBEventEIT &event, bool process_subtitle)
         const QStringList actors =
             pmatch.captured(2).split(comHemPersSeparator, Qt::SkipEmptyParts);
 #endif
+        /* Possible TODO: if EIT inlcude the priority and/or character
+         * names for the actors, include them in AddPerson call. */
         for (const auto & actor : qAsConst(actors))
             event.AddPerson(role, actor);
 
@@ -1434,8 +1443,10 @@ void EITFixUp::FixAUFreeview(DBEventEIT &event)
             event.m_subtitle = match.captured(2);
         event.m_airdate = match.capturedView(3).toUInt();
         QStringList actors = match.captured(4).split("/");
-        for (int i = 0; i < actors.size(); ++i)
-            event.AddPerson(DBPerson::kActor, actors.at(i));
+        /* Possible TODO: if EIT inlcude the priority and/or character
+         * names for the actors, include them in AddPerson call. */
+        for (const QString& actor : qAsConst(actors))
+            event.AddPerson(DBPerson::kActor, actor);
         event.m_description = match.captured(1);
         return;
     }
@@ -1445,8 +1456,10 @@ void EITFixUp::FixAUFreeview(DBEventEIT &event)
     {
         event.m_airdate = match.capturedView(2).toUInt();
         QStringList actors = match.captured(3).split("/");
-        for (int i = 0; i < actors.size(); ++i)
-            event.AddPerson(DBPerson::kActor, actors.at(i));
+        /* Possible TODO: if EIT inlcude the priority and/or character
+         * names for the actors, include them in AddPerson call. */
+        for (const QString& actor : qAsConst(actors))
+            event.AddPerson(DBPerson::kActor, actor);
         event.m_description = match.captured(1);
     }
 }
@@ -1581,6 +1594,8 @@ void EITFixUp::FixMCA(DBEventEIT &event)
             const QStringList actors = match.captured(2).split(
                 mcaActorsSeparator, Qt::SkipEmptyParts);
 #endif
+            /* Possible TODO: if EIT inlcude the priority and/or character
+             * names for the actors, include them in AddPerson call. */
             for (const auto & actor : qAsConst(actors))
                 event.AddPerson(DBPerson::kActor, actor.trimmed());
             event.m_description = match.captured(1).trimmed();
@@ -1756,6 +1771,8 @@ void EITFixUp::FixPRO7(DBEventEIT &event)
             auto match2 = pro7CastOne.match(line);
             if (match2.hasMatch())
             {
+                /* Possible TODO: if EIT inlcude the priority and/or character
+                 * names for the actors, include them in AddPerson call. */
                 event.AddPerson (DBPerson::kActor, match2.captured(1).simplified());
             }
         }
@@ -1784,6 +1801,9 @@ void EITFixUp::FixPRO7(DBEventEIT &event)
                 QStringList names = match2.captured(2).simplified().split(R"(\s*,\s*)");
                 for (const auto & name : qAsConst(names))
                 {
+                    /* Possible TODO: if EIT inlcude the priority
+                     * and/or character names for the actors, include
+                     * them in AddPerson call. */
                     event.AddPerson (role, name);
                 }
             }
@@ -1810,7 +1830,7 @@ void EITFixUp::FixDisneyChannel(DBEventEIT &event)
         {
             event.m_airdate = match.captured(3).toUInt();
         }
-	event.m_subtitle.remove(match.capturedStart(0),
+        event.m_subtitle.remove(match.capturedStart(0),
                                 match.capturedLength(0));
     }
     static const QRegularExpression tmp { R"(\s[^\s]+?-(Serie))" };
@@ -1921,6 +1941,8 @@ void EITFixUp::FixPremiere(DBEventEIT &event)
         const QStringList actors = match.captured(2).split(
             ", ", Qt::SkipEmptyParts);
 #endif
+        /* Possible TODO: if EIT inlcude the priority and/or character
+         * names for the actors, include them in AddPerson call. */
         for (const auto & actor : qAsConst(actors))
             event.AddPerson(DBPerson::kActor, actor);
         event.m_description.remove(match.capturedStart(0),
@@ -1935,7 +1957,7 @@ void EITFixUp::FixPremiere(DBEventEIT &event)
     match = dePremiereOTitle.match(event.m_title);
     if (match.hasMatch())
     {
-        event.m_subtitle = QString("%1, %2").arg(match.captured(1)).arg(country);
+        event.m_subtitle = QString("%1, %2").arg(match.captured(1), country);
         event.m_title.remove(match.capturedStart(0),
                              match.capturedLength(0));
     }
@@ -2093,6 +2115,8 @@ void EITFixUp::FixNL(DBEventEIT &event)
         const QStringList actors =
             tmpActorsString.split(nlPersSeparator, Qt::SkipEmptyParts);
 #endif
+        /* Possible TODO: if EIT inlcude the priority and/or character
+         * names for the actors, include them in AddPerson call. */
         for (const auto & actor : qAsConst(actors))
             event.AddPerson(DBPerson::kActor, actor);
         fullinfo.remove(match.capturedStart(), match.capturedLength());
@@ -3003,6 +3027,8 @@ void EITFixUp::FixUnitymedia(DBEventEIT &event)
     auto i = event.m_items.begin();
     while (i != event.m_items.end())
     {
+        /* Possible TODO: if EIT inlcude the priority and/or character
+         * names for the actors, include them in AddPerson call. */
         if ((QString::compare (i.key(), "Role Player") == 0) ||
             (QString::compare (i.key(), "Performing Artist") == 0))
         {

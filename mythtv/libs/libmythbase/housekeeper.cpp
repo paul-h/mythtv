@@ -64,7 +64,7 @@
  *  \brief Definition for a single task to be run by the HouseKeeper
  *
  *  This class contains instructions for tasks to be run periodically by the
- *  housekeeper. Each task requires an indentification tag, and can be given
+ *  housekeeper. Each task requires an identification tag, and can be given
  *  a two options to control scope and startup behavior. Each child class
  *  should override at least two methods: DoCheckRun() and DoRun().
  *
@@ -290,9 +290,9 @@ QDateTime HouseKeeperTask::UpdateLastRun(const QDateTime& last, bool successful)
         msg = QString("HOUSE_KEEPER_SUCCESSFUL %1 %2 %3");
     else
         msg = QString("HOUSE_KEEPER_RUNNING %1 %2 %3");
-    msg = msg.arg(gCoreContext->GetHostName())
-             .arg(m_dbTag)
-             .arg(MythDate::toString(last, MythDate::ISODate));
+    msg = msg.arg(gCoreContext->GetHostName(),
+                  m_dbTag,
+                  MythDate::toString(last, MythDate::ISODate));
     gCoreContext->SendEvent(MythEvent(msg));
     m_lastUpdate = MythDate::current();
 
