@@ -46,7 +46,7 @@
 class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
 {
     Q_OBJECT
-    Q_CLASSINFO( "version"    , "7.0" )
+    Q_CLASSINFO( "version"    , "7.1" )
     Q_CLASSINFO( "RemoveRecorded_Method",                       "POST" )
     Q_CLASSINFO( "AddRecordedCredits_Method",                   "POST" )
     Q_CLASSINFO( "AddRecordedProgram_Method",                   "POST" )
@@ -93,7 +93,9 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
                                                            const QString   &RecGroup,
                                                            const QString   &StorageGroup,
                                                            const QString   &Category,
-                                                           const QString   &Sort) = 0;
+                                                           const QString   &Sort,
+                                                           bool             IgnoreLiveTV,
+                                                           bool             IgnoreDeleted )= 0;
 
         virtual DTC::ProgramList* GetOldRecordedList     ( bool             Descending,
                                                            int              StartIndex,

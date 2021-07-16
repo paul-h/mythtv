@@ -69,7 +69,9 @@ DTC::ProgramList* Dvr::GetRecordedList( bool           bDescending,
                                         const QString &sRecGroup,
                                         const QString &sStorageGroup,
                                         const QString &sCategory,
-                                        const QString &sSort
+                                        const QString &sSort,
+                                        bool           bIgnoreLiveTV,
+                                        bool           bIgnoreDeleted
                                       )
 {
     QMap< QString, ProgramInfo* > recMap;
@@ -114,7 +116,9 @@ DTC::ProgramList* Dvr::GetRecordedList( bool           bDescending,
             (!sTitleRegEx.isEmpty() && !pInfo->GetTitle().contains(rTitleRegEx)) ||
             (!sRecGroup.isEmpty() && sRecGroup != pInfo->GetRecordingGroup()) ||
             (!sStorageGroup.isEmpty() && sStorageGroup != pInfo->GetStorageGroup()) ||
-            (!sCategory.isEmpty() && sCategory != pInfo->GetCategory()))
+            (!sCategory.isEmpty() && sCategory != pInfo->GetCategory()) ||
+            (bIgnoreLiveTV && sRecGroup == "LiveTV") ||
+            (bIgnoreDeleted && sRecGroup == "Deleted"))
             continue;
 
         if ((nAvailable < nStartIndex) ||
