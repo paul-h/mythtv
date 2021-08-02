@@ -1,16 +1,10 @@
-// POSIX headers
-#include <sys/time.h> // for gettimeofday
-
 // ANSI C headers
 #include <cmath>
 
 // C++ headers
 #include <algorithm> // for min/max
 #include <iostream> // for cerr
-#include <chrono> // for milliseconds
 #include <thread> // for sleep_for
-
-using namespace std;
 
 // Qt headers
 #include <QCoreApplication>
@@ -20,7 +14,7 @@ using namespace std;
 #include "mythmiscutil.h"
 #include "mythcontext.h"
 #include "programinfo.h"
-#include "mythplayer.h"
+#include "mythcommflagplayer.h"
 
 // Commercial Flagging headers
 #include "ClassicCommDetector.h"
@@ -61,7 +55,7 @@ static QString toStringFrameMaskValues(int mask, bool verbose)
         if (COMM_FRAME_RATING_SYMBOL & mask)
             msg += "rating,";
 
-        if (msg.length())
+        if (!msg.isEmpty())
             msg = msg.left(msg.length() - 1);
         else
             msg = "noflags";
@@ -119,15 +113,15 @@ QString FrameInfoEntry::toString(uint64_t frame, bool verbose) const
         .arg(maxBrightness,3)
         .arg(avgBrightness,3)
         .arg(sceneChangePercent,3)
-        .arg(toStringFrameAspects(aspect, verbose))
-        .arg(toStringFrameFormats(format, verbose))
-        .arg(toStringFrameMaskValues(flagMask, verbose));
+        .arg(toStringFrameAspects(aspect, verbose),
+             toStringFrameFormats(format, verbose),
+             toStringFrameMaskValues(flagMask, verbose));
 }
 
 ClassicCommDetector::ClassicCommDetector(SkipType commDetectMethod_in,
                                          bool showProgress_in,
                                          bool fullSpeed_in,
-                                         MythPlayer* player_in,
+                                         MythCommFlagPlayer *player_in,
                                          QDateTime startedAt_in,
                                          QDateTime stopsAt_in,
                                          QDateTime recordingStartedAt_in,
@@ -175,9 +169,9 @@ void ClassicCommDetector::Init()
     m_fps = m_player->GetFrameRate();
 
     m_preRoll  = (long long)(
-        max(int64_t(0), int64_t(m_recordingStartedAt.secsTo(m_startedAt))) * m_fps);
+        std::max(int64_t(0), int64_t(m_recordingStartedAt.secsTo(m_startedAt))) * m_fps);
     m_postRoll = (long long)(
-        max(int64_t(0), int64_t(m_stopsAt.secsTo(m_recordingStopsAt))) * m_fps);
+        std::max(int64_t(0), int64_t(m_stopsAt.secsTo(m_recordingStopsAt))) * m_fps);
 
     // CommDetectBorder's default value of 20 predates the change to use
     // ffmpeg's lowres decoding capability by 5 years.
@@ -197,7 +191,7 @@ void ClassicCommDetector::Init()
 
     m_lastFrameNumber = -2;
     m_curFrameNumber = -1;
-    m_verboseDebugging = (getenv("DEBUGCOMMFLAG") != nullptr);
+    m_verboseDebugging = qEnvironmentVariableIsSet("DEBUGCOMMFLAG");
 
     LOG(VB_COMMFLAG, LOG_INFO,
         QString("Commercial Detection initialized: "
@@ -253,9 +247,9 @@ void ClassicCommDetector::Init()
         m_commDetectBorder, m_horizSpacing, m_vertSpacing);
     connect(
          m_sceneChangeDetector,
-         SIGNAL(haveNewInformation(unsigned int,bool,float)),
+         &SceneChangeDetectorBase::haveNewInformation,
          this,
-         SLOT(sceneChangeDetectorHasNewInformation(unsigned int,bool,float))
+         &ClassicCommDetector::sceneChangeDetectorHasNewInformation
     );
 
     m_frameIsBlank = false;
@@ -301,7 +295,7 @@ bool ClassicCommDetector::go()
         if (m_bStop)
             return false;
 
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        std::this_thread::sleep_for(2s);
         secsSince = m_recordingStartedAt.secsTo(MythDate::current());
     }
 
@@ -326,7 +320,7 @@ bool ClassicCommDetector::go()
         m_logoDetector = new ClassicLogoDetector(this, m_width, m_height,
             logoDetectBorder);
 
-        requiredHeadStart += max(
+        requiredHeadStart += std::max(
             int64_t(0), int64_t(m_recordingStartedAt.secsTo(m_startedAt)));
         requiredHeadStart += m_logoDetector->getRequiredAvailableBufferForSearch();
 
@@ -339,7 +333,7 @@ bool ClassicCommDetector::go()
             if (m_bStop)
                 return false;
 
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            std::this_thread::sleep_for(2s);
             secsSince = m_recordingStartedAt.secsTo(MythDate::current());
         }
     }
@@ -357,7 +351,6 @@ bool ClassicCommDetector::go()
             "NVP: Unable to initialize video for FlagCommercials.");
         return false;
     }
-    m_player->EnableSubtitles(false);
 
     if (m_commDetectMethod & COMM_DETECT_LOGO)
     {
@@ -366,8 +359,8 @@ bool ClassicCommDetector::go()
 
         if (m_showProgress)
         {
-            cerr << "Finding Logo";
-            cerr.flush();
+            std::cerr << "Finding Logo";
+            std::cerr.flush();
         }
         LOG(VB_GENERAL, LOG_INFO, "Finding Logo");
 
@@ -375,9 +368,9 @@ bool ClassicCommDetector::go()
 
         if (m_showProgress)
         {
-            cerr << "\b\b\b\b\b\b\b\b\b\b\b\b            "
-                    "\b\b\b\b\b\b\b\b\b\b\b\b";
-            cerr.flush();
+            std::cerr << "\b\b\b\b\b\b\b\b\b\b\b\b            "
+                         "\b\b\b\b\b\b\b\b\b\b\b\b";
+            std::cerr.flush();
         }
     }
 
@@ -398,14 +391,13 @@ bool ClassicCommDetector::go()
     if (m_showProgress)
     {
         if (myTotalFrames)
-            cerr << "\r  0%/          \r" << flush;
+            std::cerr << "\r  0%/          \r" << std::flush;
         else
-            cerr << "\r     0/        \r" << flush;
+            std::cerr << "\r     0/        \r" << std::flush;
     }
 
 
-    float flagFPS = 0.0;
-    long long  currentFrameNumber = 0LL;
+    float flagFPS { 0.0 };
     float aspect = m_player->GetVideoAspect();
     int prevpercent = -1;
 
@@ -417,18 +409,18 @@ bool ClassicCommDetector::go()
 
     while (m_player->GetEof() == kEofStateNone)
     {
-        struct timeval startTime {};
+        std::chrono::microseconds startTime {0us};
         if (m_stillRecording)
-            gettimeofday(&startTime, nullptr);
+            startTime = nowAsDuration<std::chrono::microseconds>();
 
-        VideoFrame* currentFrame = m_player->GetRawVideoFrame();
-        currentFrameNumber = currentFrame->frameNumber;
+        MythVideoFrame* currentFrame = m_player->GetRawVideoFrame();
+        long long currentFrameNumber = currentFrame->m_frameNumber;
 
         //Lucas: maybe we should make the nuppelvideoplayer send out a signal
         //when the aspect ratio changes.
         //In order to not change too many things at a time, I"m using basic
         //polling for now.
-        float newAspect = currentFrame->aspect;
+        float newAspect = currentFrame->m_aspect;
         if (newAspect != aspect)
         {
             SetVideoParams(aspect);
@@ -490,12 +482,12 @@ bool ClassicCommDetector::go()
         while (m_bPaused)
         {
             emit breathe();
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::this_thread::sleep_for(1s);
         }
 
         // sleep a little so we don't use all cpu even if we're niced
         if (!m_fullSpeed && !m_stillRecording)
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(10ms);
 
         if (((currentFrameNumber % 500) == 0) ||
             ((m_showProgress || m_stillRecording) &&
@@ -521,13 +513,13 @@ bool ClassicCommDetector::go()
                 {
                     QString tmp = QString("\r%1%/%2fps  \r")
                         .arg(percentage, 3).arg((int)flagFPS, 4);
-                    cerr << qPrintable(tmp) << flush;
+                    std::cerr << qPrintable(tmp) << std::flush;
                 }
                 else
                 {
                     QString tmp = QString("\r%1/%2fps  \r")
                         .arg(currentFrameNumber, 6).arg((int)flagFPS, 4);
-                    cerr << qPrintable(tmp) << flush;
+                    std::cerr << qPrintable(tmp) << std::flush;
                 }
             }
 
@@ -560,28 +552,24 @@ bool ClassicCommDetector::go()
                 m_recordingStartedAt.secsTo(MythDate::current());
             int secondsFlagged = (int)(m_framesProcessed / m_fps);
             int secondsBehind = secondsRecorded - secondsFlagged;
-            long usecPerFrame = (long)(1.0F / m_player->GetFrameRate() * 1000000);
+            auto usecPerFrame = floatusecs(1000000.0F / m_player->GetFrameRate());
 
-            struct timeval endTime {};
-            gettimeofday(&endTime, nullptr);
+            auto endTime = nowAsDuration<std::chrono::microseconds>();
 
-            long long usecSleep =
-                      usecPerFrame -
-                      (((endTime.tv_sec - startTime.tv_sec) * 1000000) +
-                       (endTime.tv_usec - startTime.tv_usec));
+            floatusecs usecSleep = usecPerFrame - (endTime - startTime);
 
             if (secondsBehind > requiredBuffer)
             {
                 if (m_fullSpeed)
-                    usecSleep = 0;
+                    usecSleep = 0us;
                 else
-                    usecSleep = (long)(usecSleep * 0.25);
+                    usecSleep = usecSleep * 0.25;
             }
             else if (secondsBehind < requiredBuffer)
-                usecSleep = (long)(usecPerFrame * 1.5);
+                usecSleep = usecPerFrame * 1.5;
 
-            if (usecSleep > 0)
-                std::this_thread::sleep_for(std::chrono::microseconds(usecSleep));
+            if (usecSleep > 0us)
+                std::this_thread::sleep_for(usecSleep);
         }
 
         m_player->DiscardVideoFrame(currentFrame);
@@ -599,11 +587,11 @@ bool ClassicCommDetector::go()
 #endif
 
         if (myTotalFrames)
-            cerr << "\b\b\b\b\b\b      \b\b\b\b\b\b";
+            std::cerr << "\b\b\b\b\b\b      \b\b\b\b\b\b";
         else
-            cerr << "\b\b\b\b\b\b\b\b\b\b\b\b\b             "
-                    "\b\b\b\b\b\b\b\b\b\b\b\b\b";
-        cerr.flush();
+            std::cerr << "\b\b\b\b\b\b\b\b\b\b\b\b\b             "
+                         "\b\b\b\b\b\b\b\b\b\b\b\b\b";
+        std::cerr.flush();
     }
 
     return true;
@@ -749,7 +737,7 @@ void ClassicCommDetector::SetVideoParams(float aspect)
     }
 }
 
-void ClassicCommDetector::ProcessFrame(VideoFrame *frame,
+void ClassicCommDetector::ProcessFrame(MythVideoFrame *frame,
                                        long long frame_number)
 {
     int max = 0;
@@ -766,8 +754,8 @@ void ClassicCommDetector::ProcessFrame(VideoFrame *frame,
     int rightDarkCol = m_width - m_commDetectBorder - 1;
     FrameInfoEntry fInfo {};
 
-    if (!frame || !(frame->buf) || frame_number == -1 ||
-        frame->codec != FMT_YV12)
+    if (!frame || !(frame->m_buffer) || frame_number == -1 ||
+        frame->m_type != FMT_YV12)
     {
         LOG(VB_COMMFLAG, LOG_ERR, "CommDetect: Invalid video frame or codec, "
                                   "unable to process frame.");
@@ -786,8 +774,8 @@ void ClassicCommDetector::ProcessFrame(VideoFrame *frame,
     }
 
     m_curFrameNumber = frame_number;
-    unsigned char* framePtr = frame->buf;
-    int bytesPerLine = frame->pitches[0];
+    unsigned char* framePtr = frame->m_buffer;
+    int bytesPerLine = frame->m_pitches[0];
 
     fInfo.minBrightness = -1;
     fInfo.maxBrightness = -1;
@@ -1148,7 +1136,7 @@ frm_dir_map_t ClassicCommDetector::Combine2Maps(const frm_dir_map_t &a,
 }
 
 void ClassicCommDetector::UpdateFrameBlock(FrameBlock *fbp,
-                                           FrameInfoEntry finfo,
+                                           const FrameInfoEntry& finfo,
                                            int format, int aspect)
 {
     int value = 0;
@@ -1201,7 +1189,7 @@ void ClassicCommDetector::BuildAllMethodsCommList(void)
     int aspect = COMM_ASPECT_NORMAL;
     QString msgformat("%1 %2:%3 %4 %5 %6 %7 %8 %9 %10 %11 %12 %13 %14 %15");
     QString msg;
-    uint64_t formatCounts[COMM_FORMAT_MAX];
+    std::array<uint64_t,COMM_FORMAT_MAX> formatCounts {};
     frm_dir_map_t tmpCommMap;
     frm_dir_map_t::iterator it;
 
@@ -1244,7 +1232,7 @@ void ClassicCommDetector::BuildAllMethodsCommList(void)
     }
     else
     {
-        memset(&formatCounts, 0, sizeof(formatCounts));
+        formatCounts.fill(0);
 
         for(int64_t i = m_preRoll;
             i < ((int64_t)m_framesProcessed - (int64_t)m_postRoll); i++ )
@@ -1261,7 +1249,6 @@ void ClassicCommDetector::BuildAllMethodsCommList(void)
             if (formatCounts[i] > formatFrames)
             {
                 format = i;
-                // cppcheck-suppress unreadVariable
                 formatFrames = formatCounts[i];
             }
         }
@@ -1307,7 +1294,6 @@ void ClassicCommDetector::BuildAllMethodsCommList(void)
         }
         else
         {
-            // cppcheck-suppress unreadVariable
             lastFrameWasBlank = false;
         }
 
@@ -1812,7 +1798,6 @@ void ClassicCommDetector::BuildAllMethodsCommList(void)
         msg = FORMAT_MSG(curBlock, fbp);
         LOG(VB_COMMFLAG, LOG_DEBUG, msg);
 
-        // cppcheck-suppress unreadVariable
         lastScore = thisScore;
         curBlock++;
     }
@@ -2412,7 +2397,7 @@ void ClassicCommDetector::CleanupFrameInfo(void)
     if ((m_framesProcessed > (m_fps * 60)) &&
         (m_blankFrameCount < (m_framesProcessed * 0.0004)))
     {
-        int avgHistogram[256];
+        std::array<int,256> avgHistogram {};
         int minAvg = -1;
         int newThreshold = -1;
 
@@ -2425,7 +2410,7 @@ void ClassicCommDetector::CleanupFrameInfo(void)
         m_blankFrameMap.clear();
         m_blankFrameCount = 0;
 
-        memset(avgHistogram, 0, sizeof(avgHistogram));
+        avgHistogram.fill(0);
 
         for (uint64_t i = 1; i <= m_framesProcessed; i++)
             avgHistogram[clamp(m_frameInfo[i].avgBrightness, 0, 255)] += 1;
@@ -2520,12 +2505,12 @@ void ClassicCommDetector::logoDetectorBreathe()
 }
 
 void ClassicCommDetector::PrintFullMap(
-    ostream &out, const frm_dir_map_t *comm_breaks, bool verbose) const
+    std::ostream &out, const frm_dir_map_t *comm_breaks, bool verbose) const
 {
     if (verbose)
     {
         QByteArray tmp = FrameInfoEntry::GetHeader().toLatin1();
-        out << tmp.constData() << " mark" << endl;
+        out << tmp.constData() << " mark" << std::endl;
     }
 
     for (long long i = 1; i < m_curFrameNumber; i++)
@@ -2551,7 +2536,7 @@ void ClassicCommDetector::PrintFullMap(
         out << "\n";
     }
 
-    out << flush;
+    out << std::flush;
 }
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */

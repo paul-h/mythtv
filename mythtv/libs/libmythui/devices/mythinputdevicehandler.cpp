@@ -8,7 +8,6 @@
 #include "mythlogging.h"
 #include "mythdb.h"
 #include "mythdirs.h"
-#include "mythuihelper.h"
 #include "mythmainwindow.h"
 #include "mythinputdevicehandler.h"
 
@@ -114,7 +113,7 @@ void MythInputDeviceHandler::Start(void)
 
 void MythInputDeviceHandler::Stop(bool Finishing /* = true */)
 {
-    Q_UNUSED(Finishing); // depending on #ifdefs
+    Q_UNUSED(Finishing) // depending on #ifdefs
     LOG(VB_GENERAL, LOG_INFO, LOC + "Stopping");
 
 #ifdef USING_LIBCEC
@@ -204,18 +203,18 @@ void MythInputDeviceHandler::MainWindowReady(void)
     // Open any adapter after the window has been created to ensure we capture
     // the EDID if available - and hence get a more accurate Physical Address.
     // This will close any existing adapter in the event that the window has been re-init'ed.
-    m_cecAdapter.Open();
+    m_cecAdapter.Open(m_parent);
 #endif
 }
 
 void MythInputDeviceHandler::customEvent(QEvent* Event)
 {
-    Q_UNUSED(Event); // depending on #ifdefs
+    Q_UNUSED(Event) // depending on #ifdefs
 
     if (m_ignoreKeys)
         return;
 
-    QKeyEvent key(QEvent::KeyPress, 0, Qt::NoModifier);
+    QScopedPointer<QKeyEvent> key { new QKeyEvent(QEvent::KeyPress, 0, Qt::NoModifier) };
     QObject* target = nullptr;
     QString error;
 
@@ -226,13 +225,11 @@ void MythInputDeviceHandler::customEvent(QEvent* Event)
         if (!jke)
             return;
 
-        int keycode = jke->getKeycode();
+        int keycode = jke->key();
         if (keycode)
         {
-            key = QKeyEvent(jke->isKeyDown() ? QEvent::KeyPress : QEvent::KeyRelease,
-                            (keycode & static_cast<int>(~Qt::MODIFIER_MASK)),
-                            Qt::KeyboardModifiers(keycode & static_cast<int>(Qt::MODIFIER_MASK)));
-            target = m_parent->getTarget(key);
+            key.reset(new QKeyEvent(jke->keyAction(), keycode, jke->keyModifiers()));
+            target = m_parent->GetTarget(*key);
         }
         else
         {
@@ -254,8 +251,8 @@ void MythInputDeviceHandler::customEvent(QEvent* Event)
         }
         else
         {
-            key = QKeyEvent(lke->keytype(), lke->key(), lke->modifiers(), lke->text());
-            target = m_parent->getTarget(key);
+            key.reset(new QKeyEvent(lke->keytype(), lke->key(), lke->modifiers(), lke->text()));
+            target = m_parent->GetTarget(*key);
         }
     }
 #endif
@@ -267,9 +264,9 @@ void MythInputDeviceHandler::customEvent(QEvent* Event)
     }
     else if (target)
     {
-        MythUIHelper::ResetScreensaver();
-        if (GetMythUI()->GetScreenIsAsleep())
+        MythMainWindow::ResetScreensaver();
+        if (MythMainWindow::IsScreensaverAsleep())
             return;
-        QCoreApplication::sendEvent(target, &key);
+        QCoreApplication::sendEvent(target, key.data());
     }
 }

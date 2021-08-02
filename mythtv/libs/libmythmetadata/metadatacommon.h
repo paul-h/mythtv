@@ -16,6 +16,7 @@
 #include <QStringList>
 
 #include "mythtypes.h"
+#include "mythchrono.h"
 #include "mythmetaexp.h"
 #include "metadataimagehelper.h"
 #include "referencecounterlist.h"
@@ -140,10 +141,10 @@ class META_PUBLIC MetadataLookup : public QObject, public ReferenceCounter
         uint tracknum,
         QString system,
         uint year,
-        const QDate &releasedate,
+        QDate releasedate,
         QDateTime lastupdated,
-        uint runtime,
-        uint runtimesecs,
+        std::chrono::minutes runtime,
+        std::chrono::seconds runtimesecs,
         QString inetref,
         QString collectionref,
         QString tmsref,
@@ -192,10 +193,10 @@ class META_PUBLIC MetadataLookup : public QObject, public ReferenceCounter
         uint videoproperties,
         uint subtitletype,
         uint year,
-        const QDate &releasedate,
+        QDate releasedate,
         QDateTime lastupdated,
-        uint runtime,
-        uint runtimesecs);
+        std::chrono::minutes runtime,
+        std::chrono::seconds runtimesecs);
 
     // XBMC NFO Constructor
     MetadataLookup(
@@ -221,8 +222,8 @@ class META_PUBLIC MetadataLookup : public QObject, public ReferenceCounter
         QString certification,
         uint year,
         QDate releasedate,
-        uint runtime,
-        uint runtimesecs,
+        std::chrono::minutes runtime,
+        std::chrono::seconds runtimesecs,
         QString inetref,
         PeopleMap  people,
         QString trailerURL,
@@ -287,7 +288,7 @@ class META_PUBLIC MetadataLookup : public QObject, public ReferenceCounter
     void SetAllowOverwrites(bool allow) { m_allowOverwrites = allow; };
     void SetAllowGeneric(bool allow) { m_allowGeneric = allow; };
     void SetHost(const QString &host) { m_host = host; };
-    void SetDownloads(ArtworkMap map) { m_downloads = std::move(map); };
+    void SetDownloads(DownloadMap map) { m_downloads = std::move(map); };
 
     // General Sets
     void SetTitle(const QString &title)
@@ -387,8 +388,8 @@ class META_PUBLIC MetadataLookup : public QObject, public ReferenceCounter
     uint GetYear() const { return m_year; };
     QDate GetReleaseDate() const { return m_releaseDate; };
     QDateTime GetLastUpdated() const { return m_lastUpdated; };
-    uint GetRuntime() const { return m_runtime; };
-    uint GetRuntimeSeconds() const { return m_runtimeSecs; };
+    std::chrono::minutes GetRuntime() const { return m_runtime; };
+    std::chrono::seconds GetRuntimeSeconds() const { return m_runtimeSecs; };
 
     // Inetref
     QString GetInetref() const { return m_inetRef; };
@@ -475,8 +476,8 @@ class META_PUBLIC MetadataLookup : public QObject, public ReferenceCounter
     uint m_year             {0};
     const QDate m_releaseDate;
     const QDateTime m_lastUpdated;
-    uint m_runtime          {0};
-    uint m_runtimeSecs      {0};
+    std::chrono::minutes m_runtime          {0min};
+    std::chrono::seconds m_runtimeSecs      {0s};
 
     // Inetref
     QString m_inetRef;

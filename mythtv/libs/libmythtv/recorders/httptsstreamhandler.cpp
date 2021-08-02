@@ -33,7 +33,7 @@ HTTPTSStreamHandler* HTTPTSStreamHandler::Get(const IPTVTuningData& tuning,
 
         LOG(VB_RECORD, LOG_INFO,
             QString("HTTPTSSH[%1]: Creating new stream handler %2 for %3")
-            .arg(inputid).arg(devkey).arg(tuning.GetDeviceName()));
+            .arg(QString::number(inputid), devkey, tuning.GetDeviceName()));
     }
     else
     {
@@ -41,7 +41,7 @@ HTTPTSStreamHandler* HTTPTSStreamHandler::Get(const IPTVTuningData& tuning,
         uint rcount = s_httphandlers_refcnt[devkey];
         LOG(VB_RECORD, LOG_INFO,
             QString("HTTPTSSH[%1]: Using existing stream handler %2 for %3")
-            .arg(inputid).arg(devkey).arg(tuning.GetDeviceName()) +
+            .arg(QString::number(inputid), devkey, tuning.GetDeviceName()) +
             QString(" (%1 in use)").arg(rcount));
     }
 
@@ -104,7 +104,7 @@ HTTPTSStreamHandler::~HTTPTSStreamHandler(void)
 void HTTPTSStreamHandler::run(void)
 {
     RunProlog();
-    int open_sleep = 250;
+    std::chrono::milliseconds open_sleep = 250ms;
     LOG(VB_RECORD, LOG_INFO, LOC + "run() -- begin");
     SetRunning(true, false, false);
 
@@ -114,12 +114,12 @@ void HTTPTSStreamHandler::run(void)
         if (!m_reader->DownloadStream(m_tuning.GetURL(0)))
         {
             LOG(VB_RECORD, LOG_INFO, LOC + "DownloadStream failed to receive bytes from " + m_tuning.GetURL(0).toString());
-            std::this_thread::sleep_for(std::chrono::milliseconds(open_sleep));
-            if (open_sleep < 10000)
-                open_sleep += 250;
+            std::this_thread::sleep_for(open_sleep);
+            if (open_sleep < 10s)
+                open_sleep += 250ms;
             continue;
         }
-        open_sleep = 250;
+        open_sleep = 250ms;
     }
 
     delete m_reader;
@@ -150,19 +150,19 @@ bool HTTPReader::DownloadStream(const QUrl& url)
     m_reply = m_mgr.get(QNetworkRequest(url));
     m_replylock.unlock();
 
-    connect(&m_timer, SIGNAL(timeout()), &event_loop, SLOT(quit()));
-    connect(m_reply, SIGNAL(finished()), &event_loop, SLOT(quit()));
-    connect(m_reply,SIGNAL(readyRead()), this,        SLOT(HttpRead()));
+    connect(&m_timer, &QTimer::timeout, &event_loop, &QEventLoop::quit);
+    connect(m_reply, &QNetworkReply::finished, &event_loop, &QEventLoop::quit);
+    connect(m_reply,&QIODevice::readyRead, this,        &HTTPReader::HttpRead);
 
     // Configure timeout and size limit
     m_timer.setSingleShot(true);
-    m_timer.start(10000);
+    m_timer.start(10s);
 
     event_loop.exec(); // blocks stack until quit() is called
 
-    disconnect(&m_timer, SIGNAL(timeout()), &event_loop, SLOT(quit()));
-    disconnect(m_reply, SIGNAL(finished()), &event_loop, SLOT(quit()));
-    disconnect(m_reply,SIGNAL(readyRead()), this,        SLOT(HttpRead()));
+    disconnect(&m_timer, &QTimer::timeout, &event_loop, &QEventLoop::quit);
+    disconnect(m_reply, &QNetworkReply::finished, &event_loop, &QEventLoop::quit);
+    disconnect(m_reply,&QIODevice::readyRead, this,        &HTTPReader::HttpRead);
 
     if (m_timer.isActive())
         m_timer.stop();

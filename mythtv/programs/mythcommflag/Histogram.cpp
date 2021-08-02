@@ -5,12 +5,12 @@
 
 #include "mythframe.h"
 
-void Histogram::generateFromImage(VideoFrame* frame, unsigned int frameWidth,
+void Histogram::generateFromImage(MythVideoFrame* frame, unsigned int frameWidth,
          unsigned int frameHeight, unsigned int minScanX, unsigned int maxScanX,
          unsigned int minScanY, unsigned int maxScanY, unsigned int XSpacing,
          unsigned int YSpacing)
 {
-    memset(m_data,0,sizeof(m_data));
+    m_data.fill(0);
     m_numberOfSamples = 0;
 
     if (maxScanX > frameWidth-1)
@@ -19,8 +19,8 @@ void Histogram::generateFromImage(VideoFrame* frame, unsigned int frameWidth,
     if (maxScanY > frameHeight-1)
         maxScanY = frameHeight-1;
 
-    unsigned char* framePtr = frame->buf;
-    int bytesPerLine = frame->pitches[0];
+    unsigned char* framePtr = frame->m_buffer;
+    int bytesPerLine = frame->m_pitches[0];
     for(unsigned int y = minScanY; y < maxScanY; y += YSpacing)
     {
         for(unsigned int x = minScanX; x < maxScanX; x += XSpacing)

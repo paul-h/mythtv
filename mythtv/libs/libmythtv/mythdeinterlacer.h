@@ -4,12 +4,13 @@
 // MythTV
 #include "videoouttypes.h"
 #include "mythavutil.h"
-#include "videodisplayprofile.h"
 
 extern "C" {
 #include "libavfilter/avfilter.h"
 #include "libswscale/swscale.h"
 }
+
+class MythVideoProfile;
 
 class MythDeinterlacer
 {
@@ -17,20 +18,18 @@ class MythDeinterlacer
     MythDeinterlacer() = default;
    ~MythDeinterlacer();
 
-    void             Filter       (VideoFrame *Frame, FrameScanType Scan,
-                                   VideoDisplayProfile *Profile, bool Force = false);
-
-  private:
-    bool             Initialise   (VideoFrame *Frame, MythDeintType Deinterlacer,
-                                   bool DoubleRate, bool TopFieldFirst,
-                                   VideoDisplayProfile *Profile);
-    inline void      Cleanup      (void);
-    void             OneField     (VideoFrame *Frame, FrameScanType Scan);
-    void             Blend        (VideoFrame *Frame, FrameScanType Scan);
-    bool             SetUpCache   (VideoFrame *Frame);
+    void             Filter       (MythVideoFrame *Frame, FrameScanType Scan,
+                                   MythVideoProfile *Profile, bool Force = false);
 
   private:
     Q_DISABLE_COPY(MythDeinterlacer)
+    bool             Initialise   (MythVideoFrame *Frame, MythDeintType Deinterlacer,
+                                   bool DoubleRate, bool TopFieldFirst,
+                                   MythVideoProfile *Profile);
+    inline void      Cleanup      ();
+    void             OneField     (MythVideoFrame *Frame, FrameScanType Scan);
+    void             Blend        (MythVideoFrame *Frame, FrameScanType Scan);
+    bool             SetUpCache   (MythVideoFrame *Frame);
 
     VideoFrameType   m_inputType  { FMT_NONE };
     AVPixelFormat    m_inputFmt   { AV_PIX_FMT_NONE };
@@ -43,12 +42,12 @@ class MythDeinterlacer
     AVFilterGraph*   m_graph      { nullptr };
     AVFilterContext* m_source     { nullptr };
     AVFilterContext* m_sink       { nullptr };
-    VideoFrame*      m_bobFrame   { nullptr };
+    MythVideoFrame*  m_bobFrame   { nullptr };
     SwsContext*      m_swsContext { nullptr };
-    long long        m_discontinuityCounter { 0 };
+    uint64_t         m_discontinuityCounter { 0 };
     bool             m_autoFieldOrder  { false };
-    long long        m_lastFieldChange { 0 };
+    uint64_t         m_lastFieldChange { 0 };
     static bool      s_haveSIMD;
 };
 
-#endif // MYTHDEINTERLACER_H
+#endif

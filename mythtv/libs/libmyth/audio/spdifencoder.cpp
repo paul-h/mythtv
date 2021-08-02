@@ -82,7 +82,7 @@ SPDIFEncoder::SPDIFEncoder(const QString& muxer, AVCodecID codec_id)
     }
 
     LOG(VB_AUDIO, LOG_INFO, LOC + QString("Creating %1 encoder (for %2)")
-            .arg(muxer).arg(ff_codec_id_string(codec_id)));
+            .arg(muxer, ff_codec_id_string(codec_id)));
 
     m_complete = true;
 }
@@ -179,7 +179,7 @@ bool SPDIFEncoder::SetMaxHDRate(int rate)
  */
 int SPDIFEncoder::funcIO(void *opaque, unsigned char *buf, int size)
 {
-    auto *enc = (SPDIFEncoder *)opaque;
+    auto *enc = static_cast<SPDIFEncoder *>(opaque);
 
     if ((enc->m_oc == nullptr) || (enc->m_oc->pb == nullptr))
     {

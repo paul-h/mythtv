@@ -1,63 +1,111 @@
 #ifndef MYTHDRMDEVICE_H
 #define MYTHDRMDEVICE_H
 
-// Qt
-#include <QString>
-
 // MythTV
 #include "mythlogging.h"
-#include "referencecounter.h"
 #include "mythdisplay.h"
+#if defined (USING_QTPRIVATEHEADERS)
+#include "mythcommandlineparser.h"
+#endif
+#include "platforms/drm/mythdrmconnector.h"
+#include "platforms/drm/mythdrmencoder.h"
+#include "platforms/drm/mythdrmcrtc.h"
+#include "platforms/drm/mythdrmplane.h"
 
-// libdrm
-extern "C" {
-#include <xf86drm.h>
-#include <xf86drmMode.h>
-}
+// Std
+#include <memory>
 
-class MythDRMDevice : public ReferenceCounter
+using MythDRMPtr  = std::shared_ptr<class MythDRMDevice>;
+using MythAtomic  = std::tuple<uint32_t,uint32_t,uint64_t>;
+using MythAtomics = std::vector<MythAtomic>;
+
+#define DRM_QUIET "Shush"
+
+class MUI_PUBLIC MythDRMDevice
 {
   public:
-    explicit MythDRMDevice(QScreen *qScreen, const QString& Device = QString());
-   ~MythDRMDevice() override;
+    static std::tuple<QString,QStringList> GetDeviceList();
+    static MythDRMPtr Create(QScreen *qScreen, const QString& Device = QString(), bool NeedPlanes = true);
+   ~MythDRMDevice();
 
-    bool     IsValid        (void) const;
-    QString  GetSerialNumber(void) const;
-    QScreen* GetScreen      (void) const;
-    QSize    GetResolution  (void) const;
-    QSize    GetPhysicalSize(void) const;
-    double   GetRefreshRate (void) const;
-    bool     Authenticated  (void) const;
-    MythEDID GetEDID        (void);
+    bool     Authenticated  () const;
+    bool     Atomic         () const;
+    int      GetFD          () const;
+    QString  GetSerialNumber() const;
+    QScreen* GetScreen      () const;
+    QSize    GetResolution  () const;
+    QSize    GetPhysicalSize() const;
+    double   GetRefreshRate () const;    
+    MythEDID GetEDID        () const;
+    DRMCrtc  GetCrtc        () const;
+    DRMConn  GetConnector   () const;
+    const DRMModes& GetModes() const;
+    bool     CanSwitchModes () const;
+    bool     SwitchMode     (int ModeIndex);
+
+#if defined (USING_QTPRIVATEHEADERS)
+    static inline bool    s_mythDRMVideo     = qEnvironmentVariableIsSet("MYTHTV_DRM_VIDEO");
+    static inline bool    s_planarRequested  = false;
+    static inline bool    s_planarSetup      = false;
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+    static inline QString s_mythDRMDevice    = QString(qgetenv("MYTHTV_DRM_DEVICE"));
+    static inline QString s_mythDRMConnector = QString(qgetenv("MYTHTV_DRM_CONNECTOR"));
+    static inline QString s_mythDRMVideoMode = QString(qgetenv("MYTHTV_DRM_MODE"));
+#else
+    static inline QString s_mythDRMDevice    = qEnvironmentVariable("MYTHTV_DRM_DEVICE");
+    static inline QString s_mythDRMConnector = qEnvironmentVariable("MYTHTV_DRM_CONNECTOR");
+    static inline QString s_mythDRMVideoMode = qEnvironmentVariable("MYTHTV_DRM_MODE");
+#endif
+    static MythDRMPtr FindDevice(bool NeedPlanes = true);
+    static void SetupDRM      (const MythCommandLineParser& CmdLine);
+    DRMPlane GetVideoPlane    () const;
+    DRMPlane GetGUIPlane      () const;
+    bool     QueueAtomics     (const MythAtomics& Atomics);
+    void     DisableVideoPlane();
+    void     MainWindowReady  ();
+
+  protected:
+    MythDRMDevice(const QString& Device, bool NeedPlanes);
+    MythDRMDevice(int Fd, uint32_t CrtcId, uint32_t ConnectorId, bool Atomic);
+
+  private:
+    void     AnalysePlanes  ();
+    DRMPlane m_videoPlane { nullptr };
+    DRMPlane m_guiPlane   { nullptr };
+#endif
+
+  protected:
+    explicit MythDRMDevice(QScreen* qScreen, const QString& Device = QString());
 
   private:
     Q_DISABLE_COPY(MythDRMDevice)
-    bool     Open           (void);
-    void     Close          (void);
-    void     Authenticate   (void);
-    bool     Initialise     (void);
-
-    QString  FindBestDevice (void);
+    bool     Open           ();
+    void     Authenticate   ();
+    void     Load           ();
+    bool     Initialise     ();
+    QString  FindBestDevice ();
     static bool ConfirmDevice(const QString& Device);
 
-    drmModePropertyBlobPtr GetBlobProperty(drmModeConnectorPtr Connector, const QString& Property) const;
-
-  private:
-    bool               m_valid         { false };
-    QScreen*           m_screen        { nullptr };
-    QString            m_deviceName    { };
-    int                m_fd            { -1 };
-    bool               m_authenticated { false };
-    drmModeRes*        m_resources     { nullptr };
-    drmModeConnector*  m_connector     { nullptr };
-    QSize              m_resolution    { };
-    QSize              m_physicalSize  { };
-    double             m_refreshRate   { 0.0 };
-    QString            m_serialNumber  { };
-    drmModeCrtc*       m_crtc          { nullptr };
-    int                m_crtcIdx       { -1 };
-    LogLevel_t         m_verbose       { LOG_INFO };
-    MythEDID           m_edid          { };
+    bool       m_valid         { false };
+    QScreen*   m_screen        { nullptr };
+    QString    m_deviceName    { };
+    bool       m_openedDevice  { true };
+    int        m_fd            { -1 };
+    bool       m_atomic        { false };
+    bool       m_authenticated { false };
+    DRMConns   m_connectors;
+    DRMEncs    m_encoders;
+    DRMCrtcs   m_crtcs;
+    DRMPlanes  m_planes;
+    DRMConn    m_connector     { nullptr };
+    DRMCrtc    m_crtc          { nullptr };
+    QSize      m_resolution    { };
+    QSize      m_physicalSize  { };
+    double     m_refreshRate   { 0.0 };
+    double     m_adjustedRefreshRate { 0.0 };
+    QString    m_serialNumber  { };
+    LogLevel_t m_verbose       { LOG_INFO };
+    MythEDID   m_edid          { };
 };
 
-#endif // MYTHDRMDEVICE_H
+#endif

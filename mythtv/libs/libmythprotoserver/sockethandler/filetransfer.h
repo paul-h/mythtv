@@ -4,8 +4,6 @@
 // C++ headers
 #include <cstdint>
 
-using namespace std;
-
 #include <QMutex>
 #include <QString>
 #include <QWaitCondition>
@@ -23,7 +21,7 @@ class FileTransfer : public SocketHandler
   public:
     FileTransfer(QString &filename, MythSocket *remote,
                  MythSocketManager *parent,
-                 bool usereadahead, int timeout_ms);
+                 bool usereadahead, std::chrono::milliseconds timeout);
     FileTransfer(QString &filename, MythSocket *remote,
                  MythSocketManager *parent, bool write);
 
@@ -55,9 +53,9 @@ class FileTransfer : public SocketHandler
     MythMediaBuffer  *m_rbuffer {nullptr};
     bool m_ateof {false};
 
-    vector<char> m_requestBuffer;
+    std::vector<char> m_requestBuffer;
 
-    QMutex m_lock {QMutex::NonRecursive};
+    QMutex m_lock;
 
     bool m_writemode {false};
 };

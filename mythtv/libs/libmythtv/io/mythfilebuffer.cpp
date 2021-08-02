@@ -47,7 +47,7 @@ static const QStringList kSubExt        {".ass", ".srt", ".ssa", ".sub", ".txt"}
 static const QStringList kSubExtNoCheck {".ass", ".srt", ".ssa", ".sub", ".txt", ".gif", ".png"};
 
 
-MythFileBuffer::MythFileBuffer(const QString &Filename, bool Write, bool UseReadAhead, int Timeout)
+MythFileBuffer::MythFileBuffer(const QString &Filename, bool Write, bool UseReadAhead, std::chrono::milliseconds Timeout)
   : MythMediaBuffer(kMythBufferFile)
 {
     m_startReadAhead = UseReadAhead;
@@ -84,9 +84,9 @@ MythFileBuffer::MythFileBuffer(const QString &Filename, bool Write, bool UseRead
             }
         }
     }
-    else if (Timeout >= 0)
+    else if (Timeout >= 0ms)
     {
-        MythFileBuffer::OpenFile(m_filename, static_cast<uint>(Timeout));
+        MythFileBuffer::OpenFile(m_filename, Timeout);
     }
 }
 
@@ -170,10 +170,10 @@ static QString LocalSubtitleFilename(QFileInfo &FileInfo)
     return QString();
 }
 
-bool MythFileBuffer::OpenFile(const QString &Filename, uint Retry)
+bool MythFileBuffer::OpenFile(const QString &Filename, std::chrono::milliseconds Retry)
 {
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("OpenFile(%1, %2 ms)")
-            .arg(Filename).arg(Retry));
+            .arg(Filename).arg(Retry.count()));
 
     m_rwLock.lockForWrite();
 
@@ -198,7 +198,7 @@ bool MythFileBuffer::OpenFile(const QString &Filename, uint Retry)
 
     if (islocal)
     {
-        char buf[kReadTestSize];
+        std::array<char,kReadTestSize> buf {};
         int lasterror = 0;
 
         MythTimer openTimer;
@@ -221,11 +221,11 @@ bool MythFileBuffer::OpenFile(const QString &Filename, uint Retry)
                 }
 
                 lasterror = 1;
-                usleep(10 * 1000);
+                usleep(10ms);
             }
             else
             {
-                ssize_t ret = read(m_fd2, buf, kReadTestSize);
+                ssize_t ret = read(m_fd2, buf.data(), buf.size());
                 if (ret != kReadTestSize)
                 {
                     lasterror = 2;
@@ -239,7 +239,7 @@ bool MythFileBuffer::OpenFile(const QString &Filename, uint Retry)
 
                     if (m_oldfile)
                         break; // if it's an old file it won't grow..
-                    usleep(10 * 1000);
+                    usleep(10ms);
                 }
                 else
                 {
@@ -267,15 +267,14 @@ bool MythFileBuffer::OpenFile(const QString &Filename, uint Retry)
                     m_fd2 = -1;
                 }
             }
-        } while (static_cast<uint>(openTimer.elapsed()) < Retry);
+        } while (openTimer.elapsed() < Retry);
 
         switch (lasterror)
         {
             case 0:
             {
                 QFileInfo file(m_filename);
-                m_oldfile = file.lastModified().toUTC()
-                    .secsTo(MythDate::current()) > 60;
+                m_oldfile = MythDate::secsInPast(file.lastModified().toUTC()) > 60s;
                 QString extension = file.completeSuffix().toLower();
                 if (IsSubtitlePossible(extension))
                     m_subtitleFilename = LocalSubtitleFilename(file);
@@ -303,7 +302,7 @@ bool MythFileBuffer::OpenFile(const QString &Filename, uint Retry)
             default: break;
         }
         LOG(VB_FILE, LOG_INFO, LOC + QString("OpenFile() made %1 attempts in %2 ms")
-                .arg(openAttempts).arg(openTimer.elapsed()));
+                .arg(openAttempts).arg(openTimer.elapsed().count()));
     }
     else
     {
@@ -333,7 +332,7 @@ bool MythFileBuffer::OpenFile(const QString &Filename, uint Retry)
             }
         }
 
-        m_remotefile = new RemoteFile(m_filename, false, true, static_cast<int>(Retry), &auxFiles);
+        m_remotefile = new RemoteFile(m_filename, false, true, Retry, &auxFiles);
         if (!m_remotefile->isOpen())
         {
             LOG(VB_GENERAL, LOG_ERR, LOC + QString("RingBuffer::RingBuffer(): Failed to open remote file (%1)")
@@ -456,7 +455,7 @@ int MythFileBuffer::SafeRead(int /*fd*/, void *Buffer, uint Size)
             }
             else
             {
-                toread  = static_cast<uint>(min(sb.st_size - (m_internalReadPos + tot), static_cast<long long>(toread)));
+                toread  = static_cast<uint>(std::min(sb.st_size - (m_internalReadPos + tot), static_cast<long long>(toread)));
                 if (toread < (Size - tot))
                 {
                     eof = true;
@@ -515,7 +514,7 @@ int MythFileBuffer::SafeRead(int /*fd*/, void *Buffer, uint Size)
         if (m_stopReads)
             break;
         if (tot < Size)
-            usleep(60000);
+            usleep(60ms);
     }
     return static_cast<int>(tot);
 }
@@ -535,7 +534,8 @@ int MythFileBuffer::SafeRead(RemoteFile *Remote, void *Buffer, uint Size)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "safe_read(RemoteFile* ...): read failed");
         m_posLock.lockForRead();
-        Remote->Seek(m_internalReadPos - m_readAdjust, SEEK_SET);
+        if (Remote->Seek(m_internalReadPos - m_readAdjust, SEEK_SET) < 0)
+            LOG(VB_GENERAL, LOG_ERR, LOC + "safe_read() failed to seek reset");
         m_posLock.unlock();
         m_numFailures++;
     }
@@ -620,10 +620,10 @@ long long MythFileBuffer::SeekInternal(long long Position, int Whence)
         if ((newposition < m_readPos))
         {
             // Seeking to earlier than current buffer's start, but still in buffer
-            int min_safety = max(m_fillMin, m_readBlockSize);
+            int min_safety = std::max(m_fillMin, m_readBlockSize);
             int free = ((m_rbwPos >= m_rbrPos) ? m_rbrPos + static_cast<int>(m_bufferSize) : m_rbrPos) - m_rbwPos;
             int internal_backbuf = (m_rbwPos >= m_rbrPos) ? m_rbrPos : m_rbrPos - m_rbwPos;
-            internal_backbuf = min(internal_backbuf, free - min_safety);
+            internal_backbuf = std::min(internal_backbuf, free - min_safety);
             long long sba = m_readPos - newposition;
             LOG(VB_FILE, LOG_INFO, LOC + QString("Seek(): internal_backbuf: %1 sba: %2")
                     .arg(internal_backbuf).arg(sba));

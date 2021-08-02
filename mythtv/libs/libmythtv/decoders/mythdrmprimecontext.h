@@ -24,11 +24,11 @@ class MythDRMPRIMEContext : public MythCodecContext
                                           uint            StreamType);
     int  HwDecoderInit           (AVCodecContext *Context) override;
     void InitVideoCodec          (AVCodecContext *Context, bool SelectedStream, bool &DirectRendering) override;
-    bool RetrieveFrame           (AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame) override;
+    bool RetrieveFrame           (AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame) override;
     bool DecoderWillResetOnFlush (void) override;
-    static bool  HavePrimeDecoders       (AVCodecID Codec = AV_CODEC_ID_NONE);
+    static bool  HavePrimeDecoders       (bool Reinit = false, AVCodecID Codec = AV_CODEC_ID_NONE);
     static enum  AVPixelFormat GetFormat (AVCodecContext *Context, const AVPixelFormat *PixFmt);
-    bool         GetDRMBuffer            (AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame, int /*unused*/);
+    bool         GetDRMBuffer            (AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame, int /*unused*/);
 
   protected:
     static MythCodecID GetPrimeCodec     (AVCodecContext **Context,
@@ -38,7 +38,11 @@ class MythDRMPRIMEContext : public MythCodecContext
                                           MythCodecID     Failure,
                                           const QString  &CodecName,
                                           AVPixelFormat   Format);
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     static QMutex        s_drmPrimeLock;
+#else
+    static QRecursiveMutex s_drmPrimeLock;
+#endif
     static QStringList   s_drmPrimeDecoders;
     MythOpenGLInterop   *m_interop { nullptr };
 };

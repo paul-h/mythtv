@@ -2,27 +2,27 @@
 #define MYTHDVDPLAYER_H
 
 // MythTV
-#include "mythplayer.h"
+#include "mythplayerui.h"
 
 // Std
 #include <cstdint>
 
-class MythDVDPlayer : public MythPlayer
+class MythDVDPlayer : public MythPlayerUI
 {
-    Q_DECLARE_TR_FUNCTIONS(MythDVDPlayer)
+    Q_OBJECT
+
+  signals:
+    void     DisableDVDSubtitles();
 
   public:
-    explicit MythDVDPlayer(PlayerFlags flags = kNoFlags)
-        : MythPlayer(flags) {}
+    MythDVDPlayer(MythMainWindow* MainWindow, TV* Tv, PlayerContext* Context,PlayerFlags Flags = kNoFlags);
 
-    void     ReleaseNextVideoFrame(VideoFrame *Buffer, int64_t Timecode, bool Wrap = true) override;
+    void     ReleaseNextVideoFrame(MythVideoFrame *Buffer, std::chrono::milliseconds Timecode, bool Wrap = true) override;
     bool     HasReachedEof(void) const override;
-    bool     PrepareAudioSample(int64_t &Timecode) override;
+    bool     PrepareAudioSample(std::chrono::milliseconds &Timecode) override;
     uint64_t GetBookmark(void) override;
-    int64_t  GetSecondsPlayed(bool HonorCutList, int Divisor = 1000) override;
-    int64_t  GetTotalSeconds(bool HonorCutList, int Divisor = 1000) const override;
-    bool     GoToMenu(const QString& Menu) override;
-    void     GoToDVDProgram(bool Direction) override;
+    std::chrono::milliseconds  GetMillisecondsPlayed(bool HonorCutList) override;
+    std::chrono::milliseconds  GetTotalMilliseconds(bool HonorCutList) const override;
     bool     IsInStillFrame() const override;
     int      GetNumAngles(void) const override;
     int      GetCurrentAngle(void) const override;
@@ -30,14 +30,12 @@ class MythDVDPlayer : public MythPlayer
     bool     SwitchAngle(int Angle) override;
     int      GetNumChapters(void) override;
     int      GetCurrentChapter(void) override;
-    void     GetChapterTimes(QList<long long> &Times) override;
+    void     GetChapterTimes(QList<std::chrono::seconds> &Times) override;
 
-    void     ResetStillFrameTimer(void);
-    void     SetStillFrameTimeout(int Length);
+    void     SetStillFrameTimeout(std::chrono::seconds Length);
     void     StillFrameCheck(void);
 
   protected:
-    void     SetBookmark(bool Clear = false) override;
     void     ResetPlaying(bool ResetFrames = true) override;
     bool     PrebufferEnoughFrames(int MinBuffers = 0) override;
     void     DecoderPauseCheck(void) override;
@@ -51,23 +49,26 @@ class MythDVDPlayer : public MythPlayer
     void     EventStart(void) override;
     virtual void EventEnd(void);
     void     InitialSeek(void) override;
-    void     SeekForScreenGrab(uint64_t &Number, uint64_t FrameNum,
-                               bool Absolute) override;
-    void     AutoDeint(VideoFrame* Frame, bool AllowLock = true) override;
+    void     AutoDeint(MythVideoFrame* Frame, MythVideoOutput* VideoOutput,
+                       std::chrono::microseconds FrameInterval, bool AllowLock = true) override;
     long long CalcMaxFFTime(long long FastFwd, bool Setjump = true) const override;
     bool     FastForward(float Seconds) override;
     bool     Rewind(float Seconds) override;
     bool     JumpToFrame(uint64_t Frame) override;
-    void     DisableCaptions(uint Mode, bool OSDMsg = true) override;
-    void     EnableCaptions(uint Mode, bool OSDMsg = true) override;
-    int      SetTrack(uint Type, int TrackNo) override;
-    void     CreateDecoder(char *Testbuf, int TestReadSize) override;
+    void     CreateDecoder(TestBufferVec & Testbuf) override;
     bool     DoJumpChapter(int Chapter) override;
 
+  protected slots:
+    void     GoToMenu(const QString& Menu);
+    void     GoToDVDProgram(bool Direction);
+    void     SetBookmark(bool Clear = false) override;
+    void     DisableCaptions(uint Mode, bool OSDMsg = true) override;
+    void     EnableCaptions(uint Mode, bool OSDMsg = true) override;
+    void     SetTrack(uint Type, uint TrackNo) override;
+    void     DoDisableDVDSubtitles();
+
   private:
-    void     DoChangeDVDTrack(void);
     void     DisplayDVDButton(void);
-    void     DisplayLastFrame(void);
 
     int      m_buttonVersion          { 0 };
     bool     m_dvdStillFrameShowing   { false };
@@ -80,8 +81,12 @@ class MythDVDPlayer : public MythPlayer
 
     // still frame timing
     MythTimer m_stillFrameTimer       { };
-    int      m_stillFrameLength       { 0 };
+    std::chrono::seconds  m_stillFrameLength  { 0s };
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QMutex   m_stillFrameTimerLock    { QMutex::Recursive };
+#else
+    QRecursiveMutex m_stillFrameTimerLock;
+#endif
 };
 
 #endif // MYTHDVDPLAYER_H

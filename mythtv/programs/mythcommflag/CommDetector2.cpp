@@ -1,12 +1,10 @@
 // ANSI C headers
 #include <cmath>
 #include <cerrno>
-#include <chrono> // for milliseconds
 #include <thread> // for sleep_for
 
 // C++ headers
 #include <algorithm>
-using namespace std;
 
 // Qt headers
 #include <QCoreApplication>
@@ -18,7 +16,7 @@ using namespace std;
 #include "mythdb.h"
 #include "mythlogging.h"
 #include "mythmiscutil.h"
-#include "mythplayer.h"
+#include "mythcommflagplayer.h"
 #include "programinfo.h"
 #include "channelutil.h"
 
@@ -47,19 +45,17 @@ bool needToReportState(bool showprogress, bool isrecording, long long frameno)
         (frameno % 500) == 0;
 }
 
-void waitForBuffer(const struct timeval *framestart, int minlag, int flaglag,
+void waitForBuffer(std::chrono::microseconds framestart, int minlag, int flaglag,
         float fps, bool fullspeed)
 {
-    long usperframe = (long)(1000000.0F / fps);
-    struct timeval now {};
-    struct timeval elapsed {};
+    auto usperframe = floatusecs(1000000.0F / fps);
 
-    (void)gettimeofday(&now, nullptr);
-    timersub(&now, framestart, &elapsed);
+    auto now = nowAsDuration<std::chrono::microseconds>();
+    auto elapsed = (now - framestart);
 
     // Sleep for one frame's worth of time.
-    long sleepus = usperframe - elapsed.tv_sec * 1000000 - elapsed.tv_usec;
-    if (sleepus <= 0)
+    auto sleepus = usperframe - duration_cast<floatusecs>(elapsed);
+    if (sleepus <= 0us)
         return;
 
     if (flaglag > minlag)
@@ -74,7 +70,7 @@ void waitForBuffer(const struct timeval *framestart, int minlag, int flaglag,
         // Slow down; increase sleep time
         sleepus = sleepus * 3 / 2;
     }
-    std::this_thread::sleep_for(std::chrono::microseconds(sleepus));
+    std::this_thread::sleep_for(sleepus);
 }
 
 bool MythPlayerInited(FrameAnalyzerItem &pass,
@@ -119,7 +115,7 @@ bool MythPlayerInited(FrameAnalyzerItem &pass,
 long long processFrame(FrameAnalyzerItem &pass,
                        FrameAnalyzerItem &finishedAnalyzers,
                        FrameAnalyzerItem &deadAnalyzers,
-                       const VideoFrame *frame,
+                       const MythVideoFrame *frame,
                        long long frameno)
 {
     long long nextFrame = 0;
@@ -234,7 +230,7 @@ void createDebugDirectory(const QString& dirname, const QString& comment)
     if (qdir.exists())
     {
         LOG(VB_COMMFLAG, LOG_INFO, QString("%1 using debug directory \"%2\"")
-                .arg(comment).arg(dirname));
+                .arg(comment, dirname));
     }
     else
     {
@@ -242,36 +238,37 @@ void createDebugDirectory(const QString& dirname, const QString& comment)
         {
             LOG(VB_COMMFLAG, LOG_INFO,
                 QString("%1 created debug directory \"%1\"")
-                    .arg(comment).arg(dirname));
+                    .arg(comment, dirname));
         }
         else
         {
             LOG(VB_COMMFLAG, LOG_INFO, QString("%1 failed to create \"%2\": %3")
-                    .arg(comment).arg(dirname).arg(strerror(errno)));
+                    .arg(comment, dirname, strerror(errno)));
         }
     }
 }
 
 QString frameToTimestamp(long long frameno, float fps)
 {
-    int ms = (int)roundf(frameno / fps * 1000);
-    if (ms % 1000 >= 500)
-        ms += 500; // Round up to next second
-    return MythFormatTimeMs(ms, "hh:mm:ss");
+    auto ms = millisecondsFromFloat(frameno / fps * 1000);
+    auto secs = std::chrono::ceil<std::chrono::seconds>(ms);
+    return MythFormatTime(secs, "hh:mm:ss");
 }
 
 QString frameToTimestampms(long long frameno, float fps)
 {
-    int ms = (int)roundf(frameno / fps * 1000);
-    QString timestr = MythFormatTimeMs(ms, "mm:ss.zzz");
+    auto ms = millisecondsFromFloat(frameno / fps * 1000);
+    QString timestr = MythFormatTime(ms, "mm:ss.zzz");
     timestr.chop(1); // Chop 1 to return hundredths
     return timestr;
 }
 
-QString strftimeval(const struct timeval *tv)
+QString strftimeval(std::chrono::microseconds usecs)
 {
+    auto msecs = duration_cast<std::chrono::milliseconds>(usecs);
     return QString("%1.%2")
-        .arg(tv->tv_sec).arg(tv->tv_usec, 6, 10, QChar(QChar('0')));
+        .arg(duration_cast<std::chrono::seconds>(usecs).count())
+        .arg((msecs % 1s).count(), 3, 10, QChar(QChar('0')));
 }
 
 };  /* namespace */
@@ -282,7 +279,7 @@ CommDetector2::CommDetector2(
     SkipType           commDetectMethod_in,
     bool               showProgress_in,
     bool               fullSpeed_in,
-    MythPlayer        *player_in,
+    MythCommFlagPlayer *player_in,
     int                chanid,
     QDateTime          startts_in,
     QDateTime          endts_in,
@@ -383,7 +380,7 @@ void CommDetector2::reportState(int elapsedms, long long frameno,
     /* Assume that 0-th pass is negligible in terms of computational cost. */
     int percentage = (passno == 0 || npasses == 1 || nframes == 0) ? 0 :
         (passno - 1) * 100 / (npasses - 1) +
-        min((long long)100, (frameno * 100 / nframes) / (npasses - 1));
+        std::min((long long)100, (frameno * 100 / nframes) / (npasses - 1));
 
     if (m_showProgress)
     {
@@ -395,8 +392,8 @@ void CommDetector2::reportState(int elapsedms, long long frameno,
             tmp = QString("\r%1/ %2fps").arg(frameno,6).arg(fps,6,'f',2);
 
         QByteArray tmp2 = tmp.toLocal8Bit();
-        cerr << tmp2.constData() << "          \r";
-        cerr.flush();
+        std::cerr << tmp2.constData() << "          \r";
+        std::cerr.flush();
     }
 
     if (nframes)
@@ -482,8 +479,6 @@ bool CommDetector2::go(void)
         return false;
     }
 
-    m_player->EnableSubtitles(false);
-
     QElapsedTimer totalFlagTime;
     totalFlagTime.start();
 
@@ -497,10 +492,10 @@ bool CommDetector2::go(void)
     if (m_showProgress)
     {
         if (nframes)
-            cerr << "  0%/      ";
+            std::cerr << "  0%/      ";
         else
-            cerr << "     0/      ";
-        cerr.flush();
+            std::cerr << "     0/      ";
+        std::cerr.flush();
     }
 
     frm_dir_map_t lastBreakMap;
@@ -530,7 +525,7 @@ bool CommDetector2::go(void)
         long long lastLoggedFrame = m_currentFrameNumber;
         QElapsedTimer passTime;
         QElapsedTimer clock;
-        struct timeval getframetime {};
+        std::chrono::microseconds getframetime {0us};
 
         m_player->ResetTotalDuration();
 
@@ -540,22 +535,16 @@ bool CommDetector2::go(void)
 
         clock.start();
         passTime.start();
-        memset(&getframetime, 0, sizeof(getframetime));
         while (!(*m_currentPass).empty() && m_player->GetEof() == kEofStateNone)
         {
-            struct timeval start {};
-            struct timeval end {};
-            struct timeval elapsedtv {};
-
-            (void)gettimeofday(&start, nullptr);
+            auto start = nowAsDuration<std::chrono::microseconds>();
             bool fetchNext = (nextFrame == m_currentFrameNumber + 1);
-            VideoFrame *currentFrame =
+            MythVideoFrame *currentFrame =
                 m_player->GetRawVideoFrame(fetchNext ? -1 : nextFrame);
             long long lastFrameNumber = m_currentFrameNumber;
-            m_currentFrameNumber = currentFrame->frameNumber + 1;
-            (void)gettimeofday(&end, nullptr);
-            timersub(&end, &start, &elapsedtv);
-            timeradd(&getframetime, &elapsedtv, &getframetime);
+            m_currentFrameNumber = currentFrame->m_frameNumber + 1;
+            auto end = nowAsDuration<std::chrono::microseconds>();
+            getframetime += (end - start);
 
             if (nextFrame != -1 && nextFrame == lastFrameNumber + 1 &&
                     m_currentFrameNumber != nextFrame)
@@ -582,7 +571,7 @@ bool CommDetector2::go(void)
             while (m_bPaused)
             {
                 emit breathe();
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::this_thread::sleep_for(1s);
             }
 
             if (!searchingForLogo(m_logoFinder, *m_currentPass) &&
@@ -617,7 +606,7 @@ bool CommDetector2::go(void)
 
             if (m_isRecording)
             {
-                waitForBuffer(&start, minlag,
+                waitForBuffer(start, minlag,
                         m_recstartts.secsTo(MythDate::current()) -
                         totalFlagTime.elapsed() / 1000, m_player->GetFrameRate(),
                         m_fullSpeed);
@@ -625,7 +614,7 @@ bool CommDetector2::go(void)
 
             // sleep a little so we don't use all cpu even if we're niced
             if (!m_fullSpeed && !m_isRecording)
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                std::this_thread::sleep_for(10ms);
 
             if (m_sendBreakMapUpdates && (m_breakMapUpdateRequested ||
                         !(m_currentFrameNumber % 500)))
@@ -645,7 +634,7 @@ bool CommDetector2::go(void)
                     ++ii;
                     ++jj;
                 }
-                bool same = ii == breakMap.end() && jj == lastBreakMap.end();
+                bool same = ii == breakMap.cend() && jj == lastBreakMap.cend();
                 lastBreakMap = breakMap;
 
                 if (m_breakMapUpdateRequested || !same)
@@ -673,7 +662,7 @@ bool CommDetector2::go(void)
             return false;
 
         LOG(VB_COMMFLAG, LOG_INFO, QString("NVP Time: GetRawVideoFrame=%1s")
-                .arg(strftimeval(&getframetime)));
+                .arg(strftimeval(getframetime)));
         if (passReportTime(*m_currentPass))
             return false;
     }
@@ -681,11 +670,11 @@ bool CommDetector2::go(void)
     if (m_showProgress)
     {
         if (nframes)
-            cerr << "\b\b\b\b\b\b      \b\b\b\b\b\b";
+            std::cerr << "\b\b\b\b\b\b      \b\b\b\b\b\b";
         else
-            cerr << "\b\b\b\b\b\b\b\b\b\b\b\b\b             "
-                    "\b\b\b\b\b\b\b\b\b\b\b\b\b";
-        cerr.flush();
+            std::cerr << "\b\b\b\b\b\b\b\b\b\b\b\b\b             "
+                         "\b\b\b\b\b\b\b\b\b\b\b\b\b";
+        std::cerr.flush();
     }
 
     m_finished = true;
@@ -733,32 +722,30 @@ void CommDetector2::GetCommercialBreakList(frm_dir_map_t &marks)
 
     /* Report results. */
     const float fps = m_player->GetFrameRate();
-    for (frm_dir_map_t::const_iterator iimark = marks.begin();
-            iimark != marks.end();
-            ++iimark)
+    for (auto iimark = marks.cbegin(); iimark != marks.cend(); ++iimark)
     {
         /* Display as 1-based frame numbers. */
         long long markstart = iimark.key() + 1;   /* MARK_COMM_BEGIN */
         ++iimark;                       /* MARK_COMM_END */
-        if (iimark == marks.end())
+        if (iimark == marks.cend())
             break;
         long long markend = iimark.key() + 1;
 
         LOG(VB_COMMFLAG, LOG_INFO, QString("Break: frame %1-%2 (%3-%4, %5)")
                 .arg(markstart, 6).arg(markend, 6)
-                .arg(frameToTimestamp(markstart, fps))
-                .arg(frameToTimestamp(markend, fps))
-                .arg(frameToTimestamp(markend - markstart + 1, fps)));
+                .arg(frameToTimestamp(markstart, fps),
+                     frameToTimestamp(markend, fps),
+                     frameToTimestamp(markend - markstart + 1, fps)));
     }
 
     const long long nframes = m_player->GetTotalFrameCount();
     LOG(VB_COMMFLAG, LOG_INFO,
         QString("Flagged %1 of %2 frames (%3 of %4), %5% commercials (%6)")
             .arg(m_currentFrameNumber + 1).arg(nframes)
-            .arg(frameToTimestamp(m_currentFrameNumber + 1, fps))
-            .arg(frameToTimestamp(nframes, fps))
-            .arg(breakframes * 100 / m_currentFrameNumber)
-            .arg(frameToTimestamp(breakframes, fps)));
+            .arg(frameToTimestamp(m_currentFrameNumber + 1, fps),
+                 frameToTimestamp(nframes, fps),
+                 QString::number(breakframes * 100 / m_currentFrameNumber),
+                 frameToTimestamp(breakframes, fps)));
 }
 
 void CommDetector2::recordingFinished(long long totalFileSize)
@@ -786,7 +773,7 @@ void CommDetector2::requestCommBreakMapUpdate(void)
     m_breakMapUpdateRequested = true;
 }
 
-static void PrintReportMap(ostream &out,
+static void PrintReportMap(std::ostream &out,
                            const FrameAnalyzer::FrameMap &frameMap)
 {
     FrameAnalyzer::FrameMap::const_iterator it = frameMap.begin();
@@ -803,11 +790,11 @@ static void PrintReportMap(ostream &out,
 
         out << qPrintable(tmp) << "\n";
     }
-    out << flush;
+    out << std::flush;
 }
 
 void CommDetector2::PrintFullMap(
-    ostream &out, const frm_dir_map_t */*comm_breaks*/, bool /*verbose*/) const
+    std::ostream &out, const frm_dir_map_t */*comm_breaks*/, bool /*verbose*/) const
 {
     FrameAnalyzer::FrameMap logoMap;
     FrameAnalyzer::FrameMap blankMap;
@@ -825,13 +812,13 @@ void CommDetector2::PrintFullMap(
     if (m_sceneChangeDetector)
         sceneMap = m_sceneChangeDetector->GetMap(0);
 
-    out << "Logo Break Map" << endl;
+    out << "Logo Break Map" << std::endl;
     PrintReportMap(out, logoMap);
-    out << "Blank Break Map" << endl;
+    out << "Blank Break Map" << std::endl;
     PrintReportMap(out, blankBreakMap);
-    out << "Blank Map" << endl;
+    out << "Blank Map" << std::endl;
     PrintReportMap(out, blankMap);
-    out << "Scene Break Map" << endl;
+    out << "Scene Break Map" << std::endl;
     PrintReportMap(out, sceneMap);
 }
 

@@ -1,8 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
 
-using namespace std;
-
 // Qt utils: to parse audio list
 #include <QFile>
 #include <QDateTime>
@@ -302,7 +300,7 @@ void AudioOutput::ClearWarning(void)
 }
 
 AudioOutput::AudioDeviceConfig* AudioOutput::GetAudioDeviceConfig(
-    QString &name, QString &desc, bool willsuspendpa)
+    QString &name, const QString &desc, bool willsuspendpa)
 {
     AudioOutputSettings aosettings(true);
 
@@ -327,8 +325,8 @@ AudioOutput::AudioDeviceConfig* AudioOutput::GetAudioDeviceConfig(
         if (aosettings.getELD().isValid())
         {
             capabilities += tr(" (%1 connected to %2)")
-                .arg(aosettings.getELD().product_name().simplified())
-                .arg(aosettings.getELD().connection_name());
+                .arg(aosettings.getELD().product_name().simplified(),
+                     aosettings.getELD().connection_name());
         }
         else
         {
@@ -368,7 +366,6 @@ AudioOutput::AudioDeviceConfig* AudioOutput::GetAudioDeviceConfig(
                 (static_cast<int>(aosettings.canLPCM()) << 0) |
                 (static_cast<int>(aosettings.canAC3())  << 1) |
                 (static_cast<int>(aosettings.canDTS())  << 2);
-            // cppcheck-suppress variableScope
             static const std::array<const std::string,3> s_typeNames { "LPCM", "AC3", "DTS" };
 
             if (mask != 0)
@@ -389,8 +386,7 @@ AudioOutput::AudioDeviceConfig* AudioOutput::GetAudioDeviceConfig(
             }
         }
     }
-    LOG(VB_AUDIO, LOG_INFO, QString("Found %1 (%2)")
-                                .arg(name).arg(capabilities));
+    LOG(VB_AUDIO, LOG_INFO, QString("Found %1 (%2)") .arg(name, capabilities));
     auto *adc = new AudioOutput::AudioDeviceConfig(name, capabilities);
     adc->m_settings = aosettings;
     return adc;
@@ -400,7 +396,8 @@ AudioOutput::AudioDeviceConfig* AudioOutput::GetAudioDeviceConfig(
 static void fillSelectionsFromDir(const QDir &dir,
                                   AudioOutput::ADCVect *list)
 {
-    for (const auto& fi : dir.entryInfoList())
+    QFileInfoList entries = dir.entryInfoList();
+    for (const auto& fi : qAsConst(entries))
     {
         QString name = fi.absoluteFilePath();
         QString desc = AudioOutput::tr("OSS device");
@@ -427,11 +424,10 @@ AudioOutput::ADCVect* AudioOutput::GetOutputList(void)
 
     if (!alsadevs->empty())
     {
-        for (QMap<QString, QString>::const_iterator i = alsadevs->begin();
-             i != alsadevs->end(); ++i)
+        for (auto i = alsadevs->cbegin(); i != alsadevs->cend(); ++i)
         {
             const QString& key = i.key();
-            QString desc = i.value();
+            const QString& desc = i.value();
             QString devname = QString("ALSA:%1").arg(key);
 
             auto *adc = GetAudioDeviceConfig(devname, desc);
@@ -553,7 +549,7 @@ AudioOutput::ADCVect* AudioOutput::GetOutputList(void)
     }
 #endif
 
-#ifdef ANDROID
+#ifdef Q_OS_ANDROID
     {
         QString name = "OpenSLES:";
         QString desc =  tr("OpenSLES default output. Stereo support only.");

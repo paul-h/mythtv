@@ -16,6 +16,15 @@
 #include "videolist.h"
 #include "videofilter.h"
 
+const QRegularExpression VideoFilterSettings::kReSeason {
+    "(\\d+)x(\\d*)", QRegularExpression::CaseInsensitiveOption };
+const QRegularExpression VideoFilterSettings::kReDate {
+    "-(\\d+)([dwmy])", QRegularExpression::CaseInsensitiveOption };
+
+#if QT_VERSION < QT_VERSION_CHECK(5,15,2)
+#define capturedView capturedRef
+#endif
+
 VideoFilterSettings::VideoFilterSettings(bool loaddefaultsettings,
                                          const QString& _prefix)
 {
@@ -212,30 +221,16 @@ bool VideoFilterSettings::matches_filter(const VideoMetadata &mdata) const
     }
     if (matches && (m_genre != kGenreFilterAll))
     {
-        matches = false;
-
         const VideoMetadata::genre_list &gl = mdata.GetGenres();
-        for (const auto & g : gl)
-        {
-            if ((matches = (g.first == m_genre)))
-            {
-                break;
-            }
-        }
+        auto samegenre = [this](const auto & g) {return g.first == m_genre; };
+        matches = std::any_of(gl.cbegin(), gl.cend(), samegenre);
     }
 
     if (matches && m_country != kCountryFilterAll)
     {
-        matches = false;
-
         const VideoMetadata::country_list &cl = mdata.GetCountries();
-        for (const auto & c : cl)
-        {
-            if ((matches = (c.first == m_country)))
-            {
-                break;
-            }
-        }
+        auto samecountry = [this](const auto & c) {return c.first == m_country; };
+        matches = std::any_of(cl.cbegin(), cl.cend(), samecountry);
     }
 
     if (matches && m_cast != kCastFilterAll)
@@ -248,15 +243,8 @@ bool VideoFilterSettings::matches_filter(const VideoMetadata &mdata) const
         }
         else
         {
-            matches = false;
-
-            for (const auto & c : cl)
-            {
-                if ((matches = (c.first == m_cast)))
-                {
-                    break;
-                }
-            }
+            auto samecast = [this](const auto & c){return c.first == m_cast; };
+            matches = std::any_of(cl.cbegin(), cl.cend(), samecast);
         }
     }
 
@@ -282,11 +270,11 @@ bool VideoFilterSettings::matches_filter(const VideoMetadata &mdata) const
     {
         if (m_runtime == kRuntimeFilterUnknown)
         {
-            matches = (mdata.GetLength() == 0);
+            matches = (mdata.GetLength() == 0min);
         }
         else
         {
-            matches = (m_runtime == (mdata.GetLength() / 30));
+            matches = (m_runtime == (mdata.GetLength() / 30min));
         }
     }
 
@@ -399,24 +387,16 @@ bool VideoFilterSettings::meta_less_than(const VideoMetadata &lhs,
 void VideoFilterSettings::setTextFilter(const QString& val)
 {
     m_changedState |= kFilterTextFilterChanged;
-    if (m_reSeason.indexIn(val) != -1)
+    auto match = kReSeason.match(val);
+    if (match.hasMatch())
     {
-        bool res = false;
-        QStringList list = m_reSeason.capturedTexts();
-        m_season = list[1].toInt(&res);
-        if (!res)
-            m_season = -1;
-        if (list.size() > 2) {
-            m_episode = list[2].toInt(&res);
-            if (!res)
-                m_episode = -1;
-        }
-        else {
-            m_episode = -1;
-        }
+        m_season = match.capturedView(1).isEmpty()
+            ? -1 : match.capturedView(1).toInt();
+        m_episode = match.capturedView(2).isEmpty()
+            ? -1 : match.capturedView(2).toInt();
         //clear \dX\d from string for string-search in plot/title/subtitle
         m_textFilter = val;
-        m_textFilter.replace(m_reSeason, "");
+        m_textFilter.remove(match.capturedStart(), match.capturedLength());
         m_textFilter = m_textFilter.simplified ();
     }
     else
@@ -425,19 +405,20 @@ void VideoFilterSettings::setTextFilter(const QString& val)
         m_season = -1;
         m_episode = -1;
     }
-    if (m_reDate.indexIn(m_textFilter) != -1)
+    match = kReDate.match(m_textFilter);
+    if (match.hasMatch())
     {
-        QStringList list = m_reDate.capturedTexts();
-        int modnr = list[1].toInt();
+        int modnr = match.capturedView(1).toInt();
         QDate testdate = MythDate::current().date();
-        switch(list[2].at(0).toLatin1())
+        switch(match.capturedView(2).at(0).toLatin1())
         {
-            case 'm': testdate = testdate.addMonths(-modnr);break;
             case 'd': testdate = testdate.addDays(-modnr);break;
             case 'w': testdate = testdate.addDays(-modnr * 7);break;
+            case 'm': testdate = testdate.addMonths(-modnr);break;
+            case 'y': testdate = testdate.addYears(-modnr);break;
         }
         m_insertDate = testdate;
-        m_textFilter.replace(m_reDate, "");
+        m_textFilter.remove(match.capturedStart(), match.capturedLength());
         m_textFilter = m_textFilter.simplified ();
     }
     else
@@ -499,35 +480,35 @@ bool VideoFilterDialog::Create()
     fillWidgets();
     update_numvideo();
 
-    connect(m_yearList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(SetYear(MythUIButtonListItem*)));
-    connect(m_userRatingList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(SetUserRating(MythUIButtonListItem*)));
-    connect(m_categoryList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(SetCategory(MythUIButtonListItem*)));
-    connect(m_countryList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(setCountry(MythUIButtonListItem*)));
-    connect(m_genreList,SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(setGenre(MythUIButtonListItem*)));
-    connect(m_castList,SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(SetCast(MythUIButtonListItem*)));
-    connect(m_runtimeList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(setRunTime(MythUIButtonListItem*)));
-    connect(m_browseList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(SetBrowse(MythUIButtonListItem*)));
-    connect(m_watchedList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(SetWatched(MythUIButtonListItem*)));
-    connect(m_inetRefList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(SetInetRef(MythUIButtonListItem*)));
-    connect(m_coverFileList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(SetCoverFile(MythUIButtonListItem*)));
-    connect(m_orderByList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(setOrderby(MythUIButtonListItem*)));
-    connect(m_textFilter, SIGNAL(valueChanged()),
-            SLOT(setTextFilter()));
+    connect(m_yearList, &MythUIButtonList::itemSelected,
+            this, &VideoFilterDialog::SetYear);
+    connect(m_userRatingList, &MythUIButtonList::itemSelected,
+            this, &VideoFilterDialog::SetUserRating);
+    connect(m_categoryList, &MythUIButtonList::itemSelected,
+            this, &VideoFilterDialog::SetCategory);
+    connect(m_countryList, &MythUIButtonList::itemSelected,
+            this, &VideoFilterDialog::setCountry);
+    connect(m_genreList,&MythUIButtonList::itemSelected,
+            this, &VideoFilterDialog::setGenre);
+    connect(m_castList,&MythUIButtonList::itemSelected,
+            this, &VideoFilterDialog::SetCast);
+    connect(m_runtimeList, &MythUIButtonList::itemSelected,
+            this, &VideoFilterDialog::setRunTime);
+    connect(m_browseList, &MythUIButtonList::itemSelected,
+            this, &VideoFilterDialog::SetBrowse);
+    connect(m_watchedList, &MythUIButtonList::itemSelected,
+            this, &VideoFilterDialog::SetWatched);
+    connect(m_inetRefList, &MythUIButtonList::itemSelected,
+            this, &VideoFilterDialog::SetInetRef);
+    connect(m_coverFileList, &MythUIButtonList::itemSelected,
+            this, &VideoFilterDialog::SetCoverFile);
+    connect(m_orderByList, &MythUIButtonList::itemSelected,
+            this, &VideoFilterDialog::setOrderby);
+    connect(m_textFilter, &MythUITextEdit::valueChanged,
+            this, &VideoFilterDialog::setTextFilter);
 
-    connect(m_saveButton, SIGNAL(Clicked()), SLOT(saveAsDefault()));
-    connect(m_doneButton, SIGNAL(Clicked()), SLOT(saveAndExit()));
+    connect(m_saveButton, &MythUIButton::Clicked, this, &VideoFilterDialog::saveAsDefault);
+    connect(m_doneButton, &MythUIButton::Clicked, this, &VideoFilterDialog::saveAndExit);
 
     return true;
 }
@@ -567,11 +548,11 @@ void VideoFilterDialog::fillWidgets()
         else
             years.insert(year);
 
-        int runtime = md->GetLength();
-        if (runtime == 0)
+        std::chrono::minutes runtime = md->GetLength();
+        if (runtime == 0min)
             have_unknown_runtime = true;
         else
-            runtimes.insert(runtime / 30);
+            runtimes.insert(runtime.count() / 30);
 
         user_ratings.insert(static_cast<int>(md->GetUserRating()));
     }

@@ -1,12 +1,14 @@
 #ifndef AUDIOPLAYER_H
 #define AUDIOPLAYER_H
 
-#include "audiooutputsettings.h"
-#include "mythtvexp.h"
-#include "volumebase.h" // MuteState
+#include "mythplayerstate.h"
 
 #include <QCoreApplication>
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
 #include <QMutex>
+#else
+#include <QRecursiveMutex>
+#endif
 
 #include <cstdint>
 #include <vector>
@@ -23,13 +25,16 @@ namespace MythTV
     class Visual;
 }
 
-class MTV_PUBLIC AudioPlayer
+class MTV_PUBLIC AudioPlayer : public QObject
 {
-    Q_DECLARE_TR_FUNCTIONS(AudioPlayer);
+    Q_OBJECT
+
+  signals:
+    void AudioPlayerStateChanged(MythAudioPlayerState State);
 
   public:
     AudioPlayer(MythPlayer *parent, bool muted);
-   ~AudioPlayer();
+   ~AudioPlayer() override;
 
     void addVisual(MythTV::Visual *vis);
     void removeVisual(MythTV::Visual *vis);
@@ -56,10 +61,9 @@ class MTV_PUBLIC AudioPlayer
     bool  Pause(bool pause);
     bool  IsPaused(void);
     void  PauseAudioUntilBuffered(void);
-    AVCodecID GetCodec(void)    const { return m_codec;         }
-    int   GetNumChannels(void)  const { return m_channels;      }
-    int   GetOrigChannels(void) const { return m_origChannels;  }
-    int   GetSampleRate(void)   const { return m_sampleRate;    }
+    AVCodecID GetCodec(void)    const { return m_state.m_codec;        }
+    int   GetOrigChannels(void) const { return m_state.m_origChannels; }
+    int   GetSampleRate(void)   const { return m_state.m_sampleRate;   }
     uint  GetVolume(void);
     uint  AdjustVolume(int change);
     uint  SetVolume(int newvolume);
@@ -77,8 +81,8 @@ class MTV_PUBLIC AudioPlayer
     bool  CanDTSHD(void);
     uint  GetMaxChannels(void);
     int   GetMaxHDRate(void);
-    int64_t GetAudioTime(void);
-    AudioFormat GetFormat(void) const { return m_format; }
+    std::chrono::milliseconds GetAudioTime(void);
+    AudioFormat GetFormat(void) const { return m_state.m_format; }
     bool CanProcess(AudioFormat fmt);
     uint32_t CanProcess(void);
     int   DecodeAudio(AVCodecContext *ctx,
@@ -91,12 +95,12 @@ class MTV_PUBLIC AudioPlayer
     MuteState SetMuteState(MuteState mstate);
     MuteState IncrMuteState(void);
 
-    void AddAudioData(char *buffer, int len, int64_t timecode, int frames);
+    void AddAudioData(char *buffer, int len, std::chrono::milliseconds timecode, int frames);
     bool NeedDecodingBeforePassthrough(void);
-    int64_t LengthLastData(void);
+    std::chrono::milliseconds LengthLastData(void);
     bool GetBufferStatus(uint &fill, uint &total);
     bool IsBufferAlmostFull(void);
-    int64_t GetAudioBufferedTime(void);
+    std::chrono::milliseconds GetAudioBufferedTime(void);
     
     /**
      * Return internal AudioOutput object
@@ -111,15 +115,13 @@ class MTV_PUBLIC AudioPlayer
   private:
     MythPlayer  *m_parent            {nullptr};
     AudioOutput *m_audioOutput       {nullptr};
-    int          m_channels          {-1};
-    int          m_origChannels      {-1};
-    AVCodecID    m_codec             {AV_CODEC_ID_NONE};
-    AudioFormat  m_format            {FORMAT_NONE};
-    int          m_sampleRate        {44100};
-    int          m_codecProfile      {0};
+    MythAudioPlayerState m_state     { };
     float        m_stretchFactor     {1.0F};
-    bool         m_passthru          {false};
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QMutex       m_lock              {QMutex::Recursive};
+#else
+    QRecursiveMutex m_lock;
+#endif
     bool         m_mutedOnCreation   {false};
     QString      m_mainDevice;
     QString      m_passthruDevice;

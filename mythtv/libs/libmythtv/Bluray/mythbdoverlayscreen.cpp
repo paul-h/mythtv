@@ -9,10 +9,11 @@
 
 #define LOC QString("BDScreen: ")
 
-MythBDOverlayScreen::MythBDOverlayScreen(MythPlayer *Player, const QString &Name)
+MythBDOverlayScreen::MythBDOverlayScreen(MythPlayerUI *Player, MythPainter *Painter, const QString &Name)
   : MythScreenType(static_cast<MythScreenType*>(nullptr), Name),
     m_player(Player)
 {
+    m_painter = Painter;
 }
 
 void MythBDOverlayScreen::DisplayBDOverlay(MythBDOverlay *Overlay)
@@ -35,21 +36,17 @@ void MythBDOverlayScreen::DisplayBDOverlay(MythBDOverlay *Overlay)
     if (scaled.size() != rect.size())
         img = img.scaled(scaled.width(), scaled.height(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 
-    MythPainter *osd_painter = vo->GetOSDPainter();
-    if (osd_painter)
+    MythImage* image = m_painter->GetFormatImage();
+    if (image)
     {
-        MythImage* image = osd_painter->GetFormatImage();
-        if (image)
+        image->Assign(img);
+        auto *uiimage = new MythUIImage(this, "bdoverlay");
+        if (uiimage)
         {
-            image->Assign(img);
-            auto *uiimage = new MythUIImage(this, "bdoverlay");
-            if (uiimage)
-            {
-                uiimage->SetImage(image);
-                uiimage->SetArea(MythRect(scaled));
-            }
-            image->DecrRef();
+            uiimage->SetImage(image);
+            uiimage->SetArea(MythRect(scaled));
         }
+        image->DecrRef();
     }
 
     SetRedraw();

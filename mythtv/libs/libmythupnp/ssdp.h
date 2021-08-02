@@ -62,7 +62,7 @@ class UPNP_PUBLIC SSDP : public MThread
 
         QRegularExpression  m_procReqLineExp        {"\\s+"};
         constexpr static int kNumberOfSockets = 3;
-        MSocketDevice      *m_sockets[kNumberOfSockets] {nullptr,nullptr,nullptr};
+        std::array<MSocketDevice*,kNumberOfSockets> m_sockets {nullptr,nullptr,nullptr};
 
         int                 m_nPort                 {SSDP_PORT};
         int                 m_nSearchPort           {SSDP_SEARCHPORT};
@@ -72,7 +72,7 @@ class UPNP_PUBLIC SSDP : public MThread
         bool                m_bAnnouncementsEnabled {false};
 
         bool                m_bTermRequested        {false};
-        QMutex              m_lock                  {QMutex::NonRecursive};
+        QMutex              m_lock;
 
     private:
 
@@ -111,7 +111,7 @@ class UPNP_PUBLIC SSDP : public MThread
 
         void RequestTerminate(void);
 
-        void PerformSearch(const QString &sST, uint timeout_secs = 2);
+        void PerformSearch(const QString &sST, std::chrono::seconds timeout = 2s);
 
         void EnableNotifications ( int nServicePort );
         void DisableNotifications();

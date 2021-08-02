@@ -209,7 +209,9 @@ bool ServerSideScripting::EvaluatePage( QTextStream *pOutStream, const QString &
         // word characters and numbers, _ and $
         // They must not start with a number - to simplify the regexp, we
         // restrict the first character to the English alphabet
-        QRegExp validChars = QRegExp(R"(^([a-zA-Z]|_|\$)(\w|\$)+$)");
+        static const QRegularExpression validChars {
+            R"(^([a-zA-Z]|_|\$)(\w|\$)+$)",
+            QRegularExpression::UseUnicodePropertiesOption };
 
         QVariantMap params;
         QString prevArrayName = "";
@@ -235,12 +237,13 @@ bool ServerSideScripting::EvaluatePage( QTextStream *pOutStream, const QString &
                     prevArrayName = arrayName;
                 }
 
-                if (!validChars.exactMatch(arrayKey)) // Discard anything that isn't valid for now
+                auto match = validChars.match(arrayKey);
+                if (!match.hasMatch()) // Discard anything that isn't valid for now
                     continue;
 
                 array.insert(arrayKey, value);
 
-                if ((it + 1) != mapParams.end())
+                if ((it + 1) != mapParams.cend())
                     continue;
             }
 
@@ -251,7 +254,8 @@ bool ServerSideScripting::EvaluatePage( QTextStream *pOutStream, const QString &
             }
             // End Array handling
 
-            if (!validChars.exactMatch(key)) // Discard anything that isn't valid for now
+            auto match = validChars.match(key);
+            if (!match.hasMatch()) // Discard anything that isn't valid for now
                 continue;
 
             params.insert(key, value);
@@ -271,7 +275,8 @@ bool ServerSideScripting::EvaluatePage( QTextStream *pOutStream, const QString &
             key = key.replace('-', '_'); // May be other valid chars in a request header that we need to replace
             QVariant value = QVariant(it.value());
 
-            if (!validChars.exactMatch(key)) // Discard anything that isn't valid for now
+            auto match = validChars.match(key);
+            if (!match.hasMatch()) // Discard anything that isn't valid for now
                 continue;
 
             requestHeaders.insert(key, value);
@@ -290,7 +295,8 @@ bool ServerSideScripting::EvaluatePage( QTextStream *pOutStream, const QString &
             key = key.replace('-', '_'); // May be other valid chars in a request header that we need to replace
             QVariant value = QVariant(it.value());
 
-            if (!validChars.exactMatch(key)) // Discard anything that isn't valid for now
+            auto match = validChars.match(key);
+            if (!match.hasMatch()) // Discard anything that isn't valid for now
                 continue;
 
             requestCookies.insert(key, value);
@@ -641,8 +647,7 @@ bool ServerSideScripting::ProcessLine( QTextStream &sCode,
                         {
                             LOG(VB_GENERAL, LOG_ERR,
                                 QString("ServerSideScripting::ProcessLine 'import' - File not found: %1%2")
-                                   .arg(m_sResRootPath)
-                                   .arg(sFileName));
+                                   .arg(m_sResRootPath, sFileName));
                         }
                     }
                     else

@@ -7,6 +7,9 @@
 #include "mthread.h"
 #include <QMetaType>
 #include <QMutex>
+#if QT_VERSION >= QT_VERSION_CHECK(5,14,0)
+#include <QRecursiveMutex>
+#endif
 #include <QTimer>
 
 #include "rssparse.h"
@@ -22,13 +25,13 @@ class MPUBLIC GrabberScript : public QObject, public MThread
 
     GrabberScript(const QString& title,
                   const QString& image,
-                  const ArticleType& type,
+                  ArticleType type,
                   const QString& author,
-                  const bool& search,
-                  const bool& tree,
+                  bool search,
+                  bool tree,
                   const QString& description,
                   const QString& commandline,
-                  const double& version);
+                  double version);
     ~GrabberScript() override;
 
     const QString& GetTitle() const { return m_title; }
@@ -53,8 +56,12 @@ class MPUBLIC GrabberScript : public QObject, public MThread
 
     void parseDBTree(const QString &feedtitle, const QString &path,
                      const QString &pathThumb, QDomElement& domElem,
-                     const ArticleType &type);
+                     ArticleType type);
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex m_lock {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex m_lock;
+#endif
 
     QString     m_title;
     QString     m_image;
@@ -88,10 +95,14 @@ class MPUBLIC GrabberManager : public QObject
 
   private:
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex                 m_lock         {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex        m_lock;
+#endif
     QTimer                        *m_timer        {nullptr};
     GrabberScript::scriptList      m_scripts;
-    uint                           m_updateFreq   {24 * 3600 * 1000};
+    std::chrono::hours             m_updateFreq   {24h};
     uint                           m_runningCount {0};
     bool                           m_refreshAll   {false};
 };
@@ -181,8 +192,8 @@ class MPUBLIC Search : public QObject
     void searchTimedOut(Search *item);
 
   private slots:
-
-    void slotProcessSearchExit(uint exitcode = 0);
+    void slotProcessSearchExit(uint exitcode);
+    void slotProcessSearchExit(void);
 };
 
 #endif

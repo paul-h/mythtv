@@ -5,6 +5,7 @@
 #include "mythdrmprimecontext.h"
 
 using V4L2Profiles = QList<MythCodecContext::CodecProfile>;
+using V4L2Mapping  = QPair<const uint32_t, const MythCodecContext::CodecProfile>;
 
 class MythV4L2M2MContext : public MythDRMPRIMEContext
 {
@@ -17,19 +18,26 @@ class MythV4L2M2MContext : public MythDRMPRIMEContext
                                           AVStream       *Stream,
                                           uint            StreamType);
     void        InitVideoCodec           (AVCodecContext *Context, bool SelectedStream, bool &DirectRendering) override;
-    bool        RetrieveFrame            (AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame) override;
+    bool        RetrieveFrame            (AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame) override;
     void        SetDecoderOptions        (AVCodecContext* Context, AVCodec* Codec) override;
     int         HwDecoderInit            (AVCodecContext *Context) override;
-    bool        DecoderWillResetOnFlush  (void) override;
-    static bool GetBuffer                (AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame, int/*Flags*/);
-    static bool HaveV4L2Codecs           (void);
+    bool        DecoderWillResetOnFlush  () override;
+    static bool GetBuffer                (AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame, int/*Flags*/);
+    static bool HaveV4L2Codecs           (bool Reinit = false);
     static void GetDecoderList           (QStringList &Decoders);
 
     static enum AVPixelFormat GetV4L2RequestFormat(AVCodecContext *Context, const AVPixelFormat *PixFmt);
     static int  InitialiseV4L2RequestContext(AVCodecContext *Context);
+    bool        GetRequestBuffer(AVCodecContext* Context, MythVideoFrame* Frame, AVFrame* AvFrame);
 
   protected:
-    static const V4L2Profiles& GetProfiles(void);
+    static const V4L2Profiles& GetStandardProfiles();
+    static const V4L2Profiles& GetRequestProfiles();
+
+  private:
+    static V4L2Profiles GetProfiles(const std::vector<V4L2Mapping> &Profiles);
+
+    bool m_request { false };
 };
 
-#endif // MYTHV4L2M2MCONTEXT_H
+#endif

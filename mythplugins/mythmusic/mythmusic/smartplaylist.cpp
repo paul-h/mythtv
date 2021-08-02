@@ -1,7 +1,6 @@
 // c/c++
 #include <unistd.h>
 #include <iostream>
-using namespace std;
 
 // qt
 #include <QKeyEvent>
@@ -40,8 +39,8 @@ struct SmartPLField
     int              m_defaultValue;
 };
 
-static SmartPLField SmartPLFields[] =
-{
+static const std::array<const SmartPLField,13> SmartPLFields
+{{
     { "",              "",                               ftString,   0,    0,    0 },
     { "Artist",        "music_artists.artist_name",      ftString,   0,    0,    0 },
     { "Album",         "music_albums.album_name",        ftString,   0,    0,    0 },
@@ -57,7 +56,7 @@ static SmartPLField SmartPLFields[] =
                                                          ftDate,     0,    0,    0 },
     { "Date Imported", "FROM_DAYS(TO_DAYS(music_songs.date_entered))",
                                                          ftDate,     0,    0,    0 },
-};
+}};
 
 struct SmartPLOperator
 {
@@ -67,8 +66,8 @@ struct SmartPLOperator
     bool    m_validForBoolean;
 };
 
-static SmartPLOperator SmartPLOperators[] =
-{
+static const std::array<const SmartPLOperator,11> SmartPLOperators
+{{
     { "is equal to",      1,  false, true },
     { "is not equal to",  1,  false, true },
     { "is greater than",  1,  false, false },
@@ -80,34 +79,35 @@ static SmartPLOperator SmartPLOperators[] =
     { "is between",       2,  false, false },
     { "is set",           0,  false, false },
     { "is not set",       0,  false, false },
-};
+}};
 
-static int SmartPLOperatorsCount = sizeof(SmartPLOperators) / sizeof(SmartPLOperators[0]);
-static int SmartPLFieldsCount = sizeof(SmartPLFields) / sizeof(SmartPLFields[0]);
-
-static SmartPLOperator *lookupOperator(const QString& name)
+static const SmartPLOperator *lookupOperator(const QString& name)
 {
-    for (int x = 0; x < SmartPLOperatorsCount; x++)
+    for (const auto & oper : SmartPLOperators)
     {
-        if (SmartPLOperators[x].m_name == name)
-            return &SmartPLOperators[x];
+        if (oper.m_name == name)
+            return &oper;
     }
     return nullptr;
 }
 
-static SmartPLField *lookupField(const QString& name)
+static const SmartPLField *lookupField(const QString& name)
 {
-    for (int x = 0; x < SmartPLFieldsCount; x++)
+    for (const auto & field : SmartPLFields)
     {
-        if (SmartPLFields[x].m_name == name)
-            return &SmartPLFields[x];
+        if (field.m_name == name)
+            return &field;
     }
     return nullptr;
 }
 
 QString formattedFieldValue(const QVariant &value)
 {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     QSqlField field("", value.type());
+#else
+    QSqlField field("", value.metaType());
+#endif
     if (value.isNull())
         field.clear();
     else
@@ -154,7 +154,7 @@ QString getCriteriaSQL(const QString& fieldName, const QString &operatorName,
     if (fieldName.isEmpty())
         return result;
 
-    SmartPLField *Field = lookupField(fieldName);
+    const SmartPLField *Field = lookupField(fieldName);
     if (!Field)
     {
         return "";
@@ -162,7 +162,7 @@ QString getCriteriaSQL(const QString& fieldName, const QString &operatorName,
 
     result = Field->m_sqlName;
 
-    SmartPLOperator *Operator = lookupOperator(operatorName);
+    const SmartPLOperator *Operator = lookupOperator(operatorName);
     if (!Operator)
     {
         return QString();
@@ -251,7 +251,7 @@ QString getOrderBySQL(const QString& orderByFields)
     for (int x = 0; x < list.count(); x++)
     {
         fieldName = list[x].trimmed();
-        SmartPLField *Field = lookupField(fieldName.left(fieldName.length() - 4));
+        const SmartPLField *Field = lookupField(fieldName.left(fieldName.length() - 4));
         if (Field)
         {
             if (fieldName.right(3) == "(D)")
@@ -274,7 +274,7 @@ QString getOrderBySQL(const QString& orderByFields)
 
 QString getSQLFieldName(const QString &fieldName)
 {
-    SmartPLField *Field = lookupField(fieldName);
+    const SmartPLField *Field = lookupField(fieldName);
     if (!Field)
     {
         return "";
@@ -328,7 +328,7 @@ bool SmartPLCriteriaRow::saveToDatabase(int smartPlaylistID) const
 
 QString SmartPLCriteriaRow::toString(void) const
 {
-    SmartPLOperator *PLOperator = lookupOperator(m_operator);
+    const SmartPLOperator *PLOperator = lookupOperator(m_operator);
     if (PLOperator)
     {
         QString result;
@@ -395,24 +395,24 @@ bool SmartPlaylistEditor::Create(void)
 
     new MythUIButtonListItem(m_matchSelector, tr("All"));
     new MythUIButtonListItem(m_matchSelector, tr("Any"));
-    connect(m_matchSelector, SIGNAL(itemSelected(MythUIButtonListItem*)), SLOT(updateMatches()));
+    connect(m_matchSelector, &MythUIButtonList::itemSelected, this, &SmartPlaylistEditor::updateMatches);
 
-    for (int x = 0; x < SmartPLFieldsCount; x++)
+    for (const auto & field : SmartPLFields)
     {
-        if (SmartPLFields[x].m_name == "")
-            new MythUIButtonListItem(m_orderBySelector, SmartPLFields[x].m_name);
+        if (field.m_name == "")
+            new MythUIButtonListItem(m_orderBySelector, field.m_name);
         else
-            new MythUIButtonListItem(m_orderBySelector, SmartPLFields[x].m_name + " (A)");
+            new MythUIButtonListItem(m_orderBySelector, field.m_name + " (A)");
     }
 
     m_limitSpin->SetRange(0, 9999, 10);
 
-    connect(m_orderByButton, SIGNAL(Clicked()), SLOT(orderByClicked()));
-    connect(m_saveButton, SIGNAL(Clicked()), SLOT(saveClicked()));
-    connect(m_cancelButton, SIGNAL(Clicked()), SLOT(Close()));
-    connect(m_categoryButton, SIGNAL(Clicked()), SLOT(showCategoryMenu()));
-    connect(m_showResultsButton, SIGNAL(Clicked()), SLOT(showResultsClicked()));
-    connect(m_criteriaList, SIGNAL(itemClicked(MythUIButtonListItem*)), SLOT(editCriteria()));
+    connect(m_orderByButton, &MythUIButton::Clicked, this, &SmartPlaylistEditor::orderByClicked);
+    connect(m_saveButton, &MythUIButton::Clicked, this, &SmartPlaylistEditor::saveClicked);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
+    connect(m_categoryButton, &MythUIButton::Clicked, this, &SmartPlaylistEditor::showCategoryMenu);
+    connect(m_showResultsButton, &MythUIButton::Clicked, this, &SmartPlaylistEditor::showResultsClicked);
+    connect(m_criteriaList, &MythUIButtonList::itemClicked, this, &SmartPlaylistEditor::editCriteria);
 
     BuildFocusList();
 
@@ -473,8 +473,8 @@ void SmartPlaylistEditor::customEvent(QEvent *event)
 
                 auto *input = new MythTextInputDialog(popupStack, label);
 
-                connect(input, SIGNAL(haveResult(QString)),
-                        SLOT(newCategory(QString)));
+                connect(input, &MythTextInputDialog::haveResult,
+                        this, &SmartPlaylistEditor::newCategory);
 
                 if (input->Create())
                     popupStack->AddScreen(input);
@@ -490,8 +490,8 @@ void SmartPlaylistEditor::customEvent(QEvent *event)
 
                 auto *input = new MythTextInputDialog(popupStack, label);
 
-                connect(input, SIGNAL(haveResult(QString)),
-                        SLOT(renameCategory(QString)));
+                connect(input, &MythTextInputDialog::haveResult,
+                        this, &SmartPlaylistEditor::renameCategory);
 
                 if (input->Create())
                     popupStack->AddScreen(input);
@@ -530,7 +530,7 @@ void SmartPlaylistEditor::editCriteria(void)
         return;
     }
 
-    connect(editor, SIGNAL(criteriaChanged()), SLOT(criteriaChanged()));
+    connect(editor, &CriteriaRowEditor::criteriaChanged, this, &SmartPlaylistEditor::criteriaChanged);
 
     popupStack->AddScreen(editor);
 }
@@ -543,7 +543,7 @@ void SmartPlaylistEditor::deleteCriteria(void)
     if (!item)
         return;
 
-    ShowOkPopup(tr("Delete Criteria?"), this, SLOT(doDeleteCriteria(bool)), true);
+    ShowOkPopup(tr("Delete Criteria?"), this, &SmartPlaylistEditor::doDeleteCriteria, true);
 }
 
 void SmartPlaylistEditor::doDeleteCriteria(bool doit)
@@ -592,7 +592,7 @@ void SmartPlaylistEditor::addCriteria(void)
         return;
     }
 
-    connect(editor, SIGNAL(criteriaChanged()), SLOT(criteriaChanged()));
+    connect(editor, &CriteriaRowEditor::criteriaChanged, this, &SmartPlaylistEditor::criteriaChanged);
 
     popupStack->AddScreen(editor);
 }
@@ -673,12 +673,12 @@ void SmartPlaylistEditor::showCriteriaMenu(void)
     MythUIButtonListItem *item = m_criteriaList->GetItemCurrent();
 
     if (item)
-        menu->AddButton(tr("Edit Criteria"), SLOT(editCriteria()));
+        menu->AddButton(tr("Edit Criteria"), &SmartPlaylistEditor::editCriteria);
 
-    menu->AddButton(tr("Add Criteria"), SLOT(addCriteria()));
+    menu->AddButton(tr("Add Criteria"), &SmartPlaylistEditor::addCriteria);
 
     if (item)
-        menu->AddButton(tr("Delete Criteria"), SLOT(deleteCriteria()));
+        menu->AddButton(tr("Delete Criteria"), &SmartPlaylistEditor::deleteCriteria);
 
     popupStack->AddScreen(menu);
 }
@@ -1041,7 +1041,8 @@ void SmartPlaylistEditor::orderByClicked(void)
 
     orderByDialog->setFieldList(m_orderBySelector->GetValue());
 
-    connect(orderByDialog, SIGNAL(orderByChanged(QString)), SLOT(orderByChanged(QString)));
+    connect(orderByDialog, qOverload<QString>(&SmartPLOrderByDialog::orderByChanged),
+            this, &SmartPlaylistEditor::orderByChanged);
 
     popupStack->AddScreen(orderByDialog);
 }
@@ -1236,19 +1237,19 @@ bool CriteriaRowEditor::Create(void)
     updateOperators();
     updateValues();
 
-    connect(m_fieldSelector, SIGNAL(itemSelected(MythUIButtonListItem*)), SLOT(fieldChanged()));
-    connect(m_operatorSelector, SIGNAL(itemSelected(MythUIButtonListItem*)), SLOT(operatorChanged()));
+    connect(m_fieldSelector, &MythUIButtonList::itemSelected, this, &CriteriaRowEditor::fieldChanged);
+    connect(m_operatorSelector, &MythUIButtonList::itemSelected, this, &CriteriaRowEditor::operatorChanged);
 
-    connect(m_value1Edit, SIGNAL(valueChanged()), SLOT(valueEditChanged()));
-    connect(m_value2Edit, SIGNAL(valueChanged()), SLOT(valueEditChanged()));
-    connect(m_value1Selector, SIGNAL(itemSelected(MythUIButtonListItem*)), SLOT(valueEditChanged()));
-    connect(m_value2Selector, SIGNAL(itemSelected(MythUIButtonListItem*)), SLOT(valueEditChanged()));
+    connect(m_value1Edit, &MythUITextEdit::valueChanged, this, &CriteriaRowEditor::valueEditChanged);
+    connect(m_value2Edit, &MythUITextEdit::valueChanged, this, &CriteriaRowEditor::valueEditChanged);
+    connect(m_value1Selector, &MythUIButtonList::itemSelected, this, &CriteriaRowEditor::valueEditChanged);
+    connect(m_value2Selector, &MythUIButtonList::itemSelected, this, &CriteriaRowEditor::valueEditChanged);
 
-    connect(m_value1Button, SIGNAL(Clicked()), SLOT(valueButtonClicked()));
-    connect(m_value2Button, SIGNAL(Clicked()), SLOT(valueButtonClicked()));
+    connect(m_value1Button, &MythUIButton::Clicked, this, &CriteriaRowEditor::valueButtonClicked);
+    connect(m_value2Button, &MythUIButton::Clicked, this, &CriteriaRowEditor::valueButtonClicked);
 
-    connect(m_cancelButton, SIGNAL(Clicked()), SLOT(Close()));
-    connect(m_saveButton, SIGNAL(Clicked()), SLOT(saveClicked()));
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
+    connect(m_saveButton, &MythUIButton::Clicked, this, &CriteriaRowEditor::saveClicked);
 
     BuildFocusList();
 
@@ -1257,16 +1258,16 @@ bool CriteriaRowEditor::Create(void)
 
 void CriteriaRowEditor::updateFields(void)
 {
-    for (int x = 0; x < SmartPLFieldsCount; x++)
-        new MythUIButtonListItem(m_fieldSelector, SmartPLFields[x].m_name);
+    for (const auto & field : SmartPLFields)
+        new MythUIButtonListItem(m_fieldSelector, field.m_name);
 
     m_fieldSelector->SetValue(m_criteriaRow->m_field);
 }
 
 void CriteriaRowEditor::updateOperators(void)
 {
-    for (int x = 0; x < SmartPLOperatorsCount; x++)
-        new MythUIButtonListItem(m_operatorSelector, SmartPLOperators[x].m_name);
+    for (const auto & oper : SmartPLOperators)
+        new MythUIButtonListItem(m_operatorSelector, oper.m_name);
 
     m_operatorSelector->SetValue(m_criteriaRow->m_operator);
 }
@@ -1300,7 +1301,7 @@ void CriteriaRowEditor::updateValues(void)
 
 void CriteriaRowEditor::saveClicked()
 {
-    SmartPLField *Field = lookupField(m_fieldSelector->GetValue());
+    const SmartPLField *Field = lookupField(m_fieldSelector->GetValue());
     if (!Field)
         return;
 
@@ -1333,9 +1334,9 @@ void CriteriaRowEditor::enableSaveButton()
 {
     bool enabled = false;
 
-    SmartPLField *Field = lookupField(m_fieldSelector->GetValue());
+    const SmartPLField *Field = lookupField(m_fieldSelector->GetValue());
 
-    SmartPLOperator *Operator = lookupOperator(m_operatorSelector->GetValue());
+    const SmartPLOperator *Operator = lookupOperator(m_operatorSelector->GetValue());
 
     if (Field && Operator)
     {
@@ -1364,7 +1365,7 @@ void CriteriaRowEditor::enableSaveButton()
 
 void CriteriaRowEditor::fieldChanged(void)
 {
-    SmartPLField *Field = lookupField(m_fieldSelector->GetValue());
+    const SmartPLField *Field = lookupField(m_fieldSelector->GetValue());
     if (!Field)
         return;
 
@@ -1415,11 +1416,11 @@ void CriteriaRowEditor::fieldChanged(void)
 
 void CriteriaRowEditor::operatorChanged(void)
 {
-    SmartPLField *Field = lookupField(m_fieldSelector->GetValue());
+    const SmartPLField *Field = lookupField(m_fieldSelector->GetValue());
     if (!Field)
         return;
 
-    SmartPLOperator *Operator = lookupOperator(m_operatorSelector->GetValue());
+    const SmartPLOperator *Operator = lookupOperator(m_operatorSelector->GetValue());
     if (!Operator)
         return;
 
@@ -1499,17 +1500,17 @@ void CriteriaRowEditor::getOperatorList(SmartPLFieldType fieldType)
 
     m_operatorSelector->Reset();
 
-    for (int x = 0; x < SmartPLOperatorsCount; x++)
+    for (const auto & oper : SmartPLOperators)
     {
         // don't add operators that only work with string fields
-        if (fieldType != ftString && SmartPLOperators[x].m_stringOnly)
+        if (fieldType != ftString && oper.m_stringOnly)
             continue;
 
         // don't add operators that only work with boolean fields
-        if (fieldType == ftBoolean && !SmartPLOperators[x].m_validForBoolean)
+        if (fieldType == ftBoolean && !oper.m_validForBoolean)
             continue;
 
-        new MythUIButtonListItem(m_operatorSelector, SmartPLOperators[x].m_name);
+        new MythUIButtonListItem(m_operatorSelector, oper.m_name);
     }
 
     // try to set the operatorCombo to the same operator or else the first item
@@ -1563,7 +1564,7 @@ void CriteriaRowEditor::valueButtonClicked(void)
         return;
     }
 
-    connect(searchDlg, SIGNAL(haveResult(QString)), SLOT(setValue(QString)));
+    connect(searchDlg, &MythUISearchDialog::haveResult, this, &CriteriaRowEditor::setValue);
 
     popupStack->AddScreen(searchDlg);
 }
@@ -1590,7 +1591,7 @@ void CriteriaRowEditor::editDate(void)
 
     dateDlg->setDate(date);
 
-    connect(dateDlg, SIGNAL(dateChanged(QString)), SLOT(setDate(QString)));
+    connect(dateDlg, &SmartPLDateDialog::dateChanged, this, &CriteriaRowEditor::setDate);
 
     popupStack->AddScreen(dateDlg);
 }
@@ -1638,10 +1639,10 @@ bool SmartPLResultViewer::Create(void)
         return false;
     }
 
-    connect(m_trackList, SIGNAL(itemVisible(MythUIButtonListItem*)),
-            this, SLOT(trackVisible(MythUIButtonListItem*)));
-    connect(m_trackList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(trackSelected(MythUIButtonListItem*)));
+    connect(m_trackList, &MythUIButtonList::itemVisible,
+            this, &SmartPLResultViewer::trackVisible);
+    connect(m_trackList, &MythUIButtonList::itemSelected,
+            this, &SmartPLResultViewer::trackSelected);
 
     BuildFocusList();
 
@@ -1779,19 +1780,19 @@ bool SmartPLOrderByDialog::Create(void)
         return false;
     }
 
-    connect(m_addButton, SIGNAL(Clicked()), this, SLOT(addPressed()));
-    connect(m_deleteButton, SIGNAL(Clicked()), this, SLOT(deletePressed()));
-    connect(m_moveUpButton, SIGNAL(Clicked()), this, SLOT(moveUpPressed()));
-    connect(m_moveDownButton, SIGNAL(Clicked()), this, SLOT(moveDownPressed()));
-    connect(m_ascendingButton, SIGNAL(Clicked()), this, SLOT(ascendingPressed()));
-    connect(m_descendingButton, SIGNAL(Clicked()), this, SLOT(descendingPressed()));
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(Close()));
-    connect(m_okButton, SIGNAL(Clicked()), this, SLOT(okPressed()));
+    connect(m_addButton, &MythUIButton::Clicked, this, &SmartPLOrderByDialog::addPressed);
+    connect(m_deleteButton, &MythUIButton::Clicked, this, &SmartPLOrderByDialog::deletePressed);
+    connect(m_moveUpButton, &MythUIButton::Clicked, this, &SmartPLOrderByDialog::moveUpPressed);
+    connect(m_moveDownButton, &MythUIButton::Clicked, this, &SmartPLOrderByDialog::moveDownPressed);
+    connect(m_ascendingButton, &MythUIButton::Clicked, this, &SmartPLOrderByDialog::ascendingPressed);
+    connect(m_descendingButton, &MythUIButton::Clicked, this, &SmartPLOrderByDialog::descendingPressed);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
+    connect(m_okButton, &MythUIButton::Clicked, this, &SmartPLOrderByDialog::okPressed);
 
-    connect(m_orderSelector, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(orderByChanged(void)));
-    connect(m_fieldList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(fieldListSelectionChanged(MythUIButtonListItem*)));
+    connect(m_orderSelector,  &MythUIButtonList::itemSelected,
+            this, qOverload<MythUIButtonListItem *>(&SmartPLOrderByDialog::orderByChanged));
+    connect(m_fieldList, &MythUIButtonList::itemSelected,
+            this, &SmartPLOrderByDialog::fieldListSelectionChanged);
 
     getOrderByFields();
 
@@ -1956,11 +1957,16 @@ void SmartPLOrderByDialog::orderByChanged(void)
     }
 }
 
+void SmartPLOrderByDialog::orderByChanged(MythUIButtonListItem */*item*/)
+{
+    orderByChanged();
+}
+
 void SmartPLOrderByDialog::getOrderByFields(void)
 {
     m_orderSelector->Reset();
-    for (int x = 1; x < SmartPLFieldsCount; x++)
-        new MythUIButtonListItem(m_orderSelector, SmartPLFields[x].m_name);
+    for (const auto & field : SmartPLFields)
+        new MythUIButtonListItem(m_orderSelector, field.m_name);
 }
 
 /*
@@ -2005,20 +2011,19 @@ bool SmartPLDateDialog::Create(void)
 
     m_addDaysSpin->SetValue(0);
 
-    connect(m_fixedRadio, SIGNAL(toggled(bool)), this, SLOT(fixedCheckToggled(bool)));
-    connect(m_nowRadio, SIGNAL(toggled(bool)), this, SLOT(nowCheckToggled(bool)));
-    //connect(addDaysCheck, SIGNAL(toggled(bool)), this, SLOT(addDaysCheckToggled(bool)));
-    connect(m_addDaysSpin, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(valueChanged(void)));
-    connect(m_daySpin, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(valueChanged(void)));
-    connect(m_monthSpin, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(valueChanged(void)));
-    connect(m_yearSpin, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(valueChanged(void)));
+    connect(m_fixedRadio, &MythUICheckBox::toggled, this, &SmartPLDateDialog::fixedCheckToggled);
+    connect(m_nowRadio, &MythUICheckBox::toggled, this, &SmartPLDateDialog::nowCheckToggled);
+    connect(m_addDaysSpin, &MythUIButtonList::itemSelected,
+            this, &SmartPLDateDialog::valueChanged);
+    connect(m_daySpin, &MythUIButtonList::itemSelected,
+            this, &SmartPLDateDialog::valueChanged);
+    connect(m_monthSpin, &MythUIButtonList::itemSelected,
+            this, &SmartPLDateDialog::valueChanged);
+    connect(m_yearSpin, &MythUIButtonList::itemSelected,
+            this, &SmartPLDateDialog::valueChanged);
 
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(Close()));
-    connect(m_okButton, SIGNAL(Clicked()), this, SLOT(okPressed()));
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
+    connect(m_okButton, &MythUIButton::Clicked, this, &SmartPLDateDialog::okPressed);
 
     valueChanged();
 

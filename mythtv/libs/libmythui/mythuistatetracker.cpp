@@ -7,58 +7,60 @@
 #include "mythuistatetracker.h"
 #include "mythuiactions.h"
 
-MythUIStateTracker* MythUIStateTracker::gUIState = nullptr;
-QMutex* MythUIStateTracker::gUIStateLock = new QMutex();
-
-MythUIStateTracker* MythUIStateTracker::GetMythUIStateTracker(void)
+MythUIStateTracker::MythUIStateTracker()
+  : m_lastUpdated(QTime::currentTime().addSecs(-1))
 {
-    gUIStateLock->lock();
+}
+
+MythUIStateTracker* MythUIStateTracker::GetMythUIStateTracker()
+{
+    gUIStateLock.lock();
     if (!gUIState)
         gUIState = new MythUIStateTracker();
-    gUIStateLock->unlock();
+    gUIStateLock.unlock();
     return gUIState;
 }
 
-void MythUIStateTracker::SetState(QVariantMap &newstate)
+void MythUIStateTracker::SetState(const QVariantMap& NewState)
 {
-    MythUIStateTracker* uistate = MythUIStateTracker::GetMythUIStateTracker();
-    gUIStateLock->lock();
-    uistate->m_state = newstate;
-    uistate->m_lastUpdated = QTime::currentTime();
-    gUIStateLock->unlock();
+    auto * state = MythUIStateTracker::GetMythUIStateTracker();
+    gUIStateLock.lock();
+    state->m_state = NewState;
+    state->m_lastUpdated = QTime::currentTime();
+    gUIStateLock.unlock();
 }
 
-void MythUIStateTracker::GetState(QVariantMap &state)
+void MythUIStateTracker::GetState(QVariantMap &State)
 {
-    MythUIStateTracker* uistate = MythUIStateTracker::GetMythUIStateTracker();
-    gUIStateLock->lock();
-    state = uistate->m_state;
-    gUIStateLock->unlock();
+    auto * state = MythUIStateTracker::GetMythUIStateTracker();
+    gUIStateLock.lock();
+    State = state->m_state;
+    gUIStateLock.unlock();
 }
 
-void MythUIStateTracker::GetFreshState(QVariantMap &state)
+void MythUIStateTracker::GetFreshState(QVariantMap &State)
 {
-    if (MythUIStateTracker::TimeSinceLastUpdate() < 500)
+    if (MythUIStateTracker::TimeSinceLastUpdate() < 500ms)
     {
-        MythUIStateTracker::GetState(state);
+        MythUIStateTracker::GetState(State);
         return;
     }
 
-    auto *e = new MythEvent(ACTION_GETSTATUS);
-    qApp->postEvent(GetMythMainWindow(), e);
+    auto * event = new MythEvent(ACTION_GETSTATUS);
+    qApp->postEvent(GetMythMainWindow(), event);
 
     int tries = 0;
-    while ((tries++ < 100) && (MythUIStateTracker::TimeSinceLastUpdate() >= 500))
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    while ((tries++ < 100) && (MythUIStateTracker::TimeSinceLastUpdate() >= 500ms))
+        std::this_thread::sleep_for(10ms);
 
-    MythUIStateTracker::GetState(state);
+    MythUIStateTracker::GetState(State);
 }
 
-int MythUIStateTracker::TimeSinceLastUpdate(void)
+std::chrono::milliseconds MythUIStateTracker::TimeSinceLastUpdate()
 {
-    MythUIStateTracker* state = MythUIStateTracker::GetMythUIStateTracker();
-    gUIStateLock->lock();
-    int age = state->m_lastUpdated.msecsTo(QTime::currentTime());
-    gUIStateLock->unlock();
-    return age < 0 ? 1000000 : age;
+    auto * state = MythUIStateTracker::GetMythUIStateTracker();
+    gUIStateLock.lock();
+    auto age = std::chrono::milliseconds(state->m_lastUpdated.msecsTo(QTime::currentTime()));
+    gUIStateLock.unlock();
+    return age < 0ms ? 1000s : age;
 }

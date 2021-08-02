@@ -7,7 +7,6 @@
 #include "mythcorecontext.h"
 #include "mythlogging.h"
 #include "mythevent.h"
-#include "mythuihelper.h"
 #include "mythmainwindow.h"
 #include "mythdisplay.h"
 #include "mythcecadapter.h"
@@ -22,13 +21,12 @@
 #define LOC QString("CECAdapter: ")
 
 #if CEC_LIB_VERSION_MAJOR <= 3
-// cppcheck-suppress passedByValue
+
 int MythCECAdapter::LogMessageCallback(void* /*unused*/, const cec_log_message Message)
 {
     return MythCECAdapter::LogMessage(Message);
 }
 
-// cppcheck-suppress passedByValue
 int MythCECAdapter::KeyPressCallback(void* Adapter, const cec_keypress Keypress)
 {
     MythCECAdapter* adapter = reinterpret_cast<MythCECAdapter*>(Adapter);
@@ -37,7 +35,6 @@ int MythCECAdapter::KeyPressCallback(void* Adapter, const cec_keypress Keypress)
     return 1;
 }
 
-// cppcheck-suppress passedByValue
 int MythCECAdapter::CommandCallback(void* Adapter, const cec_command Command)
 {
     MythCECAdapter* adapter = reinterpret_cast<MythCECAdapter*>(Adapter);
@@ -46,7 +43,6 @@ int MythCECAdapter::CommandCallback(void* Adapter, const cec_command Command)
     return 1;
 }
 
-// cppcheck-suppress passedByValue
 int MythCECAdapter::AlertCallback(void* /*unused*/, const libcec_alert Alert, const libcec_parameter Data)
 {
     return MythCECAdapter::HandleAlert(Alert, Data);
@@ -93,7 +89,7 @@ MythCECAdapter::~MythCECAdapter()
     Close();
 }
 
-void MythCECAdapter::Open(void)
+void MythCECAdapter::Open(MythMainWindow *Window)
 {
     Close();
 
@@ -145,7 +141,7 @@ void MythCECAdapter::Open(void)
     // NOTE We could listen for display changes here but the adapter will be recreated
     // following a screen change and realistically any setup with more than 1 display
     // and/or CEC adapter is going to be very hit and miss.
-    MythDisplay* display = MythDisplay::AcquireRelease();
+    MythDisplay* display = Window->GetDisplay();
     if (display->GetEDID().Valid())
     {
         uint16_t address = display->GetEDID().PhysicalAddress();
@@ -156,7 +152,6 @@ void MythCECAdapter::Open(void)
             configuration.iPhysicalAddress = address;
         }
     }
-    MythDisplay::AcquireRelease(false);
 
     // Set up the callbacks
 #if CEC_LIB_VERSION_MAJOR <= 3
@@ -221,9 +216,9 @@ void MythCECAdapter::Open(void)
         bool match = find ? (comm == defaultDevice) : (i == 0);
         devicenum = match ? i : devicenum;
         LOG(VB_GENERAL, LOG_INFO, LOC +
-            QString("Device %1: path '%2' com port '%3' %4").arg(i + 1)
-            .arg(path).arg(comm)
-            .arg(match ? "SELECTED" : ""));
+            QString("Device %1: path '%2' com port '%3' %4")
+            .arg(QString::number(i + 1),
+                 path, comm, match ? "SELECTED" : ""));
     }
 
     // open adapter
@@ -235,7 +230,7 @@ void MythCECAdapter::Open(void)
     QString path = QString::fromLatin1(devices[devicenum].path);
 #endif
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Trying to open device %1 (%2).")
-        .arg(path).arg(comm));
+        .arg(path, comm));
 
 #if CEC_LIB_VERSION_MAJOR >= 4
     if (!m_adapter->Open(devices[devicenum].strComName))
@@ -266,6 +261,9 @@ void MythCECAdapter::Close(void)
             HandleActions(PowerOffTV);
         m_adapter->Close();
         UnloadLibCec(m_adapter);
+        // Workaround for bug in libcec/cecloader.h
+        // MythTV issue #299, libcec issue #555
+        g_libCEC = nullptr;
         LOG(VB_GENERAL, LOG_INFO, LOC + "Closing down CEC.");
     }
     m_valid = false;
@@ -312,7 +310,7 @@ int MythCECAdapter::HandleCommand(const cec_command &Command)
     return 1;
 }
 
-int MythCECAdapter::HandleKeyPress(const cec_keypress &Key) const
+int MythCECAdapter::HandleKeyPress(const cec_keypress Key) const
 {
     // Ignore key down events and wait for the key 'up'
     if (Key.duration < 1 || m_ignoreKeys)
@@ -636,18 +634,18 @@ int MythCECAdapter::HandleKeyPress(const cec_keypress &Key) const
     }
 
     LOG(VB_GENERAL, LOG_DEBUG, LOC + QString("Keypress %1 %2")
-        .arg(code).arg(0 == action ? "(Not actioned)" : ""));
+        .arg(code, 0 == action ? "(Not actioned)" : ""));
 
     if (0 == action)
         return 1;
 
-    MythUIHelper::ResetScreensaver();
+    MythMainWindow::ResetScreensaver();
     auto* ke = new QKeyEvent(QEvent::KeyPress, action, modifier);
-    QCoreApplication::postEvent(GetMythMainWindow(), dynamic_cast<QEvent*>(ke));
+    QCoreApplication::postEvent(GetMythMainWindow(), ke);
     return 1;
 }
 
-int MythCECAdapter::HandleAlert(const libcec_alert Alert, const libcec_parameter &Data)
+int MythCECAdapter::HandleAlert(const libcec_alert Alert, const libcec_parameter Data)
 {
     // These aren't handled yet
     // Note that we *DON'T* want to just show these
@@ -709,7 +707,7 @@ void MythCECAdapter::HandleSource(const cec_logical_address Address, const uint8
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Source %1 %2")
         .arg(Address).arg(Activated ? "Activated" : "Deactivated"));
     if (Activated)
-        MythUIHelper::ResetScreensaver();
+        MythMainWindow::ResetScreensaver();
 }
 
 void MythCECAdapter::HandleActions(MythCECActions Actions)

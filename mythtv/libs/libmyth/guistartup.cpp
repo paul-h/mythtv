@@ -25,6 +25,9 @@
 
 #include "langsettings.h"
 
+// C++
+#include <chrono>
+
 // qt
 #include <QEventLoop>
 #include <QDir>
@@ -93,11 +96,11 @@ bool GUIStartup::Create(void)
         return false;
     }
 
-    connect(m_retryButton, SIGNAL(Clicked()), SLOT(Retry()));
-    connect(m_searchButton, SIGNAL(Clicked()), SLOT(Search()));
-    connect(m_setupButton, SIGNAL(Clicked()), SLOT(Setup()));
-    connect(m_exitButton, SIGNAL(Clicked()), SLOT(Close()));
-    connect(&m_timer, SIGNAL(timeout()), SLOT(updateProgress()));
+    connect(m_retryButton, &MythUIButton::Clicked, this, &GUIStartup::Retry);
+    connect(m_searchButton, &MythUIButton::Clicked, this, &GUIStartup::Search);
+    connect(m_setupButton, &MythUIButton::Clicked, this, &GUIStartup::Setup);
+    connect(m_exitButton, &MythUIButton::Clicked, this, &GUIStartup::Close);
+    connect(&m_timer, &QTimer::timeout, this, qOverload<>(&GUIStartup::updateProgress));
 
     BuildFocusList();
 
@@ -125,13 +128,13 @@ bool GUIStartup::setMessageState(const QString &name)
 }
 
 
-void GUIStartup::setTotal(int total)
+void GUIStartup::setTotal(std::chrono::seconds total)
 {
     delete m_progressTimer;
     m_progressTimer = new MythTimer(MythTimer::kStartRunning);
-    m_timer.start(500);
-    m_total = total*1000;
-    m_progressBar->SetTotal(m_total);
+    m_timer.start(500ms);
+    m_total = total;
+    m_progressBar->SetTotal(m_total.count());
     SetFocusWidget(m_dummyButton);
 
     m_Exit = false;
@@ -145,12 +148,12 @@ bool GUIStartup::updateProgress(bool finished)
 {
     if (m_progressTimer)
     {
-        int elapsed = 0;
+        std::chrono::milliseconds elapsed { 0ms };
         if (finished)
             elapsed = m_total;
         else
             elapsed = m_progressTimer->elapsed();
-        m_progressBar->SetUsed(elapsed);
+        m_progressBar->SetUsed(elapsed.count());
         if (elapsed >= m_total)
         {
             m_timer.stop();
@@ -164,9 +167,14 @@ bool GUIStartup::updateProgress(bool finished)
     return false;
 }
 
+void GUIStartup::updateProgress(void)
+{
+    updateProgress(false);
+}
+
 void GUIStartup::Close(void)
 {
-    int elapsed = 0;
+    std::chrono::milliseconds elapsed { 0ms };
     if (m_progressTimer)
     {
         elapsed = m_progressTimer->elapsed();
@@ -181,8 +189,8 @@ void GUIStartup::Close(void)
     if (confirmdialog->Create())
         popupStack->AddScreen(confirmdialog);
 
-    connect(confirmdialog, SIGNAL(haveResult(bool)),
-            SLOT(OnClosePromptReturn(bool)));
+    connect(confirmdialog, &MythConfirmationDialog::haveResult,
+            this, &GUIStartup::OnClosePromptReturn);
 
     m_dlgLoop.exec();
 

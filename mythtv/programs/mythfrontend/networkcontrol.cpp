@@ -5,8 +5,11 @@
 #include <thread> // for sleep_for
 
 #include <QCoreApplication>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QStringList>
+#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
+#include <QStringConverter>
+#endif
 #include <QTextStream>
 #include <QDir>
 #include <QKeyEvent>
@@ -236,8 +239,8 @@ NetworkControl::NetworkControl() :
 
     gCoreContext->addListener(this);
 
-    connect(this, SIGNAL(newConnection(QTcpSocket*)),
-            this, SLOT(newConnection(QTcpSocket*)));
+    connect(this, &ServerPool::newConnection,
+            this, &NetworkControl::newControlConnection);
 }
 
 NetworkControl::~NetworkControl(void)
@@ -338,10 +341,8 @@ void NetworkControl::deleteClient(void)
 
     gCoreContext->SendSystemEvent("NET_CTRL_DISCONNECTED");
 
-    QList<NetworkControlClient *>::const_iterator it;
-    for (it = m_clients.begin(); it != m_clients.end(); ++it)
+    for (auto * ncc : qAsConst(m_clients))
     {
-        NetworkControlClient *ncc = *it;
         if (ncc->getSocket()->state() == QTcpSocket::UnconnectedState)
         {
             deleteClient(ncc);
@@ -364,7 +365,7 @@ void NetworkControl::deleteClient(NetworkControlClient *ncc)
                 "locate specified NetworkControlClient").arg((long long)ncc));
 }
 
-void NetworkControl::newConnection(QTcpSocket *client)
+void NetworkControl::newControlConnection(QTcpSocket *client)
 {
     QString welcomeStr;
 
@@ -377,9 +378,10 @@ void NetworkControl::newConnection(QTcpSocket *client)
     QMutexLocker locker(&m_clientLock);
     m_clients.push_back(ncc);
 
-    connect(ncc, SIGNAL(commandReceived(QString&)), this,
-            SLOT(receiveCommand(QString&)));
-    connect(client, SIGNAL(disconnected()), this, SLOT(deleteClient()));
+    connect(ncc, &NetworkControlClient::commandReceived,
+            this, &NetworkControl::receiveCommand);
+    connect(client, &QAbstractSocket::disconnected,
+            this, qOverload<>(&NetworkControl::deleteClient));
 
     welcomeStr = "MythFrontend Network Control\r\n";
     welcomeStr += "Type 'help' for usage information\r\n"
@@ -395,8 +397,12 @@ NetworkControlClient::NetworkControlClient(QTcpSocket *s)
 {
     m_socket = s;
     m_textStream = new QTextStream(s);
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     m_textStream->setCodec("UTF-8");
-    connect(m_socket, SIGNAL(readyRead()), this, SLOT(readClient()));
+#else
+    m_textStream->setEncoding(QStringConverter::Utf8);
+#endif
+    connect(m_socket, &QIODevice::readyRead, this, &NetworkControlClient::readClient);
 }
 
 NetworkControlClient::~NetworkControlClient()
@@ -413,19 +419,16 @@ void NetworkControlClient::readClient(void)
     if (!socket)
         return;
 
-    QString lineIn;
     while (socket->canReadLine())
     {
-        lineIn = socket->readLine();
+        QString lineIn = socket->readLine();
 #if 0
-        lineIn.replace(QRegExp("[^-a-zA-Z0-9\\s\\.:_#/$%&()*+,;<=>?\\[\\]\\|]"),
-                       "");
+        static const QRegularExpression badChars
+            { "[^-a-zA-Z0-9\\s\\.:_#/$%&()*+,;<=>?\\[\\]\\|]" };
+        lineIn.remove(badChars);
 #endif
 
-        // TODO: can this be replaced with lineIn.simplify()?
-        lineIn.replace(QRegExp("[\r\n]"), "");
-        lineIn.replace(QRegExp("^\\s"), "");
-
+        lineIn = lineIn.simplified();
         if (lineIn.isEmpty())
             continue;
 
@@ -439,7 +442,7 @@ void NetworkControl::receiveCommand(QString &command)
 {
     LOG(VB_NETWORK, LOG_INFO, LOC +
         QString("NetworkControl::receiveCommand(%1)").arg(command));
-    auto *ncc = dynamic_cast<NetworkControlClient *>(sender());
+    auto *ncc = qobject_cast<NetworkControlClient *>(sender());
     if (!ncc)
          return;
 
@@ -465,7 +468,7 @@ QString NetworkControl::processJump(NetworkCommand *nc)
     timer.start();
     while (!timer.hasExpired(FE_SHORT_TO) &&
            (GetMythUI()->GetCurrentLocation().toLower() != nc->getArg(1)))
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(10ms);
 
     return result;
 }
@@ -493,7 +496,7 @@ QString NetworkControl::processKey(NetworkCommand *nc)
 
         if (nc->getArg(curToken) == "sleep")
         {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::this_thread::sleep_for(1s);
         }
         else if (m_keyMap.contains(nc->getArg(curToken)))
         {
@@ -503,7 +506,7 @@ QString NetworkControl::processKey(NetworkCommand *nc)
             if (m_keyTextMap.contains(keyCode))
                 keyText = m_keyTextMap[keyCode];
 
-            MythUIHelper::ResetScreensaver();
+            MythMainWindow::ResetScreensaver();
 
             event = new QKeyEvent(QEvent::KeyPress, keyCode, Qt::NoModifier,
                                   keyText);
@@ -514,11 +517,12 @@ QString NetworkControl::processKey(NetworkCommand *nc)
             QCoreApplication::postEvent(keyDest, event);
         }
         else if (((tokenLen == 1) &&
-                  (nc->getArg(curToken)[0].isLetterOrNumber())) ||
+                  (nc->getArg(curToken).at(0).isLetterOrNumber())) ||
                  ((tokenLen >= 1) &&
                   (nc->getArg(curToken).contains("+"))))
         {
             QKeySequence a(nc->getArg(curToken));
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
             int keyCode = a[0];
             Qt::KeyboardModifiers modifiers = Qt::NoModifier;
 
@@ -541,13 +545,17 @@ QString NetworkControl::processKey(NetworkCommand *nc)
                     partNum++;
                 }
             }
-            else
+#else
+            int keyCode = a[0].key();
+            Qt::KeyboardModifiers modifiers = a[0].keyboardModifiers();
+#endif
+            if (tokenLen == 1)
             {
                 if (nc->getArg(curToken) == nc->getArg(curToken).toUpper())
-                    modifiers = Qt::ShiftModifier;
+                    modifiers |= Qt::ShiftModifier;
             }
 
-            MythUIHelper::ResetScreensaver();
+            MythMainWindow::ResetScreensaver();
 
             event = new QKeyEvent(QEvent::KeyPress, keyCode, modifiers,
                                   nc->getArg(curToken));
@@ -561,7 +569,7 @@ QString NetworkControl::processKey(NetworkCommand *nc)
         {
             return QString("ERROR: Invalid syntax at '%1', see 'help %2' for "
                            "usage information")
-                           .arg(nc->getArg(curToken)).arg(nc->getArg(0));
+                           .arg(nc->getArg(curToken), nc->getArg(0));
         }
 
         curToken++;
@@ -590,7 +598,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
             timer.start();
             while (!timer.hasExpired(FE_LONG_TO) &&
                    (GetMythUI()->GetCurrentLocation().toLower() != "mainmenu"))
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                std::this_thread::sleep_for(10ms);
         }
 
         if (GetMythUI()->GetCurrentLocation().toLower() == "mainmenu")
@@ -605,9 +613,9 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
     }
     else if ((nc->getArgCount() >= 4) &&
              (is_abbrev("program", nc->getArg(1))) &&
-             (nc->getArg(2).contains(QRegExp("^\\d+$"))) &&
-             (nc->getArg(3).contains(QRegExp(
-                         R"(^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d$)"))))
+             (nc->getArg(2).contains(QRegularExpression("^\\d+$"))) &&
+             (nc->getArg(3).contains(QRegularExpression(
+                         R"(^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\dZ?$)"))))
     {
         if (GetMythUI()->GetCurrentLocation().toLower() == "playback")
         {
@@ -619,7 +627,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
             timer.start();
             while (!timer.hasExpired(FE_LONG_TO) &&
                    (GetMythUI()->GetCurrentLocation().toLower() == "playback"))
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                std::this_thread::sleep_for(10ms);
         }
 
         if (GetMythUI()->GetCurrentLocation().toLower() != "playbackbox")
@@ -630,12 +638,11 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
             timer.start();
             while (!timer.hasExpired(10000) &&
                    (GetMythUI()->GetCurrentLocation().toLower() != "playbackbox"))
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                std::this_thread::sleep_for(10ms);
 
             timer.start();
-            while (!timer.hasExpired(10000) &&
-                   (!MythUIHelper::IsTopScreenInitialized()))
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            while (!timer.hasExpired(10000) && (!MythMainWindow::IsTopScreenInitialized()))
+                std::this_thread::sleep_for(10ms);
         }
 
         if (GetMythUI()->GetCurrentLocation().toLower() == "playbackbox")
@@ -645,8 +652,9 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
                 action = "RESUME";
 
             QString msg = QString("NETWORK_CONTROL %1 PROGRAM %2 %3 %4")
-                                      .arg(action).arg(nc->getArg(2))
-                                      .arg(nc->getArg(3).toUpper()).arg(clientID);
+                                      .arg(action, nc->getArg(2),
+                                           nc->getArg(3).toUpper(),
+                                           QString::number(clientID));
 
             result.clear();
             m_gotAnswer = false;
@@ -657,7 +665,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
             gCoreContext->dispatch(me);
 
             while (!timer.hasExpired(FE_LONG_TO) && !m_gotAnswer)
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                std::this_thread::sleep_for(10ms);
 
             if (m_gotAnswer)
                 result += m_answer;
@@ -705,7 +713,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
                 while (!timer.hasExpired(FE_SHORT_TO) && !m_gotAnswer)
                 {
                     qApp->processEvents();
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    std::this_thread::sleep_for(10ms);
                 }
 
                 if (m_gotAnswer)
@@ -725,7 +733,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
                 while (!timer.hasExpired(FE_SHORT_TO) && !m_gotAnswer)
                 {
                     qApp->processEvents();
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    std::this_thread::sleep_for(10ms);
                 }
 
                 if (m_gotAnswer)
@@ -745,7 +753,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
                 while (!timer.hasExpired(FE_SHORT_TO) && !m_gotAnswer)
                 {
                     qApp->processEvents();
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    std::this_thread::sleep_for(10ms);
                 }
 
                 if (m_gotAnswer)
@@ -761,26 +769,22 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
             if (is_abbrev("setvolume", nc->getArg(2)))
             {
                 message = QString("MUSIC_COMMAND %1 SET_VOLUME %2")
-                                .arg(hostname)
-                                .arg(nc->getArg(3));
+                                .arg(hostname, nc->getArg(3));
             }
             else if (is_abbrev("track", nc->getArg(2)))
             {
                 message = QString("MUSIC_COMMAND %1 PLAY_TRACK %2")
-                                .arg(hostname)
-                                .arg(nc->getArg(3));
+                                .arg(hostname, nc->getArg(3));
             }
             else if (is_abbrev("url", nc->getArg(2)))
             {
                 message = QString("MUSIC_COMMAND %1 PLAY_URL %2")
-                                .arg(hostname)
-                                .arg(nc->getArg(3));
+                                .arg(hostname, nc->getArg(3));
             }
             else if (is_abbrev("file", nc->getArg(2)))
             {
                 message = QString("MUSIC_COMMAND %1 PLAY_FILE '%2'")
-                                .arg(hostname)
-                                .arg(nc->getFrom(3));
+                                .arg(hostname, nc->getFrom(3));
             }
             else
             {
@@ -800,7 +804,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
     }
     else if (is_abbrev("chanid", nc->getArg(1), 5))
     {
-        if (nc->getArg(2).contains(QRegExp("^\\d+$")))
+        if (nc->getArg(2).contains(QRegularExpression("^\\d+$")))
             message = QString("NETWORK_CONTROL CHANID %1").arg(nc->getArg(2));
         else
             return QString("ERROR: See 'help %1' for usage information")
@@ -815,7 +819,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
             message = "NETWORK_CONTROL CHANNEL UP";
         else if (is_abbrev("down", nc->getArg(2)))
             message = "NETWORK_CONTROL CHANNEL DOWN";
-        else if (nc->getArg(2).contains(QRegExp("^[-\\.\\d_#]+$")))
+        else if (nc->getArg(2).contains(QRegularExpression("^[-\\.\\d_#]+$")))
             message = QString("NETWORK_CONTROL CHANNEL %1").arg(nc->getArg(2));
         else
             return QString("ERROR: See 'help %1' for usage information")
@@ -834,7 +838,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
         else if (is_abbrev("rewind",   nc->getArg(2)) ||
                  is_abbrev("backward", nc->getArg(2)))
             message = "NETWORK_CONTROL SEEK BACKWARD";
-        else if (nc->getArg(2).contains(QRegExp(R"(^\d\d:\d\d:\d\d$)")))
+        else if (nc->getArg(2).contains(QRegularExpression(R"(^\d\d:\d\d:\d\d$)")))
         {
             int hours   = nc->getArg(2).mid(0, 2).toInt();
             int minutes = nc->getArg(2).mid(3, 2).toInt();
@@ -853,9 +857,9 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
                            .arg(nc->getArg(0));
 
         QString token2 = nc->getArg(2).toLower();
-        if ((token2.contains(QRegExp("^\\-*\\d+x$"))) ||
-            (token2.contains(QRegExp(R"(^\-*\d+\/\d+x$)"))) ||
-            (token2.contains(QRegExp(R"(^\-*\d*\.\d+x$)"))))
+        if ((token2.contains(QRegularExpression(R"(^\-*\d+x$)"))) ||
+            (token2.contains(QRegularExpression(R"(^\-*\d+\/\d+x$)"))) ||
+            (token2.contains(QRegularExpression(R"(^\-*\d*\.\d+x$)"))))
             message = QString("NETWORK_CONTROL SPEED %1").arg(token2);
         else if (is_abbrev("normal", token2))
             message = QString("NETWORK_CONTROL SPEED normal");
@@ -875,7 +879,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
     else if (is_abbrev("volume", nc->getArg(1), 2))
     {
         if ((nc->getArgCount() < 3) ||
-            (!nc->getArg(2).toLower().contains(QRegExp("^\\d+%?$"))))
+            (!nc->getArg(2).toLower().contains(QRegularExpression("^\\d+%?$"))))
         {
             return QString("ERROR: See 'help %1' for usage information")
                            .arg(nc->getArg(0));
@@ -888,7 +892,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
     {
         if (nc->getArgCount() < 3)
             message = QString("NETWORK_CONTROL SUBTITLES 0");
-        else if (!nc->getArg(2).toLower().contains(QRegExp("^\\d+$")))
+        else if (!nc->getArg(2).toLower().contains(QRegularExpression("^\\d+$")))
         {
             return QString("ERROR: See 'help %1' for usage information")
                 .arg(nc->getArg(0));
@@ -945,7 +949,7 @@ QString NetworkControl::processQuery(NetworkCommand *nc)
             QElapsedTimer timer;
             timer.start();
             while (!timer.hasExpired(FE_SHORT_TO) && !m_gotAnswer)
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                std::this_thread::sleep_for(10ms);
 
             if (m_gotAnswer)
                 result += m_answer;
@@ -968,12 +972,12 @@ QString NetworkControl::processQuery(NetworkCommand *nc)
         int dbSchema = gCoreContext->GetNumSetting("DBSchemaVer");
 
         return QString("VERSION: %1/%2 %3 %4 QT/%5 DBSchema/%6")
-                       .arg(GetMythSourceVersion())
-                       .arg(GetMythSourcePath())
-                       .arg(MYTH_BINARY_VERSION)
-                       .arg(MYTH_PROTO_VERSION)
-                       .arg(QT_VERSION_STR)
-                       .arg(dbSchema);
+                       .arg(GetMythSourceVersion(),
+                            GetMythSourcePath(),
+                            MYTH_BINARY_VERSION,
+                            MYTH_PROTO_VERSION,
+                            QT_VERSION_STR,
+                            QString::number(dbSchema));
 
     }
     else if(is_abbrev("time", nc->getArg(1)))
@@ -981,10 +985,10 @@ QString NetworkControl::processQuery(NetworkCommand *nc)
     else if (is_abbrev("uptime", nc->getArg(1)))
     {
         QString str;
-        time_t  uptime = 0;
+        std::chrono::seconds uptime = 0s;
 
         if (getUptime(uptime))
-            str = QString::number(uptime);
+            str = QString::number(uptime.count());
         else
             str = QString("Could not determine uptime.");
         return str;
@@ -1035,7 +1039,7 @@ QString NetworkControl::processQuery(NetworkCommand *nc)
         QElapsedTimer timer;
         timer.start();
         while (!timer.hasExpired(FE_SHORT_TO) && !m_gotAnswer)
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(10ms);
 
         if (m_gotAnswer)
             str = m_answer;
@@ -1046,9 +1050,9 @@ QString NetworkControl::processQuery(NetworkCommand *nc)
     }
     else if ((nc->getArgCount() == 4) &&
              is_abbrev("recording", nc->getArg(1)) &&
-             (nc->getArg(2).contains(QRegExp("^\\d+$"))) &&
-             (nc->getArg(3).contains(QRegExp(
-                         R"(^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d$)"))))
+             (nc->getArg(2).contains(QRegularExpression("^\\d+$"))) &&
+             (nc->getArg(3).contains(QRegularExpression(
+                         R"(^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\dZ?$)"))))
         return listRecordings(nc->getArg(2), nc->getArg(3).toUpper());
     else if (is_abbrev("recordings", nc->getArg(1)))
         return listRecordings();
@@ -1164,7 +1168,7 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
     {
         QString themeName = GetMythUI()->GetThemeName();
         QString themeDir = GetMythUI()->GetThemeDir();
-        return QString("%1 - %2").arg(themeName).arg(themeDir);
+        return QString("%1 - %2").arg(themeName, themeDir);
     }
     if (nc->getArg(1) == "reload")
     {
@@ -1203,9 +1207,7 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
         if (!topScreen)
             return QString("ERROR: no top screen found!");
 
-        auto *currType = dynamic_cast<MythUIType*>(topScreen);
-        if (currType == nullptr)
-            return QString("ERROR: cannot cast top screen!");
+        MythUIType *currType = topScreen;
 
         while (!path.isEmpty())
         {
@@ -1248,9 +1250,7 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
         if (!topScreen)
             return QString("ERROR: no top screen found!");
 
-        auto *currType = dynamic_cast<MythUIType*>(topScreen);
-        if (currType == nullptr)
-            return QString("ERROR: cannot cast top screen!");
+        MythUIType *currType = topScreen;
 
         while (path.count() > 1)
         {
@@ -1295,7 +1295,7 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
             topScreen = stack->GetTopScreen();
         }
 
-        auto *currType = dynamic_cast<MythUIType*>(topScreen);
+        MythUIType *currType = topScreen;
         if (!topScreen)
             return QString("ERROR: no top screen found!");
 
@@ -1314,7 +1314,7 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
         type->SetArea(MythRect(x, y, w, h));
 
         return QString("Changed area of '%1' to x:%2, y:%3, w:%4, h:%5")
-                       .arg(widgetName).arg(x).arg(y).arg(w).arg(h);
+                       .arg(widgetName, x, y, w, h);
     }
 
     return QString("ERROR: See 'help %1' for usage information")
@@ -1547,8 +1547,8 @@ void NetworkControl::sendReplyToClient(NetworkControlClient *ncc,
         return;
     }
 
-    QRegExp crlfRegEx("\r\n$");
-    QRegExp crlfcrlfRegEx("\r\n.*\r\n");
+    QRegularExpression crlfRegEx("\r\n$");
+    QRegularExpression crlfcrlfRegEx("\r\n.*\r\n");
 
     QTcpSocket  *client = ncc->getSocket();
     QTextStream *clientStream = ncc->getTextStream();
@@ -1633,10 +1633,8 @@ void NetworkControl::customEvent(QEvent *e)
             }
             else //send to all clients
             {
-                QList<NetworkControlClient *>::const_iterator it;
-                for (it = m_clients.begin(); it != m_clients.end(); ++it)
+                for (auto * ncc2 : qAsConst(m_clients))
                 {
-                    NetworkControlClient *ncc2 = *it;
                     if (ncc2)
                         sendReplyToClient(ncc2, reply);
                 }
@@ -1693,11 +1691,10 @@ QString NetworkControl::listSchedule(const QString& chanID)
 
             result +=
                 QString("%1 %2 %3 %4")
-                .arg(QString::number(query.value(0).toInt())
-                     .rightJustified(5, ' '))
-                .arg(MythDate::as_utc(query.value(1).toDateTime()).toString(Qt::ISODate))
-                .arg(MythDate::as_utc(query.value(2).toDateTime()).toString(Qt::ISODate))
-                .arg(atitle.constData());
+                .arg(QString::number(query.value(0).toInt()).rightJustified(5, ' '),
+                     MythDate::as_utc(query.value(1).toDateTime()).toString(Qt::ISODate),
+                     MythDate::as_utc(query.value(2).toDateTime()).toString(Qt::ISODate),
+                     atitle);
 
             if (appendCRLF)
                 result += "\r\n";
@@ -1742,9 +1739,7 @@ QString NetworkControl::listRecordings(const QString& chanid, const QString& sta
 
             if (!subtitle.isEmpty())
             {
-                episode = QString("%1 -\"%2\"")
-                                  .arg(title)
-                                  .arg(subtitle);
+                episode = QString("%1 -\"%2\"").arg(title, subtitle);
             }
             else
             {
@@ -1752,9 +1747,10 @@ QString NetworkControl::listRecordings(const QString& chanid, const QString& sta
             }
 
             result +=
-                QString("%1 %2 %3").arg(query.value(0).toInt())
-                .arg(MythDate::as_utc(query.value(1).toDateTime()).toString(Qt::ISODate))
-                .arg(episode);
+                QString("%1 %2 %3")
+                .arg(query.value(0).toString(),
+                     MythDate::as_utc(query.value(1).toDateTime()).toString(Qt::ISODate),
+                     episode);
 
             if (appendCRLF)
                 result += "\r\n";
@@ -1808,9 +1804,10 @@ QString NetworkControl::listChannels(const uint start, const uint limit)
         // <current line count>:<max line count to expect> <channelid> <callsign name> <channel name>\r\n
         cnt++;
         result += QString("%1:%2 %3 \"%4\" \"%5\"\r\n")
-                          .arg(cnt).arg(maxcnt).arg(query.value(0).toInt())
-                          .arg(query.value(1).toString())
-                          .arg(query.value(2).toString());
+                          .arg(cnt).arg(maxcnt)
+                          .arg(query.value(0).toString(),
+                               query.value(1).toString(),
+                               query.value(2).toString());
     }
 
     return result;

@@ -36,7 +36,7 @@ vector<ProgramInfo *> *RemoteGetRecordedList(int sort)
     return info;
 }
 
-bool RemoteGetLoad(double load[3])
+bool RemoteGetLoad(system_load_array& load)
 {
     QStringList strlist(QString("QUERY_LOAD"));
 
@@ -51,7 +51,7 @@ bool RemoteGetLoad(double load[3])
     return false;
 }
 
-bool RemoteGetUptime(time_t &uptime)
+bool RemoteGetUptime(std::chrono::seconds &uptime)
 {
     QStringList strlist(QString("QUERY_UPTIME"));
 
@@ -62,11 +62,11 @@ bool RemoteGetUptime(time_t &uptime)
         return false;
 
     if (sizeof(time_t) == sizeof(int))
-        uptime = strlist[0].toUInt();
+        uptime = std::chrono::seconds(strlist[0].toUInt());
     else if (sizeof(time_t) == sizeof(long))
-        uptime = strlist[0].toULong();
+        uptime = std::chrono::seconds(strlist[0].toULong());
     else if (sizeof(time_t) == sizeof(long long))
-        uptime = strlist[0].toULongLong();
+        uptime = std::chrono::seconds(strlist[0].toULongLong());
 
     return true;
 }
@@ -115,10 +115,10 @@ bool RemoteDeleteRecording(uint recordingID, bool forceMetadataDelete,
     bool result = true;
     QString cmd =
         QString("DELETE_RECORDING %1 %2 %3 %4")
-        .arg(QString::number(recInfo.GetChanID()))
-        .arg(recInfo.GetRecordingStartTime().toString(Qt::ISODate))
-        .arg(forceMetadataDelete ? "FORCE" : "NO_FORCE")
-        .arg(forgetHistory ? "FORGET" : "NO_FORGET");
+        .arg(QString::number(recInfo.GetChanID()),
+             recInfo.GetRecordingStartTime().toString(Qt::ISODate),
+             forceMetadataDelete ? "FORCE" : "NO_FORCE",
+             forgetHistory ? "FORGET" : "NO_FORGET");
     QStringList strlist(cmd);
 
     if ((!gCoreContext->SendReceiveStringList(strlist) || strlist.isEmpty()) ||
@@ -189,10 +189,10 @@ uint RemoteGetRecordingList(
     }
 
     uint reclist_initial_size = (uint) reclist.size();
-    QStringList::const_iterator it = strList.begin() + 1;
+    QStringList::const_iterator it = strList.cbegin() + 1;
     for (int i = 0; i < numrecordings; i++)
     {
-        auto *pginfo = new ProgramInfo(it, strList.end());
+        auto *pginfo = new ProgramInfo(it, strList.cend());
         reclist.push_back(pginfo);
     }
 
@@ -287,7 +287,12 @@ QDateTime RemoteGetPreviewIfModified(
     }
     data.resize(length);
 
-    if (checksum16 != qChecksum(data.constData(), data.size()))
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+    quint16 calculated = qChecksum(data.constData(), data.size());
+#else
+    quint16 calculated = qChecksum(data);
+#endif
+    if (checksum16 != calculated)
     {
         LOG(VB_GENERAL, LOG_ERR, loc + "Preview checksum failed");
         return QDateTime();

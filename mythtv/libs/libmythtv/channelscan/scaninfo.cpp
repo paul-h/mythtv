@@ -32,7 +32,7 @@ uint SaveScan(const ScanDTVTransportList &scan)
     uint cardid   = scan[0].m_cardid;
 
     // Delete saved scans when there are too many or when they are too old
-    const vector<ScanInfo> list = LoadScanList(sourceid);
+    const std::vector<ScanInfo> list = LoadScanList(sourceid);
     for (uint i = 0; i < list.size(); i++)
     {
         if (((i + 10) < (list.size())) ||
@@ -86,7 +86,7 @@ ScanDTVTransportList LoadScan(uint scanid)
         "       transmission_mode, guard_interval, hierarchy, "             // 8, 9, 10
         "       modulation,        bandwidth,      sistandard, "            // 11, 12, 13
         "       tuner_type,        transportid,    mod_sys, "               // 14, 15, 16
-        "       rolloff "                                                   // 17
+        "       rolloff,           signal_strength "                        // 17, 18
         "FROM channelscan_dtv_multiplex "
         "WHERE scanid = :SCANID");
     query.bindValue(":SCANID", scanid);
@@ -108,7 +108,7 @@ ScanDTVTransportList LoadScan(uint scanid)
             query.value(8).toString(),  query.value(9).toString(),          // transmission_mode    guard_interval
             query.value(10).toString(), query.value(11).toString(),         // hierarchy            modulation
             query.value(12).toString(), query.value(16).toString(),         // bandwidth            mod_sys
-            query.value(17).toString());                                    // roloff
+            query.value(17).toString(), query.value(18).toString());        // roloff               signal_strength
 
         mux.m_sistandard = query.value(13).toString();                      // sistandard
 
@@ -125,8 +125,8 @@ ScanDTVTransportList LoadScan(uint scanid)
             "    in_pat,             in_pmt,             in_vct,             "      // 24, 25, 26
             "    in_nit,             in_sdt,             is_encrypted,       "      // 27, 28, 29
             "    is_data_service,    is_audio_service,   is_opencable,       "      // 30, 31, 32
-            "    could_be_opencable, decryption_status,  default_authority   "      // 33, 34, 35
-            // "    service_type "                      // See ticket #8774
+            "    could_be_opencable, decryption_status,  default_authority,  "      // 33, 34, 35
+            "    service_type "                                                     // 36
             "FROM channelscan_channel "
             "WHERE transportid = :TRANSPORTID");
         query2.bindValue(":TRANSPORTID", query.value(15).toUInt());
@@ -187,11 +187,7 @@ ScanDTVTransportList LoadScan(uint scanid)
                 query2.value(33).toBool(),          // could_be_opencable
                 query2.value(34).toInt(),           // decryption_status
                 query2.value(35).toString(),        // default_authority
-#if 0           // See ticket #8774
                 query2.value(36).toUInt());         // service_type
-#else
-                0);
-#endif
             mux.m_channels.push_back(chan);
         }
 
@@ -260,16 +256,16 @@ bool ScanInfo::DeleteScan(uint scanid)
 
 void ScanInfo::DeleteScansFromSource(uint sourceid)
 {
-    vector<ScanInfo> scans = LoadScanList(sourceid);
+    std::vector<ScanInfo> scans = LoadScanList(sourceid);
     for (auto &scan : scans)
     {
         DeleteScan(scan.m_scanid);
     }
 }
 
-vector<ScanInfo> LoadScanList(void)
+std::vector<ScanInfo> LoadScanList(void)
 {
-    vector<ScanInfo> list;
+    std::vector<ScanInfo> list;
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
@@ -295,9 +291,9 @@ vector<ScanInfo> LoadScanList(void)
     return list;
 }
 
-vector<ScanInfo> LoadScanList(uint sourceid)
+std::vector<ScanInfo> LoadScanList(uint sourceid)
 {
-    vector<ScanInfo> list;
+    std::vector<ScanInfo> list;
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(

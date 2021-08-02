@@ -1,15 +1,21 @@
+#ifndef MYTHDETECTLETTERBOX_H
+#define MYTHDETECTLETTERBOX_H
+
+// Qt
+#include <QMutex>
+
 // MythTV
-#include "mythplayer.h"
+#include "mythframe.h"
+#include "videoouttypes.h"
 
 class MTV_PUBLIC DetectLetterbox
 {
   public:
-    explicit DetectLetterbox(MythPlayer* Player);
-    ~DetectLetterbox() = default;
-    void SetDetectLetterbox(bool Detect);
+    DetectLetterbox();
+   ~DetectLetterbox() = default;
+    void SetDetectLetterbox(bool Detect, AdjustFillMode Mode);
     bool GetDetectLetterbox() const;
-    void Detect(VideoFrame *Frame);
-    void SwitchTo(VideoFrame *Frame);
+    bool Detect(MythVideoFrame* Frame, float VideoAspect, AdjustFillMode& Current);
 
   private:
     bool           m_isDetectLetterbox                 { false };
@@ -21,9 +27,7 @@ class MTV_PUBLIC DetectLetterbox
     long long      m_detectLetterboxPossibleHalfFrame  { -1 };
     long long      m_detectLetterboxPossibleFullFrame  { -1 };
     int            m_detectLetterboxConsecutiveCounter { 0 };
-    MythPlayer    *m_player                            { nullptr };
     int            m_detectLetterboxLimit              { 75 };
-    QMutex         m_detectLetterboxLock;
 };
 
-/* vim: set expandtab tabstop=4 shiftwidth=4: */
+#endif

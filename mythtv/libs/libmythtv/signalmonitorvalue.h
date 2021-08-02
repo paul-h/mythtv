@@ -3,7 +3,6 @@
 #define SIGNALMONITORVALUES_H
 
 #include <vector>
-using namespace std;
 
 // Qt headers
 #include <QStringList>
@@ -15,11 +14,11 @@ class SignalMonitorValue
 {
     Q_DECLARE_TR_FUNCTIONS(SignalMonitorValue)
 
-    using SignalMonitorList = vector<SignalMonitorValue>;
+    using SignalMonitorList = std::vector<SignalMonitorValue>;
   public:
     SignalMonitorValue(QString _name, QString _noSpaceName,
                        int _threshold, bool _high_threshold,
-                       int _min, int _max, int _timeout);
+                       int _min, int _max, std::chrono::milliseconds _timeout);
     virtual ~SignalMonitorValue() { ; } /* forces class to have vtable */
 
     // // // // // // // // // // // // // // // // // // // // // // // //
@@ -35,7 +34,7 @@ class SignalMonitorValue
         QString str = m_noSpaceName.isNull() ? "(null)" : m_noSpaceName;
         return QString("%1 %2 %3 %4 %5 %6 %7 %8")
             .arg(str).arg(m_value).arg(m_threshold).arg(m_minVal).arg(m_maxVal)
-            .arg(m_timeout).arg((int)m_highThreshold).arg((int)m_set);
+            .arg(m_timeout.count()).arg((int)m_highThreshold).arg((int)m_set);
     }
     /// \brief Returns the value.
     int GetValue() const { return m_value; }
@@ -50,7 +49,7 @@ class SignalMonitorValue
     ///        considered good, false otherwise.
     bool IsHighThreshold() const { return m_highThreshold; }
     /// \brief Returns how long to wait for a good value in milliseconds.
-    int GetTimeout() const { return m_timeout; }
+    std::chrono::milliseconds GetTimeout() const { return m_timeout; }
 
     /// \brief Returns true if the value is equal to the threshold, or on the
     ///        right side of the threshold (depends on IsHighThreashold()).
@@ -65,7 +64,7 @@ class SignalMonitorValue
     {
         float rangeconv = ((float) (newmax - newmin)) / (GetMax() - GetMin());
         int newval = (int) (((GetValue() - GetMin()) * rangeconv) + newmin);
-        return max( min(newval, newmax), newmin );
+        return std::max( std::min(newval, newmax), newmin );
     }
 
 
@@ -75,7 +74,7 @@ class SignalMonitorValue
     void SetValue(int _value)
     {
         m_set = true;
-        m_value = min(max(_value,m_minVal),m_maxVal);
+        m_value = std::min(std::max(_value,m_minVal),m_maxVal);
     }
 
     void SetMin(int _min) { m_minVal = _min; }
@@ -96,7 +95,7 @@ class SignalMonitorValue
         m_maxVal = _max;
     }
 
-    void SetTimeout(int _timeout) { m_timeout = _timeout; }
+    void SetTimeout(std::chrono::milliseconds _timeout) { m_timeout = _timeout; }
 
     // // // // // // // // // // // // // // // // // // // // // // // //
     // Static Methods // // // // // // // // // // // // // // // // // //
@@ -106,7 +105,7 @@ class SignalMonitorValue
         Create(const QString& _name, const QString& _longString);
     static SignalMonitorList Parse(const QStringList& slist);
     static bool AllGood(const SignalMonitorList& slist);
-    static int MaxWait(const SignalMonitorList& slist);
+    static std::chrono::milliseconds MaxWait(const SignalMonitorList& slist);
 
 
     // // // // // // // // // // // // // // // // // // // // // // // //
@@ -125,14 +124,15 @@ class SignalMonitorValue
                        "timeout(%7 ms) %8 set. %9 good.")
             .arg(str).arg(m_value).arg( (m_highThreshold) ? ">=" : "<=" )
             .arg(m_threshold).arg(m_minVal).arg(m_maxVal)
-            .arg(m_timeout).arg( (m_set) ? "is" : "is NOT" )
-            .arg( (IsGood()) ? "Is" : "Is NOT" );
+            .arg(m_timeout.count())
+            .arg(m_set    ? "is" : "is NOT",
+                 IsGood() ? "Is" : "Is NOT" );
     }
   private:
     SignalMonitorValue() = default;
     SignalMonitorValue(QString  _name, QString  _noSpaceName,
                        int _value, int _threshold, bool _high_threshold,
-                       int _min, int _max, int _timeout, bool _set);
+                       int _min, int _max, std::chrono::milliseconds _timeout, bool _set);
     bool Set(const QString& _name, const QString& _longString);
 
     QString m_name;
@@ -141,11 +141,11 @@ class SignalMonitorValue
     int     m_threshold     {-1};
     int     m_minVal        {-1};
     int     m_maxVal        {-1};
-    int     m_timeout       {-1};
+    std::chrono::milliseconds m_timeout {-1ms};
     bool    m_highThreshold {true}; // false when we must be below threshold
     bool    m_set           {false}; // false until value initially set
 };
 
-using SignalMonitorList = vector<SignalMonitorValue>;
+using SignalMonitorList = std::vector<SignalMonitorValue>;
 
 #endif // SIGNALMONITORVALUES_H

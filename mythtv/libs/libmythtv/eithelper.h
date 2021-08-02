@@ -16,6 +16,7 @@
 #include <QString>
 
 // MythTV includes
+#include "mythchrono.h"
 #include "mythdeque.h"
 #include "mpegtables.h" // for GPS_LEAP_SECONDS
 
@@ -29,13 +30,13 @@ class ATSCEvent
               const unsigned char *e, uint f)
         : m_startTime(a), m_length(b), m_etm(c), m_descLength(f),
           m_title(std::move(d)), m_desc(e),
-          m_scanTime(time(nullptr)) {}
+          m_scanTime(SystemClock::now()) {}
 
     bool IsStale() const {
         // The minimum recommended repetition time for EIT events according to
         // http://atsc.org/wp-content/uploads/2015/03/Program-and-system-information-protocol-implementation-guidelines-for-broadcaster.pdf
         // is one minute. Consider any EIT event seen > 2 minutes in the past as stale.
-        return m_scanTime + 2 * 60 < time(nullptr);
+        return m_scanTime + 2min < SystemClock::now();
     }
 
     uint32_t             m_startTime;
@@ -47,7 +48,7 @@ class ATSCEvent
 
   private:
     // The time the event was created.
-    time_t               m_scanTime;
+    SystemTime           m_scanTime;
 };
 
 // An entry from the ETT table containing description text for an event.
@@ -55,26 +56,26 @@ class ATSCEtt
 {
   public:
     explicit ATSCEtt(QString  text) :
-        m_ett_text(std::move(text)), m_scanTime(time(nullptr)) {}
+        m_ett_text(std::move(text)), m_scanTime(SystemClock::now()) {}
 
     bool IsStale() const {
         // The minimum recommended repetition time for ETT events according to
         // http://atsc.org/wp-content/uploads/2015/03/Program-and-system-information-protocol-implementation-guidelines-for-broadcaster.pdf
         // is one minute. Consider any ETT event seen > 2 minutes in the past as stale.
-        return m_scanTime + 2 * 60 < time(nullptr);
+        return m_scanTime + 2min < SystemClock::now();
     }
 
     QString m_ett_text;
 
   private:
     // The time the ETT was created.
-    time_t m_scanTime;
+    SystemTime m_scanTime;
 };
 
 using EventIDToATSCEvent = QMap<uint,ATSCEvent> ;
 using EventIDToETT       = QMap<uint,ATSCEtt>;
 using ATSCSRCToEvents    = QMap<uint,EventIDToATSCEvent>;
-using ServiceToChanID    = QMap<unsigned long long,uint>;
+using ServiceToChanID    = QMap<uint64_t,uint>;
 
 using FixupKey   = uint64_t;
 using FixupValue = uint64_t;
@@ -92,20 +93,22 @@ class PremiereContentInformationTable;
 class EITHelper
 {
   public:
-    EITHelper(void);
+    explicit EITHelper(uint cardnum);
+    EITHelper &operator=(const EITHelper &) = delete;
     EITHelper(const EITHelper& rhs);
     virtual ~EITHelper(void);
 
     uint GetListSize(void) const;
     uint ProcessEvents(void);
+    bool EventQueueFull(void) const;
 
     uint GetGPSOffset(void) const { return (uint) (0 - m_gpsOffset); }
 
-    void SetChannelID(uint _channelid);
-    void SetGPSOffset(uint _gps_offset) { m_gpsOffset = 0 - _gps_offset; }
+    void SetChannelID(uint channelid);
+    void SetGPSOffset(uint gps_offset) { m_gpsOffset = 0 - gps_offset; }
     void SetFixup(uint atsc_major, uint atsc_minor, FixupValue eitfixup);
     void SetLanguagePreferences(const QStringList &langPref);
-    void SetSourceID(uint _sourceid);
+    void SetSourceID(uint sourceid);
     void RescheduleRecordings(void);
 
 #ifdef USING_BACKEND
@@ -127,31 +130,27 @@ class EITHelper
     static void WriteEITCache(void);
 
   private:
-    // only ATSC
-    uint GetChanID(uint atsc_major, uint atsc_minor);
-    // only DVB
-    uint GetChanID(uint serviceid, uint networkid, uint tsid);
-    // any DTV
-    uint GetChanID(uint program_number);
+    uint GetChanID(uint atsc_major, uint atsc_minor);           // Only ATSC
+    uint GetChanID(uint serviceid, uint networkid, uint tsid);  // Only DVB
+    uint GetChanID(uint program_number);                        // Any DTV
 
-    void CompleteEvent(uint atsc_major, uint atsc_minor,
+    void CompleteEvent(uint atsc_major, uint atsc_minor,        // Only ATSC
                        const ATSCEvent &event,
                        const QString   &ett);
 
-        //QListList_Events  m_eitList;     ///< Event Information Tables List
-    mutable QMutex          m_eitListLock; ///< EIT List lock
+    mutable QMutex          m_eitListLock;
     mutable ServiceToChanID m_srvToChanid;
 
-    EITFixUp               *m_eitFixup     {nullptr};
     static EITCache        *s_eitCache;
 
     int                     m_gpsOffset    {-1 * GPS_LEAP_SECONDS};
 
-    /* carry some values to optimize channel lookup and reschedules */
-    uint                    m_sourceid     {0};    ///< id of the video source
-    uint                    m_channelid    {0};    ///< id of the channel
-    QDateTime               m_maxStarttime;        ///< latest starttime of changed events
-    bool                    m_seenEITother {false};///< if false we only reschedule the active mplex
+    // Carry some values to optimize channel lookup and reschedules
+    uint                    m_cardnum      {0};       // Card ID
+    uint                    m_sourceid     {0};       // Video source ID
+    uint                    m_channelid    {0};       // Channel ID
+    QDateTime               m_maxStarttime;           // Latest starttime of changed events
+    bool                    m_seenEITother {false};   // If false we only reschedule the active mplex
 
     FixupMap                m_fixup;
     ATSCSRCToEvents         m_incompleteEvents;
@@ -160,8 +159,8 @@ class EITHelper
 
     QMap<uint,uint>         m_languagePreferences;
 
-    /// Maximum number of DB inserts per ProcessEvents call.
-    static const uint kChunkSize;
+    static const uint kChunkSize;   // Maximum number of DB inserts per ProcessEvents call
+    static const uint kMaxSize;     // Maximum number of events waiting to be processed
 };
 
 #endif // EIT_HELPER_H

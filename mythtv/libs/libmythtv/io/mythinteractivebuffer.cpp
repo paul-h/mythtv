@@ -38,7 +38,7 @@ bool MythInteractiveBuffer::IsOpen(void) const
  *  \param Url   Url of the stream to read.
  *  \return Returns true if the stream was opened.
  */
-bool MythInteractiveBuffer::OpenFile(const QString &Url, uint /*Retry*/)
+bool MythInteractiveBuffer::OpenFile(const QString &Url, std::chrono::milliseconds /*Retry*/)
 {
     if (!NetStream::IsSupported(Url))
     {
@@ -47,13 +47,13 @@ bool MythInteractiveBuffer::OpenFile(const QString &Url, uint /*Retry*/)
     }
 
     QScopedPointer<NetStream> stream(new NetStream(Url, NetStream::kNeverCache));
-    if (!stream || (stream && !stream->IsOpen()))
+    if (!stream || !stream->IsOpen())
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + QString("Failed to open '%1'").arg(Url));
         return false;
     }
 
-    if (!stream->WaitTillReady(30000))
+    if (!stream->WaitTillReady(30s))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + QString("Stream not ready '%1'").arg(Url));
         return false;

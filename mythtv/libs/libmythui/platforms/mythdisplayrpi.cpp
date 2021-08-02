@@ -168,7 +168,7 @@ bool MythDisplayRPI::UsingVideoModes(void)
     return false;
 }
 
-const vector<MythDisplayMode>& MythDisplayRPI::GetVideoModes(void)
+const MythDisplayModes& MythDisplayRPI::GetVideoModes(void)
 {
     if (!m_videoModes.empty())
         return m_videoModes;

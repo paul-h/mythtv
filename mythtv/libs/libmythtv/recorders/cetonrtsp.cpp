@@ -81,9 +81,9 @@ bool CetonRTSP::ProcessRequest(
     {
         // empty socket's waiting data just in case
         m_socket->waitForReadyRead(30);
+        QVector<char> trash;
         do
         {
-            QVector<char> trash;
             uint avail = m_socket->bytesAvailable();
             trash.resize(std::max((uint)trash.size(), avail));
             m_socket->read(trash.data(), avail);
@@ -94,8 +94,8 @@ bool CetonRTSP::ProcessRequest(
 
     QStringList requestHeaders;
     requestHeaders.append(QString("%1 %2 RTSP/1.0")
-        .arg(method)
-        .arg(alternative.size() ? alternative :
+        .arg(method,
+             !alternative.isEmpty() ? alternative :
              (use_control ? m_controlUrl.toString() : m_requestUrl.toString())));
     requestHeaders.append(QString("User-Agent: MythTV Ceton Recorder"));
     requestHeaders.append(QString("CSeq: %1").arg(++m_sequenceNumber));
@@ -423,7 +423,7 @@ bool CetonRTSP::Setup(ushort clientPort1, ushort clientPort2,
 
     if (params.contains("timeout"))
     {
-        m_timeout = params["timeout"].toInt();
+        m_timeout = std::chrono::seconds(params["timeout"].toInt());
     }
 
     QString transport = readParameters("Transport", params);
@@ -472,10 +472,10 @@ void CetonRTSP::StartKeepAlive()
 {
     if (m_timer)
         return;
-    int timeout = std::max(m_timeout - 5, 5);
+    auto timeout = std::max(m_timeout - 5s, 5s);
     LOG(VB_RECORD, LOG_DEBUG, LOC +
-        QString("Start KeepAlive, every %1s").arg(timeout));
-    m_timer = startTimer(timeout * 1000);
+        QString("Start KeepAlive, every %1s").arg(timeout.count()));
+    m_timer = startTimer(timeout);
 }
 
 void CetonRTSP::StopKeepAlive()
@@ -490,8 +490,6 @@ void CetonRTSP::StopKeepAlive()
 
 void CetonRTSP::timerEvent(QTimerEvent* /*event*/)
 {
-    QStringList dummy;
-
     LOG(VB_RECORD, LOG_DEBUG, LOC + "Sending KeepAlive");
     if (m_canGetParameter)
     {

@@ -142,7 +142,7 @@ void MythImage::Orientation(int orientation)
     }
 }
 
-void MythImage::Resize(const QSize &newSize, bool preserveAspect)
+void MythImage::Resize(QSize newSize, bool preserveAspect)
 {
     if ((size() == newSize) && !isNull())
         return;
@@ -194,7 +194,7 @@ void MythImage::Reflect(ReflectAxis axis, int shear, int scale, int length,
     }
 
     QImage alphaChannel(mirrorImage.size(), QImage::Format_ARGB32);
-    MakeGradient(alphaChannel, QColor("#AAAAAA"), QColor("#000000"), 255,
+    MakeGradient(alphaChannel, QColor(0xAA, 0xAA, 0xAA), QColor(0x00, 0x00, 0x00), 255,
                  BoundaryWanted::No, fillDirection);
     mirrorImage.setAlphaChannel(alphaChannel);
 
@@ -313,7 +313,7 @@ bool MythImage::Load(const QString &filename)
         QString mythUrl = RemoteFile::FindFile(fname, url.host(), url.userName());
         if (!mythUrl.isEmpty())
         {
-            auto *rf = new RemoteFile(mythUrl, false, false, 0);
+            auto *rf = new RemoteFile(mythUrl, false, false, 0ms);
 
             QByteArray data;
             bool ret = rf->SaveAs(data);
@@ -416,7 +416,7 @@ void MythImage::MakeGradient(QImage &image, const QColor &begin,
 }
 
 MythImage *MythImage::Gradient(MythPainter *painter,
-                               const QSize & size, const QColor &begin,
+                               QSize size, const QColor &begin,
                                const QColor &end, uint alpha,
                                FillDirection direction)
 {

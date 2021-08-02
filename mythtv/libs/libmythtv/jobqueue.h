@@ -9,15 +9,17 @@
 #include <QObject>
 #include <QEvent>
 #include <QMutex>
+#if QT_VERSION >= QT_VERSION_CHECK(5,14,0)
+#include <QRecursiveMutex>
+#endif
 #include <QMap>
 
 #include "mythtvexp.h"
+#include "mythchrono.h"
 
 class MThread;
 class ProgramInfo;
 class RecordingInfo;
-
-using namespace std;
 
 // Strings are used by JobQueue::StatusText()
 #define JOBSTATUS_MAP(F) \
@@ -203,7 +205,7 @@ class MTV_PUBLIC JobQueue : public QObject, public QRunnable
     static QString JobText(int jobType);
     static QString StatusText(int status);
 
-    static bool HasRunningOrPendingJobs(int startingWithinMins = 0);
+    static bool HasRunningOrPendingJobs(std::chrono::minutes startingWithinMins = 0min);
 
     static int GetJobsInQueue(QMap<int, JobQueueEntry> &jobs,
                               int findJobs = JOB_LIST_NOT_DONE);
@@ -229,7 +231,7 @@ class MTV_PUBLIC JobQueue : public QObject, public QRunnable
 
     bool AllowedToRun(const JobQueueEntry& job);
 
-    static bool InJobRunWindow(int orStartsWithinMins = 0);
+    static bool InJobRunWindow(std::chrono::minutes orStartsWithinMins = 0min);
 
     void StartChildJob(void *(*ChildThreadRoutine)(void *), int jobID);
 
@@ -261,7 +263,11 @@ class MTV_PUBLIC JobQueue : public QObject, public QRunnable
 //  QMutex                     m_controlFlagsLock;
 //  QMap<QString, int *>       m_jobControlFlags;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QMutex                    *m_runningJobsLock     {nullptr};
+#else
+    QRecursiveMutex           *m_runningJobsLock     {nullptr};
+#endif
     QMap<int, RunningJobInfo>  m_runningJobs;
 
     bool                       m_isMaster;

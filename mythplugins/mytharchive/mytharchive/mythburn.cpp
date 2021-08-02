@@ -41,12 +41,10 @@
 #include "videoselector.h"
 #include "logviewer.h"
 
-using namespace std;
-
 MythBurn::MythBurn(MythScreenStack   *parent,
                    MythScreenType    *destinationScreen,
                    MythScreenType    *themeScreen,
-                   ArchiveDestination archiveDestination, const QString& name) :
+                   const ArchiveDestination &archiveDestination, const QString& name) :
     MythScreenType(parent, name),
     m_destinationScreen(destinationScreen),
     m_themeScreen(themeScreen),
@@ -100,9 +98,9 @@ bool MythBurn::Create(void)
         return false;
     }
 
-    connect(m_nextButton, SIGNAL(Clicked()), this, SLOT(handleNextPage()));
-    connect(m_prevButton, SIGNAL(Clicked()), this, SLOT(handlePrevPage()));
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(handleCancel()));
+    connect(m_nextButton, &MythUIButton::Clicked, this, &MythBurn::handleNextPage);
+    connect(m_prevButton, &MythUIButton::Clicked, this, &MythBurn::handlePrevPage);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &MythBurn::handleCancel);
 
 
     loadEncoderProfiles();
@@ -110,13 +108,13 @@ bool MythBurn::Create(void)
 
     updateArchiveList();
 
-    connect(m_addrecordingButton, SIGNAL(Clicked()),
-            this, SLOT(handleAddRecording()));
+    connect(m_addrecordingButton, &MythUIButton::Clicked,
+            this, &MythBurn::handleAddRecording);
 
-    connect(m_addvideoButton, SIGNAL(Clicked()), this, SLOT(handleAddVideo()));
-    connect(m_addfileButton, SIGNAL(Clicked()), this, SLOT(handleAddFile()));
-    connect(m_archiveButtonList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            this, SLOT(itemClicked(MythUIButtonListItem *)));
+    connect(m_addvideoButton, &MythUIButton::Clicked, this, &MythBurn::handleAddVideo);
+    connect(m_addfileButton, &MythUIButton::Clicked, this, &MythBurn::handleAddFile);
+    connect(m_archiveButtonList, &MythUIButtonList::itemClicked,
+            this, &MythBurn::itemClicked);
 
     BuildFocusList();
 
@@ -603,7 +601,7 @@ void MythBurn::createConfigFile(const QString &filename)
             QDomElement thumbs = doc.createElement("thumbimages");
             file.appendChild(thumbs);
 
-            for (auto *thumbImage : a->thumbList)
+            for (auto *thumbImage : qAsConst(a->thumbList))
             {
                 QDomElement thumb = doc.createElement("thumb");
                 thumbs.appendChild(thumb);
@@ -776,19 +774,19 @@ void MythBurn::ShowMenu()
         if (curItem->useCutlist)
         {
             menuPopup->AddButton(tr("Don't Use Cut List"),
-                                 SLOT(toggleUseCutlist()));
+                                 &MythBurn::toggleUseCutlist);
         }
         else
         {
             menuPopup->AddButton(tr("Use Cut List"),
-                                 SLOT(toggleUseCutlist()));
+                                 &MythBurn::toggleUseCutlist);
         }
     }
 
-    menuPopup->AddButton(tr("Remove Item"), SLOT(removeItem()));
-    menuPopup->AddButton(tr("Edit Details"), SLOT(editDetails()));
-    menuPopup->AddButton(tr("Change Encoding Profile"), SLOT(changeProfile()));
-    menuPopup->AddButton(tr("Edit Thumbnails"), SLOT(editThumbnails()));
+    menuPopup->AddButton(tr("Remove Item"), &MythBurn::removeItem);
+    menuPopup->AddButton(tr("Edit Details"), &MythBurn::editDetails);
+    menuPopup->AddButton(tr("Change Encoding Profile"), &MythBurn::changeProfile);
+    menuPopup->AddButton(tr("Edit Thumbnails"), &MythBurn::editThumbnails);
 }
 
 void MythBurn::removeItem()
@@ -816,8 +814,8 @@ void MythBurn::editDetails()
 
     auto *editor = new EditMetadataDialog(mainStack, curItem);
 
-    connect(editor, SIGNAL(haveResult(bool, ArchiveItem *)),
-            this, SLOT(editorClosed(bool, ArchiveItem *)));
+    connect(editor, &EditMetadataDialog::haveResult,
+            this, &MythBurn::editorClosed);
 
     if (editor->Create())
         mainStack->AddScreen(editor);
@@ -867,8 +865,8 @@ void MythBurn::changeProfile()
     if (profileDialog->Create())
     {
         popupStack->AddScreen(profileDialog, false);
-        connect(profileDialog, SIGNAL(haveResult(int)),
-                this, SLOT(profileChanged(int)));
+        connect(profileDialog, &ProfileDialog::haveResult,
+                this, &MythBurn::profileChanged);
     }
 }
 
@@ -943,8 +941,8 @@ void MythBurn::handleAddRecording()
 
     auto *selector = new RecordingSelector(mainStack, &m_archiveList);
 
-    connect(selector, SIGNAL(haveResult(bool)),
-            this, SLOT(selectorClosed(bool)));
+    connect(selector, &RecordingSelector::haveResult,
+            this, &MythBurn::selectorClosed);
 
     if (selector->Create())
         mainStack->AddScreen(selector);
@@ -973,8 +971,8 @@ void MythBurn::handleAddVideo()
 
     auto *selector = new VideoSelector(mainStack, &m_archiveList);
 
-    connect(selector, SIGNAL(haveResult(bool)),
-            this, SLOT(selectorClosed(bool)));
+    connect(selector, &VideoSelector::haveResult,
+            this, &MythBurn::selectorClosed);
 
     if (selector->Create())
         mainStack->AddScreen(selector);
@@ -990,8 +988,8 @@ void MythBurn::handleAddFile()
     auto *selector = new FileSelector(mainStack, &m_archiveList,
                                       FSTYPE_FILELIST, "/", filter);
 
-    connect(selector, SIGNAL(haveResult(bool)),
-            this, SLOT(selectorClosed(bool)));
+    connect(selector, qOverload<bool>(&FileSelector::haveResult),
+            this, &MythBurn::selectorClosed);
 
     if (selector->Create())
         mainStack->AddScreen(selector);
@@ -1028,15 +1026,15 @@ bool ProfileDialog::Create()
         return false;
     }
 
-    for (auto *x : m_profileList)
+    for (auto *x : qAsConst(m_profileList))
     {
         auto *item = new
                 MythUIButtonListItem(m_profileBtnList, x->name);
         item->SetData(QVariant::fromValue(x));
     }
 
-    connect(m_profileBtnList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(profileChanged(MythUIButtonListItem*)));
+    connect(m_profileBtnList, &MythUIButtonList::itemSelected,
+            this, &ProfileDialog::profileChanged);
 
 
     m_profileBtnList->MoveToNamedPosition(m_archiveItem->encoderProfile->name);
@@ -1044,7 +1042,7 @@ bool ProfileDialog::Create()
     m_captionText->SetText(m_archiveItem->title);
     m_oldSizeText->SetText(formatSize(m_archiveItem->size / 1024, 2));
 
-    connect(m_okButton, SIGNAL(Clicked()), this, SLOT(save()));
+    connect(m_okButton, &MythUIButton::Clicked, this, &ProfileDialog::save);
 
     BuildFocusList();
 
@@ -1138,7 +1136,6 @@ void BurnMenu::doBurn(int mode)
         return;
 
     QString logDir = tempDir + "logs";
-    QString configDir = tempDir + "config";
     QString commandline;
 
     // remove existing progress.log if present

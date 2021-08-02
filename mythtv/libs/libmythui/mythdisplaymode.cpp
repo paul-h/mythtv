@@ -1,4 +1,5 @@
 // QT
+#include <QObject>
 #include <QStringList>
 
 // MythTV
@@ -44,38 +45,38 @@ bool MythDisplayMode::operator == (const MythDisplayMode &Other) const
     return m_width == Other.m_width && m_height == Other.m_height;
 }
 
-void MythDisplayMode::Init(void)
+void MythDisplayMode::Init()
 {
     m_width = m_height = m_widthMM = m_heightMM = 0;
     m_aspect = -1.0;
 }
 
-QSize MythDisplayMode::Resolution(void) const
+QSize MythDisplayMode::Resolution() const
 {
     return { m_width, m_height };
 }
 
-int MythDisplayMode::Width(void) const
+int MythDisplayMode::Width() const
 {
     return m_width;
 }
 
-int MythDisplayMode::Height(void) const
+int MythDisplayMode::Height() const
 {
     return m_height;
 }
 
-int MythDisplayMode::WidthMM(void) const
+int MythDisplayMode::WidthMM() const
 {
     return m_widthMM;
 }
 
-int MythDisplayMode::HeightMM(void) const
+int MythDisplayMode::HeightMM() const
 {
     return m_heightMM;
 }
 
-const std::vector<double>& MythDisplayMode::RefreshRates(void) const
+const MythDisplayRates& MythDisplayMode::RefreshRates() const
 {
     return m_refreshRates;
 }
@@ -112,7 +113,7 @@ void MythDisplayMode::AddRefreshRate(double Rate)
     std::sort(m_refreshRates.begin(), m_refreshRates.end());
 }
 
-void MythDisplayMode::ClearRefreshRates(void)
+void MythDisplayMode::ClearRefreshRates()
 {
     m_refreshRates.clear();
 }
@@ -136,7 +137,7 @@ bool MythDisplayMode::CompareRates(double First, double Second, double Precision
     return qAbs(First - Second) < Precision;
 }
 
-int MythDisplayMode::FindBestMatch(const vector<MythDisplayMode>& Modes,
+int MythDisplayMode::FindBestMatch(const MythDisplayModes& Modes,
                                    const MythDisplayMode& Mode, double &TargetRate)
 {
     double videorate = Mode.RefreshRate();
@@ -214,39 +215,37 @@ int MythDisplayMode::FindBestMatch(const vector<MythDisplayMode>& Modes,
     return -1;
 }
 
-#define extract_key(key) { \
-        rate = ((key) & ((1<<18) - 1)) / 1000.0; \
-        height = ((key) >> 18) & ((1<<16) - 1); \
-        width = ((key) >> 34) & ((1<<16) - 1); }
+#define extract_key(key) \
+double rate = ((key) & ((1 << 18) - 1)) / 1000.0; \
+int height  = ((key) >> 18) & ((1 << 16) - 1); \
+int width   = ((key) >> 34) & ((1 << 16) - 1);
 
 uint64_t MythDisplayMode::FindBestScreen(const DisplayModeMap& Map,
                                          int Width, int Height, double Rate)
 {
-    int width = 0;
-    int height = 0;
-    double rate = 0.0;
-
     // 1. search for exact match (width, height, rate)
     // 2. search for resolution, ignoring rate
     // 3. search for matching height and rate (or any rate if rate = 0)
     // 4. search for 2x rate
     // 5. search for 1x rate
 
-    for ( auto it = Map.cbegin(); it != Map.cend(); ++it)
+    for (auto it = Map.cbegin(); it != Map.cend(); ++it)
     {
-        extract_key(it->first);
+        extract_key(it->first)
         if (width == Width && height == Height && CompareRates(Rate, rate, 0.01))
             return it->first;
     }
+
     for (auto it = Map.cbegin(); it != Map.cend(); ++it)
     {
-        extract_key(it->first);
+        extract_key(it->first)
         if (width == Width && height == Height && qFuzzyCompare(rate + 1.0, 1.0))
             return it->first;
     }
+
     for (auto it = Map.cbegin(); it != Map.cend(); ++it)
     {
-        extract_key(it->first);
+        extract_key(it->first)
         if ((width == 0 && height == Height &&
              (CompareRates(Rate, rate, 0.01) || qFuzzyCompare(rate + 1.0, 1.0))) ||
             (width == 0 && height == 0 && CompareRates(Rate, rate * 2.0, 0.01)) ||
@@ -257,4 +256,12 @@ uint64_t MythDisplayMode::FindBestScreen(const DisplayModeMap& Map,
     }
 
     return 0;
+}
+
+QString MythDisplayMode::ToString() const
+{
+    QStringList rates;
+    for (auto rate : m_refreshRates)
+        rates << QString::number(rate, 'f', 2);
+    return QObject::tr("%1x%2@%3Hz").arg(m_width).arg(m_height).arg(rates.join(", "));
 }

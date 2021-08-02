@@ -102,11 +102,11 @@ computeBlankMap(FrameAnalyzer::FrameMap *blankMap, long long nframes,
     }
 
     qsort(blankmedian, nblanks, sizeof(*blankmedian), sort_ascending_uchar);
-    blankno = min(nblanks - 1, (long long)roundf(nblanks * MEDIANPCTILE));
+    blankno = std::min(nblanks - 1, (long long)roundf(nblanks * MEDIANPCTILE));
     uchar maxmedian = blankmedian[blankno];
 
     qsort(blankstddev, nblanks, sizeof(*blankstddev), sort_ascending_float);
-    long long stddevno = min(nblanks - 1, (long long)roundf(nblanks * STDDEVPCTILE));
+    long long stddevno = std::min(nblanks - 1, (long long)roundf(nblanks * STDDEVPCTILE));
     float maxstddev = blankstddev[stddevno];
 
     /* Determine effective percentile ranges (for debugging). */
@@ -210,16 +210,17 @@ computeBreakMap(FrameAnalyzer::FrameMap *breakMap,
      *
      * Common commercial-break lengths.
      */
-    static constexpr struct {
-        int     m_len;    /* seconds */
-        int     m_delta;  /* seconds */
-    } kBreakType[] = {
-        /* Sort by "len". */
-        { 15,   2 },
-        { 20,   2 },
-        { 30,   5 },
-        { 60,   5 },
+    struct breakType {
+        std::chrono::seconds m_len;
+        std::chrono::seconds m_delta;
     };
+    static constexpr std::array<const breakType,4> kBreakType {{
+        /* Sort by "len". */
+        { 15s,   2s },
+        { 20s,   2s },
+        { 30s,   5s },
+        { 60s,   5s },
+    }};
 
     /*
      * TUNABLE:
@@ -248,13 +249,12 @@ computeBreakMap(FrameAnalyzer::FrameMap *breakMap,
                 long long jjlen = *jjblank;
                 long long end = brke + jjlen / 2;
 
-                auto testlen = (long long)roundf((end - start) / fps);
+                auto testlen = std::chrono::seconds(lroundf((end - start) / fps));
                 if (testlen > type.m_len + type.m_delta)
                     break;      /* Too far ahead; break to next break length. */
 
-                long long delta = testlen - type.m_len;
-                if (delta < 0)
-                    delta = 0 - delta;
+                std::chrono::seconds delta = testlen - type.m_len;
+                delta = std::chrono::abs(delta);
 
                 if (delta > type.m_delta)
                     continue;   /* Outside delta range; try next end-blank. */
@@ -346,9 +346,7 @@ computeBreakMap(FrameAnalyzer::FrameMap *breakMap,
     {
         long long iib = iibreak.key();
         long long iie = iib + *iibreak;
-        FrameAnalyzer::FrameMap::iterator jjbreak = iibreak;
-        ++jjbreak;
-        breakMap->erase(iibreak);
+        iibreak = breakMap->erase(iibreak);
 
         /* Trim leading blanks from commercial break. */
         long long addb = *blankMap->find(iib);
@@ -364,7 +362,6 @@ computeBreakMap(FrameAnalyzer::FrameMap *breakMap,
             sube = MAX_BLANK_FRAMES;
         iie -= sube;
         breakMap->insert(iib, iie - iib);
-        iibreak = jjbreak;
     }
 }
 
@@ -405,7 +402,7 @@ BlankFrameDetector::MythPlayerInited(MythPlayer *player, long long nframes)
 }
 
 enum FrameAnalyzer::analyzeFrameResult
-BlankFrameDetector::analyzeFrame(const VideoFrame *frame, long long frameno,
+BlankFrameDetector::analyzeFrame(const MythVideoFrame *frame, long long frameno,
         long long *pNextFrame)
 {
     *pNextFrame = kNextFrame;
@@ -578,8 +575,6 @@ BlankFrameDetector::computeForLogoSurplus(
         {
             long long jjbb = jj.key();
             long long jjee = jjbb + *jj;
-            FrameAnalyzer::FrameMap::Iterator jjnext = jj;
-            ++jjnext;
 
             if (iiee < jjbb)
             {
@@ -595,10 +590,11 @@ BlankFrameDetector::computeForLogoSurplus(
             {
                 /* End of logo break includes beginning of blank-frame break. */
                 overlap = true;
-                m_breakMap.erase(jj);
-                m_breakMap.insert(iibb, max(iiee, jjee) - iibb);
+                jj = m_breakMap.erase(jj);
+                m_breakMap.insert(iibb, std::max(iiee, jjee) - iibb);
+                continue;
             }
-            else if (jjbb < iibb && iibb < jjee)
+            if (jjbb < iibb && iibb < jjee)
             {
                 /* End of blank-frame break includes beginning of logo break. */
                 overlap = true;
@@ -609,7 +605,7 @@ BlankFrameDetector::computeForLogoSurplus(
                 }
             }
 
-            jj = jjnext;
+            jj++;
         }
     }
 

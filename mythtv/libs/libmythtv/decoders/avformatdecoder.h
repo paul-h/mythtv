@@ -11,13 +11,11 @@
 #include "programinfo.h"
 #include "format.h"
 #include "decoderbase.h"
-#include "privatedecoder.h"
 #include "audiooutputsettings.h"
 #include "audiooutpututil.h"
 #include "spdifencoder.h"
 #include "vbilut.h"
 #include "AVCParser.h"
-#include "videodisplayprofile.h"
 #include "mythcodeccontext.h"
 #include "mythplayer.h"
 
@@ -40,6 +38,8 @@ class MythSqlDatabase;
 struct SwsContext;
 
 extern "C" void HandleStreamChange(void *data);
+
+using CC608Parity = std::array<int,256>;
 
 class AudioInfo
 {
@@ -81,15 +81,12 @@ class AudioInfo
     }
 };
 
-/// A decoder for video files.
-
-/// The AvFormatDecoder is used to decode non-NuppleVideo files.
-/// It's used as a decoder of last resort after trying the NuppelDecoder
+/// A decoder for media files.
 class AvFormatDecoder : public DecoderBase
 {
     friend void HandleStreamChange(void *data);
+
   public:
-    static void GetDecoders(RenderOptions &opts);
     AvFormatDecoder(MythPlayer *parent, const ProgramInfo &pginfo,
                     PlayerFlags flags);
     ~AvFormatDecoder() override;
@@ -108,14 +105,12 @@ class AvFormatDecoder : public DecoderBase
 
     /// Perform an av_probe_input_format on the passed data to see if we
     /// can decode it with this class.
-    static bool CanHandle(char testbuf[kDecoderProbeBufferSize],
-                          const QString &filename,
-                          int testbufsize = kDecoderProbeBufferSize);
+    static bool CanHandle(TestBufferVec & testbuf,
+                          const QString &filename);
 
     /// Open our file and set up or audio and video parameters.
     int OpenFile(MythMediaBuffer *Buffer, bool novideo,
-                 char testbuf[kDecoderProbeBufferSize],
-                 int testbufsize = kDecoderProbeBufferSize) override; // DecoderBase
+                 TestBufferVec & testbuf) override; // DecoderBase
 
     bool GetFrame(DecodeType Type, bool &Retry) override; // DecoderBase
 
@@ -123,7 +118,7 @@ class AvFormatDecoder : public DecoderBase
 
     /// This is a No-op for this class.
     void WriteStoredData(MythMediaBuffer *Buffer, bool storevid,
-                         long timecodeOffset) override // DecoderBase
+                         std::chrono::milliseconds timecodeOffset) override // DecoderBase
         { (void)Buffer; (void)storevid; (void)timecodeOffset;}
 
     /// This is a No-op for this class.
@@ -156,7 +151,7 @@ class AvFormatDecoder : public DecoderBase
     int FindStreamInfo(void);
 
     int  GetNumChapters() override; // DecoderBase
-    void GetChapterTimes(QList<long long> &times) override; // DecoderBase
+    void GetChapterTimes(QList<std::chrono::seconds> &times) override; // DecoderBase
     int  GetCurrentChapter(long long framesPlayed) override; // DecoderBase
     long long GetChapter(int chapter) override; // DecoderBase
     bool DoRewind(long long desiredFrame, bool discardFrames = true) override; // DecoderBase
@@ -164,8 +159,8 @@ class AvFormatDecoder : public DecoderBase
     void SetIdrOnlyKeyframes(bool value) override // DecoderBase
         { m_avcParser->use_I_forKeyframes(!value); }
 
-    int64_t NormalizeVideoTimecode(int64_t timecode) override; // DecoderBase
-    virtual int64_t NormalizeVideoTimecode(AVStream *st, int64_t timecode);
+    std::chrono::milliseconds NormalizeVideoTimecode(std::chrono::milliseconds timecode) override; // DecoderBase
+    virtual std::chrono::milliseconds NormalizeVideoTimecode(AVStream *st, std::chrono::milliseconds timecode);
 
     int  GetTeletextDecoderType(void) const override; // DecoderBase
 
@@ -224,7 +219,7 @@ class AvFormatDecoder : public DecoderBase
     bool ProcessAudioPacket(AVStream *stream, AVPacket *pkt,
                             DecodeType decodetype);
     bool ProcessSubtitlePacket(AVStream *stream, AVPacket *pkt);
-    bool ProcessRawTextPacket(AVPacket *pkt);
+    bool ProcessRawTextPacket(AVPacket* Packet);
     virtual bool ProcessDataPacket(AVStream *curstream, AVPacket *pkt,
                                    DecodeType decodetype);
 
@@ -248,7 +243,7 @@ class AvFormatDecoder : public DecoderBase
     bool HasVideo(const AVFormatContext *ic);
     float GetVideoFrameRate(AVStream *Stream, AVCodecContext *Context, bool Sanitise = false);
     static void av_update_stream_timings_video(AVFormatContext *ic);
-    static bool OpenAVCodec(AVCodecContext *avctx, const AVCodec *codec);
+    bool OpenAVCodec(AVCodecContext *avctx, const AVCodec *codec);
 
     void UpdateFramesPlayed(void) override; // DecoderBase
     bool DoRewindSeek(long long desiredFrame) override; // DecoderBase
@@ -262,8 +257,6 @@ class AvFormatDecoder : public DecoderBase
 
     virtual int ReadPacket(AVFormatContext *ctx, AVPacket *pkt, bool &storePacket);
 
-    PrivateDecoder    *m_privateDec                   {nullptr};
-
     bool               m_isDbIgnored;
 
     AVCParser         *m_avcParser                    {nullptr};
@@ -276,7 +269,7 @@ class AvFormatDecoder : public DecoderBase
     URLContext         m_readContext                  {};
 
     int                m_frameDecoded                 {0};
-    VideoFrame        *m_decodedVideoFrame            {nullptr};
+    MythVideoFrame    *m_decodedVideoFrame            {nullptr};
     MythAVFormatBuffer *m_avfRingBuffer               {nullptr};
 
     struct SwsContext *m_swsCtx                       {nullptr};
@@ -304,10 +297,10 @@ class AvFormatDecoder : public DecoderBase
 
     uint32_t           m_startCodeState               {0xffffffff};
 
-    long long          m_lastVPts                     {0};
-    long long          m_lastAPts                     {0};
-    long long          m_lastCcPtsu                   {0};
-    long long          m_firstVPts                    {0};
+    std::chrono::milliseconds  m_lastVPts             {0ms};
+    std::chrono::milliseconds  m_lastAPts             {0ms};
+    std::chrono::microseconds  m_lastCcPtsu           {0ms};
+    std::chrono::milliseconds  m_firstVPts            {0ms};
     bool               m_firstVPtsInuse               {false};
 
     int64_t            m_faultyPts                    {0};
@@ -336,15 +329,15 @@ class AvFormatDecoder : public DecoderBase
     CC608Decoder      *m_ccd608                       {nullptr};
     CC708Decoder      *m_ccd708                       {nullptr};
     TeletextDecoder   *m_ttd                          {nullptr};
-    int                m_cc608ParityTable[256]        {0};
+    CC608Parity        m_cc608ParityTable             {0};
     /// Lookup table for whether a stream was seen in the PMT
     /// entries 0-3 correspond to CEA-608 CC1 through CC4, while
     /// entries 4-67 corresport to CEA-708 streams 0 through 64
-    bool               m_ccX08InPmt[64+4]             {};
+    std::array<bool,68> m_ccX08InPmt                  {};
     /// Lookup table for whether a stream is represented in the UI
     /// entries 0-3 correspond to CEA-608 CC1 through CC4, while
     /// entries 4-67 corresport to CEA-708 streams 0 through 64
-    bool               m_ccX08InTracks[64+4]          {};
+    std::array<bool,68> m_ccX08InTracks               {};
     /// StreamInfo for 608 and 708 Captions seen in the PMT descriptor
     QList<StreamInfo>  m_pmtTracks;
     /// TrackType (608 or 708) for Captions seen in the PMT descriptor
@@ -366,14 +359,19 @@ class AvFormatDecoder : public DecoderBase
     AudioInfo          m_audioIn;
     AudioInfo          m_audioOut;
 
-    float              m_fps                          {0.0F};
     bool               m_processFrames                {true};
 
     bool               m_streamsChanged               { false };
     bool               m_resetHardwareDecoders        { false };
 
     // Value in milliseconds, from setting AudioReadAhead
-    int                m_audioReadAhead               {100};
+    std::chrono::milliseconds  m_audioReadAhead       {100ms};
+
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
+    QMutex             m_avCodecLock                  { QMutex::Recursive };
+#else
+    QRecursiveMutex    m_avCodecLock;
+#endif
 };
 
 #endif

@@ -6,7 +6,6 @@
 #include <QSqlError>
 #include <QVariant>
 #include <QSqlQuery>
-#include <QRegExp>
 #include <QDateTime>
 #include <QMutex>
 #include <QList>
@@ -101,7 +100,7 @@ using MSqlBindings = QMap<QString, QVariant>;
  MBASE_PUBLIC  void MSqlAddMoreBindings(MSqlBindings &output, MSqlBindings &addfrom);
 
 /// \brief Given a partial query string and a bindings object, escape the string
- MBASE_PUBLIC  void MSqlEscapeAsAQuery(QString &query, MSqlBindings &bindings);
+ MBASE_PUBLIC  void MSqlEscapeAsAQuery(QString &query, const MSqlBindings &bindings);
 
 /** \brief QSqlQuery wrapper that fetches a DB connection from the connection pool.
  *
@@ -194,11 +193,20 @@ class MBASE_PUBLIC MSqlQuery : private QSqlQuery
     /// query.
     bool Reconnect(void);
 
+    /// lostConnectionCheck tests for SQL error codes that indicate the
+    /// connection to the server has been lost.
+    bool lostConnectionCheck(void);
+
     // Thunks that allow us to make QSqlQuery private
     QVariant value(int i) const { return QSqlQuery::value(i); }
     QString executedQuery(void) const { return QSqlQuery::executedQuery(); }
+
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     QMap<QString, QVariant> boundValues(void) const
         { return QSqlQuery::boundValues(); }
+#else
+    QVariantList boundValues(void) const { return QSqlQuery::boundValues(); }
+#endif
     QSqlError lastError(void) const { return QSqlQuery::lastError(); }
     int size(void) const { return QSqlQuery::size();}
     bool isActive(void) const { return  QSqlQuery::isActive(); }

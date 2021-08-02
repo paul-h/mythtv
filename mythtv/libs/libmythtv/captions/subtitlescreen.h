@@ -14,7 +14,6 @@ extern "C" {
 #include <QFont>
 #include <QHash>
 #include <QRect>
-#include <QRegExp>
 #include <QSize>
 #include <QStringList>
 #include <QVector>
@@ -28,6 +27,7 @@ extern "C" {
 #include "mythuiimage.h"
 
 class SubtitleScreen;
+class TestSubtitleScreen;
 
 class FormattedTextChunk
 {
@@ -35,6 +35,7 @@ public:
     FormattedTextChunk(QString t,
                        CC708CharacterAttribute formatting,
                        SubtitleScreen *p)
+        // NOLINTNEXTLINE(performance-move-const-arg)
         : m_text(std::move(t)), m_format(std::move(formatting)), m_parent(p) {}
     FormattedTextChunk(void) = default;
 
@@ -71,11 +72,14 @@ public:
     int m_origY   {-1}; // original, unscaled coordinates
 };
 
-class FormattedTextSubtitle
+class MTV_PUBLIC FormattedTextSubtitle
 {
+    friend class TestSubtitleScreen;
+
 protected:
-    FormattedTextSubtitle(QString base, const QRect &safearea,
-                          uint64_t start, uint64_t duration,
+    FormattedTextSubtitle(QString base, QRect safearea,
+                          std::chrono::milliseconds start,
+                          std::chrono::milliseconds duration,
                           SubtitleScreen *p) :
         m_base(std::move(base)), m_safeArea(safearea),
         m_start(start), m_duration(duration), m_subScreen(p) {}
@@ -96,8 +100,8 @@ protected:
     QString         m_base;
     QVector<FormattedTextLine> m_lines;
     const QRect     m_safeArea;
-    uint64_t        m_start        {0};
-    uint64_t        m_duration     {0};
+    std::chrono::milliseconds m_start    {0ms};
+    std::chrono::milliseconds m_duration {0ms};
     SubtitleScreen *m_subScreen    {nullptr}; // where fonts and sizes are kept
     int             m_xAnchorPoint {0}; // 0=left, 1=center, 2=right
     int             m_yAnchorPoint {0}; // 0=top,  1=center, 2=bottom
@@ -106,13 +110,13 @@ protected:
     QRect           m_bounds;
 };
 
-class FormattedTextSubtitleSRT : public FormattedTextSubtitle
+class MTV_PUBLIC FormattedTextSubtitleSRT : public FormattedTextSubtitle
 {
 public:
     FormattedTextSubtitleSRT(const QString &base,
-                             const QRect &safearea,
-                             uint64_t start,
-                             uint64_t duration,
+                             QRect safearea,
+                             std::chrono::milliseconds start,
+                             std::chrono::milliseconds duration,
                              SubtitleScreen *p,
                              const QStringList &subs) :
         FormattedTextSubtitle(base, safearea, start, duration, p)
@@ -124,14 +128,14 @@ private:
     void Init(const QStringList &subs);
 };
 
-class FormattedTextSubtitle608 : public FormattedTextSubtitle
+class MTV_PUBLIC FormattedTextSubtitle608 : public FormattedTextSubtitle
 {
 public:
     explicit FormattedTextSubtitle608(const vector<CC608Text*> &buffers,
                              const QString &base = "",
-                             const QRect &safearea = QRect(),
+                             QRect safearea = QRect(),
                              SubtitleScreen *p = nullptr) :
-        FormattedTextSubtitle(base, safearea, 0, 0, p)
+        FormattedTextSubtitle(base, safearea, 0ms, 0ms, p)
     {
         Init(buffers);
     }
@@ -140,17 +144,17 @@ private:
     void Init(const vector<CC608Text*> &buffers);
 };
 
-class FormattedTextSubtitle708 : public FormattedTextSubtitle
+class MTV_PUBLIC FormattedTextSubtitle708 : public FormattedTextSubtitle
 {
 public:
     FormattedTextSubtitle708(const CC708Window &win,
                              int num,
                              const vector<CC708String*> &list,
                              const QString &base = "",
-                             const QRect &safearea = QRect(),
+                             QRect safearea = QRect(),
                              SubtitleScreen *p = nullptr,
                              float aspect = 1.77777F) :
-        FormattedTextSubtitle(base, safearea, 0, 0, p),
+        FormattedTextSubtitle(base, safearea, 0ms, 0ms, p),
         m_num(num),
         m_bgFillAlpha(win.GetFillAlpha()),
         m_bgFillColor(win.GetFillColor())
@@ -169,11 +173,12 @@ private:
     QColor m_bgFillColor;
 };
 
-class SubtitleScreen : public MythScreenType
+class MTV_PUBLIC SubtitleScreen : public MythScreenType
 {
+    Q_OBJECT
 public:
-    SubtitleScreen(MythPlayer *player, const char * name, int fontStretch);
-    ~SubtitleScreen() override;
+    SubtitleScreen(MythPlayer* Player, MythPainter* Painter, const QString& Name, int FontStretch);
+   ~SubtitleScreen() override;
 
     void EnableSubtitles(int type, bool forced_only = false);
     void DisableForcedSubtitles(void);
@@ -186,8 +191,8 @@ public:
 
     void SetZoom(int percent);
     int GetZoom(void) const;
-    void SetDelay(int ms);
-    int GetDelay(void) const;
+    void SetDelay(std::chrono::milliseconds ms);
+    std::chrono::milliseconds GetDelay(void) const;
 
     class SubtitleFormat *GetSubtitleFormat(void) { return m_format; }
     void Clear708Cache(uint64_t mask);
@@ -220,11 +225,12 @@ private:
     int  DisplayScaledAVSubtitles(const AVSubtitleRect *rect, QRect &bbox,
                                   bool top, QRect &display, int forced,
                                   const QString& imagename,
-                                  long long displayuntil, long long late);
+                                  std::chrono::milliseconds displayuntil,
+                                  std::chrono::milliseconds late);
     void DisplayTextSubtitles(void);
     void DisplayRawTextSubtitles(void);
-    void DrawTextSubtitles(const QStringList &subs, uint64_t start,
-                           uint64_t duration);
+    void DrawTextSubtitles(const QStringList &subs, std::chrono::milliseconds start,
+                           std::chrono::milliseconds duration);
     void DisplayCC608Subtitles(void);
     void DisplayCC708Subtitles(void);
     void AddScaledImage(QImage &img, QRect &pos);
@@ -235,17 +241,16 @@ private:
     CC608Reader    *m_cc608reader         {nullptr};
     CC708Reader    *m_cc708reader         {nullptr};
     QRect           m_safeArea;
-    QRegExp         m_removeHTML          {"</?.+>"};
     int             m_subtitleType        {kDisplayNone};
     int             m_fontSize            {0};
     int             m_textFontZoom        {100}; // valid for 708 & text subs
     int             m_textFontZoomPrev    {100};
-    int             m_textFontDelayMs     {0}; // valid for text subs
-    int             m_textFontDelayMsPrev {0};
-    int             m_textFontMinDurationMs {50};
-    int             m_textFontMinDurationMsPrev {50};
-    int             m_textFontDurationExtensionMs {0};
-    int             m_textFontDurationExtensionMsPrev {0};
+    std::chrono::milliseconds m_textFontDelayMs     {0ms}; // valid for text subs
+    std::chrono::milliseconds m_textFontDelayMsPrev {0ms};
+    std::chrono::milliseconds m_textFontMinDurationMs           {50ms};
+    std::chrono::milliseconds m_textFontMinDurationMsPrev       {50ms};
+    std::chrono::milliseconds m_textFontDurationExtensionMs     {0ms};
+    std::chrono::milliseconds m_textFontDurationExtensionMsPrev {0ms};
     bool            m_refreshModified     {false};
     bool            m_refreshDeleted      {false};
     int             m_fontStretch;
@@ -262,7 +267,7 @@ private:
     void CleanupAssTrack(void);
     void AddAssEvent(char *event);
     void ResizeAssRenderer(void);
-    void RenderAssTrack(uint64_t timecode);
+    void RenderAssTrack(std::chrono::milliseconds timecode);
 
     ASS_Library    *m_assLibrary          {nullptr};
     ASS_Renderer   *m_assRenderer         {nullptr};

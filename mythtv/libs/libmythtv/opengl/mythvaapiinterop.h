@@ -7,13 +7,21 @@
 // MythTV
 #include "mythopenglinterop.h"
 
+struct AVFilterGraph;
+struct AVFilterContext;
+
 // VAAPI
 #include "va/va.h"
 #include "va/va_version.h"
 #if VA_CHECK_VERSION(0,34,0)
 #include "va/va_compat.h"
 #endif
+#define Cursor XCursor // Prevent conflicts with Qt6.
+#define pointer Xpointer // Prevent conflicts with Qt6.
 #include "va/va_x11.h"
+#undef None            // X11/X.h defines this. Causes compile failure in Qt6.
+#undef Cursor
+#undef pointer
 #include "va/va_glx.h"
 #include "va/va_drm.h"
 #include "va/va_drmcommon.h"
@@ -35,12 +43,11 @@
 
 class MythVAAPIInterop : public MythOpenGLInterop
 {
-    friend class MythOpenGLInterop;
-
   public:
-    static MythVAAPIInterop* Create(MythRenderOpenGL *Context, Type InteropType);
+    static void GetVAAPITypes(MythRenderOpenGL* Context, MythInteropGPU::InteropMap& Types);
+    static MythVAAPIInterop* CreateVAAPI(MythPlayerUI* Player, MythRenderOpenGL* Context);
 
-    VASurfaceID VerifySurface(MythRenderOpenGL *Context, VideoFrame *Frame);
+    VASurfaceID VerifySurface(MythRenderOpenGL *Context, MythVideoFrame *Frame);
     VADisplay   GetDisplay   (void);
     QString     GetVendor    (void);
 
@@ -50,12 +57,11 @@ class MythVAAPIInterop : public MythOpenGLInterop
                                    AVFilterContext *&Sink);
 
   protected:
-    MythVAAPIInterop(MythRenderOpenGL *Context, Type InteropType);
-    ~MythVAAPIInterop() override;
+    MythVAAPIInterop(MythPlayerUI* Player, MythRenderOpenGL *Context, InteropType Type);
+   ~MythVAAPIInterop() override;
 
-    static Type GetInteropType       (VideoFrameType Format);
     void        InitaliseDisplay     (void);
-    VASurfaceID Deinterlace          (VideoFrame *Frame, VASurfaceID Current, FrameScanType Scan);
+    VASurfaceID Deinterlace          (MythVideoFrame *Frame, VASurfaceID Current, FrameScanType Scan);
     virtual void DestroyDeinterlacer (void);
     virtual void PostInitDeinterlacer(void) { }
 
@@ -66,15 +72,15 @@ class MythVAAPIInterop : public MythOpenGLInterop
     MythDeintType    m_deinterlacer      { DEINT_NONE };
     bool             m_deinterlacer2x    { false      };
     bool             m_firstField        { true    };
-    AVBufferRef     *m_vppFramesContext  { nullptr };
-    AVFilterContext *m_filterSink        { nullptr };
-    AVFilterContext *m_filterSource      { nullptr };
-    AVFilterGraph   *m_filterGraph       { nullptr };
+    AVBufferRef*     m_vppFramesContext  { nullptr };
+    AVFilterContext* m_filterSink        { nullptr };
+    AVFilterContext* m_filterSource      { nullptr };
+    AVFilterGraph*   m_filterGraph       { nullptr };
     bool             m_filterError       { false   };
     int              m_filterWidth       { 0 };
     int              m_filterHeight      { 0 };
     VASurfaceID      m_lastFilteredFrame { 0 };
-    long long        m_lastFilteredFrameCount { 0 };
+    uint64_t         m_lastFilteredFrameCount { 0 };
 };
 
-#endif // MYTHVAAPIINTEROP_H
+#endif

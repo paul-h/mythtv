@@ -32,7 +32,7 @@ AnalogSignalMonitor::AnalogSignalMonitor(int db_cardnum,
 
         m_usingV4l2 = ((caps & V4L2_CAP_VIDEO_CAPTURE) != 0U);
         LOG(VB_RECORD, LOG_INFO, QString("card '%1' driver '%2' version '%3'")
-                .arg(m_card).arg(m_driver).arg(m_version));
+                .arg(m_card, m_driver, QString::number(m_version)));
     }
 }
 
@@ -55,7 +55,7 @@ bool AnalogSignalMonitor::VerifyHDPVRaudio(int videofd)
 
     ext_ctrl.id = V4L2_CID_MPEG_AUDIO_ENCODING;
 
-    ext_ctrls.reserved[0] = ext_ctrls.reserved[1] = 0;
+    ext_ctrls.reserved[0] = 0;
     ext_ctrls.count = 1;
     ext_ctrls.ctrl_class = V4L2_CTRL_CLASS_MPEG;
     ext_ctrls.controls = &ext_ctrl;

@@ -22,7 +22,6 @@
 // Std C++ headers
 #include <algorithm>
 #include <vector>
-using namespace std;
 
 // MythTV headers
 #include "darwinfirewiredevice.h"
@@ -59,8 +58,8 @@ namespace AVS
 #define LOC      QString("DFireDev(%1): ").arg(guid_to_string(m_guid))
 
 #define kAnyAvailableIsochChannel 0xFFFFFFFF
-#define kNoDataTimeout            300  /* msec */
-#define kResetTimeout             1500 /* msec */
+static constexpr std::chrono::milliseconds kNoDataTimeout {  300ms };
+static constexpr std::chrono::milliseconds kResetTimeout  { 1500ms };
 
 static IOReturn dfd_tspacket_handler_thunk(
     UInt32 tsPacketCount, UInt32 **ppBuf, void *callback_data);
@@ -329,7 +328,7 @@ bool DarwinFirewireDevice::OpenAVStream(void)
     int max_speed = GetMaxSpeed();
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Max Speed: %1, Our speed: %2")
                           .arg(max_speed).arg(m_speed));
-    m_speed = min((uint)max_speed, m_speed);
+    m_speed = std::min((uint)max_speed, m_speed);
 
     uint fwchan = 0;
     bool streaming = IsSTBStreaming(&fwchan);
@@ -357,7 +356,7 @@ bool DarwinFirewireDevice::OpenAVStream(void)
     }
 
     m_priv->m_avstream->registerNoDataNotificationCallback(
-        dfd_no_data_notification, this, kNoDataTimeout);
+        dfd_no_data_notification, this, kNoDataTimeout.count());
 
     return true;
 }
@@ -499,8 +498,8 @@ bool DarwinFirewireDevice::StopStreaming(void)
     return true;
 }
 
-bool DarwinFirewireDevice::SendAVCCommand(const vector<uint8_t> &cmd,
-                                          vector<uint8_t>       &result,
+bool DarwinFirewireDevice::SendAVCCommand(const std::vector<uint8_t> &cmd,
+                                          std::vector<uint8_t>       &result,
                                           int                   retry_cnt)
 {
     return GetInfoPtr()->SendAVCCommand(cmd, result, retry_cnt);
@@ -550,7 +549,7 @@ void DarwinFirewireDevice::ProcessNoDataMessage(void)
 {
     if (m_priv->m_no_data_timer_set)
     {
-        int short_interval = kNoDataTimeout + (kNoDataTimeout>>1);
+        std::chrono::milliseconds short_interval = kNoDataTimeout + (kNoDataTimeout/2);
         bool recent = m_priv->m_no_data_timer.elapsed() <= short_interval;
         m_priv->m_no_data_cnt = (recent) ? m_priv->m_no_data_cnt + 1 : 1;
     }
@@ -558,7 +557,7 @@ void DarwinFirewireDevice::ProcessNoDataMessage(void)
     m_priv->m_no_data_timer.start();
 
     LOG(VB_GENERAL, LOG_WARNING, LOC + QString("No Input in %1 msecs")
-            .arg(m_priv->m_no_data_cnt * kNoDataTimeout));
+            .arg(m_priv->m_no_data_cnt * kNoDataTimeout.count()));
 
     if (m_priv->m_no_data_cnt > (kResetTimeout / kNoDataTimeout))
     {
@@ -606,9 +605,9 @@ void DarwinFirewireDevice::ProcessStreamingMessage(
     }
 }
 
-vector<AVCInfo> DarwinFirewireDevice::GetSTBList(void)
+std::vector<AVCInfo> DarwinFirewireDevice::GetSTBList(void)
 {
-    vector<AVCInfo> list;
+    std::vector<AVCInfo> list;
 
     {
         DarwinFirewireDevice dev(0,0,0);
@@ -627,7 +626,7 @@ vector<AVCInfo> DarwinFirewireDevice::GetSTBList(void)
     return list;
 }
 
-vector<AVCInfo> DarwinFirewireDevice::GetSTBListPrivate(void)
+std::vector<AVCInfo> DarwinFirewireDevice::GetSTBListPrivate(void)
 {
 #if 0
     LOG(VB_GENERAL, LOG_DEBUG, LOC + "GetSTBListPrivate -- begin");
@@ -637,7 +636,7 @@ vector<AVCInfo> DarwinFirewireDevice::GetSTBListPrivate(void)
     LOG(VB_GENERAL, LOG_DEBUG, LOC + "GetSTBListPrivate -- got lock");
 #endif
 
-    vector<AVCInfo> list;
+    std::vector<AVCInfo> list;
 
     for (auto dev : qAsConst(m_priv->m_devices))
     {

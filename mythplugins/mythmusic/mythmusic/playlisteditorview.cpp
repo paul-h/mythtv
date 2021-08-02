@@ -160,14 +160,14 @@ bool PlaylistEditorView::Create(void)
         restoreTreePosition(route);
     }
 
-    connect(m_playlistTree, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            this, SLOT(treeItemClicked(MythUIButtonListItem*)));
-    connect(m_playlistTree, SIGNAL(nodeChanged(MythGenericTree*)),
-            this, SLOT(treeNodeChanged(MythGenericTree*)));
+    connect(m_playlistTree, &MythUIButtonTree::itemClicked,
+            this, &PlaylistEditorView::treeItemClicked);
+    connect(m_playlistTree, &MythUIButtonTree::nodeChanged,
+            this, &PlaylistEditorView::treeNodeChanged);
 
     if (m_currentView == MV_PLAYLISTEDITORGALLERY)
-        connect(m_playlistTree, SIGNAL(itemVisible(MythUIButtonListItem*)),
-                this, SLOT(treeItemVisible(MythUIButtonListItem*)));
+        connect(m_playlistTree, &MythUIButtonTree::itemVisible,
+                this, &PlaylistEditorView::treeItemVisible);
 
     BuildFocusList();
 
@@ -260,8 +260,8 @@ void PlaylistEditorView::customEvent(QEvent *event)
 
                 editor->newSmartPlaylist(category);
 
-                connect(editor, SIGNAL(smartPLChanged(const QString&, const QString&)),
-                        this, SLOT(smartPLChanged(QString, QString)));
+                connect(editor, &SmartPlaylistEditor::smartPLChanged,
+                        this, &PlaylistEditorView::smartPLChanged);
 
                 mainStack->AddScreen(editor);
             }
@@ -271,8 +271,8 @@ void PlaylistEditorView::customEvent(QEvent *event)
                 QString name = mnode->GetText();
 
                 ShowOkPopup(tr("Are you sure you want to delete this Smart Playlist?\n"
-                               "Category: %1 - Name: %2").arg(category).arg(name),
-                            this, SLOT(deleteSmartPlaylist(bool)), true);
+                               "Category: %1 - Name: %2").arg(category, name),
+                            this, &PlaylistEditorView::deleteSmartPlaylist, true);
             }
             else if (resulttext == tr("Edit Smart Playlist"))
             {
@@ -290,8 +290,8 @@ void PlaylistEditorView::customEvent(QEvent *event)
 
                 editor->editSmartPlaylist(category, name);
 
-                connect(editor, SIGNAL(smartPLChanged(const QString&, const QString&)),
-                        this, SLOT(smartPLChanged(QString, QString)));
+                connect(editor, &SmartPlaylistEditor::smartPLChanged,
+                        this, &PlaylistEditorView::smartPLChanged);
 
                 mainStack->AddScreen(editor);
             }
@@ -327,7 +327,7 @@ void PlaylistEditorView::customEvent(QEvent *event)
 
                 ShowOkPopup(tr("Are you sure you want to delete this Playlist?\n"
                                "Name: %1").arg(name),
-                            this, SLOT(deletePlaylist(bool)), true);
+                            this, &PlaylistEditorView::deletePlaylist, true);
             }
             else if (resulttext == tr("Replace Tracks"))
             {
@@ -391,8 +391,8 @@ bool PlaylistEditorView::keyPressEvent(QKeyEvent *event)
                         }
 
                         editor->editSmartPlaylist(category, name);
-                        connect(editor, SIGNAL(smartPLChanged(const QString&, const QString&)),
-                                this, SLOT(smartPLChanged(QString, QString)));
+                        connect(editor, &SmartPlaylistEditor::smartPLChanged,
+                                this, &PlaylistEditorView::smartPLChanged);
 
                         mainStack->AddScreen(editor);
 
@@ -413,8 +413,8 @@ bool PlaylistEditorView::keyPressEvent(QKeyEvent *event)
 
                         editor->newSmartPlaylist(category);
 
-                        connect(editor, SIGNAL(smartPLChanged(const QString&, const QString&)),
-                                this, SLOT(smartPLChanged(QString, QString)));
+                        connect(editor, &SmartPlaylistEditor::smartPLChanged,
+                                this, &PlaylistEditorView::smartPLChanged);
 
                         mainStack->AddScreen(editor);
 
@@ -452,8 +452,8 @@ bool PlaylistEditorView::keyPressEvent(QKeyEvent *event)
                         QString name = mnode->GetText();
 
                         ShowOkPopup(tr("Are you sure you want to delete this Smart Playlist?\n"
-                                       "Category: %1 - Name: %2").arg(category).arg(name),
-                                    this, SLOT(deleteSmartPlaylist(bool)), true);
+                                       "Category: %1 - Name: %2").arg(category, name),
+                                    this, &PlaylistEditorView::deleteSmartPlaylist, true);
                         handled = true;
                     }
                     else if (mnode->getAction() == "playlist")
@@ -462,7 +462,7 @@ bool PlaylistEditorView::keyPressEvent(QKeyEvent *event)
 
                         ShowOkPopup(tr("Are you sure you want to delete this Playlist?\n"
                                        "Name: %1").arg(name),
-                                    this, SLOT(deletePlaylist(bool)), true);
+                                    this, &PlaylistEditorView::deletePlaylist, true);
                         handled = true;
                     }
                 }
@@ -976,8 +976,7 @@ void PlaylistEditorView::filterTracks(MusicGenericTree *node)
 
     if (node->getAction() == "all tracks")
     {
-        QMap<QString, int> map;
-        QStringList list;
+        QMultiMap<QString, int> map;
         bool isAlbum = false;
         auto *parentNode = dynamic_cast<MusicGenericTree*>(node->getParent());
 
@@ -1006,11 +1005,11 @@ void PlaylistEditorView::filterTracks(MusicGenericTree *node)
                             key.prepend("0");
                     }
                 }
-                map.insertMulti(key, mdata->ID());
+                map.insert(key, mdata->ID());
             }
         }
 
-        QMap<QString, int>::const_iterator i = map.constBegin();
+        auto i = map.constBegin();
         while (i != map.constEnd())
         {
             auto *newnode = new MusicGenericTree(node, i.key(), "trackid");

@@ -1,5 +1,4 @@
 // Qt
-#include <QCoreApplication>
 #include <utility>
 
 // libmyth
@@ -19,143 +18,46 @@
 #include "mythuigroup.h"
 
 // libmythtv
+#include "overlays/mythnavigationoverlay.h"
+#include "overlays/mythchanneloverlay.h"
 #include "channelutil.h"
-#include "captions/teletextscreen.h"
-#include "captions/subtitlescreen.h"
-#include "interactivescreen.h"
 #include "osd.h"
-#include "Bluray/mythbdbuffer.h"
-#include "Bluray/mythbdoverlayscreen.h"
-#include "tv_actions.h"
+#include "tv_play.h"
+#include "mythplayerui.h"
 
 #define LOC     QString("OSD: ")
 
-QEvent::Type OSDHideEvent::kEventType = static_cast<QEvent::Type>(QEvent::registerEventType());
-
-bool ChannelEditor::Create(void)
+OSD::OSD(MythMainWindow *MainWindow, TV *Tv, MythPlayerUI* Player, MythPainter* Painter)
+  : MythMediaOverlay(MainWindow, Tv, Player, Painter)
 {
-    if (!XMLParseBase::LoadWindowFromXML("osd.xml", "ChannelEditor", this))
-        return false;
-
-    MythUIButton *probeButton = nullptr;
-    MythUIButton *okButton    = nullptr;
-
-    bool err = false;
-    UIUtilE::Assign(this, m_callsignEdit, "callsign", &err);
-    UIUtilE::Assign(this, m_channumEdit,  "channum",  &err);
-    UIUtilE::Assign(this, m_channameEdit, "channame", &err);
-    UIUtilE::Assign(this, m_xmltvidEdit,  "XMLTV",    &err);
-    UIUtilE::Assign(this, probeButton,    "probe",    &err);
-    UIUtilE::Assign(this, okButton,       "ok",       &err);
-
-    if (err)
-    {
-        LOG(VB_GENERAL, LOG_ERR, "Cannot load screen 'ChannelEditor'");
-        return false;
-    }
-
-    BuildFocusList();
-    connect(okButton,    SIGNAL(Clicked()), SLOT(Confirm()));
-    connect(probeButton, SIGNAL(Clicked()), SLOT(Probe()));
-    SetFocusWidget(okButton);
-
-    return true;
-}
-
-void ChannelEditor::Confirm(void)
-{
-    SendResult(1);
-}
-
-void ChannelEditor::Probe(void)
-{
-    SendResult(2);
-}
-
-void ChannelEditor::SetText(const InfoMap &Map)
-{
-    if (Map.contains("callsign"))
-        m_callsignEdit->SetText(Map.value("callsign"));
-    if (Map.contains("channum"))
-        m_channumEdit->SetText(Map.value("channum"));
-    if (Map.contains("channame"))
-        m_channameEdit->SetText(Map.value("channame"));
-    if (Map.contains("XMLTV"))
-        m_xmltvidEdit->SetText(Map.value("XMLTV"));
-}
-
-void ChannelEditor::GetText(InfoMap &Map)
-{
-    Map["callsign"] = m_callsignEdit->GetText();
-    Map["channum"]  = m_channumEdit->GetText();
-    Map["channame"] = m_channameEdit->GetText();
-    Map["XMLTV"]    = m_xmltvidEdit->GetText();
-}
-
-bool ChannelEditor::keyPressEvent(QKeyEvent *Event)
-{
-    if (GetFocusWidget()->keyPressEvent(Event))
-        return true;
-
-    QStringList actions;
-    bool handled = GetMythMainWindow()->TranslateKeyPress("qt", Event, actions);
-
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        if (action == "ESCAPE" )
-        {
-            SendResult(3);
-            handled = true;
-        }
-    }
-
-    if (!handled && MythScreenType::keyPressEvent(Event))
-        handled = true;
-
-    return handled;
-}
-
-void ChannelEditor::SendResult(int result)
-{
-    if (!m_retObject)
-        return;
-
-    QString  message = "";
-    switch (result)
-    {
-        case 1:
-            message = "DIALOG_EDITOR_OK_0";
-            break;
-        case 2:
-            message = "DIALOG_EDITOR_PROBE_0";
-            break;
-        case 3:
-            message = "DIALOG_EDITOR_QUIT_0";
-            break;
-    }
-
-    auto *dce = new DialogCompletionEvent("", result, "", message);
-    QCoreApplication::postEvent(m_retObject, dce);
+    connect(this, &OSD::HideOSD,        m_tv, &TV::HandleOSDClosed);
+    connect(m_tv, &TV::IsOSDVisible,    this, &OSD::IsOSDVisible);
+    connect(m_tv, &TV::ChangeOSDDialog, this, &OSD::ShowDialog);
+    connect(m_tv, &TV::ChangeOSDText,   this, &OSD::SetText);
 }
 
 OSD::~OSD()
 {
-    TearDown();
+    OSD::TearDown();
 }
 
-void OSD::TearDown(void)
+void OSD::TearDown()
 {
-    for (MythScreenType* screen : qAsConst(m_children))
-        delete screen;
-    m_children.clear();
+    MythMediaOverlay::TearDown();
     m_dialog = nullptr;
 }
 
-bool OSD::Init(const QRect &Rect, float FontAspect)
+bool OSD::Init(QRect Rect, float FontAspect)
 {
+    int newstretch = static_cast<int>(lroundf(FontAspect * 100));
+    if ((Rect == m_rect) && (newstretch == m_fontStretch))
+        return true;
+
+    HideAll(false);
+    TearDown();
     m_rect = Rect;
-    m_fontStretch = static_cast<int>(lroundf(FontAspect * 100));
+    m_fontStretch = newstretch;
+
     OverrideUIScale();
     LoadWindows();
     RevertUIScale();
@@ -166,117 +68,43 @@ bool OSD::Init(const QRect &Rect, float FontAspect)
         return false;
     }
 
-    LOG(VB_PLAYBACK, LOG_INFO, LOC +
-        QString("Loaded OSD: size %1x%2 offset %3+%4")
-            .arg(m_rect.width()).arg(m_rect.height())
-            .arg(m_rect.left()).arg(m_rect.top()));
+    LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Loaded OSD: size %1x%2 offset %3+%4")
+        .arg(m_rect.width()).arg(m_rect.height()).arg(m_rect.left()).arg(m_rect.top()));
     HideAll(false);
     return true;
 }
 
-void OSD::SetPainter(MythPainter *Painter)
+void OSD::Embed(bool Embedding)
 {
-    if (Painter == m_currentPainter)
+    m_embedded = Embedding;
+}
+
+void OSD::IsOSDVisible(bool& Visible)
+{
+    if (m_mainWindow->GetCurrentNotificationCenter()->DisplayedNotifications() > 0)
+    {
+        Visible = true;
         return;
-
-    m_currentPainter = Painter;
-    QMapIterator<QString, MythScreenType*> it(m_children);
-    while (it.hasNext())
-    {
-        it.next();
-        it.value()->SetPainter(m_currentPainter);
-    }
-}
-
-void OSD::OverrideUIScale(bool Log)
-{
-    QRect uirect = GetMythMainWindow()->GetUIScreenRect();
-    if (uirect == m_rect)
-        return;
-
-    m_savedFontStretch = GetMythUI()->GetFontStretch();
-    GetMythUI()->SetFontStretch(m_fontStretch);
-    GetMythUI()->GetScreenSettings(m_savedWMult, m_savedHMult);
-    QSize theme_size = GetMythUI()->GetBaseSize();
-    m_savedUIRect = uirect;
-    float tmp_wmult = static_cast<float>(m_rect.size().width()) / static_cast<float>(theme_size.width());
-    float tmp_hmult = static_cast<float>(m_rect.size().height()) / static_cast<float>(theme_size.height());
-    if (Log)
-    {
-        LOG(VB_GENERAL, LOG_INFO, LOC + QString("Base theme size: %1x%2")
-            .arg(theme_size.width()).arg(theme_size.height()));
-        LOG(VB_GENERAL, LOG_INFO, LOC + QString("Scaling factors: %1x%2")
-            .arg(static_cast<double>(tmp_wmult)).arg(static_cast<double>(tmp_hmult)));
-    }
-    m_uiScaleOverride = true;
-    GetMythMainWindow()->SetScalingFactors(tmp_wmult, tmp_hmult);
-    GetMythMainWindow()->SetUIScreenRect(m_rect);
-}
-
-void OSD::RevertUIScale(void)
-{
-    if (m_uiScaleOverride)
-    {
-        GetMythUI()->SetFontStretch(m_savedFontStretch);
-        GetMythMainWindow()->SetScalingFactors(m_savedWMult, m_savedHMult);
-        GetMythMainWindow()->SetUIScreenRect(m_savedUIRect);
-    }
-    m_uiScaleOverride = false;
-}
-
-bool OSD::Reinit(const QRect &Rect, float FontAspect)
-{
-    m_refresh = true;
-    int new_stretch = static_cast<int>(lroundf(FontAspect * 100));
-    if ((Rect == m_rect) && (new_stretch == m_fontStretch))
-        return true;
-    if (m_dialog && m_dialog->objectName() == OSD_DLG_NAVIGATE
-        && m_dialog->IsVisible())
-    {
-        return true;
     }
 
-    HideAll(false);
-    TearDown();
-    if (!Init(Rect, FontAspect))
-    {
-        LOG(VB_GENERAL, LOG_ERR, LOC + QString("Failed to re-init OSD."));
-        return false;
-    }
-    return true;
-}
-
-bool OSD::IsVisible(void)
-{
-    if (GetNotificationCenter()->DisplayedNotifications() > 0)
-        return true;
-
-    for (MythScreenType* child : qAsConst(m_children))
-    {
-        if (child->IsVisible() &&
-            child->objectName() != OSD_WIN_SUBTITLE &&
-            child->objectName() != OSD_WIN_TELETEXT &&
-            child->objectName() != OSD_WIN_BDOVERLAY &&
-            child->objectName() != OSD_WIN_INTERACT)
-            return true;
-    }
-
-    return false;
+    Visible = std::any_of(m_children.cbegin(), m_children.cend(),
+                [](MythScreenType* child) { return child->IsVisible(); });
 }
 
 void OSD::HideAll(bool KeepSubs, MythScreenType* Except, bool DropNotification)
 {
     if (DropNotification)
     {
-        if (GetNotificationCenter()->RemoveFirst())
+        if (m_mainWindow->GetCurrentNotificationCenter()->RemoveFirst())
             return; // we've removed the top window, don't process any further
     }
+
     QMutableMapIterator<QString, MythScreenType*> it(m_children);
     while (it.hasNext())
     {
         it.next();
         if (Except && Except->objectName() == OSD_DLG_NAVIGATE
-            && it.value()->objectName() == "osd_status")
+            && it.value()->objectName() == OSD_WIN_STATUS)
             continue;
         bool match1 = KeepSubs &&
                      (it.key() == OSD_WIN_SUBTITLE  ||
@@ -289,28 +117,32 @@ void OSD::HideAll(bool KeepSubs, MythScreenType* Except, bool DropNotification)
     }
 }
 
-void OSD::LoadWindows(void)
+void OSD::LoadWindows()
 {
     static const std::array<const QString,7> s_defaultWindows {
-        "osd_message", "osd_input", "program_info", "browse_info", "osd_status",
-        "osd_program_editor", "osd_debug"};
+        OSD_WIN_MESSAGE, OSD_WIN_INPUT, OSD_WIN_PROGINFO, OSD_WIN_BROWSE,
+        OSD_WIN_STATUS, OSD_WIN_PROGEDIT, OSD_WIN_DEBUG };
 
     for (const auto & window : s_defaultWindows)
     {
-        auto *win = new MythOSDWindow(nullptr, window, true);
-
-        win->SetPainter(m_currentPainter);
+        auto * win = new MythOverlayWindow(nullptr, m_painter, window, true);
         if (win->Create())
         {
             PositionWindow(win);
-            LOG(VB_PLAYBACK, LOG_INFO, LOC +
-                QString("Loaded window %1").arg(window));
+            LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Loaded window %1").arg(window));
             m_children.insert(window, win);
+
+            // Update player for window visibility
+            if (window == OSD_WIN_BROWSE)
+                connect(win, &MythOverlayWindow::VisibilityChanged, m_player, &MythPlayerUI::BrowsingChanged);
+            if (window == OSD_WIN_PROGEDIT)
+                connect(win, &MythOverlayWindow::VisibilityChanged, m_player, &MythPlayerUI::EditingChanged);
+            if (window == OSD_WIN_DEBUG)
+                connect(win, &MythOverlayWindow::VisibilityChanged, m_player, &MythPlayerUI::OSDDebugVisibilityChanged);
         }
         else
         {
-            LOG(VB_GENERAL, LOG_ERR, LOC + QString("Failed to load window %1")
-                .arg(window));
+            LOG(VB_GENERAL, LOG_ERR, LOC + QString("Failed to load window %1").arg(window));
             delete win;
         }
     }
@@ -527,7 +359,7 @@ void OSD::SetText(const QString &Window, const InfoMap &Map, OSDTimeout Timeout)
 
     if (win == m_dialog)
     {
-        auto *edit = dynamic_cast<ChannelEditor*>(m_dialog);
+        auto *edit = qobject_cast<MythChannelOverlay*>(m_dialog);
         if (edit)
             edit->SetText(Map);
         else
@@ -605,7 +437,7 @@ void OSD::SetRegions(const QString &Window, frm_dir_map_t &Map, long long Total)
     bar->Display();
 }
 
-void OSD::SetGraph(const QString &Window, const QString &Graph, int64_t Timecode)
+void OSD::SetGraph(const QString &Window, const QString &Graph, std::chrono::milliseconds Timecode)
 {
     MythScreenType *win = GetWindow(Window);
     if (!win)
@@ -615,44 +447,38 @@ void OSD::SetGraph(const QString &Window, const QString &Graph, int64_t Timecode
     if (!image)
         return;
 
-    MythImage* mi = m_parent->GetAudioGraph().GetImage(Timecode);
+    MythImage* mi = m_player->GetAudioGraph().GetImage(Timecode);
     if (mi)
         image->SetImage(mi);
 }
 
-bool OSD::Draw(MythPainter* Painter, QSize Size, bool Repaint)
+void OSD::Draw()
 {
-    if (!Painter)
-        return false;
+    if (m_embedded)
+        return;
 
     bool visible = false;
-    bool redraw  = m_refresh;
-    m_refresh    = false;
     QTime now = MythDate::current().time();
 
     CheckExpiry();
-    QMap<QString,MythScreenType*>::const_iterator it;
-    for (it = m_children.begin(); it != m_children.end(); ++it)
+    for (auto * screen : qAsConst(m_children))
     {
-        if ((*it)->IsVisible())
+        if (screen->IsVisible())
         {
             visible = true;
-            (*it)->Pulse();
-            if (m_expireTimes.contains((*it)))
+            screen->Pulse();
+            if (m_expireTimes.contains(screen))
             {
-                QTime expires = m_expireTimes.value((*it)).time();
-                int left = now.msecsTo(expires);
+                QTime expires = m_expireTimes.value(screen).time();
+                auto left = std::chrono::milliseconds(now.msecsTo(expires));
                 if (left < m_fadeTime)
-                    (*it)->SetAlpha((255 * left) / m_fadeTime);
+                    screen->SetAlpha((255 * left) / m_fadeTime);
             }
-            if ((*it)->NeedsRedraw())
-                redraw = true;
         }
     }
 
-    MythNotificationCenter *nc = GetNotificationCenter();
     QList<MythScreenType*> notifications;
-    nc->GetNotificationScreens(notifications);
+    m_mainWindow->GetCurrentNotificationCenter()->GetNotificationScreens(notifications);
     QList<MythScreenType*>::iterator it2 = notifications.begin();
     while (it2 != notifications.end())
     {
@@ -661,78 +487,63 @@ bool OSD::Draw(MythPainter* Painter, QSize Size, bool Repaint)
             LOG(VB_GUI, LOG_DEBUG, LOC + "Creating OSD Notification");
 
             if (!m_uiScaleOverride)
-            {
                 OverrideUIScale(false);
-            }
-            (*it2)->SetPainter(m_currentPainter);
+            (*it2)->SetPainter(m_painter);
             if (!(*it2)->Create())
             {
                 it2 = notifications.erase(it2);
                 continue;
             }
         }
+
         if ((*it2)->IsVisible())
         {
             if (!m_uiScaleOverride)
-            {
                 OverrideUIScale(false);
-            }
 
-            (*it2)->SetPainter(m_currentPainter);
+            (*it2)->SetPainter(m_painter);
 
             MythNotificationCenter::UpdateScreen(*it2);
 
             visible = true;
             (*it2)->Pulse();
             QTime expires = MythNotificationCenter::ScreenExpiryTime(*it2).time();
-            int left = now.msecsTo(expires);
-            if (left < 0)
-                left = 0;
+            auto left = std::chrono::milliseconds(now.msecsTo(expires));
+            if (left < 0ms)
+                left = 0ms;
             if (expires.isValid() && left < m_fadeTime)
                 (*it2)->SetAlpha((255 * left) / m_fadeTime);
-            if ((*it2)->NeedsRedraw())
-                redraw = true;
         }
         ++it2;
     }
     RevertUIScale();
 
-    redraw |= Repaint;
-
-    if (redraw && visible)
+    if (visible)
     {
-        QRect cliprect = QRect(QPoint(0, 0), Size);
-        Painter->Begin(nullptr);
-        for (it = m_children.begin(); it != m_children.end(); ++it)
+        m_painter->Begin(nullptr);
+        for (auto * screen : qAsConst(m_children))
         {
-            if ((*it)->IsVisible())
+            if (screen->IsVisible())
             {
-                (*it)->Draw(Painter, 0, 0, 255, cliprect);
-                (*it)->SetAlpha(255);
-                (*it)->ResetNeedsRedraw();
+                screen->Draw(m_painter, 0, 0, 255, m_rect);
+                screen->SetAlpha(255);
+                screen->ResetNeedsRedraw();
             }
         }
-        for (it2 = notifications.begin(); it2 != notifications.end(); ++it2)
+        for (auto * notif : qAsConst(notifications))
         {
-            if ((*it2)->IsVisible())
+            if (notif->IsVisible())
             {
-                (*it2)->Draw(Painter, 0, 0, 255, cliprect);
-                (*it2)->SetAlpha(255);
-                (*it2)->ResetNeedsRedraw();
+                notif->Draw(m_painter, 0, 0, 255, m_rect);
+                notif->SetAlpha(255);
+                notif->ResetNeedsRedraw();
             }
         }
-        Painter->End();
+        m_painter->End();
     }
-
-    // Force a redraw if it just became invisible
-    if (m_visible && !visible)
-        redraw=true;
-    m_visible = visible;
-
-    return redraw;
 }
 
-void OSD::CheckExpiry(void)
+void OSD::CheckExpiry()
 {
     QDateTime now = MythDate::current();
     QMutableHashIterator<MythScreenType*, QDateTime> it(m_expireTimes);
@@ -751,7 +562,7 @@ void OSD::CheckExpiry(void)
             if (!m_pulsedDialogText.isEmpty() && now > m_nextPulseUpdate)
             {
                 QString newtext = m_pulsedDialogText;
-                auto *dialog = dynamic_cast<MythDialogBox*>(m_dialog);
+                auto *dialog = qobject_cast<MythDialogBox*>(m_dialog);
                 if (dialog)
                 {
                     // The disambiguation string must be an empty string
@@ -761,7 +572,7 @@ void OSD::CheckExpiry(void)
                                           static_cast<int>(now.secsTo(it.value())));
                     dialog->SetText(newtext.replace("%d", replace));
                 }
-                auto *cdialog = dynamic_cast<MythConfirmationDialog*>(m_dialog);
+                auto *cdialog = qobject_cast<MythConfirmationDialog*>(m_dialog);
                 if (cdialog)
                 {
                     QString replace = QString::number(now.secsTo(it.value()));
@@ -774,44 +585,38 @@ void OSD::CheckExpiry(void)
 }
 
 void OSD::SetExpiry(const QString &Window, enum OSDTimeout Timeout,
-                    int CustomTimeout)
+                    std::chrono::milliseconds CustomTimeout)
 {
     SetExpiryPriv(Window, Timeout, CustomTimeout);
     if (IsWindowVisible(Window))
     {
         // Keep status and nav timeouts in sync
         if (Window == OSD_DLG_NAVIGATE)
-            SetExpiryPriv("osd_status", Timeout, CustomTimeout);
-        else if (Window == "osd_status" && IsWindowVisible(OSD_DLG_NAVIGATE))
+            SetExpiryPriv(OSD_WIN_STATUS, Timeout, CustomTimeout);
+        else if (Window == OSD_WIN_STATUS && IsWindowVisible(OSD_DLG_NAVIGATE))
             SetExpiryPriv(OSD_DLG_NAVIGATE, Timeout, CustomTimeout);
     }
 }
 
-void OSD::SetExpiryPriv(const QString &Window, enum OSDTimeout Timeout, int CustomTimeout)
+void OSD::SetExpiryPriv(const QString &Window, enum OSDTimeout Timeout,
+                        std::chrono::milliseconds CustomTimeout)
 {
-    if (Timeout == kOSDTimeout_Ignore && !CustomTimeout)
+    if (Timeout == kOSDTimeout_Ignore && CustomTimeout == 0ms)
         return;
 
     MythScreenType *win = GetWindow(Window);
-    int time = CustomTimeout ? CustomTimeout : m_timeouts[Timeout];
-    if ((time > 0) && win)
+    std::chrono::milliseconds time = (CustomTimeout != 0ms)
+        ? CustomTimeout : m_timeouts[static_cast<size_t>(Timeout)];
+    if ((time > 0ms) && win)
     {
-        QDateTime expires = MythDate::current().addMSecs(time);
+        QDateTime expires = MythDate::current().addMSecs(time.count());
             m_expireTimes.insert(win, expires);
     }
-    else if ((time < 0) && win)
+    else if ((time < 0ms) && win)
     {
         if (m_expireTimes.contains(win))
             m_expireTimes.remove(win);
     }
-}
-
-void OSD::SetTimeouts(int Short, int Medium, int Long)
-{
-    m_timeouts[kOSDTimeout_None]  = -1;
-    m_timeouts[kOSDTimeout_Short] = Short;
-    m_timeouts[kOSDTimeout_Med]   = Medium;
-    m_timeouts[kOSDTimeout_Long]  = Long;
 }
 
 bool OSD::IsWindowVisible(const QString &Window)
@@ -827,7 +632,9 @@ void OSD::ResetWindow(const QString &Window)
     if (!m_children.contains(Window))
         return;
 
-    m_children.value(Window)->Reset();
+    MythScreenType *screen = m_children.value(Window);
+    if (screen != nullptr)
+        screen->Reset();
 }
 
 void OSD::PositionWindow(MythScreenType *Window)
@@ -851,47 +658,10 @@ void OSD::RemoveWindow(const QString &Window)
     delete child;
 }
 
-MythScreenType *OSD::GetWindow(const QString &Window)
-{
-    if (m_children.contains(Window))
-        return m_children.value(Window);
-
-    MythScreenType *new_window = nullptr;
-
-    if (Window == OSD_WIN_INTERACT)
-    {
-        new_window = new InteractiveScreen(m_parent, Window);
-    }
-    else if (Window == OSD_WIN_BDOVERLAY)
-    {
-        new_window = new MythBDOverlayScreen(m_parent, Window);
-    }
-    else
-    {
-        new_window = new MythOSDWindow(nullptr, Window, false);
-    }
-
-    new_window->SetPainter(m_currentPainter);
-    if (new_window->Create())
-    {
-        m_children.insert(Window, new_window);
-        LOG(VB_PLAYBACK, LOG_INFO, LOC +
-            QString("Created window %1").arg(Window));
-        return new_window;
-    }
-
-    LOG(VB_GENERAL, LOG_ERR, LOC + QString("Failed to create window %1")
-            .arg(Window));
-    delete new_window;
-    return nullptr;
-}
-
 void OSD::SetFunctionalWindow(const QString &window, enum OSDFunctionalType Type)
 {
-    if (m_functionalType != kOSDFunctionalType_Default &&
-        m_functionalType != Type)
-        SendHideEvent();
-
+    if (m_functionalType != kOSDFunctionalType_Default && m_functionalType != Type)
+        emit HideOSD(m_functionalType);
     m_functionalWindow = window;
     m_functionalType   = Type;
 }
@@ -900,33 +670,24 @@ void OSD::HideWindow(const QString &Window)
 {
     if (!m_children.contains(Window))
         return;
-    m_children.value(Window)->SetVisible(false);
-    m_children.value(Window)->Close(); // for InteractiveScreen
-    SetExpiry(Window, kOSDTimeout_None);
-    m_refresh = true;
 
-    if (m_functionalType != kOSDFunctionalType_Default)
+    MythMediaOverlay::HideWindow(Window);
+
+    SetExpiry(Window, kOSDTimeout_None);
+
+    MythScreenType* screen = m_children.value(Window);
+    if ((m_functionalType != kOSDFunctionalType_Default) && screen)
     {
         bool valid   = m_children.contains(m_functionalWindow);
-        bool visible = valid && m_children.value(m_functionalWindow)->IsVisible(false);
+        screen = m_children.value(m_functionalWindow);
+        bool visible = valid && screen && screen->IsVisible(false);
         if (!valid || !visible)
         {
-            SendHideEvent();
+            emit HideOSD(m_functionalType);
             m_functionalType = kOSDFunctionalType_Default;
             m_functionalWindow = QString();
         }
     }
-}
-
-void OSD::SendHideEvent(void)
-{
-    auto *event = new OSDHideEvent(m_functionalType);
-    QCoreApplication::postEvent(m_parentObject, event);
-}
-
-bool OSD::HasWindow(const QString &Window)
-{
-    return m_children.contains(Window);
 }
 
 bool OSD::DialogVisible(const QString& Window)
@@ -950,7 +711,7 @@ bool OSD::DialogHandleGesture(MythGestureEvent *Event)
     return m_dialog->gestureEvent(Event);
 }
 
-void OSD::DialogQuit(void)
+void OSD::DialogQuit()
 {
     if (!m_dialog)
         return;
@@ -960,7 +721,23 @@ void OSD::DialogQuit(void)
     m_pulsedDialogText = QString();
 }
 
-void OSD::DialogShow(const QString &Window, const QString &Text, int UpdateFor)
+/*! \brief Show a dialog menu, removing any existing dialog
+ *
+ * This slot deliberately uses a const reference despite the minor
+ * performance penalty. This simplifies memory management (e.g. if the signal
+ * is not delivered when there is no OSD) and allows for possible future changes
+ * where the OSD and TV objects do not reside in the same thread.
+*/
+void OSD::ShowDialog(const MythOSDDialogData& Data)
+{
+    DialogShow(Data.m_dialogName, Data.m_message, Data.m_timeout);
+    std::for_each(Data.m_buttons.cbegin(), Data.m_buttons.cend(),
+        [this](const MythOSDDialogData::MythOSDDialogButton& B) {
+            DialogAddButton(B.m_text, B.m_data, B.m_menu, B.m_current); });
+    DialogBack(Data.m_back.m_text, Data.m_back.m_data, Data.m_back.m_exit);
+}
+
+void OSD::DialogShow(const QString &Window, const QString &Text, std::chrono::milliseconds UpdateFor)
 {
     if (m_dialog)
     {
@@ -971,11 +748,12 @@ void OSD::DialogShow(const QString &Window, const QString &Text, int UpdateFor)
         }
         else
         {
-            auto *dialog = dynamic_cast<MythDialogBox*>(m_dialog);
+            auto *dialog = qobject_cast<MythDialogBox*>(m_dialog);
             if (dialog)
+            {
                 dialog->Reset();
-
-            DialogSetText(Text);
+                dialog->SetText(Text);
+            }
         }
     }
 
@@ -985,26 +763,26 @@ void OSD::DialogShow(const QString &Window, const QString &Text, int UpdateFor)
         MythScreenType *dialog = nullptr;
 
         if (Window == OSD_DLG_EDITOR)
-            dialog = new ChannelEditor(m_parentObject, Window.toLatin1());
+            dialog = new MythChannelOverlay(m_mainWindow, m_tv, Window.toLatin1());
         else if (Window == OSD_DLG_CONFIRM)
             dialog = new MythConfirmationDialog(nullptr, Text, false);
         else if (Window == OSD_DLG_NAVIGATE)
-            dialog = new OsdNavigation(m_parentObject, Window, this);
+            dialog = new MythNavigationOverlay(m_mainWindow, m_tv, m_player, Window, this);
         else
             dialog = new MythDialogBox(Text, nullptr, Window.toLatin1(), false, true);
 
-        dialog->SetPainter(m_currentPainter);
+        dialog->SetPainter(m_painter);
         if (dialog->Create())
         {
             PositionWindow(dialog);
             m_dialog = dialog;
-            auto *dbox = dynamic_cast<MythDialogBox*>(m_dialog);
+            auto *dbox = qobject_cast<MythDialogBox*>(m_dialog);
             if (dbox)
-                dbox->SetReturnEvent(m_parentObject, Window);
-            auto *cbox = dynamic_cast<MythConfirmationDialog*>(m_dialog);
+                dbox->SetReturnEvent(m_tv, Window);
+            auto *cbox = qobject_cast<MythConfirmationDialog*>(m_dialog);
             if (cbox)
             {
-                cbox->SetReturnEvent(m_parentObject, Window);
+                cbox->SetReturnEvent(m_tv, Window);
                 cbox->SetData("DIALOG_CONFIRM_X_X");
             }
             m_children.insert(Window, m_dialog);
@@ -1019,7 +797,7 @@ void OSD::DialogShow(const QString &Window, const QString &Text, int UpdateFor)
         RevertUIScale();
     }
 
-    if (UpdateFor)
+    if (UpdateFor > 0ms)
     {
         m_nextPulseUpdate  = MythDate::current();
         m_pulsedDialogText = Text;
@@ -1031,16 +809,9 @@ void OSD::DialogShow(const QString &Window, const QString &Text, int UpdateFor)
     m_dialog->SetVisible(true);
 }
 
-void OSD::DialogSetText(const QString &Text)
-{
-    auto *dialog = dynamic_cast<MythDialogBox*>(m_dialog);
-    if (dialog)
-        dialog->SetText(Text);
-}
-
 void OSD::DialogBack(const QString& Text, const QVariant& Data, bool Exit)
 {
-    auto *dialog = dynamic_cast<MythDialogBox*>(m_dialog);
+    auto *dialog = qobject_cast<MythDialogBox*>(m_dialog);
     if (dialog)
     {
         dialog->SetBackAction(Text, Data);
@@ -1051,370 +822,14 @@ void OSD::DialogBack(const QString& Text, const QVariant& Data, bool Exit)
 
 void OSD::DialogAddButton(const QString& Text, QVariant Data, bool Menu, bool Current)
 {
-    auto *dialog = dynamic_cast<MythDialogBox*>(m_dialog);
+    auto *dialog = qobject_cast<MythDialogBox*>(m_dialog);
     if (dialog)
-        dialog->AddButton(Text, std::move(Data), Menu, Current);
+        dialog->AddButtonV(Text, std::move(Data), Menu, Current);
 }
 
 void OSD::DialogGetText(InfoMap &Map)
 {
-    auto *edit = dynamic_cast<ChannelEditor*>(m_dialog);
+    auto *edit = qobject_cast<MythChannelOverlay*>(m_dialog);
     if (edit)
         edit->GetText(Map);
-}
-
-TeletextScreen* OSD::InitTeletext(void)
-{
-    TeletextScreen *tt = nullptr;
-    if (m_children.contains(OSD_WIN_TELETEXT))
-    {
-        tt = dynamic_cast<TeletextScreen*>(m_children.value(OSD_WIN_TELETEXT));
-    }
-    else
-    {
-        OverrideUIScale();
-        tt = new TeletextScreen(m_parent, OSD_WIN_TELETEXT, m_fontStretch);
-
-        tt->SetPainter(m_currentPainter);
-        if (tt->Create())
-        {
-            m_children.insert(OSD_WIN_TELETEXT, tt);
-            LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Created window %1")
-                .arg(OSD_WIN_TELETEXT));
-        }
-        else
-        {
-            delete tt;
-            tt = nullptr;
-        }
-        RevertUIScale();
-    }
-    if (!tt)
-    {
-        LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create Teletext window");
-        return nullptr;
-    }
-
-    HideWindow(OSD_WIN_TELETEXT);
-    tt->SetDisplaying(false);
-    return tt;
-}
-
-void OSD::EnableTeletext(bool Enable, int Page)
-{
-    TeletextScreen *tt = InitTeletext();
-    if (!tt)
-        return;
-
-    tt->SetVisible(Enable);
-    tt->SetDisplaying(Enable);
-    if (Enable)
-    {
-        tt->SetPage(Page, -1);
-        LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Enabled teletext page %1")
-                                   .arg(Page));
-    }
-    else
-        LOG(VB_PLAYBACK, LOG_INFO, LOC + "Disabled teletext");
-}
-
-bool OSD::TeletextAction(const QString &Action)
-{
-    if (!HasWindow(OSD_WIN_TELETEXT))
-        return false;
-
-    TeletextScreen* tt = dynamic_cast<TeletextScreen*>(m_children.value(OSD_WIN_TELETEXT));
-    if (tt)
-        return tt->KeyPress(Action);
-    return false;
-}
-
-void OSD::TeletextReset(void)
-{
-    if (!HasWindow(OSD_WIN_TELETEXT))
-        return;
-
-    TeletextScreen* tt = InitTeletext();
-    if (tt)
-        tt->Reset();
-}
-
-void OSD::TeletextClear(void)
-{
-    if (!HasWindow(OSD_WIN_TELETEXT))
-        return;
-
-    TeletextScreen* tt = dynamic_cast<TeletextScreen*>(m_children.value(OSD_WIN_TELETEXT));
-    if (tt)
-        tt->ClearScreen();
-}
-
-SubtitleScreen* OSD::InitSubtitles(void)
-{
-    SubtitleScreen *sub = nullptr;
-    if (m_children.contains(OSD_WIN_SUBTITLE))
-    {
-        sub = dynamic_cast<SubtitleScreen*>(m_children.value(OSD_WIN_SUBTITLE));
-    }
-    else
-    {
-        OverrideUIScale();
-        sub = new SubtitleScreen(m_parent, OSD_WIN_SUBTITLE, m_fontStretch);
-        sub->SetPainter(m_currentPainter);
-        if (sub->Create())
-        {
-            m_children.insert(OSD_WIN_SUBTITLE, sub);
-            LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Created window %1")
-                .arg(OSD_WIN_SUBTITLE));
-        }
-        else
-        {
-            delete sub;
-            sub = nullptr;
-        }
-        RevertUIScale();
-    }
-    if (!sub)
-    {
-        LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create subtitle window");
-        return nullptr;
-    }
-    return sub;
-}
-
-void OSD::EnableSubtitles(int Type, bool ForcedOnly)
-{
-    SubtitleScreen *sub = InitSubtitles();
-    if (sub)
-        sub->EnableSubtitles(Type, ForcedOnly);
-}
-
-void OSD::DisableForcedSubtitles(void)
-{
-    if (!HasWindow(OSD_WIN_SUBTITLE))
-        return;
-
-    SubtitleScreen *sub = InitSubtitles();
-    sub->DisableForcedSubtitles();
-}
-
-void OSD::ClearSubtitles(void)
-{
-    if (!HasWindow(OSD_WIN_SUBTITLE))
-        return;
-
-    SubtitleScreen* sub = InitSubtitles();
-    if (sub)
-        sub->ClearAllSubtitles();
-}
-
-void OSD::DisplayDVDButton(AVSubtitle* DVDButton, QRect &Pos)
-{
-    if (!DVDButton)
-        return;
-
-    SubtitleScreen* sub = InitSubtitles();
-    if (sub)
-    {
-        EnableSubtitles(kDisplayDVDButton);
-        sub->DisplayDVDButton(DVDButton, Pos);
-    }
-}
-
-void OSD::DisplayBDOverlay(MythBDOverlay* Overlay)
-{
-    if (!Overlay)
-        return;
-
-    MythBDOverlayScreen* bd = dynamic_cast<MythBDOverlayScreen*>(GetWindow(OSD_WIN_BDOVERLAY));
-    if (bd)
-        bd->DisplayBDOverlay(Overlay);
-}
-
-bool OsdNavigation::Create(void)
-{
-    if (!XMLParseBase::LoadWindowFromXML("osd.xml", "osd_navigation", this))
-        return false;
-
-    MythUIButton *moreButton = nullptr;
-    UIUtilW::Assign(this, moreButton, "more");
-    if (moreButton)
-        connect(moreButton, SIGNAL(Clicked()), SLOT(More()));
-    UIUtilW::Assign(this, m_pauseButton, "PAUSE");
-    UIUtilW::Assign(this, m_playButton, "PLAY");
-    UIUtilW::Assign(this, m_muteButton, "MUTE");
-    UIUtilW::Assign(this, m_unMuteButton, "unmute");
-
-    MythPlayer *player = m_osd->GetPlayer();
-
-    if (!player || !player->HasAudioOut() ||
-        !player->PlayerControlsVolume())
-    {
-        m_isVolumeControl = false;
-        if (m_muteButton)
-            m_muteButton->Hide();
-        if (m_unMuteButton)
-            m_unMuteButton->Hide();
-    }
-
-    // find number of groups and make sure only corrrect one is visible
-    MythUIGroup *group = nullptr;
-    for (int i = 0; i < 100 ; i++)
-    {
-        UIUtilW::Assign(this, group, QString("grp%1").arg(i));
-        if (group)
-        {
-            m_maxGroupNum = i;
-            if (i != m_visibleGroup)
-                group->SetVisible (false);
-            QList<MythUIType *> * children = group->GetAllChildren();
-            QList<MythUIType *>::iterator it;
-            for (it = children->begin(); it != children->end(); ++it)
-            {
-                MythUIType *child = *it;
-                if (child == moreButton)
-                    continue;
-                connect(child, SIGNAL(Clicked()), SLOT(GeneralAction()));
-            }
-        }
-        else
-            break;
-    }
-
-    BuildFocusList();
-
-    return true;
-}
-
-bool OsdNavigation::keyPressEvent(QKeyEvent *Event)
-{
-    // bool extendTimeout = (m_paused != 'Y');
-    bool extendTimeout = true;
-    bool handled = false;
-
-    MythUIType *focus = GetFocusWidget();
-    if (focus && focus->keyPressEvent(Event))
-        handled = true;
-
-    if (!handled)
-    {
-        QStringList actions;
-        handled = GetMythMainWindow()->TranslateKeyPress("qt", Event, actions);
-
-        for (int i = 0; i < actions.size() && !handled; i++)
-        {
-            QString action = actions[i];
-            if (action == "ESCAPE" )
-            {
-                SendResult(-1,action);
-                handled = true;
-                extendTimeout = false;
-            }
-        }
-    }
-    if (!handled && MythScreenType::keyPressEvent(Event))
-        handled = true;
-
-    if (extendTimeout)
-    {
-        m_osd->SetExpiry(OSD_DLG_NAVIGATE, kOSDTimeout_Long);
-        // m_osd->SetExpiry("osd_status", kOSDTimeout_Long);
-    }
-
-    return handled;
-}
-
-// Virtual
-void OsdNavigation::ShowMenu(void)
-{
-    SendResult(100,"MENU");
-}
-
-void OsdNavigation::SendResult(int Result, const QString& Action)
-{
-    if (!m_retObject)
-        return;
-
-    auto *dce = new DialogCompletionEvent("", Result, "", Action);
-    QCoreApplication::postEvent(m_retObject, dce);
-}
-
-void OsdNavigation::GeneralAction(void)
-{
-    MythUIType *fw = GetFocusWidget();
-    if (fw)
-    {
-        QString nameClicked = fw->objectName();
-        int result = 100;
-        int hashPos = nameClicked.indexOf('#');
-        if (hashPos > -1)
-            nameClicked.truncate(hashPos);
-        if (nameClicked == "INFO")
-            result=0;
-        if (nameClicked == "unmute")
-            nameClicked = "MUTE";
-        SendResult(result, nameClicked);
-    }
-}
-
-// Switch to next group of icons. They have to be
-// named grp0, grp1, etc with no gaps in numbers.
-void OsdNavigation::More(void)
-{
-    if (m_maxGroupNum <= 0)
-        return;
-
-    MythUIGroup *group = nullptr;
-    UIUtilW::Assign(this, group, QString("grp%1").arg(m_visibleGroup));
-    group->SetVisible (false);
-
-    // wrap around after last group displayed
-    if (++m_visibleGroup > m_maxGroupNum)
-        m_visibleGroup = 0;
-
-    UIUtilW::Assign(this, group, QString("grp%1").arg(m_visibleGroup));
-    group->SetVisible (true);
-}
-
-void OsdNavigation::SetTextFromMap(const InfoMap &Map)
-{
-
-    char paused = Map.value("paused", "X").toLocal8Bit().at(0);
-    if (paused != 'X')
-    {
-        if (m_playButton && m_pauseButton && paused != m_paused)
-        {
-            MythUIType *fw = GetFocusWidget();
-            m_playButton->SetVisible(paused=='Y');
-            m_pauseButton->SetVisible(paused!='Y');
-            if (fw && (fw == m_playButton || fw == m_pauseButton))
-            {
-                fw->LoseFocus();
-                MythUIType *newfw = (paused=='Y' ? m_playButton : m_pauseButton);
-                SetFocusWidget(newfw);
-                if (m_paused == 'X')
-                     newfw->TakeFocus();
-            }
-            m_paused = paused;
-        }
-    }
-
-    char muted = Map.value("muted","X").toLocal8Bit().at(0);
-    if (m_isVolumeControl && muted != 'X')
-    {
-        if (m_muteButton && m_unMuteButton && muted != m_muted)
-        {
-            MythUIType *fw = GetFocusWidget();
-            m_muteButton->SetVisible(muted!='Y');
-            m_unMuteButton->SetVisible(muted=='Y');
-            m_muted = muted;
-            if (fw && (fw == m_muteButton || fw == m_unMuteButton))
-            {
-                fw->LoseFocus();
-                SetFocusWidget(muted=='Y' ? m_unMuteButton : m_muteButton);
-            }
-        }
-    }
-
-    MythScreenType::SetTextFromMap(Map);
 }

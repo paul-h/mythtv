@@ -24,7 +24,6 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include <QMap>
-#include <QRegExp>
 
 #include "dvr.h"
 
@@ -41,8 +40,11 @@
 #include "recordinginfo.h"
 #include "cardutil.h"
 #include "inputinfo.h"
+#include "programinfo.h"
+#include "programdata.h"
 #include "programtypes.h"
 #include "recordingtypes.h"
+#include "channelutil.h"
 
 #include "serviceUtil.h"
 #include "mythscheduler.h"
@@ -67,7 +69,9 @@ DTC::ProgramList* Dvr::GetRecordedList( bool           bDescending,
                                         const QString &sRecGroup,
                                         const QString &sStorageGroup,
                                         const QString &sCategory,
-                                        const QString &sSort
+                                        const QString &sSort,
+                                        bool           bIgnoreLiveTV,
+                                        bool           bIgnoreDeleted
                                       )
 {
     QMap< QString, ProgramInfo* > recMap;
@@ -84,7 +88,22 @@ DTC::ProgramList* Dvr::GetRecordedList( bool           bDescending,
     if (bDescending)
         desc = -1;
 
-    LoadFromRecorded( progList, false, inUseMap, isJobRunning, recMap, desc, sSort );
+    if (bIgnoreLiveTV && (sRecGroup == "LiveTV"))
+    {
+        bIgnoreLiveTV = false;
+        LOG(VB_GENERAL, LOG_ERR, QString("Setting Ignore%1=false because RecGroup=%1")
+                                         .arg(sRecGroup));
+    }
+
+    if (bIgnoreDeleted && (sRecGroup == "Deleted"))
+    {
+        bIgnoreDeleted = false;
+        LOG(VB_GENERAL, LOG_ERR, QString("Setting Ignore%1=false because RecGroup=%1")
+                                         .arg(sRecGroup));
+    }
+
+    LoadFromRecorded( progList, false, inUseMap, isJobRunning, recMap, desc,
+                      sSort, bIgnoreLiveTV, bIgnoreDeleted );
 
     QMap< QString, ProgramInfo* >::iterator mit = recMap.begin();
 
@@ -103,7 +122,8 @@ DTC::ProgramList* Dvr::GetRecordedList( bool           bDescending,
     nAvailable = 0;
     nCount = 0;
 
-    QRegExp rTitleRegEx        = QRegExp(sTitleRegEx, Qt::CaseInsensitive);
+    QRegularExpression rTitleRegEx
+        { sTitleRegEx, QRegularExpression::CaseInsensitiveOption };
 
     for (auto *pInfo : progList)
     {
@@ -286,6 +306,190 @@ DTC::Program* Dvr::GetRecorded(int RecordedId,
 //
 /////////////////////////////////////////////////////////////////////////////
 
+bool Dvr::AddRecordedCredits(int RecordedId, const QJsonObject &jsonObj)
+{
+    // Verify the corresponding recording exists
+    RecordingInfo ri(RecordedId);
+    if (!ri.HasPathname())
+        throw QString("AddRecordedCredits: recordedid %1 does "
+                      "not exist.").arg(RecordedId);
+
+    DBCredits* credits = jsonCastToCredits(jsonObj);
+    if (credits == nullptr)
+        throw QString("AddRecordedCredits: Failed to parse cast from json.");
+
+    MSqlQuery query(MSqlQuery::InitCon());
+    for (auto & person : *credits)
+    {
+        if (!person.InsertDB(query, ri.GetChanID(),
+                             ri.GetScheduledStartTime(), true))
+            throw QString("AddRecordedCredits: Failed to add credit "
+                          "%1 to DB").arg(person.toString());
+    }
+
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+int Dvr::AddRecordedProgram(const QJsonObject &jsonObj)
+{
+    QJsonObject root      = jsonObj;
+    QJsonObject program   = root["Program"].toObject();
+    QJsonObject channel   = program["Channel"].toObject();
+    QJsonObject recording = program["Recording"].toObject();
+    QJsonObject cast      = program["Cast"].toObject();
+
+    auto     *pi = new ProgInfo();
+    int       chanid = channel.value("ChanId").toString("0").toUInt();
+    QString   hostname = program["HostName"].toString("");
+
+    if (ChannelUtil::GetChanNum(chanid).isEmpty())
+        throw QString("AddRecordedProgram: chanid %1 does "
+                      "not exist.").arg(chanid);
+
+    pi->m_title           = program.value("Title").toString("");
+    pi->m_subtitle        = program.value("SubTitle").toString("");
+    pi->m_description     = program.value("Description").toString("");
+    pi->m_category        = program.value("Category").toString("");
+    pi->m_starttime       = QDateTime::fromString(program.value("StartTime")
+                                                  .toString(""), Qt::ISODate);
+    pi->m_endtime         = QDateTime::fromString(program.value("EndTime")
+                                                  .toString(""), Qt::ISODate);
+    pi->m_originalairdate = QDate::fromString(program.value("Airdate").toString(),
+                                              Qt::ISODate);
+    pi->m_airdate       = pi->m_originalairdate.year();
+    pi->m_partnumber    = program.value("PartNumber").toString("0").toUInt();
+    pi->m_parttotal     = program.value("PartTotal").toString("0").toUInt();
+    pi->m_syndicatedepisodenumber = "";
+    pi->m_subtitleType  = ProgramInfo::SubtitleTypesFromNames
+                          (program.value("SubPropNames").toString(""));
+    pi->m_audioProps    = ProgramInfo::AudioPropertiesFromNames
+                          (program.value("AudioPropNames").toString(""));
+    pi->m_videoProps    = ProgramInfo::VideoPropertiesFromNames
+                          (program.value("VideoPropNames").toString(""));
+    pi->m_stars         = program.value("Stars").toString("0.0").toFloat();
+    pi->m_categoryType  = string_to_myth_category_type(program.value("CatType").toString(""));
+    pi->m_seriesId      = program.value("SeriesId").toString("");
+    pi->m_programId     = program.value("ProgramId").toString("");
+    pi->m_inetref       = program.value("Inetref").toString("");
+    pi->m_previouslyshown = false;
+    pi->m_listingsource = 0;
+//    pi->m_ratings =
+//    pi->m_genres =
+    pi->m_season        = program.value("Season").toString("0").toUInt();
+    pi->m_episode       = program.value("Episode").toString("0").toUInt();
+    pi->m_totalepisodes = program.value("TotalEpisodes").toString("0").toUInt();
+
+    pi->m_channel        = channel.value("ChannelName").toString("");
+
+    pi->m_startts        = recording.value("StartTs").toString("");
+    pi->m_endts          = recording.value("EndTs").toString("");
+    QDateTime recstartts = QDateTime::fromString(pi->m_startts, Qt::ISODate);
+    QDateTime recendts   = QDateTime::fromString(pi->m_endts, Qt::ISODate);
+
+    pi->m_title_pronounce = "";
+    pi->m_credits = jsonCastToCredits(cast);
+    pi->m_showtype  = "";
+    pi->m_colorcode = "";
+    pi->m_clumpidx  = "";
+    pi->m_clumpmax  = "";
+
+    // pi->m_ratings =
+
+    /* Create a recordedprogram DB entry. */
+    MSqlQuery query(MSqlQuery::InitCon());
+    if (!pi->InsertDB(query, chanid, true))
+    {
+        throw QString("AddRecordedProgram: "
+                      "Failed to add recordedprogram entry.");
+    }
+
+    /* Create recorded DB entry */
+    RecordingInfo ri(pi->m_title, pi->m_title,
+                     pi->m_subtitle, pi->m_subtitle,
+                     pi->m_description,
+                     pi->m_season, pi->m_episode,
+                     pi->m_totalepisodes,
+                     pi->m_syndicatedepisodenumber,
+                     pi->m_category,
+                     chanid,
+                     channel.value("ChanNum").toString("0"),
+                     channel.value("CallSign").toString(""),
+                     pi->m_channel,
+                     recording.value("RecGroup").toString(""),
+                     recording.value("PlayGroup").toString(""),
+                     hostname,
+                     recording.value("StorageGroup").toString(""),
+                     pi->m_airdate,
+                     pi->m_partnumber,
+                     pi->m_parttotal,
+                     pi->m_seriesId,
+                     pi->m_programId,
+                     pi->m_inetref,
+                     pi->m_categoryType,
+                     recording.value("Priority").toString("0").toInt(),
+                     pi->m_starttime,
+                     pi->m_endtime,
+                     recstartts,
+                     recendts,
+                     pi->m_stars,
+                     pi->m_originalairdate,
+                     program.value("Repeat").toString("false").toLower() == "true",
+                     static_cast<RecStatus::Type>(recording.value("Status").toString("-3").toInt()),
+                     false, // reactivate
+                     recording.value("RecordedId").toString("0").toInt(),
+                     0, // parentid
+                     static_cast<RecordingType>(recording.value("RecType").toString("0").toInt()),
+                     static_cast<RecordingDupInType>(recording.value("DupInType").toString("0").toInt()),
+                     static_cast<RecordingDupMethodType>(recording.value("DupMethod").toString("0").toInt()),
+                     channel.value("SourceId").toString("0").toUInt(),
+                     channel.value("InputId").toString("0").toUInt(),
+                     0, // findid
+                     channel.value("CommFree").toString("false").toLower() == "true",
+                     pi->m_subtitleType,
+                     pi->m_videoProps,
+                     pi->m_audioProps,
+                     false, // future
+                     0, // schedorder
+                     0, // mplexid
+                     0, // sgroupid,
+                     recording.value("EncoderName").toString(""));
+
+    ri.ProgramFlagsFromNames(program.value("ProgramFlagNames").toString(""));
+
+    QString filename = program.value("FileName").toString("");
+    QString ext("");
+    int idx = filename.lastIndexOf('.');
+    if (idx > 0)
+        ext = filename.right(filename.size() - idx - 1);
+    // Inserts this RecordingInfo into the database as an existing recording
+    if (!ri.InsertRecording(ext, true))
+        throw QString("Failed to create RecordingInfo database entry. "
+                      "Non unique starttime?");
+
+    ri.InsertFile();
+
+    ri.SaveAutoExpire(ri.IsAutoExpirable() ?
+                      kNormalAutoExpire : kDisableAutoExpire);
+    ri.SavePreserve(ri.IsPreserved());
+    ri.SaveCommFlagged(ri.IsCommercialFlagged() ?
+                       COMM_FLAG_DONE : COMM_FLAG_NOT_FLAGGED);
+    ri.SaveWatched(ri.IsWatched());
+    // TODO: Cutlist
+
+    ri.SetRecordingStatus(RecStatus::Recorded);
+    ri.SendUpdateEvent();
+
+    return ri.GetRecordingID();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
 bool Dvr::RemoveRecorded(int RecordedId,
                          int chanid, const QDateTime &recstarttsRaw,
                          bool forceDelete, bool allowRerecord)
@@ -313,10 +517,10 @@ bool Dvr::DeleteRecording(int RecordedId,
     if (pi.GetChanID() && pi.HasPathname())
     {
         QString cmd = QString("DELETE_RECORDING %1 %2 %3 %4")
-            .arg(pi.GetChanID())
-            .arg(pi.GetRecordingStartTime(MythDate::ISODate))
-            .arg(forceDelete ? "FORCE" : "NO_FORCE")
-            .arg(allowRerecord ? "FORGET" : "NO_FORGET");
+            .arg(QString::number(pi.GetChanID()),
+                 pi.GetRecordingStartTime(MythDate::ISODate),
+                 forceDelete ? "FORCE" : "NO_FORCE",
+                 allowRerecord ? "FORGET" : "NO_FORGET");
         MythEvent me(cmd);
 
         gCoreContext->dispatch(me);
@@ -566,9 +770,9 @@ DTC::CutList* Dvr::GetRecordedCutList ( int RecordedId,
         ri = RecordingInfo(chanid, recstarttsRaw.toUTC());
 
     auto* pCutList = new DTC::CutList();
-    if (offsettype == "Position")
+    if (offsettype.toLower() == "position")
         marktype = 1;
-    else if (offsettype == "Duration")
+    else if (offsettype.toLower() == "duration")
         marktype = 2;
     else
         marktype = 0;
@@ -599,9 +803,9 @@ DTC::CutList* Dvr::GetRecordedCommBreak ( int RecordedId,
         ri = RecordingInfo(chanid, recstarttsRaw.toUTC());
 
     auto* pCutList = new DTC::CutList();
-    if (offsettype == "Position")
+    if (offsettype.toLower() == "position")
         marktype = 1;
-    else if (offsettype == "Duration")
+    else if (offsettype.toLower() == "duration")
         marktype = 2;
     else
         marktype = 0;
@@ -626,9 +830,9 @@ DTC::CutList* Dvr::GetRecordedSeek ( int RecordedId,
     ri = RecordingInfo(RecordedId);
 
     auto* pCutList = new DTC::CutList();
-    if (offsettype == "BYTES")
+    if (offsettype.toLower() == "bytes")
         marktype = MARK_GOP_BYFRAME;
-    else if (offsettype == "DURATION")
+    else if (offsettype.toLower() == "duration")
         marktype = MARK_DURATION_MS;
     else
     {
@@ -639,6 +843,107 @@ DTC::CutList* Dvr::GetRecordedSeek ( int RecordedId,
     FillSeek(pCutList, &ri, marktype);
 
     return pCutList;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+DTC::MarkupList* Dvr::GetRecordedMarkup ( int RecordedId )
+{
+    RecordingInfo ri;
+    ri = RecordingInfo(RecordedId);
+
+    if (!ri.HasPathname())
+        throw QString("Invalid RecordedId %1").arg(RecordedId);
+
+    QVector<ProgramInfo::MarkupEntry> mapMark;
+    QVector<ProgramInfo::MarkupEntry> mapSeek;
+
+    ri.QueryMarkup(mapMark, mapSeek);
+
+    auto* pMarkupList = new DTC::MarkupList();
+    for (auto entry : qAsConst(mapMark))
+    {
+        DTC::Markup *pMarkup = pMarkupList->AddNewMarkup();
+        QString typestr = toString(static_cast<MarkTypes>(entry.type));
+        pMarkup->setType(typestr);
+        pMarkup->setFrame(entry.frame);
+        if (entry.isDataNull)
+            pMarkup->setData("NULL");
+        else
+            pMarkup->setData(QString::number(entry.data));
+    }
+    for (auto entry : qAsConst(mapSeek))
+    {
+        DTC::Markup *pSeek = pMarkupList->AddNewSeek();
+        QString typestr = toString(static_cast<MarkTypes>(entry.type));
+        pSeek->setType(typestr);
+        pSeek->setFrame(entry.frame);
+        if (entry.isDataNull)
+            pSeek->setData("NULL");
+        else
+            pSeek->setData(QString::number(entry.data));
+    }
+
+
+    return pMarkupList;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+bool Dvr::SetRecordedMarkup (int RecordedId, const QJsonObject &jsonObj)
+{
+    RecordingInfo ri;
+    ri = RecordingInfo(RecordedId);
+
+    if (!ri.HasPathname())
+        throw QString("Invalid RecordedId %1").arg(RecordedId);
+
+    QVector<ProgramInfo::MarkupEntry> mapMark;
+    QVector<ProgramInfo::MarkupEntry> mapSeek;
+
+    QJsonObject markuplist = jsonObj["MarkupList"].toObject();
+
+    QJsonArray  marks = markuplist["Mark"].toArray();
+    for (const auto & m : marks)
+    {
+        QJsonObject markup = m.toObject();
+        ProgramInfo::MarkupEntry entry;
+
+        QString typestr = markup.value("Type").toString("");
+        entry.type  = markTypeFromString(typestr);
+        entry.frame = markup.value("Frame").toString("-1").toLongLong();
+        QString data  = markup.value("Data").toString("NULL");
+        entry.isDataNull = (data == "NULL");
+        if (!entry.isDataNull)
+            entry.data = data.toLongLong();
+
+        mapMark.append(entry);
+    }
+
+    QJsonArray  seeks = markuplist["Seek"].toArray();
+    for (const auto & m : seeks)
+    {
+        QJsonObject markup = m.toObject();
+        ProgramInfo::MarkupEntry entry;
+
+        QString typestr = markup.value("Type").toString("");
+        entry.type  = markTypeFromString(typestr);
+        entry.frame = markup.value("Frame").toString("-1").toLongLong();
+        QString data  = markup.value("Data").toString("NULL");
+        entry.isDataNull = (data == "NULL");
+        if (!entry.isDataNull)
+            entry.data = data.toLongLong();
+
+        mapSeek.append(entry);
+    }
+
+    ri.SaveMarkup(mapMark, mapSeek);
+
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -659,9 +964,9 @@ DTC::ProgramList* Dvr::GetExpiringList( int nStartIndex,
 
     auto *pPrograms = new DTC::ProgramList();
 
-    nStartIndex   = (nStartIndex > 0) ? min( nStartIndex, (int)infoList.size() ) : 0;
-    nCount        = (nCount > 0) ? min( nCount, (int)infoList.size() ) : infoList.size();
-    int nEndIndex = min((nStartIndex + nCount), (int)infoList.size() );
+    nStartIndex   = (nStartIndex > 0) ? std::min( nStartIndex, (int)infoList.size() ) : 0;
+    nCount        = (nCount > 0) ? std::min( nCount, (int)infoList.size() ) : infoList.size();
+    int nEndIndex = std::min((nStartIndex + nCount), (int)infoList.size() );
 
     for( int n = nStartIndex; n < nEndIndex; n++)
     {
@@ -998,9 +1303,9 @@ DTC::ProgramList* Dvr::GetUpcomingList( int  nStartIndex,
 
     auto *pPrograms = new DTC::ProgramList();
 
-    nStartIndex   = (nStartIndex > 0) ? min( nStartIndex, (int)recordingList.size() ) : 0;
-    nCount        = (nCount > 0) ? min( nCount, (int)recordingList.size() ) : recordingList.size();
-    int nEndIndex = min((nStartIndex + nCount), (int)recordingList.size() );
+    nStartIndex   = (nStartIndex > 0) ? std::min( nStartIndex, (int)recordingList.size() ) : 0;
+    nCount        = (nCount > 0) ? std::min( nCount, (int)recordingList.size() ) : recordingList.size();
+    int nEndIndex = std::min((nStartIndex + nCount), (int)recordingList.size() );
 
     for( int n = nStartIndex; n < nEndIndex; n++)
     {
@@ -1062,9 +1367,9 @@ DTC::ProgramList* Dvr::GetConflictList( int  nStartIndex,
 
     auto *pPrograms = new DTC::ProgramList();
 
-    nStartIndex   = (nStartIndex > 0) ? min( nStartIndex, (int)recordingList.size() ) : 0;
-    nCount        = (nCount > 0) ? min( nCount, (int)recordingList.size() ) : recordingList.size();
-    int nEndIndex = min((nStartIndex + nCount), (int)recordingList.size() );
+    nStartIndex   = (nStartIndex > 0) ? std::min( nStartIndex, (int)recordingList.size() ) : 0;
+    nCount        = (nCount > 0) ? std::min( nCount, (int)recordingList.size() ) : recordingList.size();
+    int nEndIndex = std::min((nStartIndex + nCount), (int)recordingList.size() );
 
     for( int n = nStartIndex; n < nEndIndex; n++)
     {
@@ -1092,8 +1397,8 @@ uint Dvr::AddRecordSchedule   (
                                const QString&   sSubtitle,
                                const QString&   sDescription,
                                const QString&   sCategory,
-                               QDateTime recstarttsRaw,
-                               QDateTime recendtsRaw,
+                               const QDateTime& recstarttsRaw,
+                               const QDateTime& recendtsRaw,
                                const QString&   sSeriesId,
                                const QString&   sProgramId,
                                int       nChanId,
@@ -1111,9 +1416,10 @@ uint Dvr::AddRecordSchedule   (
                                uint      nPreferredInput,
                                int       nStartOffset,
                                int       nEndOffset,
-                               QDateTime lastrectsRaw,
+                               const QDateTime& lastrectsRaw,
                                QString   sDupMethod,
                                QString   sDupIn,
+                               bool      bNewEpisOnly,
                                uint      nFilter,
                                QString   sRecProfile,
                                QString   sRecGroup,
@@ -1164,7 +1470,7 @@ uint Dvr::AddRecordSchedule   (
         rule.m_dupMethod = kDupCheckNone;
     else
         rule.m_dupMethod = dupMethodFromString(sDupMethod);
-    rule.m_dupIn = dupInFromString(sDupIn);
+    rule.m_dupIn = dupInFromStringAndBool(sDupIn, bNewEpisOnly);
 
     if (sRecProfile.isEmpty())
         sRecProfile = "Default";
@@ -1191,7 +1497,11 @@ uint Dvr::AddRecordSchedule   (
     rule.m_recProfile = sRecProfile;
     rule.m_recGroupID = RecordingInfo::GetRecgroupID(sRecGroup);
     if (rule.m_recGroupID == 0)
-        rule.m_recGroupID = RecordingInfo::kDefaultRecGroup;
+    {
+        rule.m_recGroupID = CreateRecordingGroup(sRecGroup);
+        if (rule.m_recGroupID <= 0)
+            rule.m_recGroupID = RecordingInfo::kDefaultRecGroup;
+    }
     rule.m_storageGroup = sStorageGroup;
     rule.m_playGroup = sPlayGroup;
 
@@ -1237,16 +1547,16 @@ uint Dvr::AddRecordSchedule   (
 }
 
 bool Dvr::UpdateRecordSchedule ( uint      nRecordId,
-                                 QString   sTitle,
-                                 QString   sSubtitle,
-                                 QString   sDescription,
-                                 QString   sCategory,
-                                 QDateTime dStartTimeRaw,
-                                 QDateTime dEndTimeRaw,
-                                 QString   sSeriesId,
-                                 QString   sProgramId,
+                                 const QString&   sTitle,
+                                 const QString&   sSubtitle,
+                                 const QString&   sDescription,
+                                 const QString&   sCategory,
+                                 const QDateTime& dStartTimeRaw,
+                                 const QDateTime& dEndTimeRaw,
+                                 const QString&   sSeriesId,
+                                 const QString&   sProgramId,
                                  int       nChanId,
-                                 QString   sStation,
+                                 const QString&   sStation,
                                  int       nFindDay,
                                  QTime     tFindTime,
                                  bool      bInactive,
@@ -1261,6 +1571,7 @@ bool Dvr::UpdateRecordSchedule ( uint      nRecordId,
                                  int       nEndOffset,
                                  QString   sDupMethod,
                                  QString   sDupIn,
+                                 bool      bNewEpisOnly,
                                  uint      nFilter,
                                  QString   sRecProfile,
                                  QString   sRecGroup,
@@ -1310,7 +1621,7 @@ bool Dvr::UpdateRecordSchedule ( uint      nRecordId,
         pRule.m_dupMethod = kDupCheckNone;
     else
         pRule.m_dupMethod = dupMethodFromString(sDupMethod);
-    pRule.m_dupIn = dupInFromString(sDupIn);
+    pRule.m_dupIn = dupInFromStringAndBool(sDupIn, bNewEpisOnly);
 
     if (sRecProfile.isEmpty())
         sRecProfile = "Default";
@@ -1358,7 +1669,11 @@ bool Dvr::UpdateRecordSchedule ( uint      nRecordId,
     pRule.m_recProfile = sRecProfile;
     pRule.m_recGroupID = RecordingInfo::GetRecgroupID(sRecGroup);
     if (pRule.m_recGroupID == 0)
-        pRule.m_recGroupID = RecordingInfo::kDefaultRecGroup;
+    {
+        pRule.m_recGroupID = CreateRecordingGroup(sRecGroup);
+        if (pRule.m_recGroupID <= 0)
+            pRule.m_recGroupID = RecordingInfo::kDefaultRecGroup;
+    }
     pRule.m_storageGroup = sStorageGroup;
     pRule.m_playGroup = sPlayGroup;
 
@@ -1469,9 +1784,9 @@ DTC::RecRuleList* Dvr::GetRecordScheduleList( int nStartIndex,
 
     auto *pRecRules = new DTC::RecRuleList();
 
-    nStartIndex   = (nStartIndex > 0) ? min( nStartIndex, (int)recList.size() ) : 0;
-    nCount        = (nCount > 0) ? min( nCount, (int)recList.size() ) : recList.size();
-    int nEndIndex = min((nStartIndex + nCount), (int)recList.size() );
+    nStartIndex   = (nStartIndex > 0) ? std::min( nStartIndex, (int)recList.size() ) : 0;
+    nCount        = (nCount > 0) ? std::min( nCount, (int)recList.size() ) : recList.size();
+    int nEndIndex = std::min((nStartIndex + nCount), (int)recList.size() );
 
     for( int n = nStartIndex; n < nEndIndex; n++)
     {
@@ -1504,10 +1819,10 @@ DTC::RecRuleList* Dvr::GetRecordScheduleList( int nStartIndex,
 }
 
 DTC::RecRule* Dvr::GetRecordSchedule( uint      nRecordId,
-                                      QString   sTemplate,
+                                      const QString&   sTemplate,
                                       int       nRecordedId,
                                       int       nChanId,
-                                      QDateTime dStartTimeRaw,
+                                      const QDateTime& dStartTimeRaw,
                                       bool      bMakeOverride )
 {
     RecordingRule rule;
@@ -1536,7 +1851,7 @@ DTC::RecRule* Dvr::GetRecordSchedule( uint      nRecordId,
         // Despite the use of RecordingInfo, this only applies to programs in the
         // present or future, not to recordings? Confused yet?
         RecordingInfo::LoadStatus status = RecordingInfo::kNoProgram;
-        RecordingInfo info(nChanId, dStartTime, false, 0, &status);
+        RecordingInfo info(nChanId, dStartTime, false, 0h, &status);
         if (status != RecordingInfo::kFoundProgram)
             throw QString("Program does not exist.");
         RecordingRule *pRule = info.GetRecordingRule();
@@ -1633,7 +1948,7 @@ QString Dvr::RecStatusToDescription(int RecStatus, int recType,
     return RecStatus::toDescription(rsType, recordingType, StartTime);
 }
 
-QString Dvr::RecTypeToString(QString recType)
+QString Dvr::RecTypeToString(const QString& recType)
 {
     bool ok = false;
     auto enumType = static_cast<RecordingType>(recType.toInt(&ok, 10));
@@ -1643,7 +1958,7 @@ QString Dvr::RecTypeToString(QString recType)
     return toString(recTypeFromString(recType));
 }
 
-QString Dvr::RecTypeToDescription(QString recType)
+QString Dvr::RecTypeToDescription(const QString& recType)
 {
     bool ok = false;
     auto enumType = static_cast<RecordingType>(recType.toInt(&ok, 10));
@@ -1653,27 +1968,27 @@ QString Dvr::RecTypeToDescription(QString recType)
     return toDescription(recTypeFromString(recType));
 }
 
-QString Dvr::DupInToString(QString DupIn)
+QString Dvr::DupInToString(const QString& DupIn)
 {
     // RecordingDupInType type= static_cast<RecordingDupInType>(DupIn);
     // return toString(type);
     return toString(dupInFromString(DupIn));
 }
 
-QString Dvr::DupInToDescription(QString DupIn)
+QString Dvr::DupInToDescription(const QString& DupIn)
 {
     // RecordingDupInType type= static_cast<RecordingDupInType>(DupIn);
     //return toDescription(type);
     return toDescription(dupInFromString(DupIn));
 }
 
-QString Dvr::DupMethodToString(QString DupMethod)
+QString Dvr::DupMethodToString(const QString& DupMethod)
 {
     // RecordingDupMethodType method = static_cast<RecordingDupMethodType>(DupMethod);
     return toString(dupMethodFromString(DupMethod));
 }
 
-QString Dvr::DupMethodToDescription(QString DupMethod)
+QString Dvr::DupMethodToDescription(const QString& DupMethod)
 {
     // RecordingDupMethodType method = static_cast<RecordingDupMethodType>(DupMethod);
     return toDescription(dupMethodFromString(DupMethod));
@@ -1747,7 +2062,7 @@ int Dvr::ManageJobQueue( const QString   &sAction,
                                             sRemoteHost, false))
     {
         LOG(VB_GENERAL, LOG_ERR, QString("%1 hasn't been allowed on host %2.")
-                                         .arg(sJobName).arg(sRemoteHost));
+                                         .arg(sJobName, sRemoteHost));
         return nReturn;
     }
 

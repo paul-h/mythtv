@@ -15,7 +15,6 @@
 #include <sys/time.h>     // for setpriority
 #include <sys/types.h>
 #include <unistd.h>
-using namespace std;
 
 #ifndef _WIN32
 #include <QCoreApplication>
@@ -27,7 +26,6 @@ using namespace std;
 #include <QFileInfo>
 #include <QDir>
 #include <QMap>
-#include <QRegExp>
 
 #include "mythcontext.h"
 #include "mythcorecontext.h"
@@ -68,8 +66,8 @@ namespace
 }
 
 int preview_helper(uint chanid, QDateTime starttime,
-                   long long previewFrameNumber, long long previewSeconds,
-                   const QSize &previewSize,
+                   long long previewFrameNumber, std::chrono::seconds previewSeconds,
+                   const QSize previewSize,
                    const QString &infile, const QString &outfile)
 {
     // Lower scheduling priority, to avoid problems with recordings.
@@ -104,7 +102,7 @@ int preview_helper(uint chanid, QDateTime starttime,
         pginfo = new ProgramInfo(
             infile, ""/*plot*/, ""/*title*/, ""/*sortTitle*/, ""/*subtitle*/,
             ""/*sortSubtitle*/, ""/*director*/, 0/*season*/, 0/*episode*/,
-            ""/*inetref*/, 120/*length_in_minutes*/, 1895/*year*/, ""/*id*/);
+            ""/*inetref*/, 120min/*length_in_minutes*/, 1895/*year*/, ""/*id*/);
     }
     else
     {
@@ -118,7 +116,7 @@ int preview_helper(uint chanid, QDateTime starttime,
     if (previewFrameNumber >= 0)
         previewgen->SetPreviewTimeAsFrameNumber(previewFrameNumber);
 
-    if (previewSeconds >= 0)
+    if (previewSeconds >= 0s)
         previewgen->SetPreviewTimeAsSeconds(previewSeconds);
 
     previewgen->SetOutputSize(previewSize);
@@ -170,9 +168,9 @@ int main(int argc, char **argv)
     if ((!cmdline.toBool("chanid") || !cmdline.toBool("starttime")) &&
         !cmdline.toBool("inputfile"))
     {
-        cerr << "--generate-preview must be accompanied by either " <<endl
-             << "\nboth --chanid and --starttime parameters, " << endl
-             << "\nor the --infile parameter." << endl;
+        std::cerr << "--generate-preview must be accompanied by either " <<std::endl
+                  << "\nboth --chanid and --starttime parameters, " << std::endl
+                  << "\nor the --infile parameter." << std::endl;
         return GENERIC_EXIT_INVALID_CMDLINE;
     }
 
@@ -207,7 +205,7 @@ int main(int argc, char **argv)
 
     int ret = preview_helper(
         cmdline.toUInt("chanid"), cmdline.toDateTime("starttime"),
-        cmdline.toLongLong("frame"), cmdline.toLongLong("seconds"),
+        cmdline.toLongLong("frame"), std::chrono::seconds(cmdline.toLongLong("seconds")),
         cmdline.toSize("size"),
         cmdline.toString("inputfile"), cmdline.toString("outputfile"));
     return ret;

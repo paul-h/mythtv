@@ -7,7 +7,6 @@
 
 // C++ headers
 #include <fstream>
-using namespace std;
 
 // Qt headers
 #include <QTextStream>
@@ -87,7 +86,7 @@ void FillData::SetRefresh(int day, bool set)
 }
 
 // XMLTV stuff
-bool FillData::GrabDataFromFile(int id, QString &filename)
+bool FillData::GrabDataFromFile(int id, const QString &filename)
 {
     ChannelInfoList chanlist;
     QMap<QString, QList<ProgInfo> > proglist;
@@ -137,14 +136,13 @@ bool FillData::GrabData(const Source& source, int offset)
     if (query1.next())
         configfile = query1.value(0).toString();
     else
-        configfile = QString("%1/%2.xmltv").arg(GetConfDir())
-                                           .arg(source.name);
+        configfile = QString("%1/%2.xmltv").arg(GetConfDir(), source.name);
 
     LOG(VB_GENERAL, LOG_INFO,
         QString("XMLTV config file is: %1").arg(configfile));
 
     QString command = QString("nice %1 --config-file '%2' --output %3")
-        .arg(xmltv_grabber).arg(configfile).arg(filename);
+        .arg(xmltv_grabber, configfile, filename);
 
 
     if (source.xmltvgrabber_prefmethod != "allatonce"  || m_noAllAtOnce)
@@ -314,9 +312,9 @@ bool FillData::Run(SourceList &sourcelist)
             continue;
         }
 
-        LOG(VB_GENERAL, LOG_INFO, sidStr.arg((*it).id)
-                                  .arg((*it).name)
-                                  .arg(xmltv_grabber));
+        LOG(VB_GENERAL, LOG_INFO, sidStr.arg(QString::number((*it).id),
+                                             (*it).name,
+                                             xmltv_grabber));
 
         query.prepare(
             "SELECT COUNT(chanid) FROM channel "
@@ -355,7 +353,7 @@ bool FillData::Run(SourceList &sourcelist)
             MythSystemLegacy grabber_capabilities_proc(xmltv_grabber,
                                                  QStringList("--capabilities"),
                                                  flags);
-            grabber_capabilities_proc.Run(25);
+            grabber_capabilities_proc.Run(25s);
             if (grabber_capabilities_proc.Wait() != GENERIC_EXIT_OK)
             {
                 LOG(VB_GENERAL, LOG_ERR,
@@ -401,7 +399,7 @@ bool FillData::Run(SourceList &sourcelist)
             MythSystemLegacy grabber_method_proc(xmltv_grabber,
                                            QStringList("--preferredmethod"),
                                            flags);
-            grabber_method_proc.Run(15);
+            grabber_method_proc.Run(15s);
             if (grabber_method_proc.Wait() != GENERIC_EXIT_OK)
             {
                 LOG(VB_GENERAL, LOG_ERR,
@@ -439,7 +437,7 @@ bool FillData::Run(SourceList &sourcelist)
             grabdays = (m_maxDays > 0)          ? m_maxDays : grabdays;
             grabdays = (m_onlyUpdateChannels)   ? 1         : grabdays;
 
-            vector<bool> refresh_request;
+            std::vector<bool> refresh_request;
             refresh_request.resize(grabdays, m_refreshAll);
             if (!m_refreshAll)
             {
@@ -467,7 +465,6 @@ bool FillData::Run(SourceList &sourcelist)
                     qCurrentDate = newDate;
                 }
 
-                QString prevDate(qCurrentDate.addDays(i-1).toString());
                 QString currDate(qCurrentDate.addDays(i).toString());
 
                 LOG(VB_GENERAL, LOG_INFO, ""); // add a space between days
@@ -691,10 +688,9 @@ bool FillData::Run(SourceList &sourcelist)
 
     if (!m_fatalErrors.empty())
     {
-        for (int i = 0; i < m_fatalErrors.size(); i++)
+        for (const QString& error : qAsConst(m_fatalErrors))
         {
-            LOG(VB_GENERAL, LOG_CRIT, LOC + "Encountered Fatal Error: " +
-                    m_fatalErrors[i]);
+            LOG(VB_GENERAL, LOG_CRIT, LOC + "Encountered Fatal Error: " + error);
         }
         return false;
     }

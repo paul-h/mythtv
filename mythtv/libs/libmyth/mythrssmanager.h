@@ -5,7 +5,11 @@
 
 #include <QObject>
 #include <QMetaType>
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
 #include <QMutex>
+#else
+#include <QRecursiveMutex>
+#endif
 #include <QTimer>
 #include <QDateTime>
 #include <QByteArray>
@@ -14,6 +18,7 @@
 
 #include "rssparse.h"
 
+using namespace std::chrono_literals;
 
 class RSSSite;
 class MPUBLIC RSSSite : public QObject
@@ -39,11 +44,11 @@ class MPUBLIC RSSSite : public QObject
     RSSSite(QString title,
             QString sortTitle,
             QString image,
-            const ArticleType& type,
+            ArticleType type,
             QString description,
             QString url,
             QString author,
-            const bool& download,
+            bool download,
             QDateTime updated);
 
     ~RSSSite() override = default;
@@ -60,7 +65,7 @@ class MPUBLIC RSSSite : public QObject
     const bool& GetDownload() const { return m_download; }
     const QDateTime& GetUpdated() const { return m_updated; }
 
-    unsigned int timeSinceLastUpdate(void) const; // in minutes
+    std::chrono::minutes timeSinceLastUpdate(void) const;
 
     void insertRSSArticle(ResultItem *item);
     void clearRSSArticles(void);
@@ -87,7 +92,11 @@ class MPUBLIC RSSSite : public QObject
     bool        m_download;
     QDateTime   m_updated;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable    QMutex m_lock          {QMutex::Recursive};
+#else
+    mutable    QRecursiveMutex m_lock;
+#endif
     QByteArray m_data;
     QString    m_imageURL;
     bool       m_podcast              {false};
@@ -131,7 +140,7 @@ class MPUBLIC RSSManager : public QObject
 
     QTimer                        *m_timer      {nullptr};
     RSSSite::rssList               m_sites;
-    uint                           m_updateFreq {6 * 3600 * 1000};
+    std::chrono::hours             m_updateFreq {6h};
     RSSSite::rssList               m_inprogress;
 };
 

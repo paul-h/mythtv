@@ -128,7 +128,7 @@ void DTVRecorder::FinishRecording(void)
 
     if (m_curRecording)
     {
-        SetDuration((int64_t)(m_totalDuration * 1000));
+        SetDuration(millisecondsFromFloat(m_totalDuration * 1000));
         SetTotalFrames(m_framesWrittenCount);
     }
 
@@ -170,6 +170,11 @@ void DTVRecorder::ResetForNewFile(void)
     m_durationMap.clear();
     m_durationMapDelta.clear();
 
+    m_primaryVideoCodec = AV_CODEC_ID_NONE;
+    m_primaryAudioCodec = AV_CODEC_ID_NONE;
+
+    m_continuityCounter.fill(0xff);
+
     locker.unlock();
     DTVRecorder::ClearStatistics();
 }
@@ -190,6 +195,7 @@ void DTVRecorder::ClearStatistics(void)
     m_tdBase                     = 0;
     m_tdTickCount                = 0;
     m_tdTickFramerate            = FrameRate(0);
+
 }
 
 // documented in recorderbase.h
@@ -270,14 +276,14 @@ void DTVRecorder::BufferedWrite(const TSPacket &tspacket, bool insert)
         if (val > thresh)
         {
             QMutexLocker locker(&m_statisticsLock);
-            uint elapsed = m_timeOfLatestDataTimer.restart();
+            std::chrono::milliseconds elapsed = m_timeOfLatestDataTimer.restart();
             int interval = thresh;
-            if (elapsed > kTimeOfLatestDataIntervalTarget + 250)
+            if (elapsed > kTimeOfLatestDataIntervalTarget + 250ms)
             {
                 interval = m_timeOfLatestDataPacketInterval
                            .fetchAndStoreRelaxed(thresh * 4 / 5);
             }
-            else if (elapsed + 250 < kTimeOfLatestDataIntervalTarget)
+            else if (elapsed + 250ms < kTimeOfLatestDataIntervalTarget)
             {
                 interval = m_timeOfLatestDataPacketInterval
                            .fetchAndStoreRelaxed(thresh * 9 / 8);
@@ -288,7 +294,7 @@ void DTVRecorder::BufferedWrite(const TSPacket &tspacket, bool insert)
 
             LOG(VB_RECORD, LOG_DEBUG, LOC +
                 QString("Updating timeOfLatestData elapsed(%1) interval(%2)")
-                .arg(elapsed).arg(interval));
+                .arg(elapsed.count()).arg(interval));
         }
 
         // Do we have to buffer the packet for exact keyframe detection?
@@ -351,7 +357,7 @@ static int64_t extract_timestamp(
 }
 
 static QDateTime ts_to_qdatetime(
-    uint64_t pts, uint64_t pts_first, QDateTime &pts_first_dt)
+    uint64_t pts, uint64_t pts_first, const QDateTime &pts_first_dt)
 {
     if (pts < pts_first)
         pts += 0x1FFFFFFFFLL;
@@ -703,8 +709,8 @@ void DTVRecorder::UpdateFramesWritten(void)
             QString("count=%1 m_frameRate=%2 tick_frameRate=%3 "
                     "tick_cnt=%4 tick_base=%5 _total_dur=%6")
             .arg(m_framesWrittenCount)
-            .arg(m_frameRate.toString())
-            .arg(m_tdTickFramerate.toString())
+            .arg(m_frameRate.toString(),
+                 m_tdTickFramerate.toString())
             .arg(m_tdTickCount)
             .arg(m_tdBase)
             .arg(m_totalDuration));
@@ -872,10 +878,16 @@ bool DTVRecorder::FindH2645Keyframes(const TSPacket *tspacket)
                 tspacket->data()[i++] != 0x00 ||
                 tspacket->data()[i++] != 0x01)
             {
-                LOG(VB_GENERAL, LOG_ERR, LOC +
-                    "PES start code not found in TS packet with PUSI set");
+                if (!m_pesTimer.isRunning() || m_pesTimer.elapsed() > 20000ms)
+                {
+                    m_pesTimer.restart();
+                    LOG(VB_GENERAL, LOG_ERR, LOC +
+                        "PES start code not found in TS packet with PUSI set");
+                }
                 break;
             }
+
+            m_pesTimer.stop();
 
             // bounds check
             if (i + 5 >= TSPacket::kSize)
@@ -1371,14 +1383,17 @@ void DTVRecorder::HandleSingleProgramPMT(ProgramMapTable *pmt, bool insert)
                     }
                     if (m_h2645Parser == nullptr)
                     {
-                        m_h2645Parser = reinterpret_cast<H2645Parser *>
-                                        (new AVCParser);
-                        dynamic_cast<AVCParser *>(m_h2645Parser)->
-                            use_I_forKeyframes(m_useIForKeyframe);
+                        auto * avcParser = new AVCParser;
+                        if (avcParser != nullptr)
+                        {
+                            m_h2645Parser = reinterpret_cast<H2645Parser *>
+                                (avcParser);
+                            avcParser->use_I_forKeyframes(m_useIForKeyframe);
+                        }
                     }
                     break;
                 case StreamID::H265Video:
-                  LOG(VB_GENERAL, LOG_WARNING, LOC + "HEVC detected");
+                  LOG(VB_GENERAL, LOG_INFO, LOC + "HEVC detected");
                     m_primaryVideoCodec = AV_CODEC_ID_H265;
                     if (dynamic_cast<HEVCParser *>(m_h2645Parser) == nullptr)
                     {
@@ -1499,17 +1514,15 @@ bool DTVRecorder::ProcessTSPacket(const TSPacket &tspacket)
          * unprocessed we cannot wait for a keyframe to trigger the
          * writes. */
 
-        static MythTimer s_timer;
-
         if (m_framesSeenCount++ == 0)
-            s_timer.start();
+            m_recordMptsTimer.start();
 
-        if (s_timer.elapsed() > 500) // 0.5 seconds
+        if (m_recordMptsTimer.elapsed() > 0.5s)
         {
             UpdateFramesWritten();
             m_lastKeyframeSeen = m_framesSeenCount;
             HandleKeyframe(m_payloadBuffer.size());
-            s_timer.addMSecs(-500);
+            m_recordMptsTimer.addMSecs(-500ms);
         }
     }
     else if (m_streamId[pid] == 0)

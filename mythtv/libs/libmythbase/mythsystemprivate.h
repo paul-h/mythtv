@@ -15,10 +15,6 @@
 #include "mythbaseexp.h"
 #include "mythsystemlegacy.h"
 
-class QStringList;
-class QString;
-class QBuffer;
-
 // FIXME: do we really need reference counting?
 // it shouldn't be difficult to track the lifetime of a private object.
 // FIXME: This should not live in the same header as MythSystemLegacy
@@ -29,7 +25,7 @@ class MythSystemLegacyPrivate : public QObject, public ReferenceCounter
   public:
     explicit MythSystemLegacyPrivate(const QString &debugName);
 
-    virtual void Fork(time_t timeout) = 0;
+    virtual void Fork(std::chrono::seconds timeout) = 0;
     virtual void Manage(void) = 0;
 
     virtual void Term(bool force=false) = 0;
@@ -56,13 +52,13 @@ class MythSystemLegacyPrivate : public QObject, public ReferenceCounter
 
     // FIXME: We should not return a reference here
     QString& GetCommand(void)        { return m_parent->GetCommand(); }
-    void SetCommand(QString &cmd)    { m_parent->SetCommand(cmd); }
+    void SetCommand(const QString &cmd) { m_parent->SetCommand(cmd); }
 
     // FIXME: We should not return a reference here
     // FIXME: Rename "GetArguments"
     QStringList &GetArgs(void)       { return m_parent->GetArgs(); }
     // FIXME: Rename "SetArguments"
-    void SetArgs(QStringList &args)  { m_parent->SetArgs(args); }
+    void SetArgs(const QStringList &args)  { m_parent->SetArgs(args); }
 
     // FIXME: This is likely a bad idea, but possibly manageable
     //        since this is a private class.

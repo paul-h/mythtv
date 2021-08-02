@@ -5,7 +5,6 @@
 
 // C++ headers
 #include <vector>
-using namespace std;
 
 // Qt headers
 #include <QMutex>
@@ -58,8 +57,8 @@ class FirewireSignalMonitor : public DTVSignalMonitor, public TSDataListener
     void AddData(const unsigned char *data, uint len) override; // TSDataListener
 
   public:
-    static const uint kPowerTimeout;
-    static const uint kBufferTimeout;
+    static constexpr std::chrono::milliseconds kPowerTimeout  { 3s };
+    static constexpr std::chrono::milliseconds kBufferTimeout { 5s };
 
   protected:
     volatile bool      m_dtvMonitorRunning           {false};
@@ -70,10 +69,10 @@ class FirewireSignalMonitor : public DTVSignalMonitor, public TSDataListener
     MythTimer          m_stbWaitForPatTimer;
     MythTimer          m_stbWaitForPowerTimer;
 
-    vector<unsigned char> m_buffer;
+    std::vector<unsigned char> m_buffer;
 
-    static QMap<void*,uint> s_patKeys;
-    static QMutex           s_patKeysLock;
+    static QHash<void*,uint> s_patKeys;
+    static QMutex            s_patKeysLock;
 };
 
 #endif // FIREWIRESIGNALMONITOR_H

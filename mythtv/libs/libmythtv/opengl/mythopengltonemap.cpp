@@ -1,7 +1,7 @@
 // MythTV
 #include "mythlogging.h"
-#include "mythopenglcomputeshaders.h"
-#include "mythopengltonemap.h"
+#include "opengl/mythopenglcomputeshaders.h"
+#include "opengl/mythopengltonemap.h"
 
 #define LOC QString("Tonemap: ")
 
@@ -21,7 +21,7 @@
 #define GL_WRITE_ONLY                     0x88B9
 #endif
 
-MythOpenGLTonemap::MythOpenGLTonemap(MythRenderOpenGL *Render, VideoColourSpace *ColourSpace)
+MythOpenGLTonemap::MythOpenGLTonemap(MythRenderOpenGL* Render, MythVideoColourSpace* ColourSpace)
 {
     if (Render)
     {
@@ -34,7 +34,7 @@ MythOpenGLTonemap::MythOpenGLTonemap(MythRenderOpenGL *Render, VideoColourSpace 
     {
         ColourSpace->IncrRef();
         m_colourSpace = ColourSpace;
-        connect(m_colourSpace, &VideoColourSpace::Updated, this, &MythOpenGLTonemap::UpdateColourSpace);
+        connect(m_colourSpace, &MythVideoColourSpace::Updated, this, &MythOpenGLTonemap::UpdateColourSpace);
     }
 }
 
@@ -66,12 +66,12 @@ void MythOpenGLTonemap::UpdateColourSpace(bool PrimariesChanged)
     }
 }
 
-MythVideoTexture* MythOpenGLTonemap::GetTexture(void)
+MythVideoTextureOpenGL* MythOpenGLTonemap::GetTexture()
 {
     return m_texture;
 }
 
-MythVideoTexture* MythOpenGLTonemap::Map(vector<MythVideoTexture *> &Inputs, QSize DisplaySize)
+MythVideoTextureOpenGL* MythOpenGLTonemap::Map(std::vector<MythVideoTextureOpenGL*>& Inputs, QSize DisplaySize)
 {
     size_t size = Inputs.size();
     if (!size || !m_render || !m_extra)
@@ -100,6 +100,7 @@ MythVideoTexture* MythOpenGLTonemap::Map(vector<MythVideoTexture *> &Inputs, QSi
             return nullptr;
         }
         m_render->glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_storageBuffer);
+        // Data structure passed to kernel. NOLINTNEXTLINE(modernize-avoid-c-arrays)
         struct dummy { float a[2] {0.0F}; uint32_t b {0}; uint32_t c {0}; uint32_t d {0}; } buffer;
         m_render->glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(dummy), &buffer, GL_STREAM_COPY);
         m_render->glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -132,9 +133,9 @@ bool MythOpenGLTonemap::CreateShader(size_t InputSize, VideoFrameType Type, QSiz
     m_inputSize = Size;
 
     QString source = (m_render->isOpenGLES() ? "#version 310 es\n" : "#version 430\n");
-    if (format_is_420(Type) || format_is_422(Type) || format_is_444(Type))
+    if (MythVideoFrame::FormatIs420(Type) || MythVideoFrame::FormatIs422(Type) || MythVideoFrame::FormatIs444(Type))
         source.append("#define YV12\n");
-    if (m_render->isOpenGLES() && ColorDepth(Type) > 8)
+    if (m_render->isOpenGLES() && MythVideoFrame::ColorDepth(Type) > 8)
         source.append("#define UNSIGNED\n");
     source.append(GLSL430Tonemap);
 
@@ -165,7 +166,10 @@ bool MythOpenGLTonemap::CreateTexture(QSize Size)
     if (!textureid)
         return false;
 
-    m_texture = new MythVideoTexture(textureid);
+    m_texture = new MythVideoTextureOpenGL(textureid);
+    if (!m_texture)
+        return false;
+
     m_texture->m_frameType   = FMT_RGBA32;
     m_texture->m_frameFormat = FMT_RGBA32;
     m_texture->m_target      = QOpenGLTexture::Target2D;
@@ -176,5 +180,5 @@ bool MythOpenGLTonemap::CreateTexture(QSize Size)
     m_extra->glTexStorage2D(m_texture->m_target, 1, QOpenGLTexture::RGBA16F,
                             static_cast<GLsizei>(Size.width()), static_cast<GLsizei>(Size.height()));
     m_render->SetTextureFilters(m_texture, QOpenGLTexture::Linear);
-    return m_texture != nullptr;
+    return true;
 }

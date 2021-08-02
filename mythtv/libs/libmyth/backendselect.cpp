@@ -77,15 +77,14 @@ bool BackendSelection::Create(void)
     m_saveButton = dynamic_cast<MythUIButton*>(GetChild("save"));
     m_cancelButton = dynamic_cast<MythUIButton*>(GetChild("cancel"));
     m_manualButton = dynamic_cast<MythUIButton*>(GetChild("manual"));
-    //m_searchButton = dynamic_cast<MythUIButton*>(GetChild("search"));
 
-    connect(m_backendList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            SLOT(Accept(MythUIButtonListItem *)));
+    connect(m_backendList, &MythUIButtonList::itemClicked,
+            this, qOverload<MythUIButtonListItem *>(&BackendSelection::Accept));
 
-    // connect(m_searchButton, SIGNAL(clicked()), SLOT(Search()));
-    connect(m_manualButton, SIGNAL(Clicked()), SLOT(Manual()));
-    connect(m_cancelButton, SIGNAL(Clicked()), SLOT(Cancel()));
-    connect(m_saveButton, SIGNAL(Clicked()), SLOT(Accept()));
+    connect(m_manualButton, &MythUIButton::Clicked, this, &BackendSelection::Manual);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &BackendSelection::Cancel);
+    connect(m_saveButton, &MythUIButton::Clicked,
+            this, qOverload<>(&BackendSelection::Accept));
 
     BuildFocusList();
     LoadInBackground();
@@ -111,7 +110,7 @@ void BackendSelection::Accept(MythUIButtonListItem *item)
     {
         if (m_pConfig)
         {
-            if (m_pinCode.length())
+            if (!m_pinCode.isEmpty())
                 m_pConfig->SetValue(kDefaultPIN, m_pinCode);
             m_pConfig->SetValue(kDefaultUSN, m_usn);
             m_pConfig->Save();
@@ -136,15 +135,15 @@ void BackendSelection::AddItem(DeviceLocation *dev)
     if (!dev)
         return;
 
-    QString USN = dev->m_sUSN;
+    QString usn = dev->m_sUSN;
 
     m_mutex.lock();
 
     // The devices' USN should be unique. Don't add if it is already there:
-    if (m_devices.find(USN) == m_devices.end())
+    if (m_devices.find(usn) == m_devices.end())
     {
         dev->IncrRef();
-        m_devices.insert(USN, dev);
+        m_devices.insert(usn, dev);
 
         m_mutex.unlock();
 
@@ -185,7 +184,6 @@ void BackendSelection::AddItem(DeviceLocation *dev)
  */
 bool BackendSelection::ConnectBackend(DeviceLocation *dev)
 {
-    QString          error;
     QString          message;
 
     m_usn   = dev->m_sUSN;
@@ -226,7 +224,7 @@ bool BackendSelection::ConnectBackend(DeviceLocation *dev)
         default:
             LOG(VB_GENERAL, LOG_ERR,
                 QString("GetConnectionInfo() failed for %1 : %2")
-                .arg(backendName).arg(message));
+                .arg(backendName, message));
             ShowOkPopup(message);
     }
 
@@ -255,11 +253,10 @@ void BackendSelection::Init(void)
         pEntries->GetEntryMap(ourMap);
         pEntries->DecrRef();
 
-        EntryMap::const_iterator it;
-        for (it = ourMap.begin(); it != ourMap.end(); ++it)
+        for (auto * devLoc : qAsConst(ourMap))
         {
-            AddItem(*it);
-            (*it)->DecrRef();
+            AddItem(devLoc);
+            devLoc->DecrRef();
         }
     }
 }
@@ -269,11 +266,11 @@ void BackendSelection::Manual(void)
     CloseWithDecision(kManualConfigure);
 }
 
-void BackendSelection::RemoveItem(const QString& USN)
+void BackendSelection::RemoveItem(const QString& USN_)
 {
     m_mutex.lock();
 
-    ItemMap::iterator it = m_devices.find(USN);
+    ItemMap::iterator it = m_devices.find(USN_);
 
     if (it != m_devices.end())
     {
@@ -318,7 +315,7 @@ void BackendSelection::customEvent(QEvent *event)
 
         LOG(VB_UPNP, LOG_DEBUG,
                  QString("BackendSelection::customEvent(%1, %2, %3, %4)")
-                .arg(message).arg(URI).arg(URN).arg(URL));
+                .arg(message, URI, URN, URL));
 
         if (message.startsWith("SSDP_ADD") &&
             URI.startsWith("urn:schemas-mythtv-org:device:MasterMediaServer:"))

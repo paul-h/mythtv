@@ -9,6 +9,10 @@
 #define MYTH_PACKED
 #endif
 
+// Prevent clang-tidy modernize-avoid-c-arrays warnings in these
+// kernel structures
+extern "C" {
+
 struct rtfileheader
 {
   char finfo[12];     // "NuppelVideo" + \0
@@ -139,7 +143,7 @@ struct kfatable_entry
 struct vidbuffertype
 {
     int sample;
-    int timecode;
+    std::chrono::milliseconds timecode;
     int freeToEncode;
     int freeToBuffer;
     unsigned char *buffer;
@@ -150,7 +154,7 @@ struct vidbuffertype
 struct audbuffertype
 {
     int sample;
-    int timecode;
+    std::chrono::milliseconds timecode;
     int freeToEncode;
     int freeToBuffer;
     unsigned char *buffer;
@@ -158,7 +162,7 @@ struct audbuffertype
 
 struct txtbuffertype
 {
-    int timecode;
+    std::chrono::milliseconds timecode;
     int pagenr;
     int freeToEncode;
     int freeToBuffer;
@@ -203,5 +207,8 @@ struct ccsubtitle
 #define CC_CC4        0x50
 #define CC_TXT3       0x60
 #define CC_TXT4       0x70
+
+// end of kernel structures.
+};
 
 #endif

@@ -50,8 +50,8 @@ class MainVisual;
 class VisualNode
 {
   public:
-    VisualNode(short *l, short *r, unsigned long n, unsigned long o)
-        : m_left(l), m_right(r), m_length(n), m_offset(o)
+    VisualNode(short *l, short *r, unsigned long n, std::chrono::milliseconds timecode)
+        : m_left(l), m_right(r), m_length(n), m_offset(timecode)
     {
         // left and right are allocated and then passed to this class
         // the code that allocated left and right should give up all ownership
@@ -66,7 +66,7 @@ class VisualNode
     short *m_left  {nullptr};
     short *m_right {nullptr};
     unsigned long m_length;
-    unsigned long m_offset;
+    std::chrono::milliseconds m_offset;
 };
 
 class VisualBase
@@ -91,7 +91,7 @@ class VisualBase
     virtual int getDesiredFPS(void) { return m_fps; }
     // Override this if you need the potential of capturing more data than the default
     virtual unsigned long getDesiredSamples(void) { return SAMPLES_DEFAULT_SIZE; }
-    static void drawWarning(QPainter *p, const QColor &back, const QSize &size, const QString& warning, int fontsize = 28);
+    static void drawWarning(QPainter *p, const QColor &back, QSize size, const QString& warning, int fontsize = 28);
 
   protected:
     int  m_fps                {20};
@@ -131,7 +131,7 @@ class StereoScope : public VisualBase
   protected:
     QColor         m_startColor  {Qt::green};
     QColor         m_targetColor {Qt::red};
-    vector<double> m_magnitudes  {};
+    std::vector<double> m_magnitudes  {};
     QSize          m_size;
     bool const     m_rubberband  {RUBBERBAND};
     double const   m_falloff     {1.0};
@@ -284,15 +284,15 @@ struct piano_key_data {
     QColor          m_blackStartColor  {10,10,10};
     QColor          m_blackTargetColor {Qt::red};
 
-    vector<QRect>   m_rects            {};
+    std::vector<QRect> m_rects         {};
     QSize           m_size;
 
-    unsigned long   m_offsetProcessed  {0};
+    std::chrono::milliseconds m_offsetProcessed  {0ms};
 
     piano_key_data *m_pianoData        {nullptr};
     piano_audio    *m_audioData        {nullptr};
 
-    vector<double>  m_magnitude        {};
+    std::vector<double> m_magnitude    {};
 };
 
 class AlbumArt : public VisualBase

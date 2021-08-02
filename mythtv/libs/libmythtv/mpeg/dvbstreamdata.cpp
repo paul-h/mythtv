@@ -1,19 +1,16 @@
 // -*- Mode: c++ -*-
 // Copyright (c) 2003-2004, Daniel Thor Kristjansson
 #include <algorithm>
-using namespace std;
 
 #include <QSharedPointer>
 #include "dvbstreamdata.h"
 #include "dvbtables.h"
+#include "mpegdescriptors.h"
+#include "mpegtables.h"
 #include "premieretables.h"
 #include "eithelper.h"
 
-#define PREMIERE_ONID 133
-#define FREESAT_EIT_PID 3842
-#define MCA_ONID 6144
 #define MCA_EIT_TSID 136
-#define MCA_EIT_PID 1018
 
 #define LOC QString("DVBStream[%1]: ").arg(m_cardId)
 
@@ -25,9 +22,9 @@ DVBStreamData::DVBStreamData(uint desired_netid,  uint desired_tsid,
 {
     m_nitStatus.SetVersion(-1,0);
     m_nitoStatus.SetVersion(-1,0);
-    AddListeningPID(DVB_NIT_PID);
-    AddListeningPID(DVB_SDT_PID);
-    AddListeningPID(DVB_TDT_PID);
+    AddListeningPID(PID::DVB_NIT_PID);
+    AddListeningPID(PID::DVB_SDT_PID);
+    AddListeningPID(PID::DVB_TDT_PID);
 }
 
 DVBStreamData::~DVBStreamData()
@@ -103,7 +100,7 @@ bool DVBStreamData::IsRedundant(uint pid, const PSIPTable &psip) const
     }
 
     bool is_eit = false;
-    if (DVB_EIT_PID == pid || FREESAT_EIT_PID == pid)
+    if (PID::DVB_EIT_PID == pid || PID::FREESAT_EIT_PID == pid)
     {
         // Standard Now/Next Event Information Tables for this transport
         is_eit |= TableID::PF_EIT  == table_id;
@@ -131,7 +128,7 @@ bool DVBStreamData::IsRedundant(uint pid, const PSIPTable &psip) const
         return m_sdtoStatus.IsSectionSeen(psip.TableIDExtension(), version, psip.Section());
     }
 
-    if (DVB_EIT_PID == pid || FREESAT_EIT_PID == pid || MCA_EIT_PID == pid)
+    if (PID::DVB_EIT_PID == pid || PID::FREESAT_EIT_PID == pid || PID::MCA_EIT_PID == pid)
     {
         // Standard Now/Next Event Information Tables for other transport
         is_eit |= TableID::PF_EITo == table_id;
@@ -139,7 +136,7 @@ bool DVBStreamData::IsRedundant(uint pid, const PSIPTable &psip) const
         is_eit |= (TableID::SC_EITbego <= table_id &&
                    TableID::SC_EITendo >= table_id);
     }
-    if (DVB_DNLONG_EIT_PID == pid || DVB_BVLONG_EIT_PID == pid)
+    if (PID::DVB_DNLONG_EIT_PID == pid || PID::DVB_BVLONG_EIT_PID == pid)
     {
         // Dish Network and Bev Long Term Future Event Information
         // for all transports
@@ -153,7 +150,7 @@ bool DVBStreamData::IsRedundant(uint pid, const PSIPTable &psip) const
         return m_eitStatus.IsSectionSeen(key, version, psip.Section());
     }
 
-    if (((PREMIERE_EIT_DIREKT_PID == pid) || (PREMIERE_EIT_SPORT_PID == pid)) &&
+    if (((PID::PREMIERE_EIT_DIREKT_PID == pid) || (PID::PREMIERE_EIT_SPORT_PID == pid)) &&
         TableID::PREMIERE_CIT == table_id)
     {
         uint content_id = PremiereContentInformationTable(psip).ContentID();
@@ -197,9 +194,9 @@ void DVBStreamData::Reset(uint desired_netid, uint desired_tsid,
 
         m_cacheLock.unlock();
     }
-    AddListeningPID(DVB_NIT_PID);
-    AddListeningPID(DVB_SDT_PID);
-    AddListeningPID(DVB_TDT_PID);
+    AddListeningPID(PID::DVB_NIT_PID);
+    AddListeningPID(PID::DVB_SDT_PID);
+    AddListeningPID(PID::DVB_TDT_PID);
 }
 
 /** \fn DVBStreamData::HandleTables(uint pid, const PSIPTable&)
@@ -364,9 +361,9 @@ bool DVBStreamData::HandleTables(uint pid, const PSIPTable &psip)
         }
     }
 
-    if ((DVB_EIT_PID == pid || DVB_DNLONG_EIT_PID == pid || FREESAT_EIT_PID == pid ||
-        ((MCA_ONID == m_desiredNetId) && (MCA_EIT_TSID == m_desiredTsId) &&
-        (MCA_EIT_PID == pid)) || DVB_BVLONG_EIT_PID == pid) &&
+    if ((PID::DVB_EIT_PID == pid || PID::DVB_DNLONG_EIT_PID == pid || PID::FREESAT_EIT_PID == pid ||
+        ((OriginalNetworkID::MCA == m_desiredNetId) && (MCA_EIT_TSID == m_desiredTsId) &&
+        (PID::MCA_EIT_PID == pid)) || PID::DVB_BVLONG_EIT_PID == pid) &&
 
         DVBEventInformationTable::IsEIT(psip.TableID()))
     {
@@ -389,8 +386,8 @@ bool DVBStreamData::HandleTables(uint pid, const PSIPTable &psip)
         return true;
     }
 
-    if (m_desiredNetId == PREMIERE_ONID &&
-        (PREMIERE_EIT_DIREKT_PID == pid || PREMIERE_EIT_SPORT_PID == pid) &&
+    if (m_desiredNetId == OriginalNetworkID::PREMIERE &&
+        (PID::PREMIERE_EIT_DIREKT_PID == pid || PID::PREMIERE_EIT_SPORT_PID == pid) &&
         PremiereContentInformationTable::IsEIT(psip.TableID()))
     {
         QMutexLocker locker(&m_listenerLock);
@@ -451,36 +448,36 @@ bool DVBStreamData::GetEITPIDChanges(const uint_vec_t &cur_pids,
     if ((m_eitRate >= 0.5F) && HasAnyEIT())
     {
         if (find(cur_pids.begin(), cur_pids.end(),
-                 (uint) DVB_EIT_PID) == cur_pids.end())
+                 (uint) PID::DVB_EIT_PID) == cur_pids.end())
         {
-            add_pids.push_back(DVB_EIT_PID);
+            add_pids.push_back(PID::DVB_EIT_PID);
         }
 
         if (m_dvbEitDishnetLong &&
             find(cur_pids.begin(), cur_pids.end(),
-                 (uint) DVB_DNLONG_EIT_PID) == cur_pids.end())
+                 (uint) PID::DVB_DNLONG_EIT_PID) == cur_pids.end())
         {
-            add_pids.push_back(DVB_DNLONG_EIT_PID);
+            add_pids.push_back(PID::DVB_DNLONG_EIT_PID);
         }
 
         if (m_dvbEitDishnetLong &&
             find(cur_pids.begin(), cur_pids.end(),
-                 (uint) DVB_BVLONG_EIT_PID) == cur_pids.end())
+                 (uint) PID::DVB_BVLONG_EIT_PID) == cur_pids.end())
         {
-            add_pids.push_back(DVB_BVLONG_EIT_PID);
+            add_pids.push_back(PID::DVB_BVLONG_EIT_PID);
         }
 
 #if 0
         // OpenTV EIT pids
         if (m_dvbEitDishnetLong)
         {
-            for (uint pid = OTV_EIT_TIT_PID_START; pid <= OTV_EIT_TIT_PID_END; pid++)
+            for (uint pid = PID::OTV_EIT_TIT_PID_START; pid <= PID::OTV_EIT_TIT_PID_END; pid++)
             {
                 if (find(cur_pids.begin(), cur_pids.end(),
                          pid) == cur_pids.end())
                     add_pids.push_back(pid);
             }
-            for (uint pid = OTV_EIT_SUP_PID_START; pid <= OTV_EIT_SUP_PID_END; pid++)
+            for (uint pid = PID::OTV_EIT_SUP_PID_START; pid <= PID::OTV_EIT_SUP_PID_END; pid++)
             {
                 if (find(cur_pids.begin(), cur_pids.end(),
                          pid) == cur_pids.end())
@@ -489,67 +486,67 @@ bool DVBStreamData::GetEITPIDChanges(const uint_vec_t &cur_pids,
         }
 #endif
 
-        if (m_desiredNetId == PREMIERE_ONID &&
+        if (m_desiredNetId == OriginalNetworkID::PREMIERE &&
             find(cur_pids.begin(), cur_pids.end(),
-                 (uint) PREMIERE_EIT_DIREKT_PID) == cur_pids.end())
+                 (uint) PID::PREMIERE_EIT_DIREKT_PID) == cur_pids.end())
         {
-            add_pids.push_back(PREMIERE_EIT_DIREKT_PID);
+            add_pids.push_back(PID::PREMIERE_EIT_DIREKT_PID);
         }
 
-        if (m_desiredNetId == PREMIERE_ONID &&
+        if (m_desiredNetId == OriginalNetworkID::PREMIERE &&
             find(cur_pids.begin(), cur_pids.end(),
-                 (uint) PREMIERE_EIT_SPORT_PID) == cur_pids.end())
+                 (uint) PID::PREMIERE_EIT_SPORT_PID) == cur_pids.end())
         {
-            add_pids.push_back(PREMIERE_EIT_SPORT_PID);
+            add_pids.push_back(PID::PREMIERE_EIT_SPORT_PID);
         }
 
         if (find(cur_pids.begin(), cur_pids.end(),
-                 (uint) FREESAT_EIT_PID) == cur_pids.end())
+                 (uint) PID::FREESAT_EIT_PID) == cur_pids.end())
         {
-            add_pids.push_back(FREESAT_EIT_PID);
+            add_pids.push_back(PID::FREESAT_EIT_PID);
         }
 
-        if (MCA_ONID == m_desiredNetId && MCA_EIT_TSID == m_desiredTsId &&
+        if (OriginalNetworkID::MCA == m_desiredNetId && MCA_EIT_TSID == m_desiredTsId &&
             find(cur_pids.begin(), cur_pids.end(),
-                 (uint) MCA_EIT_PID) == cur_pids.end())
+                 (uint) PID::MCA_EIT_PID) == cur_pids.end())
         {
-            add_pids.push_back(MCA_EIT_PID);
+            add_pids.push_back(PID::MCA_EIT_PID);
         }
 
     }
     else
     {
         if (find(cur_pids.begin(), cur_pids.end(),
-                 (uint) DVB_EIT_PID) != cur_pids.end())
+                 (uint) PID::DVB_EIT_PID) != cur_pids.end())
         {
-            del_pids.push_back(DVB_EIT_PID);
+            del_pids.push_back(PID::DVB_EIT_PID);
         }
 
         if (m_dvbEitDishnetLong &&
             find(cur_pids.begin(), cur_pids.end(),
-                 (uint) DVB_DNLONG_EIT_PID) != cur_pids.end())
+                 (uint) PID::DVB_DNLONG_EIT_PID) != cur_pids.end())
         {
-            del_pids.push_back(DVB_DNLONG_EIT_PID);
+            del_pids.push_back(PID::DVB_DNLONG_EIT_PID);
         }
 
         if (m_dvbEitDishnetLong &&
             find(cur_pids.begin(), cur_pids.end(),
-                 (uint) DVB_BVLONG_EIT_PID) != cur_pids.end())
+                 (uint) PID::DVB_BVLONG_EIT_PID) != cur_pids.end())
         {
-            del_pids.push_back(DVB_BVLONG_EIT_PID);
+            del_pids.push_back(PID::DVB_BVLONG_EIT_PID);
         }
 
 #if 0
         // OpenTV EIT pids
         if (m_dvbEitDishnetLong)
         {
-            for (uint pid = OTV_EIT_TIT_PID_START; pid <= OTV_EIT_TIT_PID_END; pid++)
+            for (uint pid = PID::OTV_EIT_TIT_PID_START; pid <= PID::OTV_EIT_TIT_PID_END; pid++)
             {
                 if (find(cur_pids.begin(), cur_pids.end(),
                          pid) != cur_pids.end())
                     del_pids.push_back(pid);
             }
-            for(uint pid=OTV_EIT_SUP_PID_START; pid <= OTV_EIT_SUP_PID_END; pid++)
+            for(uint pid=PID::OTV_EIT_SUP_PID_START; pid <= PID::OTV_EIT_SUP_PID_END; pid++)
             {
                 if (find(cur_pids.begin(), cur_pids.end(),
                          pid) != cur_pids.end())
@@ -558,31 +555,31 @@ bool DVBStreamData::GetEITPIDChanges(const uint_vec_t &cur_pids,
         }
 #endif
 
-        if (m_desiredNetId == PREMIERE_ONID &&
+        if (m_desiredNetId == OriginalNetworkID::PREMIERE &&
             find(cur_pids.begin(), cur_pids.end(),
-                 (uint) PREMIERE_EIT_DIREKT_PID) != cur_pids.end())
+                 (uint) PID::PREMIERE_EIT_DIREKT_PID) != cur_pids.end())
         {
-            del_pids.push_back(PREMIERE_EIT_DIREKT_PID);
+            del_pids.push_back(PID::PREMIERE_EIT_DIREKT_PID);
         }
 
-        if (m_desiredNetId == PREMIERE_ONID &&
+        if (m_desiredNetId == OriginalNetworkID::PREMIERE &&
             find(cur_pids.begin(), cur_pids.end(),
-                 (uint) PREMIERE_EIT_SPORT_PID) != cur_pids.end())
+                 (uint) PID::PREMIERE_EIT_SPORT_PID) != cur_pids.end())
         {
-            del_pids.push_back(PREMIERE_EIT_SPORT_PID);
+            del_pids.push_back(PID::PREMIERE_EIT_SPORT_PID);
         }
 
         if (find(cur_pids.begin(), cur_pids.end(),
-                 (uint) FREESAT_EIT_PID) != cur_pids.end())
+                 (uint) PID::FREESAT_EIT_PID) != cur_pids.end())
         {
-            del_pids.push_back(FREESAT_EIT_PID);
+            del_pids.push_back(PID::FREESAT_EIT_PID);
         }
 
-        if (MCA_ONID == m_desiredNetId && MCA_EIT_TSID == m_desiredTsId &&
+        if (OriginalNetworkID::MCA == m_desiredNetId && MCA_EIT_TSID == m_desiredTsId &&
             find(cur_pids.begin(), cur_pids.end(),
-                 (uint) MCA_EIT_PID) != cur_pids.end())
+                 (uint) PID::MCA_EIT_PID) != cur_pids.end())
         {
-            del_pids.push_back(MCA_EIT_PID);
+            del_pids.push_back(PID::MCA_EIT_PID);
         }
     }
 
@@ -670,8 +667,8 @@ bool DVBStreamData::HasCachedAllBAT(uint batid, bool current) const
         LOG(VB_GENERAL, LOG_WARNING, LOC +
             "Currently we ignore \'current\' param");
 
-    bat_cache_t::const_iterator it = m_cachedBats.find(batid << 8);
-    if (it == m_cachedBats.end())
+    bat_cache_t::const_iterator it = m_cachedBats.constFind(batid << 8);
+    if (it == m_cachedBats.constEnd())
         return false;
 
     uint last_section = (*it)->LastSection();
@@ -679,7 +676,7 @@ bool DVBStreamData::HasCachedAllBAT(uint batid, bool current) const
         return true;
 
     for (uint i = 1; i <= last_section; i++)
-        if (m_cachedBats.find((batid << 8) | i) == m_cachedBats.end())
+        if (m_cachedBats.constFind((batid << 8) | i) == m_cachedBats.constEnd())
             return false;
 
     return true;
@@ -715,8 +712,8 @@ bool DVBStreamData::HasCachedAllSDT(uint tsid, bool current) const
         LOG(VB_GENERAL, LOG_WARNING, LOC +
             "Currently we ignore \'current\' param");
 
-    sdt_cache_t::const_iterator it = m_cachedSdts.find(tsid << 8);
-    if (it == m_cachedSdts.end())
+    sdt_cache_t::const_iterator it = m_cachedSdts.constFind(tsid << 8);
+    if (it == m_cachedSdts.constEnd())
         return false;
 
     uint last_section = (*it)->LastSection();
@@ -724,7 +721,7 @@ bool DVBStreamData::HasCachedAllSDT(uint tsid, bool current) const
         return true;
 
     for (uint i = 1; i <= last_section; i++)
-        if (m_cachedSdts.find((tsid << 8) | i) == m_cachedSdts.end())
+        if (m_cachedSdts.constFind((tsid << 8) | i) == m_cachedSdts.constEnd())
             return false;
 
     return true;
@@ -801,8 +798,8 @@ nit_const_ptr_t DVBStreamData::GetCachedNIT(
 
     nit_ptr_t nit = nullptr;
 
-    nit_cache_t::const_iterator it = m_cachedNit.find(section_num);
-    if (it != m_cachedNit.end())
+    nit_cache_t::const_iterator it = m_cachedNit.constFind(section_num);
+    if (it != m_cachedNit.constEnd())
         IncrementRefCnt(nit = *it);
 
     return nit;
@@ -836,8 +833,8 @@ bat_const_ptr_t DVBStreamData::GetCachedBAT(
     bat_ptr_t bat = nullptr;
 
     uint key = (batid << 8) | section_num;
-    bat_cache_t::const_iterator it = m_cachedBats.find(key);
-    if (it != m_cachedBats.end())
+    bat_cache_t::const_iterator it = m_cachedBats.constFind(key);
+    if (it != m_cachedBats.constEnd())
         IncrementRefCnt(bat = *it);
 
     return bat;
@@ -874,8 +871,8 @@ sdt_const_ptr_t DVBStreamData::GetCachedSDT(
     sdt_ptr_t sdt = nullptr;
 
     uint key = (tsid << 8) | section_num;
-    sdt_cache_t::const_iterator it = m_cachedSdts.find(key);
-    if (it != m_cachedSdts.end())
+    sdt_cache_t::const_iterator it = m_cachedSdts.constFind(key);
+    if (it != m_cachedSdts.constEnd())
         IncrementRefCnt(sdt = *it);
 
     return sdt;
@@ -1021,9 +1018,9 @@ void DVBStreamData::AddDVBMainListener(DVBMainStreamListener *val)
 {
     QMutexLocker locker(&m_listenerLock);
 
-    for (auto & listener : m_dvbMainListeners)
-        if (((void*)val) == ((void*)listener))
-            return;
+    if (std::any_of(m_dvbMainListeners.cbegin(), m_dvbMainListeners.cend(),
+                    [val](auto & listener){ return val == listener; } ))
+        return;
 
     m_dvbMainListeners.push_back(val);
 }
@@ -1046,9 +1043,9 @@ void DVBStreamData::AddDVBOtherListener(DVBOtherStreamListener *val)
 {
     QMutexLocker locker(&m_listenerLock);
 
-    for (auto & listener : m_dvbOtherListeners)
-        if (((void*)val) == ((void*)listener))
-            return;
+    if (std::any_of(m_dvbOtherListeners.cbegin(), m_dvbOtherListeners.cend(),
+                    [val](auto & listener){ return val == listener; } ))
+        return;
 
     m_dvbOtherListeners.push_back(val);
 }
@@ -1071,9 +1068,9 @@ void DVBStreamData::AddDVBEITListener(DVBEITStreamListener *val)
 {
     QMutexLocker locker(&m_listenerLock);
 
-    for (auto & listener : m_dvbEitListeners)
-        if (((void*)val) == ((void*)listener))
-            return;
+    if (std::any_of(m_dvbEitListeners.cbegin(), m_dvbEitListeners.cend(),
+                    [val](auto & listener){ return val == listener; } ))
+        return;
 
     m_dvbEitListeners.push_back(val);
 }

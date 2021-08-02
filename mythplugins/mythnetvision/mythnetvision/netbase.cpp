@@ -72,10 +72,9 @@ void NetBase::CleanCacheDir()
     QDir cacheDir(cache);
     QStringList thumbs = cacheDir.entryList(QDir::Files);
 
-    for (QStringList::const_iterator i = thumbs.end() - 1;
-            i != thumbs.begin() - 1; --i)
+    for (auto i = thumbs.crbegin(); i != thumbs.crend(); ++i)
     {
-        QString filename = QString("%1/%2").arg(cache).arg(*i);
+        QString filename = QString("%1/%2").arg(cache, *i);
         LOG(VB_GENERAL, LOG_DEBUG, QString("Deleting file %1").arg(filename));
         QFileInfo fi(filename);
         QDateTime lastmod = fi.lastModified();
@@ -97,10 +96,11 @@ void NetBase::StreamWebVideo()
         return;
     }
 
+    auto seconds = std::chrono::seconds(item->GetTime().toInt());
     GetMythMainWindow()->HandleMedia("Internal", item->GetMediaURL(),
         item->GetDescription(), item->GetTitle(), item->GetSubtitle(),
         QString(), item->GetSeason(), item->GetEpisode(), QString(),
-        item->GetTime().toInt() / 60, item->GetDate().toString("yyyy"));
+        duration_cast<std::chrono::minutes>(seconds), item->GetDate().toString("yyyy"));
 }
 
 void NetBase::ShowWebVideo()
@@ -172,12 +172,12 @@ void NetBase::ShowWebVideo()
 void NetBase::RunCmdWithoutScreensaver(const QString &cmd)
 {
     GetMythMainWindow()->PauseIdleTimer(true);
-    MythUIHelper::DisableScreensaver();
+    MythMainWindow::DisableScreensaver();
     GetMythMainWindow()->AllowInput(false);
     myth_system(cmd, kMSDontDisableDrawing);
     GetMythMainWindow()->AllowInput(true);
     GetMythMainWindow()->PauseIdleTimer(false);
-    MythUIHelper::RestoreScreensaver();
+    MythMainWindow::RestoreScreensaver();
 }
 
 void NetBase::SlotDeleteVideo()
@@ -189,8 +189,8 @@ void NetBase::SlotDeleteVideo()
     if (confirmdialog->Create())
     {
         m_popupStack->AddScreen(confirmdialog);
-        connect(confirmdialog, SIGNAL(haveResult(bool)),
-                SLOT(DoDeleteVideo(bool)));
+        connect(confirmdialog, &MythConfirmationDialog::haveResult,
+                this, &NetBase::DoDeleteVideo);
     }
     else
         delete confirmdialog;
@@ -246,8 +246,8 @@ void NetBase::customEvent(QEvent *event)
                 QString message = tr("Downloading Video...\n"
                                      "(%1 of %2 MB)")
                     .arg(QString::number(args[2].toInt() / 1024.0 / 1024.0,
-                                         'f', 2))
-                    .arg(QString::number(args[3].toInt() / 1024.0 / 1024.0,
+                                         'f', 2),
+                         QString::number(args[3].toInt() / 1024.0 / 1024.0,
                                          'f', 2));
                 m_progressDialog->SetMessage(message);
                 m_progressDialog->SetTotal(args[3].toInt());
@@ -295,7 +295,7 @@ void NetBase::DoDownloadAndPlay()
                                               baseFilename);
 
     LOG(VB_GENERAL, LOG_INFO, QString("Downloading %1 to %2")
-        .arg(item->GetMediaURL()).arg(finalFilename));
+        .arg(item->GetMediaURL(), finalFilename));
 
     // Does the file already exist?
     bool exists = RemoteFile::Exists(finalFilename);
@@ -315,4 +315,16 @@ void NetBase::DoPlayVideo(const QString &filename)
         return;
 
     GetMythMainWindow()->HandleMedia("Internal", filename);
+}
+
+void NetBase::DoPlayVideo(void)
+{
+    ResultItem *item = GetStreamItem();
+    if (!item)
+        return;
+
+    QString filename = GetDownloadFilename(item->GetTitle(),
+                                           item->GetMediaURL());
+
+    DoPlayVideo(filename);
 }

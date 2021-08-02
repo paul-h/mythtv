@@ -83,16 +83,12 @@ void MusicFileScanner::BuildFileList(QString &directory, MusicLoadedMap &music_f
     if (list.isEmpty())
         return;
 
-    QFileInfoList::const_iterator it = list.begin();
-
     // Recursively traverse directory
     int newparentid = 0;
-    while (it != list.end())
+    for (const auto& fi : qAsConst(list))
     {
-        const QFileInfo *fi = &(*it);
-        ++it;
-        QString filename = fi->absoluteFilePath();
-        if (fi->isDir())
+        QString filename = fi.absoluteFilePath();
+        if (fi.isDir())
         {
 
             QString dir(filename);
@@ -174,7 +170,7 @@ bool MusicFileScanner::IsMusicFile(const QString &filename)
  *
  * \returns Directory id
  */
-int MusicFileScanner::GetDirectoryId(const QString &directory, const int &parentid)
+int MusicFileScanner::GetDirectoryId(const QString &directory, int parentid)
 {
     if (directory.isEmpty())
         return 0;
@@ -663,7 +659,7 @@ void MusicFileScanner::SearchDirs(const QStringList &dirList)
                 if (MythDate::current() > dtLastRun.addSecs(60*60))
                 {
                     LOG(VB_GENERAL, LOG_INFO, "Music file scanner has been running for more than 60 minutes. Lets reset and try again");
-                    gCoreContext->SendMessage(QString("MUSIC_SCANNER_ERROR %1 %2").arg(host).arg("Stalled"));
+                    gCoreContext->SendMessage(QString("MUSIC_SCANNER_ERROR %1 %2").arg(host, "Stalled"));
 
                     // give the user time to read the notification before restarting the scan
                     sleep(5);
@@ -671,7 +667,7 @@ void MusicFileScanner::SearchDirs(const QStringList &dirList)
                 else
                 {
                     LOG(VB_GENERAL, LOG_INFO, "Music file scanner is already running");
-                    gCoreContext->SendMessage(QString("MUSIC_SCANNER_ERROR %1 %2").arg(host).arg("Already_Running"));
+                    gCoreContext->SendMessage(QString("MUSIC_SCANNER_ERROR %1 %2").arg(host, "Already_Running"));
                     return;
                 }
             }
@@ -770,7 +766,7 @@ void MusicFileScanner::SearchDirs(const QStringList &dirList)
                                       .arg(m_coverartTotal).arg(m_coverartAdded));
 
     updateLastRunEnd();
-    status = QString("success - %1 - %2").arg(trackStatus).arg(coverartStatus);
+    status = QString("success - %1 - %2").arg(trackStatus, coverartStatus);
     updateLastRunStatus(status);
 }
 

@@ -6,7 +6,6 @@
 #include <QDateTime>
 #include <QDir>
 #include <QDomDocument>
-#include <QRegExp>
 #include <QScopedPointer>
 #include <utility>
 
@@ -42,8 +41,6 @@
 #include "musicutils.h"
 #include "lyricsdata.h"
 
-using namespace std;
-
 static QString thePrefix = "the ";
 
 bool operator==(MusicMetadata& a, MusicMetadata& b)
@@ -58,7 +55,7 @@ bool operator!=(MusicMetadata& a, MusicMetadata& b)
 
 // this ctor is for radio streams
 MusicMetadata::MusicMetadata(int lid, QString lbroadcaster, QString lchannel, QString ldescription,
-                             UrlList lurls, QString llogourl, QString lgenre, QString lmetaformat,
+                             const UrlList &lurls, QString llogourl, QString lgenre, QString lmetaformat,
                              QString lcountry, QString llanguage, QString lformat)
          :  m_genre(std::move(lgenre)),
             m_format(std::move(lformat)),
@@ -72,9 +69,7 @@ MusicMetadata::MusicMetadata(int lid, QString lbroadcaster, QString lchannel, QS
             m_country(std::move(lcountry)),
             m_language(std::move(llanguage))
 {
-    for (int x = 0; x < STREAMURLCOUNT; x++)
-        m_urls[x] = lurls[x];
-
+    m_urls = lurls;
     setRepo(RT_Radio);
     ensureSortFields();
 }
@@ -142,8 +137,7 @@ MusicMetadata& MusicMetadata::operator=(const MusicMetadata &rhs)
     m_channel = rhs.m_channel;
     m_description = rhs.m_description;
 
-    for (int x = 0; x < 5; x++)
-        m_urls[x] = rhs.m_urls[x];
+    m_urls = rhs.m_urls;
     m_logoUrl = rhs.m_logoUrl;
     m_metaFormat = rhs.m_metaFormat;
     m_country = rhs.m_country;
@@ -293,7 +287,7 @@ MusicMetadata *MusicMetadata::createFromID(int trackid)
         mdata->m_genre = query.value(4).toString();
         mdata->m_year = query.value(5).toInt();
         mdata->m_trackNum = query.value(6).toInt();
-        mdata->m_length = query.value(7).toInt();
+        mdata->m_length = std::chrono::milliseconds(query.value(7).toInt());
         mdata->m_id = query.value(8).toUInt();
         mdata->m_rating = query.value(9).toInt();
         mdata->m_playCount = query.value(10).toInt();
@@ -462,7 +456,6 @@ int MusicMetadata::getDirectoryId()
     if (m_directoryId < 0)
     {
         QString sqldir = m_filename.section('/', 0, -2);
-        QString sqlfilename = m_filename.section('/', -1);
 
         checkEmptyFields();
 
@@ -736,7 +729,6 @@ void MusicMetadata::dumpToDatabase()
                    "WHERE song_id= :ID ;";
     }
 
-    QString sqldir = m_filename.section('/', 0, -2);
     QString sqlfilename = m_filename.section('/', -1);
 
     MSqlQuery query(MSqlQuery::InitCon());
@@ -750,7 +742,7 @@ void MusicMetadata::dumpToDatabase()
     query.bindValue(":GENRE", m_genreId);
     query.bindValue(":YEAR", m_year);
     query.bindValue(":TRACKNUM", m_trackNum);
-    query.bindValue(":LENGTH", m_length);
+    query.bindValue(":LENGTH", static_cast<qint64>(m_length.count()));
     query.bindValue(":FILENAME", sqlfilename);
     query.bindValue(":RATING", m_rating);
     query.bindValueNoNull(":FORMAT", m_format);
@@ -1067,7 +1059,7 @@ void MusicMetadata::setField(const QString &field, const QString &data)
     else if (field == "disccount")
         m_discCount = data.toInt();
     else if (field == "length")
-        m_length = data.toInt();
+        m_length = std::chrono::milliseconds(data.toInt());
     else if (field == "compilation")
         m_compilation = (data.toInt() > 0);
     else
@@ -1109,7 +1101,7 @@ void MusicMetadata::toMap(InfoMap &metadataMap, const QString &prefix)
         if (m_broadcaster.isEmpty())
             metadataMap[prefix + "album"] = m_channel;
         else
-            metadataMap[prefix + "album"] = QString("%1 - %2").arg(m_broadcaster).arg(m_channel);
+            metadataMap[prefix + "album"] = QString("%1 - %2").arg(m_broadcaster, m_channel);
     }
     else
         metadataMap[prefix + "album"] = m_album;
@@ -1123,8 +1115,8 @@ void MusicMetadata::toMap(InfoMap &metadataMap, const QString &prefix)
     metadataMap[prefix + "genre"] = m_genre;
     metadataMap[prefix + "year"] = (m_year > 0 ? QString("%1").arg(m_year) : "");
 
-    QString fmt = (m_length >= ONEHOURINMS) ? "H:mm:ss" : "mm:ss";
-    metadataMap[prefix + "length"] = MythFormatTimeMs(m_length, fmt);
+    QString fmt = (m_length >= 1h) ? "H:mm:ss" : "mm:ss";
+    metadataMap[prefix + "length"] = MythFormatTime(m_length, fmt);
 
     if (m_lastPlay.isValid())
     {
@@ -1295,7 +1287,7 @@ QString MusicMetadata::getAlbumArtFile(void)
             // image is a radio station icon, check if we have already downloaded and cached it
             QString path = GetConfDir() + "/MythMusic/AlbumArt/";
             QFileInfo fi(res);
-            QString filename = QString("%1-%2.%3").arg(m_id).arg("front").arg(fi.suffix());
+            QString filename = QString("%1-%2.%3").arg(m_id).arg("front", fi.suffix());
 
             albumart_image->m_filename = path + filename;
 
@@ -1515,12 +1507,6 @@ void AllMusic::resync()
                      "LEFT JOIN music_genres ON music_songs.genre_id=music_genres.genre_id "
                      "ORDER BY music_songs.song_id;";
 
-    QString filename;
-    QString artist;
-    QString album;
-    QString title;
-    QString compartist;
-
     MSqlQuery query(MSqlQuery::InitCon());
     if (!query.exec(aquery))
         MythDB::DBError("AllMusic::resync", query);
@@ -1546,7 +1532,7 @@ void AllMusic::resync()
                 query.value(7).toString(),     // genre
                 query.value(8).toInt(),        // year
                 query.value(9).toInt(),        // track no.
-                query.value(10).toInt(),       // length
+                std::chrono::milliseconds(query.value(10).toInt()),       // length
                 query.value(0).toInt(),        // id
                 query.value(13).toInt(),       // rating
                 query.value(14).toInt(),       // playcount
@@ -1603,10 +1589,10 @@ void AllMusic::resync()
                 int playCount = query.value(13).toInt();
                 qint64 lastPlay = query.value(14).toDateTime().toSecsSinceEpoch();
 
-                m_playCountMin = min(playCount, m_playCountMin);
-                m_playCountMax = max(playCount, m_playCountMax);
-                m_lastPlayMin  = min(lastPlay,  m_lastPlayMin);
-                m_lastPlayMax  = max(lastPlay,  m_lastPlayMax);
+                m_playCountMin = std::min(playCount, m_playCountMin);
+                m_playCountMax = std::max(playCount, m_playCountMax);
+                m_lastPlayMin  = std::min(lastPlay,  m_lastPlayMin);
+                m_lastPlayMax  = std::max(lastPlay,  m_lastPlayMax);
             }
             m_numLoaded++;
         }

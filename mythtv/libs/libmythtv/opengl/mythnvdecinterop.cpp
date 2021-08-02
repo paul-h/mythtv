@@ -1,8 +1,8 @@
 // MythTV
 #include "mythconfig.h"
 #include "mythcorecontext.h"
-#include "videocolourspace.h"
-#include "mythnvdecinterop.h"
+#include "mythvideocolourspace.h"
+#include "opengl/mythnvdecinterop.h"
 
 // Std
 #include <chrono>
@@ -20,8 +20,8 @@
     } \
 }
 
-MythNVDECInterop::MythNVDECInterop(MythRenderOpenGL *Context)
-  : MythOpenGLInterop(Context, NVDEC),
+MythNVDECInterop::MythNVDECInterop(MythPlayerUI* Player, MythRenderOpenGL* Context)
+  : MythOpenGLInterop(Context, GL_NVDEC, Player),
     m_cudaContext()
 {
     InitialiseCuda();
@@ -31,28 +31,28 @@ MythNVDECInterop::~MythNVDECInterop()
 {
     m_referenceFrames.clear();
     MythNVDECInterop::DeleteTextures();
-    CleanupContext(m_context, m_cudaFuncs, m_cudaContext);
+    CleanupContext(m_openglContext, m_cudaFuncs, m_cudaContext);
 }
 
-void MythNVDECInterop::DeleteTextures(void)
+void MythNVDECInterop::DeleteTextures()
 {
     if (!(m_cudaContext && m_cudaFuncs))
         return;
 
-    OpenGLLocker locker(m_context);
-    CUDA_CHECK(m_cudaFuncs, cuCtxPushCurrent(m_cudaContext));
+    OpenGLLocker locker(m_openglContext);
+    CUDA_CHECK(m_cudaFuncs, cuCtxPushCurrent(m_cudaContext))
 
     if (!m_openglTextures.isEmpty())
     {
         LOG(VB_PLAYBACK, LOG_INFO, LOC + "Deleting CUDA resources");
         for (auto it = m_openglTextures.constBegin(); it != m_openglTextures.constEnd(); ++it)
         {
-            vector<MythVideoTexture*> textures = it.value();
+            vector<MythVideoTextureOpenGL*> textures = it.value();
             for (auto & texture : textures)
             {
                 auto *data = reinterpret_cast<QPair<CUarray,CUgraphicsResource>*>(texture->m_data);
                 if (data && data->second)
-                    CUDA_CHECK(m_cudaFuncs, cuGraphicsUnregisterResource(data->second));
+                    CUDA_CHECK(m_cudaFuncs, cuGraphicsUnregisterResource(data->second))
                 delete data;
                 texture->m_data = nullptr;
             }
@@ -60,36 +60,41 @@ void MythNVDECInterop::DeleteTextures(void)
     }
 
     CUcontext dummy = nullptr;
-    CUDA_CHECK(m_cudaFuncs, cuCtxPopCurrent(&dummy));
+    CUDA_CHECK(m_cudaFuncs, cuCtxPopCurrent(&dummy))
 
     MythOpenGLInterop::DeleteTextures();
 }
 
-bool MythNVDECInterop::IsValid(void)
+bool MythNVDECInterop::IsValid()
 {
     return m_cudaFuncs && m_cudaContext;
 }
 
-CUcontext MythNVDECInterop::GetCUDAContext(void)
+CUcontext MythNVDECInterop::GetCUDAContext()
 {
     return m_cudaContext;
 }
 
-MythNVDECInterop* MythNVDECInterop::Create(MythRenderOpenGL *Context)
+MythNVDECInterop* MythNVDECInterop::CreateNVDEC(MythPlayerUI* Player, MythRenderOpenGL* Context)
 {
-    if (Context)
-        return new MythNVDECInterop(Context);
+    if (!(Context && Player))
+        return nullptr;
+
+    MythInteropGPU::InteropMap types;
+    GetNVDECTypes(Context, types);
+    if (auto nvdec = types.find(FMT_NVDEC); nvdec != types.end())
+    {
+        for (auto type : nvdec->second)
+            if (type == GL_NVDEC)
+                return new MythNVDECInterop(Player, Context);
+    }
     return nullptr;
 }
 
-MythOpenGLInterop::Type MythNVDECInterop::GetInteropType(VideoFrameType Format)
+void MythNVDECInterop::GetNVDECTypes(MythRenderOpenGL* Render, MythInteropGPU::InteropMap& Types)
 {
-    if ((FMT_NVDEC != Format) || !gCoreContext->IsUIThread())
-        return Unsupported;
-
-    if (!MythRenderOpenGL::GetOpenGLRender())
-        return Unsupported;
-    return NVDEC;
+    if (Render)
+        Types[FMT_NVDEC] = { GL_NVDEC };
 }
 
 /*! \brief Map CUDA video memory to OpenGL textures.
@@ -99,34 +104,34 @@ MythOpenGLInterop::Type MythNVDECInterop::GetInteropType(VideoFrameType Format)
  * textures and maps the texture storage to a CUdeviceptr (if that is possible). Alternatively
  * EGL interopability may also be useful.
 */
-vector<MythVideoTexture*> MythNVDECInterop::Acquire(MythRenderOpenGL *Context,
-                                                    VideoColourSpace *ColourSpace,
-                                                    VideoFrame *Frame,
-                                                    FrameScanType Scan)
+vector<MythVideoTextureOpenGL*> MythNVDECInterop::Acquire(MythRenderOpenGL* Context,
+                                                          MythVideoColourSpace* ColourSpace,
+                                                          MythVideoFrame* Frame,
+                                                          FrameScanType Scan)
 {
-    vector<MythVideoTexture*> result;
+    vector<MythVideoTextureOpenGL*> result;
     if (!Frame || !m_cudaContext || !m_cudaFuncs)
         return result;
 
-    if (Context && (Context != m_context))
+    if (Context && (Context != m_openglContext))
         LOG(VB_GENERAL, LOG_WARNING, LOC + "Mismatched OpenGL contexts");
 
     // Check size
-    QSize surfacesize(Frame->width, Frame->height);
-    if (m_openglTextureSize != surfacesize)
+    QSize surfacesize(Frame->m_width, Frame->m_height);
+    if (m_textureSize != surfacesize)
     {
-        if (!m_openglTextureSize.isEmpty())
+        if (!m_textureSize.isEmpty())
         {
             LOG(VB_GENERAL, LOG_WARNING, LOC + QString("Video texture size changed! %1x%2->%3x%4")
-                .arg(m_openglTextureSize.width()).arg(m_openglTextureSize.height())
-                .arg(Frame->width).arg(Frame->height));
+                .arg(m_textureSize.width()).arg(m_textureSize.height())
+                .arg(Frame->m_width).arg(Frame->m_height));
         }
         DeleteTextures();
-        m_openglTextureSize = surfacesize;
+        m_textureSize = surfacesize;
     }
 
     // Lock
-    OpenGLLocker locker(m_context);
+    OpenGLLocker locker(m_openglContext);
 
     // Update colourspace and initialise on first frame
     if (ColourSpace)
@@ -137,34 +142,34 @@ vector<MythVideoTexture*> MythNVDECInterop::Acquire(MythRenderOpenGL *Context,
     }
 
     // Retrieve hardware frames context and AVCUDADeviceContext
-    if ((Frame->pix_fmt != AV_PIX_FMT_CUDA) || (Frame->codec != FMT_NVDEC) ||
-        !Frame->buf || !Frame->priv[0] || !Frame->priv[1])
+    if ((Frame->m_pixFmt != AV_PIX_FMT_CUDA) || (Frame->m_type != FMT_NVDEC) ||
+        !Frame->m_buffer || !Frame->m_priv[0] || !Frame->m_priv[1])
     {
         return result;
     }
 
-    auto cudabuffer = reinterpret_cast<CUdeviceptr>(Frame->buf);
+    auto cudabuffer = reinterpret_cast<CUdeviceptr>(Frame->m_buffer);
     if (!cudabuffer)
         return result;
 
     // make the CUDA context current
     CUcontext dummy = nullptr;
-    CUDA_CHECK(m_cudaFuncs, cuCtxPushCurrent(m_cudaContext));
+    CUDA_CHECK(m_cudaFuncs, cuCtxPushCurrent(m_cudaContext))
 
     // create and map textures for a new buffer
-    VideoFrameType type = (Frame->sw_pix_fmt == AV_PIX_FMT_NONE) ? FMT_NV12 :
-                PixelFormatToFrameType(static_cast<AVPixelFormat>(Frame->sw_pix_fmt));
-    bool p010 = ColorDepth(type) > 8;
+    VideoFrameType type = (Frame->m_swPixFmt == AV_PIX_FMT_NONE) ? FMT_NV12 :
+                MythAVUtil::PixelFormatToFrameType(static_cast<AVPixelFormat>(Frame->m_swPixFmt));
+    bool p010 = MythVideoFrame::ColorDepth(type) > 8;
     if (!m_openglTextures.contains(cudabuffer))
     {
         vector<QSize> sizes;
-        sizes.emplace_back(QSize(Frame->width, Frame->height));
-        sizes.emplace_back(QSize(Frame->width, Frame->height >> 1));
-        vector<MythVideoTexture*> textures =
-                MythVideoTexture::CreateTextures(m_context, FMT_NVDEC, type, sizes);
+        sizes.emplace_back(QSize(Frame->m_width, Frame->m_height));
+        sizes.emplace_back(QSize(Frame->m_width, Frame->m_height >> 1));
+        vector<MythVideoTextureOpenGL*> textures =
+                MythVideoTextureOpenGL::CreateTextures(m_openglContext, FMT_NVDEC, type, sizes);
         if (textures.empty())
         {
-            CUDA_CHECK(m_cudaFuncs, cuCtxPopCurrent(&dummy));
+            CUDA_CHECK(m_cudaFuncs, cuCtxPopCurrent(&dummy))
             return result;
         }
 
@@ -173,9 +178,9 @@ vector<MythVideoTexture*> MythNVDECInterop::Acquire(MythRenderOpenGL *Context,
         {
             // N.B. I think the texture formats for P010 are not strictly compliant
             // with OpenGL ES 3.X but the Nvidia driver does not complain.
-            MythVideoTexture *tex = textures[plane];
+            MythVideoTextureOpenGL *tex = textures[plane];
             tex->m_allowGLSLDeint = true;
-            m_context->glBindTexture(tex->m_target, tex->m_textureId);
+            m_openglContext->glBindTexture(tex->m_target, tex->m_textureId);
             QOpenGLTexture::PixelFormat format     = QOpenGLTexture::Red;
             QOpenGLTexture::PixelType   pixtype    = p010 ? QOpenGLTexture::UInt16 : QOpenGLTexture::UInt8;
             QOpenGLTexture::TextureFormat internal = p010 ? QOpenGLTexture::R16_UNorm : QOpenGLTexture::R8_UNorm;
@@ -188,18 +193,18 @@ vector<MythVideoTexture*> MythNVDECInterop::Acquire(MythRenderOpenGL *Context,
                 width /= 2;
             }
 
-            m_context->glTexImage2D(tex->m_target, 0, internal, width, tex->m_size.height(),
+            m_openglContext->glTexImage2D(tex->m_target, 0, internal, width, tex->m_size.height(),
                                     0, format, pixtype, nullptr);
 
             CUarray array = nullptr;
             CUgraphicsResource graphicsResource = nullptr;
             CUDA_CHECK(m_cudaFuncs, cuGraphicsGLRegisterImage(&graphicsResource, tex->m_textureId,
-                                          QOpenGLTexture::Target2D, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
+                                          QOpenGLTexture::Target2D, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD))
             if (graphicsResource)
             {
-                CUDA_CHECK(m_cudaFuncs, cuGraphicsMapResources(1, &graphicsResource, nullptr));
-                CUDA_CHECK(m_cudaFuncs, cuGraphicsSubResourceGetMappedArray(&array, graphicsResource, 0, 0));
-                CUDA_CHECK(m_cudaFuncs, cuGraphicsUnmapResources(1, &graphicsResource, nullptr));
+                CUDA_CHECK(m_cudaFuncs, cuGraphicsMapResources(1, &graphicsResource, nullptr))
+                CUDA_CHECK(m_cudaFuncs, cuGraphicsSubResourceGetMappedArray(&array, graphicsResource, 0, 0))
+                CUDA_CHECK(m_cudaFuncs, cuGraphicsUnmapResources(1, &graphicsResource, nullptr))
                 tex->m_data = reinterpret_cast<unsigned char*>(new QPair<CUarray,CUgraphicsResource>(array, graphicsResource));
             }
             else
@@ -219,19 +224,19 @@ vector<MythVideoTexture*> MythNVDECInterop::Acquire(MythRenderOpenGL *Context,
             {
                 auto *data = reinterpret_cast<QPair<CUarray,CUgraphicsResource>*>(texture->m_data);
                 if (data && data->second)
-                    CUDA_CHECK(m_cudaFuncs, cuGraphicsUnregisterResource(data->second));
+                    CUDA_CHECK(m_cudaFuncs, cuGraphicsUnregisterResource(data->second))
                 delete data;
                 texture->m_data = nullptr;
                 if (texture->m_textureId)
-                    m_context->glDeleteTextures(1, &texture->m_textureId);
-                MythVideoTexture::DeleteTexture(m_context, texture);
+                    m_openglContext->glDeleteTextures(1, &texture->m_textureId);
+                MythVideoTextureOpenGL::DeleteTexture(m_openglContext, texture);
             }
         }
     }
 
     if (!m_openglTextures.contains(cudabuffer))
     {
-        CUDA_CHECK(m_cudaFuncs, cuCtxPopCurrent(&dummy));
+        CUDA_CHECK(m_cudaFuncs, cuCtxPopCurrent(&dummy))
         return result;
     }
 
@@ -246,33 +251,33 @@ vector<MythVideoTexture*> MythNVDECInterop::Acquire(MythRenderOpenGL *Context,
         CUDA_MEMCPY2D cpy;
         memset(&cpy, 0, sizeof(cpy));
         cpy.srcMemoryType = CU_MEMORYTYPE_DEVICE;
-        cpy.srcDevice     = cudabuffer + static_cast<CUdeviceptr>(Frame->offsets[i]);
-        cpy.srcPitch      = static_cast<size_t>(Frame->pitches[i]);
+        cpy.srcDevice     = cudabuffer + static_cast<CUdeviceptr>(Frame->m_offsets[i]);
+        cpy.srcPitch      = static_cast<size_t>(Frame->m_pitches[i]);
         cpy.dstMemoryType = CU_MEMORYTYPE_ARRAY;
         cpy.dstArray      = data->first;
         cpy.WidthInBytes  = static_cast<size_t>(result[i]->m_size.width()) * (p010 ? 2 : 1);
         cpy.Height        = static_cast<size_t>(result[i]->m_size.height());
-        CUDA_CHECK(m_cudaFuncs, cuMemcpy2DAsync(&cpy, nullptr));
+        CUDA_CHECK(m_cudaFuncs, cuMemcpy2DAsync(&cpy, nullptr))
     }
 
-    CUDA_CHECK(m_cudaFuncs, cuStreamSynchronize(nullptr));
-    CUDA_CHECK(m_cudaFuncs, cuCtxPopCurrent(&dummy));
+    CUDA_CHECK(m_cudaFuncs, cuStreamSynchronize(nullptr))
+    CUDA_CHECK(m_cudaFuncs, cuCtxPopCurrent(&dummy))
 
     // GLSL deinterlacing. The decoder will pick up any CPU or driver preference
     // and return a stream of deinterlaced frames. Just check for GLSL here.
     bool needreferences = false;
-    if (is_interlaced(Scan) && !Frame->already_deinterlaced)
+    if (is_interlaced(Scan) && !Frame->m_alreadyDeinterlaced)
     {
-        MythDeintType shader = GetDoubleRateOption(Frame, DEINT_SHADER);
+        MythDeintType shader = Frame->GetDoubleRateOption(DEINT_SHADER);
         if (shader)
             needreferences = shader == DEINT_HIGH;
         else
-            needreferences = GetSingleRateOption(Frame, DEINT_SHADER) == DEINT_HIGH;
+            needreferences = Frame->GetSingleRateOption(DEINT_SHADER) == DEINT_HIGH;
     }
 
     if (needreferences)
     {
-        if (abs(Frame->frameCounter - m_discontinuityCounter) > 1)
+        if (qAbs(Frame->m_frameCounter - m_discontinuityCounter) > 1)
             m_referenceFrames.clear();
 
         RotateReferenceFrames(cudabuffer);
@@ -290,14 +295,12 @@ vector<MythVideoTexture*> MythNVDECInterop::Acquire(MythRenderOpenGL *Context,
         }
 
         result = m_openglTextures[last];
-        for (MythVideoTexture* tex : qAsConst(m_openglTextures[current]))
-            result.push_back(tex);
-        for (MythVideoTexture* tex : qAsConst(m_openglTextures[next]))
-            result.push_back(tex);
+        std::copy(m_openglTextures[current].cbegin(), m_openglTextures[current].cend(), std::back_inserter(result));
+        std::copy(m_openglTextures[next].cbegin(), m_openglTextures[next].cend(), std::back_inserter(result));
         return result;
     }
     m_referenceFrames.clear();
-    m_discontinuityCounter = Frame->frameCounter;
+    m_discontinuityCounter = Frame->m_frameCounter;
 
     return result;
 }
@@ -306,13 +309,13 @@ vector<MythVideoTexture*> MythNVDECInterop::Acquire(MythRenderOpenGL *Context,
  * \note We do not use the FFmpeg internal context creation as the created context
  * is deleted before we have a chance to cleanup our own CUDA resources.
 */
-bool MythNVDECInterop::InitialiseCuda(void)
+bool MythNVDECInterop::InitialiseCuda()
 {
-    return CreateCUDAContext(m_context, m_cudaFuncs, m_cudaContext);
+    return CreateCUDAContext(m_openglContext, m_cudaFuncs, m_cudaContext);
 }
 
-bool MythNVDECInterop::CreateCUDAPriv(MythRenderOpenGL *GLContext, CudaFunctions *&CudaFuncs,
-                                      CUcontext &CudaContext, bool &Retry)
+bool MythNVDECInterop::CreateCUDAPriv(MythRenderOpenGL* GLContext, CudaFunctions*& CudaFuncs,
+                                      CUcontext& CudaContext, bool& Retry)
 {
     Retry = false;
     if (!GLContext)
@@ -366,8 +369,8 @@ bool MythNVDECInterop::CreateCUDAPriv(MythRenderOpenGL *GLContext, CudaFunctions
     return true;
 }
 
-bool MythNVDECInterop::CreateCUDAContext(MythRenderOpenGL *GLContext, CudaFunctions *&CudaFuncs,
-                                         CUcontext &CudaContext)
+bool MythNVDECInterop::CreateCUDAContext(MythRenderOpenGL* GLContext, CudaFunctions*& CudaFuncs,
+                                         CUcontext& CudaContext)
 {
     if (!gCoreContext->IsUIThread())
     {
@@ -385,13 +388,13 @@ bool MythNVDECInterop::CreateCUDAContext(MythRenderOpenGL *GLContext, CudaFuncti
         if (!retry)
             break;
         LOG(VB_GENERAL, LOG_WARNING, LOC + "Will retry in 50ms");
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(50ms);
     }
     return false;
 }
 
-void MythNVDECInterop::CleanupContext(MythRenderOpenGL *GLContext, CudaFunctions *&CudaFuncs,
-                                      CUcontext &CudaContext)
+void MythNVDECInterop::CleanupContext(MythRenderOpenGL* GLContext, CudaFunctions*& CudaFuncs,
+                                      CUcontext& CudaContext)
 {
     if (!GLContext)
         return;
@@ -400,7 +403,7 @@ void MythNVDECInterop::CleanupContext(MythRenderOpenGL *GLContext, CudaFunctions
     if (CudaFuncs)
     {
         if (CudaContext)
-            CUDA_CHECK(CudaFuncs, cuCtxDestroy(CudaContext));
+            CUDA_CHECK(CudaFuncs, cuCtxDestroy(CudaContext))
         cuda_free_functions(&CudaFuncs);
     }
 }

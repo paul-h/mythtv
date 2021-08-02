@@ -52,7 +52,7 @@ void ExternRecChannelScanner::Stop(void)
     {
         m_stopNow = true;
         m_lock.unlock();
-        m_thread->wait(5);
+        m_thread->wait(5ms);
         m_lock.lock();
     }
 
@@ -109,8 +109,8 @@ void ExternRecChannelScanner::run(void)
         return;
     }
 
-    vector<uint> existing = ChannelUtil::GetChanIDs(m_sourceId);
-    vector<uint>::iterator Iold;
+    std::vector<uint> existing = ChannelUtil::GetChanIDs(m_sourceId);
+    std::vector<uint>::iterator Iold;
 
     // Step 3/4 : Process
     if (m_scanMonitor)
@@ -138,10 +138,10 @@ void ExternRecChannelScanner::run(void)
     uint idx = 0;
     for (;;)
     {
-        QString msg = tr("Channel #%1 : %2").arg(channum).arg(name);
+        QString msg = tr("Channel #%1 : %2").arg(channum, name);
 
         LOG(VB_CHANNEL, LOG_INFO, QString("Handling channel %1 %2")
-            .arg(channum).arg(name));
+            .arg(channum, name));
 
         int chanid = ChannelUtil::GetChanID(m_sourceId, channum);
 

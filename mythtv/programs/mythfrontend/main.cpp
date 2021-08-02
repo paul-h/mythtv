@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <iostream>
 #include <memory>
-using namespace std;
 
 #include <QFile>
 #include <QFileInfo>
@@ -12,7 +11,6 @@ using namespace std;
 #include <QKeyEvent>
 #include <QEvent>
 #include <QDir>
-#include <QTextCodec>
 #include <QApplication>
 #include <QTimer>
 #ifdef Q_OS_MAC
@@ -126,7 +124,6 @@ using namespace std;
 #define fe_sd_notify(x)
 #endif
 
-static ExitPrompter   *g_exitPopup = nullptr;
 static MythThemedMenu *g_menu;
 
 static MediaRenderer  *g_pUPnp   = nullptr;
@@ -163,10 +160,8 @@ namespace
         {
             if (check)
             {
-                connect(&m_plcc,
-                        SIGNAL(SigResultReady(bool, ParentalLevel::Level)),
-                        SLOT(OnPasswordResultReady(bool,
-                                        ParentalLevel::Level)));
+                connect(&m_plcc, &ParentalLevelChangeChecker::SigResultReady,
+                        this, &RunSettingsCompletion::OnPasswordResultReady);
                 m_plcc.Check(ParentalLevel::plMedium, ParentalLevel::plHigh);
             }
             else
@@ -283,9 +278,6 @@ namespace
         MythRAOPDevice::Cleanup();
         MythAirplayServer::Cleanup();
 #endif
-
-        delete g_exitPopup;
-        g_exitPopup = nullptr;
 
         AudioOutput::Cleanup();
 
@@ -698,7 +690,7 @@ static void RunVideoScreen(VideoDialog::DialogType type, bool fromJump = false)
             video_list = saved->GetSaved();
             LOG(VB_GENERAL, LOG_INFO,
                 QString("Reusing saved video list because MythVideo was resumed"
-                        " within %1ms").arg(VideoListDeathDelay::kDelayTimeMS));
+                        " within %1ms").arg(VideoListDeathDelay::kDelayTimeMS.count()));
         }
     }
 
@@ -766,7 +758,7 @@ static void playDisc()
         QString filename = QString("bd:/%1").arg(bluray_mountpoint);
 
         GetMythMainWindow()->HandleMedia("Internal", filename, "", "", "", "",
-                                         0, 0, "", 0, "", "", true);
+                                         0, 0, "", 0min, "", "", true);
 
         GetMythUI()->RemoveCurrentLocation();
     }
@@ -794,7 +786,7 @@ static void playDisc()
 
             command_string = "Internal";
             GetMythMainWindow()->HandleMedia(command_string, filename, "", "",
-                                             "", "", 0, 0, "", 0, "", "", true);
+                                             "", "", 0, 0, "", 0min, "", "", true);
             GetMythUI()->RemoveCurrentLocation();
 
             return;
@@ -805,8 +797,7 @@ static void playDisc()
             //
             //  Need to do device substitution
             //
-            command_string =
-                command_string.replace(QRegExp("%d"), dvd_device);
+            command_string = command_string.replace("%d", dvd_device);
         }
         gCoreContext->emitTVPlaybackStarted();
         GetMythMainWindow()->PauseIdleTimer(true);
@@ -861,7 +852,7 @@ static void handleGalleryMedia(MythMediaDevice *dev)
 
     for (const auto *screen : qAsConst(screens))
     {
-        if (dynamic_cast<const GalleryThumbView*>(screen))
+        if (qobject_cast<const GalleryThumbView*>(screen))
         {
             // Running gallery will receive this event later
             LOG(VB_MEDIA, LOG_INFO, "Main: Ignoring new gallery media - already running");
@@ -1194,9 +1185,8 @@ static void TVMenuCallback(void *data, QString &selection)
         if (g_settingsHelper)
         {
             QObject::connect(GetMythMainWindow()->GetMainStack()->GetTopScreen(),
-                          SIGNAL(Exiting()),
-                          g_settingsHelper,
-                          SLOT(RunEpilog()));
+                             &MythScreenType::Exiting,
+                             g_settingsHelper, &SettingsHelper::RunEpilog);
         }
     }
 }
@@ -1205,19 +1195,20 @@ static void handleExit(bool prompt)
 {
     if (prompt)
     {
-        if (!g_exitPopup)
-            g_exitPopup = new ExitPrompter();
-        g_exitPopup->HandleExit();
+        auto * prompter = new ExitPrompter();
+        prompter->HandleExit();
     }
     else
+    {
         QCoreApplication::quit();
+    }
 }
 
 static bool RunMenu(const QString& themedir, const QString& themename)
 {
     QByteArray tmp = themedir.toLocal8Bit();
     g_menu = new MythThemedMenu(QString(tmp.constData()), "mainmenu.xml",
-                              GetMythMainWindow()->GetMainStack(), "mainmenu");
+                                GetMythMainWindow()->GetMainStack(), "mainmenu");
 
     if (g_menu->foundTheme())
     {
@@ -1228,11 +1219,10 @@ static bool RunMenu(const QString& themedir, const QString& themename)
         return true;
     }
 
-    LOG(VB_GENERAL, LOG_ERR,
-        QString("Couldn't find mainmenu.xml for theme '%1'") .arg(themename));
+    LOG(VB_GENERAL, LOG_ERR, QString("Couldn't find mainmenu.xml for theme '%1'")
+        .arg(themename));
     delete g_menu;
     g_menu = nullptr;
-
     return false;
 }
 
@@ -1271,7 +1261,8 @@ static void WriteDefaults()
 static int internal_play_media(const QString &mrl, const QString &plot,
                         const QString &title, const QString &subtitle,
                         const QString &director, int season, int episode,
-                        const QString &inetref, int lenMins, const QString &year,
+                        const QString &inetref, std::chrono::minutes lenMins,
+                        const QString &year,
                         const QString &id, const bool useBookmark)
 {
     int res = -1;
@@ -1286,8 +1277,8 @@ static int internal_play_media(const QString &mrl, const QString &plot,
         QString errorText = QCoreApplication::translate("(MythFrontendMain)",
             "Failed to open \n '%1' in %2 \n"
             "Check if the video exists")
-            .arg(mrl.section('/', -1))
-            .arg(mrl.section('/', 0, -2));
+            .arg(mrl.section('/', -1),
+                 mrl.section('/', 0, -2));
 
         ShowOkPopup(errorText);
         return res;
@@ -1380,7 +1371,7 @@ static int internal_play_media(const QString &mrl, const QString &plot,
 static void gotoMainMenu(void)
 {
     // Reset the selected button to the first item.
-    auto *lmenu = dynamic_cast<MythThemedMenuState *>
+    auto *lmenu = qobject_cast<MythThemedMenuState *>
         (GetMythMainWindow()->GetMainStack()->GetTopScreen());
     if (lmenu)
         lmenu->m_buttonList->SetItemCurrent(0);
@@ -1395,16 +1386,14 @@ static bool resetTheme(QString themedir, const QString &badtheme)
     if (badtheme == DEFAULT_UI_THEME)
         themename = FALLBACK_UI_THEME;
 
-    LOG(VB_GENERAL, LOG_WARNING,
-        QString("Overriding broken theme '%1' with '%2'")
-            .arg(badtheme).arg(themename));
+    LOG(VB_GENERAL, LOG_WARNING, QString("Overriding broken theme '%1' with '%2'")
+        .arg(badtheme, themename));
 
     gCoreContext->OverrideSettingForSession("Theme", themename);
     themedir = GetMythUI()->FindThemeDir(themename);
 
     MythTranslation::reload();
     gCoreContext->ReInitLocale();
-    GetMythUI()->LoadQtConfig();
     GetMythMainWindow()->Init();
     GetMythMainWindow()->ReinitDone();
 
@@ -1413,9 +1402,7 @@ static bool resetTheme(QString themedir, const QString &badtheme)
 
 static int reloadTheme(void)
 {
-
 #ifdef Q_OS_ANDROID
-
     // jni code to launch the application again
     // reinitializing the main windows causes a segfault
     // with android
@@ -1464,27 +1451,23 @@ static int reloadTheme(void)
     //     popupStack->AddScreen(okPopup);
     return 0;
 #else
-
+    GetMythUI()->InitThemeHelper();
     QString themename = gCoreContext->GetSetting("Theme", DEFAULT_UI_THEME);
-    QString themedir = GetMythUI()->FindThemeDir(themename);
+    QString themedir  = GetMythUI()->FindThemeDir(themename);
     if (themedir.isEmpty())
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("Couldn't find theme '%1'")
-                .arg(themename));
+        LOG(VB_GENERAL, LOG_ERR, QString("Couldn't find theme '%1'").arg(themename));
         return GENERIC_EXIT_NO_THEME;
     }
 
     gCoreContext->ReInitLocale();
     MythTranslation::reload();
-
     GetMythMainWindow()->SetEffectsEnabled(false);
-    GetMythUI()->LoadQtConfig();
     if (g_menu)
         g_menu->Close();
     GetMythMainWindow()->Init();
     GetMythMainWindow()->ReinitDone();
     GetMythMainWindow()->SetEffectsEnabled(true);
-
     if (!RunMenu(themedir, themename) && !resetTheme(themedir, themename))
         return GENERIC_EXIT_NO_THEME;
 
@@ -1496,7 +1479,7 @@ static int reloadTheme(void)
     }
 
     return 0;
-#endif // Q_OS_ANDROID else
+#endif
 }
 
 static void reloadTheme_void(void)
@@ -1508,20 +1491,20 @@ static void reloadTheme_void(void)
 
 static void setDebugShowBorders(void)
 {
-    MythPainter *p = GetMythPainter();
-    p->SetDebugMode(!p->ShowBorders(), p->ShowTypeNames());
-
-    if (GetMythMainWindow()->GetMainStack()->GetTopScreen())
-        GetMythMainWindow()->GetMainStack()->GetTopScreen()->SetRedraw();
+    MythMainWindow* window = GetMythMainWindow();
+    MythPainter* painter = window->GetPainter();
+    painter->SetDebugMode(!painter->ShowBorders(), painter->ShowTypeNames());
+    if (window->GetMainStack()->GetTopScreen())
+        window->GetMainStack()->GetTopScreen()->SetRedraw();
 }
 
 static void setDebugShowNames(void)
 {
-    MythPainter *p = GetMythPainter();
-    p->SetDebugMode(p->ShowBorders(), !p->ShowTypeNames());
-
-    if (GetMythMainWindow()->GetMainStack()->GetTopScreen())
-        GetMythMainWindow()->GetMainStack()->GetTopScreen()->SetRedraw();
+    MythMainWindow* window = GetMythMainWindow();
+    MythPainter* painter = window->GetPainter();
+    painter->SetDebugMode(painter->ShowBorders(), !painter->ShowTypeNames());
+    if (window->GetMainStack()->GetTopScreen())
+        window->GetMainStack()->GetTopScreen()->SetRedraw();
 }
 
 static void InitJumpPoints(void)
@@ -1644,10 +1627,12 @@ static void InitKeys(void)
 
 static void ReloadKeys(void)
 {
-    GetMythMainWindow()->ClearKeyContext("Video");
+    MythMainWindow* mainwindow = GetMythMainWindow();
+    if (mainwindow)
+        mainwindow->ClearKeyContext("Video");
     InitKeys();
-
-    TV::ReloadKeys();
+    if (mainwindow)
+        mainwindow->ReloadKeys();
 }
 
 static void SetFuncPtrs(void)
@@ -1736,27 +1721,26 @@ static bool WasAutomaticStart(void)
         if( gCoreContext->IsMasterHost() )
         {
             QString s = gCoreContext->GetSetting("MythShutdownWakeupTime", "");
-            if (s.length())
+            if (!s.isEmpty())
                 startupTime = MythDate::fromString(s);
 
             // if we don't have a valid startup time assume we were started manually
             if (startupTime.isValid())
             {
-                int startupSecs = gCoreContext->GetNumSetting("StartupSecsBeforeRecording");
+                auto startupSecs = gCoreContext->GetDurSetting<std::chrono::seconds>("StartupSecsBeforeRecording");
+                startupSecs = std::max(startupSecs, 15 * 60s);
                 // If we started within 'StartupSecsBeforeRecording' OR 15 minutes
                 // of the saved wakeup time assume we either started automatically
                 // to record, to obtain guide data or or for a
                 // daily wakeup/shutdown period
-                if (abs(startupTime.secsTo(MythDate::current())) <
-                    max(startupSecs, 15 * 60))
+                if (abs(MythDate::secsInPast(startupTime)) < startupSecs)
                 {
                     LOG(VB_GENERAL, LOG_INFO,
                         "Close to auto-start time, AUTO-Startup assumed");
 
                     QString str = gCoreContext->GetSetting("MythFillSuggestedRunTime");
                     QDateTime guideRunTime = MythDate::fromString(str);
-                    if (guideRunTime.secsTo(MythDate::current()) <
-                        max(startupSecs, 15 * 60))
+                    if (MythDate::secsInPast(guideRunTime) < startupSecs)
                     {
                         LOG(VB_GENERAL, LOG_INFO,
                             "Close to MythFillDB suggested run time, AUTO-Startup to fetch guide data?");
@@ -1798,7 +1782,7 @@ static bool WasAutomaticStart(void)
                     }
 
                     if (!nextRecordingStart.isNull() &&
-                        (abs(nextRecordingStart.secsTo(MythDate::current())) < (4 * 60)))
+                        (abs(MythDate::secsInPast(nextRecordingStart)) < 4min))
                     {
                         LOG(VB_GENERAL, LOG_INFO,
                             "Close to start time, AUTO-Startup assumed");
@@ -1858,7 +1842,7 @@ int main(int argc, char **argv)
         return GENERIC_EXIT_OK;
     }
 
-    MythDisplay::ConfigureQtGUI(1, cmdline.toString("display"));
+    MythDisplay::ConfigureQtGUI(1, cmdline);
     QApplication::setSetuidAllowed(true);
     QApplication a(argc, argv);
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHFRONTEND);
@@ -1899,10 +1883,10 @@ int main(int argc, char **argv)
         bBypassAutoDiscovery = true;
 
     if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
-        cerr << "Unable to ignore SIGPIPE\n";
+        std::cerr << "Unable to ignore SIGPIPE\n";
 
     if (!cmdline.toString("geometry").isEmpty())
-        MythUIHelper::ParseGeometryOverride(cmdline.toString("geometry"));
+        MythMainWindow::ParseGeometryOverride(cmdline.toString("geometry"));
 
     fe_sd_notify("STATUS=Connecting to database.");
     gContext = new MythContext(MYTH_BINARY_VERSION, true);
@@ -1980,7 +1964,7 @@ int main(int argc, char **argv)
         QByteArray dummy;
         int port = gCoreContext->GetNumSetting("UPnP/MythFrontend/ServicePort", 6547);
         QByteArray name("Mythfrontend on ");
-        name.append(gCoreContext->GetHostName());
+        name.append(gCoreContext->GetHostName().toUtf8());
         bonjour->Register(port, "_mythfrontend._tcp",
                                  name, dummy);
     }
@@ -2005,8 +1989,6 @@ int main(int argc, char **argv)
         return GENERIC_EXIT_NO_THEME;
     }
 
-    GetMythUI()->LoadQtConfig();
-
     themename = gCoreContext->GetSetting("Theme", DEFAULT_UI_THEME);
     themedir = GetMythUI()->FindThemeDir(themename);
     if (themedir.isEmpty())
@@ -2016,7 +1998,15 @@ int main(int argc, char **argv)
         return GENERIC_EXIT_NO_THEME;
     }
 
-    MythMainWindow *mainWindow = GetMythMainWindow();
+    auto * mainWindow = GetMythMainWindow();
+
+    // Force an update of our hardware decoder/render support once the window is
+    // ready and we have a render device (and after each window re-initialisation
+    // when we may have a new render device). This also ensures the support checks
+    // are done immediately and are not reliant on semi-random settings initialisation.
+    QObject::connect(mainWindow, &MythMainWindow::SignalWindowReady,
+                     []() { MythVideoProfile::InitStatics(true); } );
+
     mainWindow->Init(false);
     mainWindow->setWindowTitle(QCoreApplication::translate("(MythFrontendMain)",
                                                "MythTV Frontend",
@@ -2108,14 +2098,14 @@ int main(int argc, char **argv)
     fe_sd_notify("STATUS=Loading theme updates");
     std::unique_ptr<ThemeUpdateChecker> themeUpdateChecker;
     if (gCoreContext->GetBoolSetting("ThemeUpdateNofications", true))
-        themeUpdateChecker = make_unique<ThemeUpdateChecker>();
+        themeUpdateChecker = std::make_unique<ThemeUpdateChecker>();
 
     MythSystemEventHandler sysEventHandler {};
 
     BackendConnectionManager bcm;
 
     PreviewGeneratorQueue::CreatePreviewGeneratorQueue(
-        PreviewGenerator::kRemote, 50, 60);
+        PreviewGenerator::kRemote, 50, 60s);
 
     fe_sd_notify("STATUS=Creating housekeeper");
     auto *housekeeping = new HouseKeeper();
@@ -2173,12 +2163,12 @@ int main(int argc, char **argv)
     }
 
     // Provide systemd ready notification (for type=notify units)
-    fe_sd_notify("STATUS=");
-    fe_sd_notify("READY=1");
+    fe_sd_notify("STATUS=")
+    fe_sd_notify("READY=1")
 
     int ret = QCoreApplication::exec();
 
-    fe_sd_notify("STOPPING=1\nSTATUS=Exiting");
+    fe_sd_notify("STOPPING=1\nSTATUS=Exiting")
     if (ret==0)
         gContext-> saveSettingsCache();
 

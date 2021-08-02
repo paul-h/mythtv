@@ -12,7 +12,7 @@
 #include "decoderhandler.h"
 
 // how long to wait before updating the lastplay and playcount fields
-#define LASTPLAY_DELAY 15
+static constexpr std::chrono::seconds LASTPLAY_DELAY { 15s };
 
 class AudioOutput;
 class MainVisual;
@@ -49,6 +49,14 @@ class MusicPlayerEvent : public MythEvent
         static Type CDChangedEvent;
         static Type PlaylistChangedEvent;
         static Type PlayedTracksChangedEvent;
+
+    // No implicit copying.
+    protected:
+        MusicPlayerEvent(const MusicPlayerEvent &other) = default;
+        MusicPlayerEvent &operator=(const MusicPlayerEvent &other) = default;
+    public:
+        MusicPlayerEvent(MusicPlayerEvent &&) = delete;
+        MusicPlayerEvent &operator=(MusicPlayerEvent &&) = delete;
 };
 
 class MusicPlayer : public QObject, public MythObservable
@@ -133,7 +141,7 @@ class MusicPlayer : public QObject, public MythObservable
     bool         setCurrentTrackPos(int pos);
     void         changeCurrentTrack(int trackNo);
 
-    int          getCurrentTrackTime(void) const { return m_currentTime; }
+    std::chrono::seconds getCurrentTrackTime(void) const { return m_currentTime; }
 
     void         activePlaylistChanged(int trackID, bool deleted);
     void         playlistChanged(int playlistID);
@@ -141,7 +149,7 @@ class MusicPlayer : public QObject, public MythObservable
     void         savePosition(void);
     void         restorePosition(void);
     void         setAllowRestorePos(bool allow) { m_allowRestorePos = allow; }
-    void         seek(int pos);
+    void         seek(std::chrono::seconds pos);
 
     MusicMetadata *getCurrentMetadata(void);
     MusicMetadata *getNextMetadata(void);
@@ -211,7 +219,7 @@ class MusicPlayer : public QObject, public MythObservable
     void decoderHandlerReady(void);
 
     int          m_currentTrack {-1};
-    int          m_currentTime {0};
+    std::chrono::seconds  m_currentTime {0s};
 
     MusicMetadata  *m_oneshotMetadata {nullptr};
 
@@ -229,7 +237,7 @@ class MusicPlayer : public QObject, public MythObservable
     bool         m_updatedLastplay    {false};
     bool         m_allowRestorePos    {true};
 
-    int          m_lastplayDelay      {LASTPLAY_DELAY};
+    std::chrono::seconds  m_lastplayDelay      {LASTPLAY_DELAY};
 
     ShuffleMode  m_shuffleMode        {SHUFFLE_OFF};
     RepeatMode   m_repeatMode         {REPEAT_OFF};
@@ -245,7 +253,7 @@ class MusicPlayer : public QObject, public MythObservable
 
     // radio stuff
     QList<MusicMetadata*>  m_playedList;
-    int          m_lastTrackStart     {0};
+    std::chrono::seconds   m_lastTrackStart     {0s};
     int          m_bufferAvailable    {0};
     int          m_bufferSize         {0};
 

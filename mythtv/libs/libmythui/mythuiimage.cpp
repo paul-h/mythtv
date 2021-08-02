@@ -19,6 +19,7 @@
 
 // libmythbase
 #include "mythlogging.h"
+#include "mythmiscutil.h"
 #include "mthreadpool.h"
 
 // Mythui
@@ -188,8 +189,8 @@ class ImageLoader
 
 
         imagelabel  = QString("%1-%2-%3x%4.png")
-                    .arg(imProps.m_filename)
-                    .arg(s_Attrib)
+                    .arg(imProps.m_filename,
+                         s_Attrib)
                     .arg(w)
                     .arg(h);
         imagelabel.replace('/', '-');
@@ -317,7 +318,7 @@ class ImageLoader
             {
                 float wmult = NAN; // Width multipler
                 float hmult = NAN; // Height multipler
-                GetMythUI()->GetScreenSettings(wmult, hmult);
+                GetMythMainWindow()->GetScalingFactors(wmult, hmult);
                 if (wmult != 1.0F || hmult != 1.0F)
                 {
                     w = image->size().width() * wmult;
@@ -336,7 +337,7 @@ class ImageLoader
                 {
                     float wmult = NAN; // Width multipler
                     float hmult = NAN; // Height multipler
-                    GetMythUI()->GetScreenSettings(wmult, hmult);
+                    GetMythMainWindow()->GetScalingFactors(wmult, hmult);
                     if (wmult != 1.0F || hmult != 1.0F)
                     {
                         int width = newMaskImage->size().width() * wmult;
@@ -412,7 +413,7 @@ class ImageLoader
             if (!im)
                 aborted = true;
 
-            images->append(AnimationFrame(im, imageReader->nextImageDelay()));
+            images->append(AnimationFrame(im, std::chrono::milliseconds(imageReader->nextImageDelay())));
             imageCount++;
         }
 
@@ -553,7 +554,7 @@ public:
 /////////////////////////////////////////////////////////////////
 
 MythUIImage::MythUIImage(const QString &filepattern,
-                         int low, int high, int delayms,
+                         int low, int high, std::chrono::milliseconds delay,
                          MythUIType *parent, const QString &name)
     : MythUIType(parent, name)
 {
@@ -561,7 +562,7 @@ MythUIImage::MythUIImage(const QString &filepattern,
     m_lowNum = low;
     m_highNum = high;
 
-    m_delay = delayms;
+    m_delay = delay;
     m_enableInitiator = true;
 
     d = new MythUIImagePrivate(this);
@@ -577,7 +578,7 @@ MythUIImage::MythUIImage(const QString &filename, MythUIType *parent,
 
     m_lowNum = 0;
     m_highNum = 0;
-    m_delay = -1;
+    m_delay = -1ms;
     m_enableInitiator = true;
 
     d = new MythUIImagePrivate(this);
@@ -589,7 +590,7 @@ MythUIImage::MythUIImage(MythUIType *parent, const QString &name)
 {
     m_lowNum = 0;
     m_highNum = 0;
-    m_delay = -1;
+    m_delay = -1ms;
     m_enableInitiator = true;
 
     d = new MythUIImagePrivate(this);
@@ -714,10 +715,10 @@ void MythUIImage::SetImageCount(int low, int high)
 /**
  *  \brief Set the delay between each image in an animation
  */
-void MythUIImage::SetDelay(int delayms)
+void MythUIImage::SetDelay(std::chrono::milliseconds delay)
 {
     QWriteLocker updateLocker(&d->m_updateLock);
-    m_delay = delayms;
+    m_delay = delay;
     m_lastDisplay = QTime::currentTime();
     m_curPos = 0;
 }
@@ -725,15 +726,15 @@ void MythUIImage::SetDelay(int delayms)
 /**
  *  \brief Sets the delays between each image in an animation
  */
-void MythUIImage::SetDelays(const QVector<int>& delays)
+void MythUIImage::SetDelays(const QVector<std::chrono::milliseconds>& delays)
 {
     QWriteLocker updateLocker(&d->m_updateLock);
     QMutexLocker imageLocker(&m_imagesLock);
 
-    for (int delay : qAsConst(delays))
+    for (std::chrono::milliseconds delay : qAsConst(delays))
         m_delays[m_delays.size()] = delay;
 
-    if (m_delay == -1)
+    if (m_delay == -1ms)
         m_delay = m_delays[0];
 
     m_lastDisplay = QTime::currentTime();
@@ -781,7 +782,7 @@ void MythUIImage::SetImage(MythImage *img)
         img->ToGreyscale();
 
     Clear();
-    m_delay = -1;
+    m_delay = -1ms;
 
     if (m_imageProperties.m_isOriented && !img->IsOriented())
         img->Orientation(m_imageProperties.m_orientation);
@@ -874,7 +875,7 @@ void MythUIImage::SetImages(QVector<MythImage *> *images)
 
 void MythUIImage::SetAnimationFrames(const AnimationFrames& frames)
 {
-    QVector<int> delays;
+    QVector<std::chrono::milliseconds> delays;
     QVector<MythImage *> images;
 
     for (const auto & frame : qAsConst(frames))
@@ -887,7 +888,7 @@ void MythUIImage::SetAnimationFrames(const AnimationFrames& frames)
     {
         SetImages(&images);
 
-        if (m_delay < 0  && !delays.empty())
+        if (m_delay < 0ms  && !delays.empty())
             SetDelays(delays);
     }
     else
@@ -897,7 +898,7 @@ void MythUIImage::SetAnimationFrames(const AnimationFrames& frames)
 /**
  *  \brief Force the dimensions of the widget and image to the given size.
  */
-void MythUIImage::ForceSize(const QSize &size)
+void MythUIImage::ForceSize(const QSize size)
 {
     if (m_imageProperties.m_forceSize == size)
         return;
@@ -934,7 +935,7 @@ void MythUIImage::SetSize(int width, int height)
 /**
  *  \brief Set the size of the widget
  */
-void MythUIImage::SetSize(const QSize &size)
+void MythUIImage::SetSize(const QSize size)
 {
     QWriteLocker updateLocker(&d->m_updateLock);
     MythUIType::SetSize(size);
@@ -985,7 +986,7 @@ bool MythUIImage::Load(bool allowLoadInBackground, bool forceStat)
         return false;
     }
 
-    if (getenv("DISABLETHREADEDMYTHUIIMAGE"))
+    if (qEnvironmentVariableIsSet("DISABLETHREADEDMYTHUIIMAGE"))
         allowLoadInBackground = false;
 
     // Don't clear the widget before we need to, otherwise it causes
@@ -1142,15 +1143,15 @@ void MythUIImage::Pulse(void)
 {
     d->m_updateLock.lockForWrite();
 
-    int delay = -1;
+    auto delay = -1ms;
 
     if (m_delays.contains(m_curPos))
         delay = m_delays[m_curPos];
-    else if (m_delay > 0)
+    else if (m_delay > 0ms)
         delay = m_delay;
 
-    if (delay > 0 &&
-        abs(m_lastDisplay.msecsTo(QTime::currentTime())) > delay)
+    if (delay > 0ms &&
+        abs(m_lastDisplay.msecsTo(QTime::currentTime())) > delay.count())
     {
         if (m_showingRandomImage)
         {
@@ -1338,7 +1339,7 @@ bool MythUIImage::ParseElement(
 
         if (value.contains(","))
         {
-            QVector<int> delays;
+            QVector<std::chrono::milliseconds> delays;
             QStringList tokens = value.split(",");
             for (const auto & token : qAsConst(tokens))
             {
@@ -1347,11 +1348,11 @@ bool MythUIImage::ParseElement(
                     if (!delays.empty())
                         delays.append(delays[delays.size()-1]);
                     else
-                        delays.append(0); // Default 0ms delay before first image
+                        delays.append(0ms); // Default delay before first image
                 }
                 else
                 {
-                    delays.append(token.toInt());
+                    delays.append(std::chrono::milliseconds(token.toInt()));
                 }
             }
 
@@ -1363,7 +1364,7 @@ bool MythUIImage::ParseElement(
         }
         else
         {
-            m_delay = value.toInt();
+            m_delay = std::chrono::milliseconds(value.toInt());
         }
     }
     else if (element.tagName() == "reflection")
@@ -1433,8 +1434,8 @@ void MythUIImage::CopyFrom(MythUIType *base)
     {
         LOG(VB_GENERAL, LOG_ERR,
             QString("'%1' (%2) ERROR, bad parsing '%3' (%4)")
-            .arg(objectName()).arg(GetXMLLocation())
-            .arg(base->objectName()).arg(base->GetXMLLocation()));
+            .arg(objectName(), GetXMLLocation(),
+                 base->objectName(), base->GetXMLLocation()));
         d->m_updateLock.unlock();
         return;
     }
@@ -1534,8 +1535,8 @@ void MythUIImage::customEvent(QEvent *event)
 {
     if (event->type() == ImageLoadEvent::kEventType)
     {
-        auto *le = dynamic_cast<ImageLoadEvent *>(event);
-        if (le->GetParent() != this)
+        auto * le = dynamic_cast<ImageLoadEvent *>(event);
+        if (!le || le->GetParent() != this)
             return;
 
         MythImage *image                 = le->GetImage();
@@ -1659,8 +1660,8 @@ void MythUIImage::FindRandomImage(void)
         // try to find a different image
         do
         {
-            randFile = QString("%1%2").arg(m_imageDirectory)
-                                      .arg(imageList.takeAt(random() % imageList.size()));
+            uint32_t rand = MythRandom() % static_cast<uint32_t>(imageList.size());
+            randFile = QString("%1%2").arg(m_imageDirectory, imageList.takeAt(static_cast<int>(rand)));
 
         } while (imageList.size() > 1 && randFile == m_origFilename);
     }

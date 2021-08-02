@@ -4,7 +4,6 @@
 #include <cmath>
 
 #include <algorithm>
-using namespace std;
 
 #include "atscstreamdata.h"
 #include "atsctables.h"
@@ -38,8 +37,8 @@ ATSCStreamData::ATSCStreamData(int desiredMajorChannel,
       m_desiredMajorChannel(desiredMajorChannel),
       m_desiredMinorChannel(desiredMinorChannel)
 {
-    AddListeningPID(ATSC_PSIP_PID);
-    AddListeningPID(SCTE_PSIP_PID);
+    AddListeningPID(PID::ATSC_PSIP_PID);
+    AddListeningPID(PID::SCTE_PSIP_PID);
 }
 
 ATSCStreamData::~ATSCStreamData()
@@ -111,8 +110,8 @@ void ATSCStreamData::SetDesiredChannel(int major, int minor)
 void ATSCStreamData::Reset(int desiredProgram)
 {
     MPEGStreamData::Reset(desiredProgram);
-    AddListeningPID(ATSC_PSIP_PID);
-    AddListeningPID(SCTE_PSIP_PID);
+    AddListeningPID(PID::ATSC_PSIP_PID);
+    AddListeningPID(PID::SCTE_PSIP_PID);
 }
 
 void ATSCStreamData::Reset(int desiredMajorChannel, int desiredMinorChannel)
@@ -145,8 +144,8 @@ void ATSCStreamData::Reset(int desiredMajorChannel, int desiredMinorChannel)
         m_cachedCvcts.clear();
     }
 
-    AddListeningPID(ATSC_PSIP_PID);
-    AddListeningPID(SCTE_PSIP_PID);
+    AddListeningPID(PID::ATSC_PSIP_PID);
+    AddListeningPID(PID::SCTE_PSIP_PID);
 }
 
 /** \fn ATSCStreamData::IsRedundant(uint pid, const PSIPTable&) const
@@ -493,8 +492,8 @@ bool ATSCStreamData::HandleTables(uint pid, const PSIPTable &psip)
 bool ATSCStreamData::HasEITPIDChanges(const uint_vec_t &in_use_pids) const
 {
     QMutexLocker locker(&m_listenerLock);
-    uint eit_count = (uint) round(m_atscEitPids.size() * m_eitRate);
-    uint ett_count = (uint) round(m_atscEttPids.size() * m_eitRate);
+    uint eit_count = (uint) std::round(m_atscEitPids.size() * m_eitRate);
+    uint ett_count = (uint) std::round(m_atscEttPids.size() * m_eitRate);
     return (in_use_pids.size() != (eit_count + ett_count) || m_atscEitReset);
 }
 
@@ -506,8 +505,8 @@ bool ATSCStreamData::GetEITPIDChanges(const uint_vec_t &cur_pids,
 
     m_atscEitReset = false;
 
-    uint eit_count = (uint) round(m_atscEitPids.size() * m_eitRate);
-    uint ett_count = (uint) round(m_atscEttPids.size() * m_eitRate);
+    uint eit_count = (uint) std::round(m_atscEitPids.size() * m_eitRate);
+    uint ett_count = (uint) std::round(m_atscEttPids.size() * m_eitRate);
 
 #if 0
     LOG(VB_GENERAL, LOG_DEBUG, LOC + QString("eit size: %1, rate: %2, cnt: %3")
@@ -668,8 +667,8 @@ bool ATSCStreamData::HasCachedTVCT(uint pid, bool current) const
             "Currently we ignore \'current\' param");
 
     m_cacheLock.lock();
-    tvct_cache_t::const_iterator it = m_cachedTvcts.find(pid);
-    bool exists = (it != m_cachedTvcts.end());
+    tvct_cache_t::const_iterator it = m_cachedTvcts.constFind(pid);
+    bool exists = (it != m_cachedTvcts.constEnd());
     m_cacheLock.unlock();
 
     return exists;
@@ -682,8 +681,8 @@ bool ATSCStreamData::HasCachedCVCT(uint pid, bool current) const
             "Currently we ignore \'current\' param");
 
     m_cacheLock.lock();
-    cvct_cache_t::const_iterator it = m_cachedCvcts.find(pid);
-    bool exists = (it != m_cachedCvcts.end());
+    cvct_cache_t::const_iterator it = m_cachedCvcts.constFind(pid);
+    bool exists = (it != m_cachedCvcts.constEnd());
     m_cacheLock.unlock();
 
     return exists;
@@ -794,8 +793,8 @@ tvct_const_ptr_t ATSCStreamData::GetCachedTVCT(uint pid, bool current) const
     tvct_ptr_t tvct = nullptr;
 
     m_cacheLock.lock();
-    tvct_cache_t::const_iterator it = m_cachedTvcts.find(pid);
-    if (it != m_cachedTvcts.end())
+    tvct_cache_t::const_iterator it = m_cachedTvcts.constFind(pid);
+    if (it != m_cachedTvcts.constEnd())
         IncrementRefCnt(tvct = *it);
     m_cacheLock.unlock();
 
@@ -811,8 +810,8 @@ cvct_const_ptr_t ATSCStreamData::GetCachedCVCT(uint pid, bool current) const
     cvct_ptr_t cvct = nullptr;
 
     m_cacheLock.lock();
-    cvct_cache_t::const_iterator it = m_cachedCvcts.find(pid);
-    if (it != m_cachedCvcts.end())
+    cvct_cache_t::const_iterator it = m_cachedCvcts.constFind(pid);
+    if (it != m_cachedCvcts.constEnd())
         IncrementRefCnt(cvct = *it);
     m_cacheLock.unlock();
 
@@ -825,13 +824,11 @@ tvct_vec_t ATSCStreamData::GetCachedTVCTs(bool current) const
         LOG(VB_GENERAL, LOG_WARNING, LOC +
             "Currently we ignore \'current\' param");
 
-    vector<const TerrestrialVirtualChannelTable*> tvcts;
+    std::vector<const TerrestrialVirtualChannelTable*> tvcts;
 
     m_cacheLock.lock();
-    tvct_cache_t::const_iterator it = m_cachedTvcts.begin();
-    for (; it != m_cachedTvcts.end(); ++it)
+    for (auto *tvct : qAsConst(m_cachedTvcts))
     {
-        TerrestrialVirtualChannelTable* tvct = *it;
         IncrementRefCnt(tvct);
         tvcts.push_back(tvct);
     }
@@ -846,7 +843,7 @@ cvct_vec_t ATSCStreamData::GetCachedCVCTs(bool current) const
         LOG(VB_GENERAL, LOG_WARNING, LOC +
             "Currently we ignore \'current\' param");
 
-    vector<const CableVirtualChannelTable*> cvcts;
+    std::vector<const CableVirtualChannelTable*> cvcts;
 
     m_cacheLock.lock();
     for (auto *cvct : qAsConst(m_cachedCvcts))
@@ -942,10 +939,9 @@ void ATSCStreamData::AddATSCMainListener(ATSCMainStreamListener *val)
 {
     QMutexLocker locker(&m_listenerLock);
 
-    for (auto & listener : m_atscMainListeners)
-        if (((void*)val) == ((void*)listener))
-            return;
-
+    if (std::any_of(m_atscMainListeners.cbegin(), m_atscMainListeners.cend(),
+                    [val](auto & listener){ return val == listener; } ))
+        return;
     m_atscMainListeners.push_back(val);
 }
 
@@ -967,9 +963,9 @@ void ATSCStreamData::AddSCTEMainListener(SCTEMainStreamListener *val)
 {
     QMutexLocker locker(&m_listenerLock);
 
-    for (auto & listener : m_scteMainlisteners)
-        if (((void*)val) == ((void*)listener))
-            return;
+    if (std::any_of(m_scteMainlisteners.cbegin(), m_scteMainlisteners.cend(),
+                    [val](auto & listener){ return val == listener; } ))
+        return;
 
     m_scteMainlisteners.push_back(val);
 }
@@ -992,9 +988,9 @@ void ATSCStreamData::AddATSCAuxListener(ATSCAuxStreamListener *val)
 {
     QMutexLocker locker(&m_listenerLock);
 
-    for (auto & listener : m_atscAuxListeners)
-        if (((void*)val) == ((void*)listener))
-            return;
+    if (std::any_of(m_atscAuxListeners.cbegin(), m_atscAuxListeners.cend(),
+                    [val](auto & listener){ return val == listener; } ))
+        return;
 
     m_atscAuxListeners.push_back(val);
 }
@@ -1017,9 +1013,9 @@ void ATSCStreamData::AddATSCEITListener(ATSCEITStreamListener *val)
 {
     QMutexLocker locker(&m_listenerLock);
 
-    for (auto & listener : m_atscEitListeners)
-        if (((void*)val) == ((void*)listener))
-            return;
+    if (std::any_of(m_atscEitListeners.cbegin(), m_atscEitListeners.cend(),
+                    [val](auto & listener){ return val == listener; } ))
+        return;
 
     m_atscEitListeners.push_back(val);
 }
@@ -1042,9 +1038,9 @@ void ATSCStreamData::AddATSC81EITListener(ATSC81EITStreamListener *val)
 {
     QMutexLocker locker(&m_listenerLock);
 
-    for (auto & listener : m_atsc81EitListeners)
-        if (((void*)val) == ((void*)listener))
-            return;
+    if (std::any_of(m_atsc81EitListeners.cbegin(), m_atsc81EitListeners.cend(),
+                    [val](auto & listener){ return val == listener; } ))
+        return;
 
     m_atsc81EitListeners.push_back(val);
 }

@@ -5,7 +5,11 @@
 
 // Qt headers
 #include <QList>
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
 #include <QMutex>
+#else
+#include <QRecursiveMutex>
+#endif
 #include <QObject>
 #include <QStringList>
 
@@ -289,8 +293,8 @@ class MBASE_PUBLIC LCD : public QObject
 
     void stopAll(void);
 
-    uint getLCDHeight(void) const { return m_lcdHeight; }
-    uint getLCDWidth(void) const { return m_lcdWidth; }
+    int getLCDHeight(void) const { return m_lcdHeight; }
+    int getLCDWidth(void) const { return m_lcdWidth; }
 
     void resetServer(void); // tell the mythlcdserver to reload its settings
 
@@ -316,7 +320,11 @@ signals:
 
   private:
     QTcpSocket *m_socket        {nullptr};
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QMutex   m_socketLock       {QMutex::Recursive};
+#else
+    QRecursiveMutex m_socketLock;
+#endif
     QString  m_hostname         {"localhost"};
     uint     m_port             {6545};
     bool     m_connected        {false};

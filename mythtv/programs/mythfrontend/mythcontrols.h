@@ -55,9 +55,12 @@ class MythControls : public MythScreenType
      *  \brief Creates a new MythControls wizard
      *  \param parent Pointer to the screen stack
      *  \param name The name of the window
+     *  \param Modifiers If true only show key modifications (e.g. LongPress) otherwise filter them out
      */
-    MythControls(MythScreenStack *parent, const char *name)
-        : MythScreenType (parent, name) {}
+    MythControls(MythScreenStack *parent, const char *name, KeyBindings::Filter Filters = KeyBindings::AllBindings)
+        : MythScreenType (parent, name),
+          m_filters(Filters)
+    {}
     ~MythControls() override;
 
     bool Create(void) override; // MythScreenType
@@ -88,7 +91,7 @@ class MythControls : public MythScreenType
                             bool arrows = false);
     void    UpdateRightList(void);
 
-    void GrabKey(void);
+    void GrabKey(void) const;
     void DeleteKey(void);
     void Save(void) { m_bindings->CommitChanges(); }
 
@@ -107,7 +110,8 @@ class MythControls : public MythScreenType
     void RightPressed(MythUIButtonListItem *item);
     void ActionButtonPressed();
     void RefreshKeyInformation(void);
-    void AddKeyToAction(const QString& key, bool ignoreconflict = false);
+    void AddKeyToAction(const QString& key, bool ignoreconflict);
+    void AddKeyToAction(const QString& key);
 
   private:
     void ShowMenu(void) override; // MythScreenType
@@ -128,6 +132,7 @@ class MythControls : public MythScreenType
     QHash<QString, QStringList> m_contexts;
     ListType           m_leftListType     {kContextList};
     ListType           m_rightListType    {kActionList};
+    KeyBindings::Filter m_filters         {KeyBindings::AllBindings};
 };
 
 

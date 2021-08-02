@@ -93,9 +93,11 @@ class VideoDialog : public MythScreenType
     void SwitchVideoTVMovieGroup();
 
     void EditMetadata();
-    void VideoSearch(MythGenericTree *node = nullptr,
+    void VideoSearch(MythGenericTree *node,
                      bool automode = false);
-    void VideoAutoSearch(MythGenericTree *node = nullptr);
+    void VideoSearch() { VideoSearch(nullptr, false); }
+    void VideoAutoSearch(MythGenericTree *node);
+    void VideoAutoSearch() { VideoAutoSearch(nullptr); }
     void ResetMetadata();
     void ToggleWatched();
     void ToggleProcess();
@@ -124,6 +126,7 @@ class VideoDialog : public MythScreenType
     void ShowCastDialog();
     void ShowHomepage();
     bool DoItemDetailShow();
+    void DoItemDetailShow2() { static_cast<void>(DoItemDetailShow()); }
     void ShowPlayerSettings();
     void ShowExtensionSettings();
     void ShowMetadataSettings();
@@ -131,7 +134,7 @@ class VideoDialog : public MythScreenType
     void OnParentalChange(int amount);
 
     // Called when the underlying data for an item changes
-    void OnVideoSearchListSelection(const RefCountHandler<MetadataLookup>& lookup);
+    void OnVideoSearchListSelection(RefCountHandler<MetadataLookup> lookup);
 
     void doVideoScan();
 
@@ -153,7 +156,6 @@ class VideoDialog : public MythScreenType
     static QString GetCoverImage(MythGenericTree *node);
     QString GetFirstImage(MythGenericTree *node, const QString& type,
                           const QString& gpnode = QString(), int levels = 0);
-    static QString GetImageFromFolder(VideoMetadata *metadata);
     static QString GetScreenshot(MythGenericTree *node);
     static QString GetBanner(MythGenericTree *node);
     static QString GetFanart(MythGenericTree *node);
@@ -163,7 +165,7 @@ class VideoDialog : public MythScreenType
     void handleDirSelect(MythGenericTree *node);
     void handleDynamicDirSelect(MythGenericTree *node);
     bool goBack();
-    void setParentalLevel(const ParentalLevel::Level &level);
+    void setParentalLevel(ParentalLevel::Level level);
     void shiftParental(int amount);
     bool createPopup();
     void createBusyDialog(const QString &title);
@@ -226,7 +228,7 @@ class VideoListDeathDelay : public QObject
     // When exiting MythVideo, we delay destroying the data for kDelayTimeMS
     // milliseconds, and reuse the data (possibly avoiding a rescan) if the user
     // restarts MythVideo within that time period.
-    static const int kDelayTimeMS = 3000;
+    static constexpr std::chrono::milliseconds kDelayTimeMS { 3s };
 
   private slots:
     void OnTimeUp();

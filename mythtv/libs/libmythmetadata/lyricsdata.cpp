@@ -3,21 +3,24 @@
 #include "musicmetadata.h"
 
 // qt
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QDomDocument>
 
 // mythtv
+#include "mythchrono.h"
 #include "mythcontext.h"
 
 // libmythmetadata
 #include "lyricsdata.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(5,15,2)
+#define capturedView capturedRef
+#endif
+
+static const QRegularExpression kTimeCode { R"(^(\[(\d\d):(\d\d)(?:\.(\d\d))?\])(.*))" };
 
 /*************************************************************************/
 //LyricsData
-
-//LyricsData::LyricsData():
-//    m_parent(nullptr), m_status(STATUS_NOTLOADED), m_syncronized(false), m_changed(false) { }
 
 LyricsData::~LyricsData()
 {
@@ -37,7 +40,7 @@ void LyricsData::clear(void)
 
 void LyricsData::clearLyrics(void)
 {
-    QMap<int, LyricsLine*>::iterator i = m_lyricsMap.begin();
+    auto i = m_lyricsMap.begin();
     while (i != m_lyricsMap.end()) 
     {
         delete i.value();
@@ -168,7 +171,7 @@ QString LyricsData::createLyricsXML(void)
     grabber.appendChild(doc.createTextNode(m_grabber));
 
     // lyrics
-    QMap<int, LyricsLine*>::iterator i = m_lyricsMap.begin();
+    auto i = m_lyricsMap.begin();
     while (i != m_lyricsMap.end())
     {
         LyricsLine *line = (*i);
@@ -268,30 +271,17 @@ void LyricsData::loadLyrics(const QString &xmlData)
         if (m_syncronized)
         {
             QStringList times;
-            int lastind = 0;
-            while (lyric.indexOf(QRegExp(R"(\[\d\d:\d\d\])"),
-                                 lastind) == lastind ||
-                   lyric.indexOf(QRegExp(R"(\[\d\d:\d\d\.\d\d\])"),
-                                 lastind) == lastind)
+            auto match = kTimeCode.match(lyric);
+            if (match.hasMatch())
             {
-                if (lyric[lastind+6] == '.')
+                while (match.hasMatch())
                 {
-                    times.append(lyric.mid(lastind,10));
-                    lastind += 10;
+                    times.append(lyric.left(match.capturedLength(1)));
+                    lyric.remove(0,match.capturedLength(1));
+                    match = kTimeCode.match(lyric);
                 }
-                else
-                {
-                    // short version
-                    times.append(lyric.mid(lastind,7));
-                    lastind += 7;
-                }
-            }
-            if (!times.isEmpty())
-            {
-                for (int y = 0; y < times.count(); y++)
-                {
-                    lyrics.append(times.at(y) + lyric.mid(lastind));
-                }
+                for (const auto &time : qAsConst(times))
+                    lyrics.append(time + lyric);
             }
             else
             {
@@ -313,56 +303,41 @@ void LyricsData::setLyrics(const QStringList &lyrics)
 {
     clearLyrics();
 
-    int lastTime = -1;
-    int offset = 0;  // offset in milliseconds
+    std::chrono::milliseconds lastTime = -1ms;
+    std::chrono::milliseconds offset = 0ms;
 
     for (int x = 0; x < lyrics.count(); x++)
     {
-        QString lyric = lyrics.at(x);
+        const QString& lyric = lyrics.at(x);
 
         auto *line = new LyricsLine;
 
-        if (lyric.startsWith("[offset:"))
-        {
-            offset = lyric.mid(8,lyric.indexOf("]", 8)-8).toInt();
-        }
+        static const QRegularExpression kOffset { R"(^\[offset:(.+)\])" };
+        auto match = kOffset.match(lyric);
+        if (match.hasMatch())
+            offset = std::chrono::milliseconds(match.capturedView(1).toInt());
 
         if (m_syncronized)
         {
             if (!lyric.isEmpty())
             {
                 // does the line start with a time code like [12:34] or [12:34.56]
-                if (lyric.indexOf(QRegExp(R"(\[\d\d:\d\d\])"), 0) == 0 ||
-                    lyric.indexOf(QRegExp(R"(\[\d\d:\d\d\.\d\d\])"), 0) == 0)
+                match = kTimeCode.match(lyric);
+                if (match.hasMatch())
                 {
-                    int minutes = lyric.mid(1, 2).toInt();
-                    int seconds = lyric.mid(4, 2).toInt();
-                    int hundredths = 0;
-                    if (lyric[6] == '.')
-                    {
-                        hundredths = lyric.mid(7, 2).toInt();
-                        line->m_lyric = lyric.mid(10);
-                    }
-                    else
-                    {
-                        line->m_lyric = lyric.mid(7);
-                    }
-                    line->m_time = (minutes * 60 * 1000) + (seconds * 1000) + (hundredths * 10);
-                    if (offset > 0)
-                    {
-                        if (offset > line->m_time) line->m_time = 0;
-                        else line->m_time -= offset;
-                    }
-                    else
-                    {
-                        line->m_time -= offset;
-                    }
-                    lastTime = line->m_time;
+                    int minutes    = match.capturedView(2).toInt();
+                    int seconds    = match.capturedView(3).toInt();
+                    int hundredths = match.capturedView(4).toInt();
+
+                    line->m_lyric  = match.captured(5).trimmed();
+                    line->m_time   = millisecondsFromParts(0, minutes, seconds, hundredths * 10);
+                    line->m_time   = std::max(0ms, line->m_time - offset);
+                    lastTime       = line->m_time;
                 }
                 else
                 {
                     line->m_time = ++lastTime;
-                    line->m_lyric = lyric;
+                    line->m_lyric = lyric.trimmed();
                 }
             }
         }
@@ -371,14 +346,14 @@ void LyricsData::setLyrics(const QStringList &lyrics)
             // synthesize a time code from the track length and the number of lyrics lines
             if (m_parent && !m_parent->isRadio())
             {
-                line->m_time = (m_parent->Length() / lyrics.count()) * x;
-                line->m_lyric = lyric;
+                line->m_time = std::chrono::milliseconds((m_parent->Length() / lyrics.count()) * x);
+                line->m_lyric = lyric.trimmed();
                 lastTime = line->m_time;
             }
             else
             {
                 line->m_time = ++lastTime;
-                line->m_lyric = lyric;
+                line->m_lyric = lyric.trimmed();
             }
         }
 

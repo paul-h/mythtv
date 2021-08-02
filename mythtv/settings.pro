@@ -25,6 +25,9 @@ win32-msvc* {
   include ( config.mak )
 }
 
+contains(QT_MAJOR_VERSION, 6) {
+QT += core5compat
+}
 CONFIG += $$CCONFIG
 CONFIG += c++17
 
@@ -48,7 +51,7 @@ defineReplace(avLibName) {
 
 #check QT major version
 contains(QT_MAJOR_VERSION, 4) {
-        error("Must build against Qt5")
+        error("Must build against Qt5 or higher")
 }
 
 # Where binaries, includes and runtime assets are installed by 'make install'
@@ -267,10 +270,10 @@ macx:QMAKE_CFLAGS_STATIC_LIB += -fno-common
 # clang 3.0 on Linux does not like duplicate arguments.
 macx {
     QMAKE_CFLAGS   += $$CPPFLAGS   $$CFLAGS
-    QMAKE_CXXFLAGS += $$CXXPPFLAGS $$ECXXFLAGS
+    QMAKE_CXXFLAGS += $$CXXPPFLAGS $$CXXFLAGS $$ECXXFLAGS
 } else {
     QMAKE_CFLAGS   *= $$CPPFLAGS   $$CFLAGS
-    QMAKE_CXXFLAGS *= $$CXXPPFLAGS $$ECXXFLAGS
+    QMAKE_CXXFLAGS *= $$CXXPPFLAGS $$CXXFLAGS $$ECXXFLAGS
 }
 
 profile:!win32:!macx:CONFIG += debug

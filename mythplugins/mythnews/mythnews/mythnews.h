@@ -35,6 +35,7 @@ class MythNews : public MythScreenType
     void clearSites(void);
     void cancelRetrieve(void);
     void processAndShowNews(NewsSite *site);
+    static QString cleanText(const QString &text);
 
     static QString formatSize(long long bytes, int prec);
     static void playVideo(const NewsArticle &article);
@@ -43,14 +44,18 @@ class MythNews : public MythScreenType
     void ShowMenu(void) override; // MythScreenType
     void deleteNewsSite(void);
     void ShowEditDialog(bool edit);
-    void ShowFeedManager();
+    void ShowFeedManager() const;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex m_lock            {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex m_lock;
+#endif
     NewsSite::List m_newsSites;
 
     QTimer        *m_retrieveTimer   {nullptr};
-    int            m_timerTimeout    {10*60*1000};
-    unsigned int   m_updateFreq      {30};
+    std::chrono::minutes  m_timerTimeout  {10min};
+    std::chrono::minutes  m_updateFreq    {30min};
 
     QString        m_zoom            {"1.0"};
     QString        m_browser;

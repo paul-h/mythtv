@@ -27,8 +27,6 @@
 #include <QCoreApplication>
 #include <iostream>
 
-using namespace std;
-
 // MythTv headers
 #include "channelscanner_cli.h"
 #include "channelscan_sm.h"
@@ -42,12 +40,12 @@ void ChannelScannerCLI::HandleEvent(const ScannerEvent *scanEvent)
         (scanEvent->type() == ScannerEvent::ScanShutdown) ||
         (scanEvent->type() == ScannerEvent::ScanErrored))
     {
-        cout<<endl;
+        std::cout<<std::endl;
 
         if (scanEvent->type() == ScannerEvent::ScanShutdown)
-            cerr<<"HandleEvent(void) -- scan shutdown"<<endl;
+            std::cerr<<"HandleEvent(void) -- scan shutdown"<<std::endl;
         else
-            cerr<<"HandleEvent(void) -- scan complete"<<endl;
+            std::cerr<<"HandleEvent(void) -- scan complete"<<std::endl;
 
         ScanDTVTransportList transports;
         if (m_sigmonScanner)
@@ -95,9 +93,9 @@ void ChannelScannerCLI::HandleEvent(const ScannerEvent *scanEvent)
         msg = QString("%1% S/N %2 %3 : %4 (%5) %6")
             .arg(m_statusComplete, 3)
             .arg(m_statusSnr, 3, 'f', 1)
-            .arg((m_statusLock) ? "l" : "L")
-            .arg(qPrintable(m_statusText))
-            .arg(qPrintable(m_statusLastLog))
+            .arg((m_statusLock) ? "l" : "L",
+                 qPrintable(m_statusText),
+                 qPrintable(m_statusLastLog))
             .arg("", 20);
     }
     //cout<<msg.toLatin1().constData()<<endl;
@@ -115,8 +113,8 @@ void ChannelScannerCLI::HandleEvent(const ScannerEvent *scanEvent)
     {
         if (msg.length() > 80)
             msg = msg.left(77) + "...";
-        cout<<"\r"<<msg.toLatin1().constData()<<"\r";
-        cout<<flush;
+        std::cout<<"\r"<<msg.toLatin1().constData()<<"\r";
+        std::cout<<std::flush;
     }
 }
 
@@ -124,7 +122,7 @@ void ChannelScannerCLI::InformUser(const QString &error)
 {
     if (VERBOSE_LEVEL_NONE)
     {
-        cerr<<"ERROR: "<<error.toLatin1().constData()<<endl;
+        std::cerr<<"ERROR: "<<error.toLatin1().constData()<<std::endl;
     }
     else
     {
@@ -148,5 +146,5 @@ void ChannelScannerCLI::MonitorProgress(
     bool /*lock*/, bool /*strength*/, bool /*snr*/, bool /*rotor*/)
 {
     if (VERBOSE_LEVEL_NONE)
-        cout<<"\r0%"<<flush;
+        std::cout<<"\r0%"<<std::flush;
 }

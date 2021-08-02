@@ -197,16 +197,16 @@ bool MythAVFormatWriter::NextFrameIsKeyFrame(void)
            (m_bufferedVideoFrameTypes.first() == AV_PICTURE_TYPE_I);
 }
 
-int MythAVFormatWriter::WriteVideoFrame(VideoFrame *Frame)
+int MythAVFormatWriter::WriteVideoFrame(MythVideoFrame *Frame)
 {
     long long framesEncoded = m_framesWritten + m_bufferedVideoFrameTimes.size();
 
     av_frame_unref(m_picture);
-    AVPictureFill(m_picture, Frame);
+    MythAVUtil::FillAVFrame(m_picture, Frame);
     m_picture->pts = framesEncoded + 1;
     m_picture->pict_type = ((framesEncoded % m_keyFrameDist) == 0) ? AV_PICTURE_TYPE_I : AV_PICTURE_TYPE_NONE;
 
-    m_bufferedVideoFrameTimes.push_back(Frame->timecode);
+    m_bufferedVideoFrameTimes.push_back(Frame->m_timecode);
     m_bufferedVideoFrameTypes.push_back(m_picture->pict_type);
 
     AVPacket pkt;
@@ -214,7 +214,7 @@ int MythAVFormatWriter::WriteVideoFrame(VideoFrame *Frame)
     pkt.data = nullptr;
     pkt.size = 0;
     int got_pkt = 0;
-    AVCodecContext *avctx = m_codecMap.getCodecContext(m_videoStream);
+    AVCodecContext *avctx = m_codecMap.GetCodecContext(m_videoStream);
     int ret = avcodec_encode_video2(avctx, &pkt, m_picture, &got_pkt);
 
     if (ret < 0)
@@ -226,7 +226,7 @@ int MythAVFormatWriter::WriteVideoFrame(VideoFrame *Frame)
     if (!got_pkt)
         return ret;
 
-    long long tc = Frame->timecode;
+    std::chrono::milliseconds tc = Frame->m_timecode;
 
     if (!m_bufferedVideoFrameTimes.isEmpty())
         tc = m_bufferedVideoFrameTimes.takeFirst();
@@ -238,11 +238,11 @@ int MythAVFormatWriter::WriteVideoFrame(VideoFrame *Frame)
             pkt.flags |= AV_PKT_FLAG_KEY;
     }
 
-    if (m_startingTimecodeOffset == -1)
-        m_startingTimecodeOffset = tc - 1;
+    if (m_startingTimecodeOffset == -1ms)
+        m_startingTimecodeOffset = tc - 1ms;
     tc -= m_startingTimecodeOffset;
 
-    pkt.pts = tc * m_videoStream->time_base.den / m_videoStream->time_base.num / 1000;
+    pkt.pts = tc.count() * m_videoStream->time_base.den / m_videoStream->time_base.num / 1000;
     pkt.dts = AV_NOPTS_VALUE;
     pkt.stream_index= m_videoStream->index;
 
@@ -250,7 +250,7 @@ int MythAVFormatWriter::WriteVideoFrame(VideoFrame *Frame)
     if (ret != 0)
         LOG(VB_RECORD, LOG_ERR, LOC + "WriteVideoFrame(): av_interleaved_write_frame couldn't write Video");
 
-    Frame->timecode = tc + m_startingTimecodeOffset;
+    Frame->m_timecode = tc + m_startingTimecodeOffset;
     m_framesWritten++;
     av_packet_unref(&pkt);
     return 1;
@@ -267,13 +267,13 @@ static void bswap_16_buf(short int *buf, int buf_cnt, int audio_channels)
 }
 #endif
 
-int MythAVFormatWriter::WriteAudioFrame(unsigned char *Buffer, int /*FrameNumber*/, long long &Timecode)
+int MythAVFormatWriter::WriteAudioFrame(unsigned char *Buffer, int /*FrameNumber*/, std::chrono::milliseconds &Timecode)
 {
 #if HAVE_BIGENDIAN
     bswap_16_buf((short int*) buf, m_audioFrameSize, m_audioChannels);
 #endif
 
-    AVCodecContext *avctx   = m_codecMap.getCodecContext(m_audioStream);
+    AVCodecContext *avctx   = m_codecMap.GetCodecContext(m_audioStream);
     int samples_per_avframe = m_audioFrameSize * m_audioChannels;
     int sampleSizeIn        = AudioOutputSettings::SampleSize(FORMAT_S16);
     AudioFormat format      = AudioOutputSettings::AVSampleFormatToFormat(avctx->sample_fmt);
@@ -338,19 +338,19 @@ int MythAVFormatWriter::WriteAudioFrame(unsigned char *Buffer, int /*FrameNumber
     if (!got_packet)
         return ret;
 
-    long long tc = Timecode;
+    std::chrono::milliseconds tc = Timecode;
 
     if (!m_bufferedAudioFrameTimes.empty())
         tc = m_bufferedAudioFrameTimes.takeFirst();
 
-    if (m_startingTimecodeOffset == -1)
-        m_startingTimecodeOffset = tc - 1;
+    if (m_startingTimecodeOffset == -1ms)
+        m_startingTimecodeOffset = tc - 1ms;
     tc -= m_startingTimecodeOffset;
 
     if (m_avVideoCodec)
-        pkt.pts = tc * m_videoStream->time_base.den / m_videoStream->time_base.num / 1000;
+        pkt.pts = tc.count() * m_videoStream->time_base.den / m_videoStream->time_base.num / 1000;
     else
-        pkt.pts = tc * m_audioStream->time_base.den / m_audioStream->time_base.num / 1000;
+        pkt.pts = tc.count() * m_audioStream->time_base.den / m_audioStream->time_base.num / 1000;
 
     pkt.dts = AV_NOPTS_VALUE;
     pkt.flags |= AV_PKT_FLAG_KEY;
@@ -366,7 +366,7 @@ int MythAVFormatWriter::WriteAudioFrame(unsigned char *Buffer, int /*FrameNumber
 }
 
 int MythAVFormatWriter::WriteTextFrame(int /*VBIMode*/, unsigned char* /*Buffer*/, int /*Length*/,
-                                   long long /*Timecode*/, int /*PageNumber*/)
+                                       std::chrono::milliseconds /*Timecode*/, int /*PageNumber*/)
 {
     return 1;
 }
@@ -411,8 +411,8 @@ AVStream* MythAVFormatWriter::AddVideoStream(void)
         return nullptr;
     }
 
-    m_codecMap.freeCodecContext(stream);
-    AVCodecContext *context  = m_codecMap.getCodecContext(stream, codec);
+    m_codecMap.FreeCodecContext(stream);
+    AVCodecContext *context  = m_codecMap.GetCodecContext(stream, codec);
     context->codec           = codec;
     context->codec_id        = m_ctx->oformat->video_codec;
     context->codec_type      = AVMEDIA_TYPE_VIDEO;
@@ -514,7 +514,7 @@ bool MythAVFormatWriter::OpenVideo(void)
     if (!m_width || !m_height)
         return false;
 
-    AVCodecContext *context = m_codecMap.getCodecContext(m_videoStream);
+    AVCodecContext *context = m_codecMap.GetCodecContext(m_videoStream);
     if (avcodec_open2(context, nullptr, nullptr) < 0)
     {
         LOG(VB_RECORD, LOG_ERR, LOC + "OpenVideo(): avcodec_open() failed");
@@ -548,7 +548,7 @@ AVStream* MythAVFormatWriter::AddAudioStream(void)
     }
     stream->id = 1;
 
-    AVCodecContext *context = m_codecMap.getCodecContext(stream, nullptr, true);
+    AVCodecContext *context = m_codecMap.GetCodecContext(stream, nullptr, true);
 
     context->codec_id     = m_ctx->oformat->audio_codec;
     context->codec_type   = AVMEDIA_TYPE_AUDIO;
@@ -591,7 +591,7 @@ bool MythAVFormatWriter::FindAudioFormat(AVCodecContext *Ctx, AVCodec *Codec, AV
 
 bool MythAVFormatWriter::OpenAudio(void)
 {
-    AVCodecContext *context = m_codecMap.getCodecContext(m_audioStream);
+    AVCodecContext *context = m_codecMap.GetCodecContext(m_audioStream);
     context->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
 
     AVCodec *codec = avcodec_find_encoder(context->codec_id);

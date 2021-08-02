@@ -17,6 +17,7 @@
 #include <thread> // for sleep_for
 
 #include "upnp.h"
+#include "mythmiscutil.h"
 #include "mythlogging.h"
 
 #include "upnptasksearch.h"
@@ -25,14 +26,11 @@
 #include "mmulticastsocketdevice.h"
 #include "mbroadcastsocketdevice.h"
 
-#include <QRegExp>
 #include <QStringList>
 
-#ifdef ANDROID
+#ifdef Q_OS_ANDROID
 #include <sys/select.h>
 #endif
-
-using namespace std;
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
@@ -198,16 +196,16 @@ void SSDP::DisableNotifications()
 /////////////////////////////////////////////////////////////////////////////
 //
 /////////////////////////////////////////////////////////////////////////////
-void SSDP::PerformSearch(const QString &sST, uint timeout_secs)
+void SSDP::PerformSearch(const QString &sST, std::chrono::seconds timeout)
 {
-    timeout_secs = std::max(std::min(timeout_secs, 5U), 1U);
+    timeout = std::clamp(timeout, 1s, 5s);
     QString rRequest = QString("M-SEARCH * HTTP/1.1\r\n"
                                "HOST: 239.255.255.250:1900\r\n"
                                "MAN: \"ssdp:discover\"\r\n"
                                "MX: %1\r\n"
                                "ST: %2\r\n"
                                "\r\n")
-        .arg(timeout_secs).arg(sST);
+        .arg(timeout.count()).arg(sST);
 
     LOG(VB_UPNP, LOG_DEBUG, QString("\n\n%1\n").arg(rRequest));
 
@@ -230,7 +228,7 @@ void SSDP::PerformSearch(const QString &sST, uint timeout_secs)
         LOG(VB_GENERAL, LOG_INFO,
             "SSDP::PerformSearch - did not write entire buffer.");
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(random() % 250));
+    std::this_thread::sleep_for(std::chrono::milliseconds(MythRandom() % 250));
 
     if ( pSocket->writeBlock( sRequest.data(),
                               sRequest.size(), address, SSDP_PORT ) != nSize)
@@ -266,7 +264,7 @@ void SSDP::run()
             if (socket != nullptr && socket->socket() >= 0)
             {
                 FD_SET( socket->socket(), &read_set );
-                nMaxSocket = max( socket->socket(), nMaxSocket );
+                nMaxSocket = std::max( socket->socket(), nMaxSocket );
 
 #if 0
                 if (socket->bytesAvailable() > 0)
@@ -350,7 +348,7 @@ void SSDP::ProcessData( MSocketDevice *pSocket )
                         break;
                     }
                     retries++;
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    std::this_thread::sleep_for(10ms);
                     continue;
                 }
                 LOG(VB_GENERAL, LOG_ERR, QString("Socket readBlock error %1")
@@ -516,10 +514,10 @@ bool SSDP::ProcessSearchRequest( const QStringMap &sHeaders,
     QString sMAN = GetHeaderValue( sHeaders, "MAN", "" );
     QString sST  = GetHeaderValue( sHeaders, "ST" , "" );
     QString sMX  = GetHeaderValue( sHeaders, "MX" , "" );
-    int     nMX  = 0;
+    std::chrono::seconds nMX  = 0s;
 
     LOG(VB_UPNP, LOG_DEBUG, QString("SSDP::ProcessSearchrequest : [%1] MX=%2")
-             .arg(sST).arg(sMX));
+             .arg(sST, sMX));
 
     // ----------------------------------------------------------------------
     // Validate Header Values...
@@ -533,16 +531,16 @@ bool SSDP::ProcessSearchRequest( const QStringMap &sHeaders,
     if ( sMAN                  != "\"ssdp:discover\"" ) return false;
     if ( sST.length()          == 0                   ) return false;
     if ( sMX.length()          == 0                   ) return false;
-    if ((nMX = sMX.toInt())    == 0                   ) return false;
-    if ( nMX                    < 0                   ) return false;
+    if ((nMX = std::chrono::seconds(sMX.toInt())) == 0s) return false;
+    if ( nMX                    < 0s                  ) return false;
 
     // ----------------------------------------------------------------------
     // Adjust timeout to be a random interval between 0 and MX (max of 120)
     // ----------------------------------------------------------------------
 
-    nMX = (nMX > 120) ? 120 : nMX;
+    nMX = std::clamp(nMX, 0s, 120s);
 
-    int nNewMX = (0 + ((unsigned short)random() % nMX)) * 1000;
+    auto nNewMX = std::chrono::milliseconds(MythRandom()) % nMX;
 
     // ----------------------------------------------------------------------
     // See what they are looking for...
@@ -610,7 +608,7 @@ bool SSDP::ProcessSearchResponse( const QStringMap &headers )
                  "ST     =%2\n"
                  "USN    =%3\n"
                  "Cache  =%4")
-             .arg(sDescURL).arg(sST).arg(sUSN).arg(sCache));
+             .arg(sDescURL, sST, sUSN, sCache));
 
     int nPos = sCache.indexOf("max-age", 0, Qt::CaseInsensitive);
 
@@ -620,7 +618,7 @@ bool SSDP::ProcessSearchResponse( const QStringMap &headers )
     if ((nPos = sCache.indexOf("=", nPos)) < 0)
         return false;
 
-    int nSecs = sCache.mid( nPos+1 ).toInt();
+    auto nSecs = std::chrono::seconds(sCache.mid( nPos+1 ).toInt());
 
     SSDPCache::Instance()->Add( sST, sUSN, sDescURL, nSecs );
 
@@ -646,7 +644,7 @@ bool SSDP::ProcessNotify( const QStringMap &headers )
                  "NT     =%3\n"
                  "USN    =%4\n"
                  "Cache  =%5" )
-            .arg(sDescURL).arg(sNTS).arg(sNT).arg(sUSN).arg(sCache));
+            .arg(sDescURL, sNTS, sNT, sUSN, sCache));
 
     if (sNTS.contains( "ssdp:alive"))
     {
@@ -658,7 +656,7 @@ bool SSDP::ProcessNotify( const QStringMap &headers )
         if ((nPos = sCache.indexOf("=", nPos)) < 0)
             return false;
 
-        int nSecs = sCache.mid( nPos+1 ).toInt();
+        auto nSecs = std::chrono::seconds(sCache.mid( nPos+1 ).toInt());
 
         SSDPCache::Instance()->Add( sNT, sUSN, sDescURL, nSecs );
 

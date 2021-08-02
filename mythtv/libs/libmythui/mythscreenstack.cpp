@@ -5,10 +5,11 @@
 #include "mythevent.h"
 
 #include <cassert>
+#include <chrono>
 
 #include <QCoreApplication>
-#include <QTimer>
 #include <QString>
+#include <QTimer>
 
 const int kFadeVal = 20;
 
@@ -210,7 +211,7 @@ void MythScreenStack::ScheduleInitIfNeeded(void)
         !m_topScreen->IsLoading())
     {
         m_initTimerStarted = true;
-        QTimer::singleShot(100, this, SLOT(doInit()));
+        QTimer::singleShot(100ms, this, &MythScreenStack::doInit);
     }
 }
 
@@ -327,7 +328,8 @@ void MythScreenStack::CheckDeletes(bool force)
 
         if (deleteit)
         {
-            for (auto *test = m_children.begin();
+            // NOLINTNEXTLINE(readability-qualified-auto) for Qt6
+            for (auto test = m_children.begin();
                  test != m_children.end();
                  ++test)
             {
@@ -341,8 +343,7 @@ void MythScreenStack::CheckDeletes(bool force)
             if (*it == m_newTop)
                 m_newTop = nullptr;
             delete (*it);
-            m_toDelete.erase(it);
-            it = m_toDelete.begin();
+            it = m_toDelete.erase(it);
             changed = true;
             continue;
         }

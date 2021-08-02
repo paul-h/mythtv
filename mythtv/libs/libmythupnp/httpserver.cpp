@@ -43,9 +43,6 @@
 
 #include "serviceHosts/rttiServiceHost.h"
 
-using namespace std;
-
-
 /**
  * \brief Handle an OPTIONS request
  */
@@ -119,7 +116,7 @@ HttpServer::HttpServer() :
     m_privateToken(QUuid::createUuid().toString()) // Cryptographically random and sufficiently long enough to act as a secure token
 {
     // Number of connections processed concurrently
-    int maxHttpWorkers = max(QThread::idealThreadCount() * 2, 2); // idealThreadCount can return -1
+    int maxHttpWorkers = std::max(QThread::idealThreadCount() * 2, 2); // idealThreadCount can return -1
     // Don't allow more connections than we can process, it causes browsers
     // to open lots of new connections instead of reusing existing ones
     setMaxPendingConnections(maxHttpWorkers);
@@ -141,7 +138,7 @@ HttpServer::HttpServer() :
         struct utsname uname_info {};
         uname( &uname_info );
         s_platform = QString("%1/%2")
-            .arg(uname_info.sysname).arg(uname_info.release);
+            .arg(uname_info.sysname, uname_info.release);
 #endif
     }
 
@@ -290,18 +287,18 @@ QString HttpServer::GetServerVersion(void)
     QString mythVersion = GetMythSourceVersion();
     if (mythVersion.startsWith("v"))
         mythVersion = mythVersion.right(mythVersion.length() - 1); // Trim off the leading 'v'
-    return QString("MythTV/%2 %1 UPnP/1.0").arg(HttpServer::GetPlatform())
-                                             .arg(mythVersion);
+    return QString("MythTV/%2 %1 UPnP/1.0").arg(HttpServer::GetPlatform(),
+                                                mythVersion);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 //
 /////////////////////////////////////////////////////////////////////////////
 
-void HttpServer::newTcpConnection(qt_socket_fd_t socket)
+void HttpServer::newTcpConnection(qintptr socket)
 {
     PoolServerType type = kTCPServer;
-    auto *server = dynamic_cast<PrivTcpServer *>(QObject::sender());
+    auto *server = qobject_cast<PrivTcpServer *>(QObject::sender());
     if (server)
         type = server->GetServerType();
 
@@ -330,8 +327,8 @@ void HttpServer::RegisterExtension( HttpServerExtension *pExtension )
 
         QStringList list = pExtension->GetBasePaths();
 
-        for( int nIdx = 0; nIdx < list.size(); nIdx++)
-            m_basePaths.insert( list[ nIdx ], pExtension );
+        for( const QString& base : qAsConst(list))
+            m_basePaths.insert( base, pExtension );
 
         m_rwlock.unlock();
     }
@@ -349,8 +346,8 @@ void HttpServer::UnregisterExtension( HttpServerExtension *pExtension )
 
         QStringList list = pExtension->GetBasePaths();
 
-        for( int nIdx = 0; nIdx < list.size(); nIdx++)
-            m_basePaths.remove( list[ nIdx ], pExtension );
+        for( const QString& base : qAsConst(list))
+            m_basePaths.remove( base, pExtension );
 
         m_extensions.removeAll(pExtension);
 
@@ -445,14 +442,14 @@ uint HttpServer::GetSocketTimeout(HTTPRequest* pRequest) const
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
-HttpWorker::HttpWorker(HttpServer &httpServer, qt_socket_fd_t sock,
+HttpWorker::HttpWorker(HttpServer &httpServer, qintptr sock,
                        PoolServerType type
 #ifndef QT_NO_OPENSSL
                        , const QSslConfiguration& sslConfig
 #endif
 )
            : m_httpServer(httpServer), m_socket(sock),
-             m_socketTimeout(5 * 1000), m_connectionType(type)
+             m_socketTimeout(5s), m_connectionType(type)
 #ifndef QT_NO_OPENSSL
              , m_sslConfig(sslConfig)
 #endif
@@ -508,7 +505,7 @@ void HttpWorker::run(void)
         }
 
         if (pSslSocket)
-            pSocket = dynamic_cast<QTcpSocket *>(pSslSocket);
+            pSocket = pSslSocket;
         else
             return;
 #else
@@ -540,7 +537,7 @@ void HttpWorker::run(void)
             // new clients from connecting - Default at time of writing was
             // 5 seconds for initial connection, then up to 10 seconds of idle
             // time between each subsequent request on the same connection
-            bTimeout = !(pSocket->waitForReadyRead(m_socketTimeout));
+            bTimeout = !(pSocket->waitForReadyRead(m_socketTimeout.count()));
 
             if (bTimeout) // Either client closed the socket or we timed out waiting for new data
                 break;
@@ -564,9 +561,9 @@ void HttpWorker::run(void)
                         bKeepAlive = pRequest->GetKeepAlive();
                         // The timeout is defined by the Server/Server Extension
                         // but must appear in the response headers
-                        uint nTimeout = m_httpServer.GetSocketTimeout(pRequest); // Seconds
+                        auto nTimeout = std::chrono::seconds(m_httpServer.GetSocketTimeout(pRequest));
                         pRequest->SetKeepAliveTimeout(nTimeout);
-                        m_socketTimeout = nTimeout * 1000; // Milliseconds
+                        m_socketTimeout = nTimeout; // Converts to milliseconds
 
                         // ------------------------------------------------------
                         // Request Parsed... Pass on to Main HttpServer class to 
@@ -640,7 +637,7 @@ void HttpWorker::run(void)
                                    .arg(pSocket->error()));
     }
 
-    int writeTimeout = 5000; // 5 Seconds
+    std::chrono::milliseconds writeTimeout = 5s;
     // Make sure any data in the buffer is flushed before the socket is closed
     while (m_httpServer.IsRunning() &&
            pSocket->isValid() &&
@@ -661,13 +658,13 @@ void HttpWorker::run(void)
         // streaming. We should create a new server extension or adjust the
         // timeout according to the User-Agent, instead of increasing the
         // standard timeout. However we should ALWAYS have a timeout.
-        if (!pSocket->waitForBytesWritten(writeTimeout))
+        if (!pSocket->waitForBytesWritten(writeTimeout.count()))
         {
             LOG(VB_GENERAL, LOG_WARNING, QString("HttpWorker(%1): "
                                          "Timed out waiting to write bytes to "
                                          "the socket, waited %2 seconds")
                                             .arg(m_socket)
-                                            .arg(writeTimeout / 1000));
+                                            .arg(writeTimeout.count() / 1000));
             break;
         }
     }

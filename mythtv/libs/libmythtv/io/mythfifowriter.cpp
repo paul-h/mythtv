@@ -20,7 +20,6 @@
 #include <ctime>
 #include <cmath>
 #include <iostream>
-using namespace std;
 
 MythFIFOThread::MythFIFOThread()
   : MThread("FIFOThread")
@@ -120,7 +119,7 @@ bool MythFIFOWriter::FIFOInit(uint Id, const QString& Desc, const QString& Name,
         return false;
     }
 
-    LOG(VB_GENERAL, LOG_INFO, QString("Created %1 fifo: %2").arg(Desc).arg(Name));
+    LOG(VB_GENERAL, LOG_INFO, QString("Created %1 fifo: %2").arg(Desc, Name));
 
     m_maxBlkSize[Id] = Size;
     m_filename[Id]   = Name;

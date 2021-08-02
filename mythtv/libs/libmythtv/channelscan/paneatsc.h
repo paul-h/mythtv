@@ -6,7 +6,6 @@
 #define PANE_ATSC_H
 
 #include <algorithm>
-using namespace std;
 
 // MythTV headers
 #include "channelscanmiscsettings.h"
@@ -25,16 +24,26 @@ class PaneATSC : public GroupSetting
     {
         setVisible(false);
 
-        connect(m_atscTable, SIGNAL(valueChanged(    const QString&)),
-                this,       SLOT(  FreqTableChanged(const QString&)));
+        connect(m_atscTable, qOverload<const QString&>(&StandardSetting::valueChanged),
+                this,        &PaneATSC::FreqTableChanged);
 
-        connect(m_atscModulation, SIGNAL(valueChanged(     const QString&)),
-                this,            SLOT(  ModulationChanged(const QString&)));
+        connect(m_atscModulation, qOverload<const QString&>(&StandardSetting::valueChanged),
+                this,             &PaneATSC::ModulationChanged);
+
+        m_transportStart = new TransMythUIComboBoxSetting();
+        m_transportStart->setLabel(tr("First Channel"));
+        m_transportStart->setHelpText(tr("Start scanning at this channel."));
+
+        m_transportEnd   = new TransMythUIComboBoxSetting();
+        m_transportEnd->setLabel(tr("Last Channel"));
+        m_transportEnd->setHelpText(tr("Stop scanning after this channel."));
+
+        m_transportCount = new GroupSetting();
+        m_transportCount->setLabel(tr("Channel Count"));
+        m_transportCount->setHelpText(tr("Total number of channels to scan."));
+        m_transportCount->setReadOnly(true);
 
         auto *range = new GroupSetting();
-        m_transportStart = new TransMythUIComboBoxSetting();
-        m_transportEnd   = new TransMythUIComboBoxSetting();
-        m_transportCount = new TransTextEditSetting();
         range->setLabel(tr("Scanning Range"));
         range->addChild(m_transportStart);
         range->addChild(m_transportEnd);
@@ -43,10 +52,10 @@ class PaneATSC : public GroupSetting
         setting->addTargetedChildren(target,
                                      {this, m_atscTable, m_atscModulation, range});
 
-        connect(m_transportStart, SIGNAL(valueChanged(       const QString&)),
-                this,            SLOT(  TransportRangeChanged(const QString&)));
-        connect(m_transportEnd,   SIGNAL(valueChanged(       const QString&)),
-                this,            SLOT(  TransportRangeChanged(const QString&)));
+        connect(m_transportStart, qOverload<const QString&>(&StandardSetting::valueChanged),
+                this,             &PaneATSC::TransportRangeChanged);
+        connect(m_transportEnd,   qOverload<const QString&>(&StandardSetting::valueChanged),
+                this,             &PaneATSC::TransportRangeChanged);
 
         ResetTransportRange();
     }
@@ -105,7 +114,7 @@ class PaneATSC : public GroupSetting
             b = a;
         }
 
-        int diff = max(b + 1 - a, 0);
+        int diff = std::max(b + 1 - a, 0);
         m_transportCount->setValue(QString::number(diff));
     }
 
@@ -154,7 +163,7 @@ class PaneATSC : public GroupSetting
         QString country    = GetFrequencyTable();
 
         const QString new_tables_sig =
-            QString("%1_%2_%3").arg(format).arg(modulation).arg(country);
+            QString("%1_%2_%3").arg(format, modulation, country);
 
         if (new_tables_sig != m_tablesSig)
         {
@@ -176,7 +185,7 @@ class PaneATSC : public GroupSetting
     ScanATSCModulation         *m_atscModulation  {nullptr};
     TransMythUIComboBoxSetting *m_transportStart  {nullptr};
     TransMythUIComboBoxSetting *m_transportEnd    {nullptr};
-    TransTextEditSetting       *m_transportCount  {nullptr};
+    GroupSetting               *m_transportCount  {nullptr};
     QString                     m_tablesSig;
     freq_table_list_t           m_tables;
 };

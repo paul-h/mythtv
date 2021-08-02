@@ -1,9 +1,10 @@
+// C++ headers
+#include <chrono>
 #include <iostream>
 #include <cstdlib>
 
 // qt
 #include <QKeyEvent>
-#include <QRegExp>
 #include <QThread>
 #include <QDomDocument>
 
@@ -24,13 +25,10 @@
 #include <mythcoreutil.h>
 
 // mythmusic
-#include "musicdata.h"
 #include "musiccommon.h"
-#include "streamview.h"
+#include "musicdata.h"
 #include "musicplayer.h"
-
-using namespace std;
-
+#include "streamview.h"
 
 StreamView::StreamView(MythScreenStack *parent, MythScreenType *parentScreen)
     : MusicCommon(parent, parentScreen, "streamview")
@@ -61,10 +59,10 @@ bool StreamView::Create(void)
         return false;
     }
 
-    connect(m_streamList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            this, SLOT(streamItemClicked(MythUIButtonListItem*)));
-    connect(m_streamList, SIGNAL(itemVisible(MythUIButtonListItem*)),
-            this, SLOT(streamItemVisible(MythUIButtonListItem*)));
+    connect(m_streamList, &MythUIButtonList::itemClicked,
+            this, &StreamView::streamItemClicked);
+    connect(m_streamList, &MythUIButtonList::itemVisible,
+            this, &StreamView::streamItemVisible);
 
     gPlayer->setPlayMode(MusicPlayer::PLAYMODE_RADIO);
 
@@ -87,8 +85,8 @@ void StreamView::ShowMenu(void)
         menu->AddItem(tr("Remove Stream"));
     }
 
-    menu->AddItem(MusicCommon::tr("Fullscreen Visualizer"), QVariant::fromValue((int)MV_VISUALIZER));
-    menu->AddItem(MusicCommon::tr("Lyrics"), QVariant::fromValue((int)MV_LYRICS));
+    menu->AddItemV(MusicCommon::tr("Fullscreen Visualizer"), QVariant::fromValue((int)MV_VISUALIZER));
+    menu->AddItemV(MusicCommon::tr("Lyrics"), QVariant::fromValue((int)MV_LYRICS));
 
     menu->AddItem(tr("More Options"), nullptr, createSubMenu());
 
@@ -108,11 +106,11 @@ void StreamView::customEvent(QEvent *event)
 
     if (event->type() == MusicPlayerEvent::PlayedTracksChangedEvent)
     {
-        if (gPlayer->getPlayedTracksList().count())
+        if (!gPlayer->getPlayedTracksList().isEmpty())
             updateTrackInfo(gPlayer->getCurrentMetadata());
 
         // add the new track to the list
-        if (m_playedTracksList && gPlayer->getPlayedTracksList().count())
+        if (m_playedTracksList && !gPlayer->getPlayedTracksList().isEmpty())
         {
             MusicMetadata *mdata = gPlayer->getPlayedTracksList().last();
 
@@ -404,8 +402,8 @@ void StreamView::removeStream(void)
         {
             ShowOkPopup(tr("Are you sure you want to delete this Stream?\n"
                            "Broadcaster: %1 - Channel: %2")
-                           .arg(mdata->Broadcaster()).arg(mdata->Channel()),
-                        this, SLOT(doRemoveStream(bool)), true);
+                           .arg(mdata->Broadcaster(), mdata->Channel()),
+                        this, &StreamView::doRemoveStream, true);
         }
     }
 }
@@ -698,9 +696,9 @@ bool EditStreamMetadata::Create()
     else
         m_formatEdit->SetText("%a - %t");
 
-    connect(m_searchButton, SIGNAL(Clicked()), this, SLOT(searchClicked()));
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(Close()));
-    connect(m_saveButton, SIGNAL(Clicked()), this, SLOT(saveClicked()));
+    connect(m_searchButton, &MythUIButton::Clicked, this, &EditStreamMetadata::searchClicked);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
+    connect(m_saveButton, &MythUIButton::Clicked, this, &EditStreamMetadata::saveClicked);
 
     BuildFocusList();
 
@@ -799,33 +797,34 @@ bool SearchStream::Create()
     new MythUIButtonListItem(m_genreList, "");
     m_matchesText->SetText("");
 
-    connect(m_streamList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            this, SLOT(streamClicked(MythUIButtonListItem*)));
-    connect(m_streamList, SIGNAL(itemVisible(MythUIButtonListItem*)),
-            this, SLOT(streamVisible(MythUIButtonListItem*)));
-    connect(m_broadcasterList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(updateStreams()));
-    connect(m_genreList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(updateStreams()));
-    connect(m_countryList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(updateStreams()));
+    connect(m_streamList, &MythUIButtonList::itemClicked,
+            this, &SearchStream::streamClicked);
+    connect(m_streamList, &MythUIButtonList::itemVisible,
+            this, &SearchStream::streamVisible);
+    connect(m_broadcasterList, &MythUIButtonList::itemSelected,
+            this, &SearchStream::updateStreams);
+    connect(m_genreList, &MythUIButtonList::itemSelected,
+            this, &SearchStream::updateStreams);
 
 
     if (m_countryList)
     {
+        connect(m_countryList, &MythUIButtonList::itemSelected,
+                this, &SearchStream::updateStreams);
+
         new MythUIButtonListItem(m_countryList, "");
-        connect(m_languageList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-                this, SLOT(updateStreams()));
+        connect(m_languageList, &MythUIButtonList::itemSelected,
+                this, &SearchStream::updateStreams);
     }
 
     if (m_languageList)
     {
         new MythUIButtonListItem(m_languageList, "");
-        connect(m_channelEdit, SIGNAL(valueChanged()),
-                this, SLOT(updateStreams()));
+        connect(m_channelEdit, &MythUITextEdit::valueChanged,
+                this, &SearchStream::updateStreams);
     }
 
-    connect(&m_updateTimer, SIGNAL(timeout()), this, SLOT(doUpdateStreams()));
+    connect(&m_updateTimer, &QTimer::timeout, this, &SearchStream::doUpdateStreams);
 
     LoadInBackground("Loading Streams...");
 
@@ -837,7 +836,7 @@ bool SearchStream::Create()
 void SearchStream::Load(void)
 {
     loadStreams();
-    QTimer::singleShot(0, this, SLOT(doneLoading(void)));
+    QTimer::singleShot(0, this, &SearchStream::doneLoading);
 }
 
 void SearchStream::doneLoading(void)
@@ -988,7 +987,7 @@ void SearchStream::updateStreams(void)
     if (m_updateTimer.isActive())
         m_updateTimer.stop();
 
-    m_updateTimer.start(500);
+    m_updateTimer.start(500ms);
 }
 
 void SearchStream::doUpdateStreams(void)

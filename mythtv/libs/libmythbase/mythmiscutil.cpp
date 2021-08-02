@@ -2,12 +2,11 @@
 #include "mythmiscutil.h"
 
 // C++ headers
+#include <array>
 #include <cerrno>
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
-
-using namespace std;
 
 // POSIX
 #include <unistd.h>
@@ -58,11 +57,15 @@ using namespace std;
 
 #include "mythconfig.h" // for CONFIG_DARWIN
 
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#define qEnvironmentVariable getenv
+#endif
+
 /** \fn getUptime(time_t&)
  *  \brief Returns uptime statistics.
  *  \return true if successful, false otherwise.
  */
-bool getUptime(time_t &uptime)
+bool getUptime(std::chrono::seconds &uptime)
 {
 #ifdef __linux__
     struct sysinfo sinfo {};
@@ -71,27 +74,25 @@ bool getUptime(time_t &uptime)
         LOG(VB_GENERAL, LOG_ERR, "sysinfo() error");
         return false;
     }
-    uptime = sinfo.uptime;
+    uptime = std::chrono::seconds(sinfo.uptime);
 
 #elif defined(__FreeBSD__) || CONFIG_DARWIN
 
-    int            mib[2];
+    std::array<int,2> mib { CTL_KERN, KERN_BOOTTIME };
     struct timeval bootTime;
     size_t         len;
 
     // Uptime is calculated. Get this machine's boot time
     // and subtract it from the current machine time
     len    = sizeof(bootTime);
-    mib[0] = CTL_KERN;
-    mib[1] = KERN_BOOTTIME;
-    if (sysctl(mib, 2, &bootTime, &len, nullptr, 0) == -1)
+    if (sysctl(mib.data(), 2, &bootTime, &len, nullptr, 0) == -1)
     {
         LOG(VB_GENERAL, LOG_ERR, "sysctl() error");
         return false;
     }
-    uptime = time(nullptr) - bootTime.tv_sec;
+    uptime = std::chrono::seconds(time(nullptr) - bootTime.tv_sec);
 #elif defined(_WIN32)
-    uptime = ::GetTickCount() / 1000;
+    uptime = std::chrono::seconds(::GetTickCount() / 1000);
 #else
     // Hmmm. Not Linux, not FreeBSD or Darwin. What else is there :-)
     LOG(VB_GENERAL, LOG_NOTICE, "Unknown platform. How do I get the uptime?");
@@ -177,7 +178,7 @@ bool getMemStats(int &totalMB, int &freeMB, int &totalVM, int &freeVM)
 loadArray getLoadAvgs (void)
 {
 #if !defined(_WIN32) && !defined(Q_OS_ANDROID)
-    loadArray loads;
+    loadArray loads {};
     if (getloadavg(loads.data(), loads.size()) != -1)
         return loads;
 #endif
@@ -243,11 +244,11 @@ bool hasUtf8(const char *str)
  * determine what parameter that platform's ping requires to specify
  * the timeout and add another case to the \#ifdef statement.
  */
-bool ping(const QString &host, int timeout)
+bool ping(const QString &host, std::chrono::milliseconds timeout)
 {
 #ifdef _WIN32
     QString cmd = QString("%systemroot%\\system32\\ping.exe -w %1 -n 1 %2>NUL")
-                  .arg(timeout*1000).arg(host);
+                  .arg(timeout.count()) .arg(host);
 
     return myth_system(cmd, kMSDontBlockInputDevs | kMSDontDisableDrawing |
                          kMSProcessEvents) == GENERIC_EXIT_OK;
@@ -264,7 +265,9 @@ bool ping(const QString &host, int timeout)
     QString pingcmd =
         addr.protocol() == QAbstractSocket::IPv6Protocol ? "ping6" : "ping";
     QString cmd = QString("%1 %2 %3 -c 1  %4  >/dev/null 2>&1")
-                  .arg(pingcmd).arg(timeoutparam).arg(timeout).arg(host);
+                  .arg(pingcmd, timeoutparam,
+                       QString::number(duration_cast<std::chrono::seconds>(timeout).count()),
+                       host);
 
     return myth_system(cmd, kMSDontBlockInputDevs | kMSDontDisableDrawing |
                          kMSProcessEvents) == GENERIC_EXIT_OK;
@@ -455,18 +458,18 @@ bool makeFileAccessible(const QString& filename)
 QString getResponse(const QString &query, const QString &def)
 {
     QByteArray tmp = query.toLocal8Bit();
-    cout << tmp.constData();
+    std::cout << tmp.constData();
 
     tmp = def.toLocal8Bit();
-    if (def.size())
-        cout << " [" << tmp.constData() << "]  ";
+    if (!def.isEmpty())
+        std::cout << " [" << tmp.constData() << "]  ";
     else
-        cout << "  ";
+        std::cout << "  ";
 
     if (!isatty(fileno(stdin)) || !isatty(fileno(stdout)))
     {
-        cout << endl << "[console is not interactive, using default '"
-             << tmp.constData() << "']" << endl;
+        std::cout << std::endl << "[console is not interactive, using default '"
+             << tmp.constData() << "']" << std::endl;
         return def;
     }
 
@@ -572,7 +575,7 @@ bool IsMACAddress(const QString& MAC)
             LOG(VB_NETWORK, LOG_ERR,
                 QString("IsMACAddress(%1) = false, unable to "
                         "convert part '%2' to integer.")
-                    .arg(MAC).arg(tokens[y]));
+                    .arg(MAC, tokens[y]));
             return false;
         }
 
@@ -633,10 +636,9 @@ QString FileHash(const QString& filename)
 
 bool WakeOnLAN(const QString& MAC)
 {
-    char msg[1024] = "\xFF\xFF\xFF\xFF\xFF\xFF";
-    int  msglen = 6;
+    std::vector<char> msg(6, static_cast<char>(0xFF));
+    std::array<char,6> macaddr {};
     QStringList tokens = MAC.split(':');
-    int macaddr[6];
 
     if (tokens.size() != 6)
     {
@@ -658,21 +660,22 @@ bool WakeOnLAN(const QString& MAC)
         }
     }
 
+    msg.reserve(1024);
     for (int x = 0; x < 16; x++)
-        for (int y : macaddr)
-            msg[msglen++] = y;
+        msg.insert(msg.end(), macaddr.cbegin(), macaddr.cend());
 
     LOG(VB_NETWORK, LOG_INFO,
             QString("WakeOnLan(): Sending WOL packet to %1").arg(MAC));
 
     QUdpSocket udp_socket;
+    qlonglong msglen = msg.size();
     return udp_socket.writeDatagram(
-        msg, msglen, QHostAddress::Broadcast, 32767) == msglen;
+        msg.data(), msglen, QHostAddress::Broadcast, 32767) == msglen;
 }
 
 // Wake up either by command or by MAC address
 // return true = success
-bool MythWakeup(const QString &wakeUpCommand, uint flags, uint timeout)
+bool MythWakeup(const QString &wakeUpCommand, uint flags, std::chrono::seconds timeout)
 {
     if (!IsMACAddress(wakeUpCommand))
         return myth_system(wakeUpCommand, flags, timeout) == 0U;
@@ -853,10 +856,10 @@ void setHttpProxy(void)
     QString       LOC = "setHttpProxy() - ";
 
     // Set http proxy for the application if specified in environment variable
-    QString var(getenv("http_proxy"));
+    QString var(qEnvironmentVariable("http_proxy"));
     if (var.isEmpty())
-        var = getenv("HTTP_PROXY");  // Sadly, some OS envs are case sensitive
-    if (var.length())
+        var = qEnvironmentVariable("HTTP_PROXY");  // Sadly, some OS envs are case sensitive
+    if (!var.isEmpty())
     {
         if (!var.startsWith("http://"))   // i.e. just a host name
             var.prepend("http://");
@@ -880,7 +883,7 @@ void setHttpProxy(void)
                 QString("assuming port %1 on host %2") .arg(port).arg(host));
             url.setPort(port);
         }
-        else if (!ping(host, 1))
+        else if (!ping(host, 1s))
         {
             LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("cannot locate host %1").arg(host) +
@@ -940,7 +943,7 @@ void setHttpProxy(void)
         if (!p.user().isEmpty())
         {
             url = "http://%1:%2@%3:%4",
-            url = url.arg(p.user()).arg(p.password());
+            url = url.arg(p.user(), p.password());
         }
         else
         {
@@ -961,7 +964,7 @@ void wrapList(QStringList &list, int width)
 {
     // if this is triggered, something has gone seriously wrong
     // the result won't really be usable, but at least it won't crash
-    width = max(width, 5);
+    width = std::max(width, 5);
 
     for (int i = 0; i < list.size(); i++)
     {
@@ -1009,8 +1012,8 @@ QString xml_indent(uint level)
     static QMap<uint,QString> s_cache;
 
     s_rwLock.lockForRead();
-    QMap<uint,QString>::const_iterator it = s_cache.find(level);
-    if (it != s_cache.end())
+    QMap<uint,QString>::const_iterator it = s_cache.constFind(level);
+    if (it != s_cache.constEnd())
     {
         QString tmp = *it;
         s_rwLock.unlock();
@@ -1107,9 +1110,9 @@ int naturalCompare(const QString &_a, const QString &_b, Qt::CaseSensitivity cas
         }
 
         // compare these sequences
-        const QStringRef& subA(a.midRef(begSeqA - a.unicode(), currA - begSeqA));
-        const QStringRef& subB(b.midRef(begSeqB - b.unicode(), currB - begSeqB));
-        const int cmp = QStringRef::localeAwareCompare(subA, subB);
+        const QString& subA(a.mid(begSeqA - a.unicode(), currA - begSeqA));
+        const QString& subB(b.mid(begSeqB - b.unicode(), currB - begSeqB));
+        const int cmp = QString::localeAwareCompare(subA, subB);
 
         if (cmp != 0)
         {
@@ -1229,14 +1232,9 @@ int naturalCompare(const QString &_a, const QString &_b, Qt::CaseSensitivity cas
     return currA->isNull() ? -1 : + 1;
 }
 
-QString MythFormatTimeMs(int msecs, const QString& fmt)
+QString MythFormatTime(std::chrono::milliseconds msecs, const QString& fmt)
 {
-    return QTime::fromMSecsSinceStartOfDay(msecs).toString(fmt);
-}
-
-QString MythFormatTime(int secs, const QString& fmt)
-{
-    return QTime::fromMSecsSinceStartOfDay(secs*1000).toString(fmt);
+    return QTime::fromMSecsSinceStartOfDay(msecs.count()).toString(fmt);
 }
 
 /*

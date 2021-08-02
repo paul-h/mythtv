@@ -135,9 +135,10 @@ void HDHRStreamHandler::run(void)
     QElapsedTimer last_update;
     while (m_runningDesired && !m_bError)
     {
-        int elapsed = !last_update.isValid() ? -1 : last_update.elapsed();
-        elapsed = (elapsed < 0) ? 1000 : elapsed;
-        if (elapsed > 100)
+        auto elapsed = !last_update.isValid()
+            ? -1ms : std::chrono::milliseconds(last_update.elapsed());
+        elapsed = (elapsed < 0ms) ? 1s : elapsed;
+        if (elapsed > 100ms)
         {
             UpdateFiltersFromStreamData();
             if (m_tuneMode != hdhrTuneModeVChannel)
@@ -155,7 +156,7 @@ void HDHRStreamHandler::run(void)
 
         if (!data_buffer)
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            std::this_thread::sleep_for(20ms);
             continue;
         }
 
@@ -250,15 +251,15 @@ bool HDHRStreamHandler::UpdateFilters(void)
 
     QString filter = "";
 
-    vector<uint> range_min;
-    vector<uint> range_max;
+    std::vector<uint> range_min;
+    std::vector<uint> range_max;
 
     for (auto it = m_pidInfo.cbegin(); it != m_pidInfo.cend(); ++it)
     {
         range_min.push_back(it.key());
         PIDInfoMap::const_iterator eit = it;
         for (++eit;
-             (eit != m_pidInfo.end()) && (it.key() + 1 == eit.key());
+             (eit != m_pidInfo.cend()) && (it.key() + 1 == eit.key());
              ++it, ++eit);
         range_max.push_back(it.key());
     }
@@ -299,7 +300,7 @@ bool HDHRStreamHandler::Open(void)
     {
         const char *model = hdhomerun_device_get_model_str(m_hdhomerunDevice);
         m_tunerTypes.clear();
-        if (QString(model).toLower().contains("cablecard"))
+        if (QString(model).contains("cablecard", Qt::CaseInsensitive))
         {
             QString status_channel = "none";
             hdhomerun_tuner_status_t t_status {};
@@ -329,15 +330,15 @@ bool HDHRStreamHandler::Open(void)
                 m_tunerTypes.emplace_back(DTVTunerType::kTunerTypeOCUR);
             }
         }
-        else if (QString(model).toLower().endsWith("dvbt"))
+        else if (QString(model).endsWith("dvbt", Qt::CaseInsensitive))
         {
             m_tunerTypes.emplace_back(DTVTunerType::kTunerTypeDVBT);
         }
-        else if (QString(model).toLower().endsWith("dvbc"))
+        else if (QString(model).endsWith("dvbc", Qt::CaseInsensitive))
         {
             m_tunerTypes.emplace_back(DTVTunerType::kTunerTypeDVBC);
         }
-        else if (QString(model).toLower().endsWith("dvbtc"))
+        else if (QString(model).endsWith("dvbtc", Qt::CaseInsensitive))
         {
             m_tunerTypes.emplace_back(DTVTunerType::kTunerTypeDVBT);
             m_tunerTypes.emplace_back(DTVTunerType::kTunerTypeDVBC);
@@ -377,13 +378,13 @@ bool HDHRStreamHandler::Connect(void)
     }
 
     QStringList devices = m_device.split(",");
-    for (int i = 0; i < devices.size(); ++i)
+    for (const QString& device : qAsConst(devices))
     {
-        QByteArray ba = devices[i].toUtf8();
+        QByteArray ba = device.toUtf8();
         int n = hdhomerun_device_selector_load_from_str(
             m_deviceSelector, ba.data());
         LOG(VB_GENERAL, LOG_INFO, LOC + QString("Added %1 devices from %3")
-            .arg(n).arg(devices[i]));
+            .arg(n).arg(device));
     }
 
     m_hdhomerunDevice = hdhomerun_device_selector_choose_and_lock(
@@ -434,7 +435,7 @@ QString HDHRStreamHandler::TunerGet(
         if (print_error)
         {
             LOG(VB_GENERAL, LOG_ERR, LOC + QString("DeviceGet(%1): %2")
-                    .arg(name).arg(error));
+                    .arg(name, error));
         }
 
         return QString();
@@ -468,7 +469,7 @@ QString HDHRStreamHandler::TunerSet(
             val.toLocal8Bit().constData(), &value, &error) < 0)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC +
-            QString("Set %1 to '%2' request failed").arg(valname).arg(val) +
+            QString("Set %1 to '%2' request failed").arg(valname, val) +
             ENO);
 
         return QString();
@@ -482,7 +483,7 @@ QString HDHRStreamHandler::TunerSet(
             if (!(val.contains("0x2000") && strstr(error, "ERROR: invalid pid filter")))
             {
                 LOG(VB_GENERAL, LOG_ERR, LOC + QString("DeviceSet(%1 %2): %3")
-                        .arg(name).arg(val).arg(error));
+                        .arg(name, val, error));
             }
         }
 
@@ -517,7 +518,7 @@ bool HDHRStreamHandler::TuneChannel(const QString &chanid)
     }
 
     LOG(VB_RECORD, LOG_INFO, LOC + QString("Tuning channel %1 (was %2)")
-            .arg(chanid).arg(current));
+            .arg(chanid, current));
     return !TunerSet("channel", chanid).isEmpty();
 }
 
@@ -550,7 +551,7 @@ bool HDHRStreamHandler::TuneVChannel(const QString &vchn)
         return true;
     }
     LOG(VB_RECORD, LOG_INFO, LOC + QString("TuneVChannel(%1) from (%2)")
-        .arg(vchn).arg(current));
+        .arg(vchn, current));
 
     LOG(VB_RECORD, LOG_INFO, LOC + QString("Tuning vchannel %1").arg(vchn));
     return !TunerSet("vchannel", vchn).isEmpty();

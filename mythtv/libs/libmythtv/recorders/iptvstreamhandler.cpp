@@ -50,7 +50,7 @@ IPTVStreamHandler *IPTVStreamHandler::Get(const IPTVTuningData &tuning,
 
         LOG(VB_RECORD, LOG_INFO,
             QString("IPTVSH[%1]: Creating new stream handler %2 for %3")
-            .arg(inputid).arg(devkey).arg(tuning.GetDeviceName()));
+            .arg(QString::number(inputid), devkey, tuning.GetDeviceName()));
     }
     else
     {
@@ -58,7 +58,7 @@ IPTVStreamHandler *IPTVStreamHandler::Get(const IPTVTuningData &tuning,
         uint rcount = s_iptvhandlers_refcnt[devkey];
         LOG(VB_RECORD, LOG_INFO,
             QString("IPTVSH[%1]: Using existing stream handler %2 for %3")
-            .arg(inputid).arg(devkey).arg(tuning.GetDeviceName()) +
+            .arg(QString::number(inputid), devkey, tuning.GetDeviceName()) +
             QString(" (%1 in use)").arg(rcount));
     }
 
@@ -76,7 +76,7 @@ void IPTVStreamHandler::Return(IPTVStreamHandler * & ref, int inputid)
         return;
 
     LOG(VB_RECORD, LOG_INFO, QString("IPTVSH[%1]: Return(%2) has %3 handlers")
-        .arg(inputid).arg(devname).arg(*rit));
+        .arg(QString::number(inputid), devname).arg(*rit));
 
     if (*rit > 1)
     {
@@ -89,7 +89,7 @@ void IPTVStreamHandler::Return(IPTVStreamHandler * & ref, int inputid)
     if ((it != s_iptvhandlers.end()) && (*it == ref))
     {
         LOG(VB_RECORD, LOG_INFO, QString("IPTVSH[%1]: Closing handler for %2")
-            .arg(inputid).arg(devname));
+            .arg(QString::number(inputid), devname));
         ref->Stop();
         delete *it;
         s_iptvhandlers.erase(it);
@@ -98,7 +98,7 @@ void IPTVStreamHandler::Return(IPTVStreamHandler * & ref, int inputid)
     {
         LOG(VB_GENERAL, LOG_ERR,
             QString("IPTVSH[%1] Error: Couldn't find handler for %2")
-            .arg(inputid).arg(devname));
+            .arg(QString::number(inputid), devname));
     }
 
     s_iptvhandlers_refcnt.erase(rit);
@@ -202,7 +202,7 @@ void IPTVStreamHandler::run(void)
                     }
                 }
                 LOG(VB_RECORD, LOG_DEBUG, LOC +
-                    QString("resolved %1 as %2").arg(host).arg(dest_addr.toString()));
+                    QString("resolved %1 as %2").arg(host, dest_addr.toString()));
             }
         }
         bool ipv6 = dest_addr.protocol() == QAbstractSocket::IPv6Protocol;
@@ -228,7 +228,7 @@ void IPTVStreamHandler::run(void)
                 "Unable to create socket " + ENO);
             continue;
         }
-        int buf_size = 2 * 1024 * max(tuning.GetBitrate(i)/1000, 500U);
+        int buf_size = 2 * 1024 * std::max(tuning.GetBitrate(i)/1000, 500U);
         if (!tuning.GetBitrate(i))
             buf_size = 2 * 1024 * 1024;
         int err = setsockopt(fd, SOL_SOCKET, SO_RCVBUF,
@@ -336,8 +336,8 @@ IPTVStreamHandlerReadHelper::IPTVStreamHandlerReadHelper(
     m_parent(p), m_socket(s), m_sender(p->m_sender[stream]),
     m_stream(stream)
 {
-    connect(m_socket, SIGNAL(readyRead()),
-            this,     SLOT(ReadPending()));
+    connect(m_socket, &QIODevice::readyRead,
+            this,     &IPTVStreamHandlerReadHelper::ReadPending);
 }
 
 #define LOC_WH QString("IPTVSH(%1): ").arg(m_parent->m_device)
@@ -367,7 +367,7 @@ void IPTVStreamHandlerReadHelper::ReadPending(void)
                     QString("Received on socket(%1) %2 bytes from non expected "
                             "sender:%3 (expected:%4) ignoring")
                     .arg(m_stream).arg(data.size())
-                    .arg(sender.toString()).arg(m_sender.toString()));
+                    .arg(sender.toString(), m_sender.toString()));
             }
         }
     }
@@ -390,7 +390,7 @@ void IPTVStreamHandlerReadHelper::ReadPending(void)
                     QString("Received on socket(%1) %2 bytes from non expected "
                             "sender:%3 (expected:%4) ignoring")
                     .arg(m_stream).arg(data.size())
-                    .arg(sender.toString()).arg(m_sender.toString()));
+                    .arg(sender.toString(), m_sender.toString()));
             }
         }
     }
@@ -521,7 +521,7 @@ void IPTVStreamHandlerWriteHelper::SendRTCPReport(void)
     }
     int seq_delta = m_lastSequenceNumber - m_previousLastSequenceNumber;
     RTCPDataPacket rtcp =
-        RTCPDataPacket(m_lastTimestamp, m_lastTimestamp + RTCP_TIMER * 1000,
+        RTCPDataPacket(m_lastTimestamp, m_lastTimestamp + RTCP_TIMER.count(),
                        m_lastSequenceNumber, m_lastSequenceNumber + seq_delta,
                        m_lost, m_lostInterval, m_parent->m_rtspSsrc);
     QByteArray buf = rtcp.GetData();

@@ -16,6 +16,7 @@
 #ifndef ZMSERVER_H
 #define ZMSERVER_H
 
+#include <chrono>
 #include <cstdint>
 #include <map>
 #include <mysql/mysql.h>
@@ -23,11 +24,16 @@
 #include <string>
 #include <unistd.h>
 #include <vector>
+using namespace std::chrono_literals;
+using Clock = std::chrono::system_clock;
+using TimePoint = std::chrono::time_point<Clock>;
 
-using namespace std;
+// the maximum image size we are ever likely to get from ZM
+#define MAX_IMAGE_SIZE  (2048*1536*3)
+using FrameData = std::array<uint8_t,MAX_IMAGE_SIZE>;
 
 extern bool checkVersion(int major, int minor, int revision);
-extern void loadZMConfig(const string &configfile);
+extern void loadZMConfig(const std::string &configfile);
 extern void connectToDatabase(void);
 extern void houseKeeping(bool debug);
 extern void checkZmAudit(bool debug);
@@ -35,38 +41,37 @@ extern void kickDatabase(bool debug);
 
 // these are shared by all ZMServer's
 extern MYSQL   g_dbConn;
-extern string  g_zmversion;
-extern string  g_password;
-extern string  g_server;
-extern string  g_database;
-extern string  g_webPath;
-extern string  g_user;
-extern string  g_webUser;
-extern string  g_binPath;
+extern std::string  g_zmversion;
+extern std::string  g_password;
+extern std::string  g_server;
+extern std::string  g_database;
+extern std::string  g_webPath;
+extern std::string  g_user;
+extern std::string  g_webUser;
+extern std::string  g_binPath;
 extern int     g_majorVersion;
 extern int     g_minorVersion;
 extern int     g_revisionVersion;
 
-#define HOUSEKEEPING_TIME 60
-extern time_t  g_lastHousekeeping;
+static constexpr std::chrono::seconds HOUSEKEEPING_TIME { 60s };
+extern TimePoint g_lastHousekeeping;
 
-#define DB_CHECK_TIME 600
-extern time_t  g_lastDBKick;
+static constexpr std::chrono::seconds DB_CHECK_TIME { 600s };
+extern TimePoint g_lastDBKick;
 
-#define ZMAUDIT_TIME 300
+static constexpr std::chrono::seconds ZMAUDIT_TIME { 300s };
 extern bool    g_pendingZmAudit;
-extern time_t  g_lastZmAudit;
+extern TimePoint g_lastZmAudit;
 
-const string FUNCTION_MONITOR = "Monitor";
-const string FUNCTION_MODECT  = "Modect";
-const string FUNCTION_NODECT  = "Nodect";
-const string FUNCTION_RECORD  = "Record";
-const string FUNCTION_MOCORD  = "Mocord";
-const string FUNCTION_NONE    = "None";
-
-const string RESTART          = "restart";
-const string RELOAD           = "reload";
-const string RUNNING          = "running";
+const std::string FUNCTION_MONITOR = "Monitor";
+const std::string FUNCTION_MODECT  = "Modect";
+const std::string FUNCTION_NODECT  = "Nodect";
+const std::string FUNCTION_RECORD  = "Record";
+const std::string FUNCTION_MOCORD  = "Mocord";
+const std::string FUNCTION_NONE    = "None";
+const std::string RESTART          = "restart";
+const std::string RELOAD           = "reload";
+const std::string RUNNING          = "running";
 
 enum State
 {
@@ -76,6 +81,10 @@ enum State
     ALERT,
     TAPE
 };
+
+// Prevent clang-tidy modernize-avoid-c-arrays warnings in these
+// library structures
+extern "C" {
 
 // shared data for ZM version 1.24.x and 1.25.x
 struct SharedData
@@ -253,27 +262,30 @@ struct VideoStoreData
     timeval recording;
 };
 
+// end of library structures.
+};
+
 class MONITOR
 {
   public:
     MONITOR() = default;
 
-    void initMonitor(bool debug, const string &mmapPath, int shmKey);
+    void initMonitor(bool debug, const std::string &mmapPath, int shmKey);
 
     bool isValid(void);
 
-    string getIdStr(void);
+    std::string getIdStr(void);
     int getLastWriteIndex(void);
     int getSubpixelOrder(void);
     int getState(void);
     int getFrameSize(void);
 
-    string         m_name               {};
-    string         m_type               {};
-    string         m_function           {};
+    std::string    m_name               {};
+    std::string    m_type               {};
+    std::string    m_function           {};
     int            m_enabled            {0};
-    string         m_device             {};
-    string         m_host               {};
+    std::string    m_device             {};
+    std::string    m_host               {};
     int            m_imageBufferCount   {0};
     int            m_width              {0};
     int            m_height             {0};
@@ -281,7 +293,7 @@ class MONITOR
     int            m_monId              {0};
     unsigned char *m_sharedImages       {nullptr};
     int            m_lastRead           {0};
-    string         m_status             {};
+    std::string    m_status             {};
     int            m_palette            {0};
     int            m_controllable       {0};
     int            m_trackMotion        {0};
@@ -292,7 +304,7 @@ class MONITOR
     SharedData26  *m_sharedData26       {nullptr};
     SharedData32  *m_sharedData32       {nullptr};
     SharedData34  *m_sharedData34       {nullptr};
-    string         m_id                 {};
+    std::string    m_id                 {};
 };
 
 class ZMServer
@@ -304,50 +316,49 @@ class ZMServer
     bool processRequest(char* buf, int nbytes);
 
   private:
-    string getZMSetting(const string &setting) const;
-    bool send(const string &s) const;
-    bool send(const string &s, const unsigned char *buffer, int dataLen) const;
-    void sendError(const string &error);
+    std::string getZMSetting(const std::string &setting) const;
+    bool send(const std::string &s) const;
+    bool send(const std::string &s, const unsigned char *buffer, int dataLen) const;
+    void sendError(const std::string &error);
     void getMonitorList(void);
-    static int  getFrame(unsigned char *buffer, int bufferSize, MONITOR *monitor);
-    static long long getDiskSpace(const string &filename, long long &total, long long &used);
-    static void tokenize(const string &command, vector<string> &tokens);
+    static int  getFrame(FrameData &buffer, MONITOR *monitor);
+    static long long getDiskSpace(const std::string &filename, long long &total, long long &used);
+    static void tokenize(const std::string &command, std::vector<std::string> &tokens);
     void handleHello(void);
-    static string runCommand(const string& command);
-    static void getMonitorStatus(const string &id, const string &type,
-                                 const string &device, const string &host,
-                                 const string &channel, const string &function,
-                                 string &zmcStatus, string &zmaStatus,
-                                 const string &enabled);
+    static std::string runCommand(const std::string& command);
+    static void getMonitorStatus(const std::string &id, const std::string &type,
+                                 const std::string &device, const std::string &host,
+                                 const std::string &channel, const std::string &function,
+                                 std::string &zmcStatus, std::string &zmaStatus,
+                                 const std::string &enabled);
     void handleGetServerStatus(void);
     void handleGetMonitorStatus(void);
     void handleGetAlarmStates(void);
     void handleGetMonitorList(void);
     void handleGetCameraList(void);
-    void handleGetEventList(vector<string> tokens);
-    void handleGetEventFrame(vector<string> tokens);
-    void handleGetAnalysisFrame(vector<string> tokens);
-    void handleGetLiveFrame(vector<string> tokens);
-    void handleGetFrameList(vector<string> tokens);
-    void handleDeleteEvent(vector<string> tokens);
-    void handleDeleteEventList(vector<string> tokens);
-    void handleGetEventDates(vector<string> tokens);
+    void handleGetEventList(std::vector<std::string> tokens);
+    void handleGetEventFrame(std::vector<std::string> tokens);
+    void handleGetAnalysisFrame(std::vector<std::string> tokens);
+    void handleGetLiveFrame(std::vector<std::string> tokens);
+    void handleGetFrameList(std::vector<std::string> tokens);
+    void handleDeleteEvent(std::vector<std::string> tokens);
+    void handleDeleteEventList(std::vector<std::string> tokens);
+    void handleGetEventDates(std::vector<std::string> tokens);
     void handleRunZMAudit(void);
-    void handleSetMonitorFunction(vector<string> tokens);
-    void zmcControl(MONITOR *monitor, const string &mode);
-    void zmaControl(MONITOR *monitor, const string &mode);
+    void handleSetMonitorFunction(std::vector<std::string> tokens);
+    void zmcControl(MONITOR *monitor, const std::string &mode);
+    void zmaControl(MONITOR *monitor, const std::string &mode);
 
     bool                 m_debug              {false};
     int                  m_sock               {-1};
-    vector<MONITOR *>    m_monitors;
-    map<int, MONITOR *>  m_monitorMap;
+    std::vector<MONITOR *> m_monitors;
+    std::map<int, MONITOR *> m_monitorMap;
     bool                 m_useDeepStorage     {false};
     bool                 m_useAnalysisImages  {false};
-    string               m_eventFileFormat;
-    string               m_analysisFileFormat;
+    std::string          m_eventFileFormat;
+    std::string          m_analysisFileFormat;
     key_t                m_shmKey;
-    string               m_mmapPath;
-    char                 m_buf[10]            {0};
+    std::string          m_mmapPath;
 };
 
 

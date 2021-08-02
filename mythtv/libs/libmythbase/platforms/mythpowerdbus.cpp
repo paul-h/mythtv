@@ -124,10 +124,12 @@ void MythPowerDBus::Init(void)
     // populate power devices (i.e. batteries)
     if (m_upowerInterface)
     {
-        QDBusReply<QList<QDBusObjectPath> > devices = m_upowerInterface->call(QLatin1String("EnumerateDevices"));
-        if (devices.isValid())
+        QDBusReply<QList<QDBusObjectPath> > response =
+            m_upowerInterface->call(QLatin1String("EnumerateDevices"));
+        if (response.isValid())
         {
-            for (const auto& device : devices.value())
+            QList devices = response.value();
+            for (const auto& device : qAsConst(devices))
                 DeviceAdded(device);
         }
 
@@ -190,7 +192,8 @@ void MythPowerDBus::DBusSuspending(bool Stopping)
         if (UpdateStatus())
             return;
 
-        return FeatureHappening(FeatureSuspend);
+        FeatureHappening(FeatureSuspend);
+        return;
     }
     DidWakeUp();
 }
@@ -205,7 +208,8 @@ void MythPowerDBus::DBusShuttingDown(bool Stopping)
         if (UpdateStatus())
             return;
 
-        return FeatureHappening(FeatureShutdown);
+        FeatureHappening(FeatureShutdown);
+        return;
     }
     DidWakeUp(); // after hibernate?
 }
@@ -242,11 +246,10 @@ bool MythPowerDBus::UpdateStatus(void)
     // NB we don't care about user preference here. We are giving
     // MythTV interested components an opportunity to cleanup before
     // an externally initiated shutdown/suspend
-    uint delay = qBound(static_cast<uint>(0), m_maxRequestedDelay, m_maxSupportedDelay);
+    auto delay = qBound(0s, m_maxRequestedDelay, m_maxSupportedDelay);
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Trying to delay system %1 for %2 seconds")
-        .arg(FeatureToString(feature)).arg(delay));
-    delay *= 1000;
-    m_delayTimer.start(static_cast<int>(delay));
+        .arg(FeatureToString(feature)).arg(delay.count()));
+    m_delayTimer.start(delay);
 
     switch (feature)
     {
@@ -279,12 +282,12 @@ void MythPowerDBus::DidWakeUp(void)
  * with other services (which receive the PrepareForSleep signal immediately) but
  * on some systems means the display is turned off too soon.
 */
-bool MythPowerDBus::ScheduleFeature(enum Feature Type, uint Delay)
+bool MythPowerDBus::ScheduleFeature(enum Feature Type, std::chrono::seconds Delay)
 {
     if (!MythPower::ScheduleFeature(Type, Delay))
         return false;
 
-    if (Delay < 1)
+    if (Delay < 1s)
         return true;
 
     // try and use ScheduleShutdown as it gives the system the opportunity
@@ -292,11 +295,10 @@ bool MythPowerDBus::ScheduleFeature(enum Feature Type, uint Delay)
     // any mythbackend that is running. Suspend/hibernate are not supported.
     if (m_logindInterface && (Type == FeatureShutdown || Type == FeatureRestart))
     {
-        struct timespec time {};
-        if (clock_gettime(CLOCK_REALTIME, &time) == 0)
+        auto time = nowAsDuration<std::chrono::milliseconds>();
+        if (time > 0ms)
         {
-            auto nanosecs = static_cast<quint64>((time.tv_sec * 1000000000) +
-                                    time.tv_nsec + (Delay * 1000000000));
+            std::chrono::milliseconds millisecs = time + Delay;
             QLatin1String type;
             switch (Type)
             {
@@ -305,7 +307,8 @@ bool MythPowerDBus::ScheduleFeature(enum Feature Type, uint Delay)
                 default: break;
             }
             QDBusReply<void> reply =
-                m_logindInterface->call(QLatin1String("ScheduleShutdown"), type, nanosecs / 1000);
+                m_logindInterface->call(QLatin1String("ScheduleShutdown"), type,
+                                        static_cast<qint64>(millisecs.count()));
 
             if (reply.isValid() && !reply.error().isValid())
             {
@@ -313,7 +316,7 @@ bool MythPowerDBus::ScheduleFeature(enum Feature Type, uint Delay)
                 m_featureTimer.stop();
                 LOG(VB_GENERAL, LOG_INFO, LOC + QString("%1 scheduled via logind")
                     .arg(FeatureToString(Type)));
-                m_delayTimer.start(static_cast<int>(Delay) * 1000);
+                m_delayTimer.start(Delay);
             }
             else
             {
@@ -321,7 +324,7 @@ bool MythPowerDBus::ScheduleFeature(enum Feature Type, uint Delay)
                     QString("Failed to schedule %1 - falling back to default behaviour")
                     .arg(FeatureToString(Type)));
                 LOG(VB_GENERAL, LOG_DEBUG, LOC + QString("Error %1 Message %2")
-                    .arg(reply.error().name()).arg(reply.error().message()));
+                    .arg(reply.error().name(), reply.error().message()));
             }
         }
     }
@@ -329,7 +332,7 @@ bool MythPowerDBus::ScheduleFeature(enum Feature Type, uint Delay)
     {
         // no logind scheduling but intiate suspend now and retain lock until ready
         m_featureTimer.stop();
-        m_delayTimer.start(static_cast<int>(Delay) * 1000);
+        m_delayTimer.start(Delay);
         DoFeature(true);
     }
 
@@ -419,8 +422,10 @@ void MythPowerDBus::UpdateProperties(void)
         QVariant delay = m_logindInterface->property("InhibitDelayMaxUSec");
         if (delay.isValid())
         {
-            m_maxSupportedDelay = delay.toUInt() / 1000000; // Micro seconds to milliseconds
-            LOG(VB_GENERAL, LOG_DEBUG, LOC + QString("Max inhibit delay: %1seconds").arg(m_maxSupportedDelay));
+            auto value = std::chrono::microseconds(delay.toUInt());
+            m_maxSupportedDelay = duration_cast<std::chrono::seconds>(value);
+            LOG(VB_GENERAL, LOG_DEBUG, LOC + QString("Max inhibit delay: %1seconds")
+                .arg(m_maxSupportedDelay.count()));
         }
     }
 }
@@ -532,7 +537,7 @@ void MythPowerDBus::AcquireLock(Features Types)
     if (!reply.isValid())
     {
         LOG(VB_GENERAL, LOG_INFO, LOC + QString("Failed to delay %1: %2")
-            .arg(types.join(",")).arg(reply.error().message()));
+            .arg(types.join(","), reply.error().message()));
         m_lockHandle = -1;
         return;
     }

@@ -3,7 +3,7 @@
 // Some of the XDS was inspired by code in TVTime. -- dtk 03/30/2006
 
 #include <algorithm>
-using namespace std;
+#include <vector>
 
 // Qt headers
 #include <QStringList>
@@ -18,7 +18,7 @@ using namespace std;
 
 #define DEBUG_XDS 0
 
-static void init_xds_program_type(QString xds_program_type[96]);
+static void init_xds_program_type(CC608ProgramType& xds_program_type);
 
 CC608Decoder::CC608Decoder(CC608Input *ccr)
     : m_reader(ccr),
@@ -36,7 +36,7 @@ CC608Decoder::CC608Decoder(CC608Input *ccr)
     m_stdChar[124] = QLatin1Char(0xF7); // ÷
     m_stdChar[125] = QLatin1Char(0xD1); // Ñ
     m_stdChar[126] = QLatin1Char(0xF1); // ñ
-    m_stdChar[127] = 0x2588; /* full block */
+    m_stdChar[127] = QChar(0x2588);     // full block
 
     init_xds_program_type(m_xdsProgramTypeString);
 }
@@ -46,16 +46,15 @@ CC608Decoder::~CC608Decoder(void)
     delete [] m_rbuf;
 }
 
-void CC608Decoder::FormatCC(int tc, int code1, int code2)
+void CC608Decoder::FormatCC(std::chrono::milliseconds tc, int code1, int code2)
 {
     FormatCCField(tc, 0, code1);
     FormatCCField(tc, 1, code2);
 }
 
-void CC608Decoder::GetServices(uint seconds, bool seen[4]) const
+void CC608Decoder::GetServices(std::chrono::seconds seconds, CC608Seen& seen) const
 {
-    time_t now = time(nullptr);
-    time_t then = now - seconds;
+    auto then = SystemClock::now() - seconds;
     for (uint i = 0; i < 4; i++)
         seen[i] = (m_lastSeen[i] >= then);
 }
@@ -69,7 +68,7 @@ static const std::array<const int,16> rowdata =
 static const std::array<const QChar,16> specialchar =
 {
     QLatin1Char(0xAE), QLatin1Char(0xB0), QLatin1Char(0xBD), QLatin1Char(0xBF), // ®°½¿
-    0x2122,            QLatin1Char(0xA2), QLatin1Char(0xA3), 0x266A,            // ™¢£♪
+    QChar(0x2122),     QLatin1Char(0xA2), QLatin1Char(0xA3), QChar(0x266A),     // ™¢£♪
     QLatin1Char(0xE0), QLatin1Char(' '),  QLatin1Char(0xE8), QLatin1Char(0xE2), // à èâ
     QLatin1Char(0xEA), QLatin1Char(0xEE), QLatin1Char(0xF4), QLatin1Char(0xFB)  // êîôû
 };
@@ -78,8 +77,8 @@ static const std::array<const QChar,32> extendedchar2 =
 {
     QLatin1Char(0xC1), QLatin1Char(0xC9),  QLatin1Char(0xD3), QLatin1Char(0xDA), // ÁÉÓÚ
     QLatin1Char(0xDC), QLatin1Char(0xFC),  QLatin1Char('`'),  QLatin1Char(0xA1), // Üü`¡
-    QLatin1Char('*'),  QLatin1Char('\''),  0x2014,            QLatin1Char(0xA9), // *'-©
-    0x2120,            QLatin1Char(0xB7),  0x201C,            0x201D,            // ℠·“”
+    QLatin1Char('*'),  QLatin1Char('\''),  QChar(0x2014),     QLatin1Char(0xA9), // *'-©
+    QChar(0x2120),     QLatin1Char(0xB7),  QChar(0x201C),     QChar(0x201D),     // ℠·“”
     QLatin1Char(0xC0), QLatin1Char(0xC2),  QLatin1Char(0xC7), QLatin1Char(0xC8), // ÀÂÇÈ
     QLatin1Char(0xCA), QLatin1Char(0xCB),  QLatin1Char(0xEB), QLatin1Char(0xCE), // ÊËëÎ
     QLatin1Char(0xCF), QLatin1Char(0xEF),  QLatin1Char(0xD4), QLatin1Char(0xD9), // ÏïÔÙ
@@ -95,10 +94,10 @@ static const std::array<const QChar,32> extendedchar3 =
     QLatin1Char(0xC4), QLatin1Char(0xE4), QLatin1Char(0xD6), QLatin1Char(0xF6), // ÄäÖö
     QLatin1Char(0xDF), QLatin1Char(0xA5), QLatin1Char(0xA4), QLatin1Char('|'),  // ß¥¤|
     QLatin1Char(0xC5), QLatin1Char(0xE5), QLatin1Char(0xD8), QLatin1Char(0xF8), // ÅåØø
-    0x250C, 0x2510, 0x2514, 0x2518                                              // ┌┐└┘
+    QChar(0x250C),     QChar(0x2510),     QChar(0x2514),     QChar(0x2518)      // ┌┐└┘
 };
 
-void CC608Decoder::FormatCCField(int tc, int field, int data)
+void CC608Decoder::FormatCCField(std::chrono::milliseconds tc, int field, int data)
 {
     int len = 0;
     int mode = 0;
@@ -134,7 +133,7 @@ void CC608Decoder::FormatCCField(int tc, int field, int data)
 #if 1
     LOG(VB_VBI, LOG_DEBUG,
         QString("Format CC @%1/%2 = %3 %4, %5/%6 = '%7' '%8'")
-        .arg(tc).arg(field)
+        .arg(tc.count()).arg(field)
         .arg((data&0xff), 2, 16)
         .arg((data&0xff00)>>8, 2, 16)
         .arg(b1, 2, 16, QChar('0'))
@@ -174,7 +173,7 @@ void CC608Decoder::FormatCCField(int tc, int field, int data)
     {
         if (mode >= 0)
         {
-            m_lastCodeTc[field] += 33;
+            m_lastCodeTc[field] += 33ms;
             m_timeCode[mode] = tc;
 
             // commit row number only when first text code
@@ -196,7 +195,7 @@ void CC608Decoder::FormatCCField(int tc, int field, int data)
         // 0x10 <= b1 <= 0x1F
         // control codes
     {
-        m_lastCodeTc[field] += 67;
+        m_lastCodeTc[field] += 67ms;
 
         int newccmode = (b1 >> 3) & 1;
         int newtxtmode = m_txtMode[field*2 + newccmode];
@@ -423,8 +422,8 @@ void CC608Decoder::FormatCCField(int tc, int field, int data)
                             break;
                         case 0x2C:      //erase displayed memory
                             if (m_ignoreTimeCode ||
-                                (tc - m_lastClr[mode]) > 5000 ||
-                                m_lastClr[mode] == 0)
+                                (tc - m_lastClr[mode]) > 5s ||
+                                m_lastClr[mode] == 0ms)
                             {
                                 // don't overflow the frontend with
                                 // too many redundant erase codes
@@ -460,8 +459,8 @@ void CC608Decoder::FormatCCField(int tc, int field, int data)
                                     BufferCC(mode, len, 0);
                             }
                             else if (m_ignoreTimeCode ||
-                                     (tc - m_lastClr[mode]) > 5000 ||
-                                     m_lastClr[mode] == 0)
+                                     (tc - m_lastClr[mode]) > 5s ||
+                                     m_lastClr[mode] == 0ms)
                             {
                                 // clear and flush
                                 BufferCC(mode, len, 1);
@@ -519,7 +518,7 @@ void CC608Decoder::FormatCCField(int tc, int field, int data)
     for (mode = field*4; mode < (field*4 + 4); mode++)
     {
         len = m_ccBuf[mode].length();
-        if ((m_ignoreTimeCode || ((tc - m_timeCode[mode]) > 100)) &&
+        if ((m_ignoreTimeCode || ((tc - m_timeCode[mode]) > 100ms)) &&
              (m_style[mode] != CC_STYLE_POPUP) && len)
         {
             // flush unfinished line if waiting too long
@@ -540,7 +539,7 @@ void CC608Decoder::FormatCCField(int tc, int field, int data)
     m_lastTc[field] = tc;
 }
 
-int CC608Decoder::FalseDup(int tc, int field, int data)
+bool CC608Decoder::FalseDup(std::chrono::milliseconds tc, int field, int data)
 {
     int b1 = data & 0x7f;
     int b2 = (data >> 8) & 0x7f;
@@ -554,21 +553,21 @@ int CC608Decoder::FalseDup(int tc, int field, int data)
             ((b1 & 0x70) == 0x10))
         {
             m_lastCode[field] = -1;
-            return 1;
+            return true;
         }
-        return 0;
+        return false;
     }
 
     // bttv-0.9 VBI reads are pretty reliable (1 read/33367us).
     // bttv-0.7 reads don't seem to work as well so if read intervals
     // vary from this, be more conservative in detecting duplicate
     // CC codes.
-    int dup_text_fudge = 0;
-    int dup_ctrl_fudge = 0;
+    std::chrono::milliseconds dup_text_fudge = 0ms;
+    std::chrono::milliseconds dup_ctrl_fudge = 0ms;
     if (m_badVbi[field] < 100 && b1 != 0 && b2 != 0)
     {
-        int d = tc - m_lastTc[field];
-        if (d < 25 || d > 42)
+        std::chrono::milliseconds d = tc - m_lastTc[field];
+        if (d < 25ms || d > 42ms)
             m_badVbi[field]++;
         else if (m_badVbi[field] > 0)
             m_badVbi[field]--;
@@ -576,34 +575,34 @@ int CC608Decoder::FalseDup(int tc, int field, int data)
     if (m_badVbi[field] < 4)
     {
         // this should pick up all codes
-        dup_text_fudge = -2;
+        dup_text_fudge = -2ms;
         // this should pick up 1st, 4th, 6th, 8th, ... codes
-        dup_ctrl_fudge = 33 - 4;
+        dup_ctrl_fudge = 33ms - 4ms;
     }
     else
     {
-        dup_text_fudge = 4;
-        dup_ctrl_fudge = 33 - 4;
+        dup_text_fudge = 4ms;
+        dup_ctrl_fudge = 33ms - 4ms;
     }
 
     if (data == m_lastCode[field])
     {
         if ((b1 & 0x70) == 0x10)
         {
-            if (tc > (m_lastCodeTc[field] + 67 + dup_ctrl_fudge))
-                return 0;
+            if (tc > (m_lastCodeTc[field] + 67ms + dup_ctrl_fudge))
+                return false;
         }
         else if (b1)
         {
             // text, XDS
-            if (tc > (m_lastCodeTc[field] + 33 + dup_text_fudge))
-                return 0;
+            if (tc > (m_lastCodeTc[field] + 33ms + dup_text_fudge))
+                return false;
         }
 
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 void CC608Decoder::ResetCC(int mode)
@@ -618,7 +617,7 @@ void CC608Decoder::ResetCC(int mode)
 //    m_style[mode] = CC_STYLE_POPUP;
     m_lineCont[mode] = 0;
     m_resumeText[mode] = 0;
-    m_lastClr[mode] = 0;
+    m_lastClr[mode] = 0ms;
     m_ccBuf[mode] = "";
 }
 
@@ -668,7 +667,7 @@ void CC608Decoder::BufferCC(int mode, int len, int clr)
     {
         // calculate UTF-8 encoding length
         tmpbuf = m_ccBuf[mode].toUtf8();
-        len = min(tmpbuf.length(), 255);
+        len = std::min(static_cast<int>(tmpbuf.length()), 255);
     }
 
     unsigned char *bp = m_rbuf;
@@ -696,7 +695,7 @@ void CC608Decoder::BufferCC(int mode, int len, int clr)
     if ((len != 0) && VERBOSE_LEVEL_CHECK(VB_VBI, LOG_INFO))
     {
         LOG(VB_VBI, LOG_INFO, QString("### %1 %2 %3 %4 %5 %6 %7 - '%8'")
-            .arg(m_timeCode[mode], 10)
+            .arg(m_timeCode[mode].count(), 10)
             .arg(m_row[mode], 2).arg(m_rowCount[mode])
             .arg(m_style[mode]).arg(f, 2, 16)
             .arg(clr).arg(len, 3)
@@ -714,13 +713,13 @@ void CC608Decoder::BufferCC(int mode, int len, int clr)
         case CC_CC4: stream = 3; break;
     }
     if (stream >= 0)
-        m_lastSeen[stream] = time(nullptr);
+        m_lastSeen[stream] = std::chrono::system_clock::now();
 
     m_resumeText[mode] = 0;
     if (clr && !len)
         m_lastClr[mode] = m_timeCode[mode];
     else if (len)
-        m_lastClr[mode] = 0;
+        m_lastClr[mode] = 0ms;
 }
 
 int CC608Decoder::NewRowCC(int mode, int len)
@@ -880,7 +879,7 @@ void CC608Decoder::DecodeVPS(const unsigned char *buf)
     if ((int8_t) c < 0)
     {
         m_vpsLabel[m_vpsL] = 0;
-        memcpy(m_vpsPrLabel, m_vpsLabel, sizeof(m_vpsPrLabel));
+        m_vpsPrLabel = m_vpsLabel;
         m_vpsL = 0;
     }
     c &= 0x7F;
@@ -889,7 +888,7 @@ void CC608Decoder::DecodeVPS(const unsigned char *buf)
 
     LOG(VB_VBI, LOG_INFO, QString("VPS: 3-10: %1 %2 %3 %4 %5 %6 %7 %8 (\"%9\")")
             .arg(buf[0]).arg(buf[1]).arg(buf[2]).arg(buf[3]).arg(buf[4])
-            .arg(buf[5]).arg(buf[6]).arg(buf[7]).arg(m_vpsPrLabel));
+            .arg(buf[5]).arg(buf[6]).arg(buf[7]).arg(m_vpsPrLabel.data()));
 
     int pcs = buf[2] >> 6;
     int cni = + ((buf[10] & 3) << 10)
@@ -933,16 +932,17 @@ void CC608Decoder::DecodeWSS(const unsigned char *buf)
             QString("WSS: %1; %2 mode; %3 color coding;\n\t\t\t"
                     "     %4 helper; reserved b7=%5; %6\n\t\t\t"
                     "      open subtitles: %7; %scopyright %8; copying %9")
-            .arg(QString::fromStdString(formats[wss & 7]))
-            .arg((wss & 0x0010) ? "film"                 : "camera")
-            .arg((wss & 0x0020) ? "MA/CP"                : "standard")
-            .arg((wss & 0x0040) ? "modulated"            : "no")
-            .arg(!!(wss & 0x0080))
-            .arg((wss & 0x0100) ? "have TTX subtitles; " : "")
-            .arg(QString::fromStdString(subtitles[(wss >> 9) & 3]))
-            .arg((wss & 0x0800) ? "surround sound; "     : "")
-            .arg((wss & 0x1000) ? "asserted"             : "unknown")
-            .arg((wss & 0x2000) ? "restricted"           : "not restricted"));
+            .arg(QString::fromStdString(formats[wss & 7]),
+                 (wss & 0x0010) ? "film"                 : "camera",
+                 (wss & 0x0020) ? "MA/CP"                : "standard",
+                 (wss & 0x0040) ? "modulated"            : "no",
+                 (wss & 0x0080) ? "1"                    : "0",
+                 (wss & 0x0100) ? "have TTX subtitles; " : "",
+                 QString::fromStdString(subtitles[(wss >> 9) & 3]),
+                 (wss & 0x0800) ? "surround sound; "     : "",
+                 (wss & 0x1000) ? "asserted"             : "unknown")
+            // Qt < 5.14 only allows a max of nin string arguments in a single call
+            .arg((wss & 0x2000) ? "restricted"           : "not restricted")); // clazy:exclude=qstring-arg
 
     if (parity & 1)
     {
@@ -951,7 +951,7 @@ void CC608Decoder::DecodeWSS(const unsigned char *buf)
     }
 }
 
-QString CC608Decoder::XDSDecodeString(const vector<unsigned char> &buf,
+QString CC608Decoder::XDSDecodeString(const std::vector<unsigned char> &buf,
                                       uint start, uint end) const
 {
 #if DEBUG_XDS
@@ -988,11 +988,8 @@ static bool is_better(const QString &newStr, const QString &oldStr)
             return true;
 
         // check if the string contains any bogus characters
-        for (auto ch : qAsConst(newStr))
-            if (ch.toLatin1() < 0x20)
-                return false;
-
-        return true;
+        return std::all_of(newStr.cbegin(), newStr.cend(),
+                           [](auto ch){ return ch.toLatin1() >= 0x20; } );
     }
     return false;
 }
@@ -1054,7 +1051,7 @@ QString CC608Decoder::GetProgramName(bool future) const
 QString CC608Decoder::GetProgramType(bool future) const
 {
     QMutexLocker locker(&m_xdsLock);
-    const vector<uint> &program_type = m_xdsProgramType[(future) ? 1 : 0];
+    const std::vector<uint> &program_type = m_xdsProgramType[(future) ? 1 : 0];
     QString tmp = "";
 
     for (size_t i = 0; i < program_type.size(); i++)
@@ -1188,7 +1185,7 @@ bool CC608Decoder::XDSDecode(int field, int b1, int b2)
     return true;
 }
 
-void CC608Decoder::XDSPacketParse(const vector<unsigned char> &xds_buf)
+void CC608Decoder::XDSPacketParse(const std::vector<unsigned char> &xds_buf)
 {
     QMutexLocker locker(&m_xdsLock);
 
@@ -1221,7 +1218,7 @@ void CC608Decoder::XDSPacketParse(const vector<unsigned char> &xds_buf)
     }
 }
 
-bool CC608Decoder::XDSPacketCRC(const vector<unsigned char> &xds_buf)
+bool CC608Decoder::XDSPacketCRC(const std::vector<unsigned char> &xds_buf)
 {
     /* Check the checksum for validity of the packet. */
     int sum = 0;
@@ -1243,7 +1240,7 @@ bool CC608Decoder::XDSPacketCRC(const vector<unsigned char> &xds_buf)
 }
 
 bool CC608Decoder::XDSPacketParseProgram(
-    const vector<unsigned char> &xds_buf, bool future)
+    const std::vector<unsigned char> &xds_buf, bool future)
 {
     bool handled = true;
     int b2 = xds_buf[1];
@@ -1298,7 +1295,7 @@ bool CC608Decoder::XDSPacketParseProgram(
     }
     else if ((b2 == 0x04) && (xds_buf.size() >= 6))
     {
-        vector<uint> program_type;
+        std::vector<uint> program_type;
         for (size_t i = 2; i < xds_buf.size() - 2; i++)
         {
             int cur = xds_buf[i] - 0x20;
@@ -1403,7 +1400,7 @@ bool CC608Decoder::XDSPacketParseProgram(
     return handled;
 }
 
-bool CC608Decoder::XDSPacketParseChannel(const vector<unsigned char> &xds_buf)
+bool CC608Decoder::XDSPacketParseChannel(const std::vector<unsigned char> &xds_buf)
 {
     bool handled = true;
 
@@ -1442,7 +1439,7 @@ bool CC608Decoder::XDSPacketParseChannel(const vector<unsigned char> &xds_buf)
     return handled;
 }
 
-static void init_xds_program_type(QString xds_program_type[96])
+static void init_xds_program_type(CC608ProgramType& xds_program_type)
 {
     xds_program_type[0]  = QCoreApplication::translate("(Categories)",
                                                        "Education");

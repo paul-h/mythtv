@@ -69,8 +69,6 @@ QString FileServerHandler::LocalFilePath(const QString &path,
     if (lpath.section('/', -2, -2) == "channels")
     {
         // This must be an icon request. Check channel.icon to be safe.
-        QString querytext;
-
         QString file = lpath.section('/', -1);
         lpath = "";
 
@@ -111,7 +109,7 @@ QString FileServerHandler::LocalFilePath(const QString &path,
                 LOG(VB_GENERAL, LOG_ERR,
                         QString("LocalFilePath unable to find local "
                                 "path for '%1', found '%2' instead.")
-                                .arg(lpath).arg(pburl));
+                                .arg(lpath, pburl));
                 lpath = "";
             }
         }
@@ -138,7 +136,7 @@ QString FileServerHandler::LocalFilePath(const QString &path,
                 LOG(VB_FILE, LOG_INFO,
                         QString("LocalFilePath(%1 '%2'), found through "
                                 "exhaustive search at '%3'")
-                            .arg(path).arg(opath).arg(lpath));
+                            .arg(path, opath, lpath));
             }
             else
             {
@@ -213,11 +211,11 @@ bool FileServerHandler::HandleAnnounce(MythSocket *socket,
     QString filename    = "";
     bool writemode      = false;
     bool usereadahead   = true;
-    int timeout_ms      = 2000;
+    std::chrono::milliseconds timeout = 2s;
     switch (commands.size())
     {
       case 6:
-        timeout_ms      = commands[5].toInt();
+        timeout         = std::chrono::milliseconds(commands[5].toInt());
         [[clang::fallthrough]];
       case 5:
         usereadahead    = (commands[4].toInt() != 0);
@@ -229,12 +227,12 @@ bool FileServerHandler::HandleAnnounce(MythSocket *socket,
         hostname        = commands[2];
     }
 
-    QStringList::const_iterator it = slist.begin();
+    QStringList::const_iterator it = slist.cbegin();
     QString path        = *(++it);
     QString wantgroup   = *(++it);
 
     QStringList checkfiles;
-    while (++it != slist.end())
+    while (++it != slist.cend())
         checkfiles += *(it);
 
     slist.clear();
@@ -322,7 +320,7 @@ bool FileServerHandler::HandleAnnounce(MythSocket *socket,
         ft = new FileTransfer(filename, socket, m_parent, writemode);
     }
     else
-        ft = new FileTransfer(filename, socket, m_parent, usereadahead, timeout_ms);
+        ft = new FileTransfer(filename, socket, m_parent, usereadahead, timeout);
 
     ft->BlockShutdown(true);
 
@@ -339,11 +337,11 @@ bool FileServerHandler::HandleAnnounce(MythSocket *socket,
     {
         QFileInfo fi(filename);
         QDir dir = fi.absoluteDir();
-        for (it = checkfiles.begin(); it != checkfiles.end(); ++it)
+        for (const auto & file : qAsConst(checkfiles))
         {
-            if (dir.exists(*it) &&
-                QFileInfo(dir, *it).size() >= kReadTestSize)
-                    slist << *it;
+            if (dir.exists(file) &&
+                QFileInfo(dir, file).size() >= kReadTestSize)
+                    slist << file;
         }
     }
 
@@ -410,9 +408,8 @@ bool FileServerHandler::HandleQueryFreeSpace(SocketHandler *socket)
     QStringList res;
 
     QList<FileSystemInfo> disks = QueryFileSystems();
-    QList<FileSystemInfo>::const_iterator i;
-    for (i = disks.begin(); i != disks.end(); ++i)
-        i->ToStringList(res);
+    for (const auto & disk : qAsConst(disks))
+        disk.ToStringList(res);
 
     socket->WriteStringList(res);
     return true;
@@ -424,21 +421,20 @@ bool FileServerHandler::HandleQueryFreeSpaceList(SocketHandler *socket)
     QStringList hosts;
 
     QList<FileSystemInfo> disks = QueryAllFileSystems();
-    QList<FileSystemInfo>::const_iterator i;
-    for (i = disks.begin(); i != disks.end(); ++i)
-        if (!hosts.contains(i->getHostname()))
-            hosts << i->getHostname();
+    for (const auto & disk : qAsConst(disks))
+        if (!hosts.contains(disk.getHostname()))
+            hosts << disk.getHostname();
 
     // TODO: get max bitrate from encoderlink
     FileSystemInfo::Consolidate(disks, true, 14000);
 
     long long total = 0;
     long long used = 0;
-    for (i = disks.begin(); i != disks.end(); ++i)
+    for (const auto & disk : qAsConst(disks))
     {
-        i->ToStringList(res);
-        total += i->getTotalSpace();
-        used  += i->getUsedSpace();
+        disk.ToStringList(res);
+        total += disk.getTotalSpace();
+        used  += disk.getUsedSpace();
     }
 
     res << hosts.join(",")
@@ -461,13 +457,12 @@ bool FileServerHandler::HandleQueryFreeSpaceSummary(SocketHandler *socket)
     // TODO: get max bitrate from encoderlink
     FileSystemInfo::Consolidate(disks, true, 14000);
 
-    QList<FileSystemInfo>::const_iterator i;
     long long total = 0;
     long long used = 0;
-    for (i = disks.begin(); i != disks.end(); ++i)
+    for (const auto & disk : qAsConst(disks))
     {
-        total += i->getTotalSpace();
-        used  += i->getUsedSpace();
+        total += disk.getTotalSpace();
+        used  += disk.getUsedSpace();
     }
 
     res << QString::number(total) << QString::number(used);
@@ -569,8 +564,8 @@ QList<FileSystemInfo> FileServerHandler::QueryAllFileSystems(void)
 bool FileServerHandler::HandleQueryCheckFile(SocketHandler *socket,
                                              QStringList &slist)
 {
-    QStringList::const_iterator it = slist.begin() + 2;
-    RecordingInfo recinfo(it, slist.end());
+    QStringList::const_iterator it = slist.cbegin() + 2;
+    RecordingInfo recinfo(it, slist.cend());
 
     bool exists = false;
 
@@ -578,7 +573,7 @@ bool FileServerHandler::HandleQueryCheckFile(SocketHandler *socket,
     if (recinfo.HasPathname())
     {
         pburl = GetPlaybackURL(&recinfo);
-        exists = QFileInfo(pburl).exists();
+        exists = QFileInfo::exists(pburl);
         if (!exists)
             pburl.clear();
     }
@@ -836,7 +831,7 @@ bool FileServerHandler::HandleGetFileList(SocketHandler *socket,
     LOG(VB_FILE, LOG_INFO,
         QString("HandleSGGetFileList: group = %1  host = %2  "
                 "path = %3 wanthost = %4")
-            .arg(groupname).arg(host).arg(path).arg(wantHost));
+            .arg(groupname, host, path, wantHost));
 
     if (gCoreContext->IsThisHost(wantHost))
     {
@@ -902,7 +897,7 @@ bool FileServerHandler::HandleFileQuery(SocketHandler *socket,
     QString filename  = slist[3];
 
     LOG(VB_FILE, LOG_DEBUG, QString("HandleSGFileQuery: myth://%1@%2/%3")
-                             .arg(groupname).arg(wantHost).arg(filename));
+                             .arg(groupname, wantHost, filename));
 
     if (gCoreContext->IsThisHost(wantHost))
     {
@@ -1082,7 +1077,6 @@ bool FileServerHandler::HandleDownloadFile(SocketHandler *socket,
     StorageGroup sgroup(storageGroup, gCoreContext->GetHostName(), false);
     QString outDir = sgroup.FindNextDirMostFree();
     QString outFile;
-    QStringList retlist;
 
     if (filename.isEmpty())
     {
@@ -1104,7 +1098,7 @@ bool FileServerHandler::HandleDownloadFile(SocketHandler *socket,
     {
         LOG(VB_GENERAL, LOG_ERR, QString("ERROR: %1 write "
                 "filename '%2' does not pass sanity checks.")
-                .arg(slist[0]).arg(filename));
+                .arg(slist[0], filename));
         res << "ERROR" << "downloadfile_filename_dangerous";
         socket->WriteStringList(res);
         return true;

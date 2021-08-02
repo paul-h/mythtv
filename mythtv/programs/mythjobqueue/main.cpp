@@ -13,7 +13,6 @@
 
 #include <QCoreApplication>
 #include <QString>
-#include <QRegExp>
 #include <QFileInfo>
 #include <QDir>
 
@@ -36,8 +35,6 @@
 #define LOC_WARN QString("MythJobQueue, Warning: ")
 #define LOC_ERR  QString("MythJobQueue, Error: ")
 
-using namespace std;
-
 JobQueue *jobqueue = nullptr;
 QString   pidfile;
 QString   logfile;
@@ -47,7 +44,7 @@ static void cleanup(void)
     delete gContext;
     gContext = nullptr;
 
-    if (pidfile.size())
+    if (!pidfile.isEmpty())
     {
         unlink(pidfile.toLatin1().constData());
         pidfile.clear();

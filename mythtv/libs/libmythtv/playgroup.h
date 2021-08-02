@@ -16,6 +16,10 @@ class MTV_PUBLIC PlayGroup
     static QString GetInitialName(const ProgramInfo *pi);
     static int GetSetting(const QString &name, const QString &field,
                           int defval);
+    template <typename T>
+        static typename std::enable_if<std::chrono::__is_duration<T>::value, T>::type
+        GetDurSetting(const QString &name, const QString &field, T defval)
+    { return T(GetSetting(name, field, static_cast<int>(defval.count()))); }
 };
 
 class MTV_PUBLIC PlayGroupEditor : public GroupSetting
@@ -27,7 +31,7 @@ class MTV_PUBLIC PlayGroupEditor : public GroupSetting
     void Load(void) override; // StandardSetting
 
   public slots:
-    void CreateNewPlayBackGroup();
+    void CreateNewPlayBackGroup() const;
     void CreateNewPlayBackGroupSlot(const QString &name);
 
   private:

@@ -52,7 +52,7 @@ VBoxChannelFetcher::VBoxChannelFetcher(uint cardid, QString inputname, uint sour
     }
 
      LOG(VB_CHANNEL, LOG_INFO, LOC + QString("VideoDevice is: %1, tunerType is: %2")
-         .arg(videoDev).arg(m_transType));
+         .arg(videoDev, m_transType));
 }
 
 VBoxChannelFetcher::~VBoxChannelFetcher()
@@ -75,7 +75,7 @@ void VBoxChannelFetcher::Stop(void)
     {
         m_stopNow = true;
         m_lock.unlock();
-        m_thread->wait(5);
+        m_thread->wait(5ms);
         m_lock.lock();
     }
 
@@ -87,7 +87,7 @@ void VBoxChannelFetcher::Stop(void)
 vbox_chan_map_t VBoxChannelFetcher::GetChannels(void)
 {
     while (!m_thread->isFinished())
-        m_thread->wait(500);
+        m_thread->wait(500ms);
 
     LOG(VB_CHANNEL, LOG_INFO, LOC + QString("Found %1 channels")
         .arg(m_channels->size()));
@@ -163,8 +163,9 @@ void VBoxChannelFetcher::run(void)
         .arg(m_channels->size()));
 
     // add the channels to the DB
-    vbox_chan_map_t::const_iterator it = m_channels->begin();
-    for (uint i = 1; it != m_channels->end(); ++it, ++i)    {
+    vbox_chan_map_t::const_iterator it = m_channels->cbegin();
+    for (uint i = 1; it != m_channels->cend(); ++it, ++i)
+    {
         const QString& channum   = it.key();
         QString name      = (*it).m_name;
         QString xmltvid   = (*it).m_xmltvid.isEmpty() ? "" : (*it).m_xmltvid;
@@ -176,10 +177,10 @@ void VBoxChannelFetcher::run(void)
         uint transportID  = (*it).m_transportID;
 
         //: %1 is the channel number, %2 is the channel name
-        QString msg = tr("Channel #%1 : %2").arg(channum).arg(name);
+        QString msg = tr("Channel #%1 : %2").arg(channum, name);
 
         LOG(VB_CHANNEL, LOG_INFO, QString("Handling channel %1 %2")
-            .arg(channum).arg(name));
+            .arg(channum, name));
         uint mplexID = 0;
         if (m_ftaOnly && !fta)
         {

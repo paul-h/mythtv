@@ -7,7 +7,7 @@
 
 #include <QDir>
 #include <QFile>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QDateTime>
 #include <QSqlError>
 #include <QSqlRecord>
@@ -24,6 +24,10 @@
 #include "exitcodes.h"
 
 #define LOC QString("DBUtil: ")
+
+#if QT_VERSION < QT_VERSION_CHECK(5,15,2)
+#define capturedView capturedRef
+#endif
 
 const int DBUtil::kUnknownVersionNumber = INT_MIN;
 
@@ -101,19 +105,20 @@ bool DBUtil::IsBackupInProgress(void)
     backupStartTimeStr.replace(" ", "T");
 
     QDateTime backupStartTime = MythDate::fromString(backupStartTimeStr);
+    auto backupElapsed = MythDate::secsInPast(backupStartTime);
 
     // No end time set
     if (backupEndTimeStr.isEmpty())
     {
         // If DB Backup started less then 10 minutes ago, assume still running
-        if (backupStartTime.secsTo(MythDate::current()) < 600)
+        if (backupElapsed < 10min)
         {
             LOG(VB_DATABASE, LOG_INFO,
                 QString("DBUtil::BackupInProgress(): Found "
                     "database backup start time of %1 which was %2 seconds "
                     "ago, therefore it appears the backup is still running.")
                     .arg(backupStartTimeStr)
-                    .arg(backupStartTime.secsTo(MythDate::current())));
+                    .arg(backupElapsed.count()));
             return true;
         }
         LOG(VB_DATABASE, LOG_ERR, QString("DBUtil::BackupInProgress(): "
@@ -121,7 +126,7 @@ bool DBUtil::IsBackupInProgress(void)
                 "The backup started %2 seconds ago and should have "
                 "finished by now therefore it appears it is not running .")
                 .arg(backupStartTimeStr)
-                .arg(backupStartTime.secsTo(MythDate::current())));
+                .arg(backupElapsed.count()));
         return false;
     }
 
@@ -135,10 +140,10 @@ bool DBUtil::IsBackupInProgress(void)
             QString("DBUtil::BackupInProgress(): Found "
                     "database backup end time of %1 later than start time "
                     "of %2, therefore backup is not running.")
-            .arg(backupEndTimeStr).arg(backupStartTimeStr));
+            .arg(backupEndTimeStr, backupStartTimeStr));
         return false;
     }
-    if (backupStartTime.secsTo(MythDate::current()) > 600)
+    if (backupElapsed > 10min)
     {
         LOG(VB_DATABASE, LOG_ERR,
             QString("DBUtil::BackupInProgress(): "
@@ -146,7 +151,7 @@ bool DBUtil::IsBackupInProgress(void)
                     "The backup started %2 seconds ago and should have "
                     "finished by now therefore it appears it is not running")
             .arg(backupStartTimeStr)
-            .arg(backupStartTime.secsTo(MythDate::current())));
+            .arg(backupElapsed.count()));
         return false;
     }
 
@@ -281,8 +286,8 @@ bool DBUtil::CheckTables(const bool repair, const QString &options)
     if (all_tables.empty())
         return true;
 
-    QString sql = QString("CHECK TABLE %1 %2;").arg(all_tables.join(", "))
-                                               .arg(options);
+    QString sql = QString("CHECK TABLE %1 %2;")
+        .arg(all_tables.join(", "), options);
 
     LOG(VB_GENERAL, LOG_CRIT, "Checking database tables.");
     if (!query.exec(sql))
@@ -465,7 +470,7 @@ QStringList DBUtil::GetTables(const QStringList &engines)
 QString DBUtil::CreateBackupFilename(const QString& prefix, const QString& extension)
 {
     QString time = MythDate::toString(MythDate::current(), MythDate::kFilename);
-    return QString("%1-%2%3").arg(prefix).arg(time).arg(extension);
+    return QString("%1-%2%3").arg(prefix, time, extension);
 }
 
 /** \fn DBUtil::GetBackupDirectory(void)
@@ -580,10 +585,11 @@ bool DBUtil::DoBackup(const QString &backupScript, QString &filename,
                 "DBUserName=%3\nDBPassword=%4\n"
                 "DBName=%5\nDBSchemaVer=%6\n"
                 "DBBackupDirectory=%7\nDBBackupFilename=%8\n%9\n")
-        .arg(dbParams.m_dbHostName).arg(dbParams.m_dbPort)
-        .arg(dbParams.m_dbUserName).arg(dbParams.m_dbPassword)
-        .arg(dbParams.m_dbName).arg(dbSchemaVer)
-        .arg(backupDirectory).arg(backupFilename).arg(rotate);
+        .arg(dbParams.m_dbHostName, QString::number(dbParams.m_dbPort),
+             dbParams.m_dbUserName, dbParams.m_dbPassword,
+             dbParams.m_dbName,     dbSchemaVer,
+             backupDirectory,       backupFilename,
+             rotate);
     QString tempDatabaseConfFile;
     bool hastemp = CreateTemporaryDBConf(privateinfo, tempDatabaseConfFile);
     if (!hastemp)
@@ -624,7 +630,7 @@ bool DBUtil::DoBackup(const QString &backupScript, QString &filename,
         LOG(VB_FILE, LOG_ERR, LOC +
             QString("No files beginning with the suggested database backup "
                     "filename '%1' were found in '%2'.")
-                .arg(backupFilename).arg(backupDirectory));
+                .arg(backupFilename, backupDirectory));
     }
     else
     {
@@ -635,7 +641,7 @@ bool DBUtil::DoBackup(const QString &backupScript, QString &filename,
                 QString("Multiple files beginning with the suggested database "
                         "backup filename '%1' were found in '%2'. "
                         "Assuming the first is the backup.")
-                    .arg(backupFilename).arg(backupDirectory));
+                    .arg(backupFilename, backupDirectory));
         }
     }
 
@@ -677,7 +683,7 @@ bool DBUtil::DoBackup(QString &filename)
 
     QString privateinfo = QString(
         "[client]\npassword=%1\n[mysqldump]\npassword=%2\n")
-        .arg(dbParams.m_dbPassword).arg(dbParams.m_dbPassword);
+        .arg(dbParams.m_dbPassword, dbParams.m_dbPassword);
     QString tempExtraConfFile;
     if (!CreateTemporaryDBConf(privateinfo, tempExtraConfFile))
         return false;
@@ -690,9 +696,9 @@ bool DBUtil::DoBackup(QString &filename)
                       " --allow-keywords --complete-insert"
                       " --extended-insert --lock-tables --no-create-db --quick"
                       " '%5' > '%6' 2>/dev/null")
-                      .arg(tempExtraConfFile).arg(dbParams.m_dbHostName)
-                      .arg(portArg).arg(dbParams.m_dbUserName)
-                      .arg(dbParams.m_dbName).arg(backupPathname);
+                      .arg(tempExtraConfFile, dbParams.m_dbHostName,
+                           portArg,           dbParams.m_dbUserName,
+                           dbParams.m_dbName, backupPathname);
 
     LOG(VB_FILE, LOG_INFO, QString("Backing up database with command: '%1'")
             .arg(command));
@@ -778,26 +784,17 @@ bool DBUtil::ParseDBMSVersion()
         if (!QueryDBMSVersion())
             return false;
 
-    QString section;
-    int pos = 0;
-    int i = 0;
-    std::array<int,3> version = {-1, -1, -1};
-    QRegExp digits("(\\d+)");
+    static const QRegularExpression parseVersion
+        { R"(^(\d+)(?:\.(\d+)(?:\.(\d+))?)?)" };
+    auto match = parseVersion.match(m_versionString);
+    if (!match.hasMatch())
+        return false;
 
-    while ((i < 3) && ((pos = digits.indexIn(m_versionString, pos)) > -1))
-    {
-        bool ok = false;
-        section = digits.cap(1);
-        pos += digits.matchedLength();
-        version[i] = section.toInt(&ok, 10);
-        if (!ok)
-            version[i] = -1;
-        i++;
-    }
-
-    m_versionMajor = version[0];
-    m_versionMinor = version[1];
-    m_versionPoint = version[2];
+    // If any of these wasn't matched, the captured string will be
+    // empty and toInt will parse it as a zero.
+    m_versionMajor = match.capturedView(1).toInt(nullptr);
+    m_versionMinor = match.capturedView(2).toInt(nullptr);
+    m_versionPoint = match.capturedView(3).toInt(nullptr);
 
     return m_versionMajor > -1;
 }

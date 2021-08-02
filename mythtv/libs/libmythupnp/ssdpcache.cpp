@@ -16,6 +16,14 @@
 #include "upnptaskcache.h"
 #include "portchecker.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
+  #define QT_ENDL endl
+  #define QT_FLUSH flush
+#else
+  #define QT_ENDL Qt::endl
+  #define QT_FLUSH Qt::flush
+#endif
+
 SSDPCache* SSDPCache::g_pSSDPCache = nullptr;
 
 int SSDPCacheEntries::g_nAllocated = 0;       // Debugging only
@@ -112,7 +120,7 @@ void SSDPCacheEntries::Insert(const QString &sUSN, DeviceLocation *pEntry)
     m_mapEntries[usn] = pEntry;
 
     LOG(VB_UPNP, LOG_INFO, QString("SSDP Cache adding USN: %1 Location %2")
-            .arg(pEntry->m_sUSN).arg(pEntry->m_sLocation));
+            .arg(pEntry->m_sUSN, pEntry->m_sLocation));
 }
 
 /// Removes a specific entry from the cache
@@ -128,7 +136,7 @@ void SSDPCacheEntries::Remove( const QString &sUSN )
         {
             LOG(VB_UPNP, LOG_INFO,
                 QString("SSDP Cache removing USN: %1 Location %2")
-                    .arg((*it)->m_sUSN).arg((*it)->m_sLocation));
+                    .arg((*it)->m_sUSN, (*it)->m_sLocation));
             (*it)->DecrRef();
         }
 
@@ -139,7 +147,7 @@ void SSDPCacheEntries::Remove( const QString &sUSN )
 }
 
 /// Removes expired cache entries, returning the number removed.
-uint SSDPCacheEntries::RemoveStale(const TaskTime &ttNow)
+uint SSDPCacheEntries::RemoveStale(const TaskTime ttNow)
 {
     QMutexLocker locker(&m_mutex);
     uint nCount = 0;
@@ -185,8 +193,8 @@ QTextStream &SSDPCacheEntries::OutputXML(
         // Note: IncrRef,DecrRef not required since SSDPCacheEntries
         // holds one reference to each entry and we are holding m_mutex.
         os << "<Service usn='" << entry->m_sUSN
-           << "' expiresInSecs='" << entry->ExpiresInSecs()
-           << "' url='" << entry->m_sLocation << "' />" << endl;
+           << "' expiresInSecs='" << entry->ExpiresInSecs().count()
+           << "' url='" << entry->m_sLocation << "' />" << QT_ENDL;
 
         if (pnEntryCount != nullptr)
             (*pnEntryCount)++;
@@ -208,7 +216,7 @@ void SSDPCacheEntries::Dump(uint &nEntryCount) const
         // Note: IncrRef,DecrRef not required since SSDPCacheEntries
         // holds one reference to each entry and we are holding m_mutex.
         LOG(VB_UPNP, LOG_DEBUG, QString(" * \t\t%1\t | %2\t | %3 ")
-                .arg(entry->m_sUSN) .arg(entry->ExpiresInSecs())
+                .arg(entry->m_sUSN) .arg(entry->ExpiresInSecs().count())
                 .arg(entry->m_sLocation));
 
         nEntryCount++;
@@ -323,15 +331,13 @@ DeviceLocation *SSDPCache::Find(const QString &sURI, const QString &sUSN)
 void SSDPCache::Add( const QString &sURI,
                      const QString &sUSN,
                      const QString &sLocation,
-                     long           sExpiresInSecs )
+                     std::chrono::seconds sExpiresInSecs )
 {    
     // --------------------------------------------------------------
     // Calculate when this cache entry should expire.
     // --------------------------------------------------------------
 
-    TaskTime ttExpires;
-    gettimeofday        ( (&ttExpires), nullptr );
-    AddSecondsToTaskTime(  ttExpires, sExpiresInSecs );
+    auto ttExpires = nowAsDuration<std::chrono::microseconds>() + sExpiresInSecs;
 
     // --------------------------------------------------------------
     // Get a Pointer to a Entries QDict... (Create if not found)
@@ -372,7 +378,7 @@ void SSDPCache::Add( const QString &sURI,
             else
             {
                 PortChecker checker;
-                if (checker.checkPort(host, url.port(80), 5000))
+                if (checker.checkPort(host, url.port(80), 5s))
                 {
                     m_goodUrlList.append(hostport);
                     isGoodUrl=true;
@@ -450,10 +456,9 @@ void SSDPCache::Remove( const QString &sURI, const QString &sUSN )
 int SSDPCache::RemoveStale()
 {
     int          nCount = 0;
-    TaskTime     ttNow;
     QStringList  lstKeys;
 
-    gettimeofday( (&ttNow), nullptr );
+    auto ttNow = nowAsDuration<std::chrono::microseconds>();
 
     Lock();
 
@@ -553,7 +558,7 @@ QTextStream &SSDPCache::OutputXML(
     {
         if (*it != nullptr)
         {
-            os << "<Device uri='" << it.key() << "'>" << endl;
+            os << "<Device uri='" << it.key() << "'>" << QT_ENDL;
 
             uint tmp = 0;
 
@@ -562,13 +567,13 @@ QTextStream &SSDPCache::OutputXML(
             if (pnEntryCount != nullptr)
                 *pnEntryCount += tmp;
 
-            os << "</Device>" << endl;
+            os << "</Device>" << QT_ENDL;
 
             if (pnDevCount != nullptr)
                 (*pnDevCount)++;
         }
     }
-    os << flush;
+    os << QT_FLUSH;
 
     return os;
 }

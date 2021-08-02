@@ -16,8 +16,8 @@
 #include <cstdlib>
 
 // C++
+#include <chrono>
 #include <iostream>
-using namespace std;
 
 // Qt
 #include <QKeyEvent>
@@ -31,18 +31,18 @@ using namespace std;
 #include <mythdate.h>
 
 // zoneminder
-#include "zmplayer.h"
 #include "zmclient.h"
+#include "zmplayer.h"
 
 ZMPlayer::ZMPlayer(MythScreenStack *parent, const char *name,
-                   vector<Event *> *eventList, size_t *currentEvent)
+                   std::vector<Event *> *eventList, size_t *currentEvent)
          :MythScreenType(parent, name),
           m_currentEvent(currentEvent),
-          m_eventList(eventList), m_frameList(new vector<Frame*>),
+          m_eventList(eventList), m_frameList(new std::vector<Frame*>),
           m_frameTimer(new QTimer(this))
 {
-    connect(m_frameTimer, SIGNAL(timeout()), this,
-            SLOT(updateFrame()));
+    connect(m_frameTimer, &QTimer::timeout, this,
+            &ZMPlayer::updateFrame);
 }
 
 ZMPlayer::~ZMPlayer()
@@ -90,25 +90,25 @@ bool ZMPlayer::Create(void)
     if (m_playButton)
     {
         m_playButton->SetText(tr("Pause"));
-        connect(m_playButton, SIGNAL(Clicked()), this, SLOT(playPressed()));
+        connect(m_playButton, &MythUIButton::Clicked, this, &ZMPlayer::playPressed);
     }
 
     if (m_deleteButton)
     {
         m_deleteButton->SetText(tr("Delete"));
-        connect(m_deleteButton, SIGNAL(Clicked()), this, SLOT(deletePressed()));
+        connect(m_deleteButton, &MythUIButton::Clicked, this, &ZMPlayer::deletePressed);
     }
 
     if (m_prevButton)
     {
         m_prevButton->SetText(tr("Previous"));
-        connect(m_prevButton, SIGNAL(Clicked()), this, SLOT(prevPressed()));
+        connect(m_prevButton, &MythUIButton::Clicked, this, &ZMPlayer::prevPressed);
     }
 
     if (m_nextButton)
     {
         m_nextButton->SetText(tr("Next"));
-        connect(m_nextButton, SIGNAL(Clicked()), this, SLOT(nextPressed()));
+        connect(m_nextButton, &MythUIButton::Clicked, this, &ZMPlayer::nextPressed);
     }
 
     // hide the fullscreen image
@@ -247,7 +247,7 @@ bool ZMPlayer::keyPressEvent(QKeyEvent *event)
                 }
 
                 if (!m_paused)
-                    m_frameTimer->start(1000 / 100);
+                    m_frameTimer->start(10ms);
 
             }
         }
@@ -268,7 +268,7 @@ void ZMPlayer::playPressed()
 
     if (m_paused)
     {
-        m_frameTimer->start(1000/25);
+        m_frameTimer->start(40ms);
         m_paused = false;
         if (m_playButton)
             m_playButton->SetText(tr("Pause"));
@@ -303,7 +303,7 @@ void ZMPlayer::deletePressed()
 
         if (!m_eventList->empty())
         {
-            m_frameTimer->start(1000 / 25);
+            m_frameTimer->start(40ms);
             m_paused = false;
         }
     }
@@ -330,7 +330,7 @@ void ZMPlayer::prevPressed()
     if (m_eventList->empty())
         return;
 
-    if (*m_currentEvent <= 0)
+    if (*m_currentEvent == 0)
         return;
 
     if (*m_currentEvent > m_eventList->size())
@@ -395,7 +395,7 @@ void ZMPlayer::getFrame(void)
                 m_frameTimer->start((int) (1000 * delta));
             }
             else
-                m_frameTimer->start(1000 / 100);
+                m_frameTimer->start(10ms);
         }
     }
 }

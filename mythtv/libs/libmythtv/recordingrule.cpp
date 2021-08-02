@@ -118,13 +118,12 @@ bool RecordingRule::Load(bool asTemplate)
     m_autoUserJob4 = query.value(22).toBool();
     m_autoMetadataLookup = query.value(23).toBool();
 
-    // Original rule id for override rule
-    if (!asTemplate)
-        m_parentRecID = query.value(24).toInt();
-
-    // Recording metadata
     if (!asTemplate)
     {
+        // Original rule id for override rule
+        m_parentRecID = query.value(24).toInt();
+
+        // Recording metadata
         m_title = query.value(25).toString();
         m_subtitle = query.value(26).toString();
         m_description = query.value(27).toString();
@@ -138,22 +137,16 @@ bool RecordingRule::Load(bool asTemplate)
         m_seriesid = query.value(35).toString();
         m_programid = query.value(36).toString();
         m_inetref = query.value(37).toString();
-    }
 
-    // Associated data for rule types
-    if (!asTemplate)
-    {
+        // Associated data for rule types
         m_channelid = query.value(38).toInt();
         m_station = query.value(39).toString();
         m_findday = query.value(40).toInt();
         m_findtime = query.value(41).toTime();
         m_findid = query.value(42).toInt();
-    }
 
-    // Statistic fields - Used to generate statistics about particular rules
-    // and influence watch list weighting
-    if (!asTemplate)
-    {
+        // Statistic fields - Used to generate statistics about particular rules
+        // and influence watch list weighting
         m_nextRecording = MythDate::as_utc(query.value(43).toDateTime());
         m_lastRecorded = MythDate::as_utc(query.value(44).toDateTime());
         m_lastDeleted = MythDate::as_utc(query.value(45).toDateTime());
@@ -255,7 +248,7 @@ bool RecordingRule::LoadBySearch(RecSearchType lsearch, const QString& textname,
         m_searchType = lsearch;
         searchType = SearchTypeToString(m_searchType);
 
-        QString ltitle = QString("%1 (%2)").arg(textname).arg(searchType);
+        QString ltitle = QString("%1 (%2)").arg(textname, searchType);
         m_title = ltitle;
         m_sortTitle = nullptr;
         m_subtitle = m_sortSubtitle = std::move(joininfo);
@@ -279,6 +272,9 @@ bool RecordingRule::LoadBySearch(RecSearchType lsearch, const QString& textname,
 
 bool RecordingRule::LoadTemplate(const QString& category, const QString& categoryType)
 {
+    QString lcategory = category.isEmpty() ? "Default" : category;
+    QString lcategoryType = categoryType.isEmpty() ? "Default" : categoryType;
+
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare("SELECT recordid, category, "
                   "       (category = :CAT1) AS catmatch, "
@@ -290,10 +286,10 @@ bool RecordingRule::LoadTemplate(const QString& category, const QString& categor
                   "ORDER BY catmatch DESC, typematch DESC"
                   );
     query.bindValue(":TEMPLATE", kTemplateRecord);
-    query.bindValue(":CAT1", category);
-    query.bindValue(":CAT2", category);
-    query.bindValue(":CATTYPE1", categoryType);
-    query.bindValue(":CATTYPE2", categoryType);
+    query.bindValue(":CAT1", lcategory);
+    query.bindValue(":CAT2", lcategory);
+    query.bindValue(":CATTYPE1", lcategoryType);
+    query.bindValue(":CATTYPE2", lcategoryType);
 
     if (!query.exec())
     {
@@ -350,8 +346,7 @@ bool RecordingRule::ModifyPowerSearchByID(int rid, const QString& textname,
     if (!Load() || m_searchType != kPowerSearch)
         return false;
 
-    QString ltitle = QString("%1 (%2)").arg(textname)
-                                       .arg(tr("Power Search"));
+    QString ltitle = QString("%1 (%2)").arg(textname, tr("Power Search"));
     m_title = ltitle;
     m_sortTitle = nullptr;
     m_subtitle = m_sortSubtitle = std::move(joininfo);
@@ -419,11 +414,11 @@ bool RecordingRule::Save(bool sendSig)
     if (m_recordID > 0 || (m_recordTable != "record" && m_tempID > 0))
     {
         sqlquery = QString("UPDATE %1 %2 WHERE recordid = :RECORDID;")
-                                                        .arg(m_recordTable).arg(sql);
+                                                        .arg(m_recordTable, sql);
     }
     else
     {
-        sqlquery = QString("INSERT INTO %1 %2;").arg(m_recordTable).arg(sql);
+        sqlquery = QString("INSERT INTO %1 %2;").arg(m_recordTable, sql);
     }
 
     MSqlQuery query(MSqlQuery::InitCon());
@@ -507,7 +502,6 @@ bool RecordingRule::Delete(bool sendSig)
     if (m_recordID < 0)
         return false;
 
-    QString querystr;
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare("DELETE FROM record WHERE recordid = :RECORDID");
     query.bindValue(":RECORDID", m_recordID);
@@ -546,7 +540,7 @@ bool RecordingRule::Delete(bool sendSig)
     return true;
 }
 
-void RecordingRule::ToMap(InfoMap &infoMap) const
+void RecordingRule::ToMap(InfoMap &infoMap, uint date_format) const
 {
     if (m_title == "Default (Template)")
     {
@@ -571,23 +565,22 @@ void RecordingRule::ToMap(InfoMap &infoMap) const
     infoMap["callsign"] = m_station;
 
     QDateTime starttm(m_startdate, m_starttime, Qt::UTC);
-    infoMap["starttime"] = MythDate::toString(starttm, MythDate::kTime);
+    infoMap["starttime"] = MythDate::toString(starttm, date_format | MythDate::kTime);
     infoMap["startdate"] = MythDate::toString(
-        starttm, MythDate::kDateFull | MythDate::kSimplify);
+        starttm, date_format | MythDate::kDateFull | MythDate::kSimplify);
 
     QDateTime endtm(m_enddate, m_endtime, Qt::UTC);
-    infoMap["endtime"] = MythDate::toString(endtm, MythDate::kTime);
+    infoMap["endtime"] = MythDate::toString(endtm, date_format | MythDate::kTime);
     infoMap["enddate"] = MythDate::toString(
-        endtm, MythDate::kDateFull | MythDate::kSimplify);
+        endtm, date_format | MythDate::kDateFull | MythDate::kSimplify);
 
     infoMap["inetref"] = m_inetref;
-    infoMap["chanid"] = m_channelid;
+    infoMap["chanid"] = QString::number(m_channelid);
     infoMap["channel"] = m_station;
 
     QDateTime startts(m_startdate, m_starttime, Qt::UTC);
     QDateTime endts(m_enddate, m_endtime, Qt::UTC);
 
-    QString length;
     int seconds = startts.secsTo(endts);
     int minutes = seconds / 60;
     int hours   = minutes / 60;
@@ -606,38 +599,37 @@ void RecordingRule::ToMap(InfoMap &infoMap) const
     {
         //: Time duration, %1 is replaced by the hours, %2 by the minutes
         infoMap["lentime"] = QCoreApplication::translate("(Common)", "%1 %2",
-            "Hours and minutes").arg(hourstring).arg(minstring);
+            "Hours and minutes").arg(hourstring, minstring);
     }
     else
         infoMap["lentime"] = minstring;
 
 
     infoMap["timedate"] = MythDate::toString(
-        startts, MythDate::kDateTimeFull | MythDate::kSimplify) + " - " +
-        MythDate::toString(endts, MythDate::kTime);
+        startts, date_format | MythDate::kDateTimeFull | MythDate::kSimplify) + " - " +
+        MythDate::toString(endts, date_format | MythDate::kTime);
 
     infoMap["shorttimedate"] =
         MythDate::toString(
-            startts, MythDate::kDateTimeShort | MythDate::kSimplify) + " - " +
-        MythDate::toString(endts, MythDate::kTime);
+            startts, date_format | MythDate::kDateTimeShort | MythDate::kSimplify) + " - " +
+        MythDate::toString(endts, date_format | MythDate::kTime);
 
     if (m_type == kDailyRecord || m_type == kWeeklyRecord)
     {
         QDateTime ldt =
             QDateTime(MythDate::current().toLocalTime().date(), m_findtime,
                       Qt::LocalTime);
-        QString findfrom = MythDate::toString(ldt, MythDate::kTime);
+        QString findfrom = MythDate::toString(ldt, date_format | MythDate::kTime);
         if (m_type == kWeeklyRecord)
         {
             int daynum = (m_findday + 5) % 7 + 1;
             findfrom = QString("%1, %2")
-		 .arg(gCoreContext->GetQLocale().dayName(daynum, QLocale::ShortFormat))
-		 .arg(findfrom);
+		 .arg(gCoreContext->GetQLocale().dayName(daynum, QLocale::ShortFormat),
+                      findfrom);
         }
         infoMap["subtitle"] = tr("(%1 or later) %3",
                                  "e.g. (Sunday or later) program "
-                                 "subtitle").arg(findfrom)
-                                 .arg(m_subtitle);
+                                 "subtitle").arg(findfrom, m_subtitle);
     }
 
     infoMap["searchtype"] = SearchTypeToString(m_searchType);
@@ -648,17 +640,17 @@ void RecordingRule::ToMap(InfoMap &infoMap) const
     if (m_nextRecording.isValid())
     {
         infoMap["nextrecording"] = MythDate::toString(
-            m_nextRecording, kDateFull | kAddYear);
+            m_nextRecording, date_format | kDateFull | kAddYear);
     }
     if (m_lastRecorded.isValid())
     {
         infoMap["lastrecorded"] = MythDate::toString(
-            m_lastRecorded, kDateFull | kAddYear);
+            m_lastRecorded, date_format | kDateFull | kAddYear);
     }
     if (m_lastDeleted.isValid())
     {
         infoMap["lastdeleted"] = MythDate::toString(
-            m_lastDeleted, kDateFull | kAddYear);
+            m_lastDeleted, date_format | kDateFull | kAddYear);
     }
 
     infoMap["ruletype"] = toString(m_type);
@@ -924,7 +916,7 @@ bool RecordingRule::IsValid(QString &msg) const
         MSqlQuery query(MSqlQuery::InitCon());
         query.prepare(QString("SELECT NULL FROM (program, channel) "
                               "%1 WHERE %2")
-                      .arg(m_subtitle).arg(m_description));
+                      .arg(m_subtitle, m_description));
         if (m_description.contains(';') || !query.exec())
         {
             msg = QString("Invalid custom search values.");

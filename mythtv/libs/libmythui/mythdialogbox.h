@@ -64,20 +64,27 @@ class MUI_PUBLIC DialogCompletionEvent : public QEvent
 };
 
 
-using MythUIButtonCallback = std::function<void(void)>;
-
 class MUI_PUBLIC MythMenuItem
 {
   public:
-    explicit MythMenuItem(QString text, QVariant data = 0, bool checked = false, MythMenu *subMenu = nullptr) :
-        m_text(std::move(text)), m_data(std::move(data)),
-        m_checked(checked), m_subMenu(subMenu), m_useSlot(false) { Init(); }
-    MythMenuItem(QString text, const char *slot, bool checked = false, MythMenu *subMenu = nullptr) :
+    MythMenuItem(QString text, bool checked = false, MythMenu *subMenu = nullptr) :
+        m_text(std::move(text)), m_checked(checked), m_subMenu(subMenu) { Init(); }
+    // For non-class, static class, or lambda functions.
+    MythMenuItem(QString text, const MythUICallbackNMF &slot,
+                 bool checked = false, MythMenu *subMenu = nullptr) :
         m_text(std::move(text)), m_data(QVariant::fromValue(slot)),
         m_checked(checked), m_subMenu(subMenu) { Init(); }
-    MythMenuItem(QString text, const MythUIButtonCallback &slot, bool checked = false, MythMenu *subMenu = nullptr) :
+    // For class member functions.
+    MythMenuItem(QString text, MythUICallbackMF slot,
+                 bool checked = false, MythMenu *subMenu = nullptr) :
+    m_text(std::move(text)), m_data(QVariant::fromValue(slot)),
+    m_checked(checked), m_subMenu(subMenu) { Init(); }
+    // For const class member functions.
+    MythMenuItem(QString text, MythUICallbackMFc slot,
+                 bool checked = false, MythMenu *subMenu = nullptr) :
         m_text(std::move(text)), m_data(QVariant::fromValue(slot)),
         m_checked(checked), m_subMenu(subMenu) { Init(); }
+    void SetData(QVariant data) { m_data = std::move(data); }
 
     QString   m_text;
     QVariant  m_data    {0};
@@ -98,13 +105,35 @@ class MUI_PUBLIC MythMenu
     MythMenu(QString title, QString text, QObject *retobject, QString resultid);
     ~MythMenu(void);
 
-    void AddItem(const QString &title, QVariant data = 0, MythMenu *subMenu = nullptr,
+    void AddItemV(const QString &title, QVariant data = 0, MythMenu *subMenu = nullptr,
                  bool selected = false, bool checked = false);
-    void AddItem(const QString &title, const char *slot, MythMenu *subMenu = nullptr,
-                 bool selected = false, bool checked = false);
-    void AddItem(const QString &title, const MythUIButtonCallback &slot,
+    void AddItem(const QString &title) { AddItemV(title); };
+    // For non-class, static class, or lambda functions.
+    void AddItem(const QString &title, const MythUICallbackNMF &slot,
                  MythMenu *subMenu = nullptr, bool selected = false,
                  bool checked = false);
+    // For class member non-const functions.
+    template <typename SLOT>
+    typename std::enable_if_t<FunctionPointerTest<SLOT>::MemberFunction>
+    AddItem(const QString &title, const SLOT &slot,
+                  MythMenu *subMenu = nullptr, bool selected = false,
+                  bool checked = false)
+    {
+        auto slot2 = static_cast<MythUICallbackMF>(slot);
+        auto *item = new MythMenuItem(title, slot2, checked, subMenu);
+        AddItem(item, selected, subMenu);
+    }
+    // For class member const functions.
+    template <typename SLOT>
+    typename std::enable_if_t<FunctionPointerTest<SLOT>::MemberConstFunction>
+    AddItem(const QString &title, const SLOT &slot,
+                  MythMenu *subMenu = nullptr, bool selected = false,
+                  bool checked = false)
+    {
+        auto slot2 = static_cast<MythUICallbackMFc>(slot);
+        auto *item = new MythMenuItem(title, slot2, checked, subMenu);
+        AddItem(item, selected, subMenu);
+    }
 
     void SetSelectedByTitle(const QString &title);
     void SetSelectedByData(const QVariant& data);
@@ -163,14 +192,35 @@ class MUI_PUBLIC MythDialogBox : public MythScreenType
     void SetExitAction(const QString &text, QVariant data);
     void SetText(const QString &text);
 
-    void AddButton(const QString &title, QVariant data = 0,
+    void AddButtonV(const QString &title, QVariant data = 0,
                    bool newMenu = false, bool setCurrent = false);
-    void AddButton(const QString &title, const char *slot,
-                   bool newMenu = false, bool setCurrent = false);
-    void AddButton(const QString &title, const MythUIButtonCallback &slot,
+    void AddButtonD(const QString &title, bool setCurrent) { AddButtonV(title, 0,false, setCurrent); }
+    void AddButton(const QString &title) { AddButtonV(title, 0,false, false); }
+    // For non-class, static class, or lambda functions.
+    void AddButton(const QString &title, const MythUICallbackNMF &slot,
                    bool newMenu = false, bool setCurrent = false)
     {
-        AddButton(title, QVariant::fromValue(slot), newMenu, setCurrent);
+        AddButtonV(title, QVariant::fromValue(slot), newMenu, setCurrent);
+        m_useSlots = true;
+    }
+    // For class member non-const functions.
+    template <typename SLOT>
+    typename std::enable_if_t<FunctionPointerTest<SLOT>::MemberFunction>
+    AddButton(const QString &title, const SLOT &slot,
+                    bool newMenu = false, bool setCurrent = false)
+    {
+        auto slot2 = static_cast<MythUICallbackMF>(slot);
+        AddButtonV(title, QVariant::fromValue(slot2), newMenu, setCurrent);
+        m_useSlots = true;
+    }
+    // For class member const functions.
+    template <typename SLOT>
+    typename std::enable_if_t<FunctionPointerTest<SLOT>::MemberConstFunction>
+    AddButton(const QString &title, const SLOT &slot,
+                    bool newMenu = false, bool setCurrent = false)
+    {
+        auto slot2 = static_cast<MythUICallbackMFc>(slot);
+        AddButtonV(title, QVariant::fromValue(slot2), newMenu, setCurrent);
         m_useSlots = true;
     }
 
@@ -442,11 +492,10 @@ class MUI_PUBLIC MythTimeInputDialog : public MythScreenType
     QString           m_id;
 };
 
-MUI_PUBLIC MythConfirmationDialog  *ShowOkPopup(const QString &message, QObject *parent = nullptr,
-                                             const char *slot = nullptr, bool showCancel = false);
-template <typename Func>
-MUI_PUBLIC MythConfirmationDialog  *ShowOkPopup(const QString &message, QObject *parent,
-                                             Func slot, bool showCancel = false)
+MUI_PUBLIC MythConfirmationDialog  *ShowOkPopup(const QString &message, bool showCancel = false);
+template <class OBJ, typename FUNC>
+MUI_PUBLIC MythConfirmationDialog  *ShowOkPopup(const QString &message, const OBJ *parent,
+                                                FUNC slot, bool showCancel = false)
 {
     QString                  LOC = "ShowOkPopup('" + message + "') - ";
     MythScreenStack         *stk = nullptr;
@@ -491,6 +540,5 @@ bool MUI_PUBLIC WaitFor(MythConfirmationDialog* dialog);
 
 Q_DECLARE_METATYPE(MythMenuItem*)
 Q_DECLARE_METATYPE(const char*)
-Q_DECLARE_METATYPE(MythUIButtonCallback)
 
 #endif

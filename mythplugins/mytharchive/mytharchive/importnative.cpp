@@ -48,7 +48,7 @@ static bool loadDetailsFromXML(const QString &filename, FileDetails *details)
     {
         QDomNodeList itemNodeList = doc.elementsByTagName("item");
         QString type;
-        QString dbVersion;
+//      QString dbVersion;
 
         if (itemNodeList.count() < 1)
         {
@@ -60,7 +60,7 @@ static bool loadDetailsFromXML(const QString &filename, FileDetails *details)
         QDomNode n = itemNodeList.item(0);
         QDomElement e = n.toElement();
         type = e.attribute("type");
-        dbVersion = e.attribute("databaseversion");
+//      dbVersion = e.attribute("databaseversion");
         if (type == "recording")
         {
             QDomNodeList nodeList = e.elementsByTagName("recorded");
@@ -204,22 +204,22 @@ bool ArchiveFileSelector::Create(void)
     if (m_titleText)
         m_titleText->SetText(tr("Find File To Import"));
 
-    connect(m_nextButton, SIGNAL(Clicked()), this, SLOT(nextPressed()));
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(cancelPressed()));
-    connect(m_prevButton, SIGNAL(Clicked()), this, SLOT(prevPressed()));
+    connect(m_nextButton, &MythUIButton::Clicked, this, &ArchiveFileSelector::nextPressed);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &ArchiveFileSelector::cancelPressed);
+    connect(m_prevButton, &MythUIButton::Clicked, this, &ArchiveFileSelector::prevPressed);
 
-    connect(m_locationEdit, SIGNAL(LosingFocus()),
-            this, SLOT(locationEditLostFocus()));
+    connect(m_locationEdit, &MythUIType::LosingFocus,
+            this, &ArchiveFileSelector::locationEditLostFocus);
     m_locationEdit->SetText(m_curDirectory);
 
-    connect(m_backButton, SIGNAL(Clicked()), this, SLOT(backPressed()));
-    connect(m_homeButton, SIGNAL(Clicked()), this, SLOT(homePressed()));
+    connect(m_backButton, &MythUIButton::Clicked, this, &ArchiveFileSelector::backPressed);
+    connect(m_homeButton, &MythUIButton::Clicked, this, &ArchiveFileSelector::homePressed);
 
-    connect(m_fileButtonList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            this, SLOT(itemSelected(MythUIButtonListItem *)));
+    connect(m_fileButtonList, &MythUIButtonList::itemSelected,
+            this, &ArchiveFileSelector::itemSelected);
 
-    connect(m_fileButtonList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            this, SLOT(itemClicked(MythUIButtonListItem *)));
+    connect(m_fileButtonList, &MythUIButtonList::itemClicked,
+            this, &ArchiveFileSelector::itemClicked);
 
     BuildFocusList();
 
@@ -324,14 +324,14 @@ bool ImportNative::Create(void)
         return false;
     }
 
-    connect(m_finishButton, SIGNAL(Clicked()), this, SLOT(finishedPressed()));
-    connect(m_prevButton, SIGNAL(Clicked()), this, SLOT(prevPressed()));
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(cancelPressed()));
+    connect(m_finishButton, &MythUIButton::Clicked, this, &ImportNative::finishedPressed);
+    connect(m_prevButton, &MythUIButton::Clicked, this, &ImportNative::prevPressed);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &ImportNative::cancelPressed);
 
-    connect(m_searchChanIDButton, SIGNAL(Clicked()), this, SLOT(searchChanID()));
-    connect(m_searchChanNoButton, SIGNAL(Clicked()), this, SLOT(searchChanNo()));
-    connect(m_searchChanNameButton, SIGNAL(Clicked()), this, SLOT(searchName()));
-    connect(m_searchCallsignButton, SIGNAL(Clicked()), this, SLOT(searchCallsign()));
+    connect(m_searchChanIDButton, &MythUIButton::Clicked, this, &ImportNative::searchChanID);
+    connect(m_searchChanNoButton, &MythUIButton::Clicked, this, &ImportNative::searchChanNo);
+    connect(m_searchChanNameButton, &MythUIButton::Clicked, this, &ImportNative::searchName);
+    connect(m_searchCallsignButton, &MythUIButton::Clicked, this, &ImportNative::searchCallsign);
 
     m_progTitleText->SetText(m_details.title);
 
@@ -502,7 +502,7 @@ void ImportNative::findChannelMatch(const QString &chanID, const QString &chanNo
 }
 
 void ImportNative::showList(const QString &caption, QString &value,
-                            const char *slot)
+                            const INSlot slot)
 {
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
@@ -516,7 +516,7 @@ void ImportNative::showList(const QString &caption, QString &value,
         return;
     }
 
-    connect(searchDialog, SIGNAL(haveResult(QString)), this, slot);
+    connect(searchDialog, &MythUISearchDialog::haveResult, this, slot);
 
     popupStack->AddScreen(searchDialog);
 }
@@ -527,7 +527,7 @@ void ImportNative::fillSearchList(const QString &field)
     m_searchList.clear();
 
     QString querystr;
-    querystr = QString("SELECT %1 FROM channel ORDER BY %2").arg(field).arg(field);
+    querystr = QString("SELECT %1 FROM channel ORDER BY %2").arg(field, field);
 
     MSqlQuery query(MSqlQuery::InitCon());
 
@@ -547,7 +547,7 @@ void ImportNative::searchChanID()
     fillSearchList("chanid");
 
     s = m_chanIDText->GetText();
-    showList(tr("Select a channel id"), s, SLOT(gotChanID(QString)));
+    showList(tr("Select a channel id"), s, &ImportNative::gotChanID);
 }
 
 void ImportNative::gotChanID(const QString& value)
@@ -573,7 +573,7 @@ void ImportNative::searchChanNo()
     fillSearchList("channum");
 
     s = m_chanNoText->GetText();
-    showList(tr("Select a channel number"), s, SLOT(gotChanNo(QString)));
+    showList(tr("Select a channel number"), s, &ImportNative::gotChanNo);
 }
 
 void ImportNative::gotChanNo(const QString& value)
@@ -599,7 +599,7 @@ void ImportNative::searchName()
     fillSearchList("name");
 
     s = m_chanNameText->GetText();
-    showList(tr("Select a channel name"), s, SLOT(gotName(QString)));
+    showList(tr("Select a channel name"), s, &ImportNative::gotName);
 }
 
 void ImportNative::gotName(const QString& value)
@@ -625,7 +625,7 @@ void ImportNative::searchCallsign()
     fillSearchList("callsign");
 
     s = m_callsignText->GetText();
-    showList(tr("Select a Callsign"), s, SLOT(gotCallsign(QString)));
+    showList(tr("Select a Callsign"), s, &ImportNative::gotCallsign);
 }
 
 void ImportNative::gotCallsign(const QString& value)

@@ -74,7 +74,6 @@
 
 // C++ headers
 #include <algorithm>
-using namespace std;
 
 // Qt headers
 #include <QCoreApplication>
@@ -84,6 +83,9 @@ using namespace std;
 #include <QMutexLocker>
 #include <QPair>
 #include <QRunnable>
+#if QT_VERSION >= QT_VERSION_CHECK(5,14,0)
+#include <QRecursiveMutex>
+#endif
 #include <QSet>
 #include <QWaitCondition>
 #include <utility>
@@ -103,7 +105,7 @@ using MPoolQueues = QMap<int, MPoolQueue>;
 class MPoolThread : public MThread
 {
   public:
-    MPoolThread(MThreadPool &pool, int timeout) :
+    MPoolThread(MThreadPool &pool, std::chrono::milliseconds timeout) :
         MThread("PT"), m_pool(pool), m_expiryTimeout(timeout)
     {
         QMutexLocker locker(&s_lock);
@@ -121,7 +123,7 @@ class MPoolThread : public MThread
         while (true)
         {
             if (m_doRun && !m_runnable)
-                m_wait.wait(locker.mutex(), m_expiryTimeout+1);
+                m_wait.wait(locker.mutex(), (m_expiryTimeout+1ms).count());
 
             if (!m_runnable)
             {
@@ -197,7 +199,7 @@ class MPoolThread : public MThread
     QMutex          m_lock;
     QWaitCondition  m_wait;
     MThreadPool    &m_pool;
-    int             m_expiryTimeout;
+    std::chrono::milliseconds m_expiryTimeout;
     bool            m_doRun          {true};
     QString         m_runnableName;
     bool            m_reserved       {false};
@@ -218,14 +220,14 @@ class MThreadPoolPrivate
 
     int GetRealMaxThread(void) const
     {
-        return max(m_maxThreadCount,1) + m_reserveThread;
+        return std::max(m_maxThreadCount,1) + m_reserveThread;
     }
 
     mutable QMutex m_lock;
     QString m_name;
     QWaitCondition m_wait;
     bool m_running          {true};
-    int  m_expiryTimeout    {120 * 1000};
+    std::chrono::milliseconds m_expiryTimeout {2min};
     int  m_maxThreadCount   {QThread::idealThreadCount()};
     int  m_reserveThread    {0};
 
@@ -234,12 +236,20 @@ class MThreadPoolPrivate
     QSet<MPoolThread*>  m_runningThreads;
     QList<MPoolThread*> m_deleteThreads;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     static QMutex s_pool_lock;
+#else
+    static QRecursiveMutex s_pool_lock;
+#endif
     static MThreadPool *s_pool;
     static QList<MThreadPool*> s_all_pools;
 };
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
 QMutex MThreadPoolPrivate::s_pool_lock(QMutex::Recursive);
+#else
+QRecursiveMutex MThreadPoolPrivate::s_pool_lock;
+#endif
 MThreadPool *MThreadPoolPrivate::s_pool = nullptr;
 QList<MThreadPool*> MThreadPoolPrivate::s_all_pools;
 
@@ -359,19 +369,20 @@ void MThreadPool::start(QRunnable *runnable, const QString& debugName, int prior
 }
 
 void MThreadPool::startReserved(
-    QRunnable *runnable, const QString& debugName, int waitForAvailMS)
+    QRunnable *runnable, const QString& debugName,
+    std::chrono::milliseconds waitForAvailMS)
 {
     QMutexLocker locker(&m_priv->m_lock);
-    if (waitForAvailMS > 0 && m_priv->m_availThreads.empty() &&
+    if (waitForAvailMS > 0ms && m_priv->m_availThreads.empty() &&
         m_priv->m_runningThreads.size() >= m_priv->m_maxThreadCount)
     {
         MythTimer t;
         t.start();
-        int left = waitForAvailMS - t.elapsed();
-        while (left > 0 && m_priv->m_availThreads.empty() &&
+        auto left = waitForAvailMS - t.elapsed();
+        while (left > 0ms && m_priv->m_availThreads.empty() &&
                m_priv->m_runningThreads.size() >= m_priv->m_maxThreadCount)
         {
-            m_priv->m_wait.wait(locker.mutex(), left);
+            m_priv->m_wait.wait(locker.mutex(), left.count());
             left = waitForAvailMS - t.elapsed();
         }
     }
@@ -495,13 +506,13 @@ void MThreadPool::NotifyDone(MPoolThread *thread)
     m_priv->m_wait.wakeAll();
 }
 
-int MThreadPool::expiryTimeout(void) const
+std::chrono::milliseconds MThreadPool::expiryTimeout(void) const
 {
     QMutexLocker locker(&m_priv->m_lock);
     return m_priv->m_expiryTimeout;
 }
 
-void MThreadPool::setExpiryTimeout(int expiryTimeout)
+void MThreadPool::setExpiryTimeout(std::chrono::milliseconds expiryTimeout)
 {
     QMutexLocker locker(&m_priv->m_lock);
     m_priv->m_expiryTimeout = expiryTimeout;

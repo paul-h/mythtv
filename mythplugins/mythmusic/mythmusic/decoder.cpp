@@ -77,25 +77,19 @@ QStringList Decoder::all()
 {
     checkFactories();
 
-    QStringList l;
-
-    for (const auto & factory : qAsConst(*factories))
-        l += factory->description();
-
-    return l;
+    return std::accumulate(factories->cbegin(), factories->cend(),
+                           QStringList(),
+                           [](QStringList& l, const auto & factory)
+                               { return l += factory->description(); } );
 }
 
 bool Decoder::supports(const QString &source)
 {
     checkFactories();
 
-    for (const auto & factory : qAsConst(*factories))
-    {
-        if (factory->supports(source))
-            return true;
-    }
-
-    return false;
+    return std::any_of(factories->cbegin(), factories->cend(),
+                       [source](const auto & factory)
+                           {return factory->supports(source); } );
 }
 
 void Decoder::registerFactory(DecoderFactory *fact)
@@ -107,11 +101,10 @@ Decoder *Decoder::create(const QString &source, AudioOutput *output, bool deleta
 {
     checkFactories();
 
-    for (const auto & factory : qAsConst(*factories))
-    {
-        if (factory->supports(source))
-            return factory->create(source, output, deletable);
-    }
-
-    return nullptr;
+    auto supported = [source](const auto & factory)
+        { return factory->supports(source); };
+    auto f = std::find_if(factories->cbegin(), factories->cend(), supported);
+    return (f != factories->cend())
+        ? (*f)->create(source, output, deletable)
+        : nullptr;
 }

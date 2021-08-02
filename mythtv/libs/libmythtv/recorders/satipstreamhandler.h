@@ -6,7 +6,11 @@
 // Qt headers
 #include <QString>
 #include <QStringList>
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
 #include <QMutex>
+#else
+#include <QRecursiveMutex>
+#endif
 #include <QMap>
 
 // MythTV headers
@@ -32,18 +36,18 @@ class SatIPStreamHandler : public StreamHandler
     static void Return(SatIPStreamHandler * & ref, int inputid);
 
     void AddListener(MPEGStreamData *data,
-            bool /*allow_section_reader*/ = false,
-            bool /*needs_drb*/            = false,
-        QString output_file = QString()) override
+                     bool /*allow_section_reader*/ = false,
+                     bool /*needs_drb*/            = false,
+                     const QString& output_file    = QString()) override // StreamHandler
     {
         StreamHandler::AddListener(data, false, false, output_file);
     } // StreamHandler
 
     bool UpdateFilters() override;  // StreamHandler
-    void Tune(const DTVMultiplex &tuning);
+    bool Tune(const DTVMultiplex &tuning);
 
   private:
-    SatIPStreamHandler(const QString & /*device*/, int inputid);
+    explicit SatIPStreamHandler(const QString & device, int inputid);
 
     bool Open(void);
     void Close(void);
@@ -55,24 +59,26 @@ class SatIPStreamHandler : public StreamHandler
     static QMap<QString, uint>                s_handlersRefCnt;
     static QMutex                             s_handlersLock;
 
-    static QMutex s_cseq_lock;
-    static uint s_cseq;
-
-  protected:
-    SatIPRTSP   *m_rtsp           {nullptr};
-
   public:
-    int          m_inputId;
+    int          m_inputId        {0};
 
   private:
     DTVTunerType m_tunerType;
     QString      m_device;
+    uint         m_frontend       {UINT_MAX};
     QUrl         m_baseurl;
     QUrl         m_tuningurl;
     QUrl         m_oldtuningurl;
     bool         m_setupinvoked   {false};
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QMutex       m_tunelock       {QMutex::Recursive};
+#else
+    QRecursiveMutex m_tunelock;
+#endif
     QStringList  m_oldpids;
+
+  protected:
+    SatIPRTSP   *m_rtsp           {nullptr};
 };
 
 #endif // _SATIPSTREAMHANDLER_H_

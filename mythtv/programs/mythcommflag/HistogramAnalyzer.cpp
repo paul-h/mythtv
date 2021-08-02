@@ -1,6 +1,3 @@
-// POSIX headers
-#include <sys/time.h> // for gettimeofday
-
 // ANSI C headers
 #include <cmath>
 #include <utility>
@@ -30,7 +27,7 @@ readData(const QString& filename, float *mean, unsigned char *median, float *std
         HistogramAnalyzer::Histogram *histogram, unsigned char *monochromatic,
         long long nframes)
 {
-    quint32         counter[UCHAR_MAX + 1];
+    std::array<quint32,UCHAR_MAX + 1> counter {};
 
     QByteArray fname = filename.toLocal8Bit();
     FILE *fp = fopen(fname.constData(), "r");
@@ -90,7 +87,7 @@ readData(const QString& filename, float *mean, unsigned char *median, float *std
         fcol[frameno] = colval;
         fwidth[frameno] = widthval;
         fheight[frameno] = heightval;
-        for (size_t ii = 0; ii < sizeof(counter)/sizeof(*counter); ii++)
+        for (size_t ii = 0; ii < counter.size(); ii++)
             histogram[frameno][ii] = counter[ii];
         monochromatic[frameno] = !widthval || !heightval ? 1 : 0;
         /*
@@ -100,13 +97,13 @@ readData(const QString& filename, float *mean, unsigned char *median, float *std
     }
     if (fclose(fp))
         LOG(VB_COMMFLAG, LOG_ERR, QString("Error closing %1: %2")
-                .arg(filename).arg(strerror(errno)));
+                .arg(filename, strerror(errno)));
     return true;
 
 error:
     if (fclose(fp))
         LOG(VB_COMMFLAG, LOG_ERR, QString("Error closing %1: %2")
-                .arg(filename).arg(strerror(errno)));
+                .arg(filename, strerror(errno)));
     return false;
 }
 
@@ -134,7 +131,7 @@ writeData(const QString& filename, float *mean, unsigned char *median, float *st
     }
     if (fclose(fp))
         LOG(VB_COMMFLAG, LOG_ERR, QString("Error closing %1: %2")
-                .arg(filename).arg(strerror(errno)));
+                .arg(filename, strerror(errno)));
     return true;
 }
 
@@ -259,7 +256,7 @@ HistogramAnalyzer::setLogoState(TemplateFinder *finder)
 }
 
 enum FrameAnalyzer::analyzeFrameResult
-HistogramAnalyzer::analyzeFrame(const VideoFrame *frame, long long frameno)
+HistogramAnalyzer::analyzeFrame(const MythVideoFrame *frame, long long frameno)
 {
     /*
      * Various statistical computations over pixel values: mean, median,
@@ -300,9 +297,8 @@ HistogramAnalyzer::analyzeFrame(const VideoFrame *frame, long long frameno)
     int                 cc2 = 0;
     int                 rr3 = 0;
     int                 cc3 = 0;
-    struct timeval      start {};
-    struct timeval      end {};
-    struct timeval      elapsed {};
+    std::chrono::microseconds start {0us};
+    std::chrono::microseconds end   {0us};
 
     if (m_lastFrameNo != kUncached && m_lastFrameNo == frameno)
         return FrameAnalyzer::ANALYZE_OK;
@@ -314,7 +310,7 @@ HistogramAnalyzer::analyzeFrame(const VideoFrame *frame, long long frameno)
     ismonochromatic = m_borderDetector->getDimensions(pgm, pgmheight, frameno,
             &croprow, &cropcol, &cropwidth, &cropheight) != 0;
 
-    gettimeofday(&start, nullptr);
+    start = nowAsDuration<std::chrono::microseconds>();
 
     m_fRow[frameno] = croprow;
     m_fCol[frameno] = cropcol;
@@ -343,7 +339,7 @@ HistogramAnalyzer::analyzeFrame(const VideoFrame *frame, long long frameno)
         ((rr3 - rr2) / kRInc) * (cc3 / kCInc);            /* bottom */
 
     pp = &m_buf[borderpixels];
-    memset(m_histVal, 0, sizeof(m_histVal));
+    m_histVal.fill(0);
     m_histVal[kDefaultColor] += borderpixels;
     for (int rr = rr1; rr < rr2; rr += kRInc)
     {
@@ -391,9 +387,8 @@ HistogramAnalyzer::analyzeFrame(const VideoFrame *frame, long long frameno)
         sqrt((sumsquares - (float)sumval * sumval / npixels) / (npixels - 1)) :
             0;
 
-    (void)gettimeofday(&end, nullptr);
-    timersub(&end, &start, &elapsed);
-    timeradd(&m_analyzeTime, &elapsed, &m_analyzeTime);
+    end = nowAsDuration<std::chrono::microseconds>();
+    m_analyzeTime += (end - start);
 
     m_lastFrameNo = frameno;
 
@@ -435,7 +430,7 @@ HistogramAnalyzer::reportTime(void) const
         return -1;
 
     LOG(VB_COMMFLAG, LOG_INFO, QString("HA Time: analyze=%1s")
-            .arg(strftimeval(&m_analyzeTime)));
+            .arg(strftimeval(m_analyzeTime)));
     return 0;
 }
 

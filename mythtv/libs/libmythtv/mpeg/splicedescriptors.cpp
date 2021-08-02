@@ -88,22 +88,16 @@ desc_list_t SpliceDescriptor::ParseOnlyInclude(
 const unsigned char *SpliceDescriptor::Find(
     const desc_list_t &parsed, uint desc_tag)
 {
-    for (const auto *item : parsed)
-    {
-        if (item[0] == desc_tag)
-            return item;
-    }
-    return nullptr;
+    auto sametag = [desc_tag](const auto *item){ return item[0] == desc_tag; };
+    auto it = std::find_if(parsed.cbegin(), parsed.cend(), sametag);
+    return (it != parsed.cend()) ? *it : nullptr;
 }
 
 desc_list_t SpliceDescriptor::FindAll(const desc_list_t &parsed, uint desc_tag)
 {
     desc_list_t tmp;
-    for (const auto *item : parsed)
-    {
-        if (item[0] == desc_tag)
-            tmp.push_back(item);
-    }
+    auto sametag = [desc_tag](const auto *item) { return item[0] == desc_tag; };
+    std::copy_if(parsed.cbegin(), parsed.cend(), std::back_inserter(tmp), sametag);
     return tmp;
 }
 
@@ -171,7 +165,7 @@ QString SpliceDescriptor::toStringXML(uint level) const
     str += indent_1 + QString("<TAG>0x%1</TAG>\n")
         .arg(DescriptorTag(),2,16,QChar('0'));
     str += indent_1 + QString("<DESCRIPTION>%1</DESCRIPTION>\n")
-        .arg(DescriptorTagString(),0,16);
+        .arg(DescriptorTagString());
 
     str += indent_1 + "<DATA>";
     for (uint i = 0; i < DescriptorLength(); i++)

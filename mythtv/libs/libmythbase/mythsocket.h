@@ -10,7 +10,6 @@
 
 #include "referencecounter.h"
 #include "mythsocket_cb.h"
-#include "mythqtcompat.h"
 #include "mythbaseexp.h"
 #include "mthread.h"
 
@@ -30,14 +29,14 @@ class MBASE_PUBLIC MythSocket : public QObject, public ReferenceCounter
     friend class MythSocketManager;
 
   public:
-    explicit MythSocket(qt_socket_fd_t socket = -1, MythSocketCBs *cb = nullptr,
+    explicit MythSocket(qintptr socket = -1, MythSocketCBs *cb = nullptr,
                bool use_shared_thread = false);
 
     bool ConnectToHost(const QString &hostname, quint16 port);
     bool ConnectToHost(const QHostAddress &address, quint16 port);
     void DisconnectFromHost(void);
 
-    bool Validate(uint timeout_ms = kMythSocketLongTimeout,
+    bool Validate(std::chrono::milliseconds timeout = kMythSocketLongTimeout,
                   bool error_dialog_desired = false);
     bool IsValidated(void) const { return m_isValidated; }
 
@@ -51,9 +50,9 @@ class MBASE_PUBLIC MythSocket : public QObject, public ReferenceCounter
 
     bool SendReceiveStringList(
         QStringList &list, uint min_reply_length = 0,
-        uint timeoutMS = kLongTimeout);
+        std::chrono::milliseconds timeoutMS = kLongTimeout);
 
-    bool ReadStringList(QStringList &list, uint timeoutMS = kShortTimeout);
+    bool ReadStringList(QStringList &list, std::chrono::milliseconds timeoutMS = kShortTimeout);
     bool WriteStringList(const QStringList &list);
 
     bool IsConnected(void) const;
@@ -65,11 +64,11 @@ class MBASE_PUBLIC MythSocket : public QObject, public ReferenceCounter
 
     // RemoteFile stuff
     int Write(const char *data, int size);
-    int Read(char *data, int size, int max_wait_ms);
+    int Read(char *data, int size,  std::chrono::milliseconds max_wait);
     void Reset(void);
 
-    static const uint kShortTimeout;
-    static const uint kLongTimeout;
+    static constexpr std::chrono::milliseconds kShortTimeout { kMythSocketShortTimeout };
+    static constexpr std::chrono::milliseconds kLongTimeout  { kMythSocketLongTimeout };
 
   signals:
     void CallReadyRead(void);
@@ -82,13 +81,13 @@ class MBASE_PUBLIC MythSocket : public QObject, public ReferenceCounter
     void ReadyReadHandler(void);
     void CallReadyReadHandler(void);
 
-    void ReadStringListReal(QStringList *list, uint timeoutMS, bool *ret);
+    void ReadStringListReal(QStringList *list, std::chrono::milliseconds timeoutMS, bool *ret);
     void WriteStringListReal(const QStringList *list, bool *ret);
     void ConnectToHostReal(const QHostAddress& addr, quint16 port, bool *ret);
     void DisconnectFromHostReal(void);
 
     void WriteReal(const char *data, int size, int *ret);
-    void ReadReal(char *data, int size, int max_wait_ms, int *ret);
+    void ReadReal(char *data, int size, std::chrono::milliseconds max_wait_ms, int *ret);
     void ResetReal(void);
 
     void IsDataAvailableReal(bool *ret) const;
@@ -99,7 +98,7 @@ class MBASE_PUBLIC MythSocket : public QObject, public ReferenceCounter
     QTcpSocket     *m_tcpSocket        {nullptr}; // only set in ctor
     MThread        *m_thread           {nullptr}; // only set in ctor
     mutable QMutex  m_lock;
-    qt_socket_fd_t  m_socketDescriptor {-1};      // protected by m_lock
+    qintptr         m_socketDescriptor {-1};      // protected by m_lock
     QHostAddress    m_peerAddress;                // protected by m_lock
     int             m_peerPort         {-1};      // protected by m_lock
     MythSocketCBs  *m_callback         {nullptr}; // only set in ctor
@@ -121,6 +120,9 @@ class MBASE_PUBLIC MythSocket : public QObject, public ReferenceCounter
     static QMutex s_thread_lock;
     static MThread *s_thread; // protected by s_thread_lock
     static int s_thread_cnt;  // protected by s_thread_lock
+
+  private:
+    Q_DISABLE_COPY(MythSocket)
 };
 
 #endif /* MYTH_SOCKET_H */

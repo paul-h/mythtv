@@ -1,5 +1,6 @@
 // MythTV
 #include "decoders/avformatdecoder.h"
+#include "mythplayerui.h"
 #include "mythmmalcontext.h"
 
 // FFmpeg
@@ -79,21 +80,8 @@ MythCodecID MythMMALContext::GetSupportedCodec(AVCodecContext **Context,
         return failure;
 
     if (!decodeonly)
-    {
-        // If called from outside of the main thread, we need a MythPlayer instance to
-        // process the callback interop check callback - which may fail otherwise
-        MythPlayer* player = nullptr;
-        if (!gCoreContext->IsUIThread())
-        {
-            AvFormatDecoder* decoder = reinterpret_cast<AvFormatDecoder*>((*Context)->opaque);
-            if (decoder)
-                player = decoder->GetPlayer();
-        }
-
-        // direct rendering needs interop support
-        if (MythOpenGLInterop::GetInteropType(FMT_MMAL, player) == MythOpenGLInterop::Unsupported)
+        if (!FrameTypeIsSupported(*Context, FMT_MMAL))
             return failure;
-    }
 
     // look for a decoder
     QString name = QString((*Codec)->name) + "_mmal";
@@ -109,8 +97,8 @@ MythCodecID MythMMALContext::GetSupportedCodec(AVCodecContext **Context,
 
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Found MMAL/FFmpeg decoder '%1'").arg(name));
     *Codec = codec;    
-    decoder->CodecMap()->freeCodecContext(Stream);
-    *Context = decoder->CodecMap()->getCodecContext(Stream, *Codec);
+    decoder->CodecMap()->FreeCodecContext(Stream);
+    *Context = decoder->CodecMap()->GetCodecContext(Stream, *Codec);
     (*Context)->pix_fmt = decodeonly ? (*Context)->pix_fmt : AV_PIX_FMT_MMAL;
     return success;
 }
@@ -132,7 +120,7 @@ void MythMMALContext::InitVideoCodec(AVCodecContext *Context, bool SelectedStrea
     MythCodecContext::InitVideoCodec(Context, SelectedStream, DirectRendering);
 }
 
-bool MythMMALContext::RetrieveFrame(AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame)
+bool MythMMALContext::RetrieveFrame(AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame)
 {
     if (codec_is_mmal_dec(m_codecID))
         return GetBuffer(Context, Frame, AvFrame, 0);
@@ -153,8 +141,10 @@ int MythMMALContext::HwDecoderInit(AVCodecContext *Context)
     if (!codec_is_mmal(m_codecID) || Context->pix_fmt != AV_PIX_FMT_MMAL)
         return -1;
 
-    MythRenderOpenGL *context = MythRenderOpenGL::GetOpenGLRender();
-    m_interop = MythMMALInterop::Create(context, MythOpenGLInterop::MMAL);
+    if (auto * player = GetPlayerUI(Context); player != nullptr)
+        if (FrameTypeIsSupported(Context, FMT_MMAL))
+            m_interop = MythMMALInterop::CreateMMAL(dynamic_cast<MythRenderOpenGL*>(player->GetRender()));
+
     return m_interop ? 0 : -1;
 }
 
@@ -170,7 +160,7 @@ void MythMMALContext::SetDecoderOptions(AVCodecContext *Context, AVCodec *Codec)
     av_opt_set(Context->priv_data, "extra_buffers", "8", 0);
 }
 
-bool MythMMALContext::GetBuffer(AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame, int)
+bool MythMMALContext::GetBuffer(AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame, int)
 {
     // Sanity checks
     if (!Context || !AvFrame || !Frame)
@@ -178,39 +168,33 @@ bool MythMMALContext::GetBuffer(AVCodecContext *Context, VideoFrame *Frame, AVFr
 
     // Ensure we can render this format
     AvFormatDecoder *decoder = static_cast<AvFormatDecoder*>(Context->opaque);
-    VideoFrameType type = PixelFormatToFrameType(static_cast<AVPixelFormat>(AvFrame->format));
-    VideoFrameType* supported = decoder->GetPlayer()->DirectRenderFormats();
-    bool found = false;
-    while (*supported != FMT_NONE)
-    {
-        if (*supported == type)
-        {
-            found = true;
-            break;
-        }
-        supported++;
-    }
-
+    VideoFrameType type = MythAVUtil::PixelFormatToFrameType(static_cast<AVPixelFormat>(AvFrame->format));
+    const VideoFrameTypes* supported = Frame->m_renderFormats;
+    auto foundIt = std::find(supported->cbegin(), supported->cend(), type);
     // No fallback currently (unlikely)
-    if (!found)
+    if (foundIt == supported->end())
         return false;
 
     // Re-allocate if necessary
-    if ((Frame->codec != type) || (Frame->width != AvFrame->width) || (Frame->height != AvFrame->height))
+    if ((Frame->m_type != type) || (Frame->m_width != AvFrame->width) || (Frame->m_height != AvFrame->height))
         if (!VideoBuffers::ReinitBuffer(Frame, type, decoder->GetVideoCodecID(), AvFrame->width, AvFrame->height))
             return false;
 
     // Copy data
-    uint count = planes(Frame->codec);
+    uint count = MythVideoFrame::GetNumPlanes(Frame->m_type);
     for (uint plane = 0; plane < count; ++plane)
-        copyplane(Frame->buf + Frame->offsets[plane], Frame->pitches[plane], AvFrame->data[plane], AvFrame->linesize[plane],
-                  pitch_for_plane(Frame->codec, AvFrame->width, plane), height_for_plane(Frame->codec, AvFrame->height, plane));
+    {
+        MythVideoFrame::CopyPlane(Frame->m_buffer + Frame->m_offsets[plane], Frame->m_pitches[plane],
+                                  AvFrame->data[plane], AvFrame->linesize[plane],
+                                  MythVideoFrame::GetPitchForPlane(Frame->m_type, AvFrame->width, plane),
+                                  MythVideoFrame::GetHeightForPlane(Frame->m_type, AvFrame->height, plane));
+    }
 
     AvFrame->reordered_opaque = Context->reordered_opaque;
     return true;
 }
 
-bool MythMMALContext::GetBuffer2(AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame, int)
+bool MythMMALContext::GetBuffer2(AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame, int)
 {
     // Sanity checks
     if (!Context || !AvFrame || !Frame || !m_interop)
@@ -220,26 +204,26 @@ bool MythMMALContext::GetBuffer2(AVCodecContext *Context, VideoFrame *Frame, AVF
     }
 
     // MMAL?
-    if (Frame->codec != FMT_MMAL || static_cast<AVPixelFormat>(AvFrame->format) != AV_PIX_FMT_MMAL)
+    if (Frame->m_type != FMT_MMAL || static_cast<AVPixelFormat>(AvFrame->format) != AV_PIX_FMT_MMAL)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Not an MMAL frame");
         return false;
     }
 
-    Frame->width = AvFrame->width;
-    Frame->height = AvFrame->height;
-    Frame->pix_fmt = Context->pix_fmt;
-    Frame->sw_pix_fmt = Context->sw_pix_fmt;
-    Frame->directrendering = 1;
+    Frame->m_width = AvFrame->width;
+    Frame->m_height = AvFrame->height;
+    Frame->m_pixFmt = Context->pix_fmt;
+    Frame->m_swPixFmt = Context->sw_pix_fmt;
+    Frame->m_directRendering = 1;
     AvFrame->opaque = Frame;
     AvFrame->reordered_opaque = Context->reordered_opaque;
 
     // Frame->data[3] holds MMAL_BUFFER_HEADER_T
-    Frame->buf = AvFrame->data[3];
+    Frame->m_buffer = AvFrame->data[3];
     // Retain the buffer so it is not released before we display it
-    Frame->priv[0] = reinterpret_cast<unsigned char*>(av_buffer_ref(AvFrame->buf[0]));
+    Frame->m_priv[0] = reinterpret_cast<unsigned char*>(av_buffer_ref(AvFrame->buf[0]));
     // Add interop
-    Frame->priv[1] = reinterpret_cast<unsigned char*>(m_interop);
+    Frame->m_priv[1] = reinterpret_cast<unsigned char*>(m_interop);
     // Set the release method
     AvFrame->buf[1] = av_buffer_create(reinterpret_cast<uint8_t*>(Frame), 0, MythCodecContext::ReleaseBuffer,
                                        static_cast<AvFormatDecoder*>(Context->opaque), 0);
@@ -257,14 +241,18 @@ AVPixelFormat MythMMALContext::GetFormat(AVCodecContext*, const AVPixelFormat *P
     return AV_PIX_FMT_NONE;
 }
 
-bool MythMMALContext::HaveMMAL(void)
+bool MythMMALContext::HaveMMAL(bool Reinit /*=false*/)
 {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     static QMutex lock(QMutex::Recursive);
+#else
+    static QRecursiveMutex lock;
+#endif
     QMutexLocker locker(&lock);
     static bool s_checked = false;
     static bool s_available = false;
 
-    if (s_checked)
+    if (s_checked && !Reinit)
         return s_available;
     s_checked = true;
 
@@ -299,7 +287,11 @@ extern "C" {
 
 const MMALProfiles& MythMMALContext::GetProfiles(void)
 {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     static QMutex lock(QMutex::Recursive);
+#else
+    static QRecursiveMutex lock;
+#endif
     static bool s_initialised = false;
     static MMALProfiles s_profiles;
 

@@ -16,22 +16,26 @@ class UPNP_PUBLIC UPNPSubscription : public HttpServerExtension, public MythObse
         { return QStringList( "/Subscriptions" ); }
     bool ProcessRequest(HTTPRequest *pRequest) override; // HttpServerExtension
 
-    int  Subscribe(const QString &usn, const QUrl &url, const QString &path);
+    std::chrono::seconds Subscribe(const QString &usn, const QUrl &url, const QString &path);
     void Unsubscribe(const QString &usn);
-    int  Renew(const QString &usn);
+    std::chrono::seconds Renew(const QString &usn);
     void Remove(const QString &usn);
 
   private:
     Q_DISABLE_COPY(UPNPSubscription)
     static bool SendUnsubscribeRequest(const QString &usn, const QUrl &url,
                                        const QString &path, const QString &uuid);
-    static int  SendSubscribeRequest(const QString &callback,
+    static std::chrono::seconds SendSubscribeRequest(const QString &callback,
                                      const QString &usn, const QUrl &url,
                                      const QString &path, const QString &uuidin,
                                      QString &uuidout);
   private:
     QHash<QString, Subscription*> m_subscriptions;
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QMutex  m_subscriptionLock {QMutex::Recursive};
+#else
+    QRecursiveMutex  m_subscriptionLock;
+#endif
     QString m_callback         {"NOTSET"};
 };
 

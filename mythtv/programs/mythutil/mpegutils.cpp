@@ -45,10 +45,10 @@ static QHash<uint,bool> extract_pids(const QString &pidsStr, bool required)
     else
     {
         QStringList pidsList = pidsStr.split(",");
-        for (uint i = 0; i < (uint) pidsList.size(); i++)
+        for (const QString &pidStr : qAsConst(pidsList))
         {
             bool ok = false;
-            uint tmp = pidsList[i].toUInt(&ok, 0);
+            uint tmp = pidStr.toUInt(&ok, 0);
             if (ok && (tmp < 0x2000))
                 use_pid[tmp] = true;
         }
@@ -113,8 +113,7 @@ static int pid_counter(const MythUtilCommandLineParser &cmdline)
     }
 
     const int kBufSize = 2 * 1024 * 1024;
-    long long pid_count[0x2000];
-    memset(pid_count, 0, sizeof(pid_count));
+    std::array<uint64_t,0x2000> pid_count {};
     char *buffer = new char[kBufSize];
     int offset = 0;
     long long total_count = 0;
@@ -291,12 +290,9 @@ class PTSListener :
   public:
     PTSListener()
     {
-        for (uint & i : m_ptsCount)
-            i = 0;
-        for (int64_t & i : m_ptsFirst)
-            i = -1LL;
-        for (int64_t & i : m_ptsLast)
-            i = -1LL;
+        m_ptsCount.fill(0);
+        m_ptsFirst.fill(-1LL);
+        m_ptsLast.fill(-1LL);
 
     }
     bool ProcessTSPacket(const TSPacket &tspacket) override; // TSPacketListener
@@ -339,9 +335,9 @@ class PTSListener :
   public:
     uint32_t        m_startCode     {0xFFFFFFFF};
     QMap<uint,uint> m_ptsStreams;
-    uint32_t        m_ptsCount[256] {};
-    int64_t         m_ptsFirst[256] {};
-    int64_t         m_ptsLast[256]  {};
+    std::array<uint32_t,256> m_ptsCount {};
+    std::array<int64_t,256>  m_ptsFirst {};
+    std::array<int64_t,256>  m_ptsLast  {};
 };
 
 
@@ -444,12 +440,12 @@ class PrintMPEGStreamListener : public MPEGStreamListener, public PrintOutput
         m_autopts(autopts), m_sd(sd), m_usePid(use_pid)
     {
         if (m_autopts)
-            m_sd->AddListeningPID(MPEG_PAT_PID);
+            m_sd->AddListeningPID(PID::MPEG_PAT_PID);
     }
 
     void HandlePAT(const ProgramAssociationTable *pat) override // MPEGStreamListener
     {
-        if (pat && (!m_autopts || m_usePid[MPEG_PAT_PID]))
+        if (pat && (!m_autopts || m_usePid[PID::MPEG_PAT_PID]))
             Output(pat);
         if (pat && m_autopts)
         {

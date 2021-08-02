@@ -2,7 +2,6 @@
 
 #include <cstdio>
 #include <iostream>
-using namespace std;
 
 #include <QString>
 #include <QSqlError>
@@ -22,7 +21,7 @@ using namespace std;
 #include "recordingprofile.h"
 #include "recordinginfo.h"
 #include "cardutil.h"
-#include "videodisplayprofile.h"
+#include "mythvideoprofile.h"
 
 // TODO convert all dates to UTC
 
@@ -466,8 +465,23 @@ bool UpgradeTVDatabaseSchema(const bool upgradeAllowed,
  */
 static bool doUpgradeTVDatabaseSchema(void)
 {
-    QString dbver = gCoreContext->GetSetting("DBSchemaVer");
+    QString order;
 
+    auto ss2ba = [](const auto & ss){ return QByteArray::fromStdString(ss); };
+    auto qs2ba = [](const auto & item){ return item.constData(); };
+    auto add_start_end = [order](const auto & field){
+        return QString("UPDATE %1 "
+                       "SET starttime = CONVERT_TZ(starttime, 'SYSTEM', 'Etc/UTC'), "
+                       "    endtime   = CONVERT_TZ(endtime, 'SYSTEM', 'Etc/UTC') "
+                       "ORDER BY %2")
+            .arg(QString::fromStdString(field)).arg(order).toLocal8Bit(); };
+    auto add_start = [order](const auto & field){
+        return QString("UPDATE %1 "
+                       "SET starttime = CONVERT_TZ(starttime, 'SYSTEM', 'Etc/UTC') "
+                       "ORDER BY %2")
+            .arg(QString::fromStdString(field)).arg(order).toLocal8Bit(); };
+
+    QString dbver = gCoreContext->GetSetting("DBSchemaVer");
     if (dbver == currentDatabaseVersion)
     {
         return true;
@@ -1589,7 +1603,7 @@ static bool doUpgradeTVDatabaseSchema(void)
             if (parts[1].contains("."))
                 continue; // already in new format, skip it..
 
-            int input = max(parts[1].toInt() - 1, 0);
+            int input = std::max(parts[1].toInt() - 1, 0);
             videodevice = parts[0] + QString("-0.%1").arg(input);
             update.bindValue(":CARDID", cardid);
             update.bindValue(":VIDDEV", videodevice);
@@ -1835,7 +1849,7 @@ static bool doUpgradeTVDatabaseSchema(void)
                 LOG(VB_GENERAL, LOG_CRIT,
                     QString("Invalid address string '%1' found on %2. "
                             "Reverting to localhost defaults.")
-                        .arg(query.value(0).toString()).arg(hostname));
+                        .arg(query.value(0).toString(), hostname));
             }
 
             if (!update.exec() || !insert.exec())
@@ -2008,8 +2022,8 @@ static bool doUpgradeTVDatabaseSchema(void)
             "       CONCAT(startdate, ' ', starttime), "
             "       CONCAT(enddate, ' ', endtime) FROM record",
         };
-        for (const auto & pre : pre_sql)
-            updates_ba.push_back(QByteArray::fromStdString(pre));
+        std::transform(pre_sql.cbegin(), pre_sql.cend(),
+                       std::back_inserter(updates_ba), ss2ba);
 
         // Convert various DATETIME fields from local time to UTC
         if (0 != utc_offset)
@@ -2021,31 +2035,11 @@ static bool doUpgradeTVDatabaseSchema(void)
                 "programgenres", "programrating", "credits",
                 "jobqueue",
             };
-            QString order = (utc_offset > 0) ? "-starttime" : "starttime";
-
-            for (const auto & field : with_endtime)
-            {
-                updates_ba.push_back(
-                         QString("UPDATE %1 "
-                                 "SET starttime = "
-                                 "    CONVERT_TZ(starttime, 'SYSTEM', 'Etc/UTC'), "
-                                 "    endtime   = "
-                                 "    CONVERT_TZ(endtime, 'SYSTEM', 'Etc/UTC') "
-                                 "ORDER BY %4")
-                         .arg(QString::fromStdString(field))
-                         .arg(order).toLocal8Bit());
-            }
-
-            for (const auto & field : without_endtime)
-            {
-                updates_ba.push_back(
-                          QString("UPDATE %1 "
-                                  "SET starttime = "
-                                  "    CONVERT_TZ(starttime, 'SYSTEM', 'Etc/UTC') "
-                                  "ORDER BY %3")
-                          .arg(QString::fromStdString(field)).arg(order)
-                          .toLocal8Bit());
-            }
+            order = (utc_offset > 0) ? "-starttime" : "starttime";
+            std::transform(with_endtime.cbegin(), with_endtime.cend(),
+                           std::back_inserter(updates_ba), add_start_end);
+            std::transform(without_endtime.cbegin(), without_endtime.cend(),
+                           std::back_inserter(updates_ba), add_start);
 
             updates_ba.push_back(
                          QString("UPDATE oldprogram "
@@ -2079,13 +2073,13 @@ static bool doUpgradeTVDatabaseSchema(void)
             "DROP TABLE recordupdate",
         };
 
-        for (const auto & post : post_sql)
-            updates_ba.push_back(QByteArray::fromStdString(post));
+        std::transform(post_sql.cbegin(), post_sql.cend(),
+                       std::back_inserter(updates_ba), ss2ba);
 
         // Convert update ByteArrays to NULL terminated char**
         DBUpdates updates;
-        for (const auto & item : updates_ba)
-            updates.push_back(item.constData());
+        std::transform(updates_ba.cbegin(), updates_ba.cend(),
+                       std::back_inserter(updates), qs2ba);
 
         // do the actual update
         if (!performActualUpdate("MythTV", "DBSchemaVer",
@@ -2112,32 +2106,17 @@ static bool doUpgradeTVDatabaseSchema(void)
                 "recordedseek", "recordedmarkup", "recordedrating",
                 "recordedcredits",
             };
-            QString order = (utc_offset > 0) ? "-starttime" : "starttime";
-
-            for (const auto & field : with_endtime)
-            {
-                updates_ba.push_back(
-                     QString("UPDATE %1 "
-                     "SET starttime = CONVERT_TZ(starttime, 'SYSTEM', 'Etc/UTC'), "
-                     "    endtime   = CONVERT_TZ(endtime, 'SYSTEM', 'Etc/UTC') "
-                     "ORDER BY %4")
-                     .arg(QString::fromStdString(field)).arg(order).toLocal8Bit());
-            }
-
-            for (const auto & field : without_endtime)
-            {
-                updates_ba.push_back(
-                      QString("UPDATE %1 "
-                      "SET starttime = CONVERT_TZ(starttime, 'SYSTEM', 'Etc/UTC') "
-                      "ORDER BY %3")
-                      .arg(QString::fromStdString(field)).arg(order).toLocal8Bit());
-            }
+            order = (utc_offset > 0) ? "-starttime" : "starttime";
+            std::transform(with_endtime.cbegin(), with_endtime.cend(),
+                           std::back_inserter(updates_ba), add_start_end);
+            std::transform(without_endtime.cbegin(), without_endtime.cend(),
+                           std::back_inserter(updates_ba), add_start);
         }
 
         // Convert update ByteArrays to NULL terminated char**
         DBUpdates updates;
-        for (const auto & item : updates_ba)
-            updates.push_back(item.constData());
+        std::transform(updates_ba.cbegin(), updates_ba.cend(),
+                       std::back_inserter(updates), qs2ba);
 
         // do the actual update
         if (!performActualUpdate("MythTV", "DBSchemaVer",
@@ -2169,8 +2148,8 @@ static bool doUpgradeTVDatabaseSchema(void)
 
         // Convert update ByteArrays to NULL terminated char**
         DBUpdates updates;
-        for (const auto & item : updates_ba)
-            updates.push_back(item.constData());
+        std::transform(updates_ba.cbegin(), updates_ba.cend(),
+                       std::back_inserter(updates), qs2ba);
 
         if (!performActualUpdate("MythTV", "DBSchemaVer",
                                  updates, "1305", dbver))
@@ -2197,8 +2176,8 @@ static bool doUpgradeTVDatabaseSchema(void)
 
         // Convert update ByteArrays to NULL terminated char**
         DBUpdates updates;
-        for (const auto & item : updates_ba)
-            updates.push_back(item.constData());
+        std::transform(updates_ba.cbegin(), updates_ba.cend(),
+                       std::back_inserter(updates), qs2ba);
 
         if (!performActualUpdate("MythTV", "DBSchemaVer",
                                  updates, "1306", dbver))
@@ -3425,8 +3404,8 @@ static bool doUpgradeTVDatabaseSchema(void)
     if (dbver == "1357")
     {
         // convert old VideoDisplayProfile settings to new format
-        ProfileItem temp;
-        vector<ProfileItem> profiles;
+        MythVideoProfileItem temp;
+        std::vector<MythVideoProfileItem> profiles;
 
         MSqlQuery query(MSqlQuery::InitCon());
         query.prepare("SELECT profileid, value, data FROM displayprofiles "
@@ -3459,7 +3438,7 @@ static bool doUpgradeTVDatabaseSchema(void)
                 profiles.push_back(temp);
             }
 
-            for (const ProfileItem& profile : qAsConst(profiles))
+            for (const MythVideoProfileItem& profile : qAsConst(profiles))
             {
                 QString newdecoder;
                 QString newrender;
@@ -3615,8 +3594,8 @@ static bool doUpgradeTVDatabaseSchema(void)
     {
         // missed in 1357 - convert old vdpau and openglvaapi renderers to opengl
         // convert ancient quartz-blit to opengl as well
-        ProfileItem temp;
-        vector<ProfileItem> profiles;
+        MythVideoProfileItem temp;
+        std::vector<MythVideoProfileItem> profiles;
 
         MSqlQuery query(MSqlQuery::InitCon());
         query.prepare("SELECT profileid, value, data FROM displayprofiles "
@@ -3649,7 +3628,7 @@ static bool doUpgradeTVDatabaseSchema(void)
                 profiles.push_back(temp);
             }
 
-            for (const ProfileItem& profile : qAsConst(profiles))
+            for (const MythVideoProfileItem& profile : qAsConst(profiles))
             {
                 // the old deinterlacers will have been converted already
                 QString oldrender  = profile.Get("pref_videorenderer");
@@ -3731,7 +3710,7 @@ static bool doUpgradeTVDatabaseSchema(void)
     {
         MSqlQuery query(MSqlQuery::InitCon());
 
-        // insert a new profile group for the VBox
+        // insert a new profile group for Sat>IP
         query.prepare("INSERT INTO profilegroups SET name = 'Sat>IP Recorder', "
                        "cardtype = 'SATIP', is_default = 1;");
         if (!query.exec())
@@ -3790,6 +3769,82 @@ static bool doUpgradeTVDatabaseSchema(void)
                                  updates, "1365", dbver))
             return false;
     }
+
+    if (dbver == "1365")
+    {
+        DBUpdates updates {
+            "ALTER TABLE channelscan_channel ADD COLUMN service_type INT UNSIGNED NOT NULL DEFAULT 0;"
+        };
+        if (!performActualUpdate("MythTV", "DBSchemaVer",
+                                 updates, "1366", dbver))
+            return false;
+    }
+
+    if (dbver == "1366")
+    {
+        DBUpdates updates {
+            "ALTER TABLE channelscan_dtv_multiplex ADD COLUMN signal_strength INT NOT NULL DEFAULT 0;"
+        };
+        if (!performActualUpdate("MythTV", "DBSchemaVer",
+                                 updates, "1367", dbver))
+            return false;
+    }
+
+    if (dbver == "1367")
+    {
+        DBUpdates updates {
+            "ALTER TABLE videosource ADD COLUMN lcnoffset INT UNSIGNED DEFAULT 0;"
+        };
+        if (!performActualUpdate("MythTV", "DBSchemaVer",
+                                 updates, "1368", dbver))
+            return false;
+    }
+    if (dbver == "1368")
+    {
+        DBUpdates updates {
+            // NOLINTNEXTLINE(bugprone-suspicious-missing-comma)
+            "ALTER TABLE credits ADD COLUMN priority "
+            "    TINYINT UNSIGNED DEFAULT 0;",
+            "ALTER TABLE credits ADD COLUMN roleid "
+            "    MEDIUMINT UNSIGNED DEFAULT 0;",
+            "ALTER TABLE credits drop key chanid, "
+            "     add unique key `chanid` "
+            "          (chanid, starttime, person, role, roleid);"
+            "ALTER TABLE recordedcredits ADD COLUMN priority "
+            "    TINYINT UNSIGNED DEFAULT 0;",
+            "ALTER TABLE recordedcredits ADD COLUMN roleid "
+            "    MEDIUMINT UNSIGNED DEFAULT 0;",
+            "ALTER TABLE recordedcredits drop key chanid, "
+            "     add unique key `chanid` "
+            "          (chanid, starttime, person, role, roleid);"
+            "CREATE TABLE roles (roleid MEDIUMINT UNSIGNED NOT NULL AUTO_INCREMENT,"
+            "  `name` varchar(128) CHARACTER SET utf8 COLLATE utf8_bin"
+            "    NOT NULL DEFAULT '',"
+            "  PRIMARY KEY (roleid),"
+            "  UNIQUE KEY `name` (`name`)"
+            ") ENGINE=MyISAM DEFAULT CHARSET=utf8;",
+        };
+        if (!performActualUpdate("MythTV", "DBSchemaVer",
+                                 updates, "1369", dbver))
+            return false;
+    }
+    if (dbver == "1369")
+    {
+        DBUpdates updates {
+            "ALTER TABLE programrating MODIFY COLUMN `system` "
+            "    varchar(128);",
+            "ALTER TABLE programrating MODIFY COLUMN rating "
+            "    varchar(128);",
+            "ALTER TABLE recordedrating MODIFY COLUMN `system` "
+            "    varchar(128);",
+            "ALTER TABLE recordedrating MODIFY COLUMN rating "
+            "    varchar(128);",
+        };
+        if (!performActualUpdate("MythTV", "DBSchemaVer",
+                                 updates, "1370", dbver))
+            return false;
+    }
+
 
     return true;
 }

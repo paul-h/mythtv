@@ -64,8 +64,8 @@ void NewsSite::retrieve(void)
     m_errorString.clear();
     m_updateErrorString.clear();
     m_articleList.clear();
-    QString destFile = QString("%1/%2").arg(m_destDir).arg(m_name);
-    GetMythDownloadManager()->queueDownload(m_url, destFile, this);
+    QString destFile = QString("%1/%2").arg(m_destDir, m_name);
+    GetMythDownloadManager()->queueDownload(m_url, destFile, this, true);
 }
 
 void NewsSite::stop(void)
@@ -143,13 +143,13 @@ QDateTime NewsSite::lastUpdated(void) const
     return m_updated;
 }
 
-unsigned int NewsSite::timeSinceLastUpdate(void) const
+std::chrono::minutes NewsSite::timeSinceLastUpdate(void) const
 {
     QMutexLocker locker(&m_lock);
 
     QDateTime curTime(MythDate::current());
-    unsigned int min = m_updated.secsTo(curTime)/60;
-    return min;
+    auto secs = std::chrono::seconds(m_updated.secsTo(curTime));
+    return duration_cast<std::chrono::minutes>(secs);
 }
 
 void NewsSite::customEvent(QEvent *event)
@@ -178,6 +178,7 @@ void NewsSite::customEvent(QEvent *event)
             }
             else if (tokens[1] == "FINISHED")
             {
+                QString url = args[0];
                 QString filename = args[1];
                 int fileSize  = args[2].toInt();
                 QString errorStr = args[3];
@@ -185,9 +186,9 @@ void NewsSite::customEvent(QEvent *event)
 
                 if ((errorCode != 0) || (fileSize == 0))
                 {
-                    LOG(VB_GENERAL, LOG_ERR, LOC + "HTTP Connection Error" +
-                        QString("\n\t\t\tExplanation: %1: %2")
-                                .arg(errorCode).arg(errorStr));
+                    LOG(VB_GENERAL, LOG_ERR, LOC + "HTTP Connection Error - " +
+                        QString("%1\n\t\t\tExplanation: %2: %3, filesize: %4, filename: %5")
+                                .arg(url).arg(errorCode).arg(errorStr).arg(fileSize).arg(filename));
 
                     m_state = NewsSite::RetrieveFailed;
                     m_updateErrorString = QString("%1: %2").arg(errorCode).arg(errorStr);
@@ -365,7 +366,7 @@ void NewsSite::parseRSS(const QDomDocument& domDoc)
                     QStringList imageExtensions = QStringList() << ".jpg" << ".jpeg" << ".png" << ".gif";
                     for (int x = 0; x < imageExtensions.count(); x++)
                     {
-                        if (enclosure.toLower().endsWith(imageExtensions[x]))
+                        if (enclosure.endsWith(imageExtensions[x], Qt::CaseInsensitive))
                         {
                             thumbnail = enclosure;
                             enclosure.clear();
@@ -441,7 +442,7 @@ void NewsSite::parseRSS(const QDomDocument& domDoc)
 
             LOG(VB_GENERAL, LOG_DEBUG,
                 QString("parseRSS found media:content: medium: %1, type: %2, url: %3")
-                        .arg(medium).arg(type).arg(url2));
+                        .arg(medium, type, url2));
 
             // if this is an image use it as the thumbnail if we haven't found one yet
             if (thumbnail.isEmpty() && (medium == "image" || isImage(type)))

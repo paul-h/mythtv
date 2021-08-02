@@ -33,7 +33,7 @@ static int GetMarkupList(const MythUtilCommandLineParser &cmdline,
         pginfo.QueryCommBreakList(cutlist);
 
     uint64_t lastStart = 0;
-    for (it = cutlist.begin(); it != cutlist.end(); ++it)
+    for (it = cutlist.cbegin(); it != cutlist.cend(); ++it)
     {
         if ((*it == MARK_COMM_START) ||
             (*it == MARK_CUT_START))
@@ -79,7 +79,7 @@ static int SetMarkupList(const MythUtilCommandLineParser &cmdline,
     bool isCutlist = (type == "cutlist");
     frm_dir_map_t markuplist;
 
-    newList.replace(QRegExp(" "), "");
+    newList.remove(" ");
 
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList tokens = newList.split(",", QString::SkipEmptyParts);
@@ -90,12 +90,12 @@ static int SetMarkupList(const MythUtilCommandLineParser &cmdline,
     if (newList.isEmpty())
         newList = "(EMPTY)";
 
-    for (int i = 0; i < tokens.size(); i++)
+    for (const QString& token : qAsConst(tokens))
     {
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
-        QStringList cutpair = tokens[i].split("-", QString::SkipEmptyParts);
+        QStringList cutpair = token.split("-", QString::SkipEmptyParts);
 #else
-        QStringList cutpair = tokens[i].split("-", Qt::SkipEmptyParts);
+        QStringList cutpair = token.split("-", Qt::SkipEmptyParts);
 #endif
         if (isCutlist)
         {
@@ -153,7 +153,7 @@ static int CopySkipListToCutList(const MythUtilCommandLineParser &cmdline)
     frm_dir_map_t::const_iterator it;
 
     pginfo.QueryCommBreakList(cutlist);
-    for (it = cutlist.begin(); it != cutlist.end(); ++it)
+    for (it = cutlist.cbegin(); it != cutlist.cend(); ++it)
     {
         if (*it == MARK_COMM_START)
             cutlist[it.key()] = MARK_CUT_START;

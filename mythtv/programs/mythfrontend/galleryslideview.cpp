@@ -27,16 +27,16 @@ GallerySlideView::GallerySlideView(MythScreenStack *parent, const char *name,
                        gCoreContext->GetNumSetting("GalleryTransitionType",
                                                    kBlendTransition))),
       m_infoList(*this),
-      m_slideShowTime(gCoreContext->GetNumSetting("GallerySlideShowTime", 3000)),
+      m_slideShowTime(gCoreContext->GetDurSetting<std::chrono::milliseconds>("GallerySlideShowTime", 3s)),
       m_showCaptions(gCoreContext->GetBoolSetting("GalleryShowSlideCaptions", true)),
       m_editsAllowed(editsAllowed)
 {
     // Detect when transitions finish. Queued signal to allow redraw/pulse to
     // complete before handling event.
-    connect(&m_transition, SIGNAL(finished()),
-            this, SLOT(TransitionComplete()), Qt::QueuedConnection);
-    connect(&m_updateTransition, SIGNAL(finished()),
-            this, SLOT(TransitionComplete()), Qt::QueuedConnection);
+    connect(&m_transition, &Transition::finished,
+            this, &GallerySlideView::TransitionComplete, Qt::QueuedConnection);
+    connect(&m_updateTransition, &Transition::finished,
+            this, &GallerySlideView::TransitionComplete, Qt::QueuedConnection);
 
 #if QT_VERSION < QT_VERSION_CHECK(5,10,0)
     // Seed random generator for random transitions
@@ -46,12 +46,13 @@ GallerySlideView::GallerySlideView(MythScreenStack *parent, const char *name,
     // Initialise slideshow timer
     m_timer.setSingleShot(true);
     m_timer.setInterval(m_slideShowTime);
-    connect(&m_timer, SIGNAL(timeout()), this, SLOT(ShowNextSlide()));
+    connect(&m_timer, &QTimer::timeout,
+            this, qOverload<>(&GallerySlideView::ShowNextSlide));
 
     // Initialise status delay timer
     m_delay.setSingleShot(true);
-    m_delay.setInterval(gCoreContext->GetNumSetting("GalleryStatusDelay", 0));
-    connect(&m_delay, SIGNAL(timeout()), this, SLOT(ShowStatus()));
+    m_delay.setInterval(gCoreContext->GetDurSetting<std::chrono::milliseconds>("GalleryStatusDelay", 0s));
+    connect(&m_delay, &QTimer::timeout, this, &GallerySlideView::ShowStatus);
 }
 
 
@@ -106,8 +107,8 @@ bool GallerySlideView::Create()
 
     // Detect when slides are available for display.
     // Queue so that keypress events always complete before transition starts
-    connect(&m_slides, SIGNAL(SlideReady(int)),
-            this, SLOT(SlideAvailable(int)), Qt::QueuedConnection);
+    connect(&m_slides, &SlideBuffer::SlideReady,
+            this, &GallerySlideView::SlideAvailable, Qt::QueuedConnection);
 
     return true;
 }
@@ -119,8 +120,7 @@ bool GallerySlideView::Create()
 void GallerySlideView::Pulse()
 {
     // Update transition animations
-    m_transition.Pulse(GetMythMainWindow()->GetDrawInterval());
-
+    m_transition.Pulse();
     MythScreenType::Pulse();
 }
 
@@ -272,26 +272,26 @@ void GallerySlideView::MenuMain()
 
     ImagePtrK im = m_slides.GetCurrent().GetImageData();
     if (im && im->m_type == kVideoFile)
-        menu->AddItem(tr("Play Video"), SLOT(PlayVideo()));
+        menu->AddItem(tr("Play Video"), qOverload<>(&GallerySlideView::PlayVideo));
 
     if (m_playing)
-        menu->AddItem(tr("Stop"), SLOT(Stop()));
+        menu->AddItem(tr("Stop"), &GallerySlideView::Stop);
     else
-        menu->AddItem(tr("Start SlideShow"), SLOT(Play()));
+        menu->AddItem(tr("Start SlideShow"), qOverload<>(&GallerySlideView::Play));
 
     if (gCoreContext->GetBoolSetting("GalleryRepeat", false))
-        menu->AddItem(tr("Turn Repeat Off"), SLOT(RepeatOff()));
+        menu->AddItem(tr("Turn Repeat Off"), &GallerySlideView::RepeatOff);
     else
-        menu->AddItem(tr("Turn Repeat On"), SLOT(RepeatOn()));
+        menu->AddItem(tr("Turn Repeat On"), qOverload<>(&GallerySlideView::RepeatOn));
 
     MenuTransforms(*menu);
 
     if (m_uiHideCaptions)
     {
         if (m_showCaptions)
-            menu->AddItem(tr("Hide Captions"), SLOT(HideCaptions()));
+            menu->AddItem(tr("Hide Captions"), &GallerySlideView::HideCaptions);
         else
-            menu->AddItem(tr("Show Captions"), SLOT(ShowCaptions()));
+            menu->AddItem(tr("Show Captions"), &GallerySlideView::ShowCaptions);
     }
 
     QString details;
@@ -302,10 +302,10 @@ void GallerySlideView::MenuMain()
     default:
     case kNoInfo:    details = tr("Show Details"); break;
     }
-    menu->AddItem(details, SLOT(ShowInfo()));
+    menu->AddItem(details, &GallerySlideView::ShowInfo);
 
     if (m_infoList.GetState() != kNoInfo)
-        menu->AddItem(tr("Hide Details"), SLOT(HideInfo()));
+        menu->AddItem(tr("Hide Details"), &GallerySlideView::HideInfo);
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
     auto *menuPopup = new MythDialogBox(menu, popupStack, "menuPopup");
@@ -716,6 +716,10 @@ void GallerySlideView::ShowNextSlide(int inc, bool useTransition)
             m_uiCaptionText->Reset();
     }
 }
+void GallerySlideView::ShowNextSlide(void)
+{
+    ShowNextSlide(1, true);
+}
 
 
 /*!
@@ -758,7 +762,7 @@ void GallerySlideView::ShowStatus()
 }
 
 
-void GallerySlideView::ClearStatus(Slide &slide)
+void GallerySlideView::ClearStatus(const Slide &slide)
 {
     if (m_uiStatus)
     {

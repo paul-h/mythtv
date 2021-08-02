@@ -67,7 +67,7 @@ UPnPResultCode MythXMLClient::GetConnectionInfo( const QString &sPin, DatabasePa
         QDomNode wolNode = oNode.namedItem( "WOL" );
 
         pParams->m_wolEnabled   = GetNodeValue( wolNode, "Enabled"  , false    );
-        pParams->m_wolReconnect = GetNodeValue( wolNode, "Reconnect", 0        );
+        pParams->m_wolReconnect = std::chrono::seconds(GetNodeValue( wolNode, "Reconnect", 0 ));
         pParams->m_wolRetry     = GetNodeValue( wolNode, "Retry"    , 0        );
         pParams->m_wolCommand   = GetNodeValue( wolNode, "Command"  , QString());
 
@@ -86,10 +86,10 @@ UPnPResultCode MythXMLClient::GetConnectionInfo( const QString &sPin, DatabasePa
             LOG(VB_GENERAL, LOG_ERR,
                 QString("MythXMLClient::GetConnectionInfo Failed - "
                         "Version Mismatch (%1,%2) != (%3,%4)")
-                .arg(pParams->m_verProtocol)
-                .arg(pParams->m_verSchema)
-                .arg(MYTH_PROTO_VERSION)
-                .arg(MYTH_DATABASE_VERSION));
+                .arg(pParams->m_verProtocol,
+                     pParams->m_verSchema,
+                     MYTH_PROTO_VERSION,
+                     MYTH_DATABASE_VERSION));
             sMsg = QObject::tr("Version Mismatch", "UPNP Errors");
             return UPnPResult_ActionFailed;
         }

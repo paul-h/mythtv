@@ -11,8 +11,6 @@
 
 #include <vector>
 
-using namespace std;
-
 #include <QAtomicInt>
 #include <QString>
 
@@ -132,6 +130,7 @@ class DTVRecorder :
     QString                  m_recordingType              {"all"};
 
     // used for scanning pes headers for keyframes
+    MythTimer                m_pesTimer;
     QElapsedTimer            m_audioTimer;
     uint32_t                 m_startCode                  {0xffffffff};
     int                      m_firstKeyframe              {-1};
@@ -164,10 +163,14 @@ class DTVRecorder :
 
     // keyframe finding buffer
     bool                     m_bufferPackets              {false};
-    vector<unsigned char>    m_payloadBuffer;
+    std::vector<unsigned char> m_payloadBuffer;
 
     // general recorder stuff
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex           m_pidLock                    {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex  m_pidLock;
+#endif
                              /// PAT on input side
     ProgramAssociationTable *m_inputPat                   {nullptr};
                              /// PMT on input side
@@ -177,10 +180,11 @@ class DTVRecorder :
     // TS recorder stuff
     bool                     m_recordMpts                 {false};
     bool                     m_recordMptsOnly             {false};
+    MythTimer                m_recordMptsTimer;
     std::array<uint8_t,0x1fff + 1> m_streamId             {0};
     std::array<uint8_t,0x1fff + 1> m_pidStatus            {0};
     std::array<uint8_t,0x1fff + 1> m_continuityCounter    {0};
-    vector<TSPacket>         m_scratch;
+    std::vector<TSPacket>    m_scratch;
 
     // Statistics
     int                      m_minimumRecordingQuality    {95};

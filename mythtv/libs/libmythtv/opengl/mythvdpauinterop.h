@@ -6,7 +6,7 @@
 
 // MythTV
 #include "mythcodecid.h"
-#include "mythopenglinterop.h"
+#include "opengl/mythopenglinterop.h"
 
 // FFmpeg
 extern "C" {
@@ -26,22 +26,20 @@ class MythVDPAUInterop : public MythOpenGLInterop
 {
     Q_OBJECT
 
-    friend class MythOpenGLInterop;
-
   public:
-    static MythVDPAUInterop* Create(MythRenderOpenGL *Context, MythCodecID CodecId);
-    vector<MythVideoTexture*> Acquire(MythRenderOpenGL *Context, VideoColourSpace *ColourSpace,
-                                      VideoFrame *Frame, FrameScanType Scan) override;
+    static void GetVDPAUTypes(MythRenderOpenGL* Render, MythInteropGPU::InteropMap& Types);
+    static MythVDPAUInterop* CreateVDPAU(MythPlayerUI* Player, MythRenderOpenGL* Context, MythCodecID CodecId);
+    vector<MythVideoTextureOpenGL*> Acquire(MythRenderOpenGL* Context, MythVideoColourSpace* ColourSpace,
+                                            MythVideoFrame* Frame, FrameScanType Scan) override;
+    bool  IsPreempted(void) const;
 
   public slots:
     void  UpdateColourSpace(bool PrimariesChanged);
     void  DisplayPreempted(void);
-    bool  IsPreempted(void) const;
 
   protected:
-    static Type GetInteropType(VideoFrameType Format);
-    MythVDPAUInterop(MythRenderOpenGL *Context, MythCodecID CodecID);
-    ~MythVDPAUInterop() override;
+    MythVDPAUInterop(MythPlayerUI* Player, MythRenderOpenGL* Context, MythCodecID CodecID);
+   ~MythVDPAUInterop() override;
 
   private:
     bool  InitNV(AVVDPAUDeviceContext* DeviceContext);
@@ -49,10 +47,10 @@ class MythVDPAUInterop : public MythOpenGLInterop
                     MythDeintType Deint, bool DoubleRate);
     void  Cleanup(void);
     void  CleanupDeinterlacer(void);
-    void  RotateReferenceFrames(AVBufferRef *Buffer);
+    void  RotateReferenceFrames(AVBufferRef* Buffer);
 
-    VideoColourSpace   *m_colourSpace       { nullptr };
-    MythVDPAUHelper    *m_helper            { nullptr };
+    MythVideoColourSpace* m_colourSpace     { nullptr };
+    MythVDPAUHelper*    m_helper            { nullptr };
     VdpOutputSurface    m_outputSurface     { 0       };
     MythVDPAUSurfaceNV  m_outputSurfaceReg  { 0       };
     VdpVideoMixer       m_mixer             { 0       };
@@ -69,6 +67,7 @@ class MythVDPAUInterop : public MythOpenGLInterop
     MythCodecID         m_codec             { kCodec_NONE };
     bool                m_preempted         { false   };
     bool                m_preemptedWarning  { false   };
+    bool                m_mapped            { false   };
 };
 
-#endif // MYTHVDPAUINTEROP_H
+#endif

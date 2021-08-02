@@ -42,18 +42,21 @@ ExternalSignalMonitor::ExternalSignalMonitor(int db_cardnum,
                                              uint64_t _flags)
     : DTVSignalMonitor(db_cardnum, _channel, _release_stream, _flags)
 {
-    QString result;
-
     LOG(VB_CHANNEL, LOG_INFO, LOC + "ctor");
     m_streamHandler = ExternalStreamHandler::Get(m_channel->GetDevice(),
                                                   m_channel->GetInputID(),
                                                   m_channel->GetMajorID());
     if (!m_streamHandler || m_streamHandler->HasError())
+    {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Open failed");
+        if (m_streamHandler)
+            ExternalStreamHandler::Return(m_streamHandler, m_inputid);
+    }
     else
-        m_lockTimeout = GetLockTimeout() * 1000;
+        m_lockTimeout = GetLockTimeout();
 
-    if (GetExternalChannel()->IsBackgroundTuning())
+    ExternalChannel *channel = GetExternalChannel();
+    if (channel && channel->IsBackgroundTuning())
         m_scriptStatus.SetValue(1);
 }
 
@@ -64,7 +67,8 @@ ExternalSignalMonitor::~ExternalSignalMonitor()
 {
     LOG(VB_CHANNEL, LOG_INFO, LOC + "dtor");
     ExternalSignalMonitor::Stop();
-    ExternalStreamHandler::Return(m_streamHandler, m_inputid);
+    if (m_streamHandler)
+        ExternalStreamHandler::Return(m_streamHandler, m_inputid);
 }
 
 /** \fn ExternalSignalMonitor::Stop(void)
@@ -72,8 +76,6 @@ ExternalSignalMonitor::~ExternalSignalMonitor()
  */
 void ExternalSignalMonitor::Stop(void)
 {
-    QString result;
-
     LOG(VB_CHANNEL, LOG_INFO, LOC + "Stop() -- begin");
 
     SignalMonitor::Stop();
@@ -98,7 +100,11 @@ void ExternalSignalMonitor::UpdateValues(void)
     if (!m_running || m_exit)
         return;
 
-    if (GetExternalChannel()->IsExternalChannelChangeInUse())
+    ExternalChannel *channel = GetExternalChannel();
+    if (channel == nullptr)
+        return;
+
+    if (channel->IsExternalChannelChangeInUse())
     {
         SignalMonitor::UpdateValues();
 
@@ -107,11 +113,11 @@ void ExternalSignalMonitor::UpdateValues(void)
             return;
     }
 
-    if (GetExternalChannel()->IsBackgroundTuning())
+    if (channel->IsBackgroundTuning())
     {
         QMutexLocker locker(&m_statusLock);
         if (m_scriptStatus.GetValue() < 2)
-            m_scriptStatus.SetValue(GetExternalChannel()->GetTuneStatus());
+            m_scriptStatus.SetValue(channel->GetTuneStatus());
 
         if (!m_scriptStatus.IsGood())
             return;
@@ -211,21 +217,21 @@ int ExternalSignalMonitor::GetSignalStrengthPercent(void)
     return -1;
 }
 
-int ExternalSignalMonitor::GetLockTimeout(void)
+std::chrono::seconds ExternalSignalMonitor::GetLockTimeout(void)
 {
     QString result;
 
-    m_streamHandler->ProcessCommand("LockTimeout?", result, 10000);
+    m_streamHandler->ProcessCommand("LockTimeout?", result, 10s);
     if (result.startsWith("OK:"))
     {
         bool ok = false;
-        int timeout = result.mid(3).toInt(&ok);
+        auto timeout = std::chrono::seconds(result.mid(3).toInt(&ok));
         if (!ok)
         {
             LOG(VB_CHANNEL, LOG_ERR, LOC + QString
                 ("GetLockTimeout: invalid response '%1'")
                 .arg(result));
-            return -1;
+            return -1s;
         }
         return timeout;
     }
@@ -233,5 +239,5 @@ int ExternalSignalMonitor::GetLockTimeout(void)
         ("GetLockTimeout: invalid response '%1'").arg(result));
     if (!result.startsWith("WARN"))
         m_error = QString("GetLockTimeout: invalid response '%1'").arg(result);
-    return -1;
+    return -1s;
 }

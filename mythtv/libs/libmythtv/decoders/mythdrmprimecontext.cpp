@@ -1,10 +1,16 @@
 // MythTV
 #include "avformatdecoder.h"
+#include "mythplayerui.h"
 #include "mythdrmprimecontext.h"
 
 #define LOC QString("DRMPRIMECtx: ")
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
 QMutex MythDRMPRIMEContext::s_drmPrimeLock(QMutex::Recursive);
+#else
+QRecursiveMutex MythDRMPRIMEContext::s_drmPrimeLock;
+#endif
+
 QStringList MythDRMPRIMEContext::s_drmPrimeDecoders;
 
 /*! \class MythDRMPRIMEContext
@@ -59,8 +65,8 @@ MythCodecID MythDRMPRIMEContext::GetPrimeCodec(AVCodecContext **Context,
 
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Found FFmpeg decoder '%1'").arg(name));
     *Codec = codec;
-    decoder->CodecMap()->freeCodecContext(Stream);
-    *Context = decoder->CodecMap()->getCodecContext(Stream, *Codec);
+    decoder->CodecMap()->FreeCodecContext(Stream);
+    *Context = decoder->CodecMap()->GetCodecContext(Stream, *Codec);
     (*Context)->pix_fmt = Format;
     return Successs;
 }
@@ -78,16 +84,8 @@ MythCodecID MythDRMPRIMEContext::GetSupportedCodec(AVCodecContext **Context,
     if (Decoder != "drmprime")
         return failure;
 
-    // direct rendering needs interop support
-    MythPlayer* player = nullptr;
-    if (!gCoreContext->IsUIThread())
-    {
-        auto* decoder = reinterpret_cast<AvFormatDecoder*>((*Context)->opaque);
-        if (decoder)
-            player = decoder->GetPlayer();
-    }
-
-    if (MythOpenGLInterop::GetInteropType(FMT_DRMPRIME, player) == MythOpenGLInterop::Unsupported)
+    // Direct rendering needs interop support
+    if (!FrameTypeIsSupported(*Context, FMT_DRMPRIME))
         return failure;
 
     // check support
@@ -117,8 +115,9 @@ int MythDRMPRIMEContext::HwDecoderInit(AVCodecContext *Context)
         return -1;
 
 #ifdef USING_EGL
-    MythRenderOpenGL *context = MythRenderOpenGL::GetOpenGLRender();
-    m_interop = MythDRMPRIMEInterop::Create(context, MythOpenGLInterop::DRMPRIME);
+    if (auto * player = GetPlayerUI(Context); player != nullptr)
+        if (FrameTypeIsSupported(Context, FMT_DRMPRIME))
+            m_interop = MythDRMPRIMEInterop::CreateDRM(dynamic_cast<MythRenderOpenGL*>(player->GetRender()), player);
 #endif
     return m_interop ? 0 : -1;
 }
@@ -140,7 +139,7 @@ bool MythDRMPRIMEContext::DecoderWillResetOnFlush(void)
     return true;
 }
 
-bool MythDRMPRIMEContext::RetrieveFrame(AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame)
+bool MythDRMPRIMEContext::RetrieveFrame(AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame)
 {
     // Hrm - Context doesn't have the correct pix_fmt here (v4l2 at least). Bug? Use AvFrame
     if (AvFrame->format == AV_PIX_FMT_DRM_PRIME)
@@ -159,45 +158,45 @@ AVPixelFormat MythDRMPRIMEContext::GetFormat(AVCodecContext */*Context*/, const 
     return AV_PIX_FMT_NONE;
 }
 
-bool MythDRMPRIMEContext::GetDRMBuffer(AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame, int /*unused*/)
+bool MythDRMPRIMEContext::GetDRMBuffer(AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame, int /*unused*/)
 {
     if (!Context || !AvFrame || !Frame)
         return false;
 
-    if (Frame->codec != FMT_DRMPRIME || static_cast<AVPixelFormat>(AvFrame->format) != AV_PIX_FMT_DRM_PRIME)
+    if (Frame->m_type != FMT_DRMPRIME || static_cast<AVPixelFormat>(AvFrame->format) != AV_PIX_FMT_DRM_PRIME)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Not a DRM PRIME buffer");
         return false;
     }
 
-    Frame->width = AvFrame->width;
-    Frame->height = AvFrame->height;
-    Frame->pix_fmt = Context->pix_fmt;
-    Frame->sw_pix_fmt = Context->sw_pix_fmt;
-    Frame->directrendering = true;
+    Frame->m_width = AvFrame->width;
+    Frame->m_height = AvFrame->height;
+    Frame->m_pixFmt = Context->pix_fmt;
+    Frame->m_swPixFmt = Context->sw_pix_fmt;
+    Frame->m_directRendering = true;
     AvFrame->opaque = Frame;
     AvFrame->reordered_opaque = Context->reordered_opaque;
 
     // Frame->data[0] holds AVDRMFrameDescriptor
-    Frame->buf = AvFrame->data[0];
+    Frame->m_buffer = AvFrame->data[0];
     // Retain the buffer so it is not released before we display it
-    Frame->priv[0] = reinterpret_cast<unsigned char*>(av_buffer_ref(AvFrame->buf[0]));
+    Frame->m_priv[0] = reinterpret_cast<unsigned char*>(av_buffer_ref(AvFrame->buf[0]));
     // Add interop
-    Frame->priv[1] = reinterpret_cast<unsigned char*>(m_interop);
+    Frame->m_priv[1] = reinterpret_cast<unsigned char*>(m_interop);
     // Set the release method
     AvFrame->buf[1] = av_buffer_create(reinterpret_cast<uint8_t*>(Frame), 0, MythCodecContext::ReleaseBuffer,
                                        static_cast<AvFormatDecoder*>(Context->opaque), 0);
     return true;
 }
 
-bool MythDRMPRIMEContext::HavePrimeDecoders(AVCodecID Codec)
+bool MythDRMPRIMEContext::HavePrimeDecoders(bool Reinit /*=false*/, AVCodecID Codec /*=AV_CODEC_ID_NONE*/)
 {
     static bool s_needscheck = true;
     static QVector<AVCodecID> s_supportedCodecs;
 
     QMutexLocker locker(&s_drmPrimeLock);
 
-    if (s_needscheck)
+    if (s_needscheck || Reinit)
     {
         s_needscheck = false;
         s_supportedCodecs.clear();
@@ -244,9 +243,9 @@ bool MythDRMPRIMEContext::HavePrimeDecoders(AVCodecID Codec)
 
         if (debugcodecs.isEmpty())
             debugcodecs.append("None");
-        LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("DRM PRIME codecs supported: %1 %2")
-            .arg(debugcodecs.join(","))
-            .arg(s_drmPrimeDecoders.isEmpty() ? "" : QString("using: %1").arg(s_drmPrimeDecoders.join(","))));
+        LOG(VB_GENERAL, LOG_INFO, LOC + QString("DRM PRIME codecs supported: %1 %2")
+            .arg(debugcodecs.join(","),
+                 s_drmPrimeDecoders.isEmpty() ? "" : QString("using: %1").arg(s_drmPrimeDecoders.join(","))));
     }
 
     if (!Codec)

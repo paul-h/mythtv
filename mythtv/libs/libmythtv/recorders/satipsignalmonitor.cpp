@@ -9,20 +9,19 @@
 #include "satiprecorder.h"
 #include "satipchannel.h"
 
-#define LOC QString("SatIPSigMon[%1](%2): ") \
-            .arg(m_inputid).arg(m_channel->GetDevice())
+#define LOC QString("SatIPSigMon[%1]: ").arg(m_inputid)
 
-SatIPSignalMonitor::SatIPSignalMonitor(
-    int db_cardnum,
-    SatIPChannel* channel,
-    uint64_t flags) :
-    DTVSignalMonitor(db_cardnum, channel, true, flags)
+SatIPSignalMonitor::SatIPSignalMonitor(int db_cardnum,
+                                       SatIPChannel* channel,
+                                       bool release_stream,
+                                       uint64_t flags) :
+    DTVSignalMonitor(db_cardnum, channel, release_stream, flags)
 {
     LOG(VB_CHANNEL, LOG_INFO, LOC + "ctor");
 
     m_signalStrength.SetThreshold(0);
     m_signalStrength.SetRange(0, 255);
-    m_signalStrength.SetTimeout(3000);  // TODO Use value from database
+    m_signalStrength.SetTimeout(3s);  // TODO Use value from database
 
     AddFlags(kSigMon_WaitForSig);
 
@@ -83,15 +82,25 @@ void SatIPSignalMonitor::UpdateValues(void)
     }
 
     // Update signal status
+    bool wasLocked = false;
     bool isLocked = false;
     {
+        QMutexLocker locker(&m_statusLock);
         int signalStrength = m_streamHandler->m_rtsp->GetSignalStrength();
         bool hasLock = m_streamHandler->m_rtsp->HasLock();
-        QMutexLocker locker(&m_statusLock);
         m_signalStrength.SetValue(signalStrength);
+        wasLocked = m_signalLock.IsGood();
         m_signalLock.SetValue(hasLock);
         isLocked = m_signalLock.IsGood();
     }
+
+    // Signal lock change
+    if (wasLocked != isLocked)
+    {
+        LOG(VB_CHANNEL, LOG_INFO, LOC + "UpdateValues -- Signal " +
+                (isLocked ? "Locked" : "Lost"));
+    }
+
 
     EmitStatus();
     if (IsAllGood())

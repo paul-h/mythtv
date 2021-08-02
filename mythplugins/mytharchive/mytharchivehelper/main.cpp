@@ -38,9 +38,6 @@
 #include <sys/vfs.h>
 #endif
 
-using namespace std;
-
-
 // Qt headers
 #include <QApplication>
 #include <QFile>
@@ -80,6 +77,12 @@ extern "C" {
 #include "../mytharchive/archiveutil.h"
 #include "../mytharchive/remoteavformatcontext.h"
 #include "../mytharchive/importfile.h"
+
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
+  #define QT_ENDL endl
+#else
+  #define QT_ENDL Qt::endl
+#endif
 
 class NativeArchive
 {
@@ -378,7 +381,7 @@ int NativeArchive::doNativeArchive(const QString &jobFile)
     return 0;
 }
 
-static QRegExp badChars = QRegExp(R"((/|\\|:|'|"|\?|\|))");
+static const QRegularExpression badChars { R"((/|\\|:|'|"|\?|\|))" };
 
 static QString fixFilename(const QString &filename)
 {
@@ -416,7 +419,7 @@ int NativeArchive::exportRecording(QDomElement   &itemNode,
     QString filename = itemNode.attribute("filename");
     bool doDelete = (itemNode.attribute("delete", "0") == "0");
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Archiving %1 (%2), do delete: %3")
-            .arg(title).arg(filename).arg(doDelete));
+            .arg(title, filename, doDelete ? "true" : "false"));
 
     if (title == "" || filename == "")
     {
@@ -572,7 +575,7 @@ int NativeArchive::exportRecording(QDomElement   &itemNode,
 
     // add the recordedseek table
     QDomElement recordedseek = doc.createElement("recordedseek");
-    query.prepare("SELECT chanid, starttime, mark, offset, type "
+    query.prepare("SELECT chanid, starttime, mark, `offset`, type "
             "FROM recordedseek "
             "WHERE chanid = :CHANID and starttime = :STARTTIME;");
     query.bindValue(":CHANID", chanID);
@@ -640,7 +643,7 @@ int NativeArchive::exportVideo(QDomElement   &itemNode,
     QString filename = itemNode.attribute("filename");
     bool doDelete = (itemNode.attribute("delete", "0") == "0");
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Archiving %1 (%2), do delete: %3")
-            .arg(title).arg(filename).arg(doDelete));
+            .arg(title, filename, doDelete ? "true" : "false"));
 
     if (title == "" || filename == "")
     {
@@ -923,7 +926,7 @@ int NativeArchive::doImportArchive(const QString &xmlFile, int chanID)
 
         LOG(VB_JOBQUEUE, LOG_INFO,
             QString("Archive DB version: %1, Local DB version: %2")
-                .arg(dbVersion).arg(gCoreContext->GetSetting("DBSchemaVer")));
+                .arg(dbVersion, gCoreContext->GetSetting("DBSchemaVer")));
     }
     else
     {
@@ -1056,7 +1059,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     command.replace("%FILENAME%", importItem.filename);
 
     QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
-    cmd->Wait(0);
+    cmd->Wait(0s);
     if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
@@ -1082,7 +1085,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     recCommand.replace("%DURATION%", QString("%1").arg(duration));
 
     QScopedPointer<MythSystem> recCmd(MythSystem::Create(recCommand, kMSRunShell));
-    recCmd->Wait(0);
+    recCmd->Wait(0s);
     if (recCmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start recording file: %1").arg(importItem.filename));
@@ -1224,7 +1227,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
     command.replace("%FILENAME%", importItem.filename);
 
     QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
-    cmd->Wait(0);
+    cmd->Wait(0s);
     if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
@@ -1248,7 +1251,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
                               .arg(frames).arg(videoFile);
 
     QScopedPointer<MythSystem> cmd2(MythSystem::Create(recCommand, kMSRunShell));
-    cmd2->Wait(0);
+    cmd2->Wait(0s);
     if (cmd2.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - bmdcapture exited with result: %1").arg(cmd2.data()->GetExitCode()));
@@ -1262,7 +1265,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
     QString ffmpgCommand = QString("mythffmpeg -y -i %1 %2").arg(videoFile).arg(ffmpegFile);
 
     QScopedPointer<MythSystem> cmd3(MythSystem::Create(ffmpgCommand, kMSRunShell));
-    cmd3->Wait(0);
+    cmd3->Wait(0s);
     if (cmd3.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("ERROR - mythffmpeg exited with result: %1").arg(cmd3.data()->GetExitCode()));
@@ -1383,7 +1386,7 @@ bool NativeArchive::importMagewellFile(const ImportItem &importItem)
     command.replace("%FILENAME%", importItem.filename);
 
     QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
-    cmd->Wait(0);
+    cmd->Wait(0s);
     if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem.filename));
@@ -1397,7 +1400,7 @@ bool NativeArchive::importMagewellFile(const ImportItem &importItem)
         .arg(formatTime(importItem.actualDuration)).arg(QDateTime::currentDateTime().addSecs(importItem.actualDuration).toString()));
 
     //FIXME the frames per second should be a setting?
-    QString time = QDateTime::fromTime_t(importItem.actualDuration).toUTC().toString("hh:mm:ss");
+    QString time = QDateTime::fromSecsSinceEpoch(importItem.actualDuration).toUTC().toString("hh:mm:ss");
     QString videoFile = getTempDirectory() + "work/video.nut";
     QString mxmlFile = getTempDirectory() + "work/video.mxml";
 
@@ -1410,7 +1413,7 @@ bool NativeArchive::importMagewellFile(const ImportItem &importItem)
                               .arg(FPS).arg(time).arg(videoFile);
 
     QScopedPointer<MythSystem> cmd2(MythSystem::Create(recCommand, kMSRunShell));
-    cmd2->Wait(0);
+    cmd2->Wait(0s);
     if (cmd2.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_JOBQUEUE, LOG_ERR, QString("ERROR - mythffmpeg exited with result: %1").arg(cmd2.data()->GetExitCode()));
@@ -1424,7 +1427,7 @@ bool NativeArchive::importMagewellFile(const ImportItem &importItem)
     QString ffmpgCommand = QString("mythffmpeg -y -c:v libx264 -preset slow -crf 22 -i %1 %2").arg(videoFile).arg(ffmpegFile);
 
     QScopedPointer<MythSystem> cmd3(MythSystem::Create(ffmpgCommand, kMSRunShell));
-    cmd3->Wait(0);
+    cmd3->Wait(0s);
     if (cmd3.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("ERROR - mythffmpeg exited with result: %1").arg(cmd3.data()->GetExitCode()));
@@ -1707,7 +1710,7 @@ int NativeArchive::importRecording(const QDomElement &itemNode,
                 QDomNode n6 = nodeList.item(x);
                 QDomElement e = n6.toElement();
                 query.prepare("INSERT INTO recordedseek (chanid, starttime, "
-                        "mark, offset, type)"
+                        "mark, `offset`, type)"
                         "VALUES(:CHANID,:STARTTIME,:MARK,:OFFSET,:TYPE);");
                 query.bindValue(":CHANID", chanID);
                 query.bindValue(":STARTTIME", startTime);
@@ -2204,7 +2207,7 @@ static int grabThumbnail(const QString& inFile, const QString& thumbList, const 
     }
 
     // get the codec context for the video stream
-    AVCodecContext *codecCtx = codecmap.getCodecContext(inputFC->streams[videostream]);
+    AVCodecContext *codecCtx = codecmap.GetCodecContext(inputFC->streams[videostream]);
 
     // get decoder for video stream
     AVCodec * codec = avcodec_find_decoder(codecCtx->codec_id);
@@ -2239,7 +2242,6 @@ static int grabThumbnail(const QString& inFile, const QString& thumbList, const 
     memset(&orig, 0, sizeof(AVFrame));
     memset(&retbuf, 0, sizeof(AVFrame));
     MythAVCopy copyframe;
-    MythPictureDeinterlacer deinterlacer(codecCtx->pix_fmt, width, height);
 
     int bufflen = width * height * 4;
     auto *outputbuf = new unsigned char[bufflen];
@@ -2306,7 +2308,7 @@ static int grabThumbnail(const QString& inFile, const QString& thumbList, const 
                             AV_PIX_FMT_RGB32, width, height, IMAGE_ALIGN);
 
                         AVFrame *tmp = frame;
-                        deinterlacer.DeinterlaceSingle(tmp, tmp);
+                        MythAVUtil::DeinterlaceAVFrame(tmp);
 
                         copyframe.Copy(&retbuf, AV_PIX_FMT_RGB32, tmp,
                                        codecCtx->pix_fmt, width, height);
@@ -2358,7 +2360,7 @@ static int grabThumbnail(const QString& inFile, const QString& thumbList, const 
     delete[] outputbuf;
 
     // close the codec
-    codecmap.freeCodecContext(inputFC->streams[videostream]);
+    codecmap.FreeCodecContext(inputFC->streams[videostream]);
 
     return 0;
 }
@@ -2496,7 +2498,7 @@ static int64_t getFrameCount(const QString &filename, float fps)
     if (posMap.empty())
         return 0; // no position map in recording
 
-    frm_pos_map_t::const_iterator it = posMap.end();
+    frm_pos_map_t::const_iterator it = posMap.cend();
     --it;
     uint64_t totframes = it.key() * keyframedist;
     return totframes;
@@ -2547,22 +2549,21 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
     for (uint i = 0; i < inputFC->nb_streams; i++)
     {
         AVStream *st = inputFC->streams[i];
-        char buf[256];
-        AVCodecContext *avctx = codecmap.getCodecContext(st);
+        std::string buf (256,'\0');
+        AVCodecContext *avctx = codecmap.GetCodecContext(st);
         AVCodecParameters *par = st->codecpar;
 
-        buf[0]=0;
         if (avctx)
-            avcodec_string(buf, sizeof(buf), avctx, static_cast<int>(false));
+            avcodec_string(buf.data(), buf.size(), avctx, static_cast<int>(false));
 
         switch (st->codecpar->codec_type)
         {
             case AVMEDIA_TYPE_VIDEO:
             {
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
-                QStringList param = QString(buf).split(',', QString::SkipEmptyParts);
+                QStringList param = QString::fromStdString(buf).split(',', QString::SkipEmptyParts);
 #else
-                QStringList param = QString(buf).split(',', Qt::SkipEmptyParts);
+                QStringList param = QString::fromStdString(buf).split(',', Qt::SkipEmptyParts);
 #endif
                 QString codec = param[0].remove("Video:", Qt::CaseInsensitive);
                 QDomElement stream = doc.createElement("video");
@@ -2691,9 +2692,9 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
             case AVMEDIA_TYPE_AUDIO:
             {
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
-                QStringList param = QString(buf).split(',', QString::SkipEmptyParts);
+                QStringList param = QString::fromStdString(buf).split(',', QString::SkipEmptyParts);
 #else
-                QStringList param = QString(buf).split(',', Qt::SkipEmptyParts);
+                QStringList param = QString::fromStdString(buf).split(',', Qt::SkipEmptyParts);
 #endif
                 QString codec = param[0].remove("Audio:", Qt::CaseInsensitive);
 
@@ -2740,9 +2741,9 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
             case AVMEDIA_TYPE_SUBTITLE:
             {
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
-                QStringList param = QString(buf).split(',', QString::SkipEmptyParts);
+                QStringList param = QString::fromStdString(buf).split(',', QString::SkipEmptyParts);
 #else
-                QStringList param = QString(buf).split(',', Qt::SkipEmptyParts);
+                QStringList param = QString::fromStdString(buf).split(',', Qt::SkipEmptyParts);
 #endif
                 QString codec = param[0].remove("Subtitle:", Qt::CaseInsensitive);
 
@@ -2769,7 +2770,7 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
             {
                 QDomElement stream = doc.createElement("data");
                 stream.setAttribute("streamindex", i);
-                stream.setAttribute("codec", buf);
+                stream.setAttribute("codec", QString::fromStdString(buf));
                 streams.appendChild(stream);
 
                 break;
@@ -2781,7 +2782,7 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
                         .arg(inputFC->streams[i]->codecpar->codec_type).arg(i));
                 break;
         }
-        codecmap.freeCodecContext(st);
+        codecmap.FreeCodecContext(st);
     }
 
     // finally save the xml to the file
@@ -2815,12 +2816,12 @@ static int getDBParamters(const QString& outFile)
     }
 
     QTextStream t(&f);
-    t << params.m_dbHostName << endl;
-    t << params.m_dbUserName << endl;
-    t << params.m_dbPassword << endl;
-    t << params.m_dbName << endl;
-    t << gCoreContext->GetHostName() << endl;
-    t << GetInstallPrefix() << endl;
+    t << params.m_dbHostName << QT_ENDL;
+    t << params.m_dbUserName << QT_ENDL;
+    t << params.m_dbPassword << QT_ENDL;
+    t << params.m_dbName << QT_ENDL;
+    t << gCoreContext->GetHostName() << QT_ENDL;
+    t << GetInstallPrefix() << QT_ENDL;
     f.close();
 
     return 0;

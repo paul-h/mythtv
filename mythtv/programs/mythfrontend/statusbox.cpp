@@ -1,9 +1,6 @@
 
 #include "statusbox.h"
 
-using namespace std;
-
-#include <QRegExp>
 #include <QHostAddress>
 #include <QNetworkInterface>
 
@@ -32,6 +29,7 @@ using namespace std;
 #include "opengl/mythrenderopengl.h"
 #include "mythdisplay.h"
 #include "decoders/mythcodeccontext.h"
+#include "mythchrono.h"
 
 struct LogLine {
     QString m_line;
@@ -42,10 +40,10 @@ struct LogLine {
     QString m_state;
 };
 
-void StatusBoxItem::Start(int Interval)
+void StatusBoxItem::Start(std::chrono::seconds Interval)
 {
     connect(this, &QTimer::timeout, [=]() { emit UpdateRequired(this); });
-    start(Interval * 1000);
+    start(Interval);
 }
 
 /** \class StatusBox
@@ -98,12 +96,12 @@ bool StatusBox::Create()
         return false;
     }
 
-    connect(m_categoryList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            SLOT(updateLogList(MythUIButtonListItem *)));
-    connect(m_logList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            SLOT(setHelpText(MythUIButtonListItem *)));
-    connect(m_logList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            SLOT(clicked(MythUIButtonListItem *)));
+    connect(m_categoryList, &MythUIButtonList::itemSelected,
+            this, &StatusBox::updateLogList);
+    connect(m_logList, &MythUIButtonList::itemSelected,
+            this, &StatusBox::setHelpText);
+    connect(m_logList, &MythUIButtonList::itemClicked,
+            this, &StatusBox::clicked);
 
     BuildFocusList();
     return true;
@@ -112,35 +110,39 @@ bool StatusBox::Create()
 void StatusBox::Init()
 {
     auto *item = new MythUIButtonListItem(m_categoryList, tr("Listings Status"),
-                            QVariant::fromValue((void*)SLOT(doListingsStatus())));
+                                          &StatusBox::doListingsStatus);
     item->DisplayState("listings", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Schedule Status"),
-                            QVariant::fromValue((void*)SLOT(doScheduleStatus())));
+                                    &StatusBox::doScheduleStatus);
     item->DisplayState("schedule", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Input Status"),
-                            QVariant::fromValue((void*)SLOT(doTunerStatus())));
+                                    &StatusBox::doTunerStatus);
     item->DisplayState("tuner", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Job Queue"),
-                            QVariant::fromValue((void*)SLOT(doJobQueueStatus())));
+                                    &StatusBox::doJobQueueStatus);
     item->DisplayState("jobqueue", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Video decoders"),
-                            QVariant::fromValue((void*)SLOT(doDecoderStatus())));
+                                    &StatusBox::doDecoderStatus);
     item->DisplayState("decoders", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("Display"),
-                            QVariant::fromValue((void*)SLOT(doDisplayStatus())));
+                                    &StatusBox::doDisplayStatus);
     item->DisplayState("display", "icon");
 
+    item = new MythUIButtonListItem(m_categoryList, tr("Rendering"),
+                                    &StatusBox::doRenderStatus);
+    item->DisplayState("render", "icon");
+
     item = new MythUIButtonListItem(m_categoryList, tr("Machine Status"),
-                            QVariant::fromValue((void*)SLOT(doMachineStatus())));
+                                    &StatusBox::doMachineStatus);
     item->DisplayState("machine", "icon");
 
     item = new MythUIButtonListItem(m_categoryList, tr("AutoExpire List"),
-                            QVariant::fromValue((void*)SLOT(doAutoExpireList())));
+                                    qOverload<>(&StatusBox::doAutoExpireList));
     item->DisplayState("autoexpire", "icon");
 
     int itemCurrent = gCoreContext->GetNumSetting("StatusBoxItemCurrent", 0);
@@ -193,49 +195,19 @@ bool StatusBox::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     bool handled = GetMythMainWindow()->TranslateKeyPress("Status", event, actions);
 
+#if 0
     for (int i = 0; i < actions.size() && !handled; ++i)
     {
         QString action = actions[i];
         handled = true;
 
-        QRegExp logNumberKeys( "^[12345678]$" );
-
-        MythUIButtonListItem* currentButton = m_categoryList->GetItemCurrent();
-        QString currentItem;
-        if (currentButton)
-            currentItem = currentButton->GetText();
-
         if (action == "MENU")
         {
-            if (currentItem == tr("Log Entries"))
-            {
-                QString message = tr("Acknowledge all log entries at "
-                                     "this priority level or lower?");
-
-                auto *confirmPopup =
-                        new MythConfirmationDialog(m_popupStack, message);
-
-                confirmPopup->SetReturnEvent(this, "LogAckAll");
-
-                if (confirmPopup->Create())
-                    m_popupStack->AddScreen(confirmPopup, false);
-            }
-        }
-        else if ((currentItem == tr("Log Entries")) &&
-                 (logNumberKeys.indexIn(action) == 0))
-        {
-            m_minLevel = action.toInt();
-            if (m_helpText)
-                m_helpText->SetText(tr("Setting priority level to %1")
-                                    .arg(m_minLevel));
-            if (m_justHelpText)
-                m_justHelpText->SetText(tr("Setting priority level to %1")
-                                        .arg(m_minLevel));
-            doLogEntries();
         }
         else
             handled = false;
     }
+#endif
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;
@@ -260,12 +232,20 @@ void StatusBox::updateLogList(MythUIButtonListItem *item)
     if (!item)
         return;
 
-    disconnect(this, SIGNAL(updateLog()),nullptr,nullptr);
+    disconnect(this, &StatusBox::updateLog,nullptr,nullptr);
 
-    const char *slot = (const char *)item->GetData().value<void*>();
-
-    connect(this, SIGNAL(updateLog()), slot);
-    emit updateLog();
+    if (item->GetData().value<MythUICallbackMF>())
+    {
+        connect(this, &StatusBox::updateLog,
+                item->GetData().value<MythUICallbackMF>());
+        emit updateLog();
+    }
+    else if (item->GetData().value<MythUICallbackMFc>())
+    {
+        connect(this, &StatusBox::updateLog,
+                item->GetData().value<MythUICallbackMFc>());
+        emit updateLog();
+    }
 }
 
 void StatusBox::clicked(MythUIButtonListItem *item)
@@ -282,21 +262,8 @@ void StatusBox::clicked(MythUIButtonListItem *item)
 
     // FIXME: Comparisons against strings here is not great, changing names
     //        breaks everything and it's inefficient
-    if (currentItem == tr("Log Entries"))
+    if (currentItem == tr("Job Queue"))
     {
-        QString message = tr("Acknowledge this log entry?");
-
-        auto *confirmPopup = new MythConfirmationDialog(m_popupStack, message);
-
-        confirmPopup->SetReturnEvent(this, "LogAck");
-        confirmPopup->SetData(logline.m_data);
-
-        if (confirmPopup->Create())
-            m_popupStack->AddScreen(confirmPopup, false);
-    }
-    else if (currentItem == tr("Job Queue"))
-    {
-        QStringList msgs;
         int jobStatus = JobQueue::GetJobStatus(logline.m_data.toInt());
 
         if (jobStatus == JOB_QUEUED)
@@ -330,11 +297,11 @@ void StatusBox::clicked(MythUIButtonListItem *item)
             QVariant data = QVariant::fromValue(logline.m_data);
 
             if (jobStatus == JOB_PAUSED)
-                menuPopup->AddButton(tr("Resume"), data);
+                menuPopup->AddButtonV(tr("Resume"), data);
             else
-                menuPopup->AddButton(tr("Pause"), data);
-            menuPopup->AddButton(tr("Stop"), data);
-            menuPopup->AddButton(tr("No Change"), data);
+                menuPopup->AddButtonV(tr("Pause"), data);
+            menuPopup->AddButtonV(tr("Stop"), data);
+            menuPopup->AddButtonV(tr("No Change"), data);
         }
         else if (jobStatus & JOB_DONE)
         {
@@ -366,18 +333,18 @@ void StatusBox::clicked(MythUIButtonListItem *item)
 
             menuPopup->SetReturnEvent(this, "AutoExpireManage");
 
-            menuPopup->AddButton(tr("Delete Now"), QVariant::fromValue(rec));
+            menuPopup->AddButtonV(tr("Delete Now"), QVariant::fromValue(rec));
             if ((rec)->GetRecordingGroup() == "LiveTV")
             {
-                menuPopup->AddButton(tr("Move to Default group"),
+                menuPopup->AddButtonV(tr("Move to Default group"),
                                                        QVariant::fromValue(rec));
             }
             else if ((rec)->GetRecordingGroup() == "Deleted")
-                menuPopup->AddButton(tr("Undelete"), QVariant::fromValue(rec));
+                menuPopup->AddButtonV(tr("Undelete"), QVariant::fromValue(rec));
             else
-                menuPopup->AddButton(tr("Disable AutoExpire"),
+                menuPopup->AddButtonV(tr("Disable AutoExpire"),
                                                         QVariant::fromValue(rec));
-            menuPopup->AddButton(tr("No Change"), QVariant::fromValue(rec));
+            menuPopup->AddButtonV(tr("No Change"), QVariant::fromValue(rec));
 
         }
     }
@@ -392,35 +359,7 @@ void StatusBox::customEvent(QEvent *event)
         QString resultid  = dce->GetId();
         int     buttonnum = dce->GetResult();
 
-        if (resultid == "LogAck")
-        {
-            if (buttonnum == 1)
-            {
-                QString sql = dce->GetData().toString();
-                MSqlQuery query(MSqlQuery::InitCon());
-                query.prepare("UPDATE mythlog SET acknowledged = 1 "
-                            "WHERE logid = :LOGID ;");
-                query.bindValue(":LOGID", sql);
-                if (!query.exec())
-                    MythDB::DBError("StatusBox::customEvent -- LogAck", query);
-                m_logList->RemoveItem(m_logList->GetItemCurrent());
-            }
-        }
-        else if (resultid == "LogAckAll")
-        {
-            if (buttonnum == 1)
-            {
-                MSqlQuery query(MSqlQuery::InitCon());
-                query.prepare("UPDATE mythlog SET acknowledged = 1 "
-                                "WHERE priority <= :PRIORITY ;");
-                query.bindValue(":PRIORITY", m_minLevel);
-                if (!query.exec())
-                    MythDB::DBError("StatusBox::customEvent -- LogAckAll",
-                                    query);
-                doLogEntries();
-            }
-        }
-        else if (resultid == "JobDelete")
+        if (resultid == "JobDelete")
         {
             if (buttonnum == 1)
             {
@@ -525,7 +464,6 @@ void StatusBox::doListingsStatus()
     QDateTime mfdLastRunEnd;
     QDateTime mfdNextRunStart;
     QString mfdLastRunStatus;
-    QString querytext;
     QDateTime qdtNow;
     QDateTime GuideDataThrough;
 
@@ -546,8 +484,9 @@ void StatusBox::doListingsStatus()
 
     mfdLastRunStatus = gCoreContext->GetSetting("mythfilldatabaseLastRunStatus");
 
-    AddLogLine(tr("Mythfrontend version: %1 (%2)").arg(GetMythSourcePath())
-               .arg(GetMythSourceVersion()), helpmsg);
+    AddLogLine(tr("Mythfrontend version: %1 (%2)")
+               .arg(GetMythSourcePath(), GetMythSourceVersion()),
+               helpmsg);
     AddLogLine(tr("Last mythfilldatabase guide update:"), helpmsg);
     tmp = tr("Started:   %1").arg(
         MythDate::toString(
@@ -773,14 +712,14 @@ void StatusBox::doScheduleStatus()
 
     if (lowerpriority > 0)
     {
-        tmpstr = QString("%1 %2 %3").arg(lowerpriority).arg(willrec)
-                                    .arg(tr("with lower priority"));
+        tmpstr = QString("%1 %2 %3").arg(QString::number(lowerpriority),
+                                         willrec, tr("with lower priority"));
         AddLogLine(tmpstr, helpmsg, tmpstr, tmpstr, "warning");
     }
     if (hdflag > 0)
     {
-        tmpstr = QString("%1 %2 %3").arg(hdflag).arg(willrec)
-                                    .arg(tr("marked as HDTV"));
+        tmpstr = QString("%1 %2 %3").arg(QString::number(hdflag),
+                                         willrec, tr("marked as HDTV"));
         AddLogLine(tmpstr, helpmsg);
     }
     for (int i = 1; i <= maxSource; ++i)
@@ -788,8 +727,8 @@ void StatusBox::doScheduleStatus()
         if (sourceMatch[i] > 0)
         {
             tmpstr = QString("%1 %2 %3 %4 \"%5\"")
-                             .arg(sourceMatch[i]).arg(willrec)
-                             .arg(tr("from source")).arg(i).arg(sourceText[i]);
+                             .arg(QString::number(sourceMatch[i]), willrec,
+                                  tr("from source"), QString::number(i), sourceText[i]);
             AddLogLine(tmpstr, helpmsg);
         }
     }
@@ -798,8 +737,8 @@ void StatusBox::doScheduleStatus()
         if (cardMatch[i] > 0)
         {
             tmpstr = QString("%1 %2 %3 %4 \"%5\"")
-                             .arg(cardMatch[i]).arg(willrec)
-                             .arg(tr("on input")).arg(i).arg(cardText[i]);
+                             .arg(QString::number(cardMatch[i]), willrec,
+                                  tr("on input"), QString::number(i), cardText[i]);
             AddLogLine(tmpstr, helpmsg);
         }
     }
@@ -870,8 +809,6 @@ void StatusBox::doTunerStatus()
         gCoreContext->SendReceiveStringList(strlist);
         int state = strlist[0].toInt();
 
-        QString status;
-        QString fontstate;
         if (state == kState_Error)
         {
             strlist.clear();
@@ -937,8 +874,8 @@ void StatusBox::doTunerStatus()
             fontstate = "warning";
 
         QString shortstatus = tr("Input %1 %2: %3")
-            .arg(inputid).arg(info[inputid].m_displayname)
-            .arg(statuslist.join(tr(", ")));
+            .arg(QString::number(inputid), info[inputid].m_displayname,
+                 statuslist.join(tr(", ")));
         QString longstatus = shortstatus + "\n" +
             info[inputid].m_recordings.join("\n");
 
@@ -977,10 +914,10 @@ void StatusBox::doLogEntries(void)
             detail = tr("On %1 from %2.%3\n%4\n")
                 .arg(MythDate::toString(
                          MythDate::as_utc(query.value(3).toDateTime()),
-                         MythDate::kDateTimeShort))
-                .arg(query.value(4).toString())
-                .arg(query.value(1).toString())
-                .arg(query.value(5).toString());
+                         MythDate::kDateTimeShort),
+                     query.value(4).toString(),
+                     query.value(1).toString(),
+                     query.value(5).toString());
 
             QString tmp = query.value(6).toString();
             if (!tmp.isEmpty())
@@ -1035,16 +972,16 @@ void StatusBox::doJobQueueStatus()
                 continue;
 
             detail = QString("%1\n%2 %3 @ %4\n%5 %6     %7 %8")
-                .arg(pginfo.GetTitle())
-                .arg(pginfo.GetChannelName())
-                .arg(pginfo.GetChanNum())
-                .arg(MythDate::toString(
+                .arg(pginfo.GetTitle(),
+                     pginfo.GetChannelName(),
+                     pginfo.GetChanNum(),
+                     MythDate::toString(
                          pginfo.GetRecordingStartTime(),
-                         MythDate::kDateTimeFull | MythDate::kSimplify))
-                .arg(tr("Job:"))
-                .arg(JobQueue::JobText((*it).type))
-                .arg(tr("Status: "))
-                .arg(JobQueue::StatusText((*it).status));
+                         MythDate::kDateTimeFull | MythDate::kSimplify),
+                     tr("Job:"),
+                     JobQueue::JobText((*it).type),
+                     tr("Status: "),
+                     JobQueue::StatusText((*it).status));
 
             if ((*it).status != JOB_QUEUED)
                 detail += " (" + (*it).hostname + ')';
@@ -1061,8 +998,9 @@ void StatusBox::doJobQueueStatus()
                 detail += '\n' + (*it).comment;
             }
 
-            line = QString("%1 @ %2").arg(pginfo.GetTitle())
-                .arg(MythDate::toString(
+            line = QString("%1 @ %2")
+                .arg(pginfo.GetTitle(),
+                     MythDate::toString(
                          pginfo.GetRecordingStartTime(),
                          MythDate::kDateTimeFull | MythDate::kSimplify));
 
@@ -1120,8 +1058,8 @@ static QString usage_str_kb(long long total,
     {
         double percent = (100.0*free)/total;
         ret = StatusBox::tr("%1 total, %2 used, %3 (or %4%) free.")
-            .arg(sm_str(total)).arg(sm_str(used))
-            .arg(sm_str(free)).arg(percent, 0, 'f', (percent >= 10.0) ? 0 : 2);
+            .arg(sm_str(total), sm_str(used),
+                 sm_str(free)).arg(percent, 0, 'f', (percent >= 10.0) ? 0 : 2);
     }
     return ret;
 }
@@ -1159,8 +1097,8 @@ static void disk_usage_with_rec_time_kb(QStringList& out, long long total,
             out<<remainstring.arg(hourstring) + pro;
         else if (minLeft > 60)
         {
-            out<<StatusBox::tr("%1 and %2 remaining", "time").arg(hourstring)
-                                                   .arg(minstring) + pro;
+            out<<StatusBox::tr("%1 and %2 remaining", "time")
+                .arg(hourstring, minstring) + pro;
         }
         else
         {
@@ -1169,22 +1107,22 @@ static void disk_usage_with_rec_time_kb(QStringList& out, long long total,
     }
 }
 
-static QString uptimeStr(time_t uptime)
+static QString uptimeStr(std::chrono::seconds uptime)
 {
     QString str = "   " + StatusBox::tr("Uptime") + ": ";
 
-    if (uptime == 0)
+    if (uptime == 0s)
         return str + StatusBox::tr("unknown", "unknown uptime");
 
-    int days = uptime/ONEDAYINSEC;
-    int secs = uptime - days*ONEDAYINSEC;
+    auto days = duration_cast<std::chrono::days>(uptime);
+    auto secs = uptime % 24h;
 
     QString astext;
-    if (days > 0)
+    if (days.count() > 0)
     {
         astext = QString("%1, %2")
-            .arg(StatusBox::tr("%n day(s)", "", days))
-            .arg(MythFormatTime(secs, "H:mm"));
+            .arg(StatusBox::tr("%n day(s)", "", days.count()),
+                 MythFormatTime(secs, "H:mm"));
     } else {
         astext = MythFormatTime(secs, "H:mm:ss");
     }
@@ -1283,11 +1221,12 @@ void StatusBox::doMachineStatus()
 
     // Hostname & IP
     AddLogLine("   " + tr("Hostname") + ": " + gCoreContext->GetHostName());
-    AddLogLine("   " + tr("OS") + QString(": %1 (%2)").arg(QSysInfo::prettyProductName())
-                                                      .arg(QSysInfo::currentCpuArchitecture()));
+    AddLogLine("   " + tr("OS") + QString(": %1 (%2)").arg(QSysInfo::prettyProductName(),
+                                                           QSysInfo::currentCpuArchitecture()));
     AddLogLine("   " + tr("Qt version") + QString(": %1").arg(qVersion()));
 
-    for (const QNetworkInterface & iface : QNetworkInterface::allInterfaces())
+    QList allInterfaces = QNetworkInterface::allInterfaces();
+    for (const QNetworkInterface & iface : qAsConst(allInterfaces))
     {
         QNetworkInterface::InterfaceFlags f = iface.flags();
         if (!(f & QNetworkInterface::IsUp))
@@ -1305,7 +1244,8 @@ void StatusBox::doMachineStatus()
 #endif
         AddLogLine("   " + name + QString(" (%1): ").arg(iface.humanReadableName()));
         AddLogLine("        " + tr("MAC Address") + ": " + iface.hardwareAddress());
-        for (const QNetworkAddressEntry & addr : iface.addressEntries())
+        QList addresses = iface.addressEntries();
+        for (const QNetworkAddressEntry & addr : qAsConst(addresses))
         {
             if (addr.ip().protocol() == QAbstractSocket::IPv4Protocol ||
                 addr.ip().protocol() == QAbstractSocket::IPv6Protocol)
@@ -1317,18 +1257,18 @@ void StatusBox::doMachineStatus()
     AddLogLine(line, machineStr);
 
     // uptime
-    time_t uptime = 0;
+    std::chrono::seconds uptime = 0s;
     if (getUptime(uptime))
     {
         auto UpdateUptime = [](StatusBoxItem* Item)
         {
-            time_t time = 0;
-            getUptime(time);
-            Item->SetText(uptimeStr(time));
+            std::chrono::seconds time = 0s;
+            if (getUptime(time))
+                Item->SetText(uptimeStr(time));
         };
         StatusBoxItem *uptimeitem = AddLogLine(uptimeStr(uptime));
         connect(uptimeitem, &StatusBoxItem::UpdateRequired, UpdateUptime);
-        uptimeitem->Start(60);
+        uptimeitem->Start(1min);
     }
 
     // weighted average loads
@@ -1377,8 +1317,8 @@ void StatusBox::doMachineStatus()
         UpdateSwap(swap);
         connect(mem,  &StatusBoxItem::UpdateRequired, UpdateMem);
         connect(swap, &StatusBoxItem::UpdateRequired, UpdateSwap);
-        mem->Start(3);
-        swap->Start(3);
+        mem->Start(3s);
+        swap->Start(3s);
     }
 
     if (!m_isBackendActive)
@@ -1396,22 +1336,22 @@ void StatusBox::doMachineStatus()
         {
             auto UpdateRemoteUptime = [](StatusBoxItem* Item)
             {
-                time_t time = 0;
+                std::chrono::seconds time = 0s;
                 RemoteGetUptime(time);
                 Item->SetText(uptimeStr(time));
             };
             StatusBoxItem *remoteuptime = AddLogLine(uptimeStr(uptime));
             connect(remoteuptime, &StatusBoxItem::UpdateRequired, UpdateRemoteUptime);
-            remoteuptime->Start(60);
+            remoteuptime->Start(1min);
         }
 
         // weighted average loads
-        double floads[3];
+        system_load_array floads;
         if (RemoteGetLoad(floads))
         {
             auto UpdateRemoteLoad = [](StatusBoxItem* Item)
             {
-                double loads[3] = { 0.0 };
+                system_load_array loads = { 0.0, 0.0, 0.0 };
                 RemoteGetLoad(loads);
                 Item->SetText(QString("   %1: %2 %3 %4").arg(tr("Load")).arg(loads[0], 1, 'f', 2)
                         .arg(loads[1], 1, 'f', 2).arg(loads[2], 1, 'f', 2));
@@ -1450,8 +1390,8 @@ void StatusBox::doMachineStatus()
             UpdateRemoteSwap(rswap);
             connect(rmem,  &StatusBoxItem::UpdateRequired, UpdateRemoteMem);
             connect(rswap, &StatusBoxItem::UpdateRequired, UpdateRemoteSwap);
-            rmem->Start(10);
-            rswap->Start(11);
+            rmem->Start(10s);
+            rswap->Start(11s);
         }
     }
 
@@ -1544,44 +1484,99 @@ void StatusBox::doDisplayStatus()
     if (m_iconState)
         m_iconState->DisplayState("display");
     m_logList->Reset();
-    QString displayhelp = tr("Display and rendering information.");
+    auto displayhelp = tr("Display information.");
     if (m_helpText)
         m_helpText->SetText(displayhelp);
     if (m_justHelpText)
         m_justHelpText->SetText(displayhelp);
 
-    QStringList desc = MythDisplay::GetDescription();
+    auto desc = GetMythMainWindow()->GetDisplay()->GetDescription();
     for (const auto & line : qAsConst(desc))
         AddLogLine(line);
-    AddLogLine("");
+}
 
-    MythRender* render = GetMythMainWindow()->GetRenderDevice();
-    if (render)
+void StatusBox::doRenderStatus()
+{
+    if (m_iconState)
+        m_iconState->DisplayState("render");
+    m_logList->Reset();
+    auto displayhelp = tr("Render information.");
+    if (m_helpText)
+        m_helpText->SetText(displayhelp);
+    if (m_justHelpText)
+        m_justHelpText->SetText(displayhelp);
+
+    auto * render = GetMythMainWindow()->GetRenderDevice();
+    if (render && render->Type() == kRenderOpenGL)
     {
-        MythRenderOpenGL* gl = MythRenderOpenGL::GetOpenGLRender();
-        if (gl && (gl->GetExtraFeatures() & kGLNVMemory))
+        auto * opengl = dynamic_cast<MythRenderOpenGL*>(render);
+
+        if (opengl)
         {
-            auto UpdateGPUMem = [](StatusBoxItem *Item)
+            auto UpdateFPS = [](StatusBoxItem* Item)
             {
-                int total = 0;
-                int available = 0;
-                MythRenderOpenGL* opengl = MythRenderOpenGL::GetOpenGLRender();
-                if (opengl)
-                  opengl->GetGPUMemory(available, total);
-                if (total > 0)
-                {
-                    int percent = static_cast<int>((available / static_cast<float>(total) * 100.0F));
-                    Item->SetText(tr("GPU Memory: %1 MB total, %2 MB used, %3 MB (or %4%) free")
-                        .arg(total).arg(total - available).arg(available).arg(percent));
-                }
+                uint64_t swapcount = 0;
+                auto * rend = GetMythMainWindow()->GetRenderDevice();
+                if (auto * gl = dynamic_cast<MythRenderOpenGL*>(rend); gl != nullptr)
+                    swapcount = gl->GetSwapCount();
+                Item->SetText(tr("Current fps: %1").arg(swapcount));
             };
-            StatusBoxItem* gpumem = AddLogLine("");
-            UpdateGPUMem(gpumem);
-            connect(gpumem, &StatusBoxItem::UpdateRequired, UpdateGPUMem);
-            gpumem->Start();
+
+            auto * fps = AddLogLine("");
+            // Reset the frame counter
+            (void)opengl->GetSwapCount();
+            UpdateFPS(fps);
+            connect(fps, &StatusBoxItem::UpdateRequired, UpdateFPS);
+            fps->Start();
         }
 
-        desc = render->GetDescription();
+        if (opengl && (opengl->GetExtraFeatures() & kGLNVMemory))
+        {
+            auto GetGPUMem = []()
+            {
+                auto * rend = GetMythMainWindow()->GetRenderDevice();
+                if (auto * gl = dynamic_cast<MythRenderOpenGL*>(rend); gl != nullptr)
+                    return gl->GetGPUMemory();
+                return std::tuple<int,int,int> { 0, 0, 0 };
+            };
+            auto UpdateUsed = [&GetGPUMem](StatusBoxItem* Item)
+            {
+                auto mem = GetGPUMem();
+                int total = std::get<0>(mem);
+                if (total > 0)
+                {
+                    int avail = std::get<2>(mem);
+                    Item->SetText(tr("GPU memory used     : %1MB").arg(total - avail));
+                }
+            };
+
+            auto UpdateFree = [&GetGPUMem](StatusBoxItem* Item)
+            {
+                auto mem = GetGPUMem();
+                int total = std::get<0>(mem);
+                if (total > 0)
+                {
+                    int avail = std::get<2>(mem);
+                    int percent = static_cast<int>((avail / static_cast<float>(total) * 100.0F));
+                    Item->SetText(tr("GPU memory free     : %1MB (or %2%)").arg(avail).arg(percent));
+                }
+            };
+
+            auto current = GetGPUMem();
+            // Total and dedicated will not change
+            AddLogLine(tr("GPU memory total    : %1MB").arg(std::get<0>(current)));
+            AddLogLine(tr("GPU memory dedicated: %1MB").arg(std::get<1>(current)));
+            auto * used = AddLogLine("");
+            auto * freemem = AddLogLine("");
+            UpdateUsed(used);
+            UpdateFree(freemem);
+            connect(used, &StatusBoxItem::UpdateRequired, UpdateUsed);
+            connect(freemem, &StatusBoxItem::UpdateRequired, UpdateFree);
+            used->Start();
+            freemem->Start();
+        }
+
+        auto desc = render->GetDescription();
         for (const auto & line : qAsConst(desc))
             AddLogLine(line);
     }

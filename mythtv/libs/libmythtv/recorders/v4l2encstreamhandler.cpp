@@ -26,6 +26,10 @@
 #include "cardutil.h"
 #include "exitcodes.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
+  #define loadRelaxed load
+#endif
+
 const std::array<const std::string,15> V4L2encStreamHandler::kStreamTypes
 {
     "MPEG-2 PS", "MPEG-2 TS",     "MPEG-1 VCD",    "PES AV",
@@ -188,7 +192,6 @@ void V4L2encStreamHandler::run(void)
 
     bool      good_data = false;
     bool      gap = false;
-    QDateTime gap_start;
 
     QByteArray buffer;
     char* pkt_buf = new char[PACKET_SIZE + 1];
@@ -198,7 +201,7 @@ void V4L2encStreamHandler::run(void)
     while (m_runningDesired && !m_bError)
     {
         // Get V4L2 data
-        if (m_streamingCnt.load() == 0)
+        if (m_streamingCnt.loadRelaxed() == 0)
         {
             LOG(VB_RECORD, LOG_INFO, LOC + "Waiting for stream start.");
             QMutexLocker locker(&m_startStopLock);
@@ -396,7 +399,7 @@ bool V4L2encStreamHandler::Open(void)
 
 bool V4L2encStreamHandler::Configure(void)
 {
-    if (m_streamingCnt.load() > 0)
+    if (m_streamingCnt.loadRelaxed() > 0)
     {
         LOG(VB_RECORD, LOG_INFO, LOC + "Configure() -- Already configured.");
         return true;
@@ -507,7 +510,7 @@ bool V4L2encStreamHandler::StartEncoding(void)
         return false;
     }
 
-    if ((old_cnt = m_streamingCnt.load()) == 0)
+    if ((old_cnt = m_streamingCnt.loadRelaxed()) == 0)
     {
         // Start encoding
 
@@ -548,7 +551,7 @@ bool V4L2encStreamHandler::StartEncoding(void)
                 LOG(VB_GENERAL, LOG_ERR, LOC +
                     "StartEncoding: read failing, re-opening device: " + ENO);
                 close(m_fd);
-                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                std::this_thread::sleep_for(2ms);
                 m_fd = open(m_device.toLatin1().constData(), O_RDWR | O_NONBLOCK);
                 if (m_fd < 0)
                 {
@@ -563,7 +566,7 @@ bool V4L2encStreamHandler::StartEncoding(void)
                 LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("StartEncoding: read failed, retry in %1 msec:")
                     .arg(100 * idx) + ENO);
-                std::this_thread::sleep_for(std::chrono::microseconds(idx * 100));
+                std::this_thread::sleep_for(idx * 100us);
             }
         }
         if (idx == 50)
@@ -596,7 +599,7 @@ bool V4L2encStreamHandler::StartEncoding(void)
 
     LOG(VB_RECORD, LOG_INFO, LOC +
         QString("StartEncoding() -- %1->%2 listeners")
-        .arg(old_cnt).arg(m_streamingCnt.load()));
+        .arg(old_cnt).arg(m_streamingCnt.loadRelaxed()));
 
     LOG(VB_RECORD, LOG_INFO, LOC + "StartEncoding() -- end");
 
@@ -605,7 +608,7 @@ bool V4L2encStreamHandler::StartEncoding(void)
 
 bool V4L2encStreamHandler::StopEncoding(void)
 {
-    int old_cnt = m_streamingCnt.load();
+    int old_cnt = m_streamingCnt.loadRelaxed();
 
     if (old_cnt == 0)
     {
@@ -619,7 +622,7 @@ bool V4L2encStreamHandler::StopEncoding(void)
     {
         LOG(VB_RECORD, LOG_INFO, LOC +
             QString("StopEncoding() -- delayed, still have %1 listeners")
-            .arg(m_streamingCnt.load()));
+            .arg(m_streamingCnt.loadRelaxed()));
         return true;
     }
 
@@ -641,7 +644,7 @@ bool V4L2encStreamHandler::StopEncoding(void)
 
     // allow last bits of data through..
     if (m_drb && m_drb->IsRunning())
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        std::this_thread::sleep_for(20ms);
 #if 0
     // close the fd so streamoff/streamon work in V4LChannel    Close();
     close(m_fd);
@@ -649,7 +652,7 @@ bool V4L2encStreamHandler::StopEncoding(void)
 
     LOG(VB_RECORD, LOG_INFO, LOC +
         QString("StopEncoding() -- %1->%2 listeners")
-        .arg(old_cnt).arg(m_streamingCnt.load()));
+        .arg(old_cnt).arg(m_streamingCnt.loadRelaxed()));
 
     return true;
 }
@@ -700,7 +703,7 @@ static int find_index(const std::array<const int,14> &audio_rate, int value)
 
 bool V4L2encStreamHandler::SetOption(const QString &opt, int value)
 {
-    if (m_streamingCnt.load() > 0)
+    if (m_streamingCnt.loadRelaxed() > 0)
         return true;
 
     if (opt == "width")
@@ -818,7 +821,7 @@ int V4L2encStreamHandler::GetStreamType(void)
 
 bool V4L2encStreamHandler::SetOption(const QString &opt, const QString &value)
 {
-    if (m_streamingCnt.load() > 0)
+    if (m_streamingCnt.loadRelaxed() > 0)
         return true;
 
     if (opt == "vbidevice")
@@ -901,13 +904,13 @@ bool V4L2encStreamHandler::SetOption(const QString &opt, const QString &value)
         return false;
 
     LOG(VB_RECORD, LOG_INFO, LOC + QString("SetOption('%1', '%2') -- success")
-        .arg(opt).arg(value));
+        .arg(opt, value));
     return true;
 }
 
 bool V4L2encStreamHandler::HasLock(void)
 {
-    if (m_streamingCnt.load() > 0)
+    if (m_streamingCnt.loadRelaxed() > 0)
         return true;
 
     return true;
@@ -915,7 +918,7 @@ bool V4L2encStreamHandler::HasLock(void)
 
 int V4L2encStreamHandler::GetSignalStrength(void)
 {
-    if (m_streamingCnt.load() > 0)
+    if (m_streamingCnt.loadRelaxed() > 0)
     {
         LOG(VB_RECORD, LOG_INFO, LOC + QString("GetSignalStrength() -- "
                                                "returning cached value (%1)")
@@ -972,7 +975,7 @@ bool V4L2encStreamHandler::SetBitrateForResolution(void)
             m_v4l2.Close();
             m_v4l2.Open(m_device, m_vbiDevice);
         }
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        std::this_thread::sleep_for(100us);
     }
     if (idx == 5)
         return false;

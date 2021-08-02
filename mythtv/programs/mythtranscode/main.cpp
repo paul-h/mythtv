@@ -3,7 +3,6 @@
 #include <fcntl.h> // for open flags
 #include <fstream>
 #include <iostream>
-using namespace std;
 
 // Qt headers
 #include <QCoreApplication>
@@ -60,7 +59,7 @@ static void UpdatePositionMap(frm_pos_map_t &posMap, frm_pos_map_t &durMap, cons
         }
         frm_pos_map_t::const_iterator it;
         fprintf (mapfh, "Type: %d\n", keyType);
-        for (it = posMap.begin(); it != posMap.end(); ++it)
+        for (it = posMap.cbegin(); it != posMap.cend(); ++it)
         {
             QString str = QString("%1 %2\n").arg(it.key()).arg(*it);
             fprintf(mapfh, "%s", qPrintable(str));
@@ -69,7 +68,7 @@ static void UpdatePositionMap(frm_pos_map_t &posMap, frm_pos_map_t &durMap, cons
     }
 }
 
-static int BuildKeyframeIndex(MPEG2fixup *m2f, QString &infile,
+static int BuildKeyframeIndex(MPEG2fixup *m2f, const QString &infile,
                        frm_pos_map_t &posMap, frm_pos_map_t &durMap, int jobID)
 {
     if (!m2f)
@@ -110,9 +109,11 @@ static int CheckJobQueue()
 static int QueueTranscodeJob(ProgramInfo *pginfo, const QString& profile,
                             const QString& hostname, bool usecutlist)
 {
-    RecordingInfo recinfo(*pginfo);
     if (!profile.isEmpty())
+    {
+        RecordingInfo recinfo(*pginfo);
         recinfo.ApplyTranscoderProfileChange(profile);
+    }
 
     if (JobQueue::QueueJob(JOB_TRANSCODE, pginfo->GetChanID(),
                            pginfo->GetRecordingStartTime(),
@@ -160,7 +161,6 @@ int main(int argc, char *argv[])
     bool mpeg2 = false;
     bool fifo_info = false;
     bool cleanCut = false;
-    QMap<QString, QString> settingsOverride;
     frm_dir_map_t deleteMap;
     frm_pos_map_t posMap; ///< position of keyframes
     frm_pos_map_t durMap; ///< duration from beginning of keyframes
@@ -304,9 +304,9 @@ int main(int argc, char *argv[])
                         QString err("Cut %1points found at %3 and %4, with no "
                                     "%2 point in between.");
                         if (prev.value() == MARK_CUT_END)
-                            err = err.arg("end").arg("start");
+                            err = err.arg("end", "start");
                         else
-                            err = err.arg("start").arg("end");
+                            err = err.arg("start", "end");
                         LOG(VB_GENERAL, LOG_CRIT, "Invalid cutlist defined!");
                         LOG(VB_GENERAL, LOG_CRIT, err.arg(prev.key())
                                                      .arg(cur.key()));
@@ -330,8 +330,8 @@ int main(int argc, char *argv[])
         }
         else if (cmdline.toBool("inversecut"))
         {
-            cerr << "Cutlist inversion requires an external cutlist be" << endl
-                 << "provided using the --honorcutlist option." << endl;
+            std::cerr << "Cutlist inversion requires an external cutlist be" << std::endl
+                      << "provided using the --honorcutlist option." << std::endl;
             return GENERIC_EXIT_INVALID_CMDLINE;
         }
     }
@@ -363,9 +363,9 @@ int main(int argc, char *argv[])
             otype = REPLEX_TS_SD;
         else
         {
-            cerr << "Invalid 'ostream' type: "
-                 << cmdline.toString("ostream").toLocal8Bit().constData()
-                 << endl;
+            std::cerr << "Invalid 'ostream' type: "
+                      << cmdline.toString("ostream").toLocal8Bit().constData()
+                      << std::endl;
             return GENERIC_EXIT_INVALID_CMDLINE;
         }
     }
@@ -410,8 +410,8 @@ int main(int argc, char *argv[])
         }
         else
         {
-            cerr << "mythtranscode: ERROR: Unable to find DB info for "
-                 << "JobQueue ID# " << jobID << endl;
+            std::cerr << "mythtranscode: ERROR: Unable to find DB info for "
+                      << "JobQueue ID# " << jobID << std::endl;
             return GENERIC_EXIT_NO_RECORDING_DATA;
         }
     }
@@ -420,48 +420,48 @@ int main(int argc, char *argv[])
          (found_infile && (found_chanid || found_starttime))) &&
         (!cmdline.toBool("hls")))
     {
-         cerr << "Must specify -i OR -c AND -s options!" << endl;
+         std::cerr << "Must specify -i OR -c AND -s options!" << std::endl;
          return GENERIC_EXIT_INVALID_CMDLINE;
     }
     if (isVideo && !found_infile && !cmdline.toBool("hls"))
     {
-         cerr << "Must specify --infile to use --video" << endl;
+         std::cerr << "Must specify --infile to use --video" << std::endl;
          return GENERIC_EXIT_INVALID_CMDLINE;
     }
     if (jobID >= 0 && (found_infile || build_index))
     {
-         cerr << "Can't specify -j with --buildindex, --video or --infile"
-              << endl;
+         std::cerr << "Can't specify -j with --buildindex, --video or --infile"
+                   << std::endl;
          return GENERIC_EXIT_INVALID_CMDLINE;
     }
     if ((jobID >= 0) && build_index)
     {
-         cerr << "Can't specify both -j and --buildindex" << endl;
+         std::cerr << "Can't specify both -j and --buildindex" << std::endl;
          return GENERIC_EXIT_INVALID_CMDLINE;
     }
     if (keyframesonly && !fifodir.isEmpty())
     {
-         cerr << "Cannot specify both --fifodir and --allkeys" << endl;
+         std::cerr << "Cannot specify both --fifodir and --allkeys" << std::endl;
          return GENERIC_EXIT_INVALID_CMDLINE;
     }
     if (fifosync && fifodir.isEmpty())
     {
-         cerr << "Must specify --fifodir to use --fifosync" << endl;
+         std::cerr << "Must specify --fifodir to use --fifosync" << std::endl;
          return GENERIC_EXIT_INVALID_CMDLINE;
     }
     if (fifo_info && !fifodir.isEmpty())
     {
-        cerr << "Cannot specify both --fifodir and --fifoinfo" << endl;
+        std::cerr << "Cannot specify both --fifodir and --fifoinfo" << std::endl;
         return GENERIC_EXIT_INVALID_CMDLINE;
     }
     if (cleanCut && fifodir.isEmpty() && !fifo_info)
     {
-        cerr << "Clean cutting works only in fifodir mode" << endl;
+        std::cerr << "Clean cutting works only in fifodir mode" << std::endl;
         return GENERIC_EXIT_INVALID_CMDLINE;
     }
     if (cleanCut && !useCutlist)
     {
-        cerr << "--cleancut is pointless without --honorcutlist" << endl;
+        std::cerr << "--cleancut is pointless without --honorcutlist" << std::endl;
         return GENERIC_EXIT_INVALID_CMDLINE;
     }
 
@@ -565,7 +565,7 @@ int main(int argc, char *argv[])
         else if (fifodir.isEmpty())
         {
             LOG(VB_GENERAL, LOG_NOTICE, QString("Transcoding from %1 to %2")
-                    .arg(infile).arg(outfile));
+                    .arg(infile, outfile));
         }
         else
         {
@@ -718,8 +718,7 @@ int main(int argc, char *argv[])
         if (jobID >= 0)
             JobQueue::ChangeJobStatus(jobID, JOB_STOPPING);
         LOG(VB_GENERAL, LOG_NOTICE, QString("%1 %2 done")
-                .arg(build_index ? "Building Index for" : "Transcoding")
-                .arg(infile));
+            .arg(build_index ? "Building Index for" : "Transcoding", infile));
     }
     else if (result == REENCODE_CUTLIST_CHANGE)
     {
@@ -945,14 +944,14 @@ static void CompleteJob(int jobID, ProgramInfo *pginfo, bool useCutlist,
         {
             LOG(VB_GENERAL, LOG_ERR,
                 QString("mythtranscode: Error Renaming '%1' to '%2'")
-                    .arg(filename).arg(oldfile) + ENO);
+                    .arg(filename, oldfile) + ENO);
         }
 
         if (rename(atmpfile.constData(), anewfile.constData()) == -1)
         {
             LOG(VB_GENERAL, LOG_ERR,
                 QString("mythtranscode: Error Renaming '%1' to '%2'")
-                    .arg(tmpfile).arg(newfile) + ENO);
+                    .arg(tmpfile, newfile) + ENO);
         }
 
         if (!gCoreContext->GetBoolSetting("SaveTranscoding", false) || forceDelete)
@@ -969,14 +968,13 @@ static void CompleteJob(int jobID, ProgramInfo *pginfo, bool useCutlist,
             {
                 QString link = getSymlinkTarget(oldfile);
                 QByteArray alink = link.toLocal8Bit();
-                int err = transUnlink(alink.constData(), pginfo);
+                int err = transUnlink(alink, pginfo);
                 if (err)
                 {
                     LOG(VB_GENERAL, LOG_ERR,
                         QString("mythtranscode: Error deleting '%1' "
                                 "pointed to by '%2'")
-                            .arg(alink.constData())
-                            .arg(aoldfile.constData()) + ENO);
+                            .arg(alink.constData(), aoldfile.constData()) + ENO);
                 }
 
                 err = unlink(aoldfile.constData());
@@ -985,8 +983,7 @@ static void CompleteJob(int jobID, ProgramInfo *pginfo, bool useCutlist,
                     LOG(VB_GENERAL, LOG_ERR,
                         QString("mythtranscode: Error deleting '%1', "
                                 "a link pointing to '%2'")
-                            .arg(aoldfile.constData())
-                            .arg(alink.constData()) + ENO);
+                            .arg(aoldfile.constData(), alink.constData()) + ENO);
                 }
             }
             else
@@ -1051,7 +1048,7 @@ static void CompleteJob(int jobID, ProgramInfo *pginfo, bool useCutlist,
                     {
                         LOG(VB_GENERAL, LOG_ERR,
                             QString("mythtranscode: Error renaming %1 to %2")
-                                    .arg(oldFileName).arg(newFileName));
+                                    .arg(oldFileName, newFileName));
                     }
                 }
             }

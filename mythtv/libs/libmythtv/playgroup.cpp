@@ -224,6 +224,8 @@ QStringList PlayGroup::GetNames(void)
 QString PlayGroup::GetInitialName(const ProgramInfo *pi)
 {
     QString res = "Default";
+    QString title = pi->GetTitle().isEmpty() ? "Unknown" : pi->GetTitle();
+    QString category = pi->GetCategory().isEmpty() ? "Default" : pi->GetCategory();
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare("SELECT name FROM playgroup "
@@ -231,9 +233,9 @@ QString PlayGroup::GetInitialName(const ProgramInfo *pi)
                   "      name = :CATEGORY OR "
                   "      (titlematch <> '' AND "
                   "       :TITLE2 REGEXP titlematch) ");
-    query.bindValue(":TITLE1", pi->GetTitle());
-    query.bindValue(":TITLE2", pi->GetTitle());
-    query.bindValue(":CATEGORY", pi->GetCategory());
+    query.bindValue(":TITLE1", title);
+    query.bindValue(":TITLE2", title);
+    query.bindValue(":CATEGORY", category);
 
     if (!query.exec())
         MythDB::DBError("GetInitialName", query);
@@ -253,7 +255,7 @@ int PlayGroup::GetSetting(const QString &name, const QString &field,
                           "WHERE (name = :NAME OR name = 'Default') "
                           "      AND %2 <> 0 "
                           "ORDER BY name = 'Default';")
-                  .arg(field).arg(field));
+                  .arg(field, field));
     query.bindValue(":NAME", name);
     if (!query.exec())
         MythDB::DBError("PlayGroupConfig::GetSetting", query);
@@ -269,11 +271,11 @@ PlayGroupEditor::PlayGroupEditor()
     setLabel(tr("Playback Groups"));
     m_addGroupButton = new ButtonStandardSetting(tr("Create New Playback Group"));
     addChild(m_addGroupButton);
-    connect(m_addGroupButton, SIGNAL(clicked()),
-            this, SLOT(CreateNewPlayBackGroup()));
+    connect(m_addGroupButton, &ButtonStandardSetting::clicked,
+            this, &PlayGroupEditor::CreateNewPlayBackGroup);
 }
 
-void PlayGroupEditor::CreateNewPlayBackGroup()
+void PlayGroupEditor::CreateNewPlayBackGroup() const
 {
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
     auto *settingdialog = new MythTextInputDialog(popupStack,
@@ -281,8 +283,8 @@ void PlayGroupEditor::CreateNewPlayBackGroup()
 
     if (settingdialog->Create())
     {
-        connect(settingdialog, SIGNAL(haveResult(QString)),
-                SLOT(CreateNewPlayBackGroupSlot(const QString&)));
+        connect(settingdialog, &MythTextInputDialog::haveResult,
+                this, &PlayGroupEditor::CreateNewPlayBackGroupSlot);
         popupStack->AddScreen(settingdialog);
     }
     else

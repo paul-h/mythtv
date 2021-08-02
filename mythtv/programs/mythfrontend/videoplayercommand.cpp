@@ -18,9 +18,9 @@ namespace
     QString ShellEscape(const QString &src)
     {
         return QString(src)
-                .replace(QRegExp("\""), "\\\"")
-                .replace(QRegExp("`"), "\\`")
-                .replace(QRegExp("\\$"), "\\$");
+                .replace("\"",  "\\\"")
+                .replace("`",   "\\`")
+                .replace("\\$", "\\$");
     }
 
     QString ExpandPlayCommand(const QString &command, const QString &filename)
@@ -40,16 +40,16 @@ namespace
             QString default_handler =
                     gCoreContext->GetSetting("VideoDefaultPlayer");
             if (tmp.contains("%s") && default_handler.contains("%s"))
-                default_handler = default_handler.replace(QRegExp("%s"), "");
-            tmp.replace(QRegExp("%d"), default_handler);
+                default_handler = default_handler.replace("%s", "");
+            tmp.replace("%d", default_handler);
         }
 
         QString arg = QString("\"%1\"").arg(ShellEscape(filename));
 
         if (tmp.contains("%s"))
-            return tmp.replace(QRegExp("%s"), arg);
+            return tmp.replace("%s", arg);
 
-        return QString("%1 %2").arg(tmp).arg(arg);
+        return QString("%1 %2").arg(tmp, arg);
     }
 }
 
@@ -81,7 +81,7 @@ class VideoPlayHandleMedia : public VideoPlayProc
     VideoPlayHandleMedia(QString handler, QString mrl,
             QString plot, QString title, QString subtitle,
             QString director, int season, int episode, QString inetref,
-            int length, QString year, QString id) :
+            std::chrono::minutes length, QString year, QString id) :
         m_handler(std::move(handler)), m_mrl(std::move(mrl)),
         m_plot(std::move(plot)), m_title(std::move(title)),
         m_subtitle(std::move(subtitle)),
@@ -97,7 +97,7 @@ class VideoPlayHandleMedia : public VideoPlayProc
             const QString &mrl, const QString &plot, const QString &title,
             const QString &subtitle, const QString &director,
             int season, int episode, const QString &inetref,
-            int length, const QString &year, const QString &id)
+            std::chrono::minutes length, const QString &year, const QString &id)
     {
         return new VideoPlayHandleMedia(handler, mrl, plot, title, subtitle,
                 director, season, episode, inetref, length, year, id);
@@ -130,7 +130,7 @@ class VideoPlayHandleMedia : public VideoPlayProc
     int m_season;
     int m_episode;
     QString m_inetref;
-    int m_length;
+    std::chrono::minutes m_length;
     QString m_year;
     QString m_id;
 };
@@ -185,10 +185,9 @@ class VideoPlayerCommandPrivate
 
     VideoPlayerCommandPrivate(const VideoPlayerCommandPrivate &other)
     {
-        for (auto *player : other.m_playerProcs)
-        {
-            m_playerProcs.push_back(player->Clone());
-        }
+        auto playerclone = [](auto *player) { return player->Clone(); };
+        std::transform(other.m_playerProcs.cbegin(), other.m_playerProcs.cend(),
+                       std::back_inserter(m_playerProcs), playerclone);
     }
 
     VideoPlayerCommandPrivate &operator=(const VideoPlayerCommandPrivate &rhs) = delete;
@@ -216,7 +215,7 @@ class VideoPlayerCommandPrivate
                 filename = item->GetFilename();
             }
 
-            if (play_command.length())
+            if (!play_command.isEmpty())
             {
                 AddPlayer(play_command, filename, item->GetPlot(),
                         item->GetTitle(), item->GetSubtitle(),
@@ -249,7 +248,7 @@ class VideoPlayerCommandPrivate
                 filename = item->GetFilename();
             }
 
-            if (play_command.length())
+            if (!play_command.isEmpty())
             {
                 AddPlayer(play_command, filename, item->GetPlot(),
                         item->GetTitle(), item->GetSubtitle(),
@@ -279,15 +278,12 @@ class VideoPlayerCommandPrivate
 
         const FileAssociations::association_list fa_list =
                 FileAssociations::getFileAssociation().getList();
-        for (const auto & fa : fa_list)
-        {
-            if (fa.extension.toLower() == extension.toLower() &&
-                    !fa.use_default)
-            {
-                play_command = fa.playcommand;
-                break;
-            }
-        }
+        auto sameext = [extension](const auto & fa)
+            { return fa.extension.toLower() == extension.toLower() &&
+                     !fa.use_default; };
+        auto fa = std::find_if(fa_list.cbegin(), fa_list.cend(), sameext);
+        if (fa != fa_list.cend())
+            play_command = fa->playcommand;
 
         if (play_command.trimmed().isEmpty())
             play_command = "Internal";
@@ -299,7 +295,7 @@ class VideoPlayerCommandPrivate
         int season = 0;
         int episode = 0;
         QString inetref;
-        int length = 0;
+        std::chrono::minutes length = 0min;
         QString year = QString::number(VIDEO_YEAR_DEFAULT);
         QString id;
 
@@ -330,9 +326,9 @@ class VideoPlayerCommandPrivate
 
     void Play() const
     {
-        for (auto *player : m_playerProcs)
-            if (player->Play())
-                break;
+        // Do this until one of the players returns true
+        (void)std::any_of(m_playerProcs.cbegin(), m_playerProcs.cend(),
+                          [](auto *player){ return player->Play(); } );
     }
 
     QString GetCommandDisplayName() const
@@ -346,7 +342,7 @@ class VideoPlayerCommandPrivate
     void AddPlayer(const QString &player, const QString &filename,
             const QString &plot, const QString &title, const QString &subtitle,
             const QString &director, int season, int episode, const QString &inetref,
-            int length, const QString &year, const QString &id)
+                   std::chrono::minutes length, const QString &year, const QString &id)
     {
         m_playerProcs.push_back(VideoPlayHandleMedia::Create(player, filename,
                         plot, title, subtitle, director, season, episode, inetref,

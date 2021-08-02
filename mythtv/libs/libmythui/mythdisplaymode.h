@@ -15,8 +15,9 @@
 #include <vector>
 
 class MythDisplayMode;
-using namespace std;
-using DisplayModeMap =  map<uint64_t, MythDisplayMode>;
+using MythDisplayModes = std::vector<MythDisplayMode>;
+using DisplayModeMap   = std::map<uint64_t, MythDisplayMode>;
+using MythDisplayRates = std::vector<double>;
 
 class MUI_PUBLIC MythDisplayMode
 {
@@ -29,20 +30,21 @@ class MUI_PUBLIC MythDisplayMode
                     double AspectRatio, double RefreshRate);
     MythDisplayMode(int Width, int Height, int MMWidth, int MMHeight,
                     double AspectRatio, double RefreshRate);
-    void   Init          (void);
-    QSize  Resolution    (void) const;
-    int    Width         (void) const;
-    int    Height        (void) const;
-    int    WidthMM       (void) const;
-    int    HeightMM      (void) const;
-    double AspectRatio   (void) const;
-    double RefreshRate   (void) const;
+    void   Init          ();
+    QString ToString     () const;
+    QSize  Resolution    () const;
+    int    Width         () const;
+    int    Height        () const;
+    int    WidthMM       () const;
+    int    HeightMM      () const;
+    double AspectRatio   () const;
+    double RefreshRate   () const;
     void   SetAspectRatio(double AspectRatio);
     void   AddRefreshRate(double Rate);
-    void   ClearRefreshRates(void);
+    void   ClearRefreshRates();
     void   SetRefreshRate(double Rate);
-    const std::vector<double>& RefreshRates(void) const;
-    static int      FindBestMatch (const vector<MythDisplayMode>& Modes,
+    const  MythDisplayRates& RefreshRates() const;
+    static int      FindBestMatch (const MythDisplayModes& Modes,
                                    const MythDisplayMode& Mode, double& TargetRate);
     static uint64_t CalcKey       (QSize Size, double Rate);
     static bool     CompareRates  (double First, double Second, double Precision = 0.01);
@@ -55,6 +57,6 @@ class MUI_PUBLIC MythDisplayMode
     int m_widthMM   { 0 };
     int m_heightMM  { 0 };
     double m_aspect { -1.0 };
-    vector<double> m_refreshRates { };
+    MythDisplayRates m_refreshRates { };
 };
-#endif // MYTHDISPLAYMODE_H_
+#endif

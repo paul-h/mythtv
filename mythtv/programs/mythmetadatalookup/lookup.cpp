@@ -73,8 +73,8 @@ void LookerUpper::HandleAllRecordings(bool updaterules)
             (pginfo->GetSeason() == 0) &&
             (pginfo->GetEpisode() == 0))))
         {
-            QString msg = QString("Looking up: %1 %2").arg(pginfo->GetTitle())
-                                           .arg(pginfo->GetSubtitle());
+            QString msg = QString("Looking up: %1 %2")
+                .arg(pginfo->GetTitle(), pginfo->GetSubtitle());
             LOG(VB_GENERAL, LOG_INFO, msg);
 
             m_busyRecList.append(pginfo);
@@ -98,8 +98,8 @@ void LookerUpper::HandleAllRecordingRules()
         auto *pginfo = new ProgramInfo(*pg);
         if (pginfo->GetInetRef().isEmpty())
         {
-            QString msg = QString("Looking up: %1 %2").arg(pginfo->GetTitle())
-                                           .arg(pginfo->GetSubtitle());
+            QString msg = QString("Looking up: %1 %2")
+                .arg(pginfo->GetTitle(), pginfo->GetSubtitle());
             LOG(VB_GENERAL, LOG_INFO, msg);
 
             m_busyRecList.append(pginfo);
@@ -136,8 +136,7 @@ void LookerUpper::HandleAllArtwork(bool aggressive)
             if (map.isEmpty() || (aggressive && map.count() < maxartnum))
             {
                 QString msg = QString("Looking up artwork for recording rule: %1 %2")
-                                               .arg(pginfo->GetTitle())
-                                               .arg(pginfo->GetSubtitle());
+                    .arg(pginfo->GetTitle(), pginfo->GetSubtitle());
                 LOG(VB_GENERAL, LOG_INFO, msg);
 
                 m_busyRecList.append(pginfo);
@@ -178,8 +177,7 @@ void LookerUpper::HandleAllArtwork(bool aggressive)
             if (map.isEmpty() || (aggressive && map.count() < maxartnum))
             {
                QString msg = QString("Looking up artwork for recording: %1 %2")
-                                           .arg(pginfo->GetTitle())
-                                           .arg(pginfo->GetSubtitle());
+                   .arg(pginfo->GetTitle(), pginfo->GetSubtitle());
                 LOG(VB_GENERAL, LOG_INFO, msg);
 
                 m_busyRecList.append(pginfo);
@@ -396,10 +394,14 @@ void LookerUpper::customEvent(QEvent *levent)
 
         if (m_updateartwork)
         {
-            ArtworkMap map = lookup->GetDownloads();
+            DownloadMap dlmap = lookup->GetDownloads();
+            // Convert from QMap to QMultiMap
+            ArtworkMap artmap;
+            for (auto it = dlmap.cbegin(); it != dlmap.cend(); it++)
+                artmap.insert(it.key(), it.value());
             SetArtwork(lookup->GetInetref(),
                        lookup->GetIsCollection() ? 0 : lookup->GetSeason(),
-                       gCoreContext->GetMasterHostName(), map);
+                       gCoreContext->GetMasterHostName(), artmap);
         }
 
         m_busyRecList.removeAll(pginfo);

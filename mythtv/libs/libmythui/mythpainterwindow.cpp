@@ -1,3 +1,7 @@
+// Qt
+#include <QWindow>
+#include <QGuiApplication>
+
 // MythTV
 #include "mythcorecontext.h"
 #include "mythmainwindow.h"
@@ -15,45 +19,114 @@
 #include "vulkan/mythpaintervulkan.h"
 #endif
 
-QString MythPainterWindow::CreatePainters(MythMainWindow *MainWindow,
-                                          MythPainterWindow *&PaintWin,
-                                          MythPainter *&Painter)
-{
-    bool warn = false;
-
-#ifdef USING_VULKAN
-    auto *vulkan = new MythPainterWindowVulkan(MainWindow);
-    if (vulkan && vulkan->IsValid())
-    {
-        PaintWin = vulkan;
-        auto *render = dynamic_cast<MythRenderVulkan*>(vulkan->GetRenderDevice());
-        auto *window = dynamic_cast<MythWindowVulkan*>(vulkan->GetVulkanWindow());
-        Painter = new MythPainterVulkan(render, window);
-        return QString();
-    }
-    delete vulkan;
+#ifdef USING_WAYLANDEXTRAS
+#include "platforms/mythwaylandextras.h"
 #endif
 
-    // only OpenGL provides video playback
+#define MYTH_PAINTER_QT QString("Qt")
+
+using TryPainter = bool(*)(MythMainWindow*, MythPainterWindow*&, MythPainter*&, bool&);
+
+QString MythPainterWindow::GetDefaultPainter()
+{
 #ifdef USING_OPENGL
-    auto* glwindow = new MythPainterWindowOpenGL(MainWindow);
-    if (glwindow && glwindow->IsValid())
+    return MYTH_PAINTER_OPENGL;
+#elif USING_VULKAN
+    return MYTH_PAINTER_VULKAN;
+#else
+    return MYTH_PAINTER_QT;
+#endif
+}
+
+QStringList MythPainterWindow::GetPainters()
+{
+    QStringList result;
+#ifdef USING_OPENGL
+    result.append(MYTH_PAINTER_OPENGL);
+#endif
+#ifdef USING_VULKAN
+    result.append(MYTH_PAINTER_VULKAN);
+#endif
+    return result;
+}
+
+QString MythPainterWindow::CreatePainters(MythMainWindow *MainWin,
+                                          MythPainterWindow *&PaintWin,
+                                          MythPainter *&Paint)
+{
+    bool warn = false;
+    QString painter = GetMythDB()->GetSetting("PaintEngine", GetDefaultPainter());
+
+    // build a prioritised list of painters to try
+    QVector<TryPainter> painterstotry;
+
+#ifdef USING_OPENGL
+    auto TryOpenGL = [](MythMainWindow *MainWindow, MythPainterWindow *&PaintWindow,
+                        MythPainter *&Painter, bool& /*unused*/)
     {
-        PaintWin = glwindow;
-        auto *render = dynamic_cast<MythRenderOpenGL*>(glwindow->GetRenderDevice());
-        Painter = new MythOpenGLPainter(render, MainWindow);
-        return QString();
-    }
-    delete glwindow;
+        auto* glwindow = new MythPainterWindowOpenGL(MainWindow);
+        if (glwindow && glwindow->IsValid())
+        {
+            PaintWindow = glwindow;
+            auto *render = dynamic_cast<MythRenderOpenGL*>(glwindow->GetRenderDevice());
+            Painter = new MythOpenGLPainter(render, MainWindow);
+            return true;
+        }
+        delete glwindow;
+        return false;
+    };
+
+    if (painter.contains(MYTH_PAINTER_OPENGL, Qt::CaseInsensitive))
+        painterstotry.prepend(TryOpenGL);
+    else
+        painterstotry.append(TryOpenGL);
+#endif
+
+#ifdef USING_VULKAN
+    auto TryVulkan = [](MythMainWindow *MainWindow, MythPainterWindow *&PaintWindow,
+                        MythPainter *&Painter, bool& /*unused*/)
+    {
+        auto *vulkan = new MythPainterWindowVulkan(MainWindow);
+        if (vulkan && vulkan->IsValid())
+        {
+            PaintWindow = vulkan;
+            auto *render = dynamic_cast<MythRenderVulkan*>(vulkan->GetRenderDevice());
+            Painter = new MythPainterVulkan(render, MainWindow);
+            return true;
+        }
+        delete vulkan;
+        return false;
+    };
+
+    if (painter.contains(MYTH_PAINTER_VULKAN, Qt::CaseInsensitive))
+        painterstotry.prepend(TryVulkan);
+    else
+        painterstotry.append(TryVulkan);
 #endif
 
     // Fallback to Qt painter as the last resort.
-    LOG(VB_GENERAL, LOG_INFO, "Using the Qt painter. Video playback will not work!");
-    Painter = new MythQtPainter();
-    PaintWin = new MythPainterWindowQt(MainWindow);
-    warn = QCoreApplication::applicationName() == MYTH_APPNAME_MYTHFRONTEND;
+    auto TryQt = [](MythMainWindow *MainWindow, MythPainterWindow *&PaintWindow,
+                    MythPainter *&Painter, bool& Warn)
+    {
+        LOG(VB_GENERAL, LOG_INFO, "Using the Qt painter. Video playback will not work!");
+        Painter = new MythQtPainter();
+        PaintWindow = new MythPainterWindowQt(MainWindow);
+        Warn = QCoreApplication::applicationName() == MYTH_APPNAME_MYTHFRONTEND;
+        return true;
+    };
 
-    return warn ? tr("Warning: OpenGL is not available.") : QString();
+    // N.B. this won't be selectable as a painter in the UI but can be forced
+    // from the command line again (-O ThemePainter=Qt)
+    if (painter.contains(MYTH_PAINTER_QT, Qt::CaseInsensitive))
+        painterstotry.prepend(TryQt);
+    else
+        painterstotry.append(TryQt);
+
+    for (auto & trypainter : painterstotry)
+        if (trypainter(MainWin, PaintWin, Paint, warn))
+            break;
+
+    return warn ? tr("Warning: No GPU acceleration") : QString();
 }
 
 void MythPainterWindow::DestroyPainters(MythPainterWindow *&PaintWin, MythPainter *&Painter)
@@ -67,14 +140,75 @@ void MythPainterWindow::DestroyPainters(MythPainterWindow *&PaintWin, MythPainte
 MythPainterWindow::MythPainterWindow(MythMainWindow *MainWin)
   : QWidget(MainWin)
 {
+#ifdef USING_WAYLANDEXTRAS
+    if (QGuiApplication::platformName().toLower().contains("wayland"))
+        m_waylandDev = new MythWaylandDevice(MainWin);
+#endif
 }
 
-MythRender* MythPainterWindow::GetRenderDevice(void)
+// NOLINTNEXTLINE(modernize-use-equals-default)
+MythPainterWindow::~MythPainterWindow()
+{
+#ifdef USING_WAYLAND_EXPOSE_HACK
+    delete m_exposureCheckTimer;
+#endif
+#ifdef USING_WAYLANDEXTRAS
+    delete m_waylandDev;
+#endif
+}
+
+MythRender* MythPainterWindow::GetRenderDevice()
 {
     return m_render;
 }
 
-bool MythPainterWindow::RenderIsShared(void)
+bool MythPainterWindow::RenderIsShared()
 {
     return m_render && m_render->IsShared();
 }
+
+#if defined(DEBUG_PAINTERWIN_EVENTS)
+bool MythPainterWindow::event(QEvent *Event)
+{
+    qInfo() << Event;
+    return QWidget::event(Event);
+}
+#endif
+
+void MythPainterWindow::resizeEvent(QResizeEvent* /*ResizeEvent*/)
+{
+#ifdef USING_WAYLANDEXTRAS
+    if (m_waylandDev)
+        m_waylandDev->SetOpaqueRegion(rect());
+#endif
+
+#ifdef USING_WAYLAND_EXPOSE_HACK
+    if (!m_exposureCheckTimer && (QGuiApplication::platformName().toLower().contains("wayland")))
+    {
+        m_exposureCheckTimer = new QTimer();
+        connect(m_exposureCheckTimer, &QTimer::timeout, this, &MythPainterWindow::CheckWindowIsExposed);
+        m_exposureCheckTimer->start(100ms);
+    }
+}
+
+void MythPainterWindow::CheckWindowIsExposed()
+{
+    if (auto handle = windowHandle(); handle && handle->isVisible())
+    {
+        if (handle->isExposed())
+        {
+            // Not sure whether this might re-occur and we should continue checking...
+            LOG(VB_GENERAL, LOG_INFO, "Stopping exposure check timer");
+            m_exposureCheckTimer->stop();
+        }
+        else
+        {
+            LOG(VB_GENERAL, LOG_INFO, "Trying to force window exposure");
+            setVisible(false);
+            setVisible(true);
+        }
+    }
+}
+#else
+}
+#endif

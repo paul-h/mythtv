@@ -8,7 +8,6 @@
 #include <list>
 #include <memory>
 #include <thread> // for sleep_for
-using namespace std;
 
 #include "mythconfig.h"
 
@@ -35,7 +34,7 @@ using namespace std;
 #include <QDir>
 #include <QWaitCondition>
 #include <QWriteLocker>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QEvent>
 #include <QTcpServer>
 #include <QTimer>
@@ -87,7 +86,7 @@ using namespace std;
 /** Milliseconds to wait for an existing thread from
  *  process request thread pool.
  */
-#define PRT_TIMEOUT 10
+static constexpr std::chrono::milliseconds PRT_TIMEOUT { 10ms };
 /** Number of threads in process request thread pool at startup. */
 #define PRT_STARTUP_THREAD_COUNT 5
 
@@ -119,7 +118,7 @@ bool delete_file_immediately(const QString &filename,
             {
                 LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("Error deleting '%1' -> '%2'")
-                    .arg(filename).arg(linktext) + ENO);
+                    .arg(filename, linktext) + ENO);
             }
         }
     }
@@ -127,7 +126,7 @@ bool delete_file_immediately(const QString &filename,
             !(success2 = checkFile.remove()))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + QString("Error deleting '%1': %2")
-                .arg(filename).arg(strerror(errno)));
+                .arg(filename, strerror(errno)));
     }
     return success1 && success2;
 }
@@ -135,7 +134,7 @@ bool delete_file_immediately(const QString &filename,
 };
 
 QMutex MainServer::s_truncate_and_close_lock;
-const uint MainServer::kMasterServerReconnectTimeout = 1000; //ms
+const std::chrono::milliseconds MainServer::kMasterServerReconnectTimeout { 1s };
 
 class ProcessRequestRunnable : public QRunnable
 {
@@ -195,7 +194,7 @@ class FreeSpaceUpdater : public QRunnable
                 m_parent.m_masterFreeSpaceList = list;
             }
             QMutexLocker locker(&m_lock);
-            int left = kRequeryTimeout - t.elapsed();
+            std::chrono::milliseconds left = kRequeryTimeout - t.elapsed();
             if (m_lastRequest.elapsed() + left > kExitTimeout)
                 m_dorun = false;
             if (!m_dorun)
@@ -203,8 +202,8 @@ class FreeSpaceUpdater : public QRunnable
                 m_running = false;
                 break;
             }
-            if (left > 50)
-                m_wait.wait(locker.mutex(), left);
+            if (left > 50ms)
+                m_wait.wait(locker.mutex(), left.count());
         }
     }
 
@@ -230,11 +229,9 @@ class FreeSpaceUpdater : public QRunnable
     bool m_running;
     MythTimer m_lastRequest;
     QWaitCondition m_wait;
-    const static int kRequeryTimeout;
-    const static int kExitTimeout;
+    static constexpr std::chrono::milliseconds kRequeryTimeout { 15s };
+    static constexpr std::chrono::milliseconds kExitTimeout { 61s };
 };
-const int FreeSpaceUpdater::kRequeryTimeout = 15000;
-const int FreeSpaceUpdater::kExitTimeout = 61000;
 
 MainServer::MainServer(bool master, int port,
                        QMap<int, EncoderLink *> *_tvList,
@@ -244,7 +241,7 @@ MainServer::MainServer(bool master, int port,
     m_sched(sched), m_expirer(_expirer)
 {
     PreviewGeneratorQueue::CreatePreviewGeneratorQueue(
-        PreviewGenerator::kLocalAndRemote, ~0, 0);
+        PreviewGenerator::kLocalAndRemote, ~0, 0s);
     PreviewGeneratorQueue::AddListener(this);
 
     m_threadPool.setMaxThreadCount(PRT_STARTUP_THREAD_COUNT);
@@ -294,8 +291,8 @@ MainServer::MainServer(bool master, int port,
         SetExitCode(GENERIC_EXIT_SOCKET_ERROR, false);
         return;
     }
-    connect(m_mythserver, SIGNAL(NewConnection(qt_socket_fd_t)),
-            this,       SLOT(NewConnection(qt_socket_fd_t)));
+    connect(m_mythserver, &MythServer::NewConnection,
+            this,       &MainServer::NewConnection);
 
     gCoreContext->addListener(this);
 
@@ -303,15 +300,15 @@ MainServer::MainServer(bool master, int port,
     {
         m_masterServerReconnect = new QTimer(this);
         m_masterServerReconnect->setSingleShot(true);
-        connect(m_masterServerReconnect, SIGNAL(timeout()),
-                this, SLOT(reconnectTimeout()));
+        connect(m_masterServerReconnect, &QTimer::timeout,
+                this, &MainServer::reconnectTimeout);
         m_masterServerReconnect->start(kMasterServerReconnectTimeout);
     }
 
     m_deferredDeleteTimer = new QTimer(this);
-    connect(m_deferredDeleteTimer, SIGNAL(timeout()),
-            this, SLOT(deferredDeleteSlot()));
-    m_deferredDeleteTimer->start(30 * 1000);
+    connect(m_deferredDeleteTimer, &QTimer::timeout,
+            this, &MainServer::deferredDeleteSlot);
+    m_deferredDeleteTimer->start(30s);
 
     if (sched)
     {
@@ -327,8 +324,8 @@ MainServer::MainServer(bool master, int port,
     m_metadatafactory = new MetadataFactory(this);
 
     m_autoexpireUpdateTimer = new QTimer(this);
-    connect(m_autoexpireUpdateTimer, SIGNAL(timeout()),
-            this, SLOT(autoexpireUpdate()));
+    connect(m_autoexpireUpdateTimer, &QTimer::timeout,
+            this, &MainServer::autoexpireUpdate);
     m_autoexpireUpdateTimer->setSingleShot(true);
 
     AutoExpire::Update(true);
@@ -431,7 +428,7 @@ void MainServer::autoexpireUpdate(void)
     AutoExpire::Update(false);
 }
 
-void MainServer::NewConnection(qt_socket_fd_t socketDescriptor)
+void MainServer::NewConnection(qintptr socketDescriptor)
 {
     QWriteLocker locker(&m_sockListLock);
     auto *ms =  new MythSocket(socketDescriptor, this);
@@ -1175,8 +1172,12 @@ void MainServer::customEvent(QEvent *e)
                 extra.push_back(msg);
                 extra.push_back(datetime);
                 extra.push_back(QString::number(data.size()));
-                extra.push_back(
-                    QString::number(qChecksum(data.constData(), data.size())));
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+                quint16 checksum = qChecksum(data.constData(), data.size());
+#else
+                quint16 checksum = qChecksum(data);
+#endif
+                extra.push_back(QString::number(checksum));
                 extra.push_back(QString(data.toBase64()));
 
                 for (uint i = 4 ; i < (uint) me->ExtraDataCount(); i++)
@@ -1521,7 +1522,7 @@ void MainServer::customEvent(QEvent *e)
         if (me->Message() == "IMAGE_GET_METADATA")
             ImageManagerBe::getInstance()->HandleGetMetadata(me->ExtraData());
 
-        MythEvent mod_me("");
+        std::unique_ptr<MythEvent> mod_me {nullptr};
         if (me->Message().startsWith("MASTER_UPDATE_REC_INFO"))
         {
             QStringList tokens = me->Message().simplified().split(" ");
@@ -1540,8 +1541,7 @@ void MainServer::customEvent(QEvent *e)
 
                 QStringList list;
                 evinfo.ToStringList(list);
-                mod_me = MythEvent("RECORDING_LIST_CHANGE UPDATE", list);
-                me = &mod_me;
+                mod_me = std::make_unique<MythEvent>("RECORDING_LIST_CHANGE UPDATE", list);
             }
             else
             {
@@ -1565,15 +1565,22 @@ void MainServer::customEvent(QEvent *e)
             if ((tokens.size() >= 2) && (tokens[1] == "FINISHED"))
                 m_downloadURLs.remove(localFile);
 
-            mod_me = MythEvent(me->Message(), extraDataList);
-            me = &mod_me;
+            mod_me = std::make_unique<MythEvent>(me->Message(), extraDataList);
         }
 
         if (broadcast.empty())
         {
             broadcast.push_back("BACKEND_MESSAGE");
-            broadcast.push_back(me->Message());
-            broadcast += me->ExtraDataList();
+            if (mod_me != nullptr)
+            {
+                broadcast.push_back(mod_me->Message());
+                broadcast += mod_me->ExtraDataList();
+            }
+            else
+            {
+                broadcast.push_back(me->Message());
+                broadcast += me->ExtraDataList();
+            }
         }
     }
 
@@ -1886,10 +1893,10 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
         if (m_sched)
         {
             RecordingList slavelist;
-            QStringList::const_iterator sit = slist.begin()+1;
-            while (sit != slist.end())
+            QStringList::const_iterator sit = slist.cbegin()+1;
+            while (sit != slist.cend())
             {
-                auto *recinfo = new RecordingInfo(sit, slist.end());
+                auto *recinfo = new RecordingInfo(sit, slist.cend());
                 if (!recinfo->GetChanID())
                 {
                     delete recinfo;
@@ -1923,7 +1930,7 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
 
         pbs->setBlockShutdown(false);
 
-        m_autoexpireUpdateTimer->start(1000);
+        m_autoexpireUpdateTimer->start(1s);
 
         gCoreContext->SendSystemEvent(
             QString("SLAVE_CONNECTED HOSTNAME %1").arg(commands[2]));
@@ -1943,19 +1950,19 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
             "MainServer::HandleAnnounce FileTransfer");
         LOG(VB_NETWORK, LOG_INFO, LOC +
             QString("adding: %1 as a remote file transfer") .arg(commands[2]));
-        QStringList::const_iterator it = slist.begin();
+        QStringList::const_iterator it = slist.cbegin();
         QString path = *(++it);
         QString wantgroup = *(++it);
         QString filename;
         QStringList checkfiles;
 
-        for (++it; it != slist.end(); ++it)
+        for (++it; it != slist.cend(); ++it)
             checkfiles += *it;
 
         FileTransfer *ft = nullptr;
         bool writemode = false;
         bool usereadahead = true;
-        int timeout_ms = 2000;
+        std::chrono::milliseconds timeout_ms = 2s;
         if (commands.size() > 3)
             writemode = (commands[3].toInt() != 0);
 
@@ -1963,7 +1970,7 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
             usereadahead = (commands[4].toInt() != 0);
 
         if (commands.size() > 5)
-            timeout_ms = commands[5].toInt();
+            timeout_ms = std::chrono::milliseconds(commands[5].toInt());
 
         if (writemode)
         {
@@ -2085,13 +2092,13 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
         {
             QFileInfo fi(filename);
             QDir dir = fi.absoluteDir();
-            for (it = checkfiles.begin(); it != checkfiles.end(); ++it)
+            for (const auto & file : qAsConst(checkfiles))
             {
-                if (dir.exists(*it) &&
-                    ((*it).endsWith(".srt") ||
-                     QFileInfo(dir, *it).size() >= kReadTestSize))
+                if (dir.exists(file) &&
+                    ((file).endsWith(".srt") ||
+                     QFileInfo(dir, file).size() >= kReadTestSize))
                 {
-                    retlist<<*it;
+                    retlist<<file;
                 }
             }
         }
@@ -2200,10 +2207,8 @@ void MainServer::HandleQueryRecordings(const QString& type, PlaybackSock *pbs)
     int port = gCoreContext->GetBackendServerPort();
     QString host = gCoreContext->GetHostName();
 
-    auto it = destination.begin();
-    for (it = destination.begin(); it != destination.end(); ++it)
+    for (auto* proginfo : destination)
     {
-        ProgramInfo *proginfo = *it;
         PlaybackSock *slave = nullptr;
 
         if (proginfo->GetHostname() != gCoreContext->GetHostName())
@@ -2345,8 +2350,8 @@ void MainServer::HandleFillProgramInfo(QStringList &slist, PlaybackSock *pbs)
 
     QString playbackhost = slist[1];
 
-    QStringList::const_iterator it = slist.begin() + 2;
-    ProgramInfo pginfo(it, slist.end());
+    QStringList::const_iterator it = slist.cbegin() + 2;
+    ProgramInfo pginfo(it, slist.cend());
 
     if (pginfo.HasPathname())
     {
@@ -2382,8 +2387,8 @@ void MainServer::DoDeleteThread(DeleteStruct *ds)
 {
     // sleep a little to let frontends reload the recordings list
     // after deleting a recording, then we can hammer the DB and filesystem
-    std::this_thread::sleep_for(std::chrono::seconds(3));
-    std::this_thread::sleep_for(std::chrono::milliseconds(random()%2));
+    std::this_thread::sleep_for(3s);
+    std::this_thread::sleep_for(std::chrono::milliseconds(MythRandom()%2));
 
     m_deletelock.lock();
 
@@ -2473,7 +2478,7 @@ void MainServer::DoDeleteThread(DeleteStruct *ds)
     else
     {
         delete_file_immediately(ds->m_filename, followLinks, false);
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        std::this_thread::sleep_for(2s);
         if (checkFile.exists())
             errmsg = true;
     }
@@ -2592,8 +2597,7 @@ void MainServer::DeleteRecordedFiles(DeleteStruct *ds)
                 MythDB::DBError("RecordedFiles deletion", update);
                 LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("Error querying recordedfile (%1) for %2.")
-                                .arg(query.value(1).toString())
-                                .arg(logInfo));
+                                .arg(query.value(1).toString(), logInfo));
             }
         }
     }
@@ -2620,7 +2624,7 @@ void MainServer::DoDeleteInDB(DeleteStruct *ds)
             QString("Error deleting recorded entry for %1.") .arg(logInfo));
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::this_thread::sleep_for(1s);
 
     // Notify the frontend so it can requery for Free Space
     QString msg = QString("RECORDING_LIST_CHANGE DELETE %1")
@@ -2628,7 +2632,7 @@ void MainServer::DoDeleteInDB(DeleteStruct *ds)
     gCoreContext->SendEvent(MythEvent(msg));
 
     // sleep a little to let frontends reload the recordings list
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+    std::this_thread::sleep_for(3s);
 
     query.prepare("DELETE FROM recordedmarkup "
                   "WHERE chanid = :CHANID AND starttime = :STARTTIME;");
@@ -2772,17 +2776,17 @@ bool MainServer::TruncateAndClose(ProgramInfo *pginfo, int fd,
     }
 
     // Time between truncation steps in milliseconds
-    const size_t sleep_time = 500;
+    constexpr std::chrono::milliseconds sleep_time = 500ms;
     const size_t min_tps    = 8 * 1024 * 1024;
     const auto calc_tps     = (size_t) (cards * 1.2 * (22200000LL / 8.0));
-    const size_t tps = max(min_tps, calc_tps);
-    const auto increment    = (size_t) (tps * (sleep_time * 0.001F));
+    const size_t tps        = std::max(min_tps, calc_tps);
+    const auto increment    = (size_t) (tps * (sleep_time.count() * 0.001F));
 
     LOG(VB_FILE, LOG_INFO, LOC +
         QString("Truncating '%1' by %2 MB every %3 milliseconds")
             .arg(filename)
             .arg(increment / (1024.0 * 1024.0), 0, 'f', 2)
-            .arg(sleep_time));
+            .arg(sleep_time.count()));
 
     GetMythDB()->GetDBManager()->PurgeIdleConnections(false);
 
@@ -2811,7 +2815,7 @@ bool MainServer::TruncateAndClose(ProgramInfo *pginfo, int fd,
 
         count++;
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
+        std::this_thread::sleep_for(sleep_time);
     }
 
     bool ok = (0 == close(fd));
@@ -2832,8 +2836,8 @@ void MainServer::HandleCheckRecordingActive(QStringList &slist,
     if (pbs)
         pbssock = pbs->getSocket();
 
-    QStringList::const_iterator it = slist.begin() + 1;
-    ProgramInfo pginfo(it, slist.end());
+    QStringList::const_iterator it = slist.cbegin() + 1;
+    ProgramInfo pginfo(it, slist.cend());
 
     int result = 0;
 
@@ -2866,8 +2870,8 @@ void MainServer::HandleCheckRecordingActive(QStringList &slist,
 
 void MainServer::HandleStopRecording(QStringList &slist, PlaybackSock *pbs)
 {
-    QStringList::const_iterator it = slist.begin() + 1;
-    RecordingInfo recinfo(it, slist.end());
+    QStringList::const_iterator it = slist.cbegin() + 1;
+    RecordingInfo recinfo(it, slist.cend());
     if (recinfo.GetChanID())
     {
         if (m_ismaster)
@@ -2961,7 +2965,7 @@ void MainServer::DoHandleStopRecording(
             while (elink->IsBusyRecording() ||
                    elink->GetState() == kState_ChangingState)
             {
-                std::this_thread::sleep_for(std::chrono::microseconds(100));
+                std::this_thread::sleep_for(100us);
             }
 
             if (m_ismaster)
@@ -3013,8 +3017,8 @@ void MainServer::HandleDeleteRecording(QString &chanid, QString &starttime,
 void MainServer::HandleDeleteRecording(QStringList &slist, PlaybackSock *pbs,
                                        bool forceMetadataDelete)
 {
-    QStringList::const_iterator it = slist.begin() + 1;
-    RecordingInfo recinfo(it, slist.end());
+    QStringList::const_iterator it = slist.cbegin() + 1;
+    RecordingInfo recinfo(it, slist.cend());
 
     if (!recinfo.GetRecordingID())
     {
@@ -3182,8 +3186,8 @@ void MainServer::HandleUndeleteRecording(QStringList &slist, PlaybackSock *pbs)
     }
     else if (slist.size() >= (1 + NUMPROGRAMLINES))
     {
-        QStringList::const_iterator it = slist.begin()+1;
-        RecordingInfo recinfo(it, slist.end());
+        QStringList::const_iterator it = slist.cbegin()+1;
+        RecordingInfo recinfo(it, slist.cend());
         if (recinfo.GetChanID())
             DoHandleUndeleteRecording(recinfo, pbs);
     }
@@ -3370,8 +3374,8 @@ bool MainServer::HandleAddChildInput(uint inputid)
 
 void MainServer::HandleForgetRecording(QStringList &slist, PlaybackSock *pbs)
 {
-    QStringList::const_iterator it = slist.begin() + 1;
-    RecordingInfo recinfo(it, slist.end());
+    QStringList::const_iterator it = slist.cbegin() + 1;
+    RecordingInfo recinfo(it, slist.cend());
     if (recinfo.GetChanID())
         recinfo.ForgetHistory();
 
@@ -3531,10 +3535,10 @@ void MainServer::HandleQueryUptime(PlaybackSock *pbs)
 {
     MythSocket    *pbssock = pbs->getSocket();
     QStringList strlist;
-    time_t      uptime = 0;
+    std::chrono::seconds uptime = 0s;
 
     if (getUptime(uptime))
-        strlist << QString::number(uptime);
+        strlist << QString::number(uptime.count());
     else
     {
         strlist << "ERROR";
@@ -3612,8 +3616,8 @@ void MainServer::HandleQueryCheckFile(QStringList &slist, PlaybackSock *pbs)
     MythSocket *pbssock = pbs->getSocket();
     bool checkSlaves = slist[1].toInt() != 0;
 
-    QStringList::const_iterator it = slist.begin() + 2;
-    RecordingInfo recinfo(it, slist.end());
+    QStringList::const_iterator it = slist.cbegin() + 2;
+    RecordingInfo recinfo(it, slist.cend());
 
     bool exists = false;
 
@@ -3643,7 +3647,7 @@ void MainServer::HandleQueryCheckFile(QStringList &slist, PlaybackSock *pbs)
     if (recinfo.HasPathname())
     {
         pburl = GetPlaybackURL(&recinfo);
-        exists = QFileInfo(pburl).exists();
+        exists = QFileInfo::exists(pburl);
         if (!exists)
             pburl.clear();
     }
@@ -3885,8 +3889,8 @@ void MainServer::HandleGetConflictingRecordings(QStringList &slist,
 {
     MythSocket *pbssock = pbs->getSocket();
 
-    QStringList::const_iterator it = slist.begin() + 1;
-    RecordingInfo recinfo(it, slist.end());
+    QStringList::const_iterator it = slist.cbegin() + 1;
+    RecordingInfo recinfo(it, slist.cend());
 
     QStringList strlist;
 
@@ -3929,10 +3933,10 @@ void MainServer::HandleSGGetFileList(QStringList &sList,
     }
 
     QString host = gCoreContext->GetHostName();
-    QString wantHost = sList.at(1);
+    const QString& wantHost = sList.at(1);
     QHostAddress wantHostaddr(wantHost);
-    QString groupname = sList.at(2);
-    QString path = sList.at(3);
+    const QString& groupname = sList.at(2);
+    const QString& path = sList.at(3);
     bool fileNamesOnly = false;
 
     if (sList.size() >= 5)
@@ -3943,7 +3947,7 @@ void MainServer::HandleSGGetFileList(QStringList &sList,
     LOG(VB_FILE, LOG_INFO,  LOC +
         QString("HandleSGGetFileList: group = %1  host = %2 "
                 " path = %3 wanthost = %4")
-            .arg(groupname).arg(host).arg(path).arg(wantHost));
+            .arg(groupname, host, path, wantHost));
 
     QString addr = gCoreContext->GetBackendServerIP();
 
@@ -4031,7 +4035,7 @@ void MainServer::HandleQueryFindFile(QStringList &slist, PlaybackSock *pbs)
 
     LOG(VB_FILE, LOG_INFO, LOC +
         QString("Looking for file '%1' on host '%2' in group '%3' (useregex: %4, allowfallback: %5")
-        .arg(filename).arg(hostname).arg(storageGroup).arg(useRegex).arg(allowFallback));
+        .arg(filename, hostname, storageGroup).arg(useRegex).arg(allowFallback));
 
     // first check the given host
     if (gCoreContext->IsThisHost(hostname))
@@ -4046,19 +4050,20 @@ void MainServer::HandleQueryFindFile(QStringList &slist, PlaybackSock *pbs)
             QFileInfo fi(filename);
             QStringList files = sgroup.GetFileList('/' + fi.path());
 
-            LOG(VB_FILE, LOG_INFO, LOC + QString("Looking in dir '%1' for '%2'").arg(fi.path()).arg(fi.fileName()));
+            LOG(VB_FILE, LOG_INFO, LOC + QString("Looking in dir '%1' for '%2'")
+                .arg(fi.path(), fi.fileName()));
 
             for (int x = 0; x < files.size(); x++)
             {
                 LOG(VB_FILE, LOG_INFO, LOC + QString("Found '%1 - %2'").arg(x).arg(files[x]));
             }
 
-            QStringList filteredFiles = files.filter(QRegExp(fi.fileName()));
-            for (int x = 0; x < filteredFiles.size(); x++)
+            QStringList filteredFiles = files.filter(QRegularExpression(fi.fileName()));
+            for (const QString& file : qAsConst(filteredFiles))
             {
                 fileList << MythCoreContext::GenMythURL(gCoreContext->GetHostName(),
                                                         gCoreContext->GetBackendServerPort(),
-                                                        fi.path() + '/' + filteredFiles[x],
+                                                        fi.path() + '/' + file,
                                                         storageGroup);
             }
         }
@@ -4132,20 +4137,21 @@ void MainServer::HandleQueryFindFile(QStringList &slist, PlaybackSock *pbs)
                     QFileInfo fi(filename);
                     QStringList files = sgroup.GetFileList('/' + fi.path());
 
-                    LOG(VB_FILE, LOG_INFO, LOC + QString("Looking in dir '%1' for '%2'").arg(fi.path()).arg(fi.fileName()));
+                    LOG(VB_FILE, LOG_INFO, LOC + QString("Looking in dir '%1' for '%2'")
+                        .arg(fi.path(), fi.fileName()));
 
                     for (int x = 0; x < files.size(); x++)
                     {
                         LOG(VB_FILE, LOG_INFO, LOC + QString("Found '%1 - %2'").arg(x).arg(files[x]));
                     }
 
-                    QStringList filteredFiles = files.filter(QRegExp(fi.fileName()));
+                    QStringList filteredFiles = files.filter(QRegularExpression(fi.fileName()));
 
-                    for (int x = 0; x < filteredFiles.size(); x++)
+                    for (const QString& file : qAsConst(filteredFiles))
                     {
                         fileList << MythCoreContext::GenMythURL(gCoreContext->GetHostName(),
                                                                 gCoreContext->GetBackendServerPort(),
-                                                                fi.path() + '/' + filteredFiles[x],
+                                                                fi.path() + '/' + file,
                                                                 storageGroup);
                     }
                 }
@@ -4214,10 +4220,10 @@ void MainServer::HandleSGFileQuery(QStringList &sList,
     }
 
     QString host = gCoreContext->GetHostName();
-    QString wantHost = sList.at(1);
+    const QString& wantHost = sList.at(1);
     QHostAddress wantHostaddr(wantHost);
-    QString groupname = sList.at(2);
-    QString filename = sList.at(3);
+    const QString& groupname = sList.at(2);
+    const QString& filename = sList.at(3);
 
     bool allowFallback = true;
     if (sList.size() >= 5)
@@ -4599,8 +4605,7 @@ void MainServer::HandleRecorderQuery(QStringList &slist, QStringList &commands,
         }
         else
         {
-            frm_pos_map_t::const_iterator it = map.begin();
-            for (; it != map.end(); ++it)
+            for (auto it = map.cbegin(); it != map.cend(); ++it)
             {
                 retlist += QString::number(it.key());
                 retlist += QString::number(*it);
@@ -4621,8 +4626,7 @@ void MainServer::HandleRecorderQuery(QStringList &slist, QStringList &commands,
         }
         else
         {
-            frm_pos_map_t::const_iterator it = map.begin();
-            for (; it != map.end(); ++it)
+            for (auto it = map.cbegin(); it != map.cend(); ++it)
             {
                 retlist += QString::number(it.key());
                 retlist += QString::number(*it);
@@ -4741,10 +4745,10 @@ void MainServer::HandleRecorderQuery(QStringList &slist, QStringList &commands,
     }
     else if (command == "SET_SIGNAL_MONITORING_RATE")
     {
-        int rate = slist[2].toInt();
+        auto rate = std::chrono::milliseconds(slist[2].toInt());
         int notifyFrontend = slist[3].toInt();
-        int oldrate = enc->SetSignalMonitoringRate(rate, notifyFrontend);
-        retlist << QString::number(oldrate);
+        auto oldrate = enc->SetSignalMonitoringRate(rate, notifyFrontend);
+        retlist << QString::number(oldrate.count());
     }
     else if (command == "GET_COLOUR")
     {
@@ -4990,7 +4994,8 @@ void MainServer::HandleRemoteEncoder(QStringList &slist, QStringList &commands,
     }
     else if (command == "IS_BUSY")
     {
-        int time_buffer = (slist.size() >= 3) ? slist[2].toInt() : 5;
+        auto arg2 = std::chrono::seconds(slist[2].toInt());
+        std::chrono::seconds time_buffer = (slist.size() >= 3) ? arg2 : 5s;
         InputInfo busy_input;
         retlist << QString::number((int)enc->IsBusy(&busy_input, time_buffer));
         busy_input.ToStringList(retlist);
@@ -4998,16 +5003,16 @@ void MainServer::HandleRemoteEncoder(QStringList &slist, QStringList &commands,
     else if (command == "MATCHES_RECORDING" &&
              slist.size() >= (2 + NUMPROGRAMLINES))
     {
-        QStringList::const_iterator it = slist.begin() + 2;
-        ProgramInfo pginfo(it, slist.end());
+        QStringList::const_iterator it = slist.cbegin() + 2;
+        ProgramInfo pginfo(it, slist.cend());
 
         retlist << QString::number((int)enc->MatchesRecording(&pginfo));
     }
     else if (command == "START_RECORDING" &&
              slist.size() >= (2 + NUMPROGRAMLINES))
     {
-        QStringList::const_iterator it = slist.begin() + 2;
-        ProgramInfo pginfo(it, slist.end());
+        QStringList::const_iterator it = slist.cbegin() + 2;
+        ProgramInfo pginfo(it, slist.cend());
 
         retlist << QString::number(enc->StartRecording(&pginfo));
         retlist << QString::number(pginfo.GetRecordingID());
@@ -5020,10 +5025,10 @@ void MainServer::HandleRemoteEncoder(QStringList &slist, QStringList &commands,
     else if (command == "RECORD_PENDING" &&
              (slist.size() >= 4 + NUMPROGRAMLINES))
     {
-        int secsleft = slist[2].toInt();
+        auto secsleft = std::chrono::seconds(slist[2].toInt());
         int haslater = slist[3].toInt();
-        QStringList::const_iterator it = slist.begin() + 4;
-        ProgramInfo pginfo(it, slist.end());
+        QStringList::const_iterator it = slist.cbegin() + 4;
+        ProgramInfo pginfo(it, slist.cend());
 
         enc->RecordPending(&pginfo, secsleft, haslater != 0);
 
@@ -5090,7 +5095,7 @@ void MainServer::HandleActiveBackendsQuery(PlaybackSock *pbs)
     SendResponse(pbs->getSocket(), retlist);
 }
 
-void MainServer::HandleIsActiveBackendQuery(QStringList &slist,
+void MainServer::HandleIsActiveBackendQuery(const QStringList &slist,
                                             PlaybackSock *pbs)
 {
     QStringList retlist;
@@ -5157,7 +5162,6 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
     int64_t totalKB = -1;
     int64_t usedKB = -1;
     QMap <QString, bool>foundDirs;
-    QString driveKey;
     QString localStr = "1";
     struct statfs statbuf {};
     QStringList groups(StorageGroup::kSpecialGroups);
@@ -5250,9 +5254,7 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
     if (allHosts)
     {
         QMap <QString, bool> backendsCounted;
-        QString pbsHost;
-
-        list<PlaybackSock *> localPlaybackList;
+        std::list<PlaybackSock *> localPlaybackList;
 
         m_sockListLock.lockForRead();
 
@@ -5282,8 +5284,8 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
         return;
 
     QList<FileSystemInfo> fsInfos;
-    QStringList::const_iterator it = strlist.begin();
-    while (it != strlist.end())
+    QStringList::const_iterator it = strlist.cbegin();
+    while (it != strlist.cend())
     {
         FileSystemInfo fsInfo;
 
@@ -5302,7 +5304,7 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
 
     // Consolidate hosts sharing storage
     int64_t maxWriteFiveSec = GetCurrentMaxBitrate()/12 /*5 seconds*/;
-    maxWriteFiveSec = max((int64_t)2048, maxWriteFiveSec); // safety for NFS mounted dirs
+    maxWriteFiveSec = std::max((int64_t)2048, maxWriteFiveSec); // safety for NFS mounted dirs
 
     for (auto it1 = fsInfos.begin(); it1 != fsInfos.end(); ++it1)
     {
@@ -5313,11 +5315,11 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
                 it1->getHostname().section(".", 0, 0) + ":" + it1->getPath());
         }
 
-        for (auto it2 = it1 + 1; it2 != fsInfos.end(); ++it2)
+        for (auto it2 = it1 + 1; it2 != fsInfos.end(); )
         {
             // our fuzzy comparison uses the maximum of the two block sizes
             // or 32, whichever is greater
-            int bSize = max(32, max(it1->getBlockSize(), it2->getBlockSize()) / 1024);
+            int bSize = std::max(32, std::max(it1->getBlockSize(), it2->getBlockSize()) / 1024);
             int64_t diffSize = it1->getTotalSpace() - it2->getTotalSpace();
             int64_t diffUsed = it1->getUsedSpace() - it2->getUsedSpace();
             if (diffSize < 0)
@@ -5332,8 +5334,11 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
                     it1->setHostname(it1->getHostname() + "," + it2->getHostname());
                 it1->setPath(it1->getPath() + "," +
                     it2->getHostname().section(".", 0, 0) + ":" + it2->getPath());
-                fsInfos.erase(it2);
-                it2 = it1;
+                it2 = fsInfos.erase(it2);
+            }
+            else
+            {
+                it2++;
             }
         }
     }
@@ -5387,8 +5392,8 @@ void MainServer::GetFilesystemInfos(QList<FileSystemInfo> &fsInfos,
 
     BackendQueryDiskSpace(strlist, false, true);
 
-    QStringList::const_iterator it = strlist.begin();
-    while (it != strlist.end())
+    QStringList::const_iterator it = strlist.cbegin();
+    while (it != strlist.cend())
     {
         fsInfo.setHostname(*(it++));
         fsInfo.setPath(*(it++));
@@ -5407,7 +5412,7 @@ void MainServer::GetFilesystemInfos(QList<FileSystemInfo> &fsInfos,
         "Determining unique filesystems");
     size_t maxWriteFiveSec = GetCurrentMaxBitrate()/12  /*5 seconds*/;
     // safety for NFS mounted dirs
-    maxWriteFiveSec = max((size_t)2048, maxWriteFiveSec);
+    maxWriteFiveSec = std::max((size_t)2048, maxWriteFiveSec);
 
     FileSystemInfo::Consolidate(fsInfos, false, maxWriteFiveSec);
 
@@ -5420,8 +5425,7 @@ void MainServer::GetFilesystemInfos(QList<FileSystemInfo> &fsInfos,
         {
             QString msg =
                 QString("Dir: %1:%2")
-                    .arg(it1->getHostname())
-                    .arg(it1->getPath());
+                    .arg(it1->getHostname(), it1->getPath());
             LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, LOC + msg) ;
             LOG(VB_FILE | VB_SCHEDULE, LOG_INFO, LOC +
                 QString("     Location: %1")
@@ -5547,7 +5551,7 @@ void MainServer::DoTruncateThread(DeleteStruct *ds)
     }
 }
 
-bool MainServer::HandleDeleteFile(QStringList &slist, PlaybackSock *pbs)
+bool MainServer::HandleDeleteFile(const QStringList &slist, PlaybackSock *pbs)
 {
     return HandleDeleteFile(slist[1], slist[2], pbs);
 }
@@ -5650,7 +5654,7 @@ void MainServer::HandleCutMapQuery(const QString &chanid,
         else
             pginfo.QueryCutList(markMap);
 
-        for (it = markMap.begin(); it != markMap.end(); ++it)
+        for (it = markMap.cbegin(); it != markMap.cend(); ++it)
         {
             rowcnt++;
             QString intstr = QString("%1").arg(*it);
@@ -5680,7 +5684,7 @@ void MainServer::HandleCommBreakQuery(const QString &chanid,
 // Return structure is [number of rows] followed by a triplet of values:
 //   each triplet : [type] [long portion 1] [long portion 2]
 // type is the value in the map, right now 4 = commbreak start, 5= end
-    return HandleCutMapQuery(chanid, starttime, pbs, true);
+    HandleCutMapQuery(chanid, starttime, pbs, true);
 }
 
 void MainServer::HandleCutlistQuery(const QString &chanid,
@@ -5695,7 +5699,7 @@ void MainServer::HandleCutlistQuery(const QString &chanid,
 // Return structure is [number of rows] followed by a triplet of values:
 //   each triplet : [type] [long portion 1] [long portion 2]
 // type is the value in the map, right now 0 = commbreak start, 1 = end
-    return HandleCutMapQuery(chanid, starttime, pbs, false);
+    HandleCutMapQuery(chanid, starttime, pbs, false);
 }
 
 
@@ -5760,7 +5764,7 @@ void MainServer::HandleSetBookmark(QStringList &tokens,
         SendResponse(pbssock, retlist);
 }
 
-void MainServer::HandleSettingQuery(QStringList &tokens, PlaybackSock *pbs)
+void MainServer::HandleSettingQuery(const QStringList &tokens, PlaybackSock *pbs)
 {
 // Format: QUERY_SETTING <hostname> <setting>
 // Returns setting value as a string
@@ -5818,7 +5822,7 @@ void MainServer::HandleDownloadFile(const QStringList &command,
     {
         LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("ERROR: %1 write filename '%2' does not pass "
-                    "sanity checks.") .arg(command[0]).arg(filename));
+                    "sanity checks.") .arg(command[0], filename));
         retlist << "downloadfile_filename_dangerous";
         if (pbssock)
             SendResponse(pbssock, retlist);
@@ -6004,10 +6008,10 @@ class DoChangeStorageGroup : public QRunnable
         }
 
         LOG(VB_GENERAL, LOG_INFO, QString("Copying %1 to %2").arg(srcURL).arg(destURL));
-        RingBuffer *srcRB = RingBuffer::Create(srcURL, false);
+        MythMediaBuffer *srcRB = MythMediaBuffer::Create(srcURL, false);
         if (!srcRB)
         {
-            LOG(VB_GENERAL, LOG_ERR, "ERROR, couldn't create Read RingBuffer");
+            LOG(VB_GENERAL, LOG_ERR, "ERROR, couldn't create Read MythMediaBuffer");
             delete[] buf;
             return false;
         }
@@ -6020,10 +6024,10 @@ class DoChangeStorageGroup : public QRunnable
             return false;
         }
 
-        RingBuffer *destRB = RingBuffer::Create(destURL, true);
+        MythMediaBuffer *destRB = MythMediaBuffer::Create(destURL, true);
         if (!destRB)
         {
-            LOG(VB_GENERAL, LOG_ERR, "ERROR, couldn't create Write RingBuffer");
+            LOG(VB_GENERAL, LOG_ERR, "ERROR, couldn't create Write MythMediaBuffer");
             delete[] buf;
             delete srcRB;
             return false;
@@ -6126,7 +6130,7 @@ void MainServer::HandleChangeStorageGroup(const QStringList &command,
     MThreadPool::globalInstance()->start(new DoChangeStorageGroup(pginfoList, newGroup), "ChangeStorageGroup");
 }
 
-void MainServer::HandleSetSetting(QStringList &tokens,
+void MainServer::HandleSetSetting(const QStringList &tokens,
                                   PlaybackSock *pbs)
 {
 // Format: SET_SETTING <hostname> <setting> <value>
@@ -6517,9 +6521,9 @@ void MainServer::HandleMusicFindAlbumArt(const QStringList &slist, PlaybackSock 
     fi.setFile(mdata->Filename(false));
     QString startDir = fi.path();
 
-    for (int x = 0; x < files.size(); x++)
+    for (const QString& file : qAsConst(files))
     {
-        fi.setFile(files.at(x));
+        fi.setFile(file);
         auto *image = new AlbumArtImage();
         image->m_filename = startDir + '/' + fi.fileName();
         image->m_hostname = gCoreContext->GetHostName();
@@ -7222,14 +7226,10 @@ void MainServer::HandleMusicGetLyricGrabbers(const QStringList &/*slist*/, Playb
     }
 
     QStringList scripts;
-    QFileInfoList::const_iterator it = list.begin();
-
-    while (it != list.end())
+    for (const auto & fi : qAsConst(list))
     {
-        const QFileInfo *fi = &(*it);
-        ++it;
-        LOG(VB_FILE, LOG_NOTICE, QString("Found lyric script at: %1").arg(fi->filePath()));
-        scripts.append(fi->filePath());
+        LOG(VB_FILE, LOG_NOTICE, QString("Found lyric script at: %1").arg(fi.filePath()));
+        scripts.append(fi.filePath());
     }
 
     QStringList grabbers;
@@ -7448,8 +7448,8 @@ void MainServer::HandleGetRecorderNum(QStringList &slist, PlaybackSock *pbs)
 
     int retval = -1;
 
-    QStringList::const_iterator it = slist.begin() + 1;
-    ProgramInfo pginfo(it, slist.end());
+    QStringList::const_iterator it = slist.cbegin() + 1;
+    ProgramInfo pginfo(it, slist.cend());
 
     EncoderLink *encoder = nullptr;
 
@@ -7555,7 +7555,7 @@ void MainServer::HandleMessage(QStringList &slist, PlaybackSock *pbs)
     SendResponse(pbssock, retlist);
 }
 
-void MainServer::HandleSetVerbose(QStringList &slist, PlaybackSock *pbs)
+void MainServer::HandleSetVerbose(const QStringList &slist, PlaybackSock *pbs)
 {
     MythSocket *pbssock = pbs->getSocket();
     QStringList retlist;
@@ -7582,7 +7582,7 @@ void MainServer::HandleSetVerbose(QStringList &slist, PlaybackSock *pbs)
     SendResponse(pbssock, retlist);
 }
 
-void MainServer::HandleSetLogLevel(QStringList &slist, PlaybackSock *pbs)
+void MainServer::HandleSetLogLevel(const QStringList &slist, PlaybackSock *pbs)
 {
     MythSocket *pbssock = pbs->getSocket();
     QStringList retlist;
@@ -7615,7 +7615,7 @@ void MainServer::HandleSetLogLevel(QStringList &slist, PlaybackSock *pbs)
     SendResponse(pbssock, retlist);
 }
 
-void MainServer::HandleIsRecording(QStringList &slist, PlaybackSock *pbs)
+void MainServer::HandleIsRecording(const QStringList &slist, PlaybackSock *pbs)
 {
     (void)slist;
 
@@ -7659,7 +7659,8 @@ void MainServer::HandleGenPreviewPixmap(QStringList &slist, PlaybackSock *pbs)
     }
 
     bool      time_fmt_sec   = true;
-    long long time           = -1;
+    std::chrono::seconds time  = std::chrono::seconds::max();
+    long long frame          = -1;
     QString   outputfile;
     int       width          = -1;
     int       height         = -1;
@@ -7676,8 +7677,8 @@ void MainServer::HandleGenPreviewPixmap(QStringList &slist, PlaybackSock *pbs)
         return;
     }
 
-    QStringList::const_iterator it = slist.begin() + 2;
-    QStringList::const_iterator end = slist.end();
+    QStringList::const_iterator it = slist.cbegin() + 2;
+    QStringList::const_iterator end = slist.cend();
     ProgramInfo pginfo(it, end);
     bool ok = pginfo.HasPathname();
     if (!ok)
@@ -7692,21 +7693,26 @@ void MainServer::HandleGenPreviewPixmap(QStringList &slist, PlaybackSock *pbs)
     if (token.toLower() == "do_not_care")
     {
         token = QString("%1:%2")
-            .arg(pginfo.MakeUniqueKey()).arg(random());
+            .arg(pginfo.MakeUniqueKey()).arg(MythRandom());
     }
-    if (it != slist.end())
+    if (it != slist.cend())
         (time_fmt_sec = ((*it).toLower() == "s")), ++it;
-    if (it != slist.end())
-        (time = (*it).toLongLong()), ++it;
-    if (it != slist.end())
+    if (it != slist.cend())
+    {
+        if (time_fmt_sec)
+            time = std::chrono::seconds((*it).toLongLong()), ++it;
+        else
+            frame = (*it).toLongLong(), ++it;
+    }
+    if (it != slist.cend())
         (outputfile = *it), ++it;
     outputfile = (outputfile == "<EMPTY>") ? QString() : outputfile;
-    if (it != slist.end())
+    if (it != slist.cend())
     {
         width = (*it).toInt(&ok); ++it;
         width = (ok) ? width : -1;
     }
-    if (it != slist.end())
+    if (it != slist.cend())
     {
         height = (*it).toInt(&ok); ++it;
         height = (ok) ? height : -1;
@@ -7716,10 +7722,13 @@ void MainServer::HandleGenPreviewPixmap(QStringList &slist, PlaybackSock *pbs)
 
     if (has_extra_data)
     {
+        auto pos_text = (time != std::chrono::seconds::max())
+            ? QString::number(time.count()) + "s"
+            : QString::number(frame) + "f";
         LOG(VB_PLAYBACK, LOG_INFO, LOC +
             QString("HandleGenPreviewPixmap got extra data\n\t\t\t"
-                    "%1%2 %3x%4 '%5'")
-                .arg(time).arg(time_fmt_sec?"s":"f")
+                    "%1 %2x%3 '%4'")
+                .arg(pos_text)
                 .arg(width).arg(height).arg(outputfile));
     }
 
@@ -7738,8 +7747,16 @@ void MainServer::HandleGenPreviewPixmap(QStringList &slist, PlaybackSock *pbs)
             QStringList outputlist;
             if (has_extra_data)
             {
-                outputlist = slave->GenPreviewPixmap(
-                    token, &pginfo, time_fmt_sec, time, outputfile, outputsize);
+                if (time != std::chrono::seconds::max())
+                {
+                    outputlist = slave->GenPreviewPixmap(
+                        token, &pginfo, time, -1, outputfile, outputsize);
+                }
+                else
+                {
+                    outputlist = slave->GenPreviewPixmap(
+                        token, &pginfo, std::chrono::seconds::max(), frame, outputfile, outputsize);
+                }
             }
             else
             {
@@ -7773,8 +7790,13 @@ void MainServer::HandleGenPreviewPixmap(QStringList &slist, PlaybackSock *pbs)
 
     if (has_extra_data)
     {
-        PreviewGeneratorQueue::GetPreviewImage(
-            pginfo, outputsize, outputfile, time, time_fmt_sec, token);
+        if (time != std::chrono::seconds::max()) {
+            PreviewGeneratorQueue::GetPreviewImage(
+                pginfo, outputsize, outputfile, time, -1, token);
+        } else {
+            PreviewGeneratorQueue::GetPreviewImage(
+                pginfo, outputsize, outputfile, -1s, frame, token);
+}
     }
     else
     {
@@ -7791,8 +7813,8 @@ void MainServer::HandlePixmapLastModified(QStringList &slist, PlaybackSock *pbs)
 {
     MythSocket *pbssock = pbs->getSocket();
 
-    QStringList::const_iterator it = slist.begin() + 1;
-    ProgramInfo pginfo(it, slist.end());
+    QStringList::const_iterator it = slist.cbegin() + 1;
+    ProgramInfo pginfo(it, slist.cend());
 
     pginfo.SetPathname(GetPlaybackURL(&pginfo));
 
@@ -7903,7 +7925,7 @@ void MainServer::HandlePixmapGetIfModified(
                 if (open_ok)
                     data = file.readAll();
 
-                if (data.size())
+                if (!data.isEmpty())
                 {
                     LOG(VB_FILE, LOG_INFO, LOC +
                         QString("Read preview file '%1'")
@@ -7913,8 +7935,12 @@ void MainServer::HandlePixmapGetIfModified(
                     else
                         strlist += QString::number(UINT_MAX);
                     strlist += QString::number(data.size());
-                    strlist += QString::number(qChecksum(data.constData(),
-                                               data.size()));
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+                    quint16 checksum = qChecksum(data.constData(), data.size());
+#else
+                    quint16 checksum = qChecksum(data);
+#endif
+                    strlist += QString::number(checksum);
                     strlist += QString(data.toBase64());
                 }
                 else
@@ -7926,8 +7952,8 @@ void MainServer::HandlePixmapGetIfModified(
                     strlist = QStringList("ERROR");
                     strlist +=
                         QString("3: Failed to read preview file '%1'%2")
-                        .arg(pginfo.GetPathname())
-                        .arg((open_ok) ? "" : " open failed");
+                        .arg(pginfo.GetPathname(),
+                             (open_ok) ? "" : " open failed");
                 }
             }
             else if (out_of_date && (max_file_size > 0))
@@ -8009,7 +8035,7 @@ void MainServer::deferredDeleteSlot(void)
         return;
 
     DeferredDeleteStruct dds = m_deferredDeleteList.front();
-    while (dds.ts.secsTo(MythDate::current()) > 30)
+    while (MythDate::secsInPast(dds.ts) > 30s)
     {
         dds.sock->DecrRef();
         m_deferredDeleteList.pop_front();
@@ -8042,6 +8068,7 @@ void MainServer::connectionClosed(MythSocket *socket)
     // make sure these are not actually deleted in the callback
     socket->IncrRef();
     m_decrRefSocketList.push_back(socket);
+    QList<uint> disconnectedSlaves;
 
     for (auto it = m_playbackList.begin(); it != m_playbackList.end(); ++it)
     {
@@ -8059,7 +8086,7 @@ void MainServer::connectionClosed(MythSocket *socket)
         }
         if (sock == socket)
         {
-            QList<uint> disconnectedSlaves;
+            disconnectedSlaves.clear();
             bool needsReschedule = false;
 
             if (m_ismaster && pbs->isSlaveBackend())
@@ -8116,7 +8143,7 @@ void MainServer::connectionClosed(MythSocket *socket)
                         if (enc->IsLocal())
                         {
                             while (enc->GetState() == kState_ChangingState)
-                                std::this_thread::sleep_for(std::chrono::microseconds(500));
+                                std::this_thread::sleep_for(500us);
 
                             if (enc->IsBusy() &&
                                 enc->GetChainID() == chain->GetID())
@@ -8246,10 +8273,10 @@ PlaybackSock *MainServer::GetMediaServerByHostname(const QString &hostname)
 /// Warning you must hold a sockListLock lock before calling this
 PlaybackSock *MainServer::GetPlaybackBySock(MythSocket *sock)
 {
-    for (auto & pbs : m_playbackList)
-        if (sock == pbs->getSocket())
-            return pbs;
-    return nullptr;
+    auto it = std::find_if(m_playbackList.cbegin(), m_playbackList.cend(),
+                           [sock](auto & pbs)
+                               { return sock == pbs->getSocket(); });
+    return (it != m_playbackList.cend()) ? *it : nullptr;
 }
 
 /// Warning you must hold a sockListLock lock before calling this
@@ -8341,8 +8368,6 @@ QString MainServer::LocalFilePath(const QString &path, const QString &wantgroup)
     if (lpath.section('/', -2, -2) == "channels")
     {
         // This must be an icon request. Check channel.icon to be safe.
-        QString querytext;
-
         QString file = lpath.section('/', -1);
         lpath = "";
 
@@ -8383,7 +8408,7 @@ QString MainServer::LocalFilePath(const QString &path, const QString &wantgroup)
                 LOG(VB_GENERAL, LOG_ERR, LOC +
                     QString("ERROR: LocalFilePath unable to find local "
                             "path for '%1', found '%2' instead.")
-                        .arg(lpath).arg(pburl));
+                        .arg(lpath, pburl));
                 lpath = "";
             }
         }
@@ -8410,7 +8435,7 @@ QString MainServer::LocalFilePath(const QString &path, const QString &wantgroup)
                 LOG(VB_FILE, LOG_INFO, LOC +
                     QString("LocalFilePath(%1 '%2'), found file through "
                             "exhaustive search at '%3'")
-                        .arg(path).arg(opath).arg(lpath));
+                        .arg(path, opath, lpath));
             }
             else
             {
@@ -8452,8 +8477,8 @@ void MainServer::reconnectTimeout(void)
     LOG(VB_GENERAL, LOG_NOTICE, LOC + "Connected successfully");
 
     QString str = QString("ANN SlaveBackend %1 %2")
-                          .arg(gCoreContext->GetHostName())
-                          .arg(gCoreContext->GetBackendServerIP());
+                          .arg(gCoreContext->GetHostName(),
+                               gCoreContext->GetBackendServerIP());
 
     QStringList strlist( str );
 
@@ -8508,7 +8533,7 @@ void MainServer::reconnectTimeout(void)
     m_playbackList.push_back(m_masterServer);
     m_sockListLock.unlock();
 
-    m_autoexpireUpdateTimer->start(1000);
+    m_autoexpireUpdateTimer->start(1s);
 }
 
 // returns true, if a client (slavebackends are not counted!)
@@ -8542,7 +8567,7 @@ bool MainServer::isClientConnected(bool onlyBlockingClients)
 }
 
 /// Sends the Slavebackends the request to shut down using haltcmd
-void MainServer::ShutSlaveBackendsDown(QString &haltcmd)
+void MainServer::ShutSlaveBackendsDown(const QString &haltcmd)
 {
 // TODO FIXME We should issue a MythEvent and have customEvent
 // send this with the proper syncronisation and locking.

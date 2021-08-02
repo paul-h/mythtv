@@ -11,7 +11,6 @@
 // C++ headers
 #include <iostream>
 #include <algorithm>
-using namespace std;
 
 // Qt headers
 #include <QCoreApplication>
@@ -67,10 +66,9 @@ bool ChannelBase::Init(QString &startchannel, bool setchan)
     if (ok)
         return true;
 
-    // try to find a valid channel if given start channel fails.
-    QString msg1 = QString("Setting start channel '%1' failed, ")
-        .arg(startchannel);
-    QString msg2 = "and we failed to find any suitable channels on any input.";
+    // Try to find a valid channel if given start channel fails.
+    QString msg1 = QString("Setting start channel '%1' failed ").arg(startchannel);
+    QString msg2 = "and no suitable channel found.";
     bool msg_error = true;
 
     // Attempt to find the requested startchannel
@@ -109,17 +107,14 @@ bool ChannelBase::Init(QString &startchannel, bool setchan)
 
             if (ok)
             {
-                if (mplexid_restriction || chanid_restriction)
-                    startchannel = (*cit).m_chanNum;
-                msg2 = QString("selected to '%1' instead.")
-                    .arg(startchannel);
+                startchannel = (*cit).m_chanNum;
+                msg2 = QString("selected '%1' instead.").arg(startchannel);
                 msg_error = false;
             }
         }
     }
 
-    LOG(VB_GENERAL, ((msg_error) ? LOG_ERR : LOG_WARNING), LOC +
-        msg1 + "\n\t\t\t" + msg2);
+    LOG(VB_GENERAL, ((msg_error) ? LOG_ERR : LOG_WARNING), LOC + msg1 + msg2);
 
     return ok;
 }
@@ -236,7 +231,7 @@ bool ChannelBase::IsInputAvailable(
     mplexid_restriction = 0;
     chanid_restriction = 0;
 
-    vector<uint> inputids = CardUtil::GetConflictingInputs(m_inputId);
+    std::vector<uint> inputids = CardUtil::GetConflictingInputs(m_inputId);
     for (uint inputid : inputids)
     {
         if (RemoteIsBusy(inputid, info))
@@ -310,7 +305,8 @@ void ChannelBase::HandleScript(const QString &freqid)
     if (m_system)
         GetScriptStatus(true);
 
-    // If it's still running, try killing it
+    // If it's still running, try killing it. GetScriptStatus() may
+    // update m_system. (cppcheck-suppress duplicateCondition)
     if (m_system)
         ok = KillScript();
 
@@ -367,16 +363,14 @@ bool ChannelBase::ChangeInternalChannel(const QString &freqid,
 
     LOG(VB_GENERAL, LOG_ERR, LOC + QString("Internal channel change to %1 "
             "on inputid %2, GUID %3 (%4)").arg(freqid).arg(inputid)
-            .arg(fwnode).arg(fwmodel));
+            .arg(fwnode, fwmodel));
 
 #ifdef USING_LINUX_FIREWIRE
-    // cppcheck-suppress redundantAssignment
     device = new LinuxFirewireDevice(
         guid, 0, 100, true);
 #endif // USING_LINUX_FIREWIRE
 
 #ifdef USING_OSX_FIREWIRE
-    // cppcheck-suppress redundantAssignment
     device = new DarwinFirewireDevice(guid, 0, 100);
 #endif // USING_OSX_FIREWIRE
 
@@ -415,7 +409,7 @@ bool ChannelBase::ChangeExternalChannel(const QString &changer,
     if (changer.isEmpty() || freqid.isEmpty())
         return false;
 
-    QString command = QString("%1 %2").arg(changer).arg(freqid);
+    QString command = QString("%1 %2").arg(changer, freqid);
     LOG(VB_CHANNEL, LOG_INFO, LOC +
         QString("Running command: %1").arg(command));
 
@@ -614,7 +608,7 @@ bool ChannelBase::InitializeInput(void)
     // print it
     LOG(VB_CHANNEL, LOG_INFO, LOC +
         QString("Input #%1: '%2' schan(%3) sourceid(%4)")
-        .arg(m_inputId).arg(m_name).arg(m_startChanNum)
+        .arg(m_inputId).arg(m_name, m_startChanNum)
         .arg(m_sourceId));
 
     return true;
@@ -737,7 +731,7 @@ ChannelBase *ChannelBase::CreateChannel(
     else if ((genOpt.m_inputType == "IMPORT") ||
              (genOpt.m_inputType == "DEMO") ||
              (genOpt.m_inputType == "MPEG" &&
-              genOpt.m_videoDev.toLower().startsWith("file:")))
+              genOpt.m_videoDev.startsWith("file:", Qt::CaseInsensitive)))
     {
         channel = new DummyChannel(tvrec);
         rbFileExt = "mpg";
@@ -800,8 +794,8 @@ ChannelBase *ChannelBase::CreateChannel(
             "\n"
             "Recompile MythTV with %4 support or remove the card \n"
             "from the configuration and restart MythTV.")
-            .arg(genOpt.m_inputType).arg(genOpt.m_videoDev)
-            .arg(genOpt.m_inputType).arg(genOpt.m_inputType);
+            .arg(genOpt.m_inputType, genOpt.m_videoDev,
+                 genOpt.m_inputType, genOpt.m_inputType);
         LOG(VB_GENERAL, LOG_ERR, "ChannelBase: CreateChannel() Error: \n" +
             msg + "\n");
         return nullptr;
@@ -823,6 +817,7 @@ ChannelBase *ChannelBase::CreateChannel(
         if (channel &&
             ((genOpt.m_inputType == "DVB" && dvbOpt.m_dvbOnDemand) ||
              genOpt.m_inputType == "HDHOMERUN" ||
+             genOpt.m_inputType == "EXTERNAL" ||
              CardUtil::IsV4L(genOpt.m_inputType)))
         {
             channel->Close();

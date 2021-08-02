@@ -29,13 +29,13 @@ class MTV_PUBLIC DeleteMap
     DeleteMap() = default;
 
     void SetPlayerContext(PlayerContext *ctx) { m_ctx = ctx; }
-    bool HandleAction(QString &action, uint64_t frame);
+    bool HandleAction(const QString &action, uint64_t frame);
     float GetSeekAmount(void) const { return m_seekamount; }
     void UpdateSeekAmount(int change);
     void SetSeekAmount(float amount) { m_seekamount = amount; }
 
     void UpdateOSD(uint64_t frame, double frame_rate, OSD *osd);
-    static void UpdateOSD(int64_t timecode, OSD *osd);
+    static void UpdateOSD(std::chrono::milliseconds timecode, OSD *osd);
 
     bool IsEditing(void) const { return m_editing; }
     void SetEditing(bool edit, OSD *osd = nullptr);
@@ -69,10 +69,10 @@ class MTV_PUBLIC DeleteMap
 
     // Provide translations between frame numbers and millisecond
     // durations, optionally taking the custlist into account.
-    uint64_t TranslatePositionFrameToMs(uint64_t position,
+    std::chrono::milliseconds TranslatePositionFrameToMs(uint64_t position,
                                         float fallback_framerate,
                                         bool use_cutlist) const;
-    uint64_t TranslatePositionMsToFrame(uint64_t dur_ms,
+    uint64_t TranslatePositionMsToFrame(std::chrono::milliseconds dur_ms,
                                         float fallback_framerate,
                                         bool use_cutlist) const;
     uint64_t TranslatePositionAbsToRel(uint64_t position) const;

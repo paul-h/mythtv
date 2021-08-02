@@ -42,7 +42,10 @@ HDHRSignalMonitor::HDHRSignalMonitor(int db_cardnum,
                                      HDHRChannel* _channel,
                                      bool _release_stream,
                                      uint64_t _flags)
-    : DTVSignalMonitor(db_cardnum, _channel, _release_stream, _flags)
+    : DTVSignalMonitor(db_cardnum, _channel, _release_stream, _flags),
+      m_signalToNoise    (QCoreApplication::translate("(Common)",
+                          "Signal To Noise"),  "snr",
+                          0,      true,      0, 100, 0ms)
 {
     LOG(VB_CHANNEL, LOG_INFO, LOC + "ctor");
 
@@ -101,7 +104,24 @@ void HDHRSignalMonitor::UpdateValues(void)
         if (IsAllGood())
             SendMessageAllGood();
 
-        // TODO dtv signals...
+        // Update signal status for display
+        struct hdhomerun_tuner_status_t status {};
+        m_streamHandler->GetTunerStatus(&status);
+
+        // Get info from card
+        uint sig = status.signal_strength;
+        uint snq = status.signal_to_noise_quality;
+        uint seq = status.symbol_error_quality;
+
+        LOG(VB_RECORD, LOG_DEBUG, LOC + "Tuner status: " + QString("'sig:%1 snq:%2 seq:%3'")
+            .arg(sig).arg(snq).arg(seq));
+
+        // Set SignalMonitorValues from info from card.
+        {
+            QMutexLocker locker(&m_statusLock);
+            m_signalStrength.SetValue(sig);
+            m_signalToNoise.SetValue(snq);
+        }
 
         m_updateDone = true;
         return;
@@ -114,19 +134,26 @@ void HDHRSignalMonitor::UpdateValues(void)
     uint snq = status.signal_to_noise_quality;
     uint seq = status.symbol_error_quality;
 
-    (void) snq; // TODO should convert to S/N
-    (void) seq; // TODO should report this...
-
-    LOG(VB_RECORD, LOG_DEBUG, LOC + "Tuner status: " + QString("'%1:%2:%3'")
+    LOG(VB_RECORD, LOG_DEBUG, LOC + "Tuner status: " + QString("'sig:%1 snq:%2 seq:%3'")
             .arg(sig).arg(snq).arg(seq));
 
     // Set SignalMonitorValues from info from card.
+    bool wasLocked = false;
     bool isLocked = false;
     {
         QMutexLocker locker(&m_statusLock);
         m_signalStrength.SetValue(sig);
+        m_signalToNoise.SetValue(snq);
+        wasLocked = m_signalLock.IsGood();
         m_signalLock.SetValue(static_cast<int>(status.lock_supported));
         isLocked = m_signalLock.IsGood();
+    }
+
+    // Signal lock change
+    if (wasLocked != isLocked)
+    {
+        LOG(VB_CHANNEL, LOG_INFO, LOC + "UpdateValues -- Signal " +
+                (isLocked ? "Locked" : "Lost"));
     }
 
     EmitStatus();
@@ -145,4 +172,11 @@ void HDHRSignalMonitor::UpdateValues(void)
     }
 
     m_updateDone = true;
+}
+
+void HDHRSignalMonitor::EmitStatus(void)
+{
+    // Emit signals..
+    DTVSignalMonitor::EmitStatus();
+    SendMessage(kStatusSignalToNoise, m_signalToNoise);
 }

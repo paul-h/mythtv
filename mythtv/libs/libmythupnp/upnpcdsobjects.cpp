@@ -10,12 +10,25 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-#include <QTextStream>
+#include <QtGlobal>
+#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
+#include <QStringConverter>
+#else
 #include <QTextCodec>
+#endif
+#include <QTextStream>
 #include <QUrl>
 
 #include "upnpcds.h"
 #include "mythlogging.h"
+
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
+  #define QT_ENDL endl
+  #define QT_FLUSH flush
+#else
+  #define QT_ENDL Qt::endl
+  #define QT_FLUSH Qt::flush
+#endif
 
 inline QString GetBool( bool bVal ) { return( (bVal) ? "1" : "0" ); }
 
@@ -76,17 +89,9 @@ Property *CDSObject::AddProperty( Property *pProp )
         // NOTE: This requires ALL instances of a property which can exist
         //       more than once to have m_bAllowMulti set to true.
         if (pProp->m_bMultiValue)
-            m_properties.insertMulti(pProp->m_sName, pProp);
+            m_properties.insert(pProp->m_sName, pProp);
         else
-        {
-            Properties::iterator it = m_properties.find(pProp->m_sName);
-            while (it != m_properties.end() && it.key() == pProp->m_sName)
-            {
-                delete *it;
-                it = m_properties.erase(it);
-            }
-            m_properties[pProp->m_sName] = pProp;
-        }
+            m_properties.replace(pProp->m_sName, pProp);
     }
 
     return pProp;
@@ -266,9 +271,13 @@ QString CDSObject::toXml( FilterMap &filter,
 {
     QString     sXML;
     QTextStream os( &sXML, QIODevice::WriteOnly );
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     os.setCodec(QTextCodec::codecForName("UTF-8"));
+#else
+    os.setEncoding(QStringConverter::Utf8);
+#endif
     toXml(os, filter, ignoreChildren);
-    os << flush;
+    os << QT_FLUSH;
     return( sXML );
 }
 
@@ -330,7 +339,7 @@ void CDSObject::toXml( QTextStream &os, FilterMap &filter,
             if (!bFilter || filter.contains("@childContainerCount"))
                 os << "\" childContainerCount=\"" << GetChildContainerCount();
 
-               os << "\" >" << endl;
+            os << "\" >" << QT_ENDL;
 
             sEndTag = "</container>";
 
@@ -344,7 +353,7 @@ void CDSObject::toXml( QTextStream &os, FilterMap &filter,
             os << "<item id=\"" << m_sId
                << "\" parentID=\"" << m_sParentId
                << "\" restricted=\"" << GetBool( m_bRestricted )
-               << "\" >" << endl;
+               << "\" >" << QT_ENDL;
 
             sEndTag = "</item>";
 
@@ -353,8 +362,8 @@ void CDSObject::toXml( QTextStream &os, FilterMap &filter,
         default: break;
     }
 
-    os << "<dc:title>"   << m_sTitle << "</dc:title>" << endl;
-    os << "<upnp:class>" << m_sClass << "</upnp:class>" << endl;
+    os << "<dc:title>"   << m_sTitle << "</dc:title>" << QT_ENDL;
+    os << "<upnp:class>" << m_sClass << "</upnp:class>" << QT_ENDL;
 
     // ----------------------------------------------------------------------
     // Output all Properties
@@ -381,10 +390,10 @@ void CDSObject::toXml( QTextStream &os, FilterMap &filter,
 
                 os << "<"  << sName;
 
-                for (const auto & attr : pProp->m_lstAttributes)
+                for (const auto & attr : qAsConst(pProp->m_lstAttributes))
                 {
-                    QString filterName = QString("%1@%2").arg(sName)
-                                                         .arg(attr.m_sName);
+                    QString filterName = QString("%1@%2").arg(sName,
+                                                              attr.m_sName);
                     if (attr.m_bRequired  || !filterAttributes ||
                         filter.contains(filterName))
                         os << " " << attr.m_sName << "=\"" << attr.m_sValue << "\"";
@@ -392,7 +401,7 @@ void CDSObject::toXml( QTextStream &os, FilterMap &filter,
 
                 os << ">";
                 os << pProp->GetEncodedValue();
-                os << "</" << sName << ">" << endl;
+                os << "</" << sName << ">" << QT_ENDL;
             }
         }
     }
@@ -411,7 +420,7 @@ void CDSObject::toXml( QTextStream &os, FilterMap &filter,
             os << "<res protocolInfo=\"" << resource->m_sProtocolInfo << "\" ";
 
             QString filterName;
-            for (const auto & attr : resource->m_lstAttributes)
+            for (const auto & attr : qAsConst(resource->m_lstAttributes))
             {
                 filterName = QString("res@%1").arg(attr.m_sName);
                 if (attr.m_bRequired  || !filterAttributes ||
@@ -420,7 +429,7 @@ void CDSObject::toXml( QTextStream &os, FilterMap &filter,
             }
 
             os << ">" << resource->m_sURI;
-            os << "</res>" << endl;
+            os << "</res>" << QT_ENDL;
         }
     }
 
@@ -438,8 +447,8 @@ void CDSObject::toXml( QTextStream &os, FilterMap &filter,
     // Close Element Tag
     // ----------------------------------------------------------------------
 
-    os << sEndTag << endl;
-    os << flush;
+    os << sEndTag << QT_ENDL;
+    os << QT_FLUSH;
 }
 
 

@@ -7,12 +7,14 @@
 // C++ headers
 #include <vector>
 #include <algorithm>
-using namespace std;
 
 // Qt headers
 #include <QWaitCondition>
 #include <QMutex>
 #include <QCoreApplication>
+#if QT_VERSION >= QT_VERSION_CHECK(5,14,0)
+#include <QRecursiveMutex>
+#endif
 
 // MythTV headers
 #include "signalmonitorlistener.h"
@@ -68,7 +70,7 @@ class SignalMonitor : protected MThread
     ///        regularly to the frontend.
     bool GetNotifyFrontend() const { return m_notifyFrontend; }
     /// \brief Returns milliseconds between signal monitoring events.
-    int GetUpdateRate() const { return m_updateRate; }
+    std::chrono::milliseconds GetUpdateRate() const { return m_updateRate; }
     virtual QStringList GetStatusList(void) const;
     int GetSignalStrength(void) { return m_signalStrength.GetNormalizedValue(0,100); }
 
@@ -108,8 +110,8 @@ class SignalMonitor : protected MThread
      *   Defaults to 25 milliseconds.
      *  \param msec Milliseconds between signal monitoring events.
      */
-    void SetUpdateRate(int msec)
-        { m_updateRate = max(msec, (int)m_minimumUpdateRate); }
+    void SetUpdateRate(std::chrono::milliseconds msec)
+        { m_updateRate = std::max(msec, m_minimumUpdateRate); }
 
     // // // // // // // // // // // // // // // // // // // // // // // //
     // Listeners   // // // // // // // // // // // // // // // // // // //
@@ -205,8 +207,8 @@ class SignalMonitor : protected MThread
     int                m_inputid;
     volatile uint64_t  m_flags;
     bool               m_releaseStream;
-    int                m_updateRate          {25};
-    uint               m_minimumUpdateRate   {5};
+    std::chrono::milliseconds m_updateRate          {25ms};
+    std::chrono::milliseconds m_minimumUpdateRate   {5ms};
     bool               m_updateDone          {false};
     bool               m_notifyFrontend      {true};
     bool               m_tablemon            {false};
@@ -219,14 +221,18 @@ class SignalMonitor : protected MThread
     SignalMonitorValue m_signalStrength;
     SignalMonitorValue m_scriptStatus;
 
-    vector<SignalMonitorListener*> m_listeners;
+    std::vector<SignalMonitorListener*> m_listeners;
 
     QMutex             m_startStopLock;
     QWaitCondition     m_startStopWait;       // protected by startStopLock
     volatile bool      m_running      {false}; // protected by startStopLock
     volatile bool      m_exit         {false}; // protected by startStopLock
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex     m_statusLock   {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex m_statusLock;
+#endif
     mutable QMutex     m_listenerLock;
 };
 

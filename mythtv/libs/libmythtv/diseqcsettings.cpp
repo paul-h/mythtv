@@ -266,10 +266,10 @@ SwitchConfig::SwitchConfig(DiSEqCDevSwitch &switch_dev, StandardSetting *parent)
     m_ports = new SwitchPortsSetting(switch_dev);
     parent->addChild(m_ports);
 
-    connect(m_type, SIGNAL(valueChanged(const QString&)),
-            this,   SLOT(  update(void)));
-    connect(m_deviceDescr, SIGNAL(valueChanged(const QString&)),
-            SLOT(setValue(const QString&)));
+    connect(m_type, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,   qOverload<const QString&>(&SwitchConfig::update));
+    connect(m_deviceDescr, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,   qOverload<const QString&>(&StandardSetting::setValue));
 }
 
 void SwitchConfig::Load(void)
@@ -308,24 +308,25 @@ void SwitchConfig::update(void)
     }
 }
 
+void SwitchConfig::update(const QString &/*value*/)
+{
+    update();
+}
+
 bool DiseqcConfigBase::keyPressEvent(QKeyEvent *e)
 {
     QStringList actions;
     if (GetMythMainWindow()->TranslateKeyPress("Global", e, actions))
         return true;
 
-    bool handled = false;
-    for (const QString & action : qAsConst(actions))
+    auto isdelete = [](const QString & action) { return action == "DELETE"; };
+    if (std::any_of(actions.cbegin(), actions.cend(), isdelete))
     {
-        if (action == "DELETE")
-        {
-            handled = true;
-            emit DeleteClicked();
-            break;
-        }
+        emit DeleteClicked();
+        return true;
     }
 
-    return handled;
+    return false;
 }
 
 //////////////////////////////////////// RotorTypeSetting
@@ -461,7 +462,7 @@ static double AngleToFloat(const QString &angle, bool translated = true)
         pos = angle.left(angle.length() - 1).toDouble();
         if ((translated &&
              (postfix.toUpper() ==
-              DeviceTree::tr("W", "Western Hemisphere")[0])) ||
+              DeviceTree::tr("W", "Western Hemisphere").at(0))) ||
             (!translated && (postfix.toUpper() == 'W')))
         {
             pos = -pos;
@@ -504,7 +505,7 @@ public:
     uint m_id;
 };
 
-void RotorPosMap::valueChanged(StandardSetting *setting)
+void RotorPosMap::newValue(StandardSetting *setting)
 {
     auto *posEdit = dynamic_cast<RotorPosTextEdit*>(setting);
     if (posEdit == nullptr)
@@ -521,17 +522,17 @@ void RotorPosMap::PopulateList(void)
     uint num_pos = 64;
     for (uint pos = 1; pos < num_pos; pos++)
     {
-        uint_to_dbl_t::const_iterator it = m_posmap.find(pos);
+        uint_to_dbl_t::const_iterator it = m_posmap.constFind(pos);
         QString posval;
-        if (it != m_posmap.end())
+        if (it != m_posmap.constEnd())
             posval = AngleToString(*it);
 
         auto *posEdit =
             new RotorPosTextEdit(DeviceTree::tr("Position #%1").arg(pos),
                                  pos,
                                  posval);
-        connect(posEdit, SIGNAL(valueChanged(StandardSetting*)),
-                SLOT(valueChanged(StandardSetting*)));
+        connect(posEdit, qOverload<StandardSetting*>(&StandardSetting::valueChanged),
+                this,    &RotorPosMap::newValue);
         addChild(posEdit);
     }
 }
@@ -549,8 +550,8 @@ RotorConfig::RotorConfig(DiSEqCDevRotor &rotor, StandardSetting *parent)
     parent->addChild(new DeviceRepeatSetting(rotor));
 
     auto *rtype = new RotorTypeSetting(rotor);
-    connect(rtype, SIGNAL(valueChanged(const QString&)),
-            this,  SLOT(  SetType(     const QString&)));
+    connect(rtype, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,  &RotorConfig::SetType);
     parent->addChild(rtype);
 
     m_pos = new RotorPosMap(rotor);
@@ -935,12 +936,12 @@ LNBConfig::LNBConfig(DiSEqCDevLNB &lnb, StandardSetting *parent)
     parent->addChild(m_lofHi);
     m_polInv = new LNBPolarityInvertedSetting(lnb);
     parent->addChild(m_polInv);
-    connect(m_type, SIGNAL(valueChanged(const QString&)),
-            this,   SLOT(  UpdateType(  void)));
-    connect(m_preset, SIGNAL(valueChanged(const QString&)),
-            this,   SLOT(  SetPreset(   const QString&)));
-    connect(deviceDescr, SIGNAL(valueChanged(const QString&)),
-            SLOT(setValue(const QString&)));
+    connect(m_type,      qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,        qOverload<const QString&>(&LNBConfig::UpdateType));
+    connect(m_preset,    qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,        &LNBConfig::SetPreset);
+    connect(deviceDescr, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,        qOverload<const QString&>(&StandardSetting::setValue));
 }
 
 void LNBConfig::Load(void)
@@ -1006,6 +1007,10 @@ void LNBConfig::UpdateType(void)
     }
 }
 
+void LNBConfig::UpdateType(const QString &/*value*/)
+{
+    UpdateType();
+}
 //////////////////////////////////////// DeviceTree
 
 void DeviceTree::Load(void)
@@ -1246,9 +1251,8 @@ class RotorSetting : public MythUIComboBoxSetting
     {
         clearSelections();
 
-        uint_to_dbl_t::const_iterator it;
-        for (it = m_posmap.begin(); it != m_posmap.end(); ++it)
-            addSelection(AngleToString(*it), QString::number(*it));
+        for (double d : qAsConst(m_posmap))
+            addSelection(AngleToString(d), QString::number(d));
 
         double angle = m_settings.GetValue(m_node.GetDeviceID());
         setValue(getValueIndex(QString::number(angle)));

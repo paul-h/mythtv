@@ -10,6 +10,7 @@
 #include "opengl/mythrenderopengl.h"
 #include "videobuffers.h"
 #include "mythvaapiinterop.h"
+#include "mythplayerui.h"
 #include "mythvaapicontext.h"
 
 extern "C" {
@@ -28,7 +29,7 @@ extern "C" {
  * to complete the setup (as we have reached the end of the file).
  * Should be a simple null pointer check in FFmpeg.
 */
-MythVAAPIContext::MythVAAPIContext(DecoderBase *Parent, MythCodecID CodecID)
+MythVAAPIContext::MythVAAPIContext(DecoderBase* Parent, MythCodecID CodecID)
   : MythCodecContext(Parent, CodecID)
 {
 }
@@ -38,7 +39,7 @@ MythVAAPIContext::~MythVAAPIContext(void)
     DestroyDeinterlacer();
 }
 
-VAProfile MythVAAPIContext::VAAPIProfileForCodec(const AVCodecContext *Codec)
+VAProfile MythVAAPIContext::VAAPIProfileForCodec(const AVCodecContext* Codec)
 {
     if (!Codec)
         return VAProfileNone;
@@ -127,28 +128,28 @@ inline AVPixelFormat MythVAAPIContext::FramesFormat(AVPixelFormat Format)
 
 /*! \brief Confirm whether VAAPI support is available given Decoder and Context
 */
-MythCodecID MythVAAPIContext::GetSupportedCodec(AVCodecContext **Context,
-                                                AVCodec ** /*Codec*/,
-                                                const QString &Decoder,
+MythCodecID MythVAAPIContext::GetSupportedCodec(AVCodecContext** Context,
+                                                AVCodec** /*Codec*/,
+                                                const QString& Decoder,
                                                 uint StreamType)
 {
     bool decodeonly = Decoder == "vaapi-dec";
     auto success = static_cast<MythCodecID>((decodeonly ? kCodec_MPEG1_VAAPI_DEC : kCodec_MPEG1_VAAPI) + (StreamType - 1));
     auto failure = static_cast<MythCodecID>(kCodec_MPEG1 + (StreamType - 1));
-    QString vendor = HaveVAAPI();
-    if (!Decoder.startsWith("vaapi") || vendor.isEmpty() || getenv("NO_VAAPI"))
+    auto vendor = HaveVAAPI();
+    if (!Decoder.startsWith("vaapi") || vendor.isEmpty() || qEnvironmentVariableIsSet("NO_VAAPI"))
         return failure;
 
-    QString codec   = ff_codec_id_string((*Context)->codec_id);
-    QString profile = avcodec_profile_name((*Context)->codec_id, (*Context)->profile);
-    QString pixfmt  = av_get_pix_fmt_name((*Context)->pix_fmt);
+    const auto * codec   = ff_codec_id_string((*Context)->codec_id);
+    const auto * profile = avcodec_profile_name((*Context)->codec_id, (*Context)->profile);
+    const auto * pixfmt  = av_get_pix_fmt_name((*Context)->pix_fmt);
 
     // Simple check for known profile
-    VAProfile desired = VAAPIProfileForCodec(*Context);
+    auto desired = VAAPIProfileForCodec(*Context);
     if (desired == VAProfileNone)
     {
         LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("VAAPI does not support decoding '%1 %2 %3'")
-            .arg(codec).arg(profile).arg(pixfmt));
+            .arg(codec, profile, pixfmt));
         return failure;
     }
 
@@ -164,41 +165,23 @@ MythCodecID MythVAAPIContext::GetSupportedCodec(AVCodecContext **Context,
     }
     else
     {
-        // If called from outside of the main thread, we need a MythPlayer instance to
-        // process the interop check callback - which may fail otherwise (depending
-        // on whether the result is cached).
-        MythPlayer* player = nullptr;
-        if (!gCoreContext->IsUIThread())
-        {
-            auto *decoder = reinterpret_cast<AvFormatDecoder*>((*Context)->opaque);
-            if (decoder)
-                player = decoder->GetPlayer();
-        }
-
-        // Direct rendering needs interop support
-        if (MythOpenGLInterop::GetInteropType(FMT_VAAPI, player) == MythOpenGLInterop::Unsupported)
+        if (!FrameTypeIsSupported(*Context, FMT_VAAPI))
             return failure;
     }
 
     // Check profile support
     bool ok = false;
-    const VAAPIProfiles& profiles = MythVAAPIContext::GetProfiles();
-    MythCodecContext::CodecProfile mythprofile =
-            MythCodecContext::FFmpegToMythProfile((*Context)->codec_id, (*Context)->profile);
-    auto haveprofile = [=](MythCodecContext::CodecProfile Profile, QSize Size)
+    const auto & profiles = MythVAAPIContext::GetProfiles();
+    auto mythprofile = MythCodecContext::FFmpegToMythProfile((*Context)->codec_id, (*Context)->profile);
+    auto haveprofile = [&](MythCodecContext::CodecProfile Profile, QSize Size)
     {
-        for (auto vaprofile : qAsConst(profiles))
-        {
-            if (vaprofile.first == Profile &&
-                vaprofile.second.first.width() <= Size.width() &&
-                vaprofile.second.first.height() <= Size.height() &&
-                vaprofile.second.second.width() >= Size.width() &&
-                vaprofile.second.second.height() >= Size.height())
-            {
-                return true;
-            }
-        }
-        return false;
+        return std::any_of(profiles.cbegin(), profiles.cend(),
+                           [&Profile,Size](auto vaprofile)
+                               { return vaprofile.first == Profile &&
+                                        vaprofile.second.first.width() <= Size.width() &&
+                                        vaprofile.second.first.height() <= Size.height() &&
+                                        vaprofile.second.second.width() >= Size.width() &&
+                                        vaprofile.second.second.height() >= Size.height(); } );
     };
 
     ok = haveprofile(mythprofile, QSize((*Context)->width, (*Context)->height));
@@ -209,8 +192,8 @@ MythCodecID MythVAAPIContext::GetSupportedCodec(AVCodecContext **Context,
         ok = haveprofile(MythCodecContext::MJPEG, QSize());
     }
 
-    QString desc = QString("'%1 %2 %3 %4x%5'")
-        .arg(codec).arg(profile).arg(pixfmt).arg((*Context)->width).arg((*Context)->height);
+    auto desc = QString("'%1 %2 %3 %4x%5'").arg(codec, profile, pixfmt)
+                                          .arg((*Context)->width).arg((*Context)->height);
 
     if (ok)
     {
@@ -223,7 +206,7 @@ MythCodecID MythVAAPIContext::GetSupportedCodec(AVCodecContext **Context,
     return failure;
 }
 
-AVPixelFormat MythVAAPIContext::GetFormat(AVCodecContext *Context, const AVPixelFormat *PixFmt)
+AVPixelFormat MythVAAPIContext::GetFormat(AVCodecContext* Context, const AVPixelFormat* PixFmt)
 {
     while (*PixFmt != AV_PIX_FMT_NONE)
     {
@@ -235,7 +218,7 @@ AVPixelFormat MythVAAPIContext::GetFormat(AVCodecContext *Context, const AVPixel
     return AV_PIX_FMT_NONE;
 }
 
-AVPixelFormat MythVAAPIContext::GetFormat2(AVCodecContext *Context, const AVPixelFormat *PixFmt)
+AVPixelFormat MythVAAPIContext::GetFormat2(AVCodecContext* Context, const AVPixelFormat* PixFmt)
 {
     while (*PixFmt != AV_PIX_FMT_NONE)
     {
@@ -249,57 +232,37 @@ AVPixelFormat MythVAAPIContext::GetFormat2(AVCodecContext *Context, const AVPixe
 
 /*! \brief Create a VAAPI hardware context with appropriate OpenGL interop.
 */
-int MythVAAPIContext::InitialiseContext(AVCodecContext *Context)
+int MythVAAPIContext::InitialiseContext(AVCodecContext* Context)
 {
     if (!Context || !gCoreContext->IsUIThread())
         return -1;
 
-    // We need a render device
-    MythRenderOpenGL* render = MythRenderOpenGL::GetOpenGLRender();
-    if (!render)
-        return -1;
-
-    // The interop must have a reference to the player so it can be deleted
+    // The interop must have a reference to the ui player so it can be deleted
     // from the main thread.
-    MythPlayer *player = nullptr;
-    auto *decoder = reinterpret_cast<AvFormatDecoder*>(Context->opaque);
-    if (decoder)
-        player = decoder->GetPlayer();
-    if (!player)
-        return -1;
+    MythVAAPIInterop* interop = nullptr;
+    if (auto * player = GetPlayerUI(Context); player != nullptr)
+        if (auto * render = dynamic_cast<MythRenderOpenGL*>(player->GetRender()); render != nullptr)
+            interop = MythVAAPIInterop::CreateVAAPI(player, render);
 
-    // Check interop support
-    MythOpenGLInterop::Type type = MythOpenGLInterop::GetInteropType(FMT_VAAPI, player);
-    if (type == MythOpenGLInterop::Unsupported)
-        return -1;
-
-    // Create interop
-    MythVAAPIInterop *interop = MythVAAPIInterop::Create(render, type);
-    if (!interop)
-        return -1;
-    if (!interop->GetDisplay())
+    if (!interop || !interop->GetDisplay())
     {
-        interop->DecrRef();
+        if (interop)
+            interop->DecrRef();
         return -1;
     }
 
-    // Set the player required to process interop release
-    interop->SetPlayer(player);
-
     // Create hardware device context
-    AVBufferRef* hwdeviceref = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VAAPI);
-    if (!hwdeviceref || (hwdeviceref && !hwdeviceref->data))
+    auto * hwdeviceref = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VAAPI);
+    if (!hwdeviceref || !hwdeviceref->data)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create VAAPI hardware device context");
         return -1;
     }
 
-    auto* hwdevicecontext  = reinterpret_cast<AVHWDeviceContext*>(hwdeviceref->data);
-    if (!hwdevicecontext || (hwdevicecontext && !hwdevicecontext->hwctx))
-        return -1;
-    auto *vaapidevicectx = reinterpret_cast<AVVAAPIDeviceContext*>(hwdevicecontext->hwctx);
-    if (!vaapidevicectx)
-        return -1;
+    AVVAAPIDeviceContext * vaapidevicectx = nullptr;
+    if (auto * hwdevicecontext = reinterpret_cast<AVHWDeviceContext*>(hwdeviceref->data); hwdevicecontext != nullptr)
+        if (vaapidevicectx = reinterpret_cast<AVVAAPIDeviceContext*>(hwdevicecontext->hwctx); !vaapidevicectx)
+            return -1;
 
     // Set the display
     vaapidevicectx->display = interop->GetDisplay();
@@ -325,8 +288,8 @@ int MythVAAPIContext::InitialiseContext(AVCodecContext *Context)
     }
 
     // Setup the frames context
-    auto* hw_frames_ctx = reinterpret_cast<AVHWFramesContext*>(Context->hw_frames_ctx->data);
-    auto* vaapi_frames_ctx = reinterpret_cast<AVVAAPIFramesContext*>(hw_frames_ctx->hwctx);
+    auto * hw_frames_ctx = reinterpret_cast<AVHWFramesContext*>(Context->hw_frames_ctx->data);
+    auto * vaapi_frames_ctx = reinterpret_cast<AVVAAPIFramesContext*>(hw_frames_ctx->hwctx);
 
     // Workarounds for specific drivers, surface formats and codecs
     // NV12 seems to work best across GPUs and codecs with the exception of
@@ -335,7 +298,7 @@ int MythVAAPIContext::InitialiseContext(AVCodecContext *Context)
     // for H.264 on Ironlake.
     // This may need extending for AMD etc
 
-    QString vendor = interop->GetVendor();
+    auto vendor = interop->GetVendor();
     // Intel NUC
     if (vendor.contains("iHD", Qt::CaseInsensitive) && vendor.contains("Intel", Qt::CaseInsensitive))
     {
@@ -354,14 +317,14 @@ int MythVAAPIContext::InitialiseContext(AVCodecContext *Context)
         {
             auto vaapiid = static_cast<MythCodecID>(kCodec_MPEG1_VAAPI + (mpeg_version(Context->codec_id) - 1));
             LOG(VB_GENERAL, LOG_INFO, LOC + QString("Forcing surface format for %1 and %2 with driver '%3'")
-                .arg(toString(vaapiid)).arg(MythOpenGLInterop::TypeToString(type)).arg(vendor));
+                .arg(toString(vaapiid), MythOpenGLInterop::TypeToString(interop->GetType()), vendor));
         }
 
-        VASurfaceAttrib prefs[3] = {
+        std::array<VASurfaceAttrib,3> prefs {{
             { VASurfaceAttribPixelFormat, VA_SURFACE_ATTRIB_SETTABLE, { VAGenericValueTypeInteger, { format } } },
             { VASurfaceAttribUsageHint,   VA_SURFACE_ATTRIB_SETTABLE, { VAGenericValueTypeInteger, { VA_SURFACE_ATTRIB_USAGE_HINT_DISPLAY } } },
-            { VASurfaceAttribMemoryType,  VA_SURFACE_ATTRIB_SETTABLE, { VAGenericValueTypeInteger, { VA_SURFACE_ATTRIB_MEM_TYPE_VA} } } };
-        vaapi_frames_ctx->attributes = prefs;
+            { VASurfaceAttribMemoryType,  VA_SURFACE_ATTRIB_SETTABLE, { VAGenericValueTypeInteger, { VA_SURFACE_ATTRIB_MEM_TYPE_VA} } } }};
+        vaapi_frames_ctx->attributes = prefs.data();
         vaapi_frames_ctx->nb_attributes = 3;
     }
 
@@ -403,13 +366,13 @@ int MythVAAPIContext::InitialiseContext(AVCodecContext *Context)
  * is due to some unnecessary scaling somewhere - as the relevant code should only be hit
  * if scaling is required.
 */
-int MythVAAPIContext::InitialiseContext2(AVCodecContext *Context)
+int MythVAAPIContext::InitialiseContext2(AVCodecContext* Context)
 {
     if (!Context)
         return -1;
 
-    AVBufferRef *device = MythCodecContext::CreateDevice(AV_HWDEVICE_TYPE_VAAPI, nullptr,
-                                                      gCoreContext->GetSetting("VAAPIDevice"));
+    auto * device = MythCodecContext::CreateDevice(AV_HWDEVICE_TYPE_VAAPI, nullptr,
+                                                   gCoreContext->GetSetting("VAAPIDevice"));
     Context->hw_frames_ctx = av_hwframe_ctx_alloc(device);
     if (!Context->hw_frames_ctx)
     {
@@ -418,9 +381,9 @@ int MythVAAPIContext::InitialiseContext2(AVCodecContext *Context)
         return -1;
     }
 
-    int referenceframes = AvFormatDecoder::GetMaxReferenceFrames(Context);
-    auto* hw_frames_ctx = reinterpret_cast<AVHWFramesContext*>(Context->hw_frames_ctx->data);
-    auto* vaapi_frames_ctx = reinterpret_cast<AVVAAPIFramesContext*>(hw_frames_ctx->hwctx);
+    int referenceframes     = AvFormatDecoder::GetMaxReferenceFrames(Context);
+    auto * hw_frames_ctx    = reinterpret_cast<AVHWFramesContext*>(Context->hw_frames_ctx->data);
+    auto * vaapi_frames_ctx = reinterpret_cast<AVVAAPIFramesContext*>(hw_frames_ctx->hwctx);
     hw_frames_ctx->sw_format         = FramesFormat(Context->sw_pix_fmt);
     hw_frames_ctx->format            = AV_PIX_FMT_VAAPI;
     hw_frames_ctx->width             = Context->coded_width;
@@ -460,12 +423,12 @@ QString MythVAAPIContext::HaveVAAPI(bool ReCheck /*= false*/)
         return s_vendor;
     s_checked = true;
 
-    AVBufferRef *context = MythCodecContext::CreateDevice(AV_HWDEVICE_TYPE_VAAPI, nullptr,
-                                                          gCoreContext->GetSetting("VAAPIDevice"));
+    auto * context = MythCodecContext::CreateDevice(AV_HWDEVICE_TYPE_VAAPI, nullptr,
+                                                    gCoreContext->GetSetting("VAAPIDevice"));
     if (context)
     {
-        auto *hwdevice = reinterpret_cast<AVHWDeviceContext*>(context->data);
-        auto *hwctx    = reinterpret_cast<AVVAAPIDeviceContext*>(hwdevice->hwctx);
+        auto * hwdevice = reinterpret_cast<AVHWDeviceContext*>(context->data);
+        auto * hwctx    = reinterpret_cast<AVVAAPIDeviceContext*>(hwdevice->hwctx);
         s_vendor = QString(vaQueryVendorString(hwctx->display));
         if (s_vendor.contains("vdpau", Qt::CaseInsensitive))
         {
@@ -479,8 +442,8 @@ QString MythVAAPIContext::HaveVAAPI(bool ReCheck /*= false*/)
         else
         {
             LOG(VB_GENERAL, LOG_INFO, LOC + "Supported/available VAAPI decoders:");
-            const VAAPIProfiles& profiles = MythVAAPIContext::GetProfiles();
-            for (auto profile : qAsConst(profiles))
+            const auto & profiles = MythVAAPIContext::GetProfiles();
+            for (const auto & profile : qAsConst(profiles))
             {
                 if (profile.first != MythCodecContext::MJPEG)
                 {
@@ -499,9 +462,13 @@ QString MythVAAPIContext::HaveVAAPI(bool ReCheck /*= false*/)
     return s_vendor;
 }
 
-const VAAPIProfiles &MythVAAPIContext::GetProfiles(void)
+const VAAPIProfiles& MythVAAPIContext::GetProfiles()
 {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     static QMutex lock(QMutex::Recursive);
+#else
+    static QRecursiveMutex lock;
+#endif
     static bool s_initialised = false;
     static VAAPIProfiles s_profiles;
 
@@ -527,42 +494,42 @@ const VAAPIProfiles &MythVAAPIContext::GetProfiles(void)
             case VAProfileVC1Main:       return MythCodecContext::VC1Main;
             case VAProfileVC1Advanced:   return MythCodecContext::VC1Advanced;
             case VAProfileVP8Version0_3: return MythCodecContext::VP8;
-    #if VA_CHECK_VERSION(0, 38, 0)
+#if VA_CHECK_VERSION(0, 38, 0)
             case VAProfileVP9Profile0:   return MythCodecContext::VP9_0;
-    #endif
-    #if VA_CHECK_VERSION(0, 39, 0)
+#endif
+#if VA_CHECK_VERSION(0, 39, 0)
             case VAProfileVP9Profile2:   return MythCodecContext::VP9_2;
-    #endif
-    #if VA_CHECK_VERSION(0, 37, 0)
+#endif
+#if VA_CHECK_VERSION(0, 37, 0)
             case VAProfileHEVCMain:      return MythCodecContext::HEVCMain;
             case VAProfileHEVCMain10:    return MythCodecContext::HEVCMain10;
-    #endif
+#endif
             case VAProfileJPEGBaseline:  return MythCodecContext::MJPEG;
             default: break;
         }
         return MythCodecContext::NoProfile;
     };
 
-    AVBufferRef *hwdevicectx = MythCodecContext::CreateDevice(AV_HWDEVICE_TYPE_VAAPI, nullptr,
-                                                              gCoreContext->GetSetting("VAAPIDevice"));
+    auto * hwdevicectx = MythCodecContext::CreateDevice(AV_HWDEVICE_TYPE_VAAPI, nullptr,
+                                                        gCoreContext->GetSetting("VAAPIDevice"));
     if(!hwdevicectx)
         return s_profiles;
 
-    auto *device = reinterpret_cast<AVHWDeviceContext*>(hwdevicectx->data);
-    auto *hwctx  = reinterpret_cast<AVVAAPIDeviceContext*>(device->hwctx);
+    auto * device = reinterpret_cast<AVHWDeviceContext*>(hwdevicectx->data);
+    auto * hwctx  = reinterpret_cast<AVVAAPIDeviceContext*>(device->hwctx);
 
     int profilecount = vaMaxNumProfiles(hwctx->display);
-    auto *profilelist = static_cast<VAProfile*>(av_malloc_array(static_cast<size_t>(profilecount), sizeof(VAProfile)));
+    auto * profilelist = static_cast<VAProfile*>(av_malloc_array(static_cast<size_t>(profilecount), sizeof(VAProfile)));
     if (vaQueryConfigProfiles(hwctx->display, profilelist, &profilecount) == VA_STATUS_SUCCESS)
     {
-        for (int i = 0; i < profilecount; ++i)
+        for (auto i = 0; i < profilecount; ++i)
         {
             VAProfile profile = profilelist[i];
             if (profile == VAProfileNone || profile == VAProfileH264StereoHigh || profile == VAProfileH264MultiviewHigh)
                 continue;
             int count = 0;
             int entrysize = vaMaxNumEntrypoints(hwctx->display);
-            auto *entrylist = static_cast<VAEntrypoint*>(av_malloc_array(static_cast<size_t>(entrysize), sizeof(VAEntrypoint)));
+            auto * entrylist = static_cast<VAEntrypoint*>(av_malloc_array(static_cast<size_t>(entrysize), sizeof(VAEntrypoint)));
             if (vaQueryConfigEntrypoints(hwctx->display, profile, entrylist, &count) == VA_STATUS_SUCCESS)
             {
                 for (int j = 0; j < count; ++j)
@@ -579,7 +546,7 @@ const VAAPIProfiles &MythVAAPIContext::GetProfiles(void)
                     uint attrcount = 0;
                     if (vaQuerySurfaceAttributes(hwctx->display, config, nullptr, &attrcount) == VA_STATUS_SUCCESS)
                     {
-                        auto *attrlist = static_cast<VASurfaceAttrib*>(av_malloc(attrcount * sizeof(VASurfaceAttrib)));
+                        auto * attrlist = static_cast<VASurfaceAttrib*>(av_malloc(attrcount * sizeof(VASurfaceAttrib)));
                         if (vaQuerySurfaceAttributes(hwctx->display, config, attrlist, &attrcount) == VA_STATUS_SUCCESS)
                         {
                             for (uint k = 0; k < attrcount; ++k)
@@ -605,36 +572,21 @@ const VAAPIProfiles &MythVAAPIContext::GetProfiles(void)
     }
     av_freep(&profilelist);
     av_buffer_unref(&hwdevicectx);
-
-    // Once only check for EGL support for best performance
-    MythRenderOpenGL* render = MythRenderOpenGL::GetOpenGLRender();
-    if (!s_profiles.isEmpty() && render)
-    {
-        if (render->IsEGL())
-        {
-            LOG(VB_GENERAL, LOG_INFO, LOC + "EGL DMABUF available for best VAAPI performance");
-        }
-        else
-        {
-            LOG(VB_GENERAL, LOG_WARNING, LOC + "No EGL support. VAAPI performance will be reduced");
-            LOG(VB_GENERAL, LOG_WARNING, LOC + "Consider setting MYTHTV_FORCE_EGL=1 to try and enable");
-        }
-    }
     return s_profiles;
 }
 
-void MythVAAPIContext::GetDecoderList(QStringList &Decoders)
+void MythVAAPIContext::GetDecoderList(QStringList& Decoders)
 {
-    const VAAPIProfiles& profiles = MythVAAPIContext::GetProfiles();
+    const auto & profiles = MythVAAPIContext::GetProfiles();
     if (profiles.isEmpty())
         return;
     Decoders.append("VAAPI:");
-    for (auto profile : qAsConst(profiles))
+    for (const auto & profile : qAsConst(profiles))
         if (profile.first != MythCodecContext::MJPEG)
             Decoders.append(MythCodecContext::GetProfileDescription(profile.first, profile.second.second));
 }
 
-void MythVAAPIContext::InitVideoCodec(AVCodecContext *Context, bool SelectedStream, bool &DirectRendering)
+void MythVAAPIContext::InitVideoCodec(AVCodecContext* Context, bool SelectedStream, bool& DirectRendering)
 {
     if (codec_is_vaapi(m_codecID))
     {
@@ -654,7 +606,7 @@ void MythVAAPIContext::InitVideoCodec(AVCodecContext *Context, bool SelectedStre
     MythCodecContext::InitVideoCodec(Context, SelectedStream, DirectRendering);
 }
 
-bool MythVAAPIContext::RetrieveFrame(AVCodecContext* /*unused*/, VideoFrame *Frame, AVFrame *AvFrame)
+bool MythVAAPIContext::RetrieveFrame(AVCodecContext* /*unused*/, MythVideoFrame* Frame, AVFrame* AvFrame)
 {
     if (AvFrame->format != AV_PIX_FMT_VAAPI)
         return false;
@@ -671,7 +623,7 @@ bool MythVAAPIContext::RetrieveFrame(AVCodecContext* /*unused*/, VideoFrame *Fra
  * by 1 (when doublerate deinterlacing). This is presumably an anomaly. NVDEC
  * doublerate deinterlacers produce the same problem.
 */
-int MythVAAPIContext::FilteredReceiveFrame(AVCodecContext *Context, AVFrame *Frame)
+int MythVAAPIContext::FilteredReceiveFrame(AVCodecContext* Context, AVFrame* Frame)
 {
     int ret = 0;
 
@@ -736,7 +688,7 @@ int MythVAAPIContext::FilteredReceiveFrame(AVCodecContext *Context, AVFrame *Fra
     return ret;
 }
 
-void MythVAAPIContext::PostProcessFrame(AVCodecContext* Context, VideoFrame *Frame)
+void MythVAAPIContext::PostProcessFrame(AVCodecContext* Context, MythVideoFrame* Frame)
 {
     if (!Frame || !codec_is_vaapi_dec(m_codecID) || !Context->hw_frames_ctx)
         return;
@@ -745,7 +697,7 @@ void MythVAAPIContext::PostProcessFrame(AVCodecContext* Context, VideoFrame *Fra
     // allow CPU/GLSL
     if (m_filterError)
     {
-        Frame->deinterlace_allowed = Frame->deinterlace_allowed & ~DEINT_DRIVER;
+        Frame->m_deinterlaceAllowed = Frame->m_deinterlaceAllowed & ~DEINT_DRIVER;
         return;
     }
     if (kCodec_HEVC_VAAPI_DEC == m_codecID || kCodec_VP9_VAAPI_DEC == m_codecID ||
@@ -767,26 +719,26 @@ void MythVAAPIContext::PostProcessFrame(AVCodecContext* Context, VideoFrame *Fra
     // interlaced flags to ensure auto deinterlacing continues to work
     if (m_deinterlacer)
     {
-        Frame->interlaced_frame = m_lastInterlaced;
-        Frame->top_field_first = m_lastTopFieldFirst;
-        Frame->deinterlace_inuse = m_deinterlacer | DEINT_DRIVER;
-        Frame->deinterlace_inuse2x = m_deinterlacer2x;
-        Frame->already_deinterlaced = true;
+        Frame->m_interlaced = m_lastInterlaced;
+        Frame->m_topFieldFirst = m_lastTopFieldFirst;
+        Frame->m_deinterlaceInuse = m_deinterlacer | DEINT_DRIVER;
+        Frame->m_deinterlaceInuse2x = m_deinterlacer2x;
+        Frame->m_alreadyDeinterlaced = true;
     }
 
     // N.B. this picks up the scan tracking in MythPlayer. So we can
     // auto enable deinterlacing etc and override Progressive/Interlaced - but
     // no reversed interlaced.
     MythDeintType vaapideint = DEINT_NONE;
-    MythDeintType singlepref = GetSingleRateOption(Frame, DEINT_DRIVER);
-    MythDeintType doublepref = GetDoubleRateOption(Frame, DEINT_DRIVER);
+    MythDeintType singlepref = Frame->GetSingleRateOption(DEINT_DRIVER);
+    MythDeintType doublepref = Frame->GetDoubleRateOption(DEINT_DRIVER);
     bool doublerate = true;
     bool other = false;
 
     // For decode only, a CPU or shader deint may also be used/preferred
     if (doublepref)
         vaapideint = doublepref;
-    else if (GetDoubleRateOption(Frame, DEINT_CPU | DEINT_SHADER))
+    else if (Frame->GetDoubleRateOption(DEINT_CPU | DEINT_SHADER))
         other = true;
 
     if (!vaapideint && !other && singlepref)
@@ -815,7 +767,7 @@ void MythVAAPIContext::PostProcessFrame(AVCodecContext* Context, VideoFrame *Fra
                                              m_filterGraph, m_filterSource, m_filterSink))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + QString("Failed to create deinterlacer %1 - disabling")
-            .arg(DeinterlacerName(vaapideint | DEINT_DRIVER, doublerate, FMT_VAAPI)));
+            .arg(MythVideoFrame::DeinterlacerName(vaapideint | DEINT_DRIVER, doublerate, FMT_VAAPI)));
         DestroyDeinterlacer();
         m_filterError = true;
     }
@@ -828,7 +780,7 @@ void MythVAAPIContext::PostProcessFrame(AVCodecContext* Context, VideoFrame *Fra
     }
 }
 
-bool MythVAAPIContext::IsDeinterlacing(bool &DoubleRate, bool StreamChange)
+bool MythVAAPIContext::IsDeinterlacing(bool& DoubleRate, bool StreamChange)
 {
     // the VAAPI deinterlacer can be turned on and off, so on stream changes
     // return false to ensure auto deint works for the new format (the deinterlacer
@@ -842,19 +794,19 @@ bool MythVAAPIContext::IsDeinterlacing(bool &DoubleRate, bool StreamChange)
     return false;
 }
 
-bool MythVAAPIContext::DecoderWillResetOnFlush(void)
+bool MythVAAPIContext::DecoderWillResetOnFlush()
 {
     // HEVC appears to be OK
     return kCodec_H264_VAAPI == m_codecID;
 }
 
-bool MythVAAPIContext::DecoderWillResetOnAspect(void)
+bool MythVAAPIContext::DecoderWillResetOnAspect()
 {
     // Only MPEG2 tested so far
     return (kCodec_MPEG2_VAAPI ==  m_codecID) || (kCodec_MPEG2_VAAPI_DEC == m_codecID);
 }
 
-void MythVAAPIContext::DestroyDeinterlacer(void)
+void MythVAAPIContext::DestroyDeinterlacer()
 {
     if (m_filterGraph)
         LOG(VB_GENERAL, LOG_INFO, LOC + "Destroying VAAPI deinterlacer");
@@ -863,8 +815,7 @@ void MythVAAPIContext::DestroyDeinterlacer(void)
     m_filterSink = nullptr;
     m_filterSource = nullptr;
     m_filterPTSUsed = 0;
-    m_filterPriorPTS[0] = 0;
-    m_filterPriorPTS[1] = 0;
+    m_filterPriorPTS.fill(0);
     m_filterWidth = 0;
     m_filterHeight = 0;
     if (m_framesCtx)

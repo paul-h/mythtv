@@ -38,7 +38,7 @@ QString NetworkInformationTable::toString(void) const
     {
         str.append(QString("Network descriptors length: %1\n")
                    .arg(NetworkDescriptorsLength()));
-        vector<const unsigned char*> desc =
+        std::vector<const unsigned char*> desc =
             MPEGDescriptor::Parse(NetworkDescriptors(),
                                   NetworkDescriptorsLength());
         uint priv_dsid = 0;
@@ -62,7 +62,7 @@ QString NetworkInformationTable::toString(void) const
         {
             str.append(QString("  Transport descriptors length: %1\n")
                        .arg(TransportDescriptorsLength(i)));
-            vector<const unsigned char*> desc =
+            std::vector<const unsigned char*> desc =
                 MPEGDescriptor::Parse(TransportDescriptors(i),
                                       TransportDescriptorsLength(i));
             uint priv_dsid = 0;
@@ -138,15 +138,15 @@ QString ServiceDescriptionTable::toString(void) const
         str.append(QString("  Service #%1 SID(0x%2) ")
                    .arg(i, 2, 10).arg(ServiceID(i), 0, 16));
         str.append(QString("eit_schd(%1) eit_pf(%2) encrypted(%3)\n")
-                   .arg(HasEITSchedule(i) ? "t" : "f")
-                   .arg(HasEITPresentFollowing(i) ? "t" : "f")
-                   .arg(IsEncrypted(i) ? "t" : "f"));
+                   .arg(HasEITSchedule(i) ? "t" : "f",
+                        HasEITPresentFollowing(i) ? "t" : "f",
+                        IsEncrypted(i) ? "t" : "f"));
 
         if (0 != ServiceDescriptorsLength(i))
         {
             str.append(QString("  Service descriptors length: %1\n")
                        .arg(ServiceDescriptorsLength(i)));
-            vector<const unsigned char*> desc =
+            std::vector<const unsigned char*> desc =
                 MPEGDescriptor::Parse(ServiceDescriptors(i),
                                       ServiceDescriptorsLength(i));
             uint priv_dsid = 0;
@@ -225,7 +225,7 @@ QString BouquetAssociationTable::toString(void) const
     {
         str.append(QString("Bouquet descriptors length: %1\n")
                    .arg(BouquetDescriptorsLength()));
-        vector<const unsigned char*> desc =
+        std::vector<const unsigned char*> desc =
             MPEGDescriptor::Parse(BouquetDescriptors(),
                                   BouquetDescriptorsLength());
         uint priv_dsid = 0;
@@ -249,7 +249,7 @@ QString BouquetAssociationTable::toString(void) const
         {
             str.append(QString("  Transport descriptors length: %1\n")
                        .arg(TransportDescriptorsLength(i)));
-            vector<const unsigned char*> desc =
+            std::vector<const unsigned char*> desc =
                 MPEGDescriptor::Parse(TransportDescriptors(i),
                                       TransportDescriptorsLength(i));
             uint priv_dsid = 0;

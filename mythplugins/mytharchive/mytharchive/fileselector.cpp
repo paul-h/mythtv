@@ -22,6 +22,10 @@
 #include "fileselector.h"
 #include "archiveutil.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#define qEnvironmentVariable getenv
+#endif
+
 ////////////////////////////////////////////////////////////////
 
 FileSelector::~FileSelector()
@@ -68,18 +72,18 @@ bool FileSelector::Create(void)
         }
     }
 
-    connect(m_okButton, SIGNAL(Clicked()), this, SLOT(OKPressed()));
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(cancelPressed()));
+    connect(m_okButton, &MythUIButton::Clicked, this, &FileSelector::OKPressed);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &FileSelector::cancelPressed);
 
-    connect(m_locationEdit, SIGNAL(LosingFocus()),
-            this, SLOT(locationEditLostFocus()));
+    connect(m_locationEdit, &MythUIType::LosingFocus,
+            this, &FileSelector::locationEditLostFocus);
     m_locationEdit->SetText(m_curDirectory);
 
-    connect(m_backButton, SIGNAL(Clicked()), this, SLOT(backPressed()));
-    connect(m_homeButton, SIGNAL(Clicked()), this, SLOT(homePressed()));
+    connect(m_backButton, &MythUIButton::Clicked, this, &FileSelector::backPressed);
+    connect(m_homeButton, &MythUIButton::Clicked, this, &FileSelector::homePressed);
 
-    connect(m_fileButtonList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            this, SLOT(itemClicked(MythUIButtonListItem *)));
+    connect(m_fileButtonList, &MythUIButtonList::itemClicked,
+            this, &FileSelector::itemClicked);
 
     BuildFocusList();
 
@@ -124,6 +128,8 @@ void FileSelector::itemClicked(MythUIButtonListItem *item)
         return;
 
     auto *fileData = item->GetData().value<FileData*>();
+    if (!fileData)
+        return;
 
     if (fileData->directory)
     {
@@ -193,8 +199,7 @@ void FileSelector::backPressed()
 
 void FileSelector::homePressed()
 {
-    char *home = getenv("HOME");
-    m_curDirectory = home;
+    m_curDirectory = qEnvironmentVariable("HOME");
 
     updateFileList();
 }
@@ -204,25 +209,16 @@ void FileSelector::OKPressed()
     if (m_selectorType == FSTYPE_FILELIST && m_archiveList)
     {
         // loop though selected files and add them to the list
-        QString f;
 
         // remove any items that have been removed from the list
         QList<ArchiveItem *> tempAList;
         for (auto *a : qAsConst(*m_archiveList))
         {
-            bool found = false;
-
-            for (int y = 0; y < m_selectedList.size(); y++)
-            {
-                f = m_selectedList.at(y);
-                if (a->type != "File" || a->filename == f)
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found)
+            if (a->type != "File")
+                continue;
+            if (std::none_of(m_selectedList.cbegin(), m_selectedList.cend(),
+                             [a](const auto & f)
+                                 {return a->filename == f; } ))
                 tempAList.append(a);
         }
 
@@ -231,28 +227,19 @@ void FileSelector::OKPressed()
 
         // remove any items that are already in the list
         QStringList tempSList;
-        for (int x = 0; x < m_selectedList.size(); x++)
+        for (const QString & f : qAsConst(m_selectedList))
         {
-            f = m_selectedList.at(x);
-
-            for (const auto *a : qAsConst(*m_archiveList))
-            {
-                if (a->filename == f)
-                {
-                    tempSList.append(f);
-                    break;
-                }
-            }
+            auto namematch = [f](const auto *a){ return a->filename == f; };
+            if (std::any_of(m_archiveList->cbegin(), m_archiveList->cend(), namematch))
+                tempSList.append(f);
         }
 
-        for (int x = 0; x < tempSList.size(); x++)
-            m_selectedList.removeAll(tempSList.at(x));
+        for (const auto & name : qAsConst(tempSList))
+            m_selectedList.removeAll(name);
 
         // add all that are left
-        for (int x = 0; x < m_selectedList.size(); x++)
+        for (const auto & f : qAsConst(m_selectedList))
         {
-            f = m_selectedList.at(x);
-
             QFile file(f);
             if (file.exists())
             {
@@ -347,14 +334,13 @@ void FileSelector::updateSelectedList()
 
     for (const auto *a : qAsConst(*m_archiveList))
     {
-        for (const auto *f : qAsConst(m_fileData))
+        auto samename = [a](const auto *f)
+            { return f->filename == a->filename; };
+        auto f = std::find_if(m_fileData.cbegin(), m_fileData.cend(), samename);
+        if (f != m_fileData.cend())
         {
-            if (f->filename == a->filename)
-            {
-                if (m_selectedList.indexOf(f->filename) == -1)
-                    m_selectedList.append(f->filename);
-                break;
-            }
+            if (m_selectedList.indexOf((*f)->filename) == -1)
+                m_selectedList.append((*f)->filename);
         }
     }
 }

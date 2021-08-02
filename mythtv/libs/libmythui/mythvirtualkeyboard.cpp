@@ -100,14 +100,14 @@ bool MythUIVirtualKeyboard::Create()
     loadKeyDefinitions(gCoreContext->GetLanguageAndVariant());
     updateKeys(true);
 
-    QSize screensize = GetMythUI()->GetScreenSettings().size();
+    QSize screensize = GetMythMainWindow()->GetScreenRect().size();
     MythRect editArea = m_parentEdit->GetArea();
     MythRect area = GetArea();
     MythPoint newPos;
 
     //FIXME this assumes the edit is a direct child of the parent screen
     MythUIType *parentScreen = nullptr;
-    parentScreen = dynamic_cast<MythUIType *>(m_parentEdit->parent());
+    parentScreen = qobject_cast<MythUIType *>(m_parentEdit->parent());
     if (parentScreen)
     {
         editArea.moveTopLeft(QPoint(editArea.x() + parentScreen->GetArea().x(),
@@ -302,38 +302,38 @@ void MythUIVirtualKeyboard::updateKeys(bool connectSignals)
                             m_shiftRButton = button;
 
                         button->SetLockable(true);
-                        connect(button, SIGNAL(Clicked()), SLOT(shiftClicked()));
+                        connect(button, &MythUIButton::Clicked, this, &MythUIVirtualKeyboard::shiftClicked);
                     }
                     else if (key.type == "char")
-                        connect(button, SIGNAL(Clicked()), SLOT(charClicked()));
+                        connect(button, &MythUIButton::Clicked, this, &MythUIVirtualKeyboard::charClicked);
                     else if (key.type == "done")
-                        connect(button, SIGNAL(Clicked()), SLOT(returnClicked()));
+                        connect(button, &MythUIButton::Clicked, this, &MythUIVirtualKeyboard::returnClicked);
                     else if (key.type == "del")
-                        connect(button, SIGNAL(Clicked()), SLOT(delClicked()));
+                        connect(button, &MythUIButton::Clicked, this, &MythUIVirtualKeyboard::delClicked);
                     else if (key.type == "lock")
                     {
                         m_lockButton = button;
                         m_lockButton->SetLockable(true);
-                        connect(m_lockButton, SIGNAL(Clicked()), SLOT(lockClicked()));
+                        connect(m_lockButton, &MythUIButton::Clicked, this, &MythUIVirtualKeyboard::lockClicked);
                     }
                     else if (key.type == "alt")
                     {
                         m_altButton = button;
                         m_altButton->SetLockable(true);
-                        connect(m_altButton, SIGNAL(Clicked()), SLOT(altClicked()));
+                        connect(m_altButton, &MythUIButton::Clicked, this, &MythUIVirtualKeyboard::altClicked);
                     }
                     else if (key.type == "comp")
                     {
                         m_compButton = button;
                         m_compButton->SetLockable(true);
-                        connect(m_compButton, SIGNAL(Clicked()), SLOT(compClicked()));
+                        connect(m_compButton, &MythUIButton::Clicked, this, &MythUIVirtualKeyboard::compClicked);
                     }
                     else if (key.type == "moveleft")
-                        connect(button, SIGNAL(Clicked()), SLOT(moveleftClicked()));
+                        connect(button, &MythUIButton::Clicked, this, &MythUIVirtualKeyboard::moveleftClicked);
                     else if (key.type == "moveright")
-                        connect(button, SIGNAL(Clicked()), SLOT(moverightClicked()));
+                        connect(button, &MythUIButton::Clicked, this, &MythUIVirtualKeyboard::moverightClicked);
                     else if (key.type == "back")
-                        connect(button, SIGNAL(Clicked()), SLOT(backClicked()));
+                        connect(button, &MythUIButton::Clicked, this, &MythUIVirtualKeyboard::backClicked);
                 }
             }
             else
@@ -534,7 +534,8 @@ void MythUIVirtualKeyboard::returnClicked(void)
     if (m_shift)
     {
         emit keyPressed("{NEWLINE}");
-        auto *event = new QKeyEvent(QEvent::KeyPress, m_newlineKey.keyCode, m_newlineKey.modifiers, "");
+        auto *event = new QKeyEvent(QEvent::KeyPress, m_newlineKey.key(),
+                                    m_newlineKey.keyboardModifiers(), "");
         m_parentEdit->keyPressEvent(event);
     }
     else
@@ -548,13 +549,15 @@ void MythUIVirtualKeyboard::moveleftClicked(void)
         if (m_shift)
         {
             emit keyPressed("{MOVEUP}");
-            auto *event = new QKeyEvent(QEvent::KeyPress, m_upKey.keyCode, m_upKey.modifiers, "");
+            auto *event = new QKeyEvent(QEvent::KeyPress, m_upKey.key(),
+                                        m_upKey.keyboardModifiers(), "");
             m_parentEdit->keyPressEvent(event);
         }
         else
         {
             emit keyPressed("{MOVELEFT}");
-            auto *event = new QKeyEvent(QEvent::KeyPress, m_leftKey.keyCode, m_leftKey.modifiers,"");
+            auto *event = new QKeyEvent(QEvent::KeyPress, m_leftKey.key(),
+                                        m_leftKey.keyboardModifiers(), "");
             m_parentEdit->keyPressEvent(event);
         }
     }
@@ -567,13 +570,15 @@ void MythUIVirtualKeyboard::moverightClicked(void)
         if (m_shift)
         {
             emit keyPressed("{MOVEDOWN}");
-            auto *event = new QKeyEvent(QEvent::KeyPress, m_downKey.keyCode, m_downKey.modifiers, "");
+            auto *event = new QKeyEvent(QEvent::KeyPress, m_downKey.key(),
+                                        m_downKey.keyboardModifiers(), "");
             m_parentEdit->keyPressEvent(event);
         }
         else
         {
             emit keyPressed("{MOVERIGHT}");
-            auto *event = new QKeyEvent(QEvent::KeyPress, m_rightKey.keyCode, m_rightKey.modifiers,"");
+            auto *event = new QKeyEvent(QEvent::KeyPress, m_rightKey.key(),
+                                        m_rightKey.keyboardModifiers(), "");
             m_parentEdit->keyPressEvent(event);
         }
     }
@@ -604,7 +609,7 @@ QString MythUIVirtualKeyboard::decodeChar(QString c)
         }
         else
         {
-            res += c.left(1);
+            res += c.at(0);
             c = c.mid(1);
         }
     }
@@ -628,7 +633,13 @@ QString MythUIVirtualKeyboard::getKeyText(const KeyDefinition& key) const
     return key.normal;
 }
 
-void MythUIVirtualKeyboard::loadEventKeyDefinitions(KeyEventDefinition *keyDef, const QString &action)
+void MythUIVirtualKeyboard::loadEventKeyDefinitions(
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+    KeyEventDefinition *keyDef,
+#else
+    QKeyCombination *keyDef,
+#endif
+    const QString &action)
 {
     QString keylist = MythMainWindow::GetKey("Global", action);
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
@@ -647,6 +658,7 @@ void MythUIVirtualKeyboard::loadEventKeyDefinitions(KeyEventDefinition *keyDef, 
         return;
     }
 
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     keyDef->keyCode = a[0];
 
     Qt::KeyboardModifiers modifiers = Qt::NoModifier;
@@ -664,4 +676,7 @@ void MythUIVirtualKeyboard::loadEventKeyDefinitions(KeyEventDefinition *keyDef, 
     }
 
     keyDef->modifiers = modifiers;
+#else
+    *keyDef = a[0];
+#endif
 }

@@ -425,7 +425,7 @@ QFileInfo Content::GetAlbumArt( int nTrackId, int nWidth, int nHeight )
     QImage img;
     if (sFullFileName.startsWith("myth://"))
     {
-        RemoteFile rf(sFullFileName, false, false, 0);
+        RemoteFile rf(sFullFileName, false, false, 0s);
         QByteArray data;
         rf.SaveAs(data);
 
@@ -520,12 +520,13 @@ QFileInfo Content::GetPreviewImage(        int        nRecordedId,
         return QFileInfo();
     }
 
-    if (pginfo.GetHostname().toLower() != gCoreContext->GetHostName().toLower())
+    if (pginfo.GetHostname().toLower() != gCoreContext->GetHostName().toLower()
+            &&  ! gCoreContext->GetBoolSetting("MasterBackendOverride", false))
     {
         QString sMsg =
             QString("GetPreviewImage: Wrong Host '%1' request from '%2'")
-                          .arg( gCoreContext->GetHostName())
-                          .arg( pginfo.GetHostname() );
+                          .arg( gCoreContext->GetHostName(),
+                                pginfo.GetHostname() );
 
         LOG(VB_UPNP, LOG_ERR, sMsg);
 
@@ -544,9 +545,10 @@ QFileInfo Content::GetPreviewImage(        int        nRecordedId,
 
     QString sPreviewFileName;
 
-    if (nSecsIn <= 0)
+    auto nSecs = std::chrono::seconds(nSecsIn);
+    if (nSecs <= 0s)
     {
-        nSecsIn = -1;
+        nSecs = -1s;
         sPreviewFileName = QString("%1.png").arg(sFileName);
     }
     else
@@ -567,7 +569,7 @@ QFileInfo Content::GetPreviewImage(        int        nRecordedId,
 
         auto *previewgen = new PreviewGenerator( &pginfo, QString(),
                                                  PreviewGenerator::kLocal);
-        previewgen->SetPreviewTimeAsSeconds( nSecsIn          );
+        previewgen->SetPreviewTimeAsSeconds( nSecs            );
         previewgen->SetOutputFilename      ( sPreviewFileName );
 
         bool ok = previewgen->Run();
@@ -637,7 +639,7 @@ QFileInfo Content::GetPreviewImage(        int        nRecordedId,
 
     auto *previewgen = new PreviewGenerator( &pginfo, QString(),
                                              PreviewGenerator::kLocal);
-    previewgen->SetPreviewTimeAsSeconds( nSecsIn             );
+    previewgen->SetPreviewTimeAsSeconds( nSecs               );
     previewgen->SetOutputFilename      ( sNewFileName        );
     previewgen->SetOutputSize          (QSize(nWidth,nHeight));
 
@@ -682,14 +684,15 @@ QFileInfo Content::GetRecording( int              nRecordedId,
         return QFileInfo();
     }
 
-    if (pginfo.GetHostname().toLower() != gCoreContext->GetHostName().toLower())
+    if (pginfo.GetHostname().toLower() != gCoreContext->GetHostName().toLower()
+            &&  ! gCoreContext->GetBoolSetting("MasterBackendOverride", false))
     {
         // We only handle requests for local resources
 
         QString sMsg =
             QString("GetRecording: Wrong Host '%1' request from '%2'.")
-                          .arg( gCoreContext->GetHostName())
-                          .arg( pginfo.GetHostname() );
+                          .arg( gCoreContext->GetHostName(),
+                                pginfo.GetHostname() );
 
         LOG(VB_UPNP, LOG_ERR, sMsg);
 
@@ -847,7 +850,7 @@ bool Content::DownloadFile( const QString &sURL, const QString &sStorageGroup )
     {
         LOG(VB_GENERAL, LOG_ERR,
             QString("ERROR: %1 write filename '%2' does not "
-                    "pass sanity checks.") .arg(sURL).arg(filename));
+                    "pass sanity checks.").arg(sURL, filename));
         return false;
     }
 
@@ -1022,14 +1025,17 @@ DTC::LiveStreamInfo *Content::AddRecordingLiveStream(
         return nullptr;
     }
 
-    if (pginfo.GetHostname().toLower() != gCoreContext->GetHostName().toLower())
+    bool masterBackendOverride = gCoreContext->GetBoolSetting("MasterBackendOverride", false);
+
+    if (pginfo.GetHostname().toLower() != gCoreContext->GetHostName().toLower()
+            &&  ! masterBackendOverride)
     {
         // We only handle requests for local resources
 
         QString sMsg =
             QString("GetRecording: Wrong Host '%1' request from '%2'.")
-                          .arg( gCoreContext->GetHostName())
-                          .arg( pginfo.GetHostname() );
+                          .arg( gCoreContext->GetHostName(),
+                                pginfo.GetHostname() );
 
         LOG(VB_UPNP, LOG_ERR, sMsg);
 
@@ -1052,8 +1058,14 @@ DTC::LiveStreamInfo *Content::AddRecordingLiveStream(
 
     QFileInfo fInfo( sFileName );
 
+    QString hostName;
+    if (masterBackendOverride)
+        hostName = gCoreContext->GetHostName();
+    else
+        hostName = pginfo.GetHostname();
+
     return AddLiveStream( pginfo.GetStorageGroup(), fInfo.fileName(),
-                          pginfo.GetHostname(), nMaxSegments, nWidth,
+                          hostName, nMaxSegments, nWidth,
                           nHeight, nBitrate, nAudioBitrate, nSampleRate );
 }
 
@@ -1088,8 +1100,8 @@ DTC::LiveStreamInfo *Content::AddVideoLiveStream( int nId,
 
         QString sMsg =
             QString("AddVideoLiveStream: Wrong Host '%1' request from '%2'.")
-                          .arg( gCoreContext->GetHostName())
-                          .arg( metadata->GetHost() );
+                          .arg( gCoreContext->GetHostName(),
+                                metadata->GetHost() );
 
         LOG(VB_UPNP, LOG_ERR, sMsg);
 

@@ -61,67 +61,51 @@
 
 QString CardUtil::GetScanableInputTypes(void)
 {
-    QString inputTypes = "";
+    QStringList inputTypes {};
 
 #ifdef USING_DVB
     inputTypes += "'DVB'";
 #endif // USING_DVB
 
 #ifdef USING_V4L2
-    if (!inputTypes.isEmpty())
-        inputTypes += ",";
     inputTypes += "'V4L'";
 # ifdef USING_IVTV
-    inputTypes += ",'MPEG'";
+    inputTypes += "'MPEG'";
 # endif // USING_IVTV
 #endif // USING_V4L2
 
 #ifdef USING_IPTV
-    if (!inputTypes.isEmpty())
-        inputTypes += ",";
     inputTypes += "'FREEBOX'";
 #endif // USING_IPTV
 
 #ifdef USING_VBOX
-    if (!inputTypes.isEmpty())
-        inputTypes += ",";
     inputTypes += "'VBOX'";
 #endif // USING_VBOX
 
 #ifdef USING_HDHOMERUN
-    if (!inputTypes.isEmpty())
-        inputTypes += ",";
     inputTypes += "'HDHOMERUN'";
 #endif // USING_HDHOMERUN
 
 #ifdef USING_SATIP
-    if (!inputTypes.isEmpty())
-        inputTypes += ",";
     inputTypes += "'SATIP'";
 #endif // USING_SATIP
 
 #ifdef USING_ASI
-    if (!inputTypes.isEmpty())
-        inputTypes += ",";
     inputTypes += "'ASI'";
 #endif
 
 #ifdef USING_CETON
-    if (!inputTypes.isEmpty())
-        inputTypes += ",";
     inputTypes += "'CETON'";
 #endif // USING_CETON
 
 #if !defined( USING_MINGW ) && !defined( _MSC_VER )
-    if (!inputTypes.isEmpty())
-        inputTypes += ",";
     inputTypes += "'EXTERNAL'";
 #endif
 
     if (inputTypes.isEmpty())
-        inputTypes = "'DUMMY'";
+        return "('DUMMY')";
 
-    return QString("(%1)").arg(inputTypes);
+    return QString("(%1)").arg(inputTypes.join(','));
 }
 
 bool CardUtil::IsCableCardPresent(uint inputid,
@@ -210,15 +194,16 @@ bool CardUtil::IsCableCardPresent(uint inputid,
 
         QString response = QString(data);
 
-        QRegExp regex("^\\{ \"?result\"?: \"(.*)\" \\}$");
-        if (regex.indexIn(response) == -1)
+        static const QRegularExpression regex { "^\\{ \"?result\"?: \"(.*)\" \\}$"};
+        auto match = regex.match(response);
+        if (!match.hasMatch())
         {
             LOG(VB_GENERAL, LOG_ERR,
                 QString("CardUtil: Ceton unexpected http response: %1").arg(response));
             return false;
         }
 
-        QString result = regex.cap(1);
+        QString result = match.captured(1);
 
         if (result == "Inserted")
         {
@@ -478,7 +463,8 @@ QStringList CardUtil::ProbeVideoDevices(const QString &rawtype)
     if (rawtype.toUpper() == "DVB")
     {
         QDir dir("/dev/dvb", "adapter*", QDir::Name, QDir::Dirs);
-        for (const auto & it : dir.entryInfoList())
+        QFileInfoList entries = dir.entryInfoList();
+        for (const auto & it : qAsConst(entries))
         {
             QDir subdir(it.filePath(), "frontend*", QDir::Name, QDir::Files | QDir::System);
             const QFileInfoList subil = subdir.entryInfoList();
@@ -492,7 +478,8 @@ QStringList CardUtil::ProbeVideoDevices(const QString &rawtype)
     else if (rawtype.toUpper() == "ASI")
     {
         QDir dir("/dev/", "asirx*", QDir::Name, QDir::System);
-        for (const auto & it : dir.entryInfoList())
+        QFileInfoList entries = dir.entryInfoList();
+        for (const auto & it : qAsConst(entries))
         {
             if (GetASIDeviceNumber(it.filePath()) >= 0)
             {
@@ -509,14 +496,14 @@ QStringList CardUtil::ProbeVideoDevices(const QString &rawtype)
         uint32_t  device_type = HDHOMERUN_DEVICE_TYPE_TUNER;
         uint32_t  device_id   = HDHOMERUN_DEVICE_ID_WILDCARD;
         const int max_count   = 50;
-        hdhomerun_discover_device_t result_list[max_count];
+        std::array<hdhomerun_discover_device_t,max_count> result_list {};
 
 #ifdef HDHOMERUN_V2
         int result = hdhomerun_discover_find_devices_custom_v2(
-            target_ip, device_type, device_id, result_list, max_count);
+            target_ip, device_type, device_id, result_list.data(), result_list.size());
 #else
         int result = hdhomerun_discover_find_devices_custom(
-            target_ip, device_type, device_id, result_list, max_count);
+            target_ip, device_type, device_id, result_list.data(), result_list.size());
 #endif
 
         if (result == -1)
@@ -604,7 +591,7 @@ QStringList CardUtil::ProbeDeliverySystems(const QString &device)
     cmd.props = &prop;
     if (ioctl(fd_frontend, FE_GET_PROPERTY, &cmd) == 0)
     {
-        LOG(VB_GENERAL, LOG_INFO,
+        LOG(VB_GENERAL, LOG_DEBUG,
             QString("CardUtil(%1): ").arg(device) +
             QString("dvb api version %1.%2").arg((prop.u.data>>8)&0xff).arg((prop.u.data)&0xff));
     }
@@ -756,14 +743,14 @@ bool CardUtil::HasDVBCRCBug(const QString &device)
             (name == "ST STV0299 DVB-S"));         // munges PAT
 }
 
-uint CardUtil::GetMinSignalMonitoringDelay(const QString &device)
+std::chrono::milliseconds CardUtil::GetMinSignalMonitoringDelay(const QString &device)
 {
     QString name = ProbeDVBFrontendName(device);
     if (name.indexOf("DVB-S") >= 0)
-        return 300;
+        return 300ms;
     if (name == "DiBcom 3000P/M-C DVB-T")
-        return 100;
-    return 25;
+        return 100ms;
+    return 25ms;
 }
 
 DTVTunerType CardUtil::ConvertToTunerType(DTVModulationSystem delsys)
@@ -779,7 +766,6 @@ DTVTunerType CardUtil::ConvertToTunerType(DTVModulationSystem delsys)
             tunertype = DTVTunerType::kTunerTypeDVBS2;
             break;
         case DTVModulationSystem::kModulationSystem_DVBC_ANNEX_A:
-        case DTVModulationSystem::kModulationSystem_DVBC_ANNEX_B:
         case DTVModulationSystem::kModulationSystem_DVBC_ANNEX_C:
             tunertype = DTVTunerType::kTunerTypeDVBC;
             break;
@@ -789,7 +775,11 @@ DTVTunerType CardUtil::ConvertToTunerType(DTVModulationSystem delsys)
         case DTVModulationSystem::kModulationSystem_DVBT2:
             tunertype = DTVTunerType::kTunerTypeDVBT2;
             break;
+        case DTVModulationSystem::kModulationSystem_DTMB:
+            tunertype = DTVTunerType::kTunerTypeDVBT;
+            break;
         case DTVModulationSystem::kModulationSystem_ATSC:
+        case DTVModulationSystem::kModulationSystem_DVBC_ANNEX_B:
             tunertype = DTVTunerType::kTunerTypeATSC;
             break;
         case DTVModulationSystem::kModulationSystem_UNDEFINED:
@@ -850,7 +840,7 @@ DTVTunerType CardUtil::GetTunerTypeFromMultiplex(uint mplexid)
     if (!query.next())
     {
         LOG(VB_GENERAL, LOG_ERR, LOC +
-            QString("Could not find mod_sys in dtv_multiplex for mplexid %1")
+            QString("Could not find entry in dtv_multiplex for mplexid %1")
                 .arg(mplexid));
 
         return tuner_type;
@@ -866,9 +856,9 @@ DTVTunerType CardUtil::GetTunerTypeFromMultiplex(uint mplexid)
 // Get the currently configured delivery system from the database
 DTVModulationSystem CardUtil::GetDeliverySystem(uint inputid)
 {
-    QString delsys_db = GetDeliverySystemFromDB(inputid);
+    QString ds = GetDeliverySystemFromDB(inputid);
     DTVModulationSystem delsys;
-    delsys.Parse(delsys_db);
+    delsys.Parse(ds);
     return delsys;
 }
 
@@ -928,7 +918,7 @@ DTVModulationSystem CardUtil::ProbeCurrentDeliverySystem(int fd_frontend)
         return delsys;
 	}
 
-    delsys.Parse(DTVModulationSystem::toString(prop.u.data));
+    delsys = prop.u.data;
 
 #else
     Q_UNUSED(fd_frontend);
@@ -948,8 +938,6 @@ QString CardUtil::ProbeSubTypeName(uint inputid)
     QString type = GetRawInputType(inputid);
     if ("DVB" != type)
         return type;
-
-    QString device = GetVideoDevice(inputid);
 
     DTVTunerType tunertype;
     int fd_frontend = OpenVideoDevice(inputid);
@@ -1017,12 +1005,8 @@ DTVModulationSystem CardUtil::ProbeBestDeliverySystem(int fd)
     // Get all supported delivery systems from the card
     QString msg = "Supported delivery systems:";
     QStringList delsyslist = ProbeDeliverySystems(fd);
-    for (const auto & it : qAsConst(delsyslist))
-    {
-        msg += " ";
-        msg += it;
-    }
-    LOG(VB_GENERAL, LOG_INFO, LOC + msg);
+    msg.append(delsyslist.join(" "));
+    LOG(VB_GENERAL, LOG_DEBUG, LOC + msg);
 
     // If the current delivery system is DVB-T and DVB-T2 is supported then select DVB-T2
     if (DTVModulationSystem::kModulationSystem_DVBT == delsys)
@@ -1032,7 +1016,7 @@ DTVModulationSystem CardUtil::ProbeBestDeliverySystem(int fd)
         {
             LOG(VB_GENERAL, LOG_INFO, LOC +
                 QString("Changing delivery system from %1 to %2")
-                    .arg(delsys.toString()).arg(newdelsys.toString()));
+                    .arg(delsys.toString(), newdelsys.toString()));
             delsys = newdelsys;
         }
     }
@@ -1045,7 +1029,7 @@ DTVModulationSystem CardUtil::ProbeBestDeliverySystem(int fd)
         {
             LOG(VB_GENERAL, LOG_INFO, LOC +
                 QString("Changing delivery system from %1 to %2")
-                    .arg(delsys.toString()).arg(newdelsys.toString()));
+                    .arg(delsys.toString(), newdelsys.toString()));
             delsys = newdelsys;
         }
     }
@@ -1233,7 +1217,7 @@ int CardUtil::OpenVideoDevice(const QString &device)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("Can't open DVB frontend (%1) for %2.")
-                .arg(dvbdev).arg(device) + ENO);
+                .arg(dvbdev, device) + ENO);
     }
     return fd_frontend;
 }
@@ -1285,12 +1269,12 @@ bool set_on_input(const QString &to_set, uint inputid, const QString &value)
  *  \param hostname    Host on which device resides, only
  *                     required if said host is not the localhost
  */
-vector<uint> CardUtil::GetInputIDs(const QString& videodevice,
+std::vector<uint> CardUtil::GetInputIDs(const QString& videodevice,
                                    const QString& rawtype,
                                    const QString& inputname,
                                    QString hostname)
 {
-    vector<uint> list;
+    std::vector<uint> list;
 
     if (hostname.isEmpty())
         hostname = gCoreContext->GetHostName();
@@ -1353,9 +1337,9 @@ uint CardUtil::GetChildInputCount(uint inputid)
     return count;
 }
 
-vector<uint> CardUtil::GetChildInputIDs(uint inputid)
+std::vector<uint> CardUtil::GetChildInputIDs(uint inputid)
 {
-    vector<uint> list;
+    std::vector<uint> list;
 
     if (!inputid)
         return list;
@@ -1455,7 +1439,7 @@ static uint clone_capturecard(uint src_inputid, uint orig_dst_inputid)
         return 0;
     }
 
-    // Hangel schedgroup and schedorder specially.  If schedgroup is
+    // Handle schedgroup and schedorder specially.  If schedgroup is
     // set, schedgroup and schedorder should be false and 0,
     // respectively, for all children.
     bool schedgroup = query.value(26).toBool();
@@ -1515,8 +1499,8 @@ static uint clone_capturecard(uint src_inputid, uint orig_dst_inputid)
     }
 
     // copy input group linkages
-    vector<uint> src_grps = CardUtil::GetInputGroups(src_inputid);
-    vector<uint> dst_grps = CardUtil::GetInputGroups(dst_inputid);
+    std::vector<uint> src_grps = CardUtil::GetInputGroups(src_inputid);
+    std::vector<uint> dst_grps = CardUtil::GetInputGroups(dst_inputid);
     for (uint dst_grp : dst_grps)
         CardUtil::UnlinkInputGroup(dst_inputid, dst_grp);
     for (uint src_grp : src_grps)
@@ -1602,7 +1586,7 @@ QString CardUtil::GetFirewireChangerModel(uint inputid)
     return fwnode;
 }
 
-vector<uint> CardUtil::GetInputIDs(uint sourceid)
+std::vector<uint> CardUtil::GetInputIDs(uint sourceid)
 {
     MSqlQuery query(MSqlQuery::InitCon());
 
@@ -1612,7 +1596,7 @@ vector<uint> CardUtil::GetInputIDs(uint sourceid)
         "WHERE sourceid = :SOURCEID");
     query.bindValue(":SOURCEID", sourceid);
 
-    vector<uint> list;
+    std::vector<uint> list;
 
     if (!query.exec())
     {
@@ -1644,7 +1628,7 @@ bool CardUtil::SetStartChannel(uint inputid, const QString &channum)
     return true;
 }
 
-bool CardUtil::GetInputInfo(InputInfo &input, vector<uint> *groupids)
+bool CardUtil::GetInputInfo(InputInfo &input, std::vector<uint> *groupids)
 {
     if (!input.m_inputId)
         return false;
@@ -2012,9 +1996,9 @@ bool CardUtil::UnlinkInputGroup(uint inputid, uint inputgroupid)
     return true;
 }
 
-vector<uint> CardUtil::GetInputGroups(uint inputid)
+std::vector<uint> CardUtil::GetInputGroups(uint inputid)
 {
-    vector<uint> list;
+    std::vector<uint> list;
 
     MSqlQuery query(MSqlQuery::InitCon());
 
@@ -2038,9 +2022,9 @@ vector<uint> CardUtil::GetInputGroups(uint inputid)
     return list;
 }
 
-vector<uint> CardUtil::GetGroupInputIDs(uint inputgroupid)
+std::vector<uint> CardUtil::GetGroupInputIDs(uint inputgroupid)
 {
-    vector<uint> list;
+    std::vector<uint> list;
 
     MSqlQuery query(MSqlQuery::InitCon());
 
@@ -2065,12 +2049,9 @@ vector<uint> CardUtil::GetGroupInputIDs(uint inputgroupid)
     return list;
 }
 
-vector<uint> CardUtil::GetConflictingInputs(uint inputid)
+std::vector<uint> CardUtil::GetConflictingInputs(uint inputid)
 {
-    LOG(VB_RECORD, LOG_INFO,
-        QString("CardUtil[%1]: GetConflictingInputs() input %1").arg(inputid));
-
-    vector<uint> inputids;
+    std::vector<uint> inputids;
 
     MSqlQuery query(MSqlQuery::InitCon());
 
@@ -2098,16 +2079,25 @@ vector<uint> CardUtil::GetConflictingInputs(uint inputid)
     while (query.next())
     {
         inputids.push_back(query.value(0).toUInt());
-        LOG(VB_RECORD, LOG_INFO,
-            QString("CardUtil[%1]: GetConflictingInputs() got input %2")
-                .arg(inputid).arg(inputids.back()));
     }
 
+    if (VERBOSE_LEVEL_CHECK(VB_RECORD, LOG_INFO))
+    {
+        QString msg = QString("CardUtil[%1]: GetConflictingInputs(%1) ").arg(inputid);
+        QStringList ids;
+        for (auto id : inputids)
+        {
+            ids.append(QString::number(id));
+        }
+        msg.append(ids.join(','));
+        LOG(VB_RECORD, LOG_INFO, msg);
+   }
     return inputids;
 }
 
 bool CardUtil::GetTimeouts(uint inputid,
-                           uint &signal_timeout, uint &channel_timeout)
+                           std::chrono::milliseconds &signal_timeout,
+                           std::chrono::milliseconds &channel_timeout)
 {
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
@@ -2120,8 +2110,8 @@ bool CardUtil::GetTimeouts(uint inputid,
         MythDB::DBError("CardUtil::GetTimeouts()", query);
     else if (query.next())
     {
-        signal_timeout  = (uint) max(query.value(0).toInt(), 250);
-        channel_timeout = (uint) max(query.value(1).toInt(), 500);
+        signal_timeout  = std::max(std::chrono::milliseconds(query.value(0).toInt()), 250ms);
+        channel_timeout = std::max(std::chrono::milliseconds(query.value(1).toInt()), 500ms);
         return true;
     }
 
@@ -2333,6 +2323,65 @@ InputNames CardUtil::GetConfiguredDVBInputs(const QString &device)
     return list;
 }
 
+// Convert DVBv5 frontend capabilities from bitmask to string
+//
+// Source linuxtv.org v4l-utils/lib/libdvbv5/dvb-v5.c
+//
+QStringList CardUtil::CapabilitiesToString(uint64_t capabilities)
+{
+    QStringList caps;
+#ifdef USING_DVB
+
+    struct fe_caps_name {
+        unsigned  idx;
+        const char *name;
+    };
+
+    std::array<fe_caps_name,31> fe_caps_name {{
+        { FE_CAN_2G_MODULATION,          "CAN_2G_MODULATION" },
+        { FE_CAN_8VSB,                   "CAN_8VSB" },
+        { FE_CAN_16VSB,                  "CAN_16VSB" },
+        { FE_CAN_BANDWIDTH_AUTO,         "CAN_BANDWIDTH_AUTO" },
+        { FE_CAN_FEC_1_2,                "CAN_FEC_1_2" },
+        { FE_CAN_FEC_2_3,                "CAN_FEC_2_3" },
+        { FE_CAN_FEC_3_4,                "CAN_FEC_3_4" },
+        { FE_CAN_FEC_4_5,                "CAN_FEC_4_5" },
+        { FE_CAN_FEC_5_6,                "CAN_FEC_5_6" },
+        { FE_CAN_FEC_6_7,                "CAN_FEC_6_7" },
+        { FE_CAN_FEC_7_8,                "CAN_FEC_7_8" },
+        { FE_CAN_FEC_8_9,                "CAN_FEC_8_9" },
+        { FE_CAN_FEC_AUTO,               "CAN_FEC_AUTO" },
+        { FE_CAN_GUARD_INTERVAL_AUTO,    "CAN_GUARD_INTERVAL_AUTO" },
+        { FE_CAN_HIERARCHY_AUTO,         "CAN_HIERARCHY_AUTO" },
+        { FE_CAN_INVERSION_AUTO,         "CAN_INVERSION_AUTO" },
+        { FE_CAN_MULTISTREAM,            "CAN_MULTISTREAM" },
+        { FE_CAN_MUTE_TS,                "CAN_MUTE_TS" },
+        { FE_CAN_QAM_16,                 "CAN_QAM_16" },
+        { FE_CAN_QAM_32,                 "CAN_QAM_32" },
+        { FE_CAN_QAM_64,                 "CAN_QAM_64" },
+        { FE_CAN_QAM_128,                "CAN_QAM_128" },
+        { FE_CAN_QAM_256,                "CAN_QAM_256" },
+        { FE_CAN_QAM_AUTO,               "CAN_QAM_AUTO" },
+        { FE_CAN_QPSK,                   "CAN_QPSK" },
+        { FE_CAN_RECOVER,                "CAN_RECOVER" },
+        { FE_CAN_TRANSMISSION_MODE_AUTO, "CAN_TRANSMISSION_MODE_AUTO" },
+        { FE_CAN_TURBO_FEC,              "CAN_TURBO_FEC" },
+        { FE_HAS_EXTENDED_CAPS,          "HAS_EXTENDED_CAPS" },
+        { FE_IS_STUPID,                  "IS_STUPID" },
+        { FE_NEEDS_BENDING,              "NEEDS_BENDING" },
+    }};
+
+    for (const auto & cap : fe_caps_name)
+    {
+        if (capabilities & cap.idx)
+            caps.append(cap.name);
+    }
+#else
+    Q_UNUSED(capabilities);
+#endif  // USING_DVB
+    return caps;
+}
+
 QStringList CardUtil::ProbeVideoInputs(const QString& device, const QString& inputtype)
 {
     QStringList ret;
@@ -2350,7 +2399,7 @@ QStringList CardUtil::ProbeVideoInputs(const QString& device, const QString& inp
 QStringList CardUtil::ProbeAudioInputs(const QString& device, const QString& inputtype)
 {
     LOG(VB_GENERAL, LOG_DEBUG, QString("ProbeAudioInputs(%1,%2)")
-                                   .arg(device).arg(inputtype));
+                                   .arg(device, inputtype));
     QStringList ret;
 
     if ("HDPVR" == inputtype ||
@@ -2447,12 +2496,11 @@ QStringList CardUtil::ProbeDVBInputs(const QString& device)
 QString CardUtil::GetDeviceLabel(const QString &inputtype,
                                  const QString &videodevice)
 {
-    return QString("[ %1 : %2 ]").arg(inputtype).arg(videodevice);
+    return QString("[ %1 : %2 ]").arg(inputtype, videodevice);
 }
 
 QString CardUtil::GetDeviceLabel(uint inputid)
 {
-    QString devlabel;
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare("SELECT cardtype, videodevice "
                   "FROM capturecard WHERE cardid = :INPUTID ");
@@ -2496,8 +2544,8 @@ int CardUtil::CreateCaptureCard(const QString &videodevice,
                                  const uint firewire_speed,
                                  const QString &firewire_model,
                                  const uint firewire_connection,
-                                 const uint signal_timeout,
-                                 const uint channel_timeout,
+                                 const std::chrono::milliseconds signal_timeout,
+                                 const std::chrono::milliseconds channel_timeout,
                                  const uint dvb_tuning_delay,
                                  const uint contrast,
                                  const uint brightness,
@@ -2538,8 +2586,8 @@ int CardUtil::CreateCaptureCard(const QString &videodevice,
     query.bindValue(":FIREWIRESPEED", firewire_speed);
     query.bindValue(":FIREWIREMODEL", firewire_model);
     query.bindValue(":FIREWIRECONNECTION", firewire_connection);
-    query.bindValue(":SIGNALTIMEOUT", signal_timeout);
-    query.bindValue(":CHANNELTIMEOUT", channel_timeout);
+    query.bindValue(":SIGNALTIMEOUT", static_cast<qint64>(signal_timeout.count()));
+    query.bindValue(":CHANNELTIMEOUT", static_cast<qint64>(channel_timeout.count()));
     query.bindValue(":DVBTUNINGDELAY", dvb_tuning_delay);
     query.bindValue(":CONTRAST", contrast);
     query.bindValue(":BRIGHTNESS", brightness);
@@ -2577,7 +2625,7 @@ int CardUtil::CreateCaptureCard(const QString &videodevice,
 
 bool CardUtil::DeleteInput(uint inputid)
 {
-    vector<uint> childids = GetChildInputIDs(inputid);
+    std::vector<uint> childids = GetChildInputIDs(inputid);
     for (uint childid : childids)
     {
         if (!DeleteInput(childid))
@@ -2655,9 +2703,9 @@ bool CardUtil::DeleteAllInputs(void)
             query.exec("TRUNCATE TABLE iptv_channel"));
 }
 
-vector<uint> CardUtil::GetInputList(void)
+std::vector<uint> CardUtil::GetInputList(void)
 {
-    vector<uint> list;
+    std::vector<uint> list;
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
@@ -2676,9 +2724,9 @@ vector<uint> CardUtil::GetInputList(void)
     return list;
 }
 
-vector<uint> CardUtil::GetSchedInputList(void)
+std::vector<uint> CardUtil::GetSchedInputList(void)
 {
-    vector<uint> list;
+    std::vector<uint> list;
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
@@ -2698,9 +2746,9 @@ vector<uint> CardUtil::GetSchedInputList(void)
     return list;
 }
 
-vector<uint> CardUtil::GetLiveTVInputList(void)
+std::vector<uint> CardUtil::GetLiveTVInputList(void)
 {
-    vector<uint> list;
+    std::vector<uint> list;
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
@@ -2726,13 +2774,16 @@ QString CardUtil::GetDeviceName(dvb_dev_type_t type, const QString &device)
 #if 0
     LOG(VB_RECORD, LOG_DEBUG, LOC + QString("DVB Device (%1)").arg(devname));
 #endif
-    QString tmp = devname;
 
     if (DVB_DEV_FRONTEND == type)
+    {
         return devname;
+    }
+
     if (DVB_DEV_DVR == type)
     {
-        tmp = tmp.replace(devname.indexOf("frontend"), 8, "dvr");
+        QString tmp = devname;
+        tmp = tmp.replace(tmp.indexOf("frontend"), 8, "dvr");
         if (QFile::exists(tmp))
         {
             LOG(VB_RECORD, LOG_DEBUG, LOC +
@@ -2740,15 +2791,25 @@ QString CardUtil::GetDeviceName(dvb_dev_type_t type, const QString &device)
             return tmp;
         }
 
-        // use dvr0, allows multi-standard frontends which only have one dvr
-        devname = devname.replace(devname.indexOf("frontend"), 9, "dvr0");
+        // Use dvr0, allows multi-standard frontends which only have one dvr
+        tmp = devname;
+        tmp = tmp.replace(tmp.indexOf("frontend"), 9, "dvr0");
+        if (QFile::exists(tmp))
+        {
+            LOG(VB_RECORD, LOG_DEBUG, LOC +
+                QString("Adapter Frontend dvr number not matching, using dvr0 instead (%1)").arg(tmp));
+            return tmp;
+        }
+
         LOG(VB_RECORD, LOG_DEBUG, LOC +
-            QString("Adapter Frontend dvr number not matching, using dvr0 instead (%1)").arg(devname));
-        return devname;
+            QString("Adapter Frontend no dvr device found for (%1)").arg(devname));
+        return "";
     }
+
     if (DVB_DEV_DEMUX == type)
     {
-        tmp = tmp.replace(devname.indexOf("frontend"), 8, "demux");
+        QString tmp = devname;
+        tmp = tmp.replace(tmp.indexOf("frontend"), 8, "demux");
         if (QFile::exists(tmp))
         {
             LOG(VB_RECORD, LOG_DEBUG, LOC +
@@ -2756,15 +2817,25 @@ QString CardUtil::GetDeviceName(dvb_dev_type_t type, const QString &device)
             return tmp;
         }
 
-        // use demux0, allows multi-standard frontends, which only have one demux
-        devname = devname.replace(devname.indexOf("frontend"), 9, "demux0");
+        // Use demux0, allows multi-standard frontends, which only have one demux
+        tmp = devname;
+        tmp = tmp.replace(tmp.indexOf("frontend"), 9, "demux0");
+        if (QFile::exists(tmp))
+        {
+            LOG(VB_RECORD, LOG_DEBUG, LOC +
+                QString("Adapter Frontend demux number not matching, using demux0 instead (%1)").arg(tmp));
+            return tmp;
+        }
+
         LOG(VB_RECORD, LOG_DEBUG, LOC +
-            QString("Adapter Frontend demux number not matching, using demux0 instead (%1)").arg(devname));
-        return devname;
+            QString("Adapter Frontend no demux device found for (%1)").arg(devname));
+        return "";
     }
+
     if (DVB_DEV_CA == type)
     {
-        tmp = tmp.replace(devname.indexOf("frontend"), 8, "ca");
+        QString tmp = devname;
+        tmp = tmp.replace(tmp.indexOf("frontend"), 8, "ca");
         if (QFile::exists(tmp))
         {
             LOG(VB_RECORD, LOG_DEBUG, LOC +
@@ -2772,16 +2843,30 @@ QString CardUtil::GetDeviceName(dvb_dev_type_t type, const QString &device)
             return tmp;
         }
 
-        // use ca0, allows multi-standard frontends, which only have one ca
-        devname = devname.replace(devname.indexOf("frontend"), 9, "ca0");
+        // Use ca0, allows multi-standard frontends, which only have one ca
+        tmp = devname;
+        tmp = tmp.replace(tmp.indexOf("frontend"), 9, "ca0");
+        if (QFile::exists(tmp))
+        {
+            LOG(VB_RECORD, LOG_DEBUG, LOC +
+                QString("Adapter Frontend ca number not matching, using ca0 instead (%1)").arg(tmp));
+            return tmp;
+        }
+
         LOG(VB_RECORD, LOG_DEBUG, LOC +
-            QString("Adapter Frontend ca number not matching, using ca0 instead (%1)").arg(devname));
-        return devname;
+            QString("Adapter Frontend no ca device found for (%1)").arg(devname));
+        return "";
     }
+
     if (DVB_DEV_AUDIO == type)
+    {
         return devname.replace(devname.indexOf("frontend"), 8, "audio");
+    }
+
     if (DVB_DEV_VIDEO == type)
+    {
         return devname.replace(devname.indexOf("frontend"), 8, "video");
+    }
 
     return "";
 }
@@ -2927,7 +3012,7 @@ QString CardUtil::GetVBoxdesc(const QString &id, const QString &ip,
     if (!vbox->checkVersion(version))
     {
         QString apiVersionErr = QObject::tr("The VBox software version is too old (%1), we require %2")
-                                            .arg(version).arg(VBOX_MIN_API_VERSION);
+                                            .arg(version, VBOX_MIN_API_VERSION);
         delete vbox;
         return apiVersionErr;
 
@@ -2935,8 +3020,8 @@ QString CardUtil::GetVBoxdesc(const QString &id, const QString &ip,
 
     delete vbox;
 
-    return QString("V@Box TV Gateway - ID: %1, IP: %2, Tuner: %3-%4").arg(id)
-                   .arg(ip).arg(tunerNo).arg(tunerType);
+    return QString("V@Box TV Gateway - ID: %1, IP: %2, Tuner: %3-%4")
+                   .arg(id, ip, tunerNo, tunerType);
 
 #else
     (void) id;
@@ -3160,16 +3245,14 @@ bool CardUtil::IsVBoxPresent(uint inputid)
     }
 
     // get timeouts for inputid
-    uint signal_timeout = 0;
-    uint tuning_timeout = 0;
+    std::chrono::milliseconds signal_timeout = 0ms;
+    std::chrono::milliseconds tuning_timeout = 0ms;
     if (!GetTimeouts(inputid,signal_timeout,tuning_timeout))
     {
         LOG(VB_GENERAL, LOG_ERR, QString("Failed to get timeouts for inputid (%1)")
                 .arg(inputid));
         return false;
     }
-
-    signal_timeout = signal_timeout/1000; //convert to seconds
 
     // now get url from iptv_channel table
     QUrl url;
@@ -3192,7 +3275,7 @@ bool CardUtil::IsVBoxPresent(uint inputid)
     if (!ping(ip,signal_timeout))
     {
         LOG(VB_GENERAL, LOG_ERR, QString("VBOX at IP  (%1) failed to respond to network ping for inputid (%2) timeout (%3)")
-                .arg(ip).arg(inputid).arg(signal_timeout));
+            .arg(ip).arg(inputid).arg(signal_timeout.count()));
         return false;
     }
 

@@ -28,7 +28,6 @@
  */
 
 #include <algorithm>
-using namespace std;
 
 #include "analogsignalmonitor.h"
 #include "iptvchannelfetcher.h"
@@ -124,23 +123,23 @@ void ChannelScanner::Scan(
     bool           do_remove_duplicates,
     bool           do_add_full_ts,
     ServiceRequirements service_requirements,
-    // stuff needed for particular scans
-    uint           mplexid /* TransportScan */,
-    const QMap<QString,QString> &startChan /* NITAddScan */,
-    const QString &freq_std /* FullScan */,
-    const QString &mod /* FullScan */,
-    const QString &tbl /* FullScan */,
-    const QString &tbl_start /* FullScan optional */,
-    const QString &tbl_end   /* FullScan optional */)
+    // Needed for particular scans
+    uint           mplexid,                 // TransportScan
+    const QMap<QString,QString> &startChan, // NITAddScan
+    const QString &freq_std,                // FullScan
+    const QString &mod,                     // FullScan
+    const QString &tbl,                     // FullScan
+    const QString &tbl_start,               // FullScan optional
+    const QString &tbl_end)                 // FullScan optional
 {
-    m_freeToAirOnly = do_fta_only;
-    m_channelNumbersOnly = do_lcn_only;
-    m_completeOnly = do_complete_only;
-    m_fullSearch = do_full_channel_search;
-    m_removeDuplicates = do_remove_duplicates;
-    m_addFullTS = do_add_full_ts;
+    m_freeToAirOnly       = do_fta_only;
+    m_channelNumbersOnly  = do_lcn_only;
+    m_completeOnly        = do_complete_only;
+    m_fullSearch          = do_full_channel_search;
+    m_removeDuplicates    = do_remove_duplicates;
+    m_addFullTS           = do_add_full_ts;
     m_serviceRequirements = service_requirements;
-    m_sourceid = sourceid;
+    m_sourceid            = sourceid;
 
     PreScanCommon(scantype, cardid, inputname,
                   sourceid, do_ignore_signal_timeout, do_test_decryption);
@@ -158,6 +157,7 @@ void ChannelScanner::Scan(
 
     bool ok = false;
 
+    // "Full Scan"
     if ((ScanTypeSetting::FullScan_ATSC   == scantype) ||
         (ScanTypeSetting::FullScan_DVBC   == scantype) ||
         (ScanTypeSetting::FullScan_DVBT   == scantype) ||
@@ -165,14 +165,14 @@ void ChannelScanner::Scan(
         (ScanTypeSetting::FullScan_Analog == scantype))
     {
         LOG(VB_CHANSCAN, LOG_INFO, LOC + QString("ScanTransports(%1, %2, %3)")
-                .arg(freq_std).arg(mod).arg(tbl));
+                .arg(freq_std, mod, tbl));
 
         // HACK HACK HACK -- begin
         // if using QAM we may need additional time... (at least with HD-3000)
         if ((mod.startsWith("qam", Qt::CaseInsensitive)) &&
-            (m_sigmonScanner->GetSignalTimeout() < 1000))
+            (m_sigmonScanner->GetSignalTimeout() < 1s))
         {
-            m_sigmonScanner->SetSignalTimeout(1000);
+            m_sigmonScanner->SetSignalTimeout(1s);
         }
         // HACK HACK HACK -- end
 
@@ -181,6 +181,7 @@ void ChannelScanner::Scan(
         ok = m_sigmonScanner->ScanTransports(
             sourceid, freq_std, mod, tbl, tbl_start, tbl_end);
     }
+    // "Full Scan (Tuned)"
     else if ((ScanTypeSetting::NITAddScan_DVBT  == scantype) ||
              (ScanTypeSetting::NITAddScan_DVBT2 == scantype) ||
              (ScanTypeSetting::NITAddScan_DVBS  == scantype) ||
@@ -191,9 +192,10 @@ void ChannelScanner::Scan(
 
         ok = m_sigmonScanner->ScanTransportsStartingOn(sourceid, startChan);
     }
+    // "Scan of All Existing Transports"
     else if (ScanTypeSetting::FullTransportScan == scantype)
     {
-        LOG(VB_CHANSCAN, LOG_INFO, LOC + QString("ScanExistingTransports(%1)")
+        LOG(VB_CHANSCAN, LOG_INFO, LOC + QString("ScanExistingTransports of source %1")
                 .arg(sourceid));
 
         ok = m_sigmonScanner->ScanExistingTransports(sourceid, do_follow_nit);
@@ -212,7 +214,7 @@ void ChannelScanner::Scan(
         ok = true;
 
         LOG(VB_CHANSCAN, LOG_INFO, LOC +
-            QString("ScanForChannels(%1)").arg(sourceid));
+            QString("ScanForChannels for source %1").arg(sourceid));
 
         QString card_type = CardUtil::GetRawInputType(cardid);
         QString sub_type  = card_type;
@@ -304,7 +306,7 @@ DTVConfParser::return_t ChannelScanner::ImportDVBUtils(
     type = ((CardUtil::ATSC == cardtype) ||
             (CardUtil::HDHOMERUN == cardtype)) ? DTVConfParser::ATSC : type;
 
-    DTVConfParser::return_t ret = DTVConfParser::OK;
+    DTVConfParser::return_t ret { DTVConfParser::OK };
     if (type == DTVConfParser::UNKNOWN)
         ret = DTVConfParser::ERROR_CARDTYPE;
     else
@@ -412,8 +414,9 @@ void ChannelScanner::PreScanCommon(
     bool do_ignore_signal_timeout,
     bool do_test_decryption)
 {
-    uint signal_timeout  = 1000;
-    uint channel_timeout = 40000;
+    bool monitor_snr = false;
+    std::chrono::milliseconds signal_timeout  = 1s;
+    std::chrono::milliseconds channel_timeout = 40s;
     CardUtil::GetTimeouts(cardid, signal_timeout, channel_timeout);
 
     QString device = CardUtil::GetVideoDevice(cardid);
@@ -429,6 +432,7 @@ void ChannelScanner::PreScanCommon(
 
     QString card_type = CardUtil::GetRawInputType(cardid);
 
+#ifdef USING_DVB
     if ("DVB" == card_type)
     {
         QString sub_type = CardUtil::ProbeDVBType(device).toUpper();
@@ -446,17 +450,17 @@ void ChannelScanner::PreScanCommon(
         }
 
         // ensure a minimal signal timeout of 1 second
-        signal_timeout = max(signal_timeout, 1000U);
+        signal_timeout = std::max(signal_timeout, 1000ms);
 
         // Make sure that channel_timeout is at least 7 seconds to catch
         // at least one SDT section. kDVBTableTimeout in ChannelScanSM
         // ensures that we catch the NIT then.
-        channel_timeout = max(channel_timeout, static_cast<int>(need_nit) * 7 * 1000U);
-    }
+        channel_timeout = std::max(channel_timeout, static_cast<int>(need_nit) * 7 * 1000ms);
 
-#ifdef USING_DVB
-    if ("DVB" == card_type)
         m_channel = new DVBChannel(device);
+    }
+#else
+    (void)do_ignore_signal_timeout;
 #endif
 
 #ifdef USING_V4L2
@@ -468,6 +472,7 @@ void ChannelScanner::PreScanCommon(
     if ("HDHOMERUN" == card_type)
     {
         m_channel = new HDHRChannel(nullptr, device);
+        monitor_snr = true;
     }
 #endif // USING_HDHOMERUN
 
@@ -513,7 +518,7 @@ void ChannelScanner::PreScanCommon(
         return;
     }
 
-    // explicitly set the cardid
+    // Explicitly set the cardid
     m_channel->SetInputID(cardid);
 
     // If the backend is running this may fail...
@@ -571,15 +576,18 @@ void ChannelScanner::PreScanCommon(
     if (mon)
         mon->AddListener(lis);
 
-    DVBSignalMonitor *dvbm = nullptr;
     bool using_rotor = false;
 
 #ifdef USING_DVB
-    // cppcheck-suppress redundantAssignment
-    dvbm = m_sigmonScanner->GetDVBSignalMonitor();
+    DVBSignalMonitor *dvbm = m_sigmonScanner->GetDVBSignalMonitor();
     if (dvbm && mon)
+    {
+        monitor_snr = true;
         using_rotor = mon->HasFlags(SignalMonitor::kDVBSigMon_WaitForPos);
+    }
 #endif // USING_DVB
 
-    MonitorProgress(mon, mon, dvbm, using_rotor);
+    bool monitor_lock = mon != nullptr;
+    bool monitor_strength = mon != nullptr;
+    MonitorProgress(monitor_lock, monitor_strength, monitor_snr, using_rotor);
 }

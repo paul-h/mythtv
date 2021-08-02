@@ -3,20 +3,21 @@
 
 // MythTV
 #include "mythscreentype.h"
-#include "mythplayer.h"
+#include "mythplayerui.h"
 
 class MythBDOverlay;
 
 class MythBDOverlayScreen : public MythScreenType
 {
+    Q_OBJECT
   public:
-    MythBDOverlayScreen(MythPlayer *Player, const QString &Name);
+    MythBDOverlayScreen(MythPlayerUI* Player, MythPainter* Painter, const QString& Name);
    ~MythBDOverlayScreen() override = default;
 
-    void DisplayBDOverlay(MythBDOverlay *Overlay);
+    void DisplayBDOverlay(MythBDOverlay* Overlay);
 
   private:
-    MythPlayer *m_player { nullptr };
+    MythPlayer* m_player { nullptr };
 };
 
-#endif // BDOVERLAYSCREEN_H
+#endif

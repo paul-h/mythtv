@@ -7,7 +7,6 @@
 // Qt headers
 #include <QDir>
 #include <QApplication>
-#include <QRegExp>
 #include <QScopedPointer>
 
 // MythTV headers
@@ -57,7 +56,7 @@
  */
 static QString chooseCD(void)
 {
-    if (gCDdevice.length())
+    if (!gCDdevice.isEmpty())
         return gCDdevice;
 
 #ifdef Q_OS_MAC
@@ -210,8 +209,8 @@ static void startRipper(void)
     if (rip->Create())
     {
         mainStack->AddScreen(rip);
-        QObject::connect(rip, SIGNAL(ripFinished()),
-                     gMusicData, SLOT(reloadMusic()),
+        QObject::connect(rip, &Ripper::ripFinished,
+                     gMusicData, &MusicData::reloadMusic,
                      Qt::QueuedConnection);
     }
     else
@@ -248,8 +247,8 @@ static void startImport(void)
     if (import->Create())
     {
         mainStack->AddScreen(import);
-        QObject::connect(import, SIGNAL(importFinished()),
-                gMusicData, SLOT(reloadMusic()),
+        QObject::connect(import, &ImportMusicDialog::importFinished,
+                gMusicData, &MusicData::reloadMusic,
                 Qt::QueuedConnection);
     }
     else
@@ -353,7 +352,7 @@ static int runMenu(const QString& which_menu)
 
     while (parentObject)
     {
-        auto *menu = dynamic_cast<MythThemedMenu *>(parentObject);
+        auto *menu = qobject_cast<MythThemedMenu *>(parentObject);
 
         if (menu && menu->objectName() == "mainmenu")
         {
@@ -385,7 +384,7 @@ static int runMenu(const QString& which_menu)
         return 0;
     }
     LOG(VB_GENERAL, LOG_ERR, QString("Couldn't find menu %1 or theme %2")
-        .arg(which_menu).arg(themedir));
+        .arg(which_menu, themedir));
     delete diag;
     return -1;
 }
@@ -428,8 +427,8 @@ static void runRipCD(void)
         return;
     }
 
-    QObject::connect(rip, SIGNAL(ripFinished()),
-                     gMusicData, SLOT(reloadMusic()),
+    QObject::connect(rip, &Ripper::ripFinished,
+                     gMusicData, &MusicData::reloadMusic,
                      Qt::QueuedConnection);
 #endif
 }
@@ -469,9 +468,8 @@ static QStringList BuildFileList(const QString &dir, const QStringList &filters)
     if (list.isEmpty())
         return ret;
 
-    for(QFileInfoList::const_iterator it = list.begin(); it != list.end(); ++it)
+    for (const auto & fi : qAsConst(list))
     {
-        const QFileInfo &fi = *it;
         if (fi.isDir())
         {
             ret += BuildFileList(fi.absoluteFilePath(), filters);
@@ -521,7 +519,7 @@ static void handleMedia(MythMediaDevice *cd)
     }
 
     LOG(VB_MEDIA, LOG_NOTICE, QString("MythMusic: '%1' mounted on '%2'")
-        .arg(cd->getVolumeID()).arg(cd->getMountPath()) );
+        .arg(cd->getVolumeID(), cd->getMountPath()) );
 
     s_mountPath.clear();
 
@@ -578,10 +576,9 @@ static void handleMedia(MythMediaDevice *cd)
 
     // Read track metadata and add to all_music
     int track = 0;
-    for (QStringList::const_iterator it = trackList.begin();
-            it != trackList.end(); ++it)
+    for (const auto & file : qAsConst(trackList))
     {
-        QScopedPointer<MusicMetadata> meta(MetaIO::readMetadata(*it));
+        QScopedPointer<MusicMetadata> meta(MetaIO::readMetadata(file));
         if (meta)
         {
             meta->setTrack(++track);
@@ -757,7 +754,7 @@ static void handleCDMedia(MythMediaDevice *cd)
                 songList.append((mdata)->ID());
         }
 
-        if (songList.count())
+        if (!songList.isEmpty())
         {
             gMusicData->m_all_playlists->getActive()->fillSonglistFromList(
                     songList, true, PL_REPLACE, 0);

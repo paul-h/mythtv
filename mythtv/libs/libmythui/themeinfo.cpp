@@ -258,8 +258,8 @@ void ThemeInfo::ToMap(InfoMap &infoMap) const
     infoMap["resolution"] = QString("%1x%2").arg(m_baseres.width())
                                             .arg(m_baseres.height());
     infoMap["errata"] = m_errata;
-    infoMap["majorversion"] = m_majorver;
-    infoMap["minorversion"] = m_minorver;
+    infoMap["majorversion"] = QString::number(m_majorver);
+    infoMap["minorversion"] = QString::number(m_minorver);
     infoMap["version"] = QString("%1.%2").arg(m_majorver).arg(m_minorver);
 
     infoMap["authorname"] = m_authorName;

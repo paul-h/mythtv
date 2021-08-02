@@ -61,7 +61,7 @@ void IPTVChannelFetcher::Stop(void)
     {
         m_stopNow = true;
         m_lock.unlock();
-        m_thread->wait(5);
+        m_thread->wait(5ms);
         m_lock.lock();
     }
 
@@ -73,7 +73,7 @@ void IPTVChannelFetcher::Stop(void)
 fbox_chan_map_t IPTVChannelFetcher::GetChannels(void)
 {
     while (!m_thread->isFinished())
-        m_thread->wait(500);
+        m_thread->wait(500ms);
 
     LOG(VB_CHANNEL, LOG_INFO, LOC + QString("Found %1 channels")
         .arg(m_channels.size()));
@@ -152,18 +152,18 @@ void IPTVChannelFetcher::run(void)
 
     if (!m_isMpts)
     {
-        fbox_chan_map_t::const_iterator it = m_channels.begin();
-        for (uint i = 1; it != m_channels.end(); ++it, ++i)
+        fbox_chan_map_t::const_iterator it = m_channels.cbegin();
+        for (uint i = 1; it != m_channels.cend(); ++it, ++i)
         {
             const QString& channum = it.key();
             QString name    = (*it).m_name;
             QString xmltvid = (*it).m_xmltvid.isEmpty() ? "" : (*it).m_xmltvid;
             uint programnumber = (*it).m_programNumber;
             //: %1 is the channel number, %2 is the channel name
-            QString msg = tr("Channel #%1 : %2").arg(channum).arg(name);
+            QString msg = tr("Channel #%1 : %2").arg(channum, name);
 
             LOG(VB_CHANNEL, LOG_INFO, QString("Handling channel %1 %2")
-                .arg(channum).arg(name));
+                .arg(channum, name));
 
             int chanid = ChannelUtil::GetChanID(m_sourceId, channum);
             if (chanid <= 0)
@@ -369,8 +369,8 @@ fbox_chan_map_t IPTVChannelFetcher::ParsePlaylist(
             chanmap[channum] = info;
 
             msg = QString("Parsing Channel #%1 : %2 : %3")
-                .arg(channum).arg(info.m_name)
-                .arg(info.m_tuning.GetDataURL().toString());
+                .arg(channum, info.m_name,
+                     info.m_tuning.GetDataURL().toString());
             LOG(VB_CHANNEL, LOG_INFO, LOC + msg);
 
             msg.clear(); // don't tell fetcher
@@ -439,12 +439,11 @@ static bool parse_chan_info(const QString   &rawdata,
         if (name.isEmpty())
             return false;
 
-        QMap<QString,QString>::const_iterator it = values.begin();
-        for (; it != values.end(); ++it)
+        for (auto it = values.cbegin(); it != values.cend(); ++it)
         {
             LOG(VB_GENERAL, LOG_INFO, LOC +
                 QString("parse_chan_info [%1]='%2'")
-                .arg(it.key()).arg(*it));
+                .arg(it.key(), *it));
         }
         info = IPTVChannelInfo(
             name, values["xmltvid"],
@@ -463,52 +462,57 @@ static bool parse_extinf(const QString &line,
                          int           &nextChanNum)
 {
     // Parse extension portion, Freebox or SAT>IP format
-    QRegExp chanNumName1(R"(^-?\d+,(\d+)(?:\.\s|\s-\s)(.*)$)");
-    int pos = chanNumName1.indexIn(line);
-    if (pos != -1)
+    static const QRegularExpression chanNumName1
+        { R"(^-?\d+,(\d+)(?:\.\s|\s-\s)(.*)$)" };
+    auto match = chanNumName1.match(line);
+    if (match.hasMatch())
     {
-        channum = chanNumName1.cap(1);
-        name = chanNumName1.cap(2);
+        channum = match.captured(1);
+        name = match.captured(2);
         return true;
     }
 
     // Parse extension portion, A1 TV format
-    QRegExp chanNumName2("^-?\\d+\\s+[^,]*tvg-num=\"(\\d+)\"[^,]*,(.*)$");
-    pos = chanNumName2.indexIn(line);
-    if (pos != -1)
+    static const QRegularExpression chanNumName2
+        { "^-?\\d+\\s+[^,]*tvg-num=\"(\\d+)\"[^,]*,(.*)$" };
+    match = chanNumName2.match(line);
+    if (match.hasMatch())
     {
-        channum = chanNumName2.cap(1);
-        name = chanNumName2.cap(2);
+        channum = match.captured(1);
+        name = match.captured(2);
         return true;
     }
 
     // Parse extension portion, Moviestar TV number then name
-    QRegExp chanNumName3(R"(^-?\d+,\[(\d+)\]\s+(.*)$)");
-    pos = chanNumName3.indexIn(line);
-    if (pos != -1)
+    static const QRegularExpression chanNumName3
+        { R"(^-?\d+,\[(\d+)\]\s+(.*)$)" };
+    match = chanNumName3.match(line);
+    if (match.hasMatch())
     {
-        channum = chanNumName3.cap(1);
-        name = chanNumName3.cap(2);
+        channum = match.captured(1);
+        name = match.captured(2);
         return true;
     }
 
     // Parse extension portion, Moviestar TV name then number
-    QRegExp chanNumName4(R"(^-?\d+,(.*)\s+\[(\d+)\]$)");
-    pos = chanNumName4.indexIn(line);
-    if (pos != -1)
+    static const QRegularExpression chanNumName4
+        { R"(^-?\d+,(.*)\s+\[(\d+)\]$)" };
+    match = chanNumName4.match(line);
+    if (match.hasMatch())
     {
-        channum = chanNumName4.cap(2);
-        name = chanNumName4.cap(1);
+        channum = match.captured(2);
+        name = match.captured(1);
         return true;
     }
 
     // Parse extension portion, russion iptv plugin style
-    QRegExp chanNumName5(R"(^(-?\d+)\s+[^,]*,\s*(.*)$)");
-    pos = chanNumName5.indexIn(line);
-    if (pos != -1)
+    static const QRegularExpression chanNumName5
+        { R"(^(-?\d+)\s+[^,]*,\s*(.*)$)" };
+    match = chanNumName5.match(line);
+    if (match.hasMatch())
     {
-        channum = chanNumName5.cap(1).simplified();
-        name = chanNumName5.cap(2).simplified();
+        channum = match.captured(1).simplified();
+        name = match.captured(2).simplified();
         bool ok = false;
         int channel_number = channum.toInt (&ok);
         if (ok && (channel_number > 0))
@@ -519,12 +523,13 @@ static bool parse_extinf(const QString &line,
 
     // Parse extension portion, https://github.com/iptv-org/iptv/blob/master/channels/ style
     // EG. #EXTINF:-1 tvg-id="" tvg-name="" tvg-logo="https://i.imgur.com/VejnhiB.png" group-title="News",BBC News
-    QRegExp chanNumName6("(^-?\\d+)\\s+[^,]*[^,]*,(.*)$");
-    pos = chanNumName6.indexIn(line);
-    if (pos != -1)
+    static const QRegularExpression chanNumName6
+        { "(^-?\\d+)\\s+[^,]*[^,]*,(.*)$" };
+    match = chanNumName6.match(line);
+    if (match.hasMatch())
     {
-        channum = chanNumName6.cap(1).simplified();
-        name = chanNumName6.cap(2).simplified();
+        channum = match.captured(1).simplified();
+        name = match.captured(2).simplified();
 
         bool ok = false;
         int channel_number = channum.toInt(&ok);

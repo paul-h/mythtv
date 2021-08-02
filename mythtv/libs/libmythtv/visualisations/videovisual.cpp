@@ -4,13 +4,6 @@
 
 VideoVisualFactory* VideoVisualFactory::g_videoVisualFactory = nullptr;
 
-bool VideoVisual::CanVisualise(AudioPlayer *audio, MythRender *render)
-{
-    if (!audio)
-        return false;
-    return render && (audio->GetNumChannels() == 2 || audio->GetNumChannels() == 1);
-}
-
 QStringList VideoVisual::GetVisualiserList(RenderType type)
 {
     QStringList result;
@@ -42,9 +35,10 @@ VideoVisual* VideoVisual::Create(const QString &name,
 }
 
 VideoVisual::VideoVisual(AudioPlayer *audio, MythRender *render)
-  : m_audio(audio), m_render(render)
+  : m_audio(audio),
+    m_render(render),
+    m_lastUpdate(QDateTime::currentDateTimeUtc())
 {
-    m_lastUpdate = MythDate::current();
     mutex()->lock();
     if (m_audio)
         m_audio->addVisual(this);
@@ -60,10 +54,10 @@ VideoVisual::~VideoVisual()
     mutex()->unlock();
 }
 
-int64_t VideoVisual::SetLastUpdate(void)
+std::chrono::milliseconds VideoVisual::SetLastUpdate(void)
 {
-    QDateTime now = MythDate::current();
-    int64_t result = m_lastUpdate.time().msecsTo(now.time());
+    QDateTime now = QDateTime::currentDateTimeUtc();
+    auto result = std::chrono::milliseconds(m_lastUpdate.time().msecsTo(now.time()));
     m_lastUpdate = now;
     return result;
 }
@@ -87,7 +81,7 @@ void VideoVisual::prepare()
 // caller holds lock
 VisualNode* VideoVisual::GetNode(void)
 {
-    int64_t timestamp = m_audio->GetAudioTime();
+    std::chrono::milliseconds timestamp = m_audio->GetAudioTime();
     while (m_nodes.size() > 1)
     {
         if (m_nodes.front()->m_offset > timestamp)
@@ -104,7 +98,7 @@ VisualNode* VideoVisual::GetNode(void)
 
 // TODO Add MMX path
 static inline void stereo16_from_stereofloat32(
-    short l[], short r[], const float s[], unsigned long cnt)
+    short *l, short *r, const float *s, unsigned long cnt)
 {
     const float f((1 << 15) - 1);
     while (cnt--)
@@ -116,7 +110,7 @@ static inline void stereo16_from_stereofloat32(
 
 // TODO Add MMX path
 static inline void mono16_from_monofloat32(
-    short l[], const float s[], unsigned long cnt)
+    short *l, const float *s, unsigned long cnt)
 {
     const float f((1 << 15) - 1);
     while (cnt--)
@@ -124,8 +118,9 @@ static inline void mono16_from_monofloat32(
 }
 
 // caller holds lock
-void VideoVisual::add(const void *b, unsigned long b_len, unsigned long w, int c,
-                      int p)
+void VideoVisual::add(const void *b, unsigned long b_len,
+                      std::chrono::milliseconds timecode,
+                      int c, int p)
 {
     if (!m_disabled && m_nodes.size() > 500)
     {
@@ -180,5 +175,5 @@ void VideoVisual::add(const void *b, unsigned long b_len, unsigned long w, int c
     else
         len = 0;
 
-    m_nodes.append(new VisualNode(l, r, len, w));
+    m_nodes.append(new VisualNode(l, r, len, timecode));
 }

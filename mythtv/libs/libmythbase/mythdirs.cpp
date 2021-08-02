@@ -32,7 +32,7 @@ void InitializeMythDirs(void)
     installprefix = qgetenv( "MYTHTVDIR"   );
     confdir       = qgetenv( "MYTHCONFDIR" );
 
-    if (confdir.length())
+    if (!confdir.isEmpty())
     {
         LOG(VB_GENERAL, LOG_NOTICE, QString("Read conf dir = %1").arg(confdir));
         confdir.replace("$HOME", QDir::homePath());
@@ -164,7 +164,7 @@ void InitializeMythDirs(void)
         // use relative PREFIX values with care.
 
         LOG(VB_GENERAL, LOG_DEBUG, QString("Relative PREFIX! (%1), appDir=%2")
-            .arg(installprefix) .arg(prefixDir.canonicalPath()));
+            .arg(installprefix, prefixDir.canonicalPath()));
 
         if (!prefixDir.cd(installprefix))
         {

@@ -23,7 +23,6 @@ extern "C" {
 #include <cstdint>
 #include <ctime>
 #include <vector>
-using namespace std;
 
 // Qt headers
 #include <QString>
@@ -111,17 +110,17 @@ class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
     void WriteHeader(void);
     void WriteSeekTable(void);
     void WriteKeyFrameAdjustTable(
-        const vector<struct kfatable_entry> &kfa_table);
+        const std::vector<struct kfatable_entry> &kfa_table);
     void UpdateSeekTable(int frame_num, long offset = 0);
 
     bool SetupAVCodecVideo(void);
     void SetupRTjpeg(void);
     int AudioInit(bool skipdevice = false);
     void SetVideoAspect(float newAspect) {m_videoAspect = newAspect; };
-    void WriteVideo(VideoFrame *frame, bool skipsync = false, 
+    void WriteVideo(MythVideoFrame *frame, bool skipsync = false, 
                     bool forcekey = false);
-    void WriteAudio(unsigned char *buf, int fnum, int timecode);
-    void WriteText(unsigned char *buf, int len, int timecode, int pagenr);
+    void WriteAudio(unsigned char *buf, int fnum, std::chrono::milliseconds timecode);
+    void WriteText(unsigned char *buf, int len, std::chrono::milliseconds timecode, int pagenr);
 
     void SetNewVideoParams(double newaspect);
 
@@ -153,7 +152,7 @@ class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
 
     void FormatTT(struct VBIData *vbidata) override; // V4LRecorder
     void FormatCC(uint code1, uint code2) override; // V4LRecorder
-    void AddTextData(unsigned char*buf, int len, int64_t timecode, char type) override; // CC608Input
+    void AddTextData(unsigned char *buf, int len, std::chrono::milliseconds timecode, char type) override; // CC608Input
 
     void UpdateResolutions(void);
     
@@ -190,14 +189,14 @@ class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
     RTjpeg             *m_rtjc                   {nullptr};
 
 #define OUT_LEN (1024*1024 + 1024*1024 / 64 + 16 + 3)    
-    lzo_byte            m_out[OUT_LEN] {};
+    std::array<lzo_byte,OUT_LEN> m_out                {};
 #define HEAP_ALLOC(var,size) \
-    long __LZO_MMODEL var [ ((size) + (sizeof(long) - 1)) / sizeof(long) ]    
+    std::array<long,((size) + (sizeof(long) - 1)) / sizeof(long)>  __LZO_MMODEL var
     HEAP_ALLOC(wrkmem, LZO1X_1_MEM_COMPRESS) {};
 
-    vector<struct vidbuffertype *> m_videoBuffer;
-    vector<struct audbuffertype *> m_audioBuffer;
-    vector<struct txtbuffertype *> m_textBuffer;
+    std::vector<struct vidbuffertype *> m_videoBuffer;
+    std::vector<struct audbuffertype *> m_audioBuffer;
+    std::vector<struct txtbuffertype *> m_textBuffer;
 
     int                 m_actVideoEncode         {0};
     int                 m_actVideoBuffer         {0};
@@ -218,7 +217,6 @@ class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
     long                m_textBufferSize         {0};
 
     struct timeval      m_stm                    {0,0};
-    struct timezone     m_tzone                  {0,0};
 
     NVRWriteThread     *m_writeThread            {nullptr};
     NVRAudioThread     *m_audioThread            {nullptr};
@@ -226,7 +224,7 @@ class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
     bool                m_recording              {false};
 
     int                 m_keyframeDist           {KEYFRAMEDIST};
-    vector<struct seektable_entry> *m_seekTable  {nullptr};
+    std::vector<struct seektable_entry> *m_seekTable  {nullptr};
     long long           m_lastPositionMapPos     {0};
 
     long long           m_extendedDataOffset     {0};
@@ -242,8 +240,8 @@ class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
     double              m_heightMultiplier       {1.0};
 
     int                 m_lastBlock              {0};
-    int                 m_firstTc                {0};
-    long int            m_oldTc                  {0};
+    std::chrono::milliseconds  m_firstTc         {0ms};
+    std::chrono::milliseconds  m_oldTc           {0ms};
     int                 m_startNum               {0};
     int                 m_frameOfGop             {0};
     int                 m_lastTimecode           {0};

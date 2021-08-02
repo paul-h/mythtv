@@ -1,4 +1,3 @@
-#include <chrono> // for milliseconds
 #include <thread> // for sleep_for
 
 #include "PrePostRollFlagger.h"
@@ -9,11 +8,11 @@
 // MythTV headers
 #include "mythcorecontext.h"
 #include "programinfo.h"
-#include "mythplayer.h"
+#include "mythcommflagplayer.h"
 
 PrePostRollFlagger::PrePostRollFlagger(SkipType commDetectMethod,
-                            bool showProgress,bool fullSpeed,
-                            MythPlayer* player,
+                            bool showProgress, bool fullSpeed,
+                            MythCommFlagPlayer *player,
                             const QDateTime& startedAt_in,
                             const QDateTime& stopsAt_in,
                             const QDateTime& recordingStartedAt_in,
@@ -46,7 +45,7 @@ bool PrePostRollFlagger::go()
         if (m_bStop)
             return false;
 
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        std::this_thread::sleep_for(5s);
         secsSince = m_startedAt.secsTo(MythDate::current());
     }
 
@@ -69,7 +68,6 @@ bool PrePostRollFlagger::go()
             "NVP: Unable to initialize video for FlagCommercials.");
         return false;
     }
-    m_player->EnableSubtitles(false);
 
     emit breathe();
     if (m_bStop)
@@ -89,10 +87,10 @@ bool PrePostRollFlagger::go()
     if (m_showProgress)
     {
         if (m_myTotalFrames)
-            cerr << "  0%/      ";
+            std::cerr << "  0%/      ";
         else
-            cerr << "     0/      ";
-        cerr.flush();
+            std::cerr << "     0/      ";
+        std::cerr.flush();
     }
 
     float aspect = m_player->GetVideoAspect();
@@ -155,7 +153,7 @@ bool PrePostRollFlagger::go()
                 return false;
             emit statusUpdate(QCoreApplication::translate("(mythcommflag)",
                 "Waiting for recording to finish"));
-            std::this_thread::sleep_for(std::chrono::seconds(5));
+            std::this_thread::sleep_for(5s);
         }
         m_stillRecording = false;
          m_myTotalFrames = m_player->GetTotalFrameCount();
@@ -199,11 +197,11 @@ bool PrePostRollFlagger::go()
         //float flagFPS = (elapsed > 0.0F) ? (framesProcessed / elapsed) : 0.0F;
 
         if (m_myTotalFrames)
-            cerr << "\b\b\b\b\b\b      \b\b\b\b\b\b";
+            std::cerr << "\b\b\b\b\b\b      \b\b\b\b\b\b";
         else
-            cerr << "\b\b\b\b\b\b\b\b\b\b\b\b\b             "
-                    "\b\b\b\b\b\b\b\b\b\b\b\b\b";
-        cerr.flush();
+            std::cerr << "\b\b\b\b\b\b\b\b\b\b\b\b\b             "
+                         "\b\b\b\b\b\b\b\b\b\b\b\b\b";
+        std::cerr.flush();
     }
 
     return true;
@@ -227,9 +225,9 @@ long long PrePostRollFlagger::findBreakInrange(long long startFrame,
     m_player->DiscardVideoFrame(m_player->GetRawVideoFrame(0));
 
     long long tmpStartFrame = startFrame;
-    VideoFrame* f = m_player->GetRawVideoFrame(tmpStartFrame);
+    MythVideoFrame* f = m_player->GetRawVideoFrame(tmpStartFrame);
     float aspect = m_player->GetVideoAspect();
-    long long currentFrameNumber = f->frameNumber;
+    long long currentFrameNumber = f->m_frameNumber;
     LOG(VB_COMMFLAG, LOG_INFO, QString("Starting with frame %1")
             .arg(currentFrameNumber));
     m_player->DiscardVideoFrame(f);
@@ -238,12 +236,12 @@ long long PrePostRollFlagger::findBreakInrange(long long startFrame,
 
     while (m_player->GetEof() == kEofStateNone)
     {
-        struct timeval startTime {};
+        std::chrono::microseconds startTime {0us};
         if (m_stillRecording)
-            gettimeofday(&startTime, nullptr);
+            startTime = nowAsDuration<std::chrono::microseconds>();
 
-        VideoFrame* currentFrame = m_player->GetRawVideoFrame();
-        currentFrameNumber = currentFrame->frameNumber;
+        MythVideoFrame* currentFrame = m_player->GetRawVideoFrame();
+        currentFrameNumber = currentFrame->m_frameNumber;
 
         if(currentFrameNumber % 1000 == 0)
         {
@@ -257,7 +255,7 @@ long long PrePostRollFlagger::findBreakInrange(long long startFrame,
             break;
         }
 
-        float newAspect = currentFrame->aspect;
+        float newAspect = currentFrame->m_aspect;
         if (newAspect != aspect)
         {
             SetVideoParams(aspect);
@@ -279,12 +277,12 @@ long long PrePostRollFlagger::findBreakInrange(long long startFrame,
         while (m_bPaused)
         {
             emit breathe();
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::this_thread::sleep_for(1s);
         }
 
         // sleep a little so we don't use all cpu even if we're niced
         if (!m_fullSpeed && !m_stillRecording)
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(10ms);
 
         if (((currentFrameNumber % 500) == 0) ||
             ((m_showProgress || m_stillRecording) &&
@@ -309,16 +307,16 @@ long long PrePostRollFlagger::findBreakInrange(long long startFrame,
                     QString tmp = QString("\b\b\b\b\b\b\b\b\b\b\b%1%/%2fps")
                         .arg(percentage, 3).arg((int)flagFPS, 3);
                     QByteArray ba = tmp.toLatin1();
-                    cerr << ba.constData() << flush;
+                    std::cerr << ba.constData() << std::flush;
                 }
                 else
                 {
                     QString tmp = QString("\b\b\b\b\b\b\b\b\b\b\b\b\b%1/%2fps")
                         .arg(currentFrameNumber, 6).arg((int)flagFPS, 3);
                     QByteArray ba = tmp.toLatin1();
-                    cerr << ba.constData() << flush;
+                    std::cerr << ba.constData() << std::flush;
                 }
-                cerr.flush();
+                std::cerr.flush();
             }
 
             if (stopFrame)
@@ -356,28 +354,24 @@ long long PrePostRollFlagger::findBreakInrange(long long startFrame,
                 m_recordingStartedAt.secsTo(MythDate::current());
             int secondsFlagged = (int)(framesProcessed / m_fps);
             int secondsBehind = secondsRecorded - secondsFlagged;
-            long usecPerFrame = (long)(1.0F / m_player->GetFrameRate() * 1000000);
+            auto usecPerFrame = floatusecs(1000000.0F / m_player->GetFrameRate());
 
-            struct timeval endTime {};
-            gettimeofday(&endTime, nullptr);
+            auto endTime = nowAsDuration<std::chrono::microseconds>();
 
-            long long usecSleep =
-                      usecPerFrame -
-                      (((endTime.tv_sec - startTime.tv_sec) * 1000000) +
-                       (endTime.tv_usec - startTime.tv_usec));
+            floatusecs usecSleep = usecPerFrame - (endTime - startTime);
 
             if (secondsBehind > requiredBuffer)
             {
                 if (m_fullSpeed)
-                    usecSleep = 0;
+                    usecSleep = 0us;
                 else
-                    usecSleep = (long)(usecSleep * 0.25);
+                    usecSleep = usecSleep * 0.25;
             }
             else if (secondsBehind < requiredBuffer)
-                usecSleep = (long)(usecPerFrame * 1.5);
+                usecSleep = usecPerFrame * 1.5;
 
-            if (usecSleep > 0)
-                std::this_thread::sleep_for(std::chrono::microseconds(usecSleep));
+            if (usecSleep > 0us)
+                std::this_thread::sleep_for(usecSleep);
         }
 
         m_player->DiscardVideoFrame(currentFrame);

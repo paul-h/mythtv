@@ -98,6 +98,9 @@ ScheduleEditor::ScheduleEditor(MythScreenStack *parent,
     FilterOptMixin::SetRule(m_recordingRule);
     StoreOptMixin::SetRule(m_recordingRule);
     PostProcMixin::SetRule(m_recordingRule);
+
+    if (m_player)
+        m_player->IncrRef();
 }
 
 ScheduleEditor::ScheduleEditor(MythScreenStack *parent,
@@ -110,6 +113,8 @@ ScheduleEditor::ScheduleEditor(MythScreenStack *parent,
             m_recordingRule(recRule),
             m_player(player)
 {
+    if (m_player)
+        m_player->IncrRef();
 }
 
 ScheduleEditor::~ScheduleEditor(void)
@@ -119,8 +124,8 @@ ScheduleEditor::~ScheduleEditor(void)
     // if we have a player, we need to tell we are done
     if (m_player)
     {
-        QString message = QString("VIEWSCHEDULED_EXITING");
-        qApp->postEvent(m_player, new MythEvent(message));
+        emit m_player->RequestEmbedding(false);
+        m_player->DecrRef();
     }
 }
 
@@ -156,27 +161,27 @@ bool ScheduleEditor::Create()
         return false;
     }
 
-    connect(m_rulesList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-                         SLOT(RuleChanged(MythUIButtonListItem *)));
+    connect(m_rulesList, &MythUIButtonList::itemSelected,
+            this,        &ScheduleEditor::RuleChanged);
 
     if (m_schedOptButton)
-        connect(m_schedOptButton, SIGNAL(Clicked()), SLOT(ShowSchedOpt()));
+        connect(m_schedOptButton, &MythUIButton::Clicked, this, &ScheduleEditor::ShowSchedOpt);
     if (m_filtersButton)
-        connect(m_filtersButton, SIGNAL(Clicked()), SLOT(ShowFilters()));
+        connect(m_filtersButton, &MythUIButton::Clicked, this, &ScheduleEditor::ShowFilters);
     if (m_storeOptButton)
-        connect(m_storeOptButton, SIGNAL(Clicked()), SLOT(ShowStoreOpt()));
+        connect(m_storeOptButton, &MythUIButton::Clicked, this, &ScheduleEditor::ShowStoreOpt);
     if (m_postProcButton)
-        connect(m_postProcButton, SIGNAL(Clicked()), SLOT(ShowPostProc()));
+        connect(m_postProcButton, &MythUIButton::Clicked, this, &ScheduleEditor::ShowPostProc);
     if (m_schedInfoButton)
-        connect(m_schedInfoButton, SIGNAL(Clicked()), SLOT(ShowSchedInfo()));
+        connect(m_schedInfoButton, &MythUIButton::Clicked, this, &ScheduleEditor::ShowSchedInfo);
     if (m_previewButton)
-        connect(m_previewButton, SIGNAL(Clicked()), SLOT(ShowPreview()));
+        connect(m_previewButton, &MythUIButton::Clicked, this, &ScheduleEditor::ShowPreview);
     if (m_metadataButton)
-        connect(m_metadataButton, SIGNAL(Clicked()), SLOT(ShowMetadataOptions()));
+        connect(m_metadataButton, &MythUIButton::Clicked, this, &ScheduleEditor::ShowMetadataOptions);
 
     if (m_cancelButton)
-        connect(m_cancelButton, SIGNAL(Clicked()), SLOT(Close()));
-    connect(m_saveButton, SIGNAL(Clicked()), SLOT(Save()));
+        connect(m_cancelButton, &MythUIButton::Clicked, this, &ScheduleEditor::Close);
+    connect(m_saveButton, &MythUIButton::Clicked, this, &ScheduleEditor::Save);
 
     if (m_schedInfoButton)
         m_schedInfoButton->SetEnabled(!m_recordingRule->m_isTemplate);
@@ -184,20 +189,20 @@ bool ScheduleEditor::Create()
         m_previewButton->SetEnabled(!m_recordingRule->m_isTemplate);
 
     if (m_dupmethodList)
-        connect(m_dupmethodList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-                SLOT(DupMethodChanged(MythUIButtonListItem *)));
+        connect(m_dupmethodList, &MythUIButtonList::itemSelected,
+                this, &ScheduleEditor::DupMethodChanged);
     if (m_filtersList)
-        connect(m_filtersList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-                SLOT(FilterChanged(MythUIButtonListItem *)));
+        connect(m_filtersList, &MythUIButtonList::itemClicked,
+                this, &ScheduleEditor::FilterChanged);
     if (m_maxepSpin)
-        connect(m_maxepSpin, SIGNAL(itemSelected(MythUIButtonListItem *)),
-                SLOT(MaxEpisodesChanged(MythUIButtonListItem *)));
+        connect(m_maxepSpin, &MythUIButtonList::itemClicked,
+                this, &ScheduleEditor::MaxEpisodesChanged);
     if (m_recgroupList)
-        connect(m_recgroupList, SIGNAL(LosingFocus()),
-                SLOT(PromptForRecGroup()));
+        connect(m_recgroupList, &MythUIType::LosingFocus,
+                this, &ScheduleEditor::PromptForRecGroup);
     if (m_transcodeCheck)
-        connect(m_transcodeCheck, SIGNAL(toggled(bool)),
-                SLOT(TranscodeChanged(bool)));
+        connect(m_transcodeCheck, &MythUICheckBox::toggled,
+                this, &ScheduleEditor::TranscodeChanged);
 
     BuildFocusList();
 
@@ -217,7 +222,7 @@ bool ScheduleEditor::Create()
     }
 
     if (m_player)
-        m_player->StartEmbedding(QRect());
+        emit m_player->RequestEmbedding(true);
 
     return true;
 }
@@ -299,9 +304,6 @@ void ScheduleEditor::Load()
                 new MythUIButtonListItem(m_rulesList,
                                          toDescription(kWeeklyRecord),
                                          ENUM_TO_QVARIANT(kWeeklyRecord));
-            }
-            if (!hasChannel || isManual)
-            {
                 new MythUIButtonListItem(m_rulesList,
                                          toDescription(kDailyRecord),
                                          ENUM_TO_QVARIANT(kDailyRecord));
@@ -648,7 +650,7 @@ void ScheduleEditor::showUpcomingByTitle(void)
     QString title = m_recordingRule->m_title;
 
     if (m_recordingRule->m_searchType != kNoSearch)
-        title.remove(QRegExp(" \\(.*\\)$"));
+        title.remove(RecordingInfo::kReSearchTypeName);
 
     ShowUpcoming(title, m_recordingRule->m_seriesid);
 }
@@ -820,9 +822,10 @@ void ScheduleEditor::showMenu(void)
             m_view != kMetadataView)
             menuPopup->AddButton(tr("Metadata Options"));
         if (!m_recordingRule->m_isTemplate)
+        {
             menuPopup->AddButton(tr("Schedule Info"));
-        if (!m_recordingRule->m_isTemplate)
             menuPopup->AddButton(tr("Preview Changes"));
+        }
         menuPopup->AddButton(tr("Use Template"));
         popupStack->AddScreen(menuPopup);
     }
@@ -925,19 +928,19 @@ bool SchedEditChild::CreateEditChild(
     UIUtilW::Assign(this, m_saveButton, "save");
     UIUtilW::Assign(this, m_previewButton, "preview");
 
-    connect(this, SIGNAL(Closing()), m_editor, SLOT(ChildClosing()));
-    connect(m_editor, SIGNAL(templateLoaded()), SLOT(Load()));
+    connect(this, &SchedEditChild::Closing, m_editor, &ScheduleEditor::ChildClosing);
+    connect(m_editor, &ScheduleEditor::templateLoaded, this, &SchedEditChild::Load);
 
     if (m_backButton)
-        connect(m_backButton, SIGNAL(Clicked()), SLOT(Close()));
+        connect(m_backButton, &MythUIButton::Clicked, this, &SchedEditChild::Close);
     if (m_saveButton)
-        connect(m_saveButton, SIGNAL(Clicked()), m_editor, SLOT(Save()));
+        connect(m_saveButton, &MythUIButton::Clicked, m_editor, &ScheduleEditor::Save);
     if (m_previewButton)
-        connect(m_previewButton, SIGNAL(Clicked()),
-                m_editor, SLOT(ShowPreview()));
-
-    if (m_previewButton)
+    {
+        connect(m_previewButton, &MythUIButton::Clicked,
+                m_editor, &ScheduleEditor::ShowPreview);
         m_previewButton->SetEnabled(!isTemplate);
+    }
 
     return true;
 }
@@ -1000,12 +1003,12 @@ bool SchedOptEditor::Create()
     }
 
     if (m_dupmethodList)
-        connect(m_dupmethodList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-                SLOT(DupMethodChanged(MythUIButtonListItem *)));
+        connect(m_dupmethodList, &MythUIButtonList::itemSelected,
+                this, &SchedOptEditor::DupMethodChanged);
 
     if (m_filtersButton)
-        connect(m_filtersButton, SIGNAL(Clicked()),
-                m_editor, SLOT(ShowFilters()));
+        connect(m_filtersButton, &MythUIButton::Clicked,
+                m_editor, &ScheduleEditor::ShowFilters);
 
     BuildFocusList();
 
@@ -1064,8 +1067,8 @@ bool SchedFilterEditor::Create()
         return false;
     }
 
-    connect(m_filtersList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            SLOT(ToggleSelected(MythUIButtonListItem *)));
+    connect(m_filtersList, &MythUIButtonList::itemClicked,
+            this, SchedFilterEditor::ToggleSelected);
 
     BuildFocusList();
 
@@ -1125,11 +1128,11 @@ bool StoreOptEditor::Create()
     }
 
     if (m_maxepSpin)
-        connect(m_maxepSpin, SIGNAL(itemSelected(MythUIButtonListItem *)),
-                SLOT(MaxEpisodesChanged(MythUIButtonListItem *)));
+        connect(m_maxepSpin, &MythUIButtonList::itemSelected,
+                this, &StoreOptEditor::MaxEpisodesChanged);
     if (m_recgroupList)
-        connect(m_recgroupList, SIGNAL(LosingFocus()),
-                SLOT(PromptForRecGroup()));
+        connect(m_recgroupList, &MythUIType::LosingFocus,
+                this, &StoreOptEditor::PromptForRecGroup);
 
     BuildFocusList();
 
@@ -1211,8 +1214,8 @@ bool PostProcEditor::Create()
     }
 
     if (m_transcodeCheck)
-        connect(m_transcodeCheck, SIGNAL(toggled(bool)),
-                SLOT(TranscodeChanged(bool)));
+        connect(m_transcodeCheck, &MythUICheckBox::toggled,
+                this, &PostProcEditor::TranscodeChanged);
 
     BuildFocusList();
 
@@ -1308,25 +1311,25 @@ bool MetadataOptions::Create()
         return false;
     }
 
-    connect(m_inetrefClear, SIGNAL(Clicked()),
-            SLOT(ClearInetref()));
-    connect(m_queryButton, SIGNAL(Clicked()),
-            SLOT(PerformQuery()));
-    connect(m_localFanartButton, SIGNAL(Clicked()),
-            SLOT(SelectLocalFanart()));
-    connect(m_localCoverartButton, SIGNAL(Clicked()),
-            SLOT(SelectLocalCoverart()));
-    connect(m_localBannerButton, SIGNAL(Clicked()),
-            SLOT(SelectLocalBanner()));
-    connect(m_onlineFanartButton, SIGNAL(Clicked()),
-            SLOT(SelectOnlineFanart()));
-    connect(m_onlineCoverartButton, SIGNAL(Clicked()),
-            SLOT(SelectOnlineCoverart()));
-    connect(m_onlineBannerButton, SIGNAL(Clicked()),
-            SLOT(SelectOnlineBanner()));
+    connect(m_inetrefClear, &MythUIButton::Clicked,
+            this, &MetadataOptions::ClearInetref);
+    connect(m_queryButton, &MythUIButton::Clicked,
+            this, &MetadataOptions::PerformQuery);
+    connect(m_localFanartButton, &MythUIButton::Clicked,
+            this, &MetadataOptions::SelectLocalFanart);
+    connect(m_localCoverartButton, &MythUIButton::Clicked,
+            this, &MetadataOptions::SelectLocalCoverart);
+    connect(m_localBannerButton, &MythUIButton::Clicked,
+            this, &MetadataOptions::SelectLocalBanner);
+    connect(m_onlineFanartButton, &MythUIButton::Clicked,
+            this, &MetadataOptions::SelectOnlineFanart);
+    connect(m_onlineCoverartButton, &MythUIButton::Clicked,
+            this, &MetadataOptions::SelectOnlineCoverart);
+    connect(m_onlineBannerButton, &MythUIButton::Clicked,
+            this, &MetadataOptions::SelectOnlineBanner);
 
-    connect(m_seasonSpin, SIGNAL(itemSelected(MythUIButtonListItem*)),
-                          SLOT(ValuesChanged()));
+    connect(m_seasonSpin, &MythUIButtonList::itemSelected,
+                          this, &MetadataOptions::ValuesChanged);
 
     // InetRef
     m_inetrefEdit->SetText(m_recordingRule->m_inetref);
@@ -1416,7 +1419,7 @@ void MetadataOptions::OnImageSearchListSelection(const ArtworkInfo& info,
     lookup->SetAutomatic(true);
     lookup->SetData(QVariant::fromValue<VideoArtworkType>(type));
 
-    ArtworkMap downloads;
+    DownloadMap downloads;
     downloads.insert(type, info);
     lookup->SetDownloads(downloads);
     lookup->SetAllowOverwrites(true);
@@ -1640,8 +1643,8 @@ void MetadataOptions::OnArtworkSearchDone(MetadataLookup *lookup)
 
     auto *resultsdialog = new ImageSearchResultsDialog(m_popupStack, list, type);
 
-    connect(resultsdialog, SIGNAL(haveResult(ArtworkInfo, VideoArtworkType)),
-            SLOT(OnImageSearchListSelection(ArtworkInfo, VideoArtworkType)));
+    connect(resultsdialog, &ImageSearchResultsDialog::haveResult,
+            this, &MetadataOptions::OnImageSearchListSelection);
 
     if (resultsdialog->Create())
         m_popupStack->AddScreen(resultsdialog);
@@ -1657,7 +1660,7 @@ void MetadataOptions::HandleDownloadedImages(MetadataLookup *lookup)
     if (map.isEmpty())
         return;
 
-    for (DownloadMap::const_iterator i = map.begin(); i != map.end(); ++i)
+    for (DownloadMap::const_iterator i = map.cbegin(); i != map.cend(); ++i)
     {
         VideoArtworkType type = i.key();
         const ArtworkInfo& info = i.value();
@@ -1758,8 +1761,8 @@ void MetadataOptions::customEvent(QEvent *levent)
             LOG(VB_GENERAL, LOG_INFO, "Falling through to selection dialog.");
             auto *resultsdialog = new MetadataResultsDialog(m_popupStack, list);
 
-            connect(resultsdialog, SIGNAL(haveResult(RefCountHandler<MetadataLookup>)),
-                    SLOT(OnSearchListSelection(RefCountHandler<MetadataLookup>)),
+            connect(resultsdialog, &MetadataResultsDialog::haveResult,
+                    this, &MetadataOptions::OnSearchListSelection,
                     Qt::QueuedConnection);
 
             if (resultsdialog->Create())
@@ -2057,7 +2060,7 @@ void SchedOptMixin::Load(void)
                                      QObject::tr("Use any available input"),
                                      QVariant::fromValue(0));
 
-            vector<uint> inputids = CardUtil::GetSchedInputList();
+            std::vector<uint> inputids = CardUtil::GetSchedInputList();
             for (uint id : inputids)
             {
                 new MythUIButtonListItem(m_inputList,
@@ -2147,9 +2150,11 @@ void SchedOptMixin::RuleChanged(void)
     if (m_endoffsetSpin)
         m_endoffsetSpin->SetEnabled(isScheduled);
     if (m_dupmethodList)
+    {
         m_dupmethodList->SetEnabled(
             isScheduled && !isSingle &&
             (!isManual || m_rule->m_dupMethod != kDupCheckNone));
+    }
     if (m_dupscopeList)
         m_dupscopeList->SetEnabled(isScheduled && !isSingle &&
                                    m_rule->m_dupMethod != kDupCheckNone);

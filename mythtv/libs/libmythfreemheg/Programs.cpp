@@ -19,6 +19,8 @@
 
 */
 
+#include "mythchrono.h"
+
 #include "Programs.h"
 #include "Ingredients.h"
 #include "Root.h"
@@ -28,6 +30,7 @@
 #include "Engine.h"
 #include "Logging.h"
 #include "freemheg.h"
+#include "mythmiscutil.h"
 
 #include <QDateTime>
 #include <QLocale>
@@ -175,37 +178,13 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
         {
             if (args.Size() == 2)
             {
-                time_t epochSeconds = 0;
-                short int timeZone = 0;
-#if HAVE_GETTIMEOFDAY
-                struct timeval   time {};
-                struct timezone  zone {};
-
-                if (gettimeofday(&time, &zone) == -1)
-                {
-                    MHLOG(MHLogDetail, QString("gettimeofday() failed"));
-                }
-
-                epochSeconds     = time.tv_sec;
-                timeZone = zone.tz_minuteswest;
-#elif HAVE_FTIME
-                struct timeb timebuffer;
-                if (ftime(&timebuffer) == -1)
-                {
-                    MHLOG(MHLogDetail, QString("ftime() failed"));
-                }
-                epochSeconds = timebuffer.time;
-                timeZone = timebuffer.timezone;
-#else
-#error Configuration error? No ftime() or gettimeofday()?
-#endif
                 // Adjust the time to local.  TODO: Check this.
-                epochSeconds -= timeZone * 60;
+                auto epochSeconds = nowAsDuration<std::chrono::seconds>(true);
                 // Time as seconds since midnight.
-                int nTimeAsSecs = epochSeconds % (24 * 60 * 60);
+                int nTimeAsSecs = (epochSeconds % 24h).count();
                 // Modified Julian date as number of days since 17th November 1858.
                 // 1st Jan 1970 was date 40587.
-                int nModJulianDate = 40587 + epochSeconds / (24 * 60 * 60);
+                int nModJulianDate = 40587 + epochSeconds / 24h;
 
                 engine->FindObject(*(args.GetAt(0)->GetReference()))->SetVariableValue(nModJulianDate);
                 engine->FindObject(*(args.GetAt(1)->GetReference()))->SetVariableValue(nTimeAsSecs);
@@ -233,7 +212,7 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
 
                 for (int i = 0; i < format.Size(); i++)
                 {
-                    unsigned char ch = format.GetAt(i);
+                    char ch = format.GetAt(i);
                     QString buffer {};
 
                     if (ch == '%')
@@ -318,7 +297,7 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
             {
                 int nLimit = GetInt(args.GetAt(0), engine);
                 MHParameter *pResInt = args.GetAt(1);
-                int r = random() % (nLimit + 1);
+                int r = static_cast<int>(MythRandom() % (nLimit + 1));
                 engine->FindObject(
                     *(pResInt->GetReference()))->SetVariableValue(r);
                 SetSuccessFlag(success, true, engine);
@@ -847,7 +826,7 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 QString str2 = QString::fromUtf8((const char *)string.Bytes(), string.Size());
                 // TODO
                 MHLOG(MHLogNotifications, QString("NOTE SetHybridFileSystem %1=%2")
-                    .arg(str).arg(str2));
+                    .arg(str, str2));
                 SetSuccessFlag(success, false, engine);
             }
             else SetSuccessFlag(success, false, engine);

@@ -18,14 +18,14 @@ class MythMMALContext : public MythCodecContext
                                          AVStream *Stream,
                                          uint StreamType);
     void        InitVideoCodec          (AVCodecContext *Context, bool SelectedStream, bool &DirectRendering) override;
-    bool        RetrieveFrame           (AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame) override;
+    bool        RetrieveFrame           (AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame) override;
     int         HwDecoderInit           (AVCodecContext *Context) override;
     void        SetDecoderOptions       (AVCodecContext *Context, AVCodec *Codec) override;
-    static bool GetBuffer               (AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame, int);
-    bool        GetBuffer2              (AVCodecContext *Context, VideoFrame *Frame, AVFrame *AvFrame, int);
+    static bool GetBuffer               (AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame, int);
+    bool        GetBuffer2              (AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame, int);
     static enum AVPixelFormat GetFormat (AVCodecContext*, const AVPixelFormat *PixFmt);
     static void GetDecoderList          (QStringList &Decoders);
-    static bool HaveMMAL                (void);
+    static bool HaveMMAL                (bool Reinit = false);
     static bool CheckCodecSize          (int Width, int Height, MythCodecContext::CodecProfile Profile);
 
   protected:

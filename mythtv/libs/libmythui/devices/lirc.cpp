@@ -11,9 +11,7 @@
 #include <algorithm>
 #include <chrono> // for milliseconds
 #include <thread> // for sleep_for
-
 #include <vector>
-using namespace std;
 
 // Qt headers
 #include <QCoreApplication>
@@ -309,7 +307,7 @@ bool LIRC::Init(void)
 
     LOG(VB_GENERAL, LOG_INFO, LOC +
         QString("Successfully initialized '%1' using '%2' config")
-            .arg(m_lircdDevice).arg(m_configFile));
+            .arg(m_lircdDevice, m_configFile));
 
     return true;
 }
@@ -366,10 +364,11 @@ void LIRC::Process(const QByteArray &data)
                     QString(), lirctext));
         }
 
-        vector<LircKeycodeEvent*> keyReleases;
+        std::vector<LircKeycodeEvent*> keyReleases;
 
         for (int i = 0; i < a.count(); i++)
         {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
             int keycode = a[i];
             Qt::KeyboardModifiers mod = Qt::NoModifier;
             mod |= (Qt::SHIFT & keycode) ? Qt::ShiftModifier : Qt::NoModifier;
@@ -378,6 +377,10 @@ void LIRC::Process(const QByteArray &data)
             mod |= (Qt::ALT   & keycode) ? Qt::AltModifier   : Qt::NoModifier;
 
             keycode &= ~Qt::MODIFIER_MASK;
+#else
+            int keycode = a[i].key();
+            Qt::KeyboardModifiers mod = a[i].keyboardModifiers();
+#endif
 
             QString text = "";
             if (!mod)
@@ -410,7 +413,7 @@ void LIRC::run(void)
     while (IsDoRunSet())
     {
         if (m_eofCount && m_retryCount)
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(100ms);
 
         if ((m_eofCount >= 10) || (!d->m_lircState))
         {
@@ -432,7 +435,7 @@ void LIRC::run(void)
                 m_retryCount = 0;
             else
                 // wait a while before we retry..
-                std::this_thread::sleep_for(std::chrono::seconds(2));
+                std::this_thread::sleep_for(2s);
 
             continue;
         }

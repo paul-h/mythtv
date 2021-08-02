@@ -22,8 +22,6 @@
 // C++ headers
 #include <iostream>
 
-using namespace std;
-
 // Qt headers
 #if CONFIG_QTDBUS
 #include <QtDBus>
@@ -32,7 +30,7 @@ using namespace std;
 #include <QList>
 #include <QTextStream>
 #include <QDir>
-#include <QFile>
+#include <QRegularExpression>
 
 // MythTV headers
 #include "mythmediamonitor.h"
@@ -71,7 +69,7 @@ extern "C" {
 #ifndef MNTTYPE_SUPERMOUNT
 #define MNTTYPE_SUPERMOUNT "supermount"
 #endif
-#define SUPER_OPT_DEV "dev="
+static const std::string kSuperOptDev { "dev=" };
 
 #if CONFIG_QTDBUS
 // DBus UDisk service - http://hal.freedesktop.org/docs/udisks/
@@ -173,14 +171,14 @@ bool MediaMonitorUnix::CheckFileSystemTable(void)
 
 #if CONFIG_QTDBUS
 // Get a device property by name
-static QVariant DeviceProperty(const QDBusObjectPath& o, const char kszProperty[])
+static QVariant DeviceProperty(const QDBusObjectPath& o, const std::string& kszProperty)
 {
     QVariant v;
 
     QDBusInterface iface(UDISKS_SVC, o.path(), UDISKS_IFACE".Device",
         QDBusConnection::systemBus() );
     if (iface.isValid())
-        v = iface.property(kszProperty);
+        v = iface.property(kszProperty.c_str());
 
     return v;
 }
@@ -281,7 +279,8 @@ bool MediaMonitorUnix::CheckMountable(void)
     QDir sysfs("/sys/block");
     sysfs.setFilter(QDir::Dirs | QDir::NoDotAndDotDot);
 
-    for (const auto& device : sysfs.entryList())
+    auto list = sysfs.entryList();
+    for (const auto& device : qAsConst(list))
     {
         // ignore floppies, too slow
         if (device.startsWith("fd"))
@@ -343,7 +342,7 @@ QString MediaMonitorUnix::GetDeviceFile(const QString &sysfs)
     QString ret = sysfs;
 
     // In case of error, a working default?  (device names usually match)
-    ret.replace(QRegExp(".*/"), "/dev/");
+    ret.replace(QRegularExpression(".*/"), "/dev/");
 
 #ifdef linux
   #if HAVE_LIBUDEV
@@ -395,7 +394,7 @@ QString MediaMonitorUnix::GetDeviceFile(const QString &sysfs)
 
     // TODO: change this to a MythSystemLegacy on the stack?
     MythSystemLegacy *udevinfo = new MythSystemLegacy("udevinfo", args, flags);
-    udevinfo->Run(4);
+    udevinfo->Run(4s);
     if( udevinfo->Wait() != GENERIC_EXIT_OK )
     {
         delete udevinfo;
@@ -556,7 +555,7 @@ static void LookupModel(MythMediaDevice* device)
 #endif
 
     LOG(VB_MEDIA, LOG_DEBUG, QString("LookupModel '%1' -> '%2'")
-             .arg(device->getRealDevice()).arg(desc) );
+             .arg(device->getRealDevice(), desc) );
     device->setDeviceModel(desc.toLatin1().constData());
 }
 
@@ -576,7 +575,7 @@ bool MediaMonitorUnix::AddDevice(MythMediaDevice* pDevice)
         return false;
 
     QString path = pDevice->getDevicePath();
-    if (!path.length())
+    if (path.isEmpty())
     {
         LOG(VB_GENERAL, LOG_ALERT,
                 "MediaMonitorUnix::AddDevice() - empty device path.");
@@ -617,8 +616,8 @@ bool MediaMonitorUnix::AddDevice(MythMediaDevice* pDevice)
 
     QMutexLocker locker(&m_devicesLock);
 
-    connect(pDevice, SIGNAL(statusChanged(MythMediaStatus, MythMediaDevice*)),
-            this, SLOT(mediaStatusChanged(MythMediaStatus, MythMediaDevice*)));
+    connect(pDevice, &MythMediaDevice::statusChanged,
+            this, &MediaMonitor::mediaStatusChanged);
     m_devices.push_back( pDevice );
     m_useCount[pDevice] = 0;
     LOG(VB_MEDIA, LOG_INFO, LOC + ":AddDevice() - Added " + path);
@@ -633,8 +632,8 @@ bool MediaMonitorUnix::AddDevice(struct fstab * mep)
         return false;
 
 #ifndef Q_OS_ANDROID
-    QString devicePath( mep->fs_spec );
 #if 0
+    QString devicePath( mep->fs_spec );
     LOG(VB_GENERAL, LOG_DEBUG, "AddDevice - " + devicePath);
 #endif
 
@@ -684,27 +683,21 @@ bool MediaMonitorUnix::AddDevice(struct fstab * mep)
     }
     else
     {
-        char *dev = nullptr;
-        int len = 0;
-        dev = strstr(mep->fs_mntops, SUPER_OPT_DEV);
-        if (dev == nullptr)
+        QString dev(mep->fs_mntops);
+        int pos = dev.indexOf(QString::fromStdString(kSuperOptDev));
+        if (pos == -1)
             return false;
-
-        dev += sizeof(SUPER_OPT_DEV)-1;
-        while (dev[len] != ',' && dev[len] != ' ' && dev[len] != 0)
-            len++;
-
-        if (dev[len] != 0)
-        {
-            char devstr[256];
-            strncpy(devstr, dev, len);
-            devstr[len] = 0;
-            if (is_cdrom)
-                pDevice = MythCDROM::get(this, devstr,
-                                         is_supermount, m_allowEject);
-        }
-        else
+        dev = dev.mid(pos+kSuperOptDev.size());
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
+        QStringList parts = dev.split(QRegularExpression("[, ]"),
+                                      QString::SkipEmptyParts);
+#else
+        QStringList parts = dev.split(QRegularExpression("[, ]"),
+                                      Qt::SkipEmptyParts);
+#endif
+        if (parts[0].isEmpty())
             return false;
+        pDevice = MythCDROM::get(this, dev, is_supermount, m_allowEject);
     }
 
     if (pDevice)
@@ -851,19 +844,19 @@ bool MediaMonitorUnix::FindPartitions(const QString &dev, bool checkPartitions)
  */
 void MediaMonitorUnix::CheckDeviceNotifications(void)
 {
-    char buffer[256];
+    std::string buffer(256,'\0');
     QString qBuffer;
 
     if (m_fifo == -1)
         return;
 
-    int size = read(m_fifo, buffer, 255);
+    int size = read(m_fifo, buffer.data(), 255);
     while (size > 0)
     {
         // append buffer to QString
         buffer[size] = '\0';
-        qBuffer.append(buffer);
-        size = read(m_fifo, buffer, 255);
+        qBuffer.append(QString::fromStdString(buffer));
+        size = read(m_fifo, buffer.data(), 255);
     }
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     const QStringList list = qBuffer.split('\n', QString::SkipEmptyParts);

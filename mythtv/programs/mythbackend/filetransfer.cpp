@@ -11,9 +11,9 @@
 #include "mythlogging.h"
 
 FileTransfer::FileTransfer(QString &filename, MythSocket *remote,
-                           bool usereadahead, int timeout_ms) :
+                           bool usereadahead, std::chrono::milliseconds timeout) :
     ReferenceCounter(QString("FileTransfer:%1").arg(filename)),
-    m_rbuffer(MythMediaBuffer::Create(filename, false, usereadahead, timeout_ms, true)),
+    m_rbuffer(MythMediaBuffer::Create(filename, false, usereadahead, timeout, true)),
     m_sock(remote)
 {
     m_pginfo = new ProgramInfo(filename);
@@ -131,7 +131,7 @@ int FileTransfer::RequestBlock(int size)
     while (m_readsLocked)
         m_readsUnlockedCond.wait(&m_lock, 100 /*ms*/);
 
-    m_requestBuffer.resize(max((size_t)max(size,0) + 128, m_requestBuffer.size()));
+    m_requestBuffer.resize(std::max((size_t)std::max(size,0) + 128, m_requestBuffer.size()));
     char *buf = &m_requestBuffer[0];
     while (tot < size && !m_rbuffer->GetStopReads() && m_readthreadlive)
     {
@@ -169,14 +169,14 @@ int FileTransfer::WriteBlock(int size)
 
     QMutexLocker locker(&m_lock);
 
-    m_requestBuffer.resize(max((size_t)max(size,0) + 128, m_requestBuffer.size()));
+    m_requestBuffer.resize(std::max((size_t)std::max(size,0) + 128, m_requestBuffer.size()));
     char *buf = &m_requestBuffer[0];
     int attempts = 0;
 
     while (tot < size)
     {
         int request = size - tot;
-        int received = m_sock->Read(buf, (uint)request, 200 /*ms */);
+        int received = m_sock->Read(buf, (uint)request, 200ms);
 
         if (received != request)
         {

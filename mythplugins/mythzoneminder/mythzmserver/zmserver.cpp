@@ -14,6 +14,8 @@
  * ============================================================ */
 
 
+#include <algorithm>
+#include <fstream>
 #include <iostream>
 #include <cstdlib>
 #include <cstring>
@@ -49,12 +51,8 @@
 // the version of the protocol we understand
 #define ZM_PROTOCOL_VERSION "11"
 
-// the maximum image size we are ever likely to get from ZM
-#define MAX_IMAGE_SIZE  (2048*1536*3)
-
 #define ADD_STR(list,s)  list += (s); (list) += "[]:[]";
-// TODO rewrite after we require C++11, see http://en.cppreference.com/w/cpp/string/basic_string/to_string
-#define ADD_INT(list,n)  sprintf(m_buf, "%d", (n)); (list) += m_buf; (list) += "[]:[]";
+#define ADD_INT(list,n)  (list) += std::to_string(n); (list) += "[]:[]";
 
 // error messages
 #define ERROR_TOKEN_COUNT      "Invalid token count"
@@ -79,25 +77,25 @@
 #define ZM_SUBPIX_ORDER_ARGB 10
 
 MYSQL   g_dbConn;
-string  g_zmversion;
-string  g_password;
-string  g_server;
-string  g_database;
-string  g_webPath;
-string  g_user;
-string  g_webUser;
-string  g_binPath;
-string  g_mmapPath;
-string  g_eventsPath;
+std::string  g_zmversion;
+std::string  g_password;
+std::string  g_server;
+std::string  g_database;
+std::string  g_webPath;
+std::string  g_user;
+std::string  g_webUser;
+std::string  g_binPath;
+std::string  g_mmapPath;
+std::string  g_eventsPath;
 int     g_majorVersion = 0;
 int     g_minorVersion = 0;
 int     g_revisionVersion = 0;
 
-time_t  g_lastHousekeeping = 0;
-time_t  g_lastDBKick = 0;
+TimePoint  g_lastHousekeeping {};
+TimePoint  g_lastDBKick {};
 
-bool    g_pendingZmAudit = false;
-time_t  g_lastZmAudit = 0;
+bool      g_pendingZmAudit = false;
+TimePoint g_lastZmAudit {};
 
 // returns true if the ZM version >= the requested version
 bool checkVersion(int major, int minor, int revision)
@@ -107,78 +105,70 @@ bool checkVersion(int major, int minor, int revision)
            g_revisionVersion >= revision;
 }
 
-void loadZMConfig(const string &configfile)
+void loadZMConfig(const std::string &configfile)
 {
-    cout << "loading zm config from " << configfile << endl;
-    char line[512];
-    char val[250];
+    std::cout << "loading zm config from " << configfile << std::endl;
 
-    FILE *cfg = fopen(configfile.c_str(), "r");
-    if ( cfg == nullptr )
+    std::ifstream ifs(configfile);
+    if ( ifs.fail() )
     {
         fprintf(stderr, "Can't open %s\n", configfile.c_str());
     }
 
-    while ( fgets( line, sizeof(line), cfg ) != nullptr )
+    std::string line {};
+    while ( std::getline(ifs, line) )
     {
-        char *line_ptr = line;
-        // Trim off any cr/lf line endings
-        size_t chomp_len = strcspn( line_ptr, "\r\n" );
-        line_ptr[chomp_len] = '\0';
-
-        // Remove leading white space
-        size_t white_len = strspn( line_ptr, " \t" );
-        line_ptr += white_len;
+        // Trim off begining and ending whitespace including cr/lf line endings
+        constexpr const char *whitespace = " \t\r\n";
+        auto begin = line.find_first_not_of(whitespace);
+        if (begin == std::string::npos)
+            continue; // Only whitespace
+        auto end = line.find_last_not_of(whitespace);
+        if (end != std::string::npos)
+            end = end + 1;
+        line = line.substr(begin, end);
 
         // Check for comment or empty line
-        if ( *line_ptr == '\0' || *line_ptr == '#' )
+        if ( line.empty() || line[0] == '#' )
             continue;
 
-        // Remove trailing white space
-        char *temp_ptr = line_ptr+strlen(line_ptr)-1;
-        while ( *temp_ptr == ' ' || *temp_ptr == '\t' )
-        {
-            *temp_ptr-- = '\0';
-            temp_ptr--;
-        }
-
         // Now look for the '=' in the middle of the line
-        temp_ptr = strchr( line_ptr, '=' );
-        if ( !temp_ptr )
+        auto index = line.find('=');
+        if (index == std::string::npos)
         {
-            fprintf(stderr,"Invalid data in %s: '%s'\n", configfile.c_str(), line );
+            fprintf(stderr,"Invalid data in %s: '%s'\n", configfile.c_str(), line.c_str() );
             continue;
         }
 
         // Assign the name and value parts
-        char *name_ptr = line_ptr;
-        char *val_ptr = temp_ptr+1;
+        std::string name = line.substr(0,index);
+        std::string val = line.substr(index+1);
 
         // Trim trailing space from the name part
-        do
-        {
-            *temp_ptr = '\0';
-            temp_ptr--;
-        }
-        while ( *temp_ptr == ' ' || *temp_ptr == '\t' );
+        end = name.find_last_not_of(whitespace);
+        if (end != std::string::npos)
+            end = end + 1;
+        name = name.substr(0, end);
 
         // Remove leading white space from the value part
-        white_len = strspn( val_ptr, " \t" );
-        val_ptr += white_len;
+        begin = val.find_first_not_of(whitespace);
+        if (begin != std::string::npos)
+            val = val.substr(begin);
 
-        strncpy( val, val_ptr, strlen(val_ptr)+1 );
-        if ( strcasecmp( name_ptr, "ZM_DB_HOST" ) == 0 )       g_server = val;
-        else if ( strcasecmp( name_ptr, "ZM_DB_NAME" ) == 0 )  g_database = val;
-        else if ( strcasecmp( name_ptr, "ZM_DB_USER" ) == 0 )  g_user = val;
-        else if ( strcasecmp( name_ptr, "ZM_DB_PASS" ) == 0 )  g_password = val;
-        else if ( strcasecmp( name_ptr, "ZM_PATH_WEB" ) == 0 ) g_webPath = val;
-        else if ( strcasecmp( name_ptr, "ZM_PATH_BIN" ) == 0 ) g_binPath = val;
-        else if ( strcasecmp( name_ptr, "ZM_WEB_USER" ) == 0 ) g_webUser = val;
-        else if ( strcasecmp( name_ptr, "ZM_VERSION" ) == 0 ) g_zmversion = val;
-        else if ( strcasecmp( name_ptr, "ZM_PATH_MAP" ) == 0 ) g_mmapPath = val;
-        else if ( strcasecmp( name_ptr, "ZM_DIR_EVENTS" ) == 0 ) g_eventsPath = val;
+        // convert name to uppercase
+        std::transform(name.cbegin(), name.cend(), name.begin(), ::toupper);
+
+        if      ( name == "ZM_DB_HOST"    ) g_server = val;
+        else if ( name == "ZM_DB_NAME"    ) g_database = val;
+        else if ( name == "ZM_DB_USER"    ) g_user = val;
+        else if ( name == "ZM_DB_PASS"    ) g_password = val;
+        else if ( name == "ZM_PATH_WEB"   ) g_webPath = val;
+        else if ( name == "ZM_PATH_BIN"   ) g_binPath = val;
+        else if ( name == "ZM_WEB_USER"   ) g_webUser = val;
+        else if ( name == "ZM_VERSION"    ) g_zmversion = val;
+        else if ( name == "ZM_PATH_MAP"   ) g_mmapPath = val;
+        else if ( name == "ZM_DIR_EVENTS" ) g_eventsPath = val;
     }
-    fclose(cfg);
 }
 
 #if !defined(MARIADB_BASE_VERSION) && MYSQL_VERSION_ID >= 80000
@@ -191,7 +181,7 @@ void connectToDatabase(void)
 {
     if (!mysql_init(&g_dbConn))
     {
-        cout << "Error: Can't initialise structure: " <<  mysql_error(&g_dbConn) << endl;
+        std::cout << "Error: Can't initialise structure: " <<  mysql_error(&g_dbConn) << std::endl;
         exit(static_cast<int>(mysql_errno(&g_dbConn)));
     }
 
@@ -201,13 +191,13 @@ void connectToDatabase(void)
     if (!mysql_real_connect(&g_dbConn, g_server.c_str(), g_user.c_str(),
          g_password.c_str(), nullptr, 0, nullptr, 0))
     {
-        cout << "Error: Can't connect to server: " <<  mysql_error(&g_dbConn) << endl;
+        std::cout << "Error: Can't connect to server: " <<  mysql_error(&g_dbConn) << std::endl;
         exit(static_cast<int>(mysql_errno( &g_dbConn)));
     }
 
     if (mysql_select_db(&g_dbConn, g_database.c_str()))
     {
-        cout << "Error: Can't select database: " << mysql_error(&g_dbConn) << endl;
+        std::cout << "Error: Can't select database: " << mysql_error(&g_dbConn) << std::endl;
         exit(static_cast<int>(mysql_errno(&g_dbConn)));
     }
 }
@@ -217,40 +207,40 @@ void houseKeeping(bool debug)
     kickDatabase(debug);
     checkZmAudit(debug);
 
-    g_lastHousekeeping = time(NULL);
+    g_lastHousekeeping = Clock::now();
 }
 
 void checkZmAudit(bool debug)
 {
-    if (!g_pendingZmAudit || time(NULL) < g_lastZmAudit + ZMAUDIT_TIME)
+    if (!g_pendingZmAudit || Clock::now() < g_lastZmAudit + ZMAUDIT_TIME)
         return;
 
     if (debug)
-        cout << "Running ZmAudit" << endl;
+        std::cout << "Running ZmAudit" << std::endl;
 
     // run zmaudit.pl to clean up orphaned db entries etc
-    string command(g_binPath + "/zmaudit.pl &");
+    std::string command(g_binPath + "/zmaudit.pl &");
 
     if (debug)
-        cout << "Running command: " << command << endl;
+        std::cout << "Running command: " << command << std::endl;
 
     errno = 0;
     if (system(command.c_str()) < 0 && errno)
-        cerr << "Failed to run '" << command << "'" << endl;
+        std::cerr << "Failed to run '" << command << "'" << std::endl;
 
-    g_lastZmAudit = time(NULL);
+    g_lastZmAudit = Clock::now();
     g_pendingZmAudit = false;
 }
 
 void kickDatabase(bool debug)
 {
-    if (time(nullptr) < g_lastDBKick + DB_CHECK_TIME)
+    if (Clock::now() < g_lastDBKick + DB_CHECK_TIME)
         return;
 
     if (debug)
-        cout << "Kicking database connection" << endl;
+        std::cout << "Kicking database connection" << std::endl;
 
-    g_lastDBKick = time(nullptr);
+    g_lastDBKick = Clock::now();
 
     if (mysql_query(&g_dbConn, "SELECT NULL;") == 0)
     {
@@ -260,7 +250,7 @@ void kickDatabase(bool debug)
         return;
     }
 
-    cout << "Lost connection to DB - trying to reconnect" << endl;
+    std::cout << "Lost connection to DB - trying to reconnect" << std::endl;
 
     // failed so try to reconnect to the DB
     mysql_close(&g_dbConn);
@@ -269,7 +259,7 @@ void kickDatabase(bool debug)
 
 ///////////////////////////////////////////////////////////////////////
 
-void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
+void MONITOR::initMonitor(bool debug, const std::string &mmapPath, int shmKey)
 {
     size_t shared_data_size = 0;
     int frame_size = m_width * m_height * m_bytesPerPixel;
@@ -311,26 +301,26 @@ void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
      * Try to open the mmap file first if the architecture supports it.
      * Otherwise, legacy shared memory will be used below.
      */
-    stringstream mmap_filename;
+    std::stringstream mmap_filename;
     mmap_filename << mmapPath << "/zm.mmap." << m_monId;
 
     m_mapFile = open(mmap_filename.str().c_str(), O_RDONLY, 0x0);
     if (m_mapFile >= 0)
     {
         if (debug)
-            cout << "Opened mmap file: " << mmap_filename.str() << endl;
+            std::cout << "Opened mmap file: " << mmap_filename.str() << std::endl;
 
         m_shmPtr = mmap(nullptr, shared_data_size, PROT_READ,
                        MAP_SHARED, m_mapFile, 0x0);
         if (m_shmPtr == MAP_FAILED)
         {
-            cout << "Failed to map shared memory from file ["
-                 << mmap_filename.str() << "] " << "for monitor: "
-                 << m_monId << endl;
+            std::cout << "Failed to map shared memory from file ["
+                      << mmap_filename.str() << "] " << "for monitor: "
+                      << m_monId << std::endl;
             m_status = "Error";
 
             if (close(m_mapFile) == -1)
-                cout << "Failed to close mmap file" << endl;
+                std::cout << "Failed to close mmap file" << std::endl;
 
             m_mapFile = -1;
             m_shmPtr = nullptr;
@@ -344,10 +334,10 @@ void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
         // using the legacy shared memory support
         if (debug)
         {
-            cout << "Failed to open mmap file [" << mmap_filename.str() << "] "
-                 << "for monitor: " << m_monId
-                 << " : " << strerror(errno) << endl;
-            cout << "Falling back to the legacy shared memory method" << endl;
+            std::cout << "Failed to open mmap file [" << mmap_filename.str() << "] "
+                      << "for monitor: " << m_monId
+                      << " : " << strerror(errno) << std::endl;
+            std::cout << "Falling back to the legacy shared memory method" << std::endl;
         }
     }
 #endif
@@ -359,17 +349,17 @@ void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
                            shared_data_size, SHM_R);
         if (shmid == -1)
         {
-            cout << "Failed to shmget for monitor: " << m_monId << endl;
+            std::cout << "Failed to shmget for monitor: " << m_monId << std::endl;
             m_status = "Error";
             switch(errno)
             {
-                case EACCES: cout << "EACCES - no rights to access segment\n"; break;
-                case EEXIST: cout << "EEXIST - segment already exists\n"; break;
-                case EINVAL: cout << "EINVAL - size < SHMMIN or size > SHMMAX\n"; break;
-                case ENFILE: cout << "ENFILE - limit on open files has been reached\n"; break;
-                case ENOENT: cout << "ENOENT - no segment exists for the given key\n"; break;
-                case ENOMEM: cout << "ENOMEM - couldn't reserve memory for segment\n"; break;
-                case ENOSPC: cout << "ENOSPC - shmmni or shmall limit reached\n"; break;
+                case EACCES: std::cout << "EACCES - no rights to access segment\n"; break;
+                case EEXIST: std::cout << "EEXIST - segment already exists\n"; break;
+                case EINVAL: std::cout << "EINVAL - size < SHMMIN or size > SHMMAX\n"; break;
+                case ENFILE: std::cout << "ENFILE - limit on open files has been reached\n"; break;
+                case ENOENT: std::cout << "ENOENT - no segment exists for the given key\n"; break;
+                case ENOMEM: std::cout << "ENOMEM - couldn't reserve memory for segment\n"; break;
+                case ENOSPC: std::cout << "ENOSPC - shmmni or shmall limit reached\n"; break;
             }
 
             return;
@@ -380,7 +370,7 @@ void MONITOR::initMonitor(bool debug, const string &mmapPath, int shmKey)
 
         if (m_shmPtr == nullptr)
         {
-            cout << "Failed to shmat for monitor: " << m_monId << endl;
+            std::cout << "Failed to shmat for monitor: " << m_monId << std::endl;
             m_status = "Error";
             return;
         }
@@ -466,7 +456,7 @@ bool MONITOR::isValid(void)
 }
 
 
-string MONITOR::getIdStr(void)
+std::string MONITOR::getIdStr(void)
 {
     if (m_id.empty())
     {
@@ -554,15 +544,14 @@ int MONITOR::getFrameSize(void)
 ZMServer::ZMServer(int sock, bool debug)
 {
     if (debug)
-        cout << "Using server protocol version '" << ZM_PROTOCOL_VERSION << "'\n";
+        std::cout << "Using server protocol version '" << ZM_PROTOCOL_VERSION << "'\n";
 
     m_sock = sock;
     m_debug = debug;
 
     // get the shared memory key
-    char buf[100];
     m_shmKey = 0x7a6d2000;
-    string setting = getZMSetting("ZM_SHM_KEY");
+    std::string setting = getZMSetting("ZM_SHM_KEY");
 
     if (!setting.empty())
     {
@@ -573,8 +562,9 @@ ZMServer::ZMServer(int sock, bool debug)
 
     if (m_debug)
     {
-        snprintf(buf, sizeof(buf), "0x%x", (unsigned int)m_shmKey);
-        cout << "Shared memory key is: " << buf << endl;
+        std::cout << "Shared memory key is: 0x"
+                  << std::hex << (unsigned int)m_shmKey
+                  << std::dec << std::endl;
     }
 
     // get the MMAP path
@@ -585,31 +575,30 @@ ZMServer::ZMServer(int sock, bool debug)
 
     if (m_debug)
     {
-        cout << "Memory path directory is: " << m_mmapPath << endl;
+        std::cout << "Memory path directory is: " << m_mmapPath << std::endl;
     }
 
     // get the event filename format
     setting = getZMSetting("ZM_EVENT_IMAGE_DIGITS");
     int eventDigits = atoi(setting.c_str());
-    snprintf(buf, sizeof(buf), "%%0%dd-capture.jpg", eventDigits);
-    m_eventFileFormat = buf;
+    std::string eventDigitsFmt = "%0" + std::to_string(eventDigits) + "d";
+    m_eventFileFormat = eventDigitsFmt + "-capture.jpg";
     if (m_debug)
-        cout << "Event file format is: " << m_eventFileFormat << endl;
+        std::cout << "Event file format is: " << m_eventFileFormat << std::endl;
 
     // get the analysis filename format
-    snprintf(buf, sizeof(buf), "%%0%dd-analyse.jpg", eventDigits);
-    m_analysisFileFormat = buf;
+    m_analysisFileFormat = eventDigitsFmt + "-analyse.jpg";
     if (m_debug)
-        cout << "Analysis file format is: " << m_analysisFileFormat << endl;
+        std::cout << "Analysis file format is: " << m_analysisFileFormat << std::endl;
 
     // is ZM using the deep storage directory format?
     m_useDeepStorage = (getZMSetting("ZM_USE_DEEP_STORAGE") == "1");
     if (m_debug)
     {
         if (m_useDeepStorage)
-            cout << "using deep storage directory structure" << endl;
+            std::cout << "using deep storage directory structure" << std::endl;
         else
-            cout << "using flat directory structure" << endl;
+            std::cout << "using flat directory structure" << std::endl;
     }
 
     // is ZM creating analysis images?
@@ -617,9 +606,9 @@ ZMServer::ZMServer(int sock, bool debug)
     if (m_debug)
     {
         if (m_useAnalysisImages)
-            cout << "using analysis images" << endl;
+            std::cout << "using analysis images" << std::endl;
         else
-            cout << "not using analysis images" << endl;
+            std::cout << "not using analysis images" << std::endl;
     }
 
     getMonitorList();
@@ -632,10 +621,10 @@ ZMServer::~ZMServer()
         if (mon->m_mapFile != -1)
         {
             if (close(mon->m_mapFile) == -1)
-                cout << "Failed to close mapFile" << endl;
+                std::cout << "Failed to close mapFile" << std::endl;
             else
                 if (m_debug)
-                    cout << "Closed mapFile for monitor: " << mon->m_name << endl;
+                    std::cout << "Closed mapFile for monitor: " << mon->m_name << std::endl;
         }
 
         delete mon;
@@ -645,17 +634,17 @@ ZMServer::~ZMServer()
     m_monitorMap.clear();
 
     if (m_debug)
-        cout << "ZMServer destroyed\n";
+        std::cout << "ZMServer destroyed\n";
 }
 
-void ZMServer::tokenize(const string &command, vector<string> &tokens)
+void ZMServer::tokenize(const std::string &command, std::vector<std::string> &tokens)
 {
-    string token;
+    std::string token;
     tokens.clear();
-    string::size_type startPos = 0;
-    string::size_type endPos = 0;
+    std::string::size_type startPos = 0;
+    std::string::size_type endPos = 0;
 
-    while((endPos = command.find("[]:[]", startPos)) != string::npos)
+    while((endPos = command.find("[]:[]", startPos)) != std::string::npos)
     {
         token = command.substr(startPos, endPos - startPos);
         tokens.push_back(token);
@@ -682,15 +671,15 @@ bool ZMServer::processRequest(char* buf, int nbytes)
 #endif
 
     buf[nbytes] = '\0';
-    string s(buf+8);
-    vector<string> tokens;
+    std::string s(buf+8);
+    std::vector<std::string> tokens;
     tokenize(s, tokens);
 
     if (tokens.empty())
         return false;
 
     if (m_debug)
-        cout << "Processing: '" << tokens[0] << "'" << endl;
+        std::cout << "Processing: '" << tokens[0] << "'" << std::endl;
 
     if (tokens[0] == "HELLO")
         handleHello();
@@ -732,13 +721,12 @@ bool ZMServer::processRequest(char* buf, int nbytes)
     return false;
 }
 
-bool ZMServer::send(const string &s) const
+bool ZMServer::send(const std::string &s) const
 {
     // send length
-    size_t len = s.size();
-    char buf[9];
-    sprintf(buf, "%8u", (unsigned int) len);
-    int status = ::send(m_sock, buf, 8, MSG_NOSIGNAL);
+    std::string str = "0000000" + std::to_string(s.size());
+    str.erase(0, str.size()-8);
+    int status = ::send(m_sock, str.data(), 8, MSG_NOSIGNAL);
     if (status == -1)
         return false;
 
@@ -747,13 +735,12 @@ bool ZMServer::send(const string &s) const
     return status != -1;
 }
 
-bool ZMServer::send(const string &s, const unsigned char *buffer, int dataLen) const
+bool ZMServer::send(const std::string &s, const unsigned char *buffer, int dataLen) const
 {
     // send length
-    size_t len = s.size();
-    char buf[9];
-    sprintf(buf, "%8u", (unsigned int) len);
-    int status = ::send(m_sock, buf, 8, MSG_NOSIGNAL);
+    std::string str = "0000000" + std::to_string(s.size());
+    str.erase(0, str.size()-8);
+    int status = ::send(m_sock, str.data(), 8, MSG_NOSIGNAL);
     if (status == -1)
         return false;
 
@@ -767,10 +754,10 @@ bool ZMServer::send(const string &s, const unsigned char *buffer, int dataLen) c
     return status != -1;
 }
 
-void ZMServer::sendError(const string &error)
+void ZMServer::sendError(const std::string &error)
 {
-    string outStr;
-    ADD_STR(outStr, string("ERROR - ") + error);
+    std::string outStr;
+    ADD_STR(outStr, std::string("ERROR - ") + error);
     send(outStr);
 }
 
@@ -778,13 +765,13 @@ void ZMServer::handleHello()
 {
     // just send OK so the client knows all is well
     // followed by the protocol version we understand
-    string outStr;
+    std::string outStr;
     ADD_STR(outStr, "OK");
     ADD_STR(outStr, ZM_PROTOCOL_VERSION);
     send(outStr);
 }
 
-long long ZMServer::getDiskSpace(const string &filename, long long &total, long long &used)
+long long ZMServer::getDiskSpace(const std::string &filename, long long &total, long long &used)
 {
     struct statfs statbuf {};
     long long freespace = -1;
@@ -815,33 +802,33 @@ long long ZMServer::getDiskSpace(const string &filename, long long &total, long 
 
 void ZMServer::handleGetServerStatus(void)
 {
-    string outStr;
+    std::string outStr;
     ADD_STR(outStr, "OK")
 
     // server status
-    string status = runCommand(g_binPath + "/zmdc.pl check");
+    std::string status = runCommand(g_binPath + "/zmdc.pl check");
     ADD_STR(outStr, status)
 
     // get load averages
-    array<double,3> loads {};
+    std::array<double,3> loads {};
     if (getloadavg(loads.data(), 3) == -1)
     {
         ADD_STR(outStr, "Unknown")
     }
     else
     {
-        char buf[30];
-        sprintf(buf, "%0.2lf", loads[0]);
+        // to_string gives six decimal places.  Drop last four.
+        std::string buf = std::to_string(loads[0]);
+        buf.resize(buf.size() - 4);
         ADD_STR(outStr, buf)
     }
 
     // get free space on the disk where the events are stored
-    char buf[15];
     long long total = 0;
     long long used = 0;
-    string eventsDir = g_webPath + "/events/";
+    std::string eventsDir = g_webPath + "/events/";
     getDiskSpace(eventsDir, total, used);
-    sprintf(buf, "%d%%", static_cast<int>((used * 100) / total));
+    std::string buf = std::to_string(static_cast<int>((used * 100) / total)) + "%";
     ADD_STR(outStr, buf)
 
     send(outStr);
@@ -849,7 +836,7 @@ void ZMServer::handleGetServerStatus(void)
 
 void ZMServer::handleGetAlarmStates(void)
 {
-    string outStr;
+    std::string outStr;
     ADD_STR(outStr, "OK")
 
     // add the monitor count
@@ -867,9 +854,9 @@ void ZMServer::handleGetAlarmStates(void)
     send(outStr);
 }
 
-void ZMServer::handleGetEventList(vector<string> tokens)
+void ZMServer::handleGetEventList(std::vector<std::string> tokens)
 {
-    string outStr;
+    std::string outStr;
 
     if (tokens.size() != 5)
     {
@@ -877,17 +864,17 @@ void ZMServer::handleGetEventList(vector<string> tokens)
         return;
     }
 
-    string monitor = tokens[1];
+    std::string monitor = tokens[1];
     bool oldestFirst = (tokens[2] == "1");
-    string date = tokens[3];
+    std::string date = tokens[3];
     bool includeContinuous = (tokens[4] == "1");
 
     if (m_debug)
-        cout << "Loading events for monitor: " << monitor << ", date: " << date << endl;
+        std::cout << "Loading events for monitor: " << monitor << ", date: " << date << std::endl;
 
     ADD_STR(outStr, "OK")
 
-    string sql("SELECT E.Id, E.Name, M.Id AS MonitorID, M.Name AS MonitorName, E.StartTime,  "
+    std::string sql("SELECT E.Id, E.Name, M.Id AS MonitorID, M.Name AS MonitorName, E.StartTime,  "
             "E.Length, M.Width, M.Height, M.DefaultRate, M.DefaultScale "
             "from Events as E inner join Monitors as M on E.MonitorId = M.Id ");
 
@@ -928,7 +915,7 @@ void ZMServer::handleGetEventList(vector<string> tokens)
     int eventCount = mysql_num_rows(res);
 
     if (m_debug)
-        cout << "Got " << eventCount << " events" << endl;
+        std::cout << "Got " << eventCount << " events" << std::endl;
 
     ADD_INT(outStr, eventCount)
 
@@ -947,7 +934,7 @@ void ZMServer::handleGetEventList(vector<string> tokens)
         }
         else
         {
-            cout << "Failed to get mysql row" << endl;
+            std::cout << "Failed to get mysql row" << std::endl;
             sendError(ERROR_MYSQL_ROW);
             return;
         }
@@ -958,9 +945,9 @@ void ZMServer::handleGetEventList(vector<string> tokens)
     send(outStr);
 }
 
-void ZMServer::handleGetEventDates(vector<string> tokens)
+void ZMServer::handleGetEventDates(std::vector<std::string> tokens)
 {
-    string outStr;
+    std::string outStr;
 
     if (tokens.size() != 3)
     {
@@ -968,15 +955,15 @@ void ZMServer::handleGetEventDates(vector<string> tokens)
         return;
     }
 
-    string monitor = tokens[1];
+    std::string monitor = tokens[1];
     bool oldestFirst = (tokens[2] == "1");
 
     if (m_debug)
-        cout << "Loading event dates for monitor: " << monitor << endl;
+        std::cout << "Loading event dates for monitor: " << monitor << std::endl;
 
     ADD_STR(outStr, "OK")
 
-    string sql("SELECT DISTINCT DATE(E.StartTime) "
+    std::string sql("SELECT DISTINCT DATE(E.StartTime) "
             "from Events as E inner join Monitors as M on E.MonitorId = M.Id ");
 
     if (monitor != "<ANY>")
@@ -998,7 +985,7 @@ void ZMServer::handleGetEventDates(vector<string> tokens)
     int dateCount = mysql_num_rows(res);
 
     if (m_debug)
-        cout << "Got " << dateCount << " dates" << endl;
+        std::cout << "Got " << dateCount << " dates" << std::endl;
 
     ADD_INT(outStr, dateCount)
 
@@ -1011,7 +998,7 @@ void ZMServer::handleGetEventDates(vector<string> tokens)
         }
         else
         {
-            cout << "Failed to get mysql row" << endl;
+            std::cout << "Failed to get mysql row" << std::endl;
             sendError(ERROR_MYSQL_ROW);
             return;
         }
@@ -1024,12 +1011,12 @@ void ZMServer::handleGetEventDates(vector<string> tokens)
 
 void ZMServer::handleGetMonitorStatus(void)
 {
-    string outStr;
+    std::string outStr;
     ADD_STR(outStr, "OK")
 
     // get monitor list
     // Function is reserverd word so but ticks around it
-    string sql("SELECT Id, Name, Type, Device, Host, Channel, `Function`, Enabled "
+    std::string sql("SELECT Id, Name, Type, Device, Host, Channel, `Function`, Enabled "
                "FROM Monitors;");
     if (mysql_query(&g_dbConn, sql.c_str()))
     {
@@ -1044,7 +1031,7 @@ void ZMServer::handleGetMonitorStatus(void)
     int monitorCount = mysql_num_rows(res);
 
     if (m_debug)
-        cout << "Got " << monitorCount << " monitors" << endl;
+        std::cout << "Got " << monitorCount << " monitors" << std::endl;
 
     ADD_INT(outStr, monitorCount)
 
@@ -1053,23 +1040,23 @@ void ZMServer::handleGetMonitorStatus(void)
         MYSQL_ROW row = mysql_fetch_row(res);
         if (row)
         {
-            string id = row[0];
-            string type = row[2];
-            string device = row[3];
-            string host = row[4] ? row[4] : "";
-            string channel = row[5];
-            string function = row[6];
-            string enabled = row[7];
-            string name = row[1];
-            string events;
-            string zmcStatus;
-            string zmaStatus;
+            std::string id = row[0];
+            std::string type = row[2];
+            std::string device = row[3];
+            std::string host = row[4] ? row[4] : "";
+            std::string channel = row[5];
+            std::string function = row[6];
+            std::string enabled = row[7];
+            std::string name = row[1];
+            std::string events;
+            std::string zmcStatus;
+            std::string zmaStatus;
             getMonitorStatus(id, type, device, host, channel, function,
                              zmcStatus, zmaStatus, enabled);
 
-            string sql2("SELECT count(if(Archived=0,1,NULL)) AS EventCount "
-                        "FROM Events AS E "
-                        "WHERE MonitorId = " + id);
+            std::string sql2("SELECT count(if(Archived=0,1,NULL)) AS EventCount "
+                             "FROM Events AS E "
+                             "WHERE MonitorId = " + id);
 
             if (mysql_query(&g_dbConn, sql2.c_str()))
             {
@@ -1086,7 +1073,7 @@ void ZMServer::handleGetMonitorStatus(void)
                     events = row2[0];
                 else
                 {
-                    cout << "Failed to get mysql row" << endl;
+                    std::cout << "Failed to get mysql row" << std::endl;
                     sendError(ERROR_MYSQL_ROW);
                     return;
                 }
@@ -1104,7 +1091,7 @@ void ZMServer::handleGetMonitorStatus(void)
         }
         else
         {
-            cout << "Failed to get mysql row" << endl;
+            std::cout << "Failed to get mysql row" << std::endl;
             sendError(ERROR_MYSQL_ROW);
             return;
         }
@@ -1115,37 +1102,37 @@ void ZMServer::handleGetMonitorStatus(void)
     send(outStr);
 }
 
-string ZMServer::runCommand(const string& command)
+std::string ZMServer::runCommand(const std::string& command)
 {
-    string outStr;
+    std::string outStr;
     FILE *fd = popen(command.c_str(), "r");
-    char buffer[100];
+    std::array<char,100> buffer {};
 
-    while (fgets(buffer, sizeof(buffer), fd) != nullptr)
+    while (fgets(buffer.data(), buffer.size(), fd) != nullptr)
     {
-        outStr += buffer;
+        outStr += buffer.data();
     }
     pclose(fd);
     return outStr;
 }
 
-void ZMServer::getMonitorStatus(const string &id, const string &type,
-                                const string &device, const string &host,
-                                const string &channel, const string &function,
-                                string &zmcStatus, string &zmaStatus,
-                                const string &enabled)
+void ZMServer::getMonitorStatus(const std::string &id, const std::string &type,
+                                const std::string &device, const std::string &host,
+                                const std::string &channel, const std::string &function,
+                                std::string &zmcStatus, std::string &zmaStatus,
+                                const std::string &enabled)
 {
     zmaStatus = "";
     zmcStatus = "";
 
-    string command(g_binPath + "/zmdc.pl status");
-    string status = runCommand(command);
+    std::string command(g_binPath + "/zmdc.pl status");
+    std::string status = runCommand(command);
 
     if (type == "Local")
     {
         if (enabled == "0")
             zmaStatus = device + "(" + channel + ") [-]";
-        else if (status.find("'zma -m " + id + "' running") != string::npos)
+        else if (status.find("'zma -m " + id + "' running") != std::string::npos)
             zmaStatus = device + "(" + channel + ") [R]";
         else
             zmaStatus = device + "(" + channel + ") [S]";
@@ -1154,7 +1141,7 @@ void ZMServer::getMonitorStatus(const string &id, const string &type,
     {
         if (enabled == "0")
             zmaStatus = host + " [-]";
-        else if (status.find("'zma -m " + id + "' running") != string::npos)
+        else if (status.find("'zma -m " + id + "' running") != std::string::npos)
             zmaStatus = host + " [R]";
         else
             zmaStatus = host + " [S]";
@@ -1164,7 +1151,7 @@ void ZMServer::getMonitorStatus(const string &id, const string &type,
     {
         if (enabled == "0")
             zmcStatus = function + " [-]";
-        else if (status.find("'zmc -d "+ device + "' running") != string::npos)
+        else if (status.find("'zmc -d "+ device + "' running") != std::string::npos)
             zmcStatus = function + " [R]";
         else
             zmcStatus = function + " [S]";
@@ -1173,16 +1160,16 @@ void ZMServer::getMonitorStatus(const string &id, const string &type,
     {
         if (enabled == "0")
             zmcStatus = function + " [-]";
-        else if (status.find("'zmc -m " + id + "' running") != string::npos)
+        else if (status.find("'zmc -m " + id + "' running") != std::string::npos)
             zmcStatus = function + " [R]";
         else
             zmcStatus = function + " [S]";
     }
 }
 
-void ZMServer::handleGetEventFrame(vector<string> tokens)
+void ZMServer::handleGetEventFrame(std::vector<std::string> tokens)
 {
-    static unsigned char s_buffer[MAX_IMAGE_SIZE];
+    static FrameData s_buffer {};
 
     if (tokens.size() != 5)
     {
@@ -1190,22 +1177,25 @@ void ZMServer::handleGetEventFrame(vector<string> tokens)
         return;
     }
 
-    string monitorID(tokens[1]);
-    string eventID(tokens[2]);
+    std::string monitorID(tokens[1]);
+    std::string eventID(tokens[2]);
     int frameNo = atoi(tokens[3].c_str());
-    string eventTime(tokens[4]);
+    std::string eventTime(tokens[4]);
 
     if (m_debug)
-        cout << "Getting frame " << frameNo << " for event " << eventID
-             << " on monitor " << monitorID  << " event time is " << eventTime << endl;
+    {
+        std::cout << "Getting frame " << frameNo << " for event " << eventID
+                  << " on monitor " << monitorID  << " event time is " << eventTime
+                  << std::endl;
+    }
 
-    string outStr;
+    std::string outStr;
 
     ADD_STR(outStr, "OK")
 
     // try to find the frame file
-    string filepath;
-    char str[100];
+    std::string filepath;
+    std::string str (100,'\0');
 
     if (checkVersion(1, 32, 0))
     {
@@ -1213,11 +1203,11 @@ void ZMServer::handleGetEventFrame(vector<string> tokens)
         int month = 0;
         int day = 0;
 
-        sscanf(eventTime.c_str(), "%2d/%2d/%2d", &year, &month, &day);
-        sprintf(str, "20%02d-%02d-%02d", year, month, day);
+        sscanf(eventTime.data(), "%2d/%2d/%2d", &year, &month, &day);
+        sprintf(str.data(), "20%02d-%02d-%02d", year, month, day);
 
         filepath = g_eventsPath + "/" + monitorID + "/" + str + "/" + eventID + "/";
-        sprintf(str, m_eventFileFormat.c_str(), frameNo);
+        sprintf(str.data(), m_eventFileFormat.c_str(), frameNo);
         filepath += str;
     }
     else
@@ -1225,13 +1215,13 @@ void ZMServer::handleGetEventFrame(vector<string> tokens)
         if (m_useDeepStorage)
         {
             filepath = g_webPath + "/events/" + monitorID + "/" + eventTime + "/";
-            sprintf(str, m_eventFileFormat.c_str(), frameNo);
+            sprintf(str.data(), m_eventFileFormat.c_str(), frameNo);
             filepath += str;
         }
         else
         {
             filepath = g_webPath + "/events/" + monitorID + "/" + eventID + "/";
-            sprintf(str, m_eventFileFormat.c_str(), frameNo);
+            sprintf(str.data(), m_eventFileFormat.c_str(), frameNo);
             filepath += str;
         }
     }
@@ -1240,30 +1230,30 @@ void ZMServer::handleGetEventFrame(vector<string> tokens)
     FILE *fd = fopen(filepath.c_str(), "r" );
     if (fd != nullptr)
     {
-        fileSize = fread(s_buffer, 1, sizeof(s_buffer), fd);
+        fileSize = fread(s_buffer.data(), 1, s_buffer.size(), fd);
         fclose(fd);
     }
     else
     {
-        cout << "Can't open " << filepath << ": " << strerror(errno) << endl;
-        sendError(ERROR_FILE_OPEN + string(" - ") + filepath + " : " + strerror(errno));
+        std::cout << "Can't open " << filepath << ": " << strerror(errno) << std::endl;
+        sendError(ERROR_FILE_OPEN + std::string(" - ") + filepath + " : " + strerror(errno));
         return;
     }
 
     if (m_debug)
-        cout << "Frame size: " <<  fileSize << endl;
+        std::cout << "Frame size: " <<  fileSize << std::endl;
 
     // get the file size
     ADD_INT(outStr, fileSize)
 
     // send the data
-    send(outStr, s_buffer, fileSize);
+    send(outStr, s_buffer.data(), fileSize);
 }
 
-void ZMServer::handleGetAnalysisFrame(vector<string> tokens)
+void ZMServer::handleGetAnalysisFrame(std::vector<std::string> tokens)
 {
-    static unsigned char s_buffer[MAX_IMAGE_SIZE];
-    char str[100];
+    static FrameData s_buffer {};
+    std::array<char,100> str {};
 
     if (tokens.size() != 5)
     {
@@ -1271,19 +1261,22 @@ void ZMServer::handleGetAnalysisFrame(vector<string> tokens)
         return;
     }
 
-    string monitorID(tokens[1]);
-    string eventID(tokens[2]);
+    std::string monitorID(tokens[1]);
+    std::string eventID(tokens[2]);
     int frameNo = atoi(tokens[3].c_str());
-    string eventTime(tokens[4]);
+    std::string eventTime(tokens[4]);
     int frameID = 0;
     int frameCount = 0;
 
     if (m_debug)
-        cout << "Getting analysis frame " << frameNo << " for event " << eventID
-             << " on monitor " << monitorID << " event time is " << eventTime << endl;
+    {
+        std::cout << "Getting analysis frame " << frameNo << " for event " << eventID
+                  << " on monitor " << monitorID << " event time is " << eventTime
+                  << std::endl;
+    }
 
     // get the 'alarm' frames from the Frames table for this event
-    string sql;
+    std::string sql;
     sql += "SELECT FrameId FROM Frames ";
     sql += "WHERE EventID = " + eventID + " ";
     sql += "AND Type = 'Alarm' ";
@@ -1322,7 +1315,7 @@ void ZMServer::handleGetAnalysisFrame(vector<string> tokens)
     // if frameCount is 0 then we can't go any further
     if (frameCount == 0)
     {
-        cout << "handleGetAnalyseFrame: Failed to find any frames" << endl;
+        std::cout << "handleGetAnalyseFrame: Failed to find any frames" << std::endl;
         sendError(ERROR_NO_FRAMES);
         return;
     }
@@ -1344,16 +1337,16 @@ void ZMServer::handleGetAnalysisFrame(vector<string> tokens)
     }
     else
     {
-        cout << "handleGetAnalyseFrame: Failed to get mysql row for frameNo " << frameNo << endl;
+        std::cout << "handleGetAnalyseFrame: Failed to get mysql row for frameNo " << frameNo << std::endl;
         sendError(ERROR_MYSQL_ROW);
         return;
     }
 
     mysql_free_result(res);
 
-    string outStr;
-    string filepath;
-    string frameFile;
+    std::string outStr;
+    std::string filepath;
+    std::string frameFile;
 
     if (checkVersion(1, 32, 0))
     {
@@ -1362,8 +1355,8 @@ void ZMServer::handleGetAnalysisFrame(vector<string> tokens)
         int day = 0;
 
         sscanf(eventTime.c_str(), "%2d/%2d/%2d", &year, &month, &day);
-        sprintf(str, "20%02d-%02d-%02d", year, month, day);
-        filepath = g_eventsPath + "/" + monitorID + "/" + str + "/" + eventID + "/";
+        sprintf(str.data(), "20%02d-%02d-%02d", year, month, day);
+        filepath = g_eventsPath + "/" + monitorID + "/" + str.data() + "/" + eventID + "/";
     }
     else
     {
@@ -1381,55 +1374,55 @@ void ZMServer::handleGetAnalysisFrame(vector<string> tokens)
     // try to find an analysis frame for the frameID
     if (m_useAnalysisImages)
     {
-        sprintf(str, m_analysisFileFormat.c_str(), frameID);
-        frameFile = filepath + str;
+        sprintf(str.data(), m_analysisFileFormat.c_str(), frameID);
+        frameFile = filepath + str.data();
 
         if ((fd = fopen(frameFile.c_str(), "r" )))
         {
-            fileSize = fread(s_buffer, 1, sizeof(s_buffer), fd);
+            fileSize = fread(s_buffer.data(), 1, s_buffer.size(), fd);
             fclose(fd);
 
             if (m_debug)
-                cout << "Frame size: " <<  fileSize << endl;
+                std::cout << "Frame size: " <<  fileSize << std::endl;
 
             // get the file size
             ADD_INT(outStr, fileSize)
 
             // send the data
-            send(outStr, s_buffer, fileSize);
+            send(outStr, s_buffer.data(), fileSize);
             return;
         }
     }
 
     // try to find a normal frame for the frameID these should always be available
-    sprintf(str, m_eventFileFormat.c_str(), frameID);
-    frameFile = filepath + str;
+    sprintf(str.data(), m_eventFileFormat.c_str(), frameID);
+    frameFile = filepath + str.data();
 
     if ((fd = fopen(frameFile.c_str(), "r" )))
     {
-        fileSize = fread(s_buffer, 1, sizeof(s_buffer), fd);
+        fileSize = fread(s_buffer.data(), 1, s_buffer.size(), fd);
         fclose(fd);
     }
     else
     {
-        cout << "Can't open " << frameFile << ": " << strerror(errno) << endl;
-        sendError(ERROR_FILE_OPEN + string(" - ") + frameFile + " : " + strerror(errno));
+        std::cout << "Can't open " << frameFile << ": " << strerror(errno) << std::endl;
+        sendError(ERROR_FILE_OPEN + std::string(" - ") + frameFile + " : " + strerror(errno));
         return;
     }
 
     if (m_debug)
-        cout << "Frame size: " <<  fileSize << endl;
+        std::cout << "Frame size: " <<  fileSize << std::endl;
 
     // get the file size
     ADD_INT(outStr, fileSize)
 
     // send the data
-    send(outStr, s_buffer, fileSize);
+    send(outStr, s_buffer.data(), fileSize);
 }
 
-void ZMServer::handleGetLiveFrame(vector<string> tokens)
+void ZMServer::handleGetLiveFrame(std::vector<std::string> tokens)
 {
-    static unsigned char s_buffer[MAX_IMAGE_SIZE];
+    static FrameData s_buffer {};
 
     // we need to periodically kick the DB connection here to make sure it
     // stays alive because the user may have left the frontend on the live
@@ -1446,9 +1439,9 @@ void ZMServer::handleGetLiveFrame(vector<string> tokens)
     int monitorID = atoi(tokens[1].c_str());
 
     if (m_debug)
-        cout << "Getting live frame from monitor: " << monitorID << endl;
+        std::cout << "Getting live frame from monitor: " << monitorID << std::endl;
 
-    string outStr;
+    std::string outStr;
 
     ADD_STR(outStr, "OK")
 
@@ -1471,10 +1464,10 @@ void ZMServer::handleGetLiveFrame(vector<string> tokens)
     }
 
     // read a frame from the shared memory
-    int dataSize = getFrame(s_buffer, sizeof(s_buffer), monitor);
+    int dataSize = getFrame(s_buffer, monitor);
 
     if (m_debug)
-        cout << "Frame size: " <<  dataSize << endl;
+        std::cout << "Frame size: " <<  dataSize << std::endl;
 
     if (dataSize == 0)
     {
@@ -1492,13 +1485,13 @@ void ZMServer::handleGetLiveFrame(vector<string> tokens)
     ADD_INT(outStr, dataSize)
 
     // send the data
-    send(outStr, s_buffer, dataSize);
+    send(outStr, s_buffer.data(), dataSize);
 }
 
-void ZMServer::handleGetFrameList(vector<string> tokens)
+void ZMServer::handleGetFrameList(std::vector<std::string> tokens)
 {
-    string eventID;
-    string outStr;
+    std::string eventID;
+    std::string outStr;
 
     if (tokens.size() != 2)
     {
@@ -1509,12 +1502,12 @@ void ZMServer::handleGetFrameList(vector<string> tokens)
     eventID = tokens[1];
 
     if (m_debug)
-        cout << "Loading frames for event: " << eventID << endl;
+        std::cout << "Loading frames for event: " << eventID << std::endl;
 
     ADD_STR(outStr, "OK")
 
     // check to see what type of event this is
-    string sql = "SELECT Cause, Length, Frames FROM Events ";
+    std::string sql = "SELECT Cause, Length, Frames FROM Events ";
     sql += "WHERE Id = " + eventID + " ";
 
     if (mysql_query(&g_dbConn, sql.c_str()))
@@ -1534,7 +1527,7 @@ void ZMServer::handleGetFrameList(vector<string> tokens)
         return;
     }
 
-    string cause = row[0];
+    std::string cause = row[0];
     double length = atof(row[1]);
     int frameCount = atoi(row[2]);
 
@@ -1545,7 +1538,7 @@ void ZMServer::handleGetFrameList(vector<string> tokens)
         // event is a continuous recording so guess the frame delta's
 
         if (m_debug)
-            cout << "Got " << frameCount << " frames (continuous event)" << endl;
+            std::cout << "Got " << frameCount << " frames (continuous event)" << std::endl;
 
         ADD_INT(outStr, frameCount)
 
@@ -1555,11 +1548,8 @@ void ZMServer::handleGetFrameList(vector<string> tokens)
 
             for (int x = 0; x < frameCount; x++)
             {
-                char str[10];
-                sprintf(str, "%f", delta);
-
                 ADD_STR(outStr, "Normal") // Type
-                ADD_STR(outStr, str)      // Delta
+                ADD_STR(outStr, std::to_string(delta)) // Delta
             }
         }
     }
@@ -1580,7 +1570,7 @@ void ZMServer::handleGetFrameList(vector<string> tokens)
         frameCount = mysql_num_rows(res);
 
         if (m_debug)
-            cout << "Got " << frameCount << " frames" << endl;
+            std::cout << "Got " << frameCount << " frames" << std::endl;
 
         ADD_INT(outStr, frameCount)
 
@@ -1594,7 +1584,7 @@ void ZMServer::handleGetFrameList(vector<string> tokens)
             }
             else
             {
-                cout << "handleGetFrameList: Failed to get mysql row " << x << endl;
+                std::cout << "handleGetFrameList: Failed to get mysql row " << x << std::endl;
                 sendError(ERROR_MYSQL_ROW);
                 return;
             }
@@ -1608,7 +1598,7 @@ void ZMServer::handleGetFrameList(vector<string> tokens)
 
 void ZMServer::handleGetCameraList(void)
 {
-    string outStr;
+    std::string outStr;
 
     ADD_STR(outStr, "OK")
 
@@ -1624,12 +1614,12 @@ void ZMServer::handleGetCameraList(void)
 
 void ZMServer::handleGetMonitorList(void)
 {
-    string outStr;
+    std::string outStr;
 
     ADD_STR(outStr, "OK")
 
     if (m_debug)
-        cout << "We have " << m_monitors.size() << " monitors" << endl;
+        std::cout << "We have " << m_monitors.size() << " monitors" << std::endl;
 
     ADD_INT(outStr, (int)m_monitors.size())
 
@@ -1643,24 +1633,24 @@ void ZMServer::handleGetMonitorList(void)
 
         if (m_debug)
         {
-            cout << "id:             " << mon->m_monId            << endl;
-            cout << "name:           " << mon->m_name             << endl;
-            cout << "width:          " << mon->m_width            << endl;
-            cout << "height:         " << mon->m_height           << endl;
-            cout << "palette:        " << mon->m_palette          << endl;
-            cout << "byte per pixel: " << mon->m_bytesPerPixel    << endl;
-            cout << "sub pixel order:" << mon->getSubpixelOrder() << endl;
-            cout << "-------------------" << endl;
+            std::cout << "id:             " << mon->m_monId            << std::endl;
+            std::cout << "name:           " << mon->m_name             << std::endl;
+            std::cout << "width:          " << mon->m_width            << std::endl;
+            std::cout << "height:         " << mon->m_height           << std::endl;
+            std::cout << "palette:        " << mon->m_palette          << std::endl;
+            std::cout << "byte per pixel: " << mon->m_bytesPerPixel    << std::endl;
+            std::cout << "sub pixel order:" << mon->getSubpixelOrder() << std::endl;
+            std::cout << "-------------------" << std::endl;
         }
     }
 
     send(outStr);
 }
 
-void ZMServer::handleDeleteEvent(vector<string> tokens)
+void ZMServer::handleDeleteEvent(std::vector<std::string> tokens)
 {
-    string eventID;
-    string outStr;
+    std::string eventID;
+    std::string outStr;
 
     if (tokens.size() != 2)
     {
@@ -1671,11 +1661,11 @@ void ZMServer::handleDeleteEvent(vector<string> tokens)
     eventID = tokens[1];
 
     if (m_debug)
-        cout << "Deleting event: " << eventID << endl;
+        std::cout << "Deleting event: " << eventID << std::endl;
 
     ADD_STR(outStr, "OK")
 
-    string sql;
+    std::string sql;
     sql += "DELETE FROM Events WHERE Id = " + eventID;
 
     if (mysql_query(&g_dbConn, sql.c_str()))
@@ -1687,14 +1677,18 @@ void ZMServer::handleDeleteEvent(vector<string> tokens)
 
     // run zmaudit.pl to clean everything up
     g_pendingZmAudit = true;
+    std::string command(g_binPath + "/zmaudit.pl &");
+    errno = 0;
+    if (system(command.c_str()) < 0 && errno)
+        std::cerr << "Failed to run '" << command << "'" << std::endl;
 
     send(outStr);
 }
 
-void ZMServer::handleDeleteEventList(vector<string> tokens)
+void ZMServer::handleDeleteEventList(std::vector<std::string> tokens)
 {
-    string eventList;
-    string outStr;
+    std::string eventList;
+    std::string outStr;
 
     auto it = tokens.begin();
     if (it != tokens.end())
@@ -1710,9 +1704,9 @@ void ZMServer::handleDeleteEventList(vector<string> tokens)
     }
 
     if (m_debug)
-        cout << "Deleting events: " << eventList << endl;
+        std::cout << "Deleting events: " << eventList << std::endl;
 
-    string sql;
+    std::string sql;
     sql += "DELETE FROM Events WHERE Id IN (" + eventList + ")";
 
     if (mysql_query(&g_dbConn, sql.c_str()))
@@ -1728,10 +1722,19 @@ void ZMServer::handleDeleteEventList(vector<string> tokens)
 
 void ZMServer::handleRunZMAudit(void)
 {
-    string outStr;
+    std::string outStr;
 
     // run zmaudit.pl if it is not already running
     g_pendingZmAudit = true;
+    // run zmaudit.pl to clean up orphaned db entries etc
+    std::string command(g_binPath + "/zmaudit.pl &");
+
+    if (m_debug)
+        std::cout << "Running command: " << command << std::endl;
+
+    errno = 0;
+    if (system(command.c_str()) < 0 && errno)
+        std::cerr << "Failed to run '" << command << "'" << std::endl;
 
     ADD_STR(outStr, "OK")
     send(outStr);
@@ -1743,7 +1746,7 @@ void ZMServer::getMonitorList(void)
     m_monitorMap.clear();
 
     // Function is reserverd word so but ticks around it
-    string sql("SELECT Id, Name, Width, Height, ImageBufferCount, MaxFPS, Palette, ");
+    std::string sql("SELECT Id, Name, Width, Height, ImageBufferCount, MaxFPS, Palette, ");
     sql += " Type, `Function`, Enabled, Device, Host, Controllable, TrackMotion";
 
     if (checkVersion(1, 26, 0))
@@ -1762,7 +1765,7 @@ void ZMServer::getMonitorList(void)
     int monitorCount = mysql_num_rows(res);
 
     if (m_debug)
-        cout << "Got " << monitorCount << " monitors" << endl;
+        std::cout << "Got " << monitorCount << " monitors" << std::endl;
 
     for (int x = 0; x < monitorCount; x++)
     {
@@ -1801,7 +1804,7 @@ void ZMServer::getMonitorList(void)
         }
         else
         {
-            cout << "Failed to get mysql row" << endl;
+            std::cout << "Failed to get mysql row" << std::endl;
             return;
         }
     }
@@ -1809,10 +1812,8 @@ void ZMServer::getMonitorList(void)
     mysql_free_result(res);
 }
 
-int ZMServer::getFrame(unsigned char *buffer, int bufferSize, MONITOR *monitor)
+int ZMServer::getFrame(FrameData &buffer, MONITOR *monitor)
 {
-    (void) bufferSize;
-
     // is there a new frame available?
     if (monitor->getLastWriteIndex() == monitor->m_lastRead )
         return 0;
@@ -1943,10 +1944,10 @@ int ZMServer::getFrame(unsigned char *buffer, int bufferSize, MONITOR *monitor)
     return monitor->m_width * monitor->m_height * 3;
 }
 
-string ZMServer::getZMSetting(const string &setting) const
+std::string ZMServer::getZMSetting(const std::string &setting) const
 {
-    string result;
-    string sql("SELECT Name, Value FROM Config ");
+    std::string result;
+    std::string sql("SELECT Name, Value FROM Config ");
     sql += "WHERE Name = '" + setting + "'";
 
     if (mysql_query(&g_dbConn, sql.c_str()))
@@ -1963,21 +1964,21 @@ string ZMServer::getZMSetting(const string &setting) const
     }
     else
     {
-        cout << "Failed to get mysql row" << endl;
+        std::cout << "Failed to get mysql row" << std::endl;
         result = "";
     }
 
     if (m_debug)
-        cout << "getZMSetting: " << setting << " Result: " << result << endl;
+        std::cout << "getZMSetting: " << setting << " Result: " << result << std::endl;
 
     mysql_free_result(res);
 
     return result;
 }
 
-void ZMServer::handleSetMonitorFunction(vector<string> tokens)
+void ZMServer::handleSetMonitorFunction(std::vector<std::string> tokens)
 {
-    string outStr;
+    std::string outStr;
 
     if (tokens.size() != 4)
     {
@@ -1985,9 +1986,9 @@ void ZMServer::handleSetMonitorFunction(vector<string> tokens)
         return;
     }
 
-    string monitorID(tokens[1]);
-    string function(tokens[2]);
-    string enabled(tokens[3]);
+    std::string monitorID(tokens[1]);
+    std::string function(tokens[2]);
+    std::string enabled(tokens[3]);
 
     // Check validity of input passed to server. Does monitor exist && is function ok
     if (m_monitorMap.find(atoi(monitorID.c_str())) == m_monitorMap.end())
@@ -2011,13 +2012,13 @@ void ZMServer::handleSetMonitorFunction(vector<string> tokens)
     }
 
     if (m_debug)
-        cout << "User input validated OK" << endl;
+        std::cout << "User input validated OK" << std::endl;
 
 
     // Now perform db update && (re)start/stop daemons as required.
     MONITOR *monitor = m_monitorMap[atoi(monitorID.c_str())];
-    string oldFunction = monitor->m_function;
-    const string& newFunction = function;
+    std::string oldFunction = monitor->m_function;
+    const std::string& newFunction = function;
     int oldEnabled  = monitor->m_enabled;
     int newEnabled  = atoi(enabled.c_str());
     monitor->m_function = newFunction;
@@ -2025,16 +2026,16 @@ void ZMServer::handleSetMonitorFunction(vector<string> tokens)
 
     if (m_debug)
     {
-        cout << "SetMonitorFunction MonitorId: " << monitorID << endl <<
-                "  oldEnabled: " << oldEnabled << endl <<
-                "  newEnabled: " << newEnabled << endl <<
-                " oldFunction: " << oldFunction << endl <<
-                " newFunction: " << newFunction << endl;
+        std::cout << "SetMonitorFunction MonitorId: " << monitorID << std::endl
+                  << "  oldEnabled: " << oldEnabled << std::endl
+                  << "  newEnabled: " << newEnabled << std::endl
+                  << " oldFunction: " << oldFunction << std::endl
+                  << " newFunction: " << newFunction << std::endl;
     }
 
     if ( newFunction != oldFunction || newEnabled != oldEnabled)
     {
-        string sql("UPDATE Monitors ");
+        std::string sql("UPDATE Monitors ");
         sql += "SET Function = '" + function + "', ";
         sql += "Enabled = '" + enabled + "' ";
         sql += "WHERE Id = '" + monitorID + "'";
@@ -2047,15 +2048,15 @@ void ZMServer::handleSetMonitorFunction(vector<string> tokens)
         }
 
         if (m_debug)
-            cout << "Monitor function SQL update OK" << endl;
+            std::cout << "Monitor function SQL update OK" << std::endl;
 
-        string status = runCommand(g_binPath + "/zmdc.pl check");
+        std::string status = runCommand(g_binPath + "/zmdc.pl check");
 
         // Now refresh servers
         if (RUNNING.compare(0, RUNNING.size(), status, 0, RUNNING.size()) == 0)
         {
             if (m_debug)
-                cout << "Monitor function Refreshing daemons" << endl;
+                std::cout << "Monitor function Refreshing daemons" << std::endl;
 
             bool restart = (oldFunction == FUNCTION_NONE) ||
                            (newFunction == FUNCTION_NONE) ||
@@ -2069,19 +2070,19 @@ void ZMServer::handleSetMonitorFunction(vector<string> tokens)
         }
         else
             if (m_debug)
-                cout << "zm daemons are not running" << endl;
+                std::cout << "zm daemons are not running" << std::endl;
     }
     else
-        cout << "Not updating monitor function as identical to existing configuration" << endl;
+        std::cout << "Not updating monitor function as identical to existing configuration" << std::endl;
 
     ADD_STR(outStr, "OK")
     send(outStr);
 }
 
-void ZMServer::zmcControl(MONITOR *monitor, const string &mode)
+void ZMServer::zmcControl(MONITOR *monitor, const std::string &mode)
 {
-    string zmcArgs;
-    string sql;
+    std::string zmcArgs;
+    std::string sql;
     sql += "SELECT count(if(Function!='None',1,NULL)) as ActiveCount ";
     sql += "FROM Monitors ";
 
@@ -2123,7 +2124,7 @@ void ZMServer::zmcControl(MONITOR *monitor, const string &mode)
     }
 }
 
-void ZMServer::zmaControl(MONITOR *monitor, const string &mode)
+void ZMServer::zmaControl(MONITOR *monitor, const std::string &mode)
 {
     int zmOptControl = atoi(getZMSetting("ZM_OPT_CONTROL").c_str());
     int zmOptFrameServer = atoi(getZMSetting("ZM_OPT_FRAME_SERVER").c_str());

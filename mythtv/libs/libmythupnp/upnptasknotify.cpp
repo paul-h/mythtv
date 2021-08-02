@@ -25,7 +25,7 @@
 #include "mmulticastsocketdevice.h"
 #include "mythlogging.h"
 #include "mythversion.h"
-#include "compat.h"
+#include "mythmiscutil.h"
 #include "upnp.h"
 
 /////////////////////////////////////////////////////////////////////////////
@@ -45,7 +45,7 @@ UPnpNotifyTask::UPnpNotifyTask( int nServicePort ) :
 {
     m_nServicePort = nServicePort;
 
-    m_nMaxAge      = UPnp::GetConfiguration()->GetValue( "UPnP/SSDP/MaxAge" , 3600 );
+    m_nMaxAge      = UPnp::GetConfiguration()->GetDuration<std::chrono::seconds>( "UPnP/SSDP/MaxAge" , 1h );
 } 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -69,16 +69,16 @@ void UPnpNotifyTask::SendNotifyMsg( MSocketDevice *pSocket,
                               "USN: %5\r\n"
                               "CACHE-CONTROL: max-age=%6\r\n"
                               "Content-Length: 0\r\n\r\n" )
-                            .arg( HttpServer::GetServerVersion() )
-                            .arg( GetNTSString()    )
-                            .arg( sNT          )
-                            .arg( sUSN         )
-                            .arg( m_nMaxAge    );
+                            .arg( HttpServer::GetServerVersion(),
+                                  GetNTSString(),
+                                  sNT,
+                                  sUSN,
+                                  QString::number(m_nMaxAge.count()));
 
     LOG(VB_UPNP, LOG_INFO,
         QString("UPnpNotifyTask::SendNotifyMsg : %1:%2 : %3 : %4")
-            .arg(pSocket->address().toString()) .arg(pSocket->port())
-            .arg(sNT) .arg(sUSN));
+            .arg(pSocket->address().toString(), QString::number(pSocket->port()),
+                 sNT, sUSN));
 
     QMutexLocker qml(&m_mutex); // for addressList
 
@@ -124,7 +124,7 @@ void UPnpNotifyTask::SendNotifyMsg( MSocketDevice *pSocket,
 
         pSocket->writeBlock( scPacket, scPacket.length(),
                              pSocket->address(), pSocket->port() );
-        std::this_thread::sleep_for(std::chrono::milliseconds(random() % 250));
+        std::this_thread::sleep_for(std::chrono::milliseconds(MythRandom() % 250));
         pSocket->writeBlock( scPacket, scPacket.length(),
                              pSocket->address(), pSocket->port() );
     }
@@ -164,7 +164,7 @@ void UPnpNotifyTask::Execute( TaskQueue *pQueue )
     m_mutex.lock();
 
     if (m_eNTS == NTS_alive) 
-        pQueue->AddTask( (m_nMaxAge / 2) * 1000, (Task *)this  );
+        pQueue->AddTask( (m_nMaxAge / 2), (Task *)this  );
 
     m_mutex.unlock();
 

@@ -115,7 +115,7 @@ void DVBRecorder::run(void)
 
     // Listen for time table on DVB standard streams
     if (m_channel && (m_channel->GetSIStandard() == "dvb"))
-        m_streamData->AddListeningPID(DVB_TDT_PID);
+        m_streamData->AddListeningPID(PID::DVB_TDT_PID);
     if (m_recordMptsOnly)
         m_streamData->AddListeningPID(0x2000);
 
@@ -167,7 +167,7 @@ void DVBRecorder::run(void)
     m_recordingWait.wakeAll();
 }
 
-bool DVBRecorder::PauseAndWait(int timeout)
+bool DVBRecorder::PauseAndWait(std::chrono::milliseconds timeout)
 {
     QMutexLocker locker(&m_pauseLock);
     if (m_requestPause)
@@ -182,7 +182,7 @@ bool DVBRecorder::PauseAndWait(int timeout)
                 m_tvrec->RecorderPaused();
         }
 
-        m_unpauseWait.wait(&m_pauseLock, timeout);
+        m_unpauseWait.wait(&m_pauseLock, timeout.count());
     }
 
     if (!m_requestPause && IsPaused(true))

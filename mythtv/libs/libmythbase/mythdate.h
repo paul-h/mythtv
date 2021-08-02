@@ -1,6 +1,9 @@
 #ifndef MYTH_DATE_H
 #define MYTH_DATE_H
 
+#include <chrono>
+using namespace std::chrono_literals;
+
 #include <QDateTime>
 #include <QString>
 
@@ -48,10 +51,14 @@ MBASE_PUBLIC QString toString(
     const QDateTime &datetime, uint format = MythDate::kDateTimeFull);
 /// Warning: this function can not convert to and from UTC
 MBASE_PUBLIC QString toString(
-    const QDate &date, uint format = MythDate::kDateFull);
+    QDate date, uint format = MythDate::kDateFull);
 
 // Returns the total number of seconds since midnight
-MBASE_PUBLIC int toSeconds( const QTime &time );
+MBASE_PUBLIC std::chrono::seconds toSeconds( QTime time );
+
+MBASE_PUBLIC std::chrono::milliseconds currentMSecsSinceEpochAsDuration(void);
+MBASE_PUBLIC std::chrono::seconds secsInPast (const QDateTime& past);
+MBASE_PUBLIC std::chrono::seconds secsInFuture (const QDateTime& future);
 
 };
 

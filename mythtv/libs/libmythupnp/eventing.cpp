@@ -13,13 +13,25 @@
 #include <cmath>
 
 #include <QStringList>
+#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
+#include <QStringConverter>
+#else
 #include <QTextCodec>
+#endif
 #include <QTextStream>
 
 #include "upnp.h"
 #include "eventing.h"
 #include "upnptaskevent.h"
 #include "mythlogging.h"
+
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
+  #define QT_ENDL endl
+  #define QT_FLUSH flush
+#else
+  #define QT_ENDL Qt::endl
+  #define QT_FLUSH Qt::flush
+#endif
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -30,8 +42,8 @@ uint StateVariables::BuildNotifyBody(
 {
     uint nCount = 0;
 
-    ts << "<?xml version=\"1.0\"?>" << endl
-       << "<e:propertyset xmlns:e=\"urn:schemas-upnp-org:event-1-0\">" << endl;
+    ts << "<?xml version=\"1.0\"?>" << QT_ENDL
+       << "<e:propertyset xmlns:e=\"urn:schemas-upnp-org:event-1-0\">" << QT_ENDL;
 
     for (auto *prop : qAsConst(m_map))
     {
@@ -39,16 +51,16 @@ uint StateVariables::BuildNotifyBody(
         {
             nCount++;
 
-            ts << "<e:property>" << endl;
+            ts << "<e:property>" << QT_ENDL;
             ts <<   "<" << prop->m_sName << ">";
             ts <<     prop->ToString();
             ts <<   "</" << prop->m_sName << ">";
-            ts << "</e:property>" << endl;
+            ts << "</e:property>" << QT_ENDL;
         }
     }
 
-    ts << "</e:propertyset>" << endl;
-    ts << flush;
+    ts << "</e:propertyset>" << QT_ENDL;
+    ts << QT_FLUSH;
 
     return nCount;
 }
@@ -63,7 +75,7 @@ Eventing::Eventing(const QString &sExtensionName,
     HttpServerExtension(sExtensionName, sSharePath),
     m_sEventMethodName(std::move(sEventMethodName)),
     m_nSubscriptionDuration(
-        UPnp::GetConfiguration()->GetValue("UPnP/SubscriptionDuration", 1800))
+        UPnp::GetConfiguration()->GetDuration<std::chrono::seconds>("UPnP/SubscriptionDuration", 30min))
 {
     m_nSupportedMethods |= (RequestTypeSubscribe | RequestTypeUnsubscribe);
 }
@@ -227,11 +239,11 @@ void Eventing::HandleSubscribe( HTTPRequest *pRequest )
 
         sCallBack = sCallBack.mid( 1, sCallBack.indexOf(">") - 1);
 
-        int nDuration = m_nSubscriptionDuration;
+        std::chrono::seconds nDuration = m_nSubscriptionDuration;
         if ( sTimeout.startsWith("Second-") )
         {
             bool ok = false;
-            int nValue = sTimeout.section("-", 1).toInt(&ok);
+            auto nValue = std::chrono::seconds(sTimeout.section("-", 1).toInt(&ok));
             if (ok)
                 nDuration = nValue;
         }
@@ -273,7 +285,7 @@ void Eventing::HandleSubscribe( HTTPRequest *pRequest )
                                                     .arg( pInfo->m_sUUID );
 
         pRequest->m_mapRespHeaders[ "TIMEOUT"] = QString( "Second-%1" )
-                                                    .arg( pInfo->m_nDuration );
+                                                    .arg( pInfo->m_nDuration.count() );
 
         pRequest->m_nResponseStatus = 200;
 
@@ -317,8 +329,7 @@ void Eventing::HandleUnsubscribe( HTTPRequest *pRequest )
 
 void Eventing::Notify()
 {
-    TaskTime tt;
-    gettimeofday( (&tt), nullptr );
+    auto tt = nowAsDuration<std::chrono::microseconds>();
 
     m_mutex.lock();
 
@@ -360,7 +371,11 @@ void Eventing::NotifySubscriber( SubscriberInfo *pInfo )
     QByteArray   aBody;
     QTextStream  tsBody( &aBody, QIODevice::WriteOnly );
 
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     tsBody.setCodec(QTextCodec::codecForName("UTF-8"));
+#else
+    tsBody.setEncoding(QStringConverter::Utf8);
+#endif
 
     // ----------------------------------------------------------------------
     // Build Body... Only send if there are changes
@@ -375,7 +390,11 @@ void Eventing::NotifySubscriber( SubscriberInfo *pInfo )
         auto *pBuffer = new QByteArray();    // UPnpEventTask will delete this pointer.
         QTextStream  tsMsg( pBuffer, QIODevice::WriteOnly );
 
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
         tsMsg.setCodec(QTextCodec::codecForName("UTF-8"));
+#else
+        tsMsg.setEncoding(QStringConverter::Utf8);
+#endif
 
         // ----------------------------------------------------------------------
         // Build Message Header 
@@ -395,7 +414,7 @@ void Eventing::NotifySubscriber( SubscriberInfo *pInfo )
         tsMsg << "SEQ: " << QString::number( pInfo->m_nKey ) << "\r\n";
         tsMsg << "\r\n";
         tsMsg << aBody;
-        tsMsg << flush;
+        tsMsg << QT_FLUSH;
 
         // ------------------------------------------------------------------
         // Add new EventTask to the TaskQueue to do the actual sending.
@@ -408,7 +427,7 @@ void Eventing::NotifySubscriber( SubscriberInfo *pInfo )
         auto *pEventTask = new UPnpEventTask(QHostAddress(pInfo->m_qURL.host()),
                                              nPort, pBuffer);
 
-        TaskQueue::Instance()->AddTask( 250, pEventTask );
+        TaskQueue::Instance()->AddTask( 250ms, pEventTask );
 
         pEventTask->DecrRef();
 
@@ -418,7 +437,7 @@ void Eventing::NotifySubscriber( SubscriberInfo *pInfo )
 
         pInfo->IncrementKey();
 
-        gettimeofday( (&pInfo->m_ttLastNotified), nullptr );
+        pInfo->m_ttLastNotified = nowAsDuration<std::chrono::microseconds>();
     }
 }
 

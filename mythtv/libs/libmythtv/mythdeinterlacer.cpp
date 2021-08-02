@@ -2,6 +2,7 @@
 #include "config.h"
 #include "mythlogging.h"
 #include "mythavutil.h"
+#include "mythvideoprofile.h"
 #include "mythdeinterlacer.h"
 
 extern "C" {
@@ -66,22 +67,21 @@ MythDeinterlacer::~MythDeinterlacer()
  * \param Force Set to true to ensure a deinterlaced frame is always returned.
  * Used for preview images.
 */
-void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan,
-                              VideoDisplayProfile *Profile, bool Force)
+void MythDeinterlacer::Filter(MythVideoFrame *Frame, FrameScanType Scan,
+                              MythVideoProfile *Profile, bool Force)
 {
     // nothing to see here
-
     if (!Frame || !is_interlaced(Scan))
     {
         Cleanup();
         return;
     }
 
-    if (Frame->already_deinterlaced)
+    if (Frame->m_alreadyDeinterlaced)
         return;
 
     // Sanity check frame format
-    if (!format_is_yuv(Frame->codec))
+    if (!MythVideoFrame::YUVFormat(Frame->m_type))
     {
         Cleanup();
         return;
@@ -89,10 +89,10 @@ void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan,
 
     // check for software deinterlacing
     bool doublerate = true;
-    bool topfieldfirst = Frame->interlaced_reversed ? !Frame->top_field_first : Frame->top_field_first;
+    bool topfieldfirst = Frame->m_interlacedReverse ? !Frame->m_topFieldFirst : Frame->m_topFieldFirst;
 
-    MythDeintType deinterlacer = GetDoubleRateOption(Frame, DEINT_CPU);
-    MythDeintType other        = GetDoubleRateOption(Frame, DEINT_SHADER);
+    auto deinterlacer = Frame->GetDoubleRateOption(DEINT_CPU);
+    auto other        = Frame->GetDoubleRateOption(DEINT_SHADER);
     if (other)
     {
         Cleanup();
@@ -102,8 +102,8 @@ void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan,
     if (!deinterlacer)
     {
         doublerate   = false;
-        deinterlacer = GetSingleRateOption(Frame, DEINT_CPU);
-        other        = GetSingleRateOption(Frame, DEINT_SHADER);
+        deinterlacer = Frame->GetSingleRateOption(DEINT_CPU);
+        other        = Frame->GetSingleRateOption(DEINT_SHADER);
         if (!deinterlacer || other)
         {
             Cleanup();
@@ -113,11 +113,11 @@ void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan,
 
     // libavfilter will not deinterlace NV12 frames. Allow shaders in this case.
     // libswscale (for bob/onefield) is fine, as is our linearblend.
-    if ((deinterlacer == DEINT_HIGH) && format_is_nv12(Frame->codec))
+    if ((deinterlacer == DEINT_HIGH) && MythVideoFrame::FormatIsNV12(Frame->m_type))
     {
         Cleanup();
-        Frame->deinterlace_single = Frame->deinterlace_single | DEINT_SHADER;
-        Frame->deinterlace_double = Frame->deinterlace_double | DEINT_SHADER;
+        Frame->m_deinterlaceSingle = Frame->m_deinterlaceSingle | DEINT_SHADER;
+        Frame->m_deinterlaceDouble = Frame->m_deinterlaceDouble | DEINT_SHADER;
         return;
     }
 
@@ -133,14 +133,14 @@ void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan,
         m_topFirst = topfieldfirst;
     }
 
-    bool otherchanged = Frame->width != m_width     || Frame->height  != m_height ||
+    bool otherchanged = Frame->m_width != m_width     || Frame->m_height  != m_height ||
                         deinterlacer != m_deintType || doublerate     != m_doubleRate ||
-                        Frame->codec != m_inputType;
+                        Frame->m_type != m_inputType;
 
     if ((deinterlacer == DEINT_HIGH) && fieldorderchanged)
     {
         bool alreadyauto = m_autoFieldOrder;
-        bool change = m_lastFieldChange && (qAbs(m_lastFieldChange - Frame->frameCounter) < 10);
+        bool change = m_lastFieldChange && (qAbs(m_lastFieldChange - Frame->m_frameCounter) < 10);
         if (change && !m_autoFieldOrder)
         {
             m_autoFieldOrder = true;
@@ -153,7 +153,7 @@ void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan,
         }
         if (alreadyauto && m_autoFieldOrder)
             fieldorderchanged = false;
-        m_lastFieldChange = Frame->frameCounter;
+        m_lastFieldChange = Frame->m_frameCounter;
     }
 
     // Check for a change in input or deinterlacer
@@ -161,9 +161,10 @@ void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan,
     {
         LOG(VB_GENERAL, LOG_INFO, LOC +
             QString("Deinterlacer change: %1x%2 %3 dr:%4 tff:%5 -> %6x%7 %8 dr:%9 tff:%10")
-            .arg(m_width).arg(m_height).arg(format_description(m_inputType))
+            .arg(m_width).arg(m_height).arg(MythVideoFrame::FormatDescription(m_inputType))
             .arg(m_doubleRate).arg(m_topFirst)
-            .arg(Frame->width).arg(Frame->height).arg(format_description(Frame->codec))
+            .arg(Frame->m_width).arg(Frame->m_height)
+            .arg(MythVideoFrame::FormatDescription(Frame->m_type))
             .arg(doublerate).arg(topfieldfirst));
         if (!Initialise(Frame, deinterlacer, doublerate, topfieldfirst, Profile))
         {
@@ -172,7 +173,7 @@ void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan,
         }
         Force = true;
     }
-    else if ((m_deintType == DEINT_HIGH) && (abs(Frame->frameCounter - m_discontinuityCounter) > 1))
+    else if ((m_deintType == DEINT_HIGH) && (qAbs(Frame->m_frameCounter - m_discontinuityCounter) > 1))
     {
         if (!Initialise(Frame, deinterlacer, doublerate, topfieldfirst, Profile))
         {
@@ -182,11 +183,11 @@ void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan,
         Force = true;
     }
 
-    m_discontinuityCounter = Frame->frameCounter;
+    m_discontinuityCounter = Frame->m_frameCounter;
 
     // Set in use deinterlacer for debugging
-    Frame->deinterlace_inuse = m_deintType | DEINT_CPU;
-    Frame->deinterlace_inuse2x = m_doubleRate;
+    Frame->m_deinterlaceInuse = m_deintType | DEINT_CPU;
+    Frame->m_deinterlaceInuse2x = m_doubleRate;
 
     // onefield or bob
     if (m_deintType == DEINT_BASIC)
@@ -207,18 +208,18 @@ void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan,
         return;
 
     // Convert VideoFrame to AVFrame - no copy
-    if (AVPictureFill(m_frame, Frame, m_inputFmt) < 1)
+    if (MythAVUtil::FillAVFrame(m_frame, Frame, m_inputFmt) < 1)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Error converting frame");
         return;
     }
 
-    m_frame->width  = Frame->width;
-    m_frame->height = Frame->height;
-    m_frame->format = Frame->pix_fmt;
-    m_frame->pts    = Frame->timecode;
+    m_frame->width  = Frame->m_width;
+    m_frame->height = Frame->m_height;
+    m_frame->format = Frame->m_pixFmt;
+    m_frame->pts    = Frame->m_timecode.count();
 
-    auto AddFrame = [](AVFilterContext* Source, AVFrame *AvFrame)
+    auto AddFrame = [](AVFilterContext* Source, AVFrame* AvFrame)
         { return av_buffersrc_add_frame(Source, AvFrame); };
 
     // Add frame on first pass only
@@ -246,27 +247,31 @@ void MythDeinterlacer::Filter(VideoFrame *Frame, FrameScanType Scan,
     }
 
     // Ensure AVFrame is in the expected format
-    if ((m_frame->format != m_inputFmt) || (Frame->pitches[0] < m_frame->linesize[0]) ||
-        (Frame->pitches[1] < m_frame->linesize[1]) || (Frame->pitches[2] < m_frame->linesize[2]))
+    if ((m_frame->format != m_inputFmt) || (Frame->m_pitches[0] < m_frame->linesize[0]) ||
+        (Frame->m_pitches[1] < m_frame->linesize[1]) || (Frame->m_pitches[2] < m_frame->linesize[2]))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Filter returned unexpected format");
         return;
     }
 
     // Copy AVFrame back to VideoFrame
-    uint count = planes(Frame->codec);
+    uint count = MythVideoFrame::GetNumPlanes(Frame->m_type);
     for (uint plane = 0; plane < count; ++plane)
-        copyplane(Frame->buf + Frame->offsets[plane], Frame->pitches[plane], m_frame->data[plane], m_frame->linesize[plane],
-                  pitch_for_plane(m_inputType, m_frame->width, plane), height_for_plane(m_inputType, m_frame->height, plane));
+    {
+        MythVideoFrame::CopyPlane(Frame->m_buffer + Frame->m_offsets[plane], Frame->m_pitches[plane],
+                                  m_frame->data[plane], m_frame->linesize[plane],
+                                  MythVideoFrame::GetPitchForPlane(m_inputType, m_frame->width, plane),
+                                  MythVideoFrame::GetHeightForPlane(m_inputType, m_frame->height, plane));
+    }
 
-    Frame->timecode = m_frame->pts;
-    Frame->already_deinterlaced = true;
+    Frame->m_timecode = std::chrono::milliseconds(m_frame->pts);
+    Frame->m_alreadyDeinterlaced = true;
 
     // Free frame data
     av_frame_unref(m_frame);
 }
 
-void MythDeinterlacer::Cleanup(void)
+void MythDeinterlacer::Cleanup()
 {
     if (m_graph || m_swsContext)
         LOG(VB_PLAYBACK, LOG_INFO, LOC + "Removing CPU deinterlacer");
@@ -281,7 +286,6 @@ void MythDeinterlacer::Cleanup(void)
     if (m_bobFrame)
     {
         LOG(VB_PLAYBACK, LOG_INFO, LOC + "Removing 'bob' cache frame");
-        av_free(m_bobFrame->buf);
         delete m_bobFrame;
         m_bobFrame = nullptr;
     }
@@ -290,8 +294,8 @@ void MythDeinterlacer::Cleanup(void)
 }
 
 ///\brief Initialise deinterlacing using the given MythDeintType
-bool MythDeinterlacer::Initialise(VideoFrame *Frame, MythDeintType Deinterlacer,
-                                  bool DoubleRate, bool TopFieldFirst, VideoDisplayProfile *Profile)
+bool MythDeinterlacer::Initialise(MythVideoFrame *Frame, MythDeintType Deinterlacer,
+                                  bool DoubleRate, bool TopFieldFirst, MythVideoProfile *Profile)
 {
     auto autofieldorder = m_autoFieldOrder;
     auto lastfieldchange = m_lastFieldChange;
@@ -302,11 +306,11 @@ bool MythDeinterlacer::Initialise(VideoFrame *Frame, MythDeintType Deinterlacer,
     if (!Frame)
         return false;
 
-    m_width     = Frame->width;
-    m_height    = Frame->height;
-    m_inputType = Frame->codec;
-    m_inputFmt  = FrameTypeToPixelFormat(Frame->codec);
-    QString name = DeinterlacerName(Deinterlacer | DEINT_CPU, DoubleRate);
+    m_width     = Frame->m_width;
+    m_height    = Frame->m_height;
+    m_inputType = Frame->m_type;
+    m_inputFmt  = MythAVUtil::FrameTypeToPixelFormat(Frame->m_type);
+    auto name   = MythVideoFrame::DeinterlacerName(Deinterlacer | DEINT_CPU, DoubleRate);
 
     // simple onefield/bob?
     if (Deinterlacer == DEINT_BASIC || Deinterlacer == DEINT_MEDIUM)
@@ -327,7 +331,7 @@ bool MythDeinterlacer::Initialise(VideoFrame *Frame, MythDeintType Deinterlacer,
     }
 
     // Sanity check the frame formats
-    if (PixelFormatToFrameType(m_inputFmt) != m_inputType)
+    if (MythAVUtil::PixelFormatToFrameType(m_inputFmt) != m_inputType)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Inconsistent frame formats");
         return false;
@@ -348,11 +352,11 @@ bool MythDeinterlacer::Initialise(VideoFrame *Frame, MythDeintType Deinterlacer,
     AVFilterInOut* inputs = nullptr;
     AVFilterInOut* outputs = nullptr;
 
-    QString deint = QString("yadif=mode=%1:parity=%2:threads=%3")
+    auto deint = QString("yadif=mode=%1:parity=%2:threads=%3")
         .arg(DoubleRate ? 1 : 0).arg(m_autoFieldOrder ? -1 : TopFieldFirst ? 0 : 1).arg(threads);
 
-    QString graph = QString("buffer=video_size=%1x%2:pix_fmt=%3:time_base=1/1[in];[in]%4[out];[out] buffersink")
-                       .arg(m_width).arg(m_height).arg(m_inputFmt).arg(deint);
+    auto graph = QString("buffer=video_size=%1x%2:pix_fmt=%3:time_base=1/1[in];[in]%4[out];[out] buffersink")
+        .arg(m_width).arg(m_height).arg(m_inputFmt).arg(deint);
 
     int res = avfilter_graph_parse2(m_graph, graph.toLatin1().constData(), &inputs, &outputs);
     if (res >= 0 && !inputs && !outputs)
@@ -384,39 +388,29 @@ bool MythDeinterlacer::Initialise(VideoFrame *Frame, MythDeintType Deinterlacer,
     return false;
 }
 
-bool MythDeinterlacer::SetUpCache(VideoFrame *Frame)
+bool MythDeinterlacer::SetUpCache(MythVideoFrame *Frame)
 {
     if (!Frame)
         return false;
 
+    if (m_bobFrame && !((m_bobFrame->m_bufferSize == Frame->m_bufferSize)) && (m_bobFrame->m_width == Frame->m_width) &&
+                        (m_bobFrame->m_height == Frame->m_height) && (m_bobFrame->m_type == Frame->m_type))
+    {
+        delete m_bobFrame;
+        m_bobFrame = nullptr;
+    }
+
     if (!m_bobFrame)
     {
-        m_bobFrame = new VideoFrame;
-        if (!m_bobFrame)
-            return false;
-        memset(m_bobFrame, 0, sizeof(VideoFrame));
+        m_bobFrame = new MythVideoFrame(Frame->m_type, MythVideoFrame::GetAlignedBuffer(Frame->m_bufferSize),
+                                        Frame->m_bufferSize, Frame->m_width, Frame->m_height);
         LOG(VB_PLAYBACK, LOG_INFO, "Created new 'bob' cache frame");
     }
 
-    // copy Frame metadata, preserving any existing buffer allocation
-    unsigned char *buf = m_bobFrame->buf;
-    int size = m_bobFrame->size;
-    memcpy(m_bobFrame, Frame, sizeof(VideoFrame));
-    m_bobFrame->priv[0] = m_bobFrame->priv[1] = m_bobFrame->priv[2] = m_bobFrame->priv[3] = nullptr;
-    m_bobFrame->buf = buf;
-    m_bobFrame->size = size;
-
-    if (!m_bobFrame->buf || (m_bobFrame->size != Frame->size))
-    {
-        av_free(m_bobFrame->buf);
-        m_bobFrame->buf = static_cast<unsigned char*>(av_malloc(static_cast<size_t>(Frame->size + 64)));
-        m_bobFrame->size = Frame->size;
-    }
-
-    return m_bobFrame->buf != nullptr;
+    return m_bobFrame && m_bobFrame->m_buffer != nullptr;
 }
 
-void MythDeinterlacer::OneField(VideoFrame *Frame, FrameScanType Scan)
+void MythDeinterlacer::OneField(MythVideoFrame *Frame, FrameScanType Scan)
 {
     if (!m_swsContext)
         return;
@@ -428,29 +422,29 @@ void MythDeinterlacer::OneField(VideoFrame *Frame, FrameScanType Scan)
 
     // copy/cache on first pass
     if (kScan_Interlaced == Scan)
-        memcpy(m_bobFrame->buf, Frame->buf, static_cast<size_t>(m_bobFrame->size));
+        memcpy(m_bobFrame->m_buffer, Frame->m_buffer, m_bobFrame->m_bufferSize);
 
     // Convert VideoFrame to AVFrame - no copy
     AVFrame dstframe;
-    if ((AVPictureFill(m_frame, m_bobFrame, m_inputFmt) < 1) ||
-        (AVPictureFill(&dstframe, Frame, m_inputFmt) < 1))
+    if ((MythAVUtil::FillAVFrame(m_frame, m_bobFrame, m_inputFmt) < 1) ||
+        (MythAVUtil::FillAVFrame(&dstframe, Frame, m_inputFmt) < 1))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Error converting frame");
         return;
     }
 
     bool topfield   = Scan == kScan_Interlaced ? m_topFirst : !m_topFirst;
-    dstframe.width  = Frame->width;
-    dstframe.height = Frame->height;
-    dstframe.format = Frame->pix_fmt;
+    dstframe.width  = Frame->m_width;
+    dstframe.height = Frame->m_height;
+    dstframe.format = Frame->m_pixFmt;
 
-    m_frame->width  = m_bobFrame->width;
-    m_frame->format = m_bobFrame->pix_fmt;
+    m_frame->width  = m_bobFrame->m_width;
+    m_frame->format = m_bobFrame->m_pixFmt;
 
     // Fake the frame height and stride to simulate a single field
-    m_frame->height = Frame->height >> 1;
+    m_frame->height = Frame->m_height >> 1;
     m_frame->interlaced_frame = 0;
-    uint nbplanes = planes(m_inputType);
+    uint nbplanes = MythVideoFrame::GetNumPlanes(m_inputType);
     for (uint i = 0; i < nbplanes; i++)
     {
         if (!topfield)
@@ -462,12 +456,12 @@ void MythDeinterlacer::OneField(VideoFrame *Frame, FrameScanType Scan)
     int result = sws_scale(m_swsContext, m_frame->data, m_frame->linesize, 0, m_frame->height,
                            dstframe.data, dstframe.linesize);
 
-    if (result != Frame->height)
+    if (result != Frame->m_height)
     {
         LOG(VB_GENERAL, LOG_INFO, LOC + QString("Error scaling frame: height %1 expected %2")
-            .arg(result).arg(Frame->height));
+            .arg(result).arg(Frame->m_height));
     }
-    Frame->already_deinterlaced = true;
+    Frame->m_alreadyDeinterlaced = true;
 }
 
 inline static uint32_t avg(uint32_t A, uint32_t B)
@@ -632,13 +626,13 @@ static inline void BlendSIMD8x4(unsigned char *Src, int Width, int FirstRow, int
 }
 #endif
 
-void MythDeinterlacer::Blend(VideoFrame *Frame, FrameScanType Scan)
+void MythDeinterlacer::Blend(MythVideoFrame *Frame, FrameScanType Scan)
 {
-    if (Frame->height < 16 || Frame->width < 16)
+    if (Frame->m_height < 16 || Frame->m_width < 16)
         return;
 
     bool second = false;
-    VideoFrame *src = Frame;
+    MythVideoFrame *src = Frame;
 
     if (m_doubleRate)
     {
@@ -646,42 +640,42 @@ void MythDeinterlacer::Blend(VideoFrame *Frame, FrameScanType Scan)
             return;
         // copy/cache on first pass.
         if (kScan_Interlaced == Scan)
-            memcpy(m_bobFrame->buf, Frame->buf, static_cast<size_t>(m_bobFrame->size));
+            memcpy(m_bobFrame->m_buffer, Frame->m_buffer, m_bobFrame->m_bufferSize);
         else
             second = true;
         src = m_bobFrame;
     }
 
-    bool hidepth = ColorDepth(src->codec) > 8;
+    bool hidepth = MythVideoFrame::ColorDepth(src->m_type) > 8;
     bool top = second ? !m_topFirst : m_topFirst;
-    uint count = planes(src->codec);
+    uint count = MythVideoFrame::GetNumPlanes(src->m_type);
     for (uint plane = 0; plane < count; plane++)
     {
-        int  height  = height_for_plane(src->codec, src->height, plane);
+        int  height  = MythVideoFrame::GetHeightForPlane(src->m_type, src->m_height, plane);
         int firstrow = top ? 1 : 2;
         bool height4 = (height % 4) == 0;
-        bool width4  = (src->pitches[plane] % 4) == 0;
+        bool width4  = (src->m_pitches[plane] % 4) == 0;
         // N.B. all frames allocated by MythTV should have 16 byte alignment
         // for all planes
 #if (HAVE_SSE2 && ARCH_X86_64) || HAVE_INTRINSICS_NEON
-        bool width16 = (src->pitches[plane] % 16) == 0;
+        bool width16 = (src->m_pitches[plane] % 16) == 0;
         // profiling SSE2 suggests it is usually 4x faster - as expected
         if (s_haveSIMD && height4 && width16)
         {
             if (hidepth)
             {
-                BlendSIMD8x4(src->buf + src->offsets[plane],
-                             pitch_for_plane(src->codec, src->width, plane),
-                             firstrow, height, src->pitches[plane],
-                             Frame->buf + Frame->offsets[plane], Frame->pitches[plane],
+                BlendSIMD8x4(src->m_buffer + src->m_offsets[plane],
+                             MythVideoFrame::GetPitchForPlane(src->m_type, src->m_width, plane),
+                             firstrow, height, src->m_pitches[plane],
+                             Frame->m_buffer + Frame->m_offsets[plane], Frame->m_pitches[plane],
                              second);
             }
             else
             {
-                BlendSIMD16x4(src->buf + src->offsets[plane],
-                              width_for_plane(src->codec, src->width, plane),
-                              firstrow, height, src->pitches[plane],
-                              Frame->buf + Frame->offsets[plane], Frame->pitches[plane],
+                BlendSIMD16x4(src->m_buffer + src->m_offsets[plane],
+                              MythVideoFrame::GetWidthForPlane(src->m_type, src->m_width, plane),
+                              firstrow, height, src->m_pitches[plane],
+                              Frame->m_buffer + Frame->m_offsets[plane], Frame->m_pitches[plane],
                               second);
             }
         }
@@ -692,12 +686,12 @@ void MythDeinterlacer::Blend(VideoFrame *Frame, FrameScanType Scan)
         // is virtually unheard of.
         if (width4 && height4 && !hidepth)
         {
-            BlendC4x4(src->buf + src->offsets[plane],
-                      width_for_plane(src->codec, src->width, plane),
-                      firstrow, height, src->pitches[plane],
-                      Frame->buf + Frame->offsets[plane], Frame->pitches[plane],
+            BlendC4x4(src->m_buffer + src->m_offsets[plane],
+                      MythVideoFrame::GetWidthForPlane(src->m_type, src->m_width, plane),
+                      firstrow, height, src->m_pitches[plane],
+                      Frame->m_buffer + Frame->m_offsets[plane], Frame->m_pitches[plane],
                       second);
         }
     }
-    Frame->already_deinterlaced = true;
+    Frame->m_alreadyDeinterlaced = true;
 }

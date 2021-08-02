@@ -95,8 +95,8 @@ bool MetadataResultsDialog::Create()
         button->SetData(QVariant::fromValue<uint>(i));
     }
 
-    connect(m_resultsList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            SLOT(sendResult(MythUIButtonListItem *)));
+    connect(m_resultsList, &MythUIButtonList::itemClicked,
+            this, &MetadataResultsDialog::sendResult);
 
     BuildFocusList();
 
@@ -110,10 +110,9 @@ void MetadataResultsDialog::cleanCacheDir()
     QDir cacheDir(cache);
     QStringList thumbs = cacheDir.entryList(QDir::Files);
 
-    for (QStringList::const_iterator i = thumbs.end() - 1;
-            i != thumbs.begin() - 1; --i)
+    for (auto i = thumbs.crbegin(); i != thumbs.crend(); ++i)
     {
-        QString filename = QString("%1/%2").arg(cache).arg(*i);
+        QString filename = QString("%1/%2").arg(cache, *i);
         QFileInfo fi(filename);
         QDateTime lastmod = fi.lastModified();
         if (lastmod.addDays(2) < MythDate::current())

@@ -28,6 +28,10 @@
 
 #include "enums/recStatus.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(5,15,2)
+#define capturedView capturedRef
+#endif
+
 bool LogCleanerTask::DoRun(void)
 {
     int numdays = 14;
@@ -188,19 +192,16 @@ void CleanupTask::CleanupRecordedTables(void)
 {
     MSqlQuery query(MSqlQuery::InitCon());
     MSqlQuery deleteQuery(MSqlQuery::InitCon());
-    int tableIndex = 0;
     // tables[tableIndex][0] is the table name
     // tables[tableIndex][1] is the name of the column on which the join is
     // performed
-    QString tables[][2] = {
+    std::array<std::array<QString,2>,5> tables {{
         { "recordedprogram", "progstart" },
         { "recordedrating", "progstart" },
         { "recordedcredits", "progstart" },
         { "recordedmarkup", "starttime" },
         { "recordedseek", "starttime" },
-        { "", "" } }; // This blank entry must exist, do not remove.
-    QString table = tables[tableIndex][0];
-    QString column = tables[tableIndex][1];
+    }};
 
     // Because recordedseek can have millions of rows, we don't want to JOIN it
     // with recorded.  Instead, pull out DISTINCT chanid and starttime into a
@@ -219,7 +220,7 @@ void CleanupTask::CleanupRecordedTables(void)
         return;
     }
 
-    while (!table.isEmpty())
+    for (const auto & [table,column] : tables)
     {
         query.prepare(QString("TRUNCATE TABLE temprecordedcleanup;"));
         if (!query.exec() || !query.isActive())
@@ -270,10 +271,6 @@ void CleanupTask::CleanupRecordedTables(void)
                 return;
             }
         }
-
-        tableIndex++;
-        table = tables[tableIndex][0];
-        column = tables[tableIndex][1];
     }
 
     if (!query.exec("DROP TABLE temprecordedcleanup;"))
@@ -314,7 +311,6 @@ void CleanupTask::CleanupChannelTables(void)
 void CleanupTask::CleanupProgramListings(void)
 {
     MSqlQuery query(MSqlQuery::InitCon());
-    QString querystr;
     // Keep as many days of listings data as we keep matching, non-recorded
     // oldrecorded entries to allow for easier post-mortem analysis
     int offset = gCoreContext->GetNumSetting( "CleanOldRecorded", 10);
@@ -423,18 +419,19 @@ bool ThemeUpdateTask::DoRun(void)
     {
 
         MythVersion = MYTH_BINARY_VERSION; // Example: 29.20161017-1
-        MythVersion.replace(QRegExp("\\.[0-9]{8,}.*"), "");
+        MythVersion.remove(QRegularExpression("\\.[0-9]{8,}.*"));
         LOG(VB_GENERAL, LOG_INFO,
             QString("Loading themes for %1").arg(MythVersion));
         result |= LoadVersion(MythVersion, LOG_ERR);
 
         // If a version of the theme for this tag exists, use it...
-        QRegExp subexp("v[0-9]+\\.([0-9]+)-*");
-        int pos = subexp.indexIn(GetMythSourceVersion());
-        if (pos > -1)
+        static const QRegularExpression subexp
+            { "v[0-9]+\\.([0-9]+)-*", QRegularExpression::CaseInsensitiveOption };
+        auto match = subexp.match(GetMythSourceVersion());
+        if (match.hasMatch())
         {
             QString subversion;
-            int idx = subexp.cap(1).toInt();
+            int idx = match.capturedView(1).toInt();
             for ( ; idx > 0; --idx)
             {
                 subversion = MythVersion + "." + QString::number(idx);
@@ -467,8 +464,8 @@ bool ThemeUpdateTask::LoadVersion(const QString &version, int download_log_level
 
     m_url = QString("%1/%2/themes.zip")
             .arg(gCoreContext->GetSetting("ThemeRepositoryURL",
-                          "http://themes.mythtv.org/themes/repository"))
-            .arg(version);
+                          "http://themes.mythtv.org/themes/repository"),
+                 version);
 
     m_running = true;
     bool result = GetMythDownloadManager()->download(m_url, remoteThemesFile);
@@ -523,7 +520,7 @@ bool RadioStreamUpdateTask::DoRun(void)
     args << logPropagateArgs;
 
     LOG(VB_GENERAL, LOG_INFO, QString("Performing Radio Streams Update: %1 %2")
-        .arg(command).arg(args.join(" ")));
+        .arg(command, args.join(" ")));
 
     m_msMU = new MythSystemLegacy(command, args, kMSRunShell | kMSAutoCleanup);
 
@@ -540,7 +537,7 @@ bool RadioStreamUpdateTask::DoRun(void)
         return false;
     }
 
-    LOG(VB_GENERAL, LOG_INFO, QString("Radio Stream Update Complete"));
+    LOG(VB_GENERAL, LOG_INFO, QString("Radio Streams Update Complete"));
     return true;
 }
 
@@ -553,7 +550,11 @@ RadioStreamUpdateTask::~RadioStreamUpdateTask(void)
 bool RadioStreamUpdateTask::DoCheckRun(const QDateTime& now)
 {
     // we are only interested in the global setting so remove any local host setting just in case
-    GetMythDB()->ClearSetting("MusicStreamListModified");
+    QString setting = GetMythDB()->GetSettingOnHost("MusicStreamListModified", gCoreContext->GetHostName(), "");
+    if (!setting.isEmpty())
+    {
+        GetMythDB()->ClearSetting("MusicStreamListModified");
+    }
 
     // check we are not already running a radio stream update
     return gCoreContext->GetSetting("MusicStreamListModified") == "Updating" &&
@@ -589,7 +590,7 @@ bool ArtworkTask::DoRun(void)
     args << logPropagateArgs;
 
     LOG(VB_GENERAL, LOG_INFO, QString("Performing Artwork Refresh: %1 %2")
-        .arg(command).arg(args.join(" ")));
+        .arg(command, args.join(" ")));
 
     m_msMML = new MythSystemLegacy(command, args, kMSRunShell | kMSAutoCleanup);
 
@@ -644,13 +645,13 @@ void MythFillDatabaseTask::SetHourWindowFromDB(void)
 {
     // we need to set the time window from database settings, so we cannot
     // initialize these values in. grab them and set them afterwards
-    int min = gCoreContext->GetNumSetting("MythFillMinHour", -1);
-    int max = gCoreContext->GetNumSetting("MythFillMaxHour", 23);
+    auto min = gCoreContext->GetDurSetting<std::chrono::hours>("MythFillMinHour", -1h);
+    auto max = gCoreContext->GetDurSetting<std::chrono::hours>("MythFillMaxHour", 23h);
 
-    if (min == -1)
+    if (min == -1h)
     {
-        min = 0;
-        max = 23;
+        min = 0h;
+        max = 23h;
     }
     else
     {
@@ -740,7 +741,7 @@ bool MythFillDatabaseTask::DoRun(void)
         mfpath = GetAppBinDir() + "mythfilldatabase";
     }
 
-    QString cmd = QString("%1 %2").arg(mfpath).arg(mfarg);
+    QString cmd = QString("%1 %2").arg(mfpath, mfarg);
 
     m_msMFD = new MythSystemLegacy(cmd, opts);
 

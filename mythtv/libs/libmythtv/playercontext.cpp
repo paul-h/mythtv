@@ -24,14 +24,11 @@
 
 #define LOC QString("playCtx: ")
 
-const uint PlayerContext::kSMExitTimeout     = 2000;
-const uint PlayerContext::kMaxChannelHistory = 30;
-
 PlayerContext::PlayerContext(QString inUseID) :
     m_recUsage(std::move(inUseID))
 {
     m_lastSignalMsgTime.start();
-    m_lastSignalMsgTime.addMSecs(-2 * (int)kSMExitTimeout);
+    m_lastSignalMsgTime.addMSecs(-2 * kSMExitTimeout);
 }
 
 PlayerContext::~PlayerContext()
@@ -96,191 +93,6 @@ void PlayerContext::SetInitialTVState(bool islivetv)
     SetPlayGroup(newPlaygroup);
 }
 
-/**
- * \brief Check if PIP is supported for current video
- * renderer running. Current support written for XV, Opengl and VDPAU.
- * Not sure about ivtv.
- */
-bool PlayerContext::IsPIPSupported(void) const
-{
-    bool supported = false;
-    QMutexLocker locker(&m_deletePlayerLock);
-    if (m_player)
-    {
-        const MythVideoOutput *vid = m_player->GetVideoOutput();
-        if (vid)
-            supported = vid->IsPIPSupported();
-    }
-    return supported;
-}
-
-/**
- * \brief Check if PBP is supported for current video
- * renderer running. Current support written for XV and Opengl.
- * Not sure about ivtv.
- */
-bool PlayerContext::IsPBPSupported(void) const
-{
-    bool supported = false;
-    QMutexLocker locker(&m_deletePlayerLock);
-    if (m_player)
-    {
-        const MythVideoOutput *vid = m_player->GetVideoOutput();
-        if (vid)
-            supported = vid->IsPBPSupported();
-    }
-    return supported;
-}
-
-void PlayerContext::CreatePIPWindow(const QRect &rect, int pos,
-                    QWidget *widget)
-{
-    QString name;
-    if (pos > -1)
-    {
-        m_pipLocation = pos;
-        name = QString("pip player %1").arg(toString((PIPLocation)pos));
-    }
-    else
-        name = "pip player";
-
-    if (widget)
-        m_parentWidget = widget;
-
-    m_pipRect = QRect(rect);
-}
-
-/**
- * \brief Get PIP more accurate display size for standalone PIP
- * by factoring the aspect ratio of the video.
- */
-QRect PlayerContext::GetStandAlonePIPRect(void)
-{
-    QRect rect = QRect(0, 0, 0, 0);
-    QMutexLocker locker(&m_deletePlayerLock);
-    if (m_player)
-    {
-        rect = m_pipRect;
-
-        float saspect = (float)rect.width() / (float)rect.height();
-        float vaspect = m_player->GetVideoAspect();
-
-        // Calculate new height or width according to relative aspect ratio
-        if (lroundf(saspect * 10) > lroundf(vaspect * 10))
-        {
-            rect.setWidth((int) ceil(rect.width() * (vaspect / saspect)));
-        }
-        else if (lroundf(saspect * 10) < lroundf(vaspect * 10))
-        {
-            rect.setHeight((int) ceil(rect.height() * (saspect / vaspect)));
-        }
-
-        rect.setHeight(((rect.height() + 7) / 8) * 8);
-        rect.setWidth( ((rect.width()  + 7) / 8) * 8);
-    }
-    return rect;
-}
-
-bool PlayerContext::StartPIPPlayer(TV *tv, TVState desiredState)
-{
-    bool ok = false;
-
-    if (!m_useNullVideo && m_parentWidget)
-    {
-        const QRect rect = m_pipRect;
-        ok = CreatePlayer(tv, m_parentWidget, desiredState,
-                          true, rect);
-    }
-
-    if (m_useNullVideo || !ok)
-    {
-        SetPlayer(nullptr);
-        m_useNullVideo = true;
-        ok = CreatePlayer(tv, nullptr, desiredState,
-                          false);
-    }
-
-    return ok;
-}
-
-
-/**
- * \brief stop player but pause the ringbuffer. used in PIP/PBP swap or
- * switching from PIP <-> PBP or enabling PBP
- */
-
-void PlayerContext::PIPTeardown(void)
-{
-    if (m_buffer)
-    {
-        m_buffer->Pause();
-        m_buffer->WaitForPause();
-    }
-
-    {
-        QMutexLocker locker(&m_deletePlayerLock);
-        StopPlaying();
-    }
-
-    SetPlayer(nullptr);
-
-    m_useNullVideo = false;
-    m_parentWidget = nullptr;
-}
-
-/**
- * \brief Resize PIP Window
- */
-void PlayerContext::ResizePIPWindow(const QRect &rect)
-{
-    if (!IsPIP())
-        return;
-
-    QRect tmpRect;
-    if (m_pipState == kPIPStandAlone)
-        tmpRect = GetStandAlonePIPRect();
-    else
-        tmpRect = QRect(rect);
-
-    LockDeletePlayer(__FILE__, __LINE__);
-    if (m_player && m_player->GetVideoOutput())
-        m_player->GetVideoOutput()->ResizeDisplayWindow(tmpRect, false);
-    UnlockDeletePlayer(__FILE__, __LINE__);
-
-    m_pipRect = QRect(rect);
-}
-
-bool PlayerContext::StartEmbedding(const QRect &embedRect) const
-{
-    bool ret = false;
-    LockDeletePlayer(__FILE__, __LINE__);
-    if (m_player)
-    {
-        ret = true;
-        m_player->EmbedInWidget(embedRect);
-    }
-    UnlockDeletePlayer(__FILE__, __LINE__);
-    return ret;
-}
-
-bool PlayerContext::IsEmbedding(void) const
-{
-    bool ret = false;
-    LockDeletePlayer(__FILE__, __LINE__);
-    if (m_player)
-        ret = m_player->IsEmbedding();
-    UnlockDeletePlayer(__FILE__, __LINE__);
-    return ret;
-}
-
-void PlayerContext::StopEmbedding(void) const
-{
-    LockDeletePlayer(__FILE__, __LINE__);
-    if (m_player)
-        m_player->StopEmbedding();
-    UnlockDeletePlayer(__FILE__, __LINE__);
-}
-
 bool PlayerContext::HasPlayer(void) const
 {
     QMutexLocker locker(&m_deletePlayerLock);
@@ -325,133 +137,9 @@ bool PlayerContext::HandlePlayerSpeedChangeEOF(void)
     return false;
 }
 
-bool PlayerContext::CalcPlayerSliderPosition(osdInfo &info,
-                                             bool paddedFields) const
-{
-    QMutexLocker locker(&m_deletePlayerLock);
-    if (m_player)
-    {
-        m_player->calcSliderPos(info, paddedFields);
-        return true;
-    }
-    return false;
-}
-
 bool PlayerContext::IsRecorderErrored(void) const
 {
     return m_recorder && m_recorder->GetErrorStatus();
-}
-
-bool PlayerContext::CreatePlayer(TV *tv, QWidget *widget,
-                                 TVState desiredState,
-                                 bool embed, const QRect &embedbounds,
-                                 bool muted)
-{
-    if (HasPlayer())
-    {
-        LOG(VB_GENERAL, LOG_ERR, LOC +
-                "Attempting to setup a player, but it already exists.");
-        return false;
-    }
-
-    uint playerflags = kDecodeAllowEXT; // allow VDA etc for normal playback
-    playerflags |= muted                ? kAudioMuted : kNoFlags;
-    playerflags |= m_useNullVideo       ? kVideoIsNull : kNoFlags;
-    playerflags |= m_nohardwaredecoders ? kNoFlags : kDecodeAllowGPU;
-
-    MythPlayer *player = nullptr;
-    if (kState_WatchingBD  == desiredState)
-        player = new MythBDPlayer((PlayerFlags)playerflags);
-    else if (kState_WatchingDVD == desiredState)
-        player = new MythDVDPlayer((PlayerFlags)playerflags);
-    else
-        player = new MythPlayer((PlayerFlags)playerflags);
-
-    QString passthru_device =
-        gCoreContext->GetBoolSetting("PassThruDeviceOverride", false) ?
-        gCoreContext->GetSetting("PassThruOutputDevice") : QString();
-
-    player->SetPlayerInfo(tv, widget, this);
-    AudioPlayer *audio = player->GetAudio();
-    audio->SetAudioInfo(gCoreContext->GetSetting("AudioOutputDevice"),
-                        passthru_device,
-                        gCoreContext->GetNumSetting("AudioSampleRate", 44100));
-    audio->SetStretchFactor(m_tsNormal);
-    player->SetLength(m_playingLen);
-
-    player->AdjustAudioTimecodeOffset(
-                0, gCoreContext->GetNumSetting("AudioSyncOffset", 0));
-
-    bool isWatchingRecording = (desiredState == kState_WatchingRecording);
-    player->SetWatchingRecording(isWatchingRecording);
-
-    if (!IsAudioNeeded())
-        audio->SetNoAudio();
-    else
-    {
-        QString subfn = m_buffer->GetSubtitleFilename();
-        bool isInProgress = (desiredState == kState_WatchingRecording ||
-                             desiredState == kState_WatchingLiveTV);
-        if (!subfn.isEmpty() && player->GetSubReader())
-            player->GetSubReader()->LoadExternalSubtitles(subfn, isInProgress);
-    }
-
-    if (embed && !embedbounds.isNull())
-        player->EmbedInWidget(embedbounds);
-
-    SetPlayer(player);
-
-    if (m_pipState == kPIPOff || m_pipState == kPBPLeft)
-    {
-        if (IsAudioNeeded())
-        {
-            // cppcheck-suppress unreadVariable
-            QString errMsg = audio->ReinitAudio();
-        }
-    }
-    else if (m_pipState == kPBPRight)
-        player->SetMuted(true);
-
-    return StartPlaying(-1);
-}
-
-/** \fn PlayerContext::StartPlaying(int)
- *  \brief Starts player, must be called after StartRecorder().
- *  \param maxWait How long to wait for MythPlayer to start playing.
- *  \return true when successful, false otherwise.
- */
-bool PlayerContext::StartPlaying(int maxWait)
-{
-    if (!m_player)
-        return false;
-
-    if (!m_player->StartPlaying())
-    {
-        LOG(VB_GENERAL, LOG_ERR, LOC + "StartPlaying() Failed to start player");
-        // no need to call StopPlaying here as the player context will be deleted
-        // later following the error
-        return false;
-    }
-    maxWait = (maxWait <= 0) ? 20000 : maxWait;
-#ifdef USING_VALGRIND
-    maxWait = (1<<30);
-#endif // USING_VALGRIND
-    MythTimer t;
-    t.start();
-
-    while (!m_player->IsPlaying(50, true) && (t.elapsed() < maxWait))
-        ReloadTVChain();
-
-    if (m_player->IsPlaying())
-    {
-        LOG(VB_PLAYBACK, LOG_INFO, LOC +
-            QString("StartPlaying(): took %1 ms to start player.")
-                .arg(t.elapsed()));
-        return true;
-    }
-    LOG(VB_GENERAL, LOG_ERR, LOC + "StartPlaying() Failed to start player");
-    StopPlaying();
-    return false;
 }
 
 void PlayerContext::StopPlaying(void) const
@@ -608,16 +296,6 @@ void PlayerContext::UnlockState(void) const
     m_stateLock.unlock();
 }
 
-void PlayerContext::LockOSD() const
-{
-    m_player->LockOSD();
-}
-
-void PlayerContext::UnlockOSD(void) const
-{
-    m_player->UnlockOSD();
-}
-
 bool PlayerContext::InStateChange(void) const
 {
     if (!m_stateLock.tryLock())
@@ -693,9 +371,6 @@ bool PlayerContext::GetPlayingInfoMap(InfoMap &infoMap) const
             infoMap["screenshotpath"] =
                 artmap.value(kArtworkScreenshot).url;
         }
-        if (m_player)
-            m_player->GetCodecDescription(infoMap);
-
         loaded = true;
     }
     UnlockPlayingInfo(__FILE__, __LINE__);
@@ -807,17 +482,7 @@ void PlayerContext::SetTVChain(LiveTVChain *chain)
     m_tvchain = chain;
 
     if (m_tvchain)
-    {
-#if 0
-        QString seed = QString("");
-
-        if (IsPIP())
-            seed = "PIP";
-
-        seed += gCoreContext->GetHostName();
-#endif
         m_tvchain->InitializeNewChain(gCoreContext->GetHostName());
-    }
 }
 
 void PlayerContext::SetRingBuffer(MythMediaBuffer *Buffer)
@@ -859,9 +524,9 @@ void PlayerContext::SetPlayingInfo(const ProgramInfo *info)
 
 void PlayerContext::SetPlayGroup(const QString &group)
 {
-    m_fftime       = PlayGroup::GetSetting(group, "skipahead", 30);
-    m_rewtime      = PlayGroup::GetSetting(group, "skipback", 5);
-    m_jumptime     = PlayGroup::GetSetting(group, "jump", 10);
+    m_fftime       = PlayGroup::GetDurSetting<std::chrono::seconds>(group, "skipahead", 30s);
+    m_rewtime      = PlayGroup::GetDurSetting<std::chrono::seconds>(group, "skipback", 5s);
+    m_jumptime     = PlayGroup::GetDurSetting<std::chrono::minutes>(group, "jump", 10min);
     m_tsNormal     = PlayGroup::GetSetting(group, "timestretch", 100) * 0.01F;
     m_tsAlt        = (m_tsNormal == 1.0F) ? 1.5F : 1.0F;
 }
@@ -876,9 +541,9 @@ void PlayerContext::SetPseudoLiveTV(
     {
         new_rec = new ProgramInfo(*pi);
         QString msg = QString("Wants to record: %1 %2 %3 %4")
-            .arg(new_rec->GetTitle()).arg(new_rec->GetChanNum())
-            .arg(new_rec->GetRecordingStartTime(MythDate::ISODate))
-            .arg(new_rec->GetRecordingEndTime(MythDate::ISODate));
+            .arg(new_rec->GetTitle(), new_rec->GetChanNum(),
+                 new_rec->GetRecordingStartTime(MythDate::ISODate),
+                 new_rec->GetRecordingEndTime(MythDate::ISODate));
         LOG(VB_PLAYBACK, LOG_INFO, LOC + msg);
     }
 
@@ -888,9 +553,9 @@ void PlayerContext::SetPseudoLiveTV(
     if (old_rec)
     {
         QString msg = QString("Done recording: %1 %2 %3 %4")
-            .arg(old_rec->GetTitle()).arg(old_rec->GetChanNum())
-            .arg(old_rec->GetRecordingStartTime(MythDate::ISODate))
-            .arg(old_rec->GetRecordingEndTime(MythDate::ISODate));
+            .arg(old_rec->GetTitle(), old_rec->GetChanNum(),
+                 old_rec->GetRecordingStartTime(MythDate::ISODate),
+                 old_rec->GetRecordingEndTime(MythDate::ISODate));
         LOG(VB_PLAYBACK, LOG_INFO, LOC + msg);
         delete old_rec;
     }

@@ -11,7 +11,6 @@
 // Std
 #include <utility>
 #include <vector> // For std::vector
-using namespace std;
 
 class ProgramInfo;
 class MythUIText;
@@ -29,7 +28,7 @@ class StatusBoxItem : public QTimer, public MythUIButtonListItem
     StatusBoxItem(MythUIButtonList *lbtype, const QString& text, QVariant data)
       : MythUIButtonListItem (lbtype, text, std::move(data)) { }
 
-    void Start(int Interval = 1); // Seconds
+    void Start(std::chrono::seconds Interval = 1s);
 
   signals:
     void UpdateRequired(StatusBoxItem* Item);
@@ -63,8 +62,10 @@ class StatusBox : public MythScreenType
     void doLogEntries();
     void doJobQueueStatus();
     void doMachineStatus();
-    void doAutoExpireList(bool updateExpList = true);
+    void doAutoExpireList(bool updateExpList);
+    void doAutoExpireList() { doAutoExpireList(true); }
     void doDisplayStatus();
+    void doRenderStatus();
     void doDecoderStatus();
 
   private:
@@ -85,7 +86,7 @@ class StatusBox : public MythScreenType
 
     recprof2bps_t      m_recordingProfilesBps;
 
-    vector<ProgramInfo *> m_expList;
+    std::vector<ProgramInfo *> m_expList;
 
     MythScreenStack   *m_popupStack      {nullptr};
 

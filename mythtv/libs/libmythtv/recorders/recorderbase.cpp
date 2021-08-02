@@ -1,6 +1,5 @@
 #include <algorithm> // for min
 #include <cstdint>
-using namespace std;
 
 #include "firewirerecorder.h"
 #include "recordingprofile.h"
@@ -43,9 +42,7 @@ using namespace std;
         ((m_tvrec != nullptr) ? QString::number(m_tvrec->GetInputId()) : "NULL")
 
 #define LOC QString("RecBase[%1](%2): ") \
-            .arg(TVREC_CARDNUM).arg(m_videodevice)
-
-const uint RecorderBase::kTimeOfLatestDataIntervalTarget = 5000;
+            .arg(TVREC_CARDNUM, m_videodevice)
 
 RecorderBase::RecorderBase(TVRec *rec)
     : m_tvrec(rec)
@@ -187,7 +184,7 @@ void RecorderBase::SetOption(const QString &name, const QString &value)
     {
         LOG(VB_GENERAL, LOG_WARNING, LOC +
             QString("SetOption(%1,%2): Option not recognized")
-                .arg(name).arg(value));
+                .arg(name, value));
     }
 }
 
@@ -291,13 +288,14 @@ bool RecorderBase::IsPaused(bool holding_lock) const
     return ret;
 }
 
-/** \fn RecorderBase::WaitForPause(int)
+/**
+
  *  \brief WaitForPause blocks until recorder is actually paused,
  *         or timeout milliseconds elapse.
  *  \param timeout number of milliseconds to wait defaults to 1000.
  *  \return true iff pause happened within timeout period.
  */
-bool RecorderBase::WaitForPause(int timeout)
+bool RecorderBase::WaitForPause(std::chrono::milliseconds timeout)
 {
     MythTimer t;
     t.start();
@@ -305,15 +303,15 @@ bool RecorderBase::WaitForPause(int timeout)
     QMutexLocker locker(&m_pauseLock);
     while (!IsPaused(true) && m_requestPause)
     {
-        int wait = timeout - t.elapsed();
-        if (wait <= 0)
+        std::chrono::milliseconds wait = timeout - t.elapsed();
+        if (wait <= 0ms)
             return false;
-        m_pauseWait.wait(&m_pauseLock, wait);
+        m_pauseWait.wait(&m_pauseLock, wait.count());
     }
     return true;
 }
 
-/** \fn RecorderBase::PauseAndWait(int)
+/**
  *  \brief If m_requestPause is true, sets pause and blocks up to
  *         timeout milliseconds or until unpaused, whichever is
  *         sooner.
@@ -325,7 +323,7 @@ bool RecorderBase::WaitForPause(int timeout)
  *  \param timeout number of milliseconds to wait defaults to 100.
  *  \return true if recorder is paused.
  */
-bool RecorderBase::PauseAndWait(int timeout)
+bool RecorderBase::PauseAndWait(std::chrono::milliseconds timeout)
 {
     QMutexLocker locker(&m_pauseLock);
     if (m_requestPause)
@@ -338,7 +336,7 @@ bool RecorderBase::PauseAndWait(int timeout)
                 m_tvrec->RecorderPaused();
         }
 
-        m_unpauseWait.wait(&m_pauseLock, timeout);
+        m_unpauseWait.wait(&m_pauseLock, timeout.count());
     }
 
     if (!m_requestPause && IsPaused(true))
@@ -401,8 +399,10 @@ void RecorderBase::SetRecordingStatus(RecStatus::Type status,
     {
         LOG(VB_RECORD, LOG_INFO,
             QString("Modifying recording status from %1 to %2 at %3:%4")
-            .arg(RecStatus::toString(m_curRecording->GetRecordingStatus(), kSingleRecord))
-            .arg(RecStatus::toString(status, kSingleRecord)).arg(file).arg(line));
+            .arg(RecStatus::toString(m_curRecording->GetRecordingStatus(), kSingleRecord),
+                 RecStatus::toString(status, kSingleRecord),
+                 file,
+                 QString::number(line)));
 
         m_curRecording->SetRecordingStatus(status);
 
@@ -498,8 +498,8 @@ void RecorderBase::FinishRecording(void)
                                         .arg(m_videoHeight)
                                         .arg(m_videoAspect)
                                         .arg(GetFrameRate())
-                                        .arg(avcodec_get_name(m_primaryAudioCodec))
-                                        .arg(RecordingFile::AVContainerToString(m_containerFormat)));
+                                        .arg(avcodec_get_name(m_primaryAudioCodec),
+                                             RecordingFile::AVContainerToString(m_containerFormat)));
 }
 
 RecordingQuality *RecorderBase::GetRecordingQuality(
@@ -581,7 +581,7 @@ bool RecorderBase::GetKeyframeDurations(
 }
 
 /**
- *  \brief This saves the postition map delta to the database if force
+ *  \brief This saves the position map delta to the database if force
  *         is true or there are 30 frames in the map or there are five
  *         frames in the map with less than 30 frames in the non-delta
  *         position map.
@@ -595,13 +595,13 @@ void RecorderBase::SavePositionMap(bool force, bool finished)
 
     bool has_delta = !m_positionMapDelta.empty();
     // set pm_elapsed to a fake large value if the timer hasn't yet started
-    uint pm_elapsed = (m_positionMapTimer.isRunning()) ?
-        m_positionMapTimer.elapsed() : ~0;
+    std::chrono::milliseconds pm_elapsed = (m_positionMapTimer.isRunning()) ?
+        m_positionMapTimer.elapsed() : std::chrono::milliseconds::max();
     // save on every 1.5 seconds if in the first few frames of a recording
     needToSave |= (m_positionMap.size() < 30) &&
-        has_delta && (pm_elapsed >= 1500);
+        has_delta && (pm_elapsed >= 1.5s);
     // save every 10 seconds later on
-    needToSave |= has_delta && (pm_elapsed >= 10000);
+    needToSave |= has_delta && (pm_elapsed >= 10s);
     // Assume that m_durationMapDelta is the same size as
     // m_positionMapDelta and implicitly use the same logic about when
     // to same m_durationMapDelta.
@@ -646,7 +646,7 @@ void RecorderBase::SavePositionMap(bool force, bool finished)
     // and if there is a problem with the input we may never see one
     // again, resulting in a wedged recording.
     if (!finished && m_ringBufferCheckTimer.isRunning() &&
-        m_ringBufferCheckTimer.elapsed() > 3000)
+        m_ringBufferCheckTimer.elapsed() > 3s)
     {
         if (CheckForRingBufferSwitch())
             LOG(VB_RECORD, LOG_WARNING, LOC +
@@ -835,7 +835,7 @@ void RecorderBase::AudioCodecChange(AVCodecID aCodec)
     }
 }
 
-void RecorderBase::SetDuration(uint64_t duration)
+void RecorderBase::SetDuration(std::chrono::milliseconds duration)
 {
     if (m_curRecording)
         m_curRecording->SaveTotalDuration(duration);
@@ -986,7 +986,7 @@ RecorderBase *RecorderBase::CreateRecorder(
     else
     {
         QString msg = "Need %1 recorder, but compiled without %2 support!";
-        msg = msg.arg(genOpt.m_inputType).arg(genOpt.m_inputType);
+        msg = msg.arg(genOpt.m_inputType, genOpt.m_inputType);
         LOG(VB_GENERAL, LOG_ERR,
             "RecorderBase::CreateRecorder() Error, " + msg);
     }

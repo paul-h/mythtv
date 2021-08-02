@@ -3,8 +3,11 @@
 #ifndef ATSC_TABLES_H
 #define ATSC_TABLES_H
 
+#include "mythconfig.h"
+
 #include <cstdint>  // uint32_t
 #include <QString>
+#include <QtEndian>
 
 #include "atscdescriptors.h"
 #include "mythmiscutil.h" // for xml_indent
@@ -177,7 +180,7 @@ class MTV_PUBLIC MasterGuideTable : public PSIPTable
     QString toString(void) const override; // PSIPTable
     QString toStringXML(uint indent_level) const override; // PSIPTable
   private:
-    mutable vector<unsigned char*> m_ptrs; // used to parse
+    mutable std::vector<unsigned char*> m_ptrs; // used to parse
 };
 
 /** \class VirtualChannelTable
@@ -231,7 +234,7 @@ class MTV_PUBLIC VirtualChannelTable : public PSIPTable
         const auto* ustr = reinterpret_cast<const unsigned short*>(m_ptrs[i]);
         for (int j=0; j<7; j++)
         {
-            QChar c((ustr[j]<<8) | (ustr[j]>>8));
+            QChar c(qFromBigEndian(ustr[j]));
             if (c != QChar('\0')) str.append(c);
         }
         return str.simplified();
@@ -334,7 +337,7 @@ class MTV_PUBLIC VirtualChannelTable : public PSIPTable
     virtual QString ChannelStringXML(uint indent_level, uint channel) const;
     virtual QString XMLChannelValues(uint indent_level, uint channel) const;
   protected:
-    mutable vector<unsigned char*> m_ptrs;
+    mutable std::vector<unsigned char*> m_ptrs;
 };
 
 /** \class TerrestrialVirtualChannelTable
@@ -609,7 +612,7 @@ class MTV_PUBLIC EventInformationTable : public PSIPTable
     void Parse() const;
     QString toString() const override; // PSIPTable
   private:
-    mutable vector<unsigned char*> m_ptrs;
+    mutable std::vector<unsigned char*> m_ptrs;
 };
 
 /** \class ExtendedTextTable

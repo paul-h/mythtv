@@ -20,11 +20,14 @@
 #ifndef VBI_608_EXTRACTOR_H
 #define VBI_608_EXTRACTOR_H
 
+#include <array>
 #include <cstdint>
 
 #include <QList>
 
 #include "mythframe.h"
+
+using cc608_data = std::array<uint8_t,8>;
 
 class VBI608Extractor
 {
@@ -34,11 +37,11 @@ class VBI608Extractor
     uint16_t GetCode1(void) const { return m_code[0]; }
     uint16_t GetCode2(void) const { return m_code[1]; }
 
-    bool ExtractCC(const VideoFrame *picframe, uint max_lines = 4);
+    bool ExtractCC(const MythVideoFrame *picframe, uint max_lines = 4);
     bool ExtractCC12(const unsigned char *buf, uint width);
     bool ExtractCC34(const unsigned char *buf, uint width);
 
-    uint FillCCData(uint8_t cc_data[8]) const;
+    uint FillCCData(cc608_data &cc_data) const;
 
   private:
     float    GetClockStart(void) const { return m_start; }
@@ -51,7 +54,7 @@ class VBI608Extractor
     QList<float> m_minimas;
     float        m_start       {0.0F};
     float        m_rate        {0.0F};
-    uint16_t     m_code[2]     {UINT16_MAX, UINT16_MAX};
+    std::array<uint16_t,2> m_code {UINT16_MAX, UINT16_MAX};
 };
 
 #endif // VBI_608_EXTRACTOR_H

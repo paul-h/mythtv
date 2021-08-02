@@ -14,6 +14,8 @@
 #include "mythpainter.h"
 #include "videovisualdefs.h"
 
+using namespace std::chrono_literals;
+
 #define DESC QString("Visualiser: ")
 
 class MythRender;
@@ -22,8 +24,8 @@ class AudioPlayer;
 class VisualNode
 {
   public:
-    VisualNode(short *l, short *r, unsigned long n, unsigned long o)
-        : m_left(l), m_right(r), m_length(n), m_offset(o) { }
+    VisualNode(short *l, short *r, unsigned long n, std::chrono::milliseconds timecode)
+        : m_left(l), m_right(r), m_length(n), m_offset(timecode) { }
 
     ~VisualNode()
     {
@@ -34,13 +36,12 @@ class VisualNode
     short *m_left   {nullptr};
     short *m_right  {nullptr};
     long   m_length;
-    long   m_offset;
+    std::chrono::milliseconds m_offset;
 };
 
 class MTV_PUBLIC VideoVisual : public MythTV::Visual
 {
   public:
-    static bool CanVisualise(AudioPlayer *audio, MythRender *render);
     static VideoVisual* Create(const QString &name,
                                AudioPlayer *audio, MythRender *render);
     static QStringList GetVisualiserList(RenderType type);
@@ -48,22 +49,27 @@ class MTV_PUBLIC VideoVisual : public MythTV::Visual
     VideoVisual(AudioPlayer *audio, MythRender *render);
    ~VideoVisual() override;
 
-    virtual void Draw(const QRect &area, MythPainter *painter,
+    bool NeedsPrepare() const { return m_needsPrepare; }
+    virtual void Prepare(const QRect /*Area*/) { }
+    virtual void Draw(QRect area, MythPainter *painter,
                       QPaintDevice* device) = 0;
     virtual QString Name(void) = 0;
 
-    void add(const void *b, unsigned long b_len, unsigned long w, int c, int p) override; // Visual
+    void add(const void *b, unsigned long b_len,
+             std::chrono::milliseconds timecode,
+             int c, int p) override; // Visual
     void prepare() override; // Visual
 
   protected:
     VisualNode* GetNode(void);
     void DeleteNodes(void);
-    int64_t SetLastUpdate(void);
+    std::chrono::milliseconds SetLastUpdate(void);
 
-    AudioPlayer       *m_audio    {nullptr};
-    bool               m_disabled {false};
+    AudioPlayer       *m_audio        { nullptr };
+    bool               m_needsPrepare { false   };
+    bool               m_disabled     { false   };
     QRect              m_area;
-    MythRender        *m_render   {nullptr};
+    MythRender        *m_render       { nullptr };
     QList<VisualNode*> m_nodes;
     QDateTime          m_lastUpdate;
 };

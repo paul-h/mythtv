@@ -10,9 +10,10 @@
 // C++ headers
 #include <cstdint>
 #include <vector>
-using namespace std;
 
 // Qt headers
+#include <QObject>
+#include <QMutexLocker>
 #include <QStringList>
 #include <QDateTime>
 
@@ -30,10 +31,15 @@ class text_subtitle_t
     QStringList m_textLines;
 };
 
-using TextSubtitleList = vector<text_subtitle_t>;
+using TextSubtitleList = std::vector<text_subtitle_t>;
 
-class TextSubtitles
+class TextSubtitles : public QObject
 {
+    Q_OBJECT
+
+  signals:
+    void TextSubtitlesUpdated();
+
   public:
     TextSubtitles()
     {
@@ -41,7 +47,7 @@ class TextSubtitles
         m_lastReturnedSubtitle.m_end   = 0;
     }
 
-    virtual ~TextSubtitles();
+    ~TextSubtitles() override;
 
     bool HasSubtitleChanged(uint64_t timecode) const;
     QStringList GetSubtitles(uint64_t timecode);
@@ -101,7 +107,11 @@ class TextSubtitles
     // because none have yet been written for an in-progress
     // recording, so use m_hasSubtitles instead of m_subtitles.size().
     bool                      m_hasSubtitles     {false};
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QMutex                    m_lock             {QMutex::Recursive};
+#else
+    QRecursiveMutex           m_lock;
+#endif
 };
 
 class TextSubtitleParser

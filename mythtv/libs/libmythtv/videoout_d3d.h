@@ -4,7 +4,7 @@
 #define VIDEOOUT_D3D_H_
 
 // MythTV headers
-#include "videooutbase.h"
+#include "mythvideoout.h"
 #include "mythrender_d3d9.h"
 #include "mythpainter_d3d9.h"
 
@@ -19,15 +19,11 @@ class VideoOutputD3D : public MythVideoOutput
     VideoOutputD3D();
    ~VideoOutputD3D();
 
-    bool Init(const QSize &video_dim_buf,
-              const QSize &video_dim_disp,
-              float aspect,
+    bool Init(const QSize &video_dim_buf, const QSize &video_dim_disp, float aspect,
               WId winid, const QRect &win_rect, MythCodecID codec_id) override; // VideoOutput
-    void PrepareFrame(VideoFrame *buffer, FrameScanType, OSD *osd) override; // VideoOutput
-    void ProcessFrame(VideoFrame *frame, OSD *osd,
-                      const PIPMap &pipPlayers,
-                      FrameScanType scan) override; // VideoOutput
-    void Show(FrameScanType ) override; // VideoOutput
+    void RenderFrame(MythVideoFrame *buffer, FrameScanType, OSD *osd) override; // VideoOutput
+    void PrepareFrame(MythVideoFrame *frame, const PIPMap &pipPlayers, FrameScanType scan) override; // VideoOutput
+    void EndFrame() override;
     void WindowResized(const QSize &new_size) override; // VideoOutput
     bool InputChanged(const QSize &video_dim_buf,
                       const QSize &video_dim_disp,
@@ -35,7 +31,7 @@ class VideoOutputD3D : public MythVideoOutput
                       MythCodecID  av_codec_id,
                       bool        &aspect_only,
                       MythMultiLocker *Locks) override; // VideoOutput
-    void UpdatePauseFrame(int64_t &disp_timecode, FrameScanType Scan = kScan_Progressive) override; // VideoOutput
+    void UpdatePauseFrame(std::chrono::milliseconds &disp_timecode, FrameScanType Scan = kScan_Progressive) override; // VideoOutput
     void EmbedInWidget(const QRect &rect) override; // VideoOutput
     void StopEmbedding(void) override; // VideoOutput
     static QStringList GetAllowedRenderers(MythCodecID myth_codec_id,
@@ -46,9 +42,7 @@ class VideoOutputD3D : public MythVideoOutput
                                              bool no_acceleration,
                                              AVPixelFormat &pix_fmt);
 
-    void ShowPIP(VideoFrame  *frame,
-                 MythPlayer  *pipplayer,
-                 PIPLocation  loc) override; // VideoOutput
+    void ShowPIP(MythPlayer  *pipplayer, PIPLocation  loc) override; // VideoOutput
     void RemovePIP(MythPlayer *pipplayer) override; // VideoOutput
     bool IsPIPSupported(void) const override // VideoOutput
         { return true; }
@@ -68,11 +62,15 @@ class VideoOutputD3D : public MythVideoOutput
     bool CreatePauseFrame(void);
     void SetProfile(void);
     void DestroyContext(void);
-    void UpdateFrame(VideoFrame *frame, D3D9Image *img);
+    void UpdateFrame(MythVideoFrame *frame, D3D9Image *img);
 
   private:
-    VideoFrame              m_pauseFrame;
+    MythVideoFrame              m_pauseFrame;
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QMutex                  m_lock           {QMutex::Recursive};
+#else
+    QRecursiveMutex         m_lock;
+#endif
     HWND                    m_hWnd           {nullptr};
     HWND                    m_hEmbedWnd      {nullptr};
     MythRenderD3D9         *m_render         {nullptr};

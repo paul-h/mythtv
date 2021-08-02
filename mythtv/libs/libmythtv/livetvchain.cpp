@@ -37,7 +37,7 @@ LiveTVChain::~LiveTVChain()
 QString LiveTVChain::InitializeNewChain(const QString &seed)
 {
     QDateTime curdt = MythDate::current();
-    m_id = QString("live-%1-%2").arg(seed).arg(curdt.toString(Qt::ISODate));
+    m_id = QString("live-%1-%2").arg(seed, curdt.toString(Qt::ISODate));
     return m_id;
 }
 
@@ -124,9 +124,9 @@ void LiveTVChain::FinishedRecording(ProgramInfo *pginfo)
     {
         LOG(VB_RECORD, LOG_INFO,
             QString("Chain: Updated endtime for '%1_%2' to %3")
-                .arg(pginfo->GetChanID())
-                .arg(pginfo->GetRecordingStartTime(MythDate::kFilename))
-                .arg(pginfo->GetRecordingEndTime(MythDate::kFilename)));
+                .arg(QString::number(pginfo->GetChanID()),
+                     pginfo->GetRecordingStartTime(MythDate::kFilename),
+                     pginfo->GetRecordingEndTime(MythDate::kFilename)));
     }
 
     QList<LiveTVChainEntry>::iterator it;
@@ -163,7 +163,7 @@ void LiveTVChain::DeleteProgram(ProgramInfo *pginfo)
                 query.bindValue(":CHANID", (*it).chanid);
                 query.bindValue(":START", (*it).starttime);
                 query.bindValue(":CHAINID", m_id);
-                query.bindValue(":DISCONT", true);
+                query.bindValue(":DISCONT", (*it).discontinuity);
                 if (!query.exec())
                     MythDB::DBError("LiveTVChain::DeleteProgram -- "
                                     "discontinuity", query);
@@ -355,17 +355,17 @@ int LiveTVChain::ProgramIsAt(const ProgramInfo &pginfo) const
 }
 
 /** \fn LiveTVChain::GetLengthAtCurPos(void)
- *  \returns length in seocnds of recording at current position
+ *  \returns length in seconds of recording at current position
  */
-int LiveTVChain::GetLengthAtCurPos(void)
+std::chrono::seconds LiveTVChain::GetLengthAtCurPos(void)
 {
     return GetLengthAtPos(m_curPos);
 }
 
-/** \fn LiveTVChain::GetLengthAtCurPos(void)
- *  \returns length in seocnds of recording at m_curPos
+/**
+ *  \returns length in seconds of recording at m_curPos
  */
-int LiveTVChain::GetLengthAtPos(int pos)
+std::chrono::seconds LiveTVChain::GetLengthAtPos(int pos)
 {
     QMutexLocker lock(&m_lock);
 
@@ -373,7 +373,7 @@ int LiveTVChain::GetLengthAtPos(int pos)
     if (pos == (m_chain.count() - 1))
     {
         // We're on live program, it hasn't ended. Use current time as end time
-        return entry.starttime.secsTo(MythDate::current());
+        return MythDate::secsInPast(entry.starttime);
     }
 
     // use begin time from the following program, as it's certain to be right
@@ -381,7 +381,7 @@ int LiveTVChain::GetLengthAtPos(int pos)
     // such as a channel change, the end value wouldn't have reflected the actual
     // duration of the program
     LiveTVChainEntry nextentry = m_chain[pos+1];
-    return entry.starttime.secsTo(nextentry.starttime);
+    return std::chrono::seconds(entry.starttime.secsTo(nextentry.starttime));
 }
 
 int LiveTVChain::TotalSize(void) const
@@ -412,7 +412,7 @@ void LiveTVChain::ClearSwitch(void)
     QMutexLocker lock(&m_lock);
 
     m_switchId = -1;
-    m_jumpPos = INT_MAX;
+    m_jumpPos = std::chrono::seconds::max();
 }
 
 /**
@@ -423,7 +423,7 @@ void LiveTVChain::ClearSwitch(void)
  *
  *   This also clears the NeedsToSwitch()/NeedsToJump() state.
  *
- *   NOTE: The caller is resposible for deleting the ProgramInfo
+ *   NOTE: The caller is responsible for deleting the ProgramInfo
  */
 ProgramInfo *LiveTVChain::GetSwitchProgram(bool &discont, bool &newtype,
                                            int &newid)
@@ -599,14 +599,13 @@ void LiveTVChain::SwitchToNext(bool up)
         SwitchTo(m_curPos - 1);
 }
 
-void LiveTVChain::JumpTo(int num, int pos)
+void LiveTVChain::JumpTo(int num, std::chrono::seconds pos)
 {
     m_jumpPos = pos;
     SwitchTo(num);
 }
 
 /**
- * JumpToNext(bool up, int pos)
  * jump to the next (up == true) or previous (up == false) liveTV program
  * If pos > 0: indicate the absolute position where to start the next program
  * If pos < 0: indicate offset position; in which case the right liveTV program
@@ -614,10 +613,10 @@ void LiveTVChain::JumpTo(int num, int pos)
  * Offset is in reference to the beginning of the current recordings when going down
  * and in reference to the end of the current recording when going up
  */
-void LiveTVChain::JumpToNext(bool up, int pos)
+void LiveTVChain::JumpToNext(bool up, std::chrono::seconds pos)
 {
-    LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("JumpToNext: %1 -> %2").arg(up).arg(pos));
-    if (pos >= 0)
+    LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("JumpToNext: %1 -> %2").arg(up).arg(pos.count()));
+    if (pos >= 0s)
     {
         m_jumpPos = pos;
         SwitchToNext(up);
@@ -642,15 +641,15 @@ void LiveTVChain::JumpToNext(bool up, int pos)
             if (switchto == current)
             {
                 // we've reached the end
-                pos = up ? GetLengthAtPos(switchto) : 0;
+                pos = up ? GetLengthAtPos(switchto) : 0s;
                 break;
             }
 
-            int duration = GetLengthAtPos(switchto);
+            std::chrono::seconds duration = GetLengthAtPos(switchto);
 
             pos += duration;
 
-            if (pos >= 0)
+            if (pos >= 0s)
             {
                 if (up)
                 {
@@ -667,13 +666,13 @@ void LiveTVChain::JumpToNext(bool up, int pos)
     }
 }
 
-/** \fn LiveTVChain::GetJumpPos(void)
+/**
  *  \brief Returns the jump position in seconds and clears it.
  */
-int LiveTVChain::GetJumpPos(void)
+std::chrono::seconds LiveTVChain::GetJumpPos(void)
 {
-    int ret = m_jumpPos;
-    m_jumpPos = 0;
+    std::chrono::seconds ret = m_jumpPos;
+    m_jumpPos = 0s;
     return ret;
 }
 
@@ -731,9 +730,9 @@ static QString toString(const LiveTVChainEntry &v)
 {
     return QString("%1: %2 (%3 to %4)%5")
         .arg(v.inputtype,6).arg(v.chanid,4)
-        .arg(v.starttime.time().toString())
-        .arg(v.endtime.time().toString())
-        .arg(v.discontinuity?" discontinuous":"");
+        .arg(v.starttime.time().toString(),
+             v.endtime.time().toString(),
+             v.discontinuity?" discontinuous":"");
 }
 
 QString LiveTVChain::toString() const
@@ -779,8 +778,7 @@ bool LiveTVChain::entriesFromStringList(const QStringList &items)
     while (ok && itemIdx < numItems)
     {
         LiveTVChainEntry entry;
-        if (ok && itemIdx < numItems)
-            entry.chanid = items[itemIdx++].toUInt(&ok);
+        entry.chanid = items[itemIdx++].toUInt(&ok);
         if (ok && itemIdx < numItems)
         {
             entry.starttime =

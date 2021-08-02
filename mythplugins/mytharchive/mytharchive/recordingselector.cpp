@@ -82,17 +82,17 @@ bool RecordingSelector::Create(void)
         return false;
     }
 
-    connect(m_okButton, SIGNAL(Clicked()), this, SLOT(OKPressed()));
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(cancelPressed()));
+    connect(m_okButton, &MythUIButton::Clicked, this, &RecordingSelector::OKPressed);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &RecordingSelector::cancelPressed);
 
     new MythUIButtonListItem(m_categorySelector, tr("All Recordings"));
-    connect(m_categorySelector, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            this, SLOT(setCategory(MythUIButtonListItem *)));
+    connect(m_categorySelector, &MythUIButtonList::itemSelected,
+            this, &RecordingSelector::setCategory);
 
-    connect(m_recordingButtonList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            this, SLOT(titleChanged(MythUIButtonListItem *)));
-    connect(m_recordingButtonList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            this, SLOT(toggleSelected(MythUIButtonListItem *)));
+    connect(m_recordingButtonList, &MythUIButtonList::itemSelected,
+            this, &RecordingSelector::titleChanged);
+    connect(m_recordingButtonList, &MythUIButtonList::itemClicked,
+            this, &RecordingSelector::toggleSelected);
 
     if (m_cutlistImage)
         m_cutlistImage->Hide();
@@ -185,8 +185,8 @@ void RecordingSelector::ShowMenu()
 
     menuPopup->SetReturnEvent(this, "action");
 
-    menuPopup->AddButton(tr("Clear All"), SLOT(clearAll()));
-    menuPopup->AddButton(tr("Select All"), SLOT(selectAll()));
+    menuPopup->AddButton(tr("Clear All"), &RecordingSelector::clearAll);
+    menuPopup->AddButton(tr("Select All"), &RecordingSelector::selectAll);
 }
 
 void RecordingSelector::selectAll()
@@ -394,8 +394,8 @@ void RecordingSelector::updateRecordingList(void)
                 QDateTime recendts   = p->GetScheduledEndTime();
 
                 QString timedate = QString("%1 - %2")
-                    .arg(MythDate::toString(recstartts,MythDate::kDateTimeFull))
-                    .arg(MythDate::toString(recendts, MythDate::kTime));
+                    .arg(MythDate::toString(recstartts,MythDate::kDateTimeFull),
+                         MythDate::toString(recendts, MythDate::kTime));
 
                 uint season = p->GetSeason();
                 uint episode = p->GetEpisode();
@@ -405,11 +405,11 @@ void RecordingSelector::updateRecordingList(void)
                 if (season && episode)
                 {
                     seasone = QString("s%1e%2")
-                        .arg(format_season_and_episode(season, 2))
-                        .arg(format_season_and_episode(episode, 2));
+                        .arg(format_season_and_episode(season, 2),
+                             format_season_and_episode(episode, 2));
                     seasonx = QString("%1x%2")
-                        .arg(format_season_and_episode(season, 1))
-                        .arg(format_season_and_episode(episode, 2));
+                        .arg(format_season_and_episode(season, 1),
+                             format_season_and_episode(episode, 2));
                 }
 
                 item->SetText(title, "title");

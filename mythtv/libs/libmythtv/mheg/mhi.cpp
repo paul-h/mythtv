@@ -32,7 +32,7 @@
 #include "mythdb.h"                     // for MythDB
 #include "mythdbcon.h"                  // for MSqlQuery
 #include "mythevent.h"                  // for MythEvent
-#include "mythplayer.h"                 // for MythPlayer
+#include "mythplayerui.h"
 #include "mythrect.h"                   // for MythRect
 #include "mythuiactions.h"              // for ACTION_0, ACTION_1, etc
 #include "tv_actions.h"                 // for ACTION_MENUTEXT, etc
@@ -241,7 +241,7 @@ void MHIContext::run(void)
 
     while (!m_stop)
     {
-        int toWait = 0;
+        std::chrono::milliseconds toWait = 0ms;
         // Dequeue and process any key presses.
         int key = 0;
         do
@@ -258,14 +258,14 @@ void MHIContext::run(void)
 
             // Run the engine and find out how long to pause.
             toWait = m_engine->RunAll();
-            if (toWait < 0)
+            if (toWait < 0ms)
                 return;
         } while (key != 0);
 
-        toWait = (toWait > 1000 || toWait <= 0) ? 1000 : toWait;
+        toWait = (toWait > 1s || toWait <= 0ms) ? 1s : toWait;
 
-        if (!m_stop && (toWait > 0))
-            m_engineWait.wait(locker.mutex(), toWait);
+        if (!m_stop && (toWait > 0ms))
+            m_engineWait.wait(locker.mutex(), toWait.count());
     }
 }
 
@@ -362,7 +362,7 @@ void MHIContext::NetworkBootRequested(void)
 }
 
 // Called by the engine to check for the presence of an object in the carousel.
-bool MHIContext::CheckCarouselObject(QString objectPath)
+bool MHIContext::CheckCarouselObject(const QString& objectPath)
 {
     if (objectPath.startsWith("http:") || objectPath.startsWith("https:"))
     {
@@ -438,7 +438,7 @@ bool MHIContext::CheckAccess(const QString &objectPath, QByteArray &cert)
 
 // Called by the engine to request data from the carousel.
 // Caller must hold m_runLock
-bool MHIContext::GetCarouselData(QString objectPath, QByteArray &result)
+bool MHIContext::GetCarouselData(const QString& objectPath, QByteArray &result)
 {
     QByteArray cert;
     bool const isIC = objectPath.startsWith("http:") || objectPath.startsWith("https:");
@@ -630,7 +630,7 @@ bool MHIContext::OfferKey(const QString& key)
 }
 
 // Called from MythPlayer::VideoStart and MythPlayer::ReinitOSD
-void MHIContext::Reinit(const QRect &videoRect, const QRect &dispRect, float aspect)
+void MHIContext::Reinit(const QRect videoRect, const QRect dispRect, float aspect)
 {
     LOG(VB_MHEG, LOG_INFO,
          QString("[mhi] Reinit video(y:%1 x:%2 w:%3 h:%4) "
@@ -645,7 +645,7 @@ void MHIContext::Reinit(const QRect &videoRect, const QRect &dispRect, float asp
     enum { kNone, kHoriz, kBoth };
     int mode = gCoreContext->GetNumSetting("MhegAspectCorrection", kNone);
     auto const aspectd = static_cast<double>(aspect);
-    double const vz = (mode == kBoth) ? min(1.15, 1. / sqrt(aspectd)) : 1.;
+    double const vz = (mode == kBoth) ? std::min(1.15, 1. / sqrt(aspectd)) : 1.;
     double const hz = (mode > kNone) ? vz * aspectd : 1.;
 
     m_displayRect = QRect( int(dispRect.width() * (1 - hz) / 2),
@@ -772,7 +772,7 @@ inline int MHIContext::ScaleY(int n, bool roundup) const
     return (n * m_displayRect.height() + (roundup ? kStdDisplayHeight - 1 : 0)) / kStdDisplayHeight;
 }
 
-inline QRect MHIContext::Scale(const QRect &r) const
+inline QRect MHIContext::Scale(const QRect r) const
 {
     return { m_displayRect.topLeft() + QPoint(ScaleX(r.x()), ScaleY(r.y())),
              QSize(ScaleX(r.width(), true), ScaleY(r.height(), true)) };
@@ -788,13 +788,13 @@ inline int MHIContext::ScaleVideoY(int n, bool roundup) const
     return (n * m_videoRect.height() + (roundup ? kStdDisplayHeight - 1 : 0)) / kStdDisplayHeight;
 }
 
-inline QRect MHIContext::ScaleVideo(const QRect &r) const
+inline QRect MHIContext::ScaleVideo(const QRect r) const
 {
     return { m_videoRect.topLeft() + QPoint(ScaleVideoX(r.x()), ScaleVideoY(r.y())),
              QSize(ScaleVideoX(r.width(), true), ScaleVideoY(r.height(), true)) };
 }
 
-void MHIContext::AddToDisplay(const QImage &image, const QRect &displayRect, bool bUnder /*=false*/)
+void MHIContext::AddToDisplay(const QImage &image, const QRect displayRect, bool bUnder /*=false*/)
 {
     const QRect scaledRect = Scale(displayRect);
 
@@ -841,7 +841,7 @@ inline int Roundup(int n, int r)
 void MHIContext::DrawVideo(const QRect &videoRect, const QRect &dispRect)
 {
     // tell the video player to resize the video stream
-    if (m_parent->GetNVP())
+    if (m_parent->GetPlayer())
     {
         QRect vidRect;
         if (videoRect != QRect(QPoint(0,0),QSize(kStdDisplayWidth,kStdDisplayHeight)))
@@ -850,7 +850,7 @@ void MHIContext::DrawVideo(const QRect &videoRect, const QRect &dispRect)
             vidRect.setWidth(Roundup(vidRect.width(), 2));
             vidRect.setHeight(Roundup(vidRect.height(), 2));
         }
-        m_parent->GetNVP()->SetVideoResize(vidRect);
+        emit m_parent->GetPlayer()->ResizeForInteractiveTV(vidRect);
     }
 
     m_videoDisplayRect = Scale(dispRect);
@@ -886,7 +886,7 @@ bool MHIContext::LoadChannelCache()
         int sid = query.value(1).toInt();
         int tid = query.value(2).toInt();
         int cid = query.value(3).toInt();
-        m_channelCache.insertMulti( Key_t(nid, sid), Val_t(tid, cid) );
+        m_channelCache.insert( Key_t(nid, sid), Val_t(tid, cid) );
     }
     return true;
 }
@@ -925,9 +925,9 @@ int MHIContext::GetChannelIndex(const QString &str)
             if (m_channelCache.isEmpty())
                 LoadChannelCache();
 
-            ChannelCache_t::const_iterator it = m_channelCache.find(
+            ChannelCache_t::const_iterator it = m_channelCache.constFind(
                 Key_t(netID,serviceID) );
-            if (it == m_channelCache.end())
+            if (it == m_channelCache.constEnd())
                 break;
             if (transportID < 0)
                 nResult = Cid(it);
@@ -941,7 +941,7 @@ int MHIContext::GetChannelIndex(const QString &str)
                         break;
                     }
                 }
-                while (++it != m_channelCache.end());
+                while (++it != m_channelCache.constEnd());
             }
         }
         else if (str.startsWith("rec://svc/lcn/"))
@@ -989,8 +989,7 @@ bool MHIContext::GetServiceInfo(int channelId, int &netId, int &origNetId,
     if (m_channelCache.isEmpty())
         LoadChannelCache();
 
-    for ( ChannelCache_t::const_iterator it = m_channelCache.begin();
-        it != m_channelCache.end(); ++it)
+    for (auto it = m_channelCache.cbegin(); it != m_channelCache.cend(); ++it)
     {
         if (Cid(it) == channelId)
         {
@@ -1050,7 +1049,8 @@ bool MHIContext::BeginStream(const QString &stream, MHStream *notify)
         if (QUrl(stream).authority().isEmpty())
             return false;
 
-        return m_parent->GetNVP()->SetStream(stream);
+        emit m_parent->GetPlayer()->SetInteractiveStream(stream);
+        return !stream.isEmpty();
     }
 
     int chan = GetChannelIndex(stream);
@@ -1083,7 +1083,7 @@ void MHIContext::EndStream()
         .arg((quintptr)m_notify,0,16) );
 
     m_notify = nullptr;
-    (void)m_parent->GetNVP()->SetStream(QString());
+    emit m_parent->GetPlayer()->SetInteractiveStream(QString());
 }
 
 // Callback from MythPlayer when a stream starts or stops
@@ -1111,8 +1111,8 @@ bool MHIContext::BeginAudio(int tag)
         return true; // Leave it at the default.
 
     m_audioTag = tag;
-    if (m_parent->GetNVP())
-        return m_parent->GetNVP()->SetAudioByComponentTag(tag);
+    if (m_parent->GetPlayer())
+        return m_parent->GetPlayer()->SetAudioByComponentTag(tag);
     return false;
  }
 
@@ -1131,8 +1131,8 @@ bool MHIContext::BeginVideo(int tag)
         return true; // Leave it at the default.
 
     m_videoTag = tag;
-    if (m_parent->GetNVP())
-        return m_parent->GetNVP()->SetVideoByComponentTag(tag);
+    if (m_parent->GetPlayer())
+        return m_parent->GetPlayer()->SetVideoByComponentTag(tag);
     return false;
 }
 
@@ -1143,28 +1143,31 @@ void MHIContext::StopVideo()
 }
 
 // Get current stream position, -1 if unknown
-long MHIContext::GetStreamPos()
+std::chrono::milliseconds MHIContext::GetStreamPos()
 {
-    return m_parent->GetNVP() ? m_parent->GetNVP()->GetStreamPos() : -1;
+    return m_parent->GetPlayer() ? m_parent->GetPlayer()->GetStreamPos() : -1ms;
 }
 
 // Get current stream size, -1 if unknown
-long MHIContext::GetStreamMaxPos()
+std::chrono::milliseconds MHIContext::GetStreamMaxPos()
 {
-    return m_parent->GetNVP() ? m_parent->GetNVP()->GetStreamMaxPos() : -1;
+    return m_parent->GetPlayer() ? m_parent->GetPlayer()->GetStreamMaxPos() : -1ms;
 }
 
 // Set current stream position
-long MHIContext::SetStreamPos(long pos)
+std::chrono::milliseconds MHIContext::SetStreamPos(std::chrono::milliseconds pos)
 {
-    return m_parent->GetNVP() ? m_parent->GetNVP()->SetStreamPos(pos) : -1;
+    if (m_parent->GetPlayer())
+        emit m_parent->GetPlayer()->SetInteractiveStreamPos(pos);
+    // Note: return value is never used
+    return 0ms;
 }
 
 // Play or pause a stream
 void MHIContext::StreamPlay(bool play)
 {
-    if (m_parent->GetNVP())
-        m_parent->GetNVP()->StreamPlay(play);
+    if (m_parent->GetPlayer())
+        emit m_parent->GetPlayer()->PlayInteractiveStream(play);
 }
 
 // Create a new object to draw dynamic line art.
@@ -1204,7 +1207,7 @@ void MHIContext::DrawRect(int xPos, int yPos, int width, int height,
 // image may be clipped. x and y define the origin of the bitmap
 // and usually that will be the same as the origin of the bounding
 // box (clipRect).
-void MHIContext::DrawImage(int x, int y, const QRect &clipRect,
+void MHIContext::DrawImage(int x, int y, const QRect clipRect,
                            const QImage &qImage, bool bScaled, bool bUnder)
 {
     if (qImage.isNull())
@@ -1701,8 +1704,9 @@ void MHIDLA::DrawArcSector(int /*x*/, int /*y*/, int /*width*/, int /*height*/,
 // a result of rounding when drawing ellipses.
 struct lineSeg { int m_yBottom, m_yTop, m_xBottom; float m_slope; };
 
-void MHIDLA::DrawPoly(bool isFilled, int nPoints, const int *xArray, const int *yArray)
+void MHIDLA::DrawPoly(bool isFilled, const MHPointVec& xArray, const MHPointVec& yArray)
 {
+    int nPoints = xArray.size();
     if (nPoints < 2)
         return;
 
@@ -1797,7 +1801,7 @@ void MHIDLA::DrawPoly(bool isFilled, int nPoints, const int *xArray, const int *
 
 MHIBitmap::MHIBitmap(MHIContext *parent, bool tiled)
     : m_parent(parent), m_tiled(tiled),
-      m_copyCtx(new MythAVCopy(false))
+      m_copyCtx(new MythAVCopy())
 {
 }
 

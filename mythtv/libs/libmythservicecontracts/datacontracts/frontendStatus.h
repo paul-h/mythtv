@@ -23,8 +23,8 @@ namespace DTC
         Q_PROPERTY(QVariantMap SubtitleTracks READ SubtitleTracks)
         Q_PROPERTY(QVariantMap AudioTracks READ AudioTracks)
 
-        PROPERTYIMP(QString, Name)
-        PROPERTYIMP(QString, Version)
+        PROPERTYIMP_REF(QString, Name)
+        PROPERTYIMP_REF(QString, Version)
         PROPERTYIMP_RO_REF(QVariantMap, State)
         PROPERTYIMP_RO_REF(QVariantList, ChapterTimes)
         PROPERTYIMP_RO_REF(QVariantMap, SubtitleTracks)
@@ -52,21 +52,36 @@ namespace DTC
         {
             if (m_State.contains("chaptertimes"))
             {
-                if (m_State["chaptertimes"].type() == QVariant::List)
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+                auto type = static_cast<QMetaType::Type>(m_State["chaptertimes"].type());
+#else
+                auto type = m_State["chaptertimes"].typeId();
+#endif
+                if (type == QMetaType::QVariantList)
                     m_ChapterTimes = m_State["chaptertimes"].toList();
                 m_State.remove("chaptertimes");
             }
 
             if (m_State.contains("subtitletracks"))
             {
-                if (m_State["subtitletracks"].type() == QVariant::Map)
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+                auto type = static_cast<QMetaType::Type>(m_State["subtitletracks"].type());
+#else
+                auto type = m_State["subtitletracks"].typeId();
+#endif
+                if (type == QMetaType::QVariantMap)
                     m_SubtitleTracks = m_State["subtitletracks"].toMap();
                 m_State.remove("subtitletracks");
             }
 
             if (m_State.contains("audiotracks"))
             {
-                if (m_State["audiotracks"].type() == QVariant::Map)
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+                auto type = static_cast<QMetaType::Type>(m_State["audiotracks"].type());
+#else
+                auto type = m_State["audiotracks"].typeId();
+#endif
+                if (type == QMetaType::QVariantMap)
                     m_AudioTracks = m_State["audiotracks"].toMap();
                 m_State.remove("audiotracks");
             }

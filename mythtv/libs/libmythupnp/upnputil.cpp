@@ -81,46 +81,6 @@ QString LookupUDN( const QString &sDeviceType )
     return( sUDN );
 }
 
-/////////////////////////////////////////////////////////////////////////////
-//           
-/////////////////////////////////////////////////////////////////////////////
-
-bool operator< ( TaskTime t1, TaskTime t2 )
-{
-    return (t1.tv_sec  < t2.tv_sec) ||
-          ((t1.tv_sec == t2.tv_sec) && (t1.tv_usec < t2.tv_usec));
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//           
-/////////////////////////////////////////////////////////////////////////////
-
-bool operator== ( TaskTime t1, TaskTime t2 )
-{
-    return (t1.tv_sec == t2.tv_sec) && (t1.tv_usec == t2.tv_usec);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//           
-/////////////////////////////////////////////////////////////////////////////
-
-void AddMicroSecToTaskTime( TaskTime &t, suseconds_t uSecs )
-{
-    uSecs += t.tv_usec;
-
-    t.tv_sec  += (uSecs / 1000000);
-    t.tv_usec  = (uSecs % 1000000);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//           
-/////////////////////////////////////////////////////////////////////////////
-
-void AddSecondsToTaskTime( TaskTime &t, long nSecs )
-{
-    t.tv_sec  += nSecs;
-}
-
 /**
  * \brief Return a QStringList containing the supported Source Protocols
  *
@@ -140,34 +100,34 @@ QStringList GetSourceProtocolInfos()
         QString flags = DLNA::FlagsString(DLNA::ktm_s | DLNA::ktm_b | DLNA::kv1_5_flag);
         if (*it == "video/mpeg")
         {
-            protocolList << protocolStr.arg(*it).arg("DLNA.ORG_PN=MPEG_PS_PAL;" + flags);
-            protocolList << protocolStr.arg(*it).arg("DLNA.ORG_PN=MPEG_PS_NTSC;" + flags);
-            protocolList << protocolStr.arg(*it).arg("DLNA.ORG_PN=MPEG_PS_SD_DTS;" + flags);
-            protocolList << protocolStr.arg(*it).arg("DLNA.ORG_PN=AVC_TS_NA_ISO;" + flags);
-            protocolList << protocolStr.arg(*it).arg("DLNA.ORG_PN=MPEG_TS_HD_NA_ISO;" + flags);
-            protocolList << protocolStr.arg(*it).arg("DLNA.ORG_PN=MPEG_TS_SD_NA_ISO;" + flags);
-            protocolList << protocolStr.arg(*it).arg("DLNA.ORG_PN=AVC_TS_EU_ISO;" + flags);
-            protocolList << protocolStr.arg(*it).arg("DLNA.ORG_PN=MPEG_TS_SD_EU_ISO;" + flags);
+            protocolList << protocolStr.arg(*it, "DLNA.ORG_PN=MPEG_PS_PAL;" + flags);
+            protocolList << protocolStr.arg(*it, "DLNA.ORG_PN=MPEG_PS_NTSC;" + flags);
+            protocolList << protocolStr.arg(*it, "DLNA.ORG_PN=MPEG_PS_SD_DTS;" + flags);
+            protocolList << protocolStr.arg(*it, "DLNA.ORG_PN=AVC_TS_NA_ISO;" + flags);
+            protocolList << protocolStr.arg(*it, "DLNA.ORG_PN=MPEG_TS_HD_NA_ISO;" + flags);
+            protocolList << protocolStr.arg(*it, "DLNA.ORG_PN=MPEG_TS_SD_NA_ISO;" + flags);
+            protocolList << protocolStr.arg(*it, "DLNA.ORG_PN=AVC_TS_EU_ISO;" + flags);
+            protocolList << protocolStr.arg(*it, "DLNA.ORG_PN=MPEG_TS_SD_EU_ISO;" + flags);
         }
         else if (*it == "audio/mpeg")
         {
-            protocolList << protocolStr.arg(*it).arg("DLNA.ORG_PN=MP3;" + flags); // Technically we don't actually serve these
-            protocolList << protocolStr.arg(*it).arg("DLNA.ORG_PN=MP3X;" + flags);
+            protocolList << protocolStr.arg(*it, "DLNA.ORG_PN=MP3;" + flags); // Technically we don't actually serve these
+            protocolList << protocolStr.arg(*it, "DLNA.ORG_PN=MP3X;" + flags);
         }
         else if (*it == "audio/mp4")
         {
-            protocolList << protocolStr.arg(*it).arg("DLNA.ORG_PN=AAC_ISO_320;" + flags);
+            protocolList << protocolStr.arg(*it, "DLNA.ORG_PN=AAC_ISO_320;" + flags);
         }
         else if (*it == "audio/vnd.dolby.dd-raw")
         {
-            protocolList << protocolStr.arg(*it).arg("DLNA.ORG_PN=AC3;" + flags);
+            protocolList << protocolStr.arg(*it, "DLNA.ORG_PN=AC3;" + flags);
         }
         else if (*it == "audio/x-ms-wma")
         {
-            protocolList << protocolStr.arg(*it).arg("DLNA.ORG_PN=WMAFULL;" + flags);
+            protocolList << protocolStr.arg(*it, "DLNA.ORG_PN=WMAFULL;" + flags);
         }
         else
-            protocolList << protocolStr.arg(*it).arg("*");
+            protocolList << protocolStr.arg(*it, "*");
     }
 
     return protocolList;

@@ -11,10 +11,8 @@ struct GameTypes {
     QString   m_extensions;
 };
 
-#define MAX_GAME_TYPES 12
-
-const GameTypes GameTypeList[MAX_GAME_TYPES] =
-{
+const std::array<GameTypes,12> GameTypeList
+{{
     { QT_TRANSLATE_NOOP("(GameTypes)", "OTHER"),   "OTHER",  "" },
     { QT_TRANSLATE_NOOP("(GameTypes)", "AMIGA"),   "AMIGA",  "adf,ipf" },
     { QT_TRANSLATE_NOOP("(GameTypes)", "ATARI"),   "ATARI",  "bin,a26" },
@@ -27,35 +25,24 @@ const GameTypes GameTypeList[MAX_GAME_TYPES] =
     { QT_TRANSLATE_NOOP("(GameTypes)", "PCE/TG16"),"PCE",    "pce" },
     { QT_TRANSLATE_NOOP("(GameTypes)", "SEGA/MASTER SYSTEM"), "SEGA", "sms" },
     { QT_TRANSLATE_NOOP("(GameTypes)", "SNES"),    "SNES",   "zip,smc,sfc,fig,swc" }
-};
+}};
 
 QString GetGameTypeName(const QString &GameType)
 {
-    QString result = "";
-
-    for (const auto & console : GameTypeList)
-    {
-        if (console.m_idStr == GameType) {
-            result = QCoreApplication::translate("(GameTypes)",
-                                                 console.m_nameStr.toUtf8());
-            break;
-        }
-    }
-    return result;
+    auto sametype = [GameType](const auto & console)
+        { return console.m_idStr == GameType; };
+    const auto *const con = std::find_if(GameTypeList.cbegin(), GameTypeList.cend(), sametype);
+    return (con != GameTypeList.cend())
+        ? QCoreApplication::translate("(GameTypes)", con->m_nameStr.toUtf8())
+        : "";
 }
 
 QString GetGameTypeExtensions(const QString &GameType)
 {
-    QString result = "";
-
-    for (const auto & console : GameTypeList)
-    {
-        if (console.m_idStr == GameType) {
-            result = console.m_extensions;
-            break;
-        }
-    }
-    return result;
+    auto sametype = [GameType](const auto & console)
+        { return console.m_idStr == GameType; };
+    const auto *const con = std::find_if(GameTypeList.cbegin(), GameTypeList.cend(), sametype);
+    return (con != GameTypeList.cend()) ? con->m_extensions : "";
 }
 
 // -----------------------------------------------------------------------
@@ -419,7 +406,7 @@ void GamePlayersList::CreateNewPlayer(const QString& name)
         return;
 
     // Database name must be unique
-    for (StandardSetting* child : *getSubSettings())
+    for (StandardSetting* child : qAsConst(*getSubSettings()))
     {
         if (child->getName() == name)
         {

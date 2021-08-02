@@ -2,7 +2,6 @@
 #define PLAYBACKSOCK_H_
 
 #include <vector>
-using namespace std;
 
 #include <QStringList>
 #include <QDateTime>
@@ -57,7 +56,7 @@ class PlaybackSock : public ReferenceCounter
     bool isMediaServer(void) const { return m_mediaserver; }
     void setAsMediaServer(void) { m_mediaserver = true; }
 
-    void setIP(QString &lip) { m_ip = lip; }
+    void setIP(const QString &lip) { m_ip = lip; }
     QString getIP(void) const { return m_ip; }
 
     bool GoToSleep(void);
@@ -67,10 +66,10 @@ class PlaybackSock : public ReferenceCounter
     int CheckRecordingActive(const ProgramInfo *pginfo);
     int DeleteRecording(const ProgramInfo *pginfo, bool forceMetadataDelete = false);
     bool FillProgramInfo(ProgramInfo &pginfo, const QString &playbackhost);
-    QStringList GetSGFileList(QString &host, QString &groupname,
-                              QString &directory, bool fileNamesOnly);
-    QStringList GetSGFileQuery(QString &host, QString &groupname,
-                               QString &filename);
+    QStringList GetSGFileList(const QString &host, const QString &groupname,
+                              const QString &directory, bool fileNamesOnly);
+    QStringList GetSGFileQuery(const QString &host, const QString &groupname,
+                               const QString &filename);
     QString GetFileHash(const QString& filename, const QString& storageGroup);
     QStringList GetFindFile(const QString &host, const QString &filename,
                             const QString &storageGroup, bool useRegex);
@@ -79,16 +78,16 @@ class PlaybackSock : public ReferenceCounter
                                  const ProgramInfo *pginfo);
     QStringList GenPreviewPixmap(const QString     &token,
                                  const ProgramInfo *pginfo,
-                                 bool               time_fmt_sec,
-                                 long long          time,
+                                 std::chrono::seconds time,
+                                 long long          frame,
                                  const QString     &outputFile,
-                                 const QSize       &outputSize);
+                                 QSize              outputSize);
     QDateTime PixmapLastModified(const ProgramInfo *pginfo);
     bool CheckFile(ProgramInfo *pginfo);
 
     bool IsBusy(int        capturecardnum,
                 InputInfo *busy_input  = nullptr,
-                int        time_buffer = 5);
+                std::chrono::seconds time_buffer = 5s);
     int GetEncoderState(int capturecardnum);
     long long GetMaxBitrate(int capturecardnum);
     ProgramInfo *GetRecording(uint cardid);
@@ -97,8 +96,8 @@ class PlaybackSock : public ReferenceCounter
                                  ProgramInfo *pginfo);
     RecStatus::Type GetRecordingStatus(int capturecardnum);
     void RecordPending(int capturecardnum, const ProgramInfo *pginfo,
-                       int secsleft, bool hasLater);
-    int SetSignalMonitoringRate(int capturecardnum, int rate, int notifyFrontend);
+                       std::chrono::seconds secsleft, bool hasLater);
+    std::chrono::milliseconds SetSignalMonitoringRate(int capturecardnum, std::chrono::milliseconds rate, int notifyFrontend);
     void SetNextLiveTVDir(int capturecardnum, const QString& dir);
     void CancelNextRecording(int capturecardnum, bool cancel);
 

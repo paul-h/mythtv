@@ -200,46 +200,57 @@ class MTV_PUBLIC StreamID
     static QString GetDescription(uint stream_id);
 };
 
-enum
+/** \class PID
+ *  \brief Contains Packet Identifier numeric values.
+ */
+class MTV_PUBLIC PID
 {
-    MPEG_PAT_PID  = 0x0000,
-    MPEG_CAT_PID  = 0x0001,
-    MPEG_TSDT_PID = 0x0002,
+  public:
+    enum
+    {
+        MPEG_PAT_PID  = 0x0000,
+        MPEG_CAT_PID  = 0x0001,
+        MPEG_TSDT_PID = 0x0002,
 
-    DVB_NIT_PID   = 0x0010,
-    DVB_SDT_PID   = 0x0011,
-    DVB_EIT_PID   = 0x0012,
-    DVB_RST_PID   = 0x0013,
-    DVB_TDT_PID   = 0x0014,
+        DVB_NIT_PID   = 0x0010,
+        DVB_SDT_PID   = 0x0011,
+        DVB_EIT_PID   = 0x0012,
+        DVB_RST_PID   = 0x0013,
+        DVB_TDT_PID   = 0x0014,
 
-    // Dishnet longterm EIT is on pid 0x300
-    DVB_DNLONG_EIT_PID = 0x0300,
+        // Dishnet longterm EIT is on pid 0x300
+        DVB_DNLONG_EIT_PID = 0x0300,
 
-    // Bell longterm EIT is on pid 0x441
-    DVB_BVLONG_EIT_PID = 0x0441,
+        // Bell longterm EIT is on pid 0x441
+        DVB_BVLONG_EIT_PID = 0x0441,
 
-    // Premiere EIT for Direkt/Sport PPV
-    PREMIERE_EIT_DIREKT_PID = 0x0b11,
-    PREMIERE_EIT_SPORT_PID  = 0x0b12,
+        // MCA
+        MCA_EIT_PID        = 0x03fa,    // 1018
 
-    ATSC_PSIP_PID = 0x1ffb,
+        // Premiere EIT for Direkt/Sport PPV
+        PREMIERE_EIT_DIREKT_PID = 0x0b11,
+        PREMIERE_EIT_SPORT_PID  = 0x0b12,
 
-    SCTE_PSIP_PID = 0x1ffc,
 
-    // UK Freesat PIDs: SDTo/BAT, longterm EIT, shortterm EIT
-    FREESAT_SI_PID     = 0x0f01,
-    FREESAT_EIT_PID    = 0x0f02,
-    FREESAT_ST_EIT_PID = 0x0f03,
+        ATSC_PSIP_PID = 0x1ffb,
 
-    /// The all-ones PID value 0x1FFF indicates a Null TS Packet
-    /// introduced to maintain a constant bit rate of a TS Multiplex.
-    MPEG_NULL_PID      = 0x1fff,
+        SCTE_PSIP_PID = 0x1ffc,
 
-    // OpenTV EIT PIDs
-    OTV_EIT_TIT_PID_START  = 0x30,
-    OTV_EIT_TIT_PID_END    = 0x37,
-    OTV_EIT_SUP_PID_START  = 0x40,
-    OTV_EIT_SUP_PID_END    = 0x47,
+        // UK Freesat PIDs: SDTo/BAT, longterm EIT, shortterm EIT
+        FREESAT_SI_PID     = 0x0f01,
+        FREESAT_EIT_PID    = 0x0f02,    // 3842
+        FREESAT_ST_EIT_PID = 0x0f03,
+
+        /// The all-ones PID value 0x1FFF indicates a Null TS Packet
+        /// introduced to maintain a constant bit rate of a TS Multiplex.
+        MPEG_NULL_PID      = 0x1fff,
+
+        // OpenTV EIT PIDs
+        OTV_EIT_TIT_PID_START  = 0x30,
+        OTV_EIT_TIT_PID_END    = 0x37,
+        OTV_EIT_SUP_PID_START  = 0x40,
+        OTV_EIT_SUP_PID_END    = 0x47,
+    };
 };
 
 /** \class TableID
@@ -411,7 +422,7 @@ class MTV_PUBLIC PSIPTable : public PESPacket
 
         m_badPacket = true;
         // first check if Length() will return something useful and
-        // than check if the packet ends in the first TSPacket
+        // then check if the packet ends in the first TSPacket
         if ((m_pesData - tspacket.data()) <= (188-3) &&
             (m_pesData + Length() - tspacket.data()) <= (188-3))
         {
@@ -457,6 +468,12 @@ class MTV_PUBLIC PSIPTable : public PESPacket
         // fixup wrong assumption about length for sections without CRC
         m_pesDataSize = SectionLength();
     }
+    explicit PSIPTable(const std::vector<uint8_t> &pesdata)
+        : PESPacket(pesdata)
+    {
+        // fixup wrong assumption about length for sections without CRC
+        m_pesDataSize = SectionLength();
+    }
   public:
     PSIPTable(const PSIPTable&) = default;
         // section_syntax_ind   1       1.0       8   should always be 1
@@ -487,9 +504,6 @@ class MTV_PUBLIC PSIPTable : public PESPacket
 
 
     static PSIPTable View(const TSPacket& tspacket)
-        { return PSIPTable(tspacket, false); }
-
-    static PSIPTable View(TSPacket& tspacket)
         { return PSIPTable(tspacket, false); }
 
     static PSIPTable ViewData(const unsigned char* pesdata)
@@ -614,8 +628,8 @@ class MTV_PUBLIC ProgramAssociationTable : public PSIPTable
 
     // transport stream ID, program ID, count
     static ProgramAssociationTable* Create(uint tsid, uint version,
-                                           const vector<uint>& pnum,
-                                           const vector<uint>& pid);
+                                           const std::vector<uint>& pnum,
+                                           const std::vector<uint>& pid);
 
     uint TransportStreamID(void) const { return TableIDExtension(); }
 
@@ -699,14 +713,14 @@ class MTV_PUBLIC ProgramMapTable : public PSIPTable
 
     static ProgramMapTable* Create(uint programNumber, uint basepid,
                                    uint pcrpid, uint version,
-                                   vector<uint> pids, vector<uint> types);
+                                   std::vector<uint> pids, std::vector<uint> types);
 
     static ProgramMapTable* Create(uint programNumber, uint basepid,
                                    uint pcrpid, uint version,
                                    const desc_list_t         &global_desc,
-                                   const vector<uint>        &pids,
-                                   const vector<uint>        &types,
-                                   const vector<desc_list_t> &prog_desc);
+                                   const std::vector<uint>        &pids,
+                                   const std::vector<uint>        &types,
+                                   const std::vector<desc_list_t> &prog_desc);
 
     /// stream that contains program clock reference.
     uint PCRPID(void) const
@@ -773,9 +787,9 @@ class MTV_PUBLIC ProgramMapTable : public PSIPTable
     /// Returns the audio type from the iso 639 descriptor
     uint GetAudioType(uint i) const;
 
-    uint FindPIDs(uint type, vector<uint> &pids,
+    uint FindPIDs(uint type, std::vector<uint> &pids,
                   const QString &sistandard) const;
-    uint FindPIDs(uint type, vector<uint> &pids, vector<uint> &types,
+    uint FindPIDs(uint type, std::vector<uint> &pids, std::vector<uint> &types,
                   const QString &sistandard, bool normalize) const;
 
     /// \brief Locates stream index of pid.
@@ -831,7 +845,7 @@ class MTV_PUBLIC ProgramMapTable : public PSIPTable
     static ProgramMapTable* CreateBlank(bool smallPacket = true);
 
     static const uint kPmtHeaderMinOffset = 4; // minimum PMT header offset
-    mutable vector<unsigned char*> m_ptrs; // used to parse
+    mutable std::vector<unsigned char*> m_ptrs; // used to parse
 };
 
 /** \class ConditionalAccessTable
@@ -903,13 +917,13 @@ class MTV_PUBLIC SpliceTimeView
 class MTV_PUBLIC SpliceScheduleView
 {
   public:
-    SpliceScheduleView(vector<const unsigned char*> ptrs0,
-                       vector<const unsigned char*> ptrs1) :
+    SpliceScheduleView(std::vector<const unsigned char*> ptrs0,
+                       std::vector<const unsigned char*> ptrs1) :
         m_ptrs0(std::move(ptrs0)), m_ptrs1(std::move(ptrs1))
     {
     }
     //   splice_count           8  14.0
-    uint SpliceCount(void) const { return min(m_ptrs0.size(), m_ptrs1.size()); }
+    uint SpliceCount(void) const { return std::min(m_ptrs0.size(), m_ptrs1.size()); }
 
     //   splice_event_id       32  0.0 + m_ptrs0[i]
     uint SpliceEventID(uint i) const
@@ -944,15 +958,15 @@ class MTV_PUBLIC SpliceScheduleView
     //   }
 
   private:
-    vector<const unsigned char*> m_ptrs0;
-    vector<const unsigned char*> m_ptrs1;
+    std::vector<const unsigned char*> m_ptrs0;
+    std::vector<const unsigned char*> m_ptrs1;
 };
 
 class MTV_PUBLIC SpliceInsertView
 {
   public:
-    SpliceInsertView(vector<const unsigned char*> ptrs0,
-                     vector<const unsigned char*> ptrs1) :
+    SpliceInsertView(std::vector<const unsigned char*> ptrs0,
+                     std::vector<const unsigned char*> ptrs1) :
         m_ptrs0(std::move(ptrs0)), m_ptrs1(std::move(ptrs1))
     {
     }
@@ -1006,8 +1020,8 @@ class MTV_PUBLIC SpliceInsertView
         uint indent_level, int64_t first, int64_t last) const;
 
   private:
-    vector<const unsigned char*> m_ptrs0;
-    vector<const unsigned char*> m_ptrs1;
+    std::vector<const unsigned char*> m_ptrs0;
+    std::vector<const unsigned char*> m_ptrs1;
 };
 
 class MTV_PUBLIC SpliceInformationTable : public PSIPTable
@@ -1184,8 +1198,8 @@ class MTV_PUBLIC SpliceInformationTable : public PSIPTable
     QString toStringXML(uint indent_level, int64_t first, int64_t last) const;
 
   private:
-    vector<const unsigned char*> m_ptrs0;
-    vector<const unsigned char*> m_ptrs1;
+    std::vector<const unsigned char*> m_ptrs0;
+    std::vector<const unsigned char*> m_ptrs1;
     const unsigned char *m_epilog {nullptr};
     int m_sctePid {0};
 };

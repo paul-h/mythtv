@@ -57,7 +57,7 @@ class PaneExistingScanImport : public GroupSetting
         if (!m_sourceid)
             return;
 
-        vector<ScanInfo> scans = LoadScanList(m_sourceid);
+        std::vector<ScanInfo> scans = LoadScanList(m_sourceid);
         for (auto it = scans.rbegin(); it != scans.rend(); ++it)
         {
             ScanInfo &scan   = *it;
@@ -65,7 +65,7 @@ class PaneExistingScanImport : public GroupSetting
             QString proc     = (scan.m_processed) ? tr("processed") : tr("unprocessed");
 
             m_scanSelect->addSelection(
-                QString("%1 %2").arg(scanDate).arg(proc),
+                QString("%1 %2").arg(scanDate, proc),
                 QString::number(scan.m_scanid));
         }
     }

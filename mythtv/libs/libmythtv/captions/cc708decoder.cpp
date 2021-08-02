@@ -35,7 +35,7 @@ const std::array<const std::string, 4> cc_types =
 };
 
 static void parse_cc_packet(CC708Reader *cb_cbs, CaptionPacket *pkt,
-                            time_t last_seen[64]);
+                            cc708_seen_times& last_seen);
 
 void CC708Decoder::decode_cc_data(uint cc_type, uint data1, uint data2)
 {
@@ -73,10 +73,9 @@ void CC708Decoder::decode_cc_null(void)
     m_partialPacket.size = 0;
 }
 
-void CC708Decoder::services(uint seconds, bool seen[64]) const
+void CC708Decoder::services(std::chrono::seconds seconds, cc708_seen_flags & seen) const
 {
-    time_t now = time(nullptr);
-    time_t then = now - seconds;
+    auto then = SystemClock::now() - seconds;
 
     seen[0] = false; // service zero is not allowed in CEA-708-D
     for (uint i = 1; i < 64; i++)
@@ -307,17 +306,20 @@ static int handle_cc_c0_ext1_p16(CC708Reader* cc, uint service_num, int i)
 {
     // C0 code -- subset of ASCII misc. control codes
     const int code = cc->m_buf[service_num][i];
-    if (code<=0xf)
+
+    if (code <= 0xf)
     {
         // single byte code
-        if (ETX==code)
+        if (C0::ETX == code)
             SEND_STR;
-        else if (BS==code)
-            append_character(cc, service_num, 0x08);
-        else if (FF==code)
-            append_character(cc, service_num, 0x0c);
-        else if ((CR==code) || (HCR==code))
-            append_character(cc, service_num, 0x0d);
+        else if (C0::BS == code)
+            append_character(cc, service_num, 0x8);     // Backspace
+        else if (C0::FF==code)
+            append_character(cc, service_num, 0xc);     // Form Feed
+        else if (C0::CR==code)
+            append_character(cc, service_num, 0xd);     // Carriage Return
+        else if (C0::HCR==code)
+            append_character(cc, service_num, 0xe);     // Horizontal Carriage Return
         i++;
     }
     else if (code<=0x17)
@@ -387,7 +389,7 @@ static int handle_cc_c1(CC708Reader* cc, uint service_num, int i)
 */
         i+=1;
     }
-    else if (code>=CLW && code<=DLY && ((i+1)<blk_size))
+    else if (code<=DLY && ((i+1)<blk_size))
     { // 1 byte of paramaters
         int param1 = blk_buf[i+1];
         SEND_STR;
@@ -620,9 +622,9 @@ static void append_cc(CC708Reader* cc, uint service_num,
 }
 
 static void parse_cc_packet(CC708Reader* cb_cbs, CaptionPacket* pkt,
-                            time_t last_seen[64])
+                            cc708_seen_times& last_seen)
 {
-    const unsigned char* pkt_buf = pkt->data;
+    const unsigned char* pkt_buf = pkt->data.data();
     const int pkt_size = pkt->size;
     int off = 1;
     int len     = ((((int)pkt_buf[0]) & 0x3f)<<1) - 1;
@@ -689,7 +691,7 @@ static void parse_cc_packet(CC708Reader* cb_cbs, CaptionPacket* pkt,
             append_cc(cb_cbs, service_number,
                       &pkt_buf[block_data_offset], block_size);
 
-            last_seen[service_number] = time(nullptr);
+            last_seen[service_number] = std::chrono::system_clock::now();
         }
         off+=block_size+1;
     }

@@ -5,8 +5,6 @@
 #include <climits>
 #include <utility>
 
-using namespace std;
-
 // Qt includes
 #include <QtCore> // for qAbs
 
@@ -58,10 +56,14 @@ static void add_genres(MSqlQuery &query, const QStringList &genres,
     }
 }
 
-DBPerson::DBPerson(const DBPerson &other) :
-    m_role(other.m_role), m_name(other.m_name)
+DBPerson::DBPerson(const DBPerson &other)
+    : m_role(other.m_role)
+    , m_name(other.m_name)
+    , m_priority(other.m_priority)
+    , m_character(other.m_character)
 {
     m_name.squeeze();
+    m_character.squeeze();
 }
 
 DBPerson& DBPerson::operator=(const DBPerson &rhs)
@@ -71,28 +73,41 @@ DBPerson& DBPerson::operator=(const DBPerson &rhs)
     m_role = rhs.m_role;
     m_name = rhs.m_name;
     m_name.squeeze();
+    m_priority = rhs.m_priority;
+    m_character = rhs.m_character;
+    m_character.squeeze();
     return *this;
 }
 
-DBPerson::DBPerson(Role role, QString name) :
-    m_role(role), m_name(std::move(name))
+DBPerson::DBPerson(Role role, QString name, int priority,
+                   QString character)
+    : m_role(role)
+    , m_name(std::move(name))
+    , m_priority(priority)
+    , m_character(std::move(character))
 {
     m_name.squeeze();
+    m_character.squeeze();
 }
 
-DBPerson::DBPerson(const QString &role, QString name) :
-    m_role(kUnknown), m_name(std::move(name))
+DBPerson::DBPerson(const QString &role, QString name,
+                   int priority, QString character)
+    : m_role(kUnknown)
+    , m_name(std::move(name))
+    , m_priority(priority)
+    , m_character(std::move(character))
 {
     if (!role.isEmpty())
     {
-        std::string rolestr = role.toStdString();
-        for (size_t i = 0; i < roles.size(); i++)
+        std::string rolestr = role.toLower().toStdString();
+        for (size_t i = 0; i < roles.size(); ++i)
         {
             if (rolestr == roles[i])
                 m_role = (Role) i;
         }
     }
     m_name.squeeze();
+    m_character.squeeze();
 }
 
 QString DBPerson::GetRole(void) const
@@ -102,14 +117,29 @@ QString DBPerson::GetRole(void) const
     return QString::fromStdString(roles[m_role]);
 }
 
+QString DBPerson::toString(void) const
+{
+    return QString("%1 %2 as %3").arg(m_role).arg(m_name, m_character);
+}
+
 uint DBPerson::InsertDB(MSqlQuery &query, uint chanid,
-                        const QDateTime &starttime) const
+                        const QDateTime &starttime,
+                        bool recording) const
 {
     uint personid = GetPersonDB(query);
     if (!personid && InsertPersonDB(query))
         personid = GetPersonDB(query);
 
-    return InsertCreditsDB(query, personid, chanid, starttime);
+    uint roleid = 0;
+    if (!m_character.isEmpty())
+    {
+        roleid = GetRoleDB(query);
+        if (!roleid && InsertRoleDB(query))
+            roleid = GetRoleDB(query);
+    }
+
+    return InsertCreditsDB(query, personid, roleid, chanid,
+                           starttime, recording);
 }
 
 uint DBPerson::GetPersonDB(MSqlQuery &query) const
@@ -142,20 +172,53 @@ uint DBPerson::InsertPersonDB(MSqlQuery &query) const
     return 0;
 }
 
-uint DBPerson::InsertCreditsDB(MSqlQuery &query, uint personid, uint chanid,
-                               const QDateTime &starttime) const
+uint DBPerson::GetRoleDB(MSqlQuery &query) const
+{
+    query.prepare(
+        "SELECT roleid "
+        "FROM roles "
+        "WHERE name = :NAME");
+    query.bindValue(":NAME", m_character);
+
+    if (query.exec() && query.next())
+        return query.value(0).toUInt();
+
+    return 0;
+}
+
+bool DBPerson::InsertRoleDB(MSqlQuery &query) const
+{
+    query.prepare(
+        "INSERT IGNORE INTO roles (name) "
+        "VALUES (:NAME);");
+    query.bindValue(":NAME", m_character);
+
+    if (query.exec())
+        return true;
+
+    MythDB::DBError("insert_role", query);
+    return false;
+}
+
+uint DBPerson::InsertCreditsDB(MSqlQuery &query, uint personid, uint roleid,
+                               uint chanid, const QDateTime &starttime,
+                               bool recording) const
 {
     if (!personid)
         return 0;
 
-    query.prepare(
-        "REPLACE INTO credits "
-        "       ( person,  chanid,  starttime,  role) "
-        "VALUES (:PERSON, :CHANID, :STARTTIME, :ROLE) ");
+    QString table = recording ? "recordedcredits" : "credits";
+
+    query.prepare(QString("REPLACE INTO %1 "
+        "       ( person,  roleid,  chanid,  starttime,  role, priority) "
+        "VALUES (:PERSON, :ROLEID, :CHANID, :STARTTIME, :ROLE, :PRIORITY);")
+                  .arg(table));
     query.bindValue(":PERSON",    personid);
+    query.bindValue(":ROLEID",    roleid);
     query.bindValue(":CHANID",    chanid);
     query.bindValue(":STARTTIME", starttime);
     query.bindValue(":ROLE",      GetRole());
+    query.bindValue(":PRIORITY",  m_priority);
 
     if (query.exec())
         return 1;
@@ -231,20 +294,24 @@ void DBEvent::Squeeze(void)
     m_inetref.squeeze();
 }
 
-void DBEvent::AddPerson(DBPerson::Role role, const QString &name)
+void DBEvent::AddPerson(DBPerson::Role role, const QString &name,
+                        int priority, const QString &character)
 {
     if (!m_credits)
         m_credits = new DBCredits;
 
-    m_credits->push_back(DBPerson(role, name.simplified()));
+    m_credits->push_back(DBPerson(role, name.simplified(),
+                                  priority, character.simplified()));
 }
 
-void DBEvent::AddPerson(const QString &role, const QString &name)
+void DBEvent::AddPerson(const QString &role, const QString &name,
+                        int priority, const QString &character)
 {
     if (!m_credits)
         m_credits = new DBCredits;
 
-    m_credits->push_back(DBPerson(role, name.simplified()));
+    m_credits->push_back(DBPerson(role, name.simplified(),
+                                  priority, character.simplified()));
 }
 
 bool DBEvent::HasTimeConflict(const DBEvent &o) const
@@ -260,10 +327,10 @@ uint DBEvent::UpdateDB(
     // List the program that we are going to add
     LOG(VB_EIT, LOG_DEBUG,
         QString("EIT: new program: %1 %2 '%3' chanid %4")
-                .arg(m_starttime.toString(Qt::ISODate))
-                .arg(m_endtime.toString(Qt::ISODate))
-                .arg(m_title.left(35))
-                .arg(chanid));
+                .arg(m_starttime.toString(Qt::ISODate),
+                     m_endtime.toString(Qt::ISODate),
+                     m_title.left(35),
+                     QString::number(chanid)));
 
     // Do not insert or update when the program is in the past
     QDateTime now = QDateTime::currentDateTimeUtc();
@@ -277,7 +344,7 @@ uint DBEvent::UpdateDB(
 
     // Get all programs already in the database that overlap
     // with our new program.
-    vector<DBEvent> programs;
+    std::vector<DBEvent> programs;
     uint count = GetOverlappingPrograms(query, chanid, programs);
     int  match = INT_MIN;
     int  i     = -1;
@@ -288,14 +355,14 @@ uint DBEvent::UpdateDB(
         return InsertDB(query, chanid);
 
     // List all overlapping programs with start- and endtime.
-    for (uint j=0; j<count; j++)
+    for (uint j=0; j<count; ++j)
     {
         LOG(VB_EIT, LOG_DEBUG,
             QString("EIT: overlap[%1] : %2 %3 '%4'")
-                .arg(j)
-                .arg(programs[j].m_starttime.toString(Qt::ISODate))
-                .arg(programs[j].m_endtime.toString(Qt::ISODate))
-                .arg(programs[j].m_title.left(35)));
+                .arg(QString::number(j),
+                     programs[j].m_starttime.toString(Qt::ISODate),
+                     programs[j].m_endtime.toString(Qt::ISODate),
+                     programs[j].m_title.left(35)));
     }
 
     // Determine which of the overlapping programs is a match with
@@ -312,8 +379,9 @@ uint DBEvent::UpdateDB(
         // out of the way.
         LOG(VB_EIT, LOG_DEBUG,
             QString("EIT: accept match[%1]: %2 '%3' vs. '%4'")
-                .arg(i).arg(match).arg(m_title.left(35))
-                .arg(programs[i].m_title.left(35)));
+                .arg(i).arg(match)
+                .arg(m_title.left(35),
+                     programs[i].m_title.left(35)));
         return UpdateDB(query, chanid, programs, i);
     }
 
@@ -324,8 +392,9 @@ uint DBEvent::UpdateDB(
     {
         LOG(VB_EIT, LOG_DEBUG,
             QString("EIT: reject match[%1]: %2 '%3' vs. '%4'")
-                .arg(i).arg(match).arg(m_title.left(35))
-                .arg(programs[i].m_title.left(35)));
+                .arg(i).arg(match)
+                .arg(m_title.left(35),
+                     programs[i].m_title.left(35)));
     }
 
     // Move the overlapping programs out of the way and
@@ -357,7 +426,7 @@ uint DBEvent::UpdateDB(
 //       This is the STIME3/ETIME3 comparison.
 //
 uint DBEvent::GetOverlappingPrograms(
-    MSqlQuery &query, uint chanid, vector<DBEvent> &programs) const
+    MSqlQuery &query, uint chanid, std::vector<DBEvent> &programs) const
 {
     uint count = 0;
     query.prepare(
@@ -447,7 +516,7 @@ static int score_words(const QStringList &al, const QStringList &bl)
         {
             if (*ait == *bit)
             {
-                bscore = max(1000, 2000 - (dist * 500));
+                bscore = std::max(1000, 2000 - (dist * 500));
                 // lower score for short words
                 if (ait->length() < 5)
                     bscore /= 5 - ait->length();
@@ -457,7 +526,7 @@ static int score_words(const QStringList &al, const QStringList &bl)
         }
         if (bscore && dist < 3)
         {
-            for (int i = 0; (i < dist) && bit != bl.end(); i++)
+            for (int i = 0; (i < dist) && bit != bl.end(); ++i)
                 ++bit;
         }
         score += bscore;
@@ -497,16 +566,16 @@ static int score_match(const QString &a, const QString &b)
     // score words symmetrically
     int score = (score_words(al, bl) + score_words(bl, al)) / 2;
 
-    return min(900, score);
+    return std::min(900, score);
 }
 
-int DBEvent::GetMatch(const vector<DBEvent> &programs, int &bestmatch) const
+int DBEvent::GetMatch(const std::vector<DBEvent> &programs, int &bestmatch) const
 {
     bestmatch = -1;
     int match_val = INT_MIN;
     int duration = m_starttime.secsTo(m_endtime);
 
-    for (size_t i = 0; i < programs.size(); i++)
+    for (size_t i = 0; i < programs.size(); ++i)
     {
         int mv = 0;
         int duration_loop = programs[i].m_starttime.secsTo(programs[i].m_endtime);
@@ -541,8 +610,8 @@ int DBEvent::GetMatch(const vector<DBEvent> &programs, int &bestmatch) const
             /* crappy providers apparently have events without duration
              * ensure that the minimal duration is 2 second to avoid
              * multiplying and more importantly dividing by zero */
-            int min_dur = max(2, min(duration, duration_loop));
-            overlap = min(overlap, min_dur/2);
+            int min_dur = std::max(2, std::min(duration, duration_loop));
+            overlap = std::min(overlap, min_dur/2);
             mv *= overlap * 2;
             mv /= min_dur;
         }
@@ -552,11 +621,11 @@ int DBEvent::GetMatch(const vector<DBEvent> &programs, int &bestmatch) const
                 QString("Unexpected result: shows don't "
                         "overlap\n\t%1: %2 - %3\n\t%4: %5 - %6")
                     .arg(m_title.left(35), 35)
-                    .arg(m_starttime.toString(Qt::ISODate))
-                    .arg(m_endtime.toString(Qt::ISODate))
+                    .arg(m_starttime.toString(Qt::ISODate),
+                         m_endtime.toString(Qt::ISODate))
                     .arg(programs[i].m_title.left(35), 35)
-                    .arg(programs[i].m_starttime.toString(Qt::ISODate))
-                    .arg(programs[i].m_endtime.toString(Qt::ISODate))
+                    .arg(programs[i].m_starttime.toString(Qt::ISODate),
+                         programs[i].m_endtime.toString(Qt::ISODate))
                 );
         }
 
@@ -564,8 +633,9 @@ int DBEvent::GetMatch(const vector<DBEvent> &programs, int &bestmatch) const
         {
             LOG(VB_EIT, LOG_DEBUG,
                 QString("GM : '%1' new best match '%2' with score %3")
-                    .arg(m_title.left(35))
-                    .arg(programs[i].m_title.left(35)).arg(mv));
+                    .arg(m_title.left(35),
+                         programs[i].m_title.left(35),
+                         QString::number(mv)));
             bestmatch = i;
             match_val = mv;
         }
@@ -575,11 +645,11 @@ int DBEvent::GetMatch(const vector<DBEvent> &programs, int &bestmatch) const
 }
 
 uint DBEvent::UpdateDB(
-    MSqlQuery &q, uint chanid, const vector<DBEvent> &p, int match) const
+    MSqlQuery &q, uint chanid, const std::vector<DBEvent> &p, int match) const
 {
     // Adjust/delete overlaps;
     bool ok = true;
-    for (size_t i = 0; i < p.size(); i++)
+    for (size_t i = 0; i < p.size(); ++i)
     {
         if (i != (uint)match)
             ok &= MoveOutOfTheWayDB(q, chanid, p[i]);
@@ -622,8 +692,8 @@ uint DBEvent::UpdateDB(
     // Update matched item with current data
     LOG(VB_EIT, LOG_DEBUG,
          QString("EIT: update '%1' with '%2'")
-                 .arg(p[match].m_title.left(35))
-                 .arg(m_title.left(35)));
+                 .arg(p[match].m_title.left(35),
+                      m_title.left(35)));
     return UpdateDB(q, chanid, p[match]);
 }
 
@@ -667,10 +737,10 @@ static int change_record(MSqlQuery &query, uint chanid,
     {
         LOG(VB_EIT, LOG_DEBUG,
             QString("EIT: Updated record: chanid:%1 old:%3 new:%4 rows:%5")
-            .arg(chanid)
-            .arg(old_starttime.toString(Qt::ISODate))
-            .arg(new_starttime.toString(Qt::ISODate))
-            .arg(rows));
+            .arg(QString::number(chanid),
+                 old_starttime.toString(Qt::ISODate),
+                 new_starttime.toString(Qt::ISODate),
+                 QString::number(rows)));
     }
     return rows;
 }
@@ -700,10 +770,10 @@ uint DBEvent::UpdateDB(
 
         LOG(VB_EIT, LOG_DEBUG,
             QString("EIT: (U) change starttime from %1 to %2 for chanid:%3 program '%4' ")
-                    .arg(old_starttime.toString(Qt::ISODate))
-                    .arg(new_starttime.toString(Qt::ISODate))
-                    .arg(chanid)
-                    .arg(m_title.left(35)));
+                    .arg(old_starttime.toString(Qt::ISODate),
+                         new_starttime.toString(Qt::ISODate),
+                         QString::number(chanid),
+                         m_title.left(35)));
     }
 
     if (ltitle.isEmpty() && !match.m_title.isEmpty())
@@ -1014,9 +1084,9 @@ bool DBEvent::MoveOutOfTheWayDB(
         // Delete the old program completely.
         LOG(VB_EIT, LOG_DEBUG,
             QString("EIT: delete '%1' %2 - %3")
-                    .arg(prog.m_title.left(35))
-                    .arg(prog.m_starttime.toString(Qt::ISODate))
-                    .arg(prog.m_endtime.toString(Qt::ISODate)));
+                    .arg(prog.m_title.left(35),
+                         prog.m_starttime.toString(Qt::ISODate),
+                         prog.m_endtime.toString(Qt::ISODate)));
         return delete_program(query, chanid, prog.m_starttime);
     }
     if (prog.m_starttime < m_starttime && prog.m_endtime > m_starttime)
@@ -1028,8 +1098,8 @@ bool DBEvent::MoveOutOfTheWayDB(
         // the old program was after the end time of the new program!!
         LOG(VB_EIT, LOG_DEBUG,
             QString("EIT: change '%1' endtime to %2")
-                    .arg(prog.m_title.left(35))
-                    .arg(m_starttime.toString(Qt::ISODate)));
+                    .arg(prog.m_title.left(35),
+                         m_starttime.toString(Qt::ISODate)));
         return change_program(query, chanid, prog.m_starttime,
                               prog.m_starttime, // Keep the start time
                               m_starttime);     // New end time is our start time
@@ -1046,17 +1116,17 @@ bool DBEvent::MoveOutOfTheWayDB(
         {
             LOG(VB_EIT, LOG_DEBUG,
                 QString("EIT: delete '%1' %2 - %3")
-                        .arg(prog.m_title.left(35))
-                        .arg(prog.m_starttime.toString(Qt::ISODate))
-                        .arg(prog.m_endtime.toString(Qt::ISODate)));
+                        .arg(prog.m_title.left(35),
+                             prog.m_starttime.toString(Qt::ISODate),
+                             prog.m_endtime.toString(Qt::ISODate)));
             return delete_program(query, chanid, prog.m_starttime);
         }
         LOG(VB_EIT, LOG_DEBUG,
             QString("EIT: (M) change starttime from %1 to %2 for chanid:%3 program '%4' ")
-                    .arg(prog.m_starttime.toString(Qt::ISODate))
-                    .arg(m_endtime.toString(Qt::ISODate))
-                    .arg(chanid)
-                    .arg(prog.m_title.left(35)));
+                    .arg(prog.m_starttime.toString(Qt::ISODate),
+                         m_endtime.toString(Qt::ISODate),
+                         QString::number(chanid),
+                         prog.m_title.left(35)));
 
         // Update starttime in tables record and program so they stay consistent.
         change_record(query, chanid, prog.m_starttime, m_endtime);
@@ -1071,10 +1141,13 @@ bool DBEvent::MoveOutOfTheWayDB(
 /**
  *  \brief Insert Callback function when Allow Re-record is pressed in Watch Recordings
  */
-uint DBEvent::InsertDB(MSqlQuery &query, uint chanid) const
+uint DBEvent::InsertDB(MSqlQuery &query, uint chanid,
+                       bool recording) const
 {
-    query.prepare(
-        "REPLACE INTO program ("
+    QString table = recording ? "recordedprogram" : "program";
+
+    query.prepare(QString(
+        "REPLACE INTO %1 ("
         "  chanid,         title,          subtitle,        description, "
         "  category,       category_type, "
         "  starttime,      endtime, "
@@ -1097,10 +1170,9 @@ uint DBEvent::InsertDB(MSqlQuery &query, uint chanid) const
         " :AIRDATE,       :ORIGAIRDATE,   :LSOURCE, "
         " :SERIESID,      :PROGRAMID,     :PREVSHOWN, "
         " :SEASON,        :EPISODE,       :TOTALEPISODES, "
-        " :INETREF ) ");
+        " :INETREF ) ").arg(table));
 
     QString cattype = myth_category_type_to_string(m_categoryType);
-    QString empty("");
     query.bindValue(":CHANID",      chanid);
     query.bindValue(":TITLE",       denullify(m_title));
     query.bindValue(":SUBTITLE",    denullify(m_subtitle));
@@ -1137,12 +1209,13 @@ uint DBEvent::InsertDB(MSqlQuery &query, uint chanid) const
         return 0;
     }
 
+    table = recording ? "recordedrating" : "programrating";
     for (const auto & rating : qAsConst(m_ratings))
     {
-        query.prepare(
-            "INSERT IGNORE INTO programrating "
+        query.prepare(QString(
+            "INSERT IGNORE INTO %1 "
             "       ( chanid, starttime, `system`, rating) "
-            "VALUES (:CHANID, :START,    :SYS,  :RATING)");
+            "VALUES (:CHANID, :START,    :SYS,  :RATING)").arg(table));
         query.bindValue(":CHANID", chanid);
         query.bindValue(":START",  m_starttime);
         query.bindValue(":SYS",    rating.m_system);
@@ -1155,7 +1228,7 @@ uint DBEvent::InsertDB(MSqlQuery &query, uint chanid) const
     if (m_credits)
     {
         for (auto & credit : *m_credits)
-            credit.InsertDB(query, chanid, m_starttime);
+            credit.InsertDB(query, chanid, m_starttime, recording);
     }
 
     add_genres(query, m_genres, chanid, m_starttime);
@@ -1221,18 +1294,22 @@ void ProgInfo::Squeeze(void)
  *  \param query  Any mysql query structure. The contents is ignored
  *                and the structure is repurposed for local queries.
  *  \param chanid The channel number for this program.
+ *  \param recorded defaults to false, i.e. program, programrating
  */
-uint ProgInfo::InsertDB(MSqlQuery &query, uint chanid) const
+uint ProgInfo::InsertDB(MSqlQuery &query, uint chanid,
+                        bool recording) const
 {
-    LOG(VB_XMLTV, LOG_DEBUG,
-        QString("Inserting new program    : %1 - %2 %3 %4")
-            .arg(m_starttime.toString(Qt::ISODate))
-            .arg(m_endtime.toString(Qt::ISODate))
-            .arg(m_channel)
-            .arg(m_title));
+    QString table = recording ? "recordedprogram" : "program";
 
-    query.prepare(
-        "REPLACE INTO program ("
+    LOG(VB_XMLTV, LOG_DEBUG,
+        QString("Inserting new %1    : %2 - %3 %4 %5")
+        .arg(table,
+             m_starttime.toString(Qt::ISODate),
+             m_endtime.toString(Qt::ISODate),
+             m_channel));
+
+    query.prepare(QString(
+        "REPLACE INTO %1 ("
         "  chanid,         title,          subtitle,        description, "
         "  category,       category_type,  "
         "  starttime,      endtime, "
@@ -1245,7 +1322,6 @@ uint ProgInfo::InsertDB(MSqlQuery &query, uint chanid) const
         "  stars,          showtype,       title_pronounce, colorcode, "
         "  season,         episode,        totalepisodes, "
         "  inetref ) "
-
         "VALUES("
         " :CHANID,        :TITLE,         :SUBTITLE,       :DESCRIPTION, "
         " :CATEGORY,      :CATTYPE,       "
@@ -1258,7 +1334,7 @@ uint ProgInfo::InsertDB(MSqlQuery &query, uint chanid) const
         " :SERIESID,      :PROGRAMID,     :PREVSHOWN, "
         " :STARS,         :SHOWTYPE,      :TITLEPRON,      :COLORCODE, "
         " :SEASON,        :EPISODE,       :TOTALEPISODES, "
-        " :INETREF )");
+        " :INETREF )").arg(table));
 
     QString cattype = myth_category_type_to_string(m_categoryType);
 
@@ -1301,29 +1377,30 @@ uint ProgInfo::InsertDB(MSqlQuery &query, uint chanid) const
 
     if (!query.exec())
     {
-        MythDB::DBError("program insert", query);
+        MythDB::DBError(table + " insert", query);
         return 0;
     }
 
+    table = recording ? "recordedrating" : "programrating";
     for (const auto & rating : m_ratings)
     {
-        query.prepare(
-            "INSERT IGNORE INTO programrating "
-            "       ( chanid, starttime, `system`, rating) "
-            "VALUES (:CHANID, :START,    :SYS,  :RATING)");
+        query.prepare(QString("INSERT IGNORE INTO %1 "
+                              "       ( chanid, starttime, `system`, rating) "
+                              "VALUES (:CHANID, :START,    :SYS,  :RATING)")
+                      .arg(table));
         query.bindValue(":CHANID", chanid);
         query.bindValue(":START",  m_starttime);
         query.bindValue(":SYS",    rating.m_system);
         query.bindValue(":RATING", rating.m_rating);
 
         if (!query.exec())
-            MythDB::DBError("programrating insert", query);
+            MythDB::DBError(QString("%1 insert").arg(table), query);
     }
 
     if (m_credits)
     {
         for (auto & credit : *m_credits)
-            credit.InsertDB(query, chanid, m_starttime);
+            credit.InsertDB(query, chanid, m_starttime, recording);
     }
 
     add_genres(query, m_genres, chanid, m_starttime);
@@ -1335,12 +1412,12 @@ bool ProgramData::ClearDataByChannel(
     uint chanid, const QDateTime &from, const QDateTime &to,
     bool use_channel_time_offset)
 {
-    int secs = 0;
+    std::chrono::seconds secs = 0s;
     if (use_channel_time_offset)
-        secs = ChannelUtil::GetTimeOffset(chanid) * 60;
+        secs = ChannelUtil::GetTimeOffset(chanid);
 
-    QDateTime newFrom = from.addSecs(secs);
-    QDateTime newTo   = to.addSecs(secs);
+    QDateTime newFrom = from.addSecs(secs.count());
+    QDateTime newTo   = to.addSecs(secs.count());
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare("DELETE FROM program "
@@ -1382,12 +1459,12 @@ bool ProgramData::ClearDataBySource(
     uint sourceid, const QDateTime &from, const QDateTime &to,
     bool use_channel_time_offset)
 {
-    vector<uint> chanids = ChannelUtil::GetChanIDs(sourceid);
+    std::vector<uint> chanids = ChannelUtil::GetChanIDs(sourceid);
 
     bool ok = true;
-    for (uint chanid : chanids)
-        ok &= ClearDataByChannel(chanid, from, to, use_channel_time_offset);
-
+    auto cleardata = [&](uint chanid)
+        { ok &= ClearDataByChannel(chanid, from, to, use_channel_time_offset); };
+    std::for_each(chanids.cbegin(), chanids.cend(), cleardata);
     return ok;
 }
 
@@ -1447,17 +1524,17 @@ void ProgramData::FixProgramList(QList<ProgInfo*> &fixlist)
 
             LOG(VB_XMLTV, LOG_DEBUG,
                 QString("Removing conflicting program: %1 - %2 %3 %4")
-                    .arg((*todelete)->m_starttime.toString(Qt::ISODate))
-                    .arg((*todelete)->m_endtime.toString(Qt::ISODate))
-                    .arg((*todelete)->m_channel)
-                    .arg((*todelete)->m_title));
+                    .arg((*todelete)->m_starttime.toString(Qt::ISODate),
+                         (*todelete)->m_endtime.toString(Qt::ISODate),
+                         (*todelete)->m_channel,
+                         (*todelete)->m_title));
 
             LOG(VB_XMLTV, LOG_DEBUG,
                 QString("Conflicted with            : %1 - %2 %3 %4")
-                    .arg((*tokeep)->m_starttime.toString(Qt::ISODate))
-                    .arg((*tokeep)->m_endtime.toString(Qt::ISODate))
-                    .arg((*tokeep)->m_channel)
-                    .arg((*tokeep)->m_title));
+                    .arg((*tokeep)->m_starttime.toString(Qt::ISODate),
+                         (*tokeep)->m_endtime.toString(Qt::ISODate),
+                         (*tokeep)->m_channel,
+                         (*tokeep)->m_title));
 
             bool step_back = todelete == it;
             it = fixlist.erase(todelete);
@@ -1484,7 +1561,7 @@ void ProgramData::HandlePrograms(
     MSqlQuery query(MSqlQuery::InitCon());
 
     QMap<QString, QList<ProgInfo> >::const_iterator mapiter;
-    for (mapiter = proglist.begin(); mapiter != proglist.end(); ++mapiter)
+    for (mapiter = proglist.cbegin(); mapiter != proglist.cend(); ++mapiter)
     {
         if (mapiter.key().isEmpty())
             continue;
@@ -1504,7 +1581,7 @@ void ProgramData::HandlePrograms(
             continue;
         }
 
-        vector<uint> chanids;
+        std::vector<uint> chanids;
         while (query.next())
             chanids.push_back(query.value(0).toUInt());
 
@@ -1596,8 +1673,7 @@ int ProgramData::fix_end_times(void)
                            "WHERE starttime > '%1' "
                            "AND chanid = '%2' "
                            "ORDER BY starttime LIMIT 1;")
-                           .arg(starttime)
-                           .arg(chanid);
+                           .arg(starttime, chanid);
 
         if (!query2.exec(querystr))
         {
@@ -1613,9 +1689,7 @@ int ProgramData::fix_end_times(void)
             querystr = QString("UPDATE program SET "
                                "endtime = '%2' WHERE (chanid = '%3' AND "
                                "starttime = '%4');")
-                               .arg(endtime)
-                               .arg(chanid)
-                               .arg(starttime);
+                               .arg(endtime, chanid, starttime);
 
             if (!query2.exec(querystr))
             {
@@ -1726,10 +1800,10 @@ bool ProgramData::DeleteOverlaps(
         {
             LOG(VB_XMLTV, LOG_DEBUG,
                 QString("Removing existing program: %1 - %2 %3 %4")
-                .arg(MythDate::as_utc(query.value(1).toDateTime()).toString(Qt::ISODate))
-                .arg(MythDate::as_utc(query.value(2).toDateTime()).toString(Qt::ISODate))
-                .arg(pi.m_channel)
-                .arg(query.value(0).toString()));
+                .arg(MythDate::as_utc(query.value(1).toDateTime()).toString(Qt::ISODate),
+                     MythDate::as_utc(query.value(2).toDateTime()).toString(Qt::ISODate),
+                     pi.m_channel,
+                     query.value(0).toString()));
         } while (query.next());
     }
 
@@ -1737,10 +1811,10 @@ bool ProgramData::DeleteOverlaps(
     {
         LOG(VB_XMLTV, LOG_ERR,
             QString("Program delete failed    : %1 - %2 %3 %4")
-                .arg(pi.m_starttime.toString(Qt::ISODate))
-                .arg(pi.m_endtime.toString(Qt::ISODate))
-                .arg(pi.m_channel)
-                .arg(pi.m_title));
+                .arg(pi.m_starttime.toString(Qt::ISODate),
+                     pi.m_endtime.toString(Qt::ISODate),
+                     pi.m_channel,
+                     pi.m_title));
         return false;
     }
 

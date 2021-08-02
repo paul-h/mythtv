@@ -29,8 +29,6 @@
 #include "rsseditor.h"
 #include "searcheditor.h"
 
-using namespace std;
-
 // ---------------------------------------------------
 
 NetSearch::NetSearch(MythScreenStack *parent, const char *name)
@@ -76,14 +74,14 @@ bool NetSearch::Create()
     m_search->SetMaxLength(255);
 
     // UI Hookups
-    connect(m_siteList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            SLOT(SlotItemChanged()));
-    connect(m_siteList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            SLOT(DoSearch(void)));
-    connect(m_searchResultList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            SLOT(StreamWebVideo(void)));
-    connect(m_searchResultList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            SLOT(SlotItemChanged()));
+    connect(m_siteList, &MythUIButtonList::itemSelected,
+            this, &NetSearch::SlotItemChanged);
+    connect(m_siteList, &MythUIButtonList::itemClicked,
+            this, &NetSearch::DoSearch);
+    connect(m_searchResultList, &MythUIButtonList::itemClicked,
+            this, &NetSearch::StreamWebVideo);
+    connect(m_searchResultList, &MythUIButtonList::itemSelected,
+            this, &NetSearch::SlotItemChanged);
 
     BuildFocusList();
 
@@ -186,8 +184,8 @@ void NetSearch::ShowMenu(void)
             {
                 if (item->GetDownloadable())
                     menuPopup->AddButton(tr("Stream Video"),
-                                         SLOT(StreamWebVideo()));
-                menuPopup->AddButton(tr("Open Web Link"), SLOT(ShowWebVideo()));
+                                         &NetSearch::StreamWebVideo);
+                menuPopup->AddButton(tr("Open Web Link"), &NetSearch::ShowWebVideo);
 
                 QString filename = GetDownloadFilename(item->GetTitle(),
                                                        item->GetMediaURL());
@@ -204,12 +202,12 @@ void NetSearch::ShowMenu(void)
                     if (exists)
                     {
                         menuPopup->AddButton(tr("Play"),
-                                             SLOT(DoPlayVideo(filename)));
+                                             qOverload<>(&NetSearch::DoPlayVideo));
                     }
                     else
                     {
                         menuPopup->AddButton(tr("Save This Video"),
-                                             SLOT(DoDownloadAndPlay()));
+                                             &NetSearch::DoDownloadAndPlay);
                     }
                 }
 
@@ -217,25 +215,25 @@ void NetSearch::ShowMenu(void)
                     GetFocusWidget() == m_searchResultList &&
                     exists)
                 {
-                    menuPopup->AddButton(tr("Delete"), SLOT(SlotDeleteVideo()));
+                    menuPopup->AddButton(tr("Delete"), &NetSearch::SlotDeleteVideo);
                 }
             }
         }
 
         if (m_pagenum > 1)
-            menuPopup->AddButton(tr("Previous Page"), SLOT(GetLastResults()));
+            menuPopup->AddButton(tr("Previous Page"), &NetSearch::GetLastResults);
         if (m_searchResultList->GetCount() > 0 && m_pagenum < m_maxpage)
-            menuPopup->AddButton(tr("Next Page"), SLOT(GetMoreResults()));
+            menuPopup->AddButton(tr("Next Page"), &NetSearch::GetMoreResults);
         if (m_pagenum > 1 && m_prevPageToken.isEmpty())
             menuPopup->AddButton(tr("Skip 10 Pages Back"),
-                                 SLOT(SkipPagesBack()));
+                                 &NetSearch::SkipPagesBack);
         if (m_searchResultList->GetCount() > 0 && m_pagenum < m_maxpage &&
             m_nextPageToken.isEmpty())
             menuPopup->AddButton(tr("Skip 10 Pages Forward"),
-                                 SLOT(SkipPagesForward()));
+                                 &NetSearch::SkipPagesForward);
 
         menuPopup->AddButton(tr("Manage Search Scripts"),
-                             SLOT(RunSearchEditor()));
+                             &NetSearch::RunSearchEditor);
     }
     else
         delete menuPopup;
@@ -250,8 +248,8 @@ void NetSearch::FillGrabberButtonList()
         auto *item = new MythUIButtonListItem(m_siteList, g->GetTitle());
         item->SetText(g->GetTitle(), "title");
         item->SetData(g->GetCommandline());
-        QString thumb = QString("%1mythnetvision/icons/%2").arg(GetShareDir())
-                            .arg(g->GetImage());
+        QString thumb = QString("%1mythnetvision/icons/%2")
+                            .arg(GetShareDir(), g->GetImage());
         item->SetImage(thumb);
     }
 }
@@ -283,14 +281,14 @@ void NetSearch::DoSearch()
     m_currentSearch = query;
 
     QString title = tr("Searching %1 for \"%2\"...")
-                    .arg(grabber).arg(query);
+                    .arg(grabber, query);
     OpenBusyPopup(title);
 
     if (!m_netSearch)
     {
         m_netSearch = new QNetworkAccessManager(this);
-        connect(m_netSearch, SIGNAL(finished(QNetworkReply*)),
-                SLOT(SearchFinished(void)));
+        connect(m_netSearch, &QNetworkAccessManager::finished,
+                this, &NetSearch::SearchFinished);
     }
 
     QUrl init = GetMythXMLSearch(m_mythXML, m_currentSearch, m_currentCmd, "");
@@ -307,8 +305,7 @@ void NetSearch::GetLastResults()
     m_pagenum--;
 
     QString title = tr("Changing to page %1 of search \"%2\"...")
-                    .arg(QString::number(m_pagenum))
-                    .arg(m_currentSearch);
+                    .arg(QString::number(m_pagenum), m_currentSearch);
     OpenBusyPopup(title);
 
     QString page = m_prevPageToken.isEmpty() ? QString::number(m_pagenum) :
@@ -326,8 +323,7 @@ void NetSearch::GetMoreResults()
     m_pagenum++;
 
     QString title = tr("Changing to page %1 of search \"%2\"...")
-                    .arg(QString::number(m_pagenum))
-                    .arg(m_currentSearch);
+                    .arg(QString::number(m_pagenum), m_currentSearch);
     OpenBusyPopup(title);
 
     QString page = m_nextPageToken.isEmpty() ? QString::number(m_pagenum) :
@@ -372,7 +368,7 @@ void NetSearch::SearchFinished(void)
     m_nextPageToken = item->nextPageToken();
     m_prevPageToken = item->prevPageToken();
 
-    if (returned <= 0)
+    if (returned == 0)
         return;
 
     m_siteList->GetItemAt(m_currentGrabber)->
@@ -386,11 +382,11 @@ void NetSearch::SearchFinished(void)
         if (searchresults % returned != 0)    // Partial page?
             m_maxpage++;
     }
-    if (m_pageText && m_maxpage > 0 && m_pagenum > 0 && returned > 0)
+    if (m_pageText && m_maxpage > 0 && m_pagenum > 0)
     {
         m_pageText->SetText(QString("%1 / %2")
-                        .arg(QString::number(m_pagenum))
-                        .arg(QString::number(m_maxpage)));
+                        .arg(QString::number(m_pagenum),
+                             QString::number(m_maxpage)));
     }
 
     ResultItem::resultList list = item->GetVideoList();
@@ -456,7 +452,7 @@ ResultItem* NetSearch::GetStreamItem()
     return m_searchResultList->GetDataValue().value<ResultItem*>();
 }
 
-void NetSearch::RunSearchEditor()
+void NetSearch::RunSearchEditor() const
 {
     MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
 
@@ -464,8 +460,8 @@ void NetSearch::RunSearchEditor()
 
     if (searchedit->Create())
     {
-        connect(searchedit, SIGNAL(ItemsChanged()),
-                this, SLOT(DoListRefresh()));
+        connect(searchedit, &NetEditorBase::ItemsChanged,
+                this, &NetSearch::DoListRefresh);
 
         mainStack->AddScreen(searchedit);
     }

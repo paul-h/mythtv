@@ -3,9 +3,11 @@
  */
 #include "mhegic.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
 // C/C++ lib
 #include <cstdlib>
 using std::getenv;
+#endif
 
 // Qt
 #include <QByteArray>
@@ -52,7 +54,11 @@ MHInteractionChannel::EStatus MHInteractionChannel::status()
     if (!gCoreContext->GetBoolSetting("EnableMHEG", false))
         return kDisabled;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
     QStringList opts = QString(getenv("MYTHMHEG")).split(':');
+#else
+    QStringList opts = qEnvironmentVariable("MYTHMHEG").split(':');
+#endif
     if (opts.contains("noice", Qt::CaseInsensitive))
         return kDisabled;
     if (opts.contains("ice", Qt::CaseInsensitive))
@@ -92,7 +98,7 @@ bool MHInteractionChannel::CheckFile(const QString& csPath, const QByteArray &ce
         return false;
     }
 
-    connect(p.data(), SIGNAL(Finished(QObject*)), this, SLOT(slotFinished(QObject*)) );
+    connect(p.data(), &NetStream::Finished, this, &MHInteractionChannel::slotFinished );
     m_pending.insert(url, p.take());
 
     return false; // It's now pending so unavailable
@@ -133,7 +139,7 @@ MHInteractionChannel::GetFile(const QString &csPath, QByteArray &data,
         locker.unlock();
 
         NetStream req(url, NetStream::kAlwaysCache);
-        if (req.WaitTillFinished(3000) && req.GetError() == QNetworkReply::NoError)
+        if (req.WaitTillFinished(3s) && req.GetError() == QNetworkReply::NoError)
         {
             data = req.ReadAll();
             LOG(VB_MHEG, LOG_DEBUG, LOC + QString("GetFile cache read %1 bytes %2")
@@ -156,7 +162,7 @@ MHInteractionChannel::GetFile(const QString &csPath, QByteArray &data,
         return kError;
     }
 
-    connect(p.data(), SIGNAL(Finished(QObject*)), this, SLOT(slotFinished(QObject*)) );
+    connect(p.data(), &NetStream::Finished, this, &MHInteractionChannel::slotFinished );
     m_pending.insert(url, p.take());
 
     return kPending;
@@ -165,7 +171,7 @@ MHInteractionChannel::GetFile(const QString &csPath, QByteArray &data,
 // signal from NetStream
 void MHInteractionChannel::slotFinished(QObject *obj)
 {
-    auto* p = dynamic_cast< NetStream* >(obj);
+    auto* p = qobject_cast< NetStream* >(obj);
     if (!p)
         return;
 

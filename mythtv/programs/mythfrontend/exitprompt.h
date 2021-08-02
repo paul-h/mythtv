@@ -1,6 +1,8 @@
 // MythTV
 #include "mythpower.h"
 
+class MythDialogBox;
+
 class ExitPrompter : public QObject
 {
     Q_OBJECT
@@ -10,20 +12,28 @@ class ExitPrompter : public QObject
    ~ExitPrompter() override;
 
   public slots:
-    static void DoQuit(void);
-    void DoHalt(bool Confirmed = true);
-    void DoReboot(bool Confirmed = true);
-    static void DoStandby(void);
-    void DoSuspend(bool Confirmed = true);
-    void HandleExit(void);
-    void ConfirmHalt(void) const;
-    void ConfirmReboot(void) const;
-    void ConfirmSuspend(void) const;
-    void Confirm(MythPower::Feature Action) const;
+    void HandleExit();
+
+  protected slots:
+    void DoQuit();
+    void DoHalt(bool Confirmed);
+    void DoHalt() { DoHalt(true); }
+    void DoReboot(bool Confirmed);
+    void DoReboot() { DoReboot(true); }
+    void DoStandby();
+    void DoSuspend(bool Confirmed);
+    void DoSuspend() { DoSuspend(true); }
+    void ConfirmHalt();
+    void ConfirmReboot();
+    void ConfirmSuspend();
+    void Confirm(MythPower::Feature Action);
+    void MainDialogClosed(const QString& /*unused*/, int Id);
 
   private:
     MythPower* m_power { nullptr };
+    bool       m_confirm { true };
     QString    m_haltCommand;
     QString    m_rebootCommand;
     QString    m_suspendCommand;
+    MythDialogBox* m_dialog { nullptr };
 };

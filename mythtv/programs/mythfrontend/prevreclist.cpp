@@ -23,7 +23,6 @@
 #include <algorithm>
 #include <deque>                        // for _Deque_iterator, operator-, etc
 #include <iterator>                     // for reverse_iterator
-using namespace std;
 
 // QT
 #include <QDateTime>
@@ -139,8 +138,8 @@ void PrevRecordedList::Init(void)
             this, &PrevRecordedList::showListLoseFocus);
     connect(m_showList, &MythUIButtonList::TakingFocus,
             this, &PrevRecordedList::showListTakeFocus);
-    connect(m_showList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-                this,  SLOT(ShowItemMenu()));
+    connect(m_showList, &MythUIButtonList::itemClicked,
+                this,  &PrevRecordedList::ShowItemMenu);
 
     UpdateTitleList();
     updateInfo();
@@ -559,13 +558,13 @@ void PrevRecordedList::ShowMenu(void)
     ProgramInfo *pi = GetCurrentProgram();
     if (pi)
     {
-        menu->AddItem(tr("Edit Schedule"),   SLOT(EditScheduled()));
-        menu->AddItem(tr("Custom Edit"),     SLOT(EditCustom()));
-        menu->AddItem(tr("Program Details"), SLOT(ShowDetails()));
-        menu->AddItem(tr("Upcoming"), SLOT(ShowUpcoming()));
-        menu->AddItem(tr("Channel Search"), SLOT(ShowChannelSearch()));
+        menu->AddItem(tr("Edit Schedule"),   qOverload<>(&PrevRecordedList::EditScheduled));
+        menu->AddItem(tr("Custom Edit"),     &PrevRecordedList::EditCustom);
+        menu->AddItem(tr("Program Details"), &PrevRecordedList::ShowDetails);
+        menu->AddItem(tr("Upcoming"),        qOverload<>(&PrevRecordedList::ShowUpcoming));
+        menu->AddItem(tr("Channel Search"),  &PrevRecordedList::ShowChannelSearch);
     }
-    menu->AddItem(tr("Program Guide"),   SLOT(ShowGuide()));
+    menu->AddItem(tr("Program Guide"),   &PrevRecordedList::ShowGuide);
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
     auto *menuPopup = new MythDialogBox(menu, popupStack, "menuPopup");
 
@@ -586,13 +585,13 @@ void PrevRecordedList::ShowItemMenu(void)
     if (pi)
     {
         if (pi->IsDuplicate())
-            menu->AddItem(tr("Allow this episode to re-record"),   SLOT(AllowRecord()));
+            menu->AddItem(tr("Allow this episode to re-record"), &PrevRecordedList::AllowRecord);
         else
-            menu->AddItem(tr("Never record this episode"), SLOT(PreventRecord()));
+            menu->AddItem(tr("Never record this episode"), &PrevRecordedList::PreventRecord);
         menu->AddItem(tr("Remove this episode from the list"),
-            SLOT(ShowDeleteOldEpisodeMenu()));
+            &PrevRecordedList::ShowDeleteOldEpisodeMenu);
         menu->AddItem(tr("Remove all episodes for this title"),
-            SLOT(ShowDeleteOldSeriesMenu()));
+            &PrevRecordedList::ShowDeleteOldSeriesMenu);
     }
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
     auto *menuPopup = new MythDialogBox(menu, popupStack, "menuPopup");
@@ -615,7 +614,7 @@ void PrevRecordedList::customEvent(QEvent *event)
         auto *dce = (DialogCompletionEvent*)(event);
 
         QString resultid   = dce->GetId();
-        QString resulttext = dce->GetResultText();
+//      QString resulttext = dce->GetResultText();
         int     buttonnum  = dce->GetResult();
 
         if (resultid == "sortmenu")
@@ -731,7 +730,7 @@ void PrevRecordedList::ShowDeleteOldEpisodeMenu(void)
 
     QString message = tr("Delete this episode of '%1' from the previously recorded history?").arg(pi->GetTitle());
 
-    ShowOkPopup(message, this, SLOT(DeleteOldEpisode(bool)), true);
+    ShowOkPopup(message, this, &PrevRecordedList::DeleteOldEpisode, true);
 }
 
 void PrevRecordedList::DeleteOldEpisode(bool ok)
@@ -769,7 +768,7 @@ void PrevRecordedList::ShowDeleteOldSeriesMenu(void)
 
     QString message = tr("Delete all episodes of '%1' from the previously recorded history?").arg(pi->GetTitle());
 
-    ShowOkPopup(message, this, SLOT(DeleteOldSeries(bool)), true);
+    ShowOkPopup(message, this, &PrevRecordedList::DeleteOldSeries, true);
 }
 
 void PrevRecordedList::DeleteOldSeries(bool ok)

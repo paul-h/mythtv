@@ -5,28 +5,37 @@
 #include "mythegldmabuf.h"
 #include "mythopenglinterop.h"
 
+#ifdef USING_DRM_VIDEO
+#include "drm/mythvideodrm.h"
+#endif
+
 struct AVDRMFrameDescriptor;
 
 class MythDRMPRIMEInterop : public MythOpenGLInterop, public MythEGLDMABUF
 {
-    friend class MythOpenGLInterop;
-
   public:
-    static MythDRMPRIMEInterop* Create(MythRenderOpenGL *Context, Type InteropType);
+    static void GetDRMTypes(MythRenderOpenGL* Render, MythInteropGPU::InteropMap& Types);
+    static MythDRMPRIMEInterop* CreateDRM(MythRenderOpenGL* Context, MythPlayerUI* Player);
     void DeleteTextures(void) override;
-    vector<MythVideoTexture*> Acquire(MythRenderOpenGL *Context,
-                                      VideoColourSpace *ColourSpace,
-                                      VideoFrame *Frame, FrameScanType Scan) override;
+    vector<MythVideoTextureOpenGL*> Acquire(MythRenderOpenGL *Context,
+                                            MythVideoColourSpace *ColourSpace,
+                                            MythVideoFrame *Frame, FrameScanType Scan) override;
 
   protected:
-    explicit MythDRMPRIMEInterop(MythRenderOpenGL *Context);
-    ~MythDRMPRIMEInterop() override;
-    static Type GetInteropType(VideoFrameType Format);
+    MythDRMPRIMEInterop(MythRenderOpenGL* Context, MythPlayerUI* Player, InteropType Type);
+   ~MythDRMPRIMEInterop() override;
 
   private:
-    AVDRMFrameDescriptor* VerifyBuffer(MythRenderOpenGL *Context, VideoFrame *Frame);
+    AVDRMFrameDescriptor* VerifyBuffer(MythRenderOpenGL *Context, MythVideoFrame *Frame);
     bool m_deinterlacing { false };
     bool m_composable    { true  };
+
+#ifdef USING_DRM_VIDEO
+    bool HandleDRMVideo(MythVideoColourSpace* ColourSpace, MythVideoFrame* Frame,
+                        AVDRMFrameDescriptor* DRMDesc);
+    MythVideoDRM* m_drm { nullptr };
+    bool m_drmTriedAndFailed { false };
+#endif
 };
 
-#endif // MYTHDRMPRIMEINTEROP_H
+#endif

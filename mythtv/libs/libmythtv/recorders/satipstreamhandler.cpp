@@ -1,6 +1,7 @@
 // -*- Mode: c++ -*-
 
-// C+++ headers
+// C++ headers
+#include <chrono>
 #include <thread>
 
 // Qt headers
@@ -19,8 +20,9 @@
 #include "satipchannel.h"
 #include "satipstreamhandler.h"
 
-#define LOC      QString("SatIPSH[%1](%2): ").arg(m_inputId).arg(m_device)
+#define LOC QString("SatIPSH[%1]: ").arg(m_inputId)
 
+// For implementing Get & Return
 QMap<QString, SatIPStreamHandler*> SatIPStreamHandler::s_handlers;
 QMap<QString, uint>                SatIPStreamHandler::s_handlersRefCnt;
 QMutex                             SatIPStreamHandler::s_handlersLock;
@@ -38,9 +40,6 @@ SatIPStreamHandler *SatIPStreamHandler::Get(const QString &devname, int inputid)
         s_handlers[devname] = newhandler;
         s_handlersRefCnt[devname] = 1;
 
-        // SatIPRTSP per instance
-        newhandler->m_rtsp = new SatIPRTSP(newhandler);
-
         LOG(VB_RECORD, LOG_INFO,
             QString("SatIPSH[%1]: Creating new stream handler for %2")
             .arg(inputid).arg(devname));
@@ -53,7 +52,7 @@ SatIPStreamHandler *SatIPStreamHandler::Get(const QString &devname, int inputid)
 
         LOG(VB_RECORD, LOG_INFO,
             QString("SatIPSH[%1]: Using existing stream handler for %2").arg(inputid).arg(devname) +
-            QString(" (%1 in use)").arg(rcount));
+            QString(" (%1 users)").arg(rcount));
     }
 
     return s_handlers[devname];
@@ -67,9 +66,13 @@ void SatIPStreamHandler::Return(SatIPStreamHandler * & ref, int inputid)
 
     QMap<QString, uint>::iterator rit = s_handlersRefCnt.find(devname);
     if (rit == s_handlersRefCnt.end())
+    {
+        LOG(VB_RECORD, LOG_ERR, QString("SatIPSH[%1]: Return(%2) not found")
+            .arg(inputid).arg(devname));
         return;
+    }
 
-    LOG(VB_RECORD, LOG_INFO, QString("SatIPSH[%1]: Return(%2) has %3 handlers")
+    LOG(VB_RECORD, LOG_INFO, QString("SatIPSH[%1]: Return stream handler for %2 (%3 users)")
         .arg(inputid).arg(devname).arg(*rit));
 
     if (*rit > 1)
@@ -84,9 +87,8 @@ void SatIPStreamHandler::Return(SatIPStreamHandler * & ref, int inputid)
     {
         LOG(VB_RECORD, LOG_INFO, QString("SatIPSH[%1]: Closing handler for %2")
             .arg(inputid).arg(devname));
-        ref->Stop();
-        ref->Close();
-        delete (*it)->m_rtsp;
+        (*it)->Stop();
+        (*it)->Close();
         delete *it;
         s_handlers.erase(it);
     }
@@ -105,12 +107,12 @@ SatIPStreamHandler::SatIPStreamHandler(const QString &device, int inputid)
     : StreamHandler(device, inputid)
     , m_inputId(inputid)
     , m_device(device)
+    , m_rtsp(new SatIPRTSP(this))
 {
     setObjectName("SatIPStreamHandler");
 
-    LOG(VB_RECORD, LOG_DEBUG,
-        QString("SatIPSH[%1] ctor device:%2")
-            .arg(inputid).arg(device));
+    LOG(VB_RECORD, LOG_DEBUG, LOC +
+        QString("ctor for %2").arg(device));
 }
 
 bool SatIPStreamHandler::UpdateFilters(void)
@@ -122,24 +124,28 @@ bool SatIPStreamHandler::UpdateFilters(void)
 
     QStringList pids;
 
-    PIDInfoMap::const_iterator it = m_pidInfo.begin();
-    for (; it != m_pidInfo.end(); ++it)
+    if (m_pidInfo.contains(0x2000))
     {
-        pids.append(QString("%1").arg(it.key()));
+        pids.append("all");
     }
-
+    else
+    {
+        for (auto it = m_pidInfo.cbegin(); it != m_pidInfo.cend(); ++it)
+            pids.append(QString("%1").arg(it.key()));
+    }
 #ifdef DEBUG_PID_FILTERS
     QString msg = QString("PIDS: '%1'").arg(pids.join(","));
     LOG(VB_RECORD, LOG_DEBUG, LOC + msg);
 #endif // DEBUG_PID_FILTERS
 
+    bool rval = true;
     if (m_rtsp && m_oldpids != pids)
     {
-        m_rtsp->Play(pids);
+        rval = m_rtsp->Play(pids);
         m_oldpids = pids;
     }
 
-    return true;
+    return rval;
 }
 
 void SatIPStreamHandler::run(void)
@@ -174,9 +180,10 @@ void SatIPStreamHandler::run(void)
         }
 
         // Update the PID filters every 100 milliseconds
-        int elapsed = !last_update.isValid() ? -1 : last_update.elapsed();
-        elapsed = (elapsed < 0) ? 1000 : elapsed;
-        if (elapsed > 100)
+        auto elapsed = !last_update.isValid()
+            ? -1ms : std::chrono::milliseconds(last_update.elapsed());
+        elapsed = (elapsed < 0ms) ? 1s : elapsed;
+        if (elapsed > 100ms)
         {
             UpdateFiltersFromStreamData();
             UpdateFilters();
@@ -184,7 +191,7 @@ void SatIPStreamHandler::run(void)
         }
 
         // Delay to avoid busy wait loop
-        std::this_thread::sleep_for(std::chrono::milliseconds(40));
+        std::this_thread::sleep_for(20ms);
 
     }
     LOG(VB_RECORD, LOG_INFO, LOC + "RunTS(): " + "shutdown");
@@ -200,12 +207,12 @@ void SatIPStreamHandler::run(void)
         m_oldtuningurl = "";
     }
 
+    LOG(VB_RECORD, LOG_INFO, LOC + "RunTS(): end");
     SetRunning(false, false, false);
-
     RunEpilog();
 }
 
-void SatIPStreamHandler::Tune(const DTVMultiplex &tuning)
+bool SatIPStreamHandler::Tune(const DTVMultiplex &tuning)
 {
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Tune %1").arg(tuning.m_frequency));
 
@@ -216,15 +223,15 @@ void SatIPStreamHandler::Tune(const DTVMultiplex &tuning)
 
     if (m_tunerType == DTVTunerType::kTunerTypeDVBC)
     {
+        qry.append(QString("fe=%1").arg(m_frontend+1));
         qry.append(QString("freq=%1").arg(SatIP::freq(tuning.m_frequency)));
         qry.append(QString("sr=%1").arg(tuning.m_symbolRate / 1000)); // symbolrate in ksymb/s
         qry.append("msys=dvbc");
         qry.append(QString("mtype=%1").arg(SatIP::mtype(tuning.m_modulation)));
-
-        // TODO: DVB-C2 parameters
     }
     else if (m_tunerType == DTVTunerType::kTunerTypeDVBT || m_tunerType == DTVTunerType::kTunerTypeDVBT2)
     {
+        qry.append(QString("fe=%1").arg(m_frontend+1));
         qry.append(QString("freq=%1").arg(SatIP::freq(tuning.m_frequency)));
         qry.append(QString("bw=%1").arg(SatIP::bw(tuning.m_bandwidth)));
         qry.append(QString("msys=%1").arg(SatIP::msys(tuning.m_modSys)));
@@ -232,11 +239,10 @@ void SatIPStreamHandler::Tune(const DTVMultiplex &tuning)
         qry.append(QString("mtype=%1").arg(SatIP::mtype(tuning.m_modulation)));
         qry.append(QString("gi=%1").arg(SatIP::gi(tuning.m_guardInterval)));
         qry.append(QString("fec=%1").arg(SatIP::fec(tuning.m_fec)));
-
-        // TODO: DVB-T2 parameters
     }
     else if (m_tunerType == DTVTunerType::kTunerTypeDVBS1 || m_tunerType == DTVTunerType::kTunerTypeDVBS2)
     {
+        qry.append(QString("fe=%1").arg(m_frontend+1));
         qry.append(QString("freq=%1").arg(SatIP::freq(tuning.m_frequency*1000)));   // frequency in Hz
         qry.append(QString("pol=%1").arg(SatIP::pol(tuning.m_polarity)));
         qry.append(QString("ro=%1").arg(SatIP::ro(tuning.m_rolloff)));
@@ -244,13 +250,12 @@ void SatIPStreamHandler::Tune(const DTVMultiplex &tuning)
         qry.append(QString("mtype=%1").arg(SatIP::mtype(tuning.m_modulation)));
         qry.append(QString("sr=%1").arg(tuning.m_symbolRate / 1000));               // symbolrate in ksymb/s
         qry.append(QString("fec=%1").arg(SatIP::fec(tuning.m_fec)));
-
-        // TODO DVB-S2 parameters
         qry.append(QString("plts=auto"));                                           // pilot tones
     }
     else
     {
-        LOG(VB_RECORD, LOG_INFO, LOC + QString("TODO unhandled m_tunerType %1 %2").arg(m_tunerType).arg(m_tunerType.toString()));
+        LOG(VB_RECORD, LOG_ERR, LOC + QString("Unhandled m_tunerType %1 %2").arg(m_tunerType).arg(m_tunerType.toString()));
+        return false;
     }
 
     QUrl url = QUrl(m_baseurl);
@@ -260,26 +265,42 @@ void SatIPStreamHandler::Tune(const DTVMultiplex &tuning)
 
     LOG(VB_RECORD, LOG_INFO, LOC + QString("Tune url:%1").arg(url.toString()));
 
+    if (m_tuningurl == m_oldtuningurl)
+    {
+        LOG(VB_RECORD, LOG_INFO, LOC + QString("Skip tuning, already tuned to this url"));
+        return true;
+    }
+
     // Need SETUP and PLAY (with pids=none) to get RTSP packets with tuner lock info
     if (m_rtsp)
     {
+        bool rval = true;
+
         // TEARDOWN command
         if (m_setupinvoked)
         {
-            m_rtsp->Teardown();
+            rval = m_rtsp->Teardown();
             m_setupinvoked = false;
         }
 
         // SETUP command
-        m_rtsp->Setup(m_tuningurl);
-        m_oldtuningurl = m_tuningurl;
-        m_setupinvoked = true;
+        if (rval)
+        {
+            rval = m_rtsp->Setup(m_tuningurl);
+            m_oldtuningurl = m_tuningurl;
+            m_setupinvoked = true;
+        }
 
         // PLAY command
-        QStringList pids;
-        m_rtsp->Play(pids);
-        m_oldpids = pids;
+        if (rval)
+        {
+            QStringList pids;
+            m_rtsp->Play(pids);
+            m_oldpids = pids;
+        }
+        return rval;
     }
+    return true;
 }
 
 bool SatIPStreamHandler::Open(void)
@@ -291,14 +312,15 @@ bool SatIPStreamHandler::Open(void)
 
     // Discover the device using SSDP
     QStringList devinfo = m_device.split(":");
-    if (devinfo.at(0).toUpper() == "UUID")
+    if (devinfo.value(0).toUpper() == "UUID")
     {
-        QString deviceId = QString("uuid:%1").arg(devinfo.at(1));
+        QString deviceId = QString("uuid:%1").arg(devinfo.value(1));
+        m_frontend = devinfo.value(3).toUInt();
 
         QString ip = SatIP::findDeviceIP(deviceId);
         if (ip != nullptr)
         {
-            LOG(VB_RECORD, LOG_INFO, LOC + QString("Discovered device %1 at %2").arg(deviceId).arg(ip));
+            LOG(VB_RECORD, LOG_INFO, LOC + QString("Discovered device %1 at %2").arg(deviceId, ip));
         }
         else
         {

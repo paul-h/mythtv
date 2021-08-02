@@ -14,7 +14,6 @@
 #include "mythconfig.h"
 #include "mythbaseexp.h"  //  MBASE_PUBLIC , etc.
 #include "verbosedefs.h"
-#include "mythsignalingtimer.h"
 #include "mthread.h"
 
 #define LOGLINE_MAX (2048-120)
@@ -41,7 +40,7 @@ class LoggerBase : public QObject
     /// \brief Stop logging to the database
     virtual void stopDatabaseAccess(void) { }
   protected:
-    char *m_handle {nullptr}; ///< semi-opaque handle for identifying instance
+    QString m_handle {}; ///< semi-opaque handle for identifying instance
 };
 
 /// \brief File-based logger - used for logfiles and console
@@ -60,6 +59,7 @@ class FileLogger : public LoggerBase
     int  m_fd     {-1};    ///< contains the file descriptor for the logfile
 };
 
+#ifndef _WIN32
 /// \brief Syslog-based logger (not available in Windows)
 class SyslogLogger : public LoggerBase
 {
@@ -71,11 +71,12 @@ class SyslogLogger : public LoggerBase
     ~SyslogLogger() override;
     bool logmsg(LoggingItem *item) override; // LoggerBase
     /// \brief Unused for this logger.
-    void reopen(void) override { }; // LoggerBase
+    void reopen(void) override { } // LoggerBase
     static SyslogLogger *create(QMutex *mutex, bool open = true);
   private:
     bool m_opened {false};  ///< true when syslog channel open.
 };
+#endif
 
 #if CONFIG_SYSTEMD_JOURNAL
 class JournalLogger : public LoggerBase
@@ -120,8 +121,7 @@ class DatabaseLogger : public LoggerBase
     bool m_loggingTableExists {false}; ///< The desired logging table exists
     QElapsedTimer m_disabledTime;       ///< Elapsed time since the DB logging was disabled
     QElapsedTimer m_errorLoggingTime;   ///< Elapsed time since DB error logging was last done
-    static const int kMinDisabledTime; ///< Minimum time to disable DB logging
-                                       ///  (in ms)
+    static constexpr std::chrono::milliseconds kMinDisabledTime {1s}; ///< Minimum time to disable DB logging
 };
 
 using LogMessage = QList<QByteArray>;

@@ -8,7 +8,6 @@
 // STL headers
 #include <list>
 #include <vector>
-using namespace std;
 
 // Qt headers
 #include <QWaitCondition>
@@ -65,7 +64,7 @@ class MHIContext : public MHContext, public QRunnable
     /// Update the display
     void UpdateOSD(InteractiveScreen *osdWindow, MythPainter *osdPainter);
     /// The display area has changed.
-    void Reinit(const QRect &videoRect, const QRect &dispRect, float aspect);
+    void Reinit(QRect videoRect, QRect dispRect, float aspect);
 
     /// Stop the MHEG engine if it's running and waits until it has.
     void StopEngine(void);
@@ -75,13 +74,13 @@ class MHIContext : public MHContext, public QRunnable
     // so a call to GetCarouselData will not block and will return the data.
     // Returns false if the object is not currently present because it has not
     // yet appeared and also if it is not present in the containing directory.
-    bool CheckCarouselObject(QString objectPath) override; // MHContext
+    bool CheckCarouselObject(const QString& objectPath) override; // MHContext
 
     // Get an object from the carousel.  Returns true and sets the data if
     // it was able to retrieve the named object.  Blocks if the object seems
     // to be present but has not yet appeared.  Returns false if the object
     // cannot be retrieved.
-    bool GetCarouselData(QString objectPath, QByteArray &result) override; // MHContext
+    bool GetCarouselData(const QString& objectPath, QByteArray &result) override; // MHContext
 
     // Set the input register.  This sets the keys that are to be handled
     // by MHEG.  Flushes the key queue.
@@ -108,7 +107,7 @@ class MHIContext : public MHContext, public QRunnable
     void DrawBackground(const QRegion &reg) override; // MHContext
     void DrawVideo(const QRect &videoRect, const QRect &dispRect) override; // MHContext
 
-    void DrawImage(int x, int y, const QRect &rect, const QImage &image,
+    void DrawImage(int x, int y, QRect rect, const QImage &image,
         bool bScaled = false, bool bUnder = false);
 
     int GetChannelIndex(const QString &str) override; // MHContext
@@ -131,11 +130,11 @@ class MHIContext : public MHContext, public QRunnable
     /// Stop displaying video
     void StopVideo() override; // MHContext
     // Get current stream position, -1 if unknown
-    long GetStreamPos() override; // MHContext
+    std::chrono::milliseconds GetStreamPos() override; // MHContext
     // Get current stream size, -1 if unknown
-    long GetStreamMaxPos() override; // MHContext
+    std::chrono::milliseconds GetStreamMaxPos() override; // MHContext
     // Set current stream position
-    long SetStreamPos(long pos) override; // MHContext
+    std::chrono::milliseconds SetStreamPos(std::chrono::milliseconds pos) override; // MHContext
     // Play or pause a stream
     void StreamPlay(bool play) override; // MHContext
 
@@ -152,13 +151,13 @@ class MHIContext : public MHContext, public QRunnable
 
     // Operations used by the display classes
     // Add an item to the display vector
-    void AddToDisplay(const QImage &image, const QRect &rect, bool bUnder = false);
+    void AddToDisplay(const QImage &image, QRect rect, bool bUnder = false);
     int ScaleX(int n, bool roundup = false) const;
     int ScaleY(int n, bool roundup = false) const;
-    QRect Scale(const QRect &r) const;
+    QRect Scale(QRect r) const;
     int ScaleVideoX(int n, bool roundup = false) const;
     int ScaleVideoY(int n, bool roundup = false) const;
-    QRect ScaleVideo(const QRect &r) const;
+    QRect ScaleVideo(QRect r) const;
 
     FT_Face GetFontFace(void) { return m_face; }
     bool IsFaceLoaded(void) const { return m_faceLoaded; }
@@ -200,7 +199,7 @@ class MHIContext : public MHContext, public QRunnable
     QMutex           m_displayLock;
     bool             m_updated        {false};
 
-    list<MHIImageData*> m_display; // List of items to display
+    std::list<MHIImageData*> m_display; // List of items to display
 
     FT_Face          m_face           {nullptr};
     bool             m_faceLoaded     {false};
@@ -217,7 +216,7 @@ class MHIContext : public MHContext, public QRunnable
     QList<int>       m_tuneInfo;
 
     uint             m_lastNbiVersion {NBI_VERSION_UNSET};
-    vector<unsigned char> m_nbiData;
+    std::vector<unsigned char> m_nbiData;
 
     QRect            m_videoRect, m_videoDisplayRect;
     QRect            m_displayRect;
@@ -225,7 +224,7 @@ class MHIContext : public MHContext, public QRunnable
     // Channel index database cache
     using Val_t = QPair< int, int >; // transportid, chanid
     using Key_t = QPair< int, int >; // networkid, serviceid
-    using ChannelCache_t = QMap< Key_t, Val_t >;
+    using ChannelCache_t = QMultiMap< Key_t, Val_t >;
     ChannelCache_t  m_channelCache;
     QMutex          m_channelMutex;
     static inline int Tid(ChannelCache_t::const_iterator it) { return it->first; }
@@ -344,7 +343,7 @@ class MHIDLA : public MHDLADisplay
     void DrawOval(int x, int y, int width, int height) override; // MHDLADisplay
     void DrawArcSector(int x, int y, int width, int height,
                        int start, int arc, bool isSector) override; // MHDLADisplay
-    void DrawPoly(bool isFilled, int nPoints, const int *xArray, const int *yArray) override; // MHDLADisplay
+    void DrawPoly(bool isFilled, const MHPointVec& xArray, const MHPointVec& yArray) override; // MHDLADisplay
 
   protected:
     void DrawRect(int x, int y, int width, int height, MHRgba colour);

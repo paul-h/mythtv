@@ -26,7 +26,6 @@
 #include <chrono> // for milliseconds
 #include <map>
 #include <thread> // for sleep_for
-using namespace std;
 
 // Qt headers
 #include <QDateTime>
@@ -40,10 +39,10 @@ using namespace std;
 
 #define LOC      QString("LFireDev(%1): ").arg(guid_to_string(m_guid))
 
-#define kNoDataTimeout            50   /* msec */
-#define kResetTimeout             1000 /* msec */
+static constexpr std::chrono::milliseconds kNoDataTimeout { 50ms };
+static constexpr std::chrono::milliseconds kResetTimeout  {  1s };
 
-using handle_to_lfd_t = QMap<raw1394handle_t,LinuxFirewireDevice*>;
+using handle_to_lfd_t = QHash<raw1394handle_t,LinuxFirewireDevice*>;
 
 class LFDPriv
 {
@@ -114,7 +113,7 @@ const uint LinuxFirewireDevice::kMaxBufferedPackets  = 4 * 1024 * 1024 / 188;
 int linux_firewire_device_tspacket_handler(
     unsigned char *tspacket, int len, uint dropped, void *callback_data);
 void *linux_firewire_device_port_handler_thunk(void *param);
-static bool has_data(int fd, int msec);
+static bool has_data(int fd, std::chrono::milliseconds msec);
 static QString speed_to_string(uint speed);
 static int linux_firewire_device_bus_reset_handler(
     raw1394handle_t handle, uint generation);
@@ -364,8 +363,8 @@ void LinuxFirewireDevice::RemoveListener(TSDataListener *listener)
 }
 
 bool LinuxFirewireDevice::SendAVCCommand(
-    const vector<uint8_t>  &cmd,
-    vector<uint8_t>        &result,
+    const std::vector<uint8_t>  &cmd,
+    std::vector<uint8_t>        &result,
     int                     retry_cnt)
 {
     return GetInfoPtr()->SendAVCCommand(cmd, result, retry_cnt);
@@ -585,7 +584,7 @@ void LinuxFirewireDevice::run(void)
     m_priv->m_portHandlerWait.wakeAll();
     // we need to unlock & sleep to allow wakeAll to wake other threads.
     m_lock.unlock();
-    std::this_thread::sleep_for(std::chrono::microseconds(2500));
+    std::this_thread::sleep_for(2500us);
     m_lock.lock();
 
     m_priv->m_noDataCnt = 0;
@@ -594,7 +593,7 @@ void LinuxFirewireDevice::run(void)
         LFDPriv::s_lock.lock();
         bool reset_timer_on = m_priv->m_resetTimerOn;
         bool handle_reset = reset_timer_on &&
-            (m_priv->m_resetTimer.elapsed() > 100);
+            (m_priv->m_resetTimer.elapsed() > 100ms);
         if (handle_reset)
             m_priv->m_resetTimerOn = false;
         LFDPriv::s_lock.unlock();
@@ -614,7 +613,7 @@ void LinuxFirewireDevice::run(void)
         {
             // We unlock here because this can take a long time
             // and we don't want to block other actions.
-            m_priv->m_portHandlerWait.wait(&m_lock, kNoDataTimeout);
+            m_priv->m_portHandlerWait.wait(&m_lock, kNoDataTimeout.count());
 
             m_priv->m_noDataCnt += (m_priv->m_isStreaming) ? 1 : 0;
             continue;
@@ -633,11 +632,11 @@ void LinuxFirewireDevice::run(void)
             m_priv->m_noDataCnt++;
 
             LOG(VB_GENERAL, LOG_WARNING, LOC + QString("No Input in %1 msec...")
-                    .arg(m_priv->m_noDataCnt * kNoDataTimeout));
+                .arg(m_priv->m_noDataCnt * kNoDataTimeout.count()));
         }
 
         // Confirm that we won't block, now that we have the lock...
-        if (ready && has_data(fwfd, 1 /* msec */))
+        if (ready && has_data(fwfd, 1ms))
         {
             // Performs blocking read of next 4 bytes off bus and handles
             // them. Most firewire commands do their own loop_iterate
@@ -712,8 +711,8 @@ bool LinuxFirewireDevice::SetAVStreamBufferSize(uint size_in_bytes)
         return false;
 
     // Set buffered packets size
-    uint   buffer_size      = max(size_in_bytes, 50 * TSPacket::kSize);
-    size_t buffered_packets = min(buffer_size / 4, kMaxBufferedPackets);
+    uint   buffer_size      = std::max(size_in_bytes, 50 * TSPacket::kSize);
+    size_t buffered_packets = std::min(buffer_size / 4, kMaxBufferedPackets);
 
     iec61883_mpeg2_set_buffers(m_priv->m_avstream, buffered_packets);
 
@@ -737,8 +736,8 @@ bool LinuxFirewireDevice::SetAVStreamSpeed(uint speed)
     }
 
     LOG(VB_RECORD, LOG_INFO, LOC + QString("Changing Speed %1 -> %2")
-            .arg(speed_to_string(curspeed))
-            .arg(speed_to_string(m_speed)));
+            .arg(speed_to_string(curspeed),
+                 speed_to_string(m_speed)));
 
     iec61883_mpeg2_set_speed(m_priv->m_avstream, speed);
 
@@ -797,9 +796,9 @@ void LinuxFirewireDevice::PrintDropped(uint dropped_packets)
     }
 }
 
-vector<AVCInfo> LinuxFirewireDevice::GetSTBList(void)
+std::vector<AVCInfo> LinuxFirewireDevice::GetSTBList(void)
 {
-    vector<AVCInfo> list;
+    std::vector<AVCInfo> list;
 
     {
         LinuxFirewireDevice dev(0,0,0,false);
@@ -809,7 +808,7 @@ vector<AVCInfo> LinuxFirewireDevice::GetSTBList(void)
     return list;
 }
 
-vector<AVCInfo> LinuxFirewireDevice::GetSTBListPrivate(void)
+std::vector<AVCInfo> LinuxFirewireDevice::GetSTBListPrivate(void)
 {
 #if 0
     LOG(VB_GENERAL, LOG_DEBUG, "GetSTBListPrivate -- begin");
@@ -819,7 +818,7 @@ vector<AVCInfo> LinuxFirewireDevice::GetSTBListPrivate(void)
     LOG(VB_GENERAL, LOG_DEBUG, "GetSTBListPrivate -- got lock");
 #endif
 
-    vector<AVCInfo> list;
+    std::vector<AVCInfo> list;
 
     for (const auto & device : qAsConst(m_priv->m_devices))
     {
@@ -855,15 +854,16 @@ bool LinuxFirewireDevice::UpdateDeviceList(void)
         return false;
     }
 
-    struct raw1394_portinfo port_info[16];
-    int numcards = raw1394_get_port_info(item.m_handle, port_info, 16);
+    std::array<raw1394_portinfo,16> port_info {};
+    int numcards = raw1394_get_port_info(item.m_handle, port_info.data(),
+                                         port_info.size());
     if (numcards < 1)
     {
         raw1394_destroy_handle(item.m_handle);
         return true;
     }
 
-    map<uint64_t,bool> guid_online;
+    std::map<uint64_t,bool> guid_online;
     for (int port = 0; port < numcards; port++)
     {
         if (raw1394_set_port(item.m_handle, port) < 0)
@@ -896,7 +896,8 @@ bool LinuxFirewireDevice::UpdateDeviceList(void)
             break;
         }
 
-        numcards = raw1394_get_port_info(item.m_handle, port_info, 16);
+        numcards = raw1394_get_port_info(item.m_handle, port_info.data(),
+                                         port_info.size());
     }
 
     if (item.m_handle)
@@ -975,15 +976,15 @@ int linux_firewire_device_tspacket_handler(
     return 1;
 }
 
-static bool has_data(int fd, int msec)
+static bool has_data(int fd, std::chrono::milliseconds msec)
 {
     fd_set rfds;
     FD_ZERO(&rfds); // NOLINT(readability-isolate-declaration)
     FD_SET(fd, &rfds);
 
     struct timeval tv {};
-    tv.tv_sec  = msec / 1000;
-    tv.tv_usec = (msec % 1000) * 1000;
+    tv.tv_sec  = msec.count() / 1000;
+    tv.tv_usec = (msec.count() % 1000) * 1000;
 
     int ready = select(fd + 1, &rfds, nullptr, nullptr, &tv);
 
@@ -998,7 +999,7 @@ static QString speed_to_string(uint speed)
     if (speed > 3)
         return QString("Invalid Speed (%1)").arg(speed);
 
-    static constexpr uint kSpeeds[] = { 100, 200, 400, 800 };
+    static constexpr std::array<const uint,4> kSpeeds { 100, 200, 400, 800 };
     return QString("%1Mbps").arg(kSpeeds[speed]);
 }
 

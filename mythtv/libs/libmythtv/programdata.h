@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <utility>
 #include <vector>
-using namespace std;
 
 // Qt headers
 #include <QString>
@@ -24,6 +23,7 @@ class MSqlQuery;
 
 class MTV_PUBLIC DBPerson
 {
+    friend class TestEITFixups;
   public:
     enum Role
     {
@@ -42,26 +42,35 @@ class MTV_PUBLIC DBPerson
     };
 
     DBPerson(const DBPerson &other);
-    DBPerson(Role _role, QString _name);
-    DBPerson(const QString &_role, QString _name);
+    DBPerson(Role _role, QString _name,
+             int _priority, QString _character);
+    DBPerson(const QString &_role, QString _name,
+             int _priority, QString _character);
     DBPerson& operator=(const DBPerson &rhs);
 
     QString GetRole(void) const;
+    QString toString(void) const;
 
     uint InsertDB(MSqlQuery &query, uint chanid,
-                  const QDateTime &starttime) const;
+                  const QDateTime &starttime,
+                  bool recording = false) const;
 
   private:
     uint GetPersonDB(MSqlQuery &query) const;
     uint InsertPersonDB(MSqlQuery &query) const;
-    uint InsertCreditsDB(MSqlQuery &query, uint personid, uint chanid,
-                         const QDateTime &starttime) const;
+    uint GetRoleDB(MSqlQuery &query) const;
+    bool InsertRoleDB(MSqlQuery &query) const;
+    uint InsertCreditsDB(MSqlQuery &query, uint personid, uint roleid,
+                         uint chanid, const QDateTime &starttime,
+                         bool recording = false) const;
 
   private:
     Role    m_role;
     QString m_name;
+    int     m_priority;
+    QString m_character;
 };
-using DBCredits = vector<DBPerson>;
+using DBCredits = std::vector<DBPerson>;
 
 class MTV_PUBLIC EventRating
 {
@@ -107,8 +116,10 @@ class MTV_PUBLIC DBEvent
 
     virtual ~DBEvent() { delete m_credits; }
 
-    void AddPerson(DBPerson::Role role, const QString &name);
-    void AddPerson(const QString &role, const QString &name);
+    void AddPerson(DBPerson::Role role, const QString &name,
+                   int priority = 0, const QString &character = "");
+    void AddPerson(const QString &role, const QString &name,
+                   int priority = 0, const QString &character = "");
 
     uint UpdateDB(MSqlQuery &query, uint chanid, int match_threshold) const;
 
@@ -119,16 +130,18 @@ class MTV_PUBLIC DBEvent
 
   protected:
     uint GetOverlappingPrograms(
-        MSqlQuery &query, uint chanid, vector<DBEvent> &programs) const;
+        MSqlQuery &query, uint chanid, std::vector<DBEvent> &programs) const;
     int  GetMatch(
-        const vector<DBEvent> &programs, int &bestmatch) const;
+        const std::vector<DBEvent> &programs, int &bestmatch) const;
     uint UpdateDB(
-        MSqlQuery &q, uint chanid, const vector<DBEvent> &p, int match) const;
+        MSqlQuery &q, uint chanid, const std::vector<DBEvent> &p, int match) const;
     uint UpdateDB(
         MSqlQuery &query, uint chanid, const DBEvent &match) const;
     bool MoveOutOfTheWayDB(
         MSqlQuery &query, uint chanid, const DBEvent &prog) const;
-    virtual uint InsertDB(MSqlQuery &query, uint chanid) const;
+    virtual uint InsertDB(MSqlQuery &query, uint chanid,
+                          bool recording = false) const; // DBEvent
+
     virtual void Squeeze(void);
 
   public:
@@ -207,7 +220,7 @@ class MTV_PUBLIC DBEventEIT : public DBEvent
   public:
     uint32_t              m_chanid;
     FixupValue            m_fixup;
-    QMap<QString,QString> m_items;
+    QMultiMap<QString,QString> m_items;
 };
 
 class MTV_PUBLIC ProgInfo : public DBEvent
@@ -218,7 +231,8 @@ class MTV_PUBLIC ProgInfo : public DBEvent
 
     ProgInfo(const ProgInfo &other);
 
-    uint InsertDB(MSqlQuery &query, uint chanid) const override; // DBEvent
+    uint InsertDB(MSqlQuery &query, uint chanid,
+                  bool recording = false) const override; // DBEvent
 
     void Squeeze(void) override; // DBEvent
 

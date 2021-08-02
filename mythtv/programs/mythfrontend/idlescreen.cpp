@@ -1,6 +1,8 @@
 
 #include "idlescreen.h"
 
+#include <chrono>
+
 #include <QTimer>
 
 #include <mythcontext.h>
@@ -15,6 +17,8 @@
 
 #include <tvremoteutil.h>
 
+static constexpr std::chrono::milliseconds UPDATE_INTERVAL { 15s };
+
 IdleScreen::IdleScreen(MythScreenStack *parent)
               :MythScreenType(parent, "standbymode"),
               m_updateScreenTimer(new QTimer(this))
@@ -22,7 +26,7 @@ IdleScreen::IdleScreen(MythScreenStack *parent)
     gCoreContext->addListener(this);
     GetMythMainWindow()->EnterStandby();
 
-    connect(m_updateScreenTimer, SIGNAL(timeout()), this, SLOT(UpdateScreen()));
+    connect(m_updateScreenTimer, &QTimer::timeout, this, &IdleScreen::UpdateScreen);
     m_updateScreenTimer->start(1000);
 
     // if this is a frontend only machine and the user has set a time to wait before shutting down
@@ -31,7 +35,7 @@ IdleScreen::IdleScreen(MythScreenStack *parent)
         && !gCoreContext->GetSetting("HaltCommand", "").isEmpty())
     {
         m_FEShutdownEnabled = true;
-        m_secondsToShutdown = gCoreContext->GetNumSetting("FrontendShutdownTimeout", 0);
+        m_secondsToShutdown = std::chrono::seconds(gCoreContext->GetNumSetting("FrontendShutdownTimeout", 0));
     }
 }
 
@@ -95,7 +99,10 @@ bool IdleScreen::CheckConnectionToServer(void)
             bRes = true;
     }
 
-    m_updateScreenTimer->start(1000);
+    if (bRes)
+        m_updateScreenTimer->start(UPDATE_INTERVAL);
+    else
+        m_updateScreenTimer->start(5s);
 
     return bRes;
 }
@@ -124,12 +131,12 @@ void IdleScreen::IsShutdownLocked()
     if (m_shutdownLocked)
     {
         m_shuttingDown = false;
-        m_secondsToShutdown = -1;
+        m_secondsToShutdown = -1s;
     }
     else
     {
         if (wasLocked && gCoreContext->IsFrontendOnly())
-            m_secondsToShutdown = gCoreContext->GetNumSetting("FrontendShutdownTimeout", 0);
+            m_secondsToShutdown = std::chrono::seconds(gCoreContext->GetNumSetting("FrontendShutdownTimeout", 0));
     }
 }
 
@@ -148,18 +155,18 @@ void IdleScreen::UpdateShutdownCountdown()
     {
         // we wait a maximum of 10 seconds before assuming the shutdown failed
         m_secondsToShutdown--;
-        if (m_secondsToShutdown == 0)
+        if (m_secondsToShutdown == 0s)
         {
             LOG(VB_GENERAL, LOG_ERR, "Failed to shutdown! Check the 'Halt Command' "
                                      "setting on the 'Shutdown/Reboot Settings' page.");
-            m_secondsToShutdown = -1;
+            m_secondsToShutdown = -1s;
             m_shutdownFailed = true;
         }
     }
     else
     {
         m_secondsToShutdown--;
-        if (m_secondsToShutdown == 0)
+        if (m_secondsToShutdown == 0s)
             DoShutdown();
     }
 }
@@ -171,7 +178,7 @@ void IdleScreen::DoShutdown()
     {
         m_shuttingDown = true;
         m_shutdownFailed = false;
-        m_secondsToShutdown = 10;
+        m_secondsToShutdown = 10s;
         myth_system(poweroff_cmd);
     }
 }
@@ -184,7 +191,7 @@ void IdleScreen::UpdateStatus(void)
     {
         state = "error";
     }
-    else if (m_secondsToShutdown >= 0)
+    else if (m_secondsToShutdown >= 0s)
     {
         state = "shuttingdown";
     }
@@ -224,10 +231,10 @@ void IdleScreen::UpdateStatus(void)
             }
             else if (gCoreContext->IsFrontendOnly() && m_shuttingDown)
                 status = tr("Frontend is shutting down");
-            else if (gCoreContext->IsFrontendOnly() &&  m_secondsToShutdown > 0)
-                status = tr("Frontend will shutdown in %n second(s)", "", m_secondsToShutdown);
-            else if (m_secondsToShutdown >= 0)
-                status = tr("Backend will shutdown in %n second(s)", "", m_secondsToShutdown);
+            else if (gCoreContext->IsFrontendOnly() &&  m_secondsToShutdown > 0s)
+                status = tr("Frontend will shutdown in %n second(s)", "", m_secondsToShutdown.count());
+            else if (m_secondsToShutdown >= 0s)
+                status = tr("Backend will shutdown in %n second(s)", "", m_secondsToShutdown.count());
 
             if (!status.isEmpty())
                 statusText->SetText(status);
@@ -358,9 +365,9 @@ bool IdleScreen::keyPressEvent(QKeyEvent* event)
 
         if (action == "ESCAPE")
         {
-            if (m_secondsToShutdown >= 0)
+            if (m_secondsToShutdown >= 0s)
             {
-                m_secondsToShutdown = -1;
+                m_secondsToShutdown = -1s;
                 UpdateStatus();
             }
             else
@@ -386,13 +393,13 @@ void IdleScreen::customEvent(QEvent* event)
 
         if (me->Message().startsWith("RECONNECT_"))
         {
-            m_secondsToShutdown = -1;
+            m_secondsToShutdown = -1s;
             UpdateStatus();
         }
         else if (me->Message().startsWith("SHUTDOWN_COUNTDOWN"))
         {
             QString secs = me->Message().mid(19);
-            m_secondsToShutdown = secs.toInt();
+            m_secondsToShutdown = std::chrono::seconds(secs.toInt());
             UpdateStatus();
         }
         else if (me->Message().startsWith("SHUTDOWN_NOW"))
@@ -417,7 +424,7 @@ void IdleScreen::customEvent(QEvent* event)
 
             if (!PendingSchedUpdate())
             {
-                QTimer::singleShot(50, this, SLOT(UpdateScheduledList()));
+                QTimer::singleShot(50ms, this, &IdleScreen::UpdateScheduledList);
                 SetPendingSchedUpdate(true);
             }
         }

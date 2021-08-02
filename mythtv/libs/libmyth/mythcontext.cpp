@@ -2,6 +2,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QDebug>
+#include <QHostInfo>
 #include <QMutex>
 #include <QDateTime>
 #include <QTcpSocket>
@@ -11,13 +12,12 @@
 #include <QtAndroidExtras>
 #endif
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <queue>
 #include <thread>
 #include <vector>
-
-using namespace std;
 
 #include "config.h"
 #include "mythcontext.h"
@@ -57,6 +57,10 @@ using namespace std;
 
 #define LOC      QString("MythContext: ")
 
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#define qEnvironmentVariable getenv
+#endif
+
 MythContext *gContext = nullptr;
 
 static const QString sLocation = "MythContext";
@@ -87,11 +91,11 @@ class MythContextPrivate : public QObject
     void    ResetDatabase(void) const;
 
     int     ChooseBackend(const QString &error);
-    int     UPnPautoconf(int milliSeconds = 2000);
-    bool    DefaultUPnP(QString &error);
+    int     UPnPautoconf(std::chrono::milliseconds milliSeconds = 2s);
+    bool    DefaultUPnP(QString& Error);
     bool    UPnPconnect(const DeviceLocation *backend, const QString &PIN);
     void    ShowGuiStartup(void);
-    bool    checkPort(QString &host, int port, int timeLimit) const;
+    bool    checkPort(QString &host, int port, std::chrono::seconds timeLimit) const;
     static void processEvents(void);
     bool    saveSettingsCache(void);
     void    loadSettingsCacheOverride(void) const;
@@ -166,15 +170,14 @@ static void exec_program_tv_cb(const QString &cmd)
 
     if (cardid >= 0)
     {
-        s = s.arg(qPrintable(strlist[1]))
-            .arg(qPrintable(strlist[2]))
-            .arg(qPrintable(strlist[3]));
+        s = s.arg(qPrintable(strlist[1]),
+                  qPrintable(strlist[2]),
+                  qPrintable(strlist[3]));
 
         myth_system(s);
 
         strlist = QStringList(QString("FREE_TUNER %1").arg(cardid));
         gCoreContext->SendReceiveStringList(strlist);
-        QString ret = strlist[0];
     }
     else
     {
@@ -284,8 +287,6 @@ void MythContextPrivate::TempMainWindow(bool languagePrompt)
     gCoreContext->OverrideSettingForSession("RunFrontendInWindow", "1");
 #endif
     GetMythUI()->Init();
-    GetMythUI()->LoadQtConfig();
-
     MythMainWindow *mainWindow = MythMainWindow::getMainWindow(false);
     mainWindow->Init();
 
@@ -322,12 +323,12 @@ void MythContextPrivate::EndTempWindow(void)
  * \param timeLimit Limit in seconds for testing.
  */
 
-bool MythContextPrivate::checkPort(QString &host, int port, int timeLimit) const
+bool MythContextPrivate::checkPort(QString &host, int port, std::chrono::seconds timeLimit) const
 {
     PortChecker checker;
     if (m_guiStartup)
-        QObject::connect(m_guiStartup,SIGNAL(cancelPortCheck()),&checker,SLOT(cancelPortCheck()));
-    return checker.checkPort(host, port, timeLimit*1000);
+        QObject::connect(m_guiStartup,&GUIStartup::cancelPortCheck,&checker,&PortChecker::cancelPortCheck);
+    return checker.checkPort(host, port, timeLimit);
 }
 
 
@@ -433,7 +434,7 @@ bool MythContextPrivate::FindDatabase(bool prompt, bool noAutodetect)
         if (DefaultUPnP(failure))                // Probably a valid backend,
             autoSelect = manualSelect = false;   // so disable any further UPnP
         else
-            if (failure.length())
+            if (!failure.isEmpty())
                 LOG(VB_GENERAL, LOG_ALERT, failure);
 
         failure = TestDBconnection(loaded);
@@ -547,7 +548,7 @@ bool MythContextPrivate::LoadDatabaseSettings(void)
     m_dbParams.m_wolEnabled =
         m_pConfig->GetBoolValue(kDefaultWOL + "Enabled", false);
     m_dbParams.m_wolReconnect =
-        m_pConfig->GetValue(kDefaultWOL + "SQLReconnectWaitTime", 0);
+        m_pConfig->GetDuration<std::chrono::seconds>(kDefaultWOL + "SQLReconnectWaitTime", 0s);
     m_dbParams.m_wolRetry =
         m_pConfig->GetValue(kDefaultWOL + "SQLConnectRetry", 5);
     m_dbParams.m_wolCommand =
@@ -579,12 +580,11 @@ bool MythContextPrivate::LoadDatabaseSettings(void)
     if (hostname.isEmpty() ||
         hostname == "my-unique-identifier-goes-here")
     {
-        char localhostname[1024];
-        if (gethostname(localhostname, 1024))
+        QString localhostname = QHostInfo::localHostName();
+        if (localhostname.isEmpty())
         {
             LOG(VB_GENERAL, LOG_ALERT,
                     "MCP: Error, could not determine host name." + ENO);
-            localhostname[0] = '\0';
         }
 #ifdef Q_OS_ANDROID
 #define ANDROID_EXCEPTION_CHECK \
@@ -592,8 +592,8 @@ bool MythContextPrivate::LoadDatabaseSettings(void)
     env->ExceptionClear(); \
     exception=true; \
   }
-        if (strcmp(localhostname, "localhost") == 0
-            || localhostname[0] == '\0')
+
+        if ((localhostname == "localhost") || localhostname.isEmpty())
         {
             hostname = "android";
             bool exception=false;
@@ -676,7 +676,7 @@ bool MythContextPrivate::SaveDatabaseParams(
 
         m_pConfig->SetBoolValue(
             kDefaultWOL + "Enabled", params.m_wolEnabled);
-        m_pConfig->SetValue(
+        m_pConfig->SetDuration(
             kDefaultWOL + "SQLReconnectWaitTime", params.m_wolReconnect);
         m_pConfig->SetValue(
             kDefaultWOL + "SQLConnectRetry", params.m_wolRetry);
@@ -720,7 +720,7 @@ bool MythContextPrivate::PromptForDatabaseParams(const QString &error)
         TempMainWindow();
 
         // Tell the user what went wrong:
-        if (error.length())
+        if (!error.isEmpty())
             ShowOkPopup(error);
 
         // ask user for database parameters
@@ -748,9 +748,9 @@ bool MythContextPrivate::PromptForDatabaseParams(const QString &error)
     {
         DatabaseParams params = m_parent->GetDatabaseParams();
         QString        response;
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(1s);
         // give user chance to skip config
-        cout << endl << error.toLocal8Bit().constData() << endl << endl;
+        std::cout << std::endl << error.toLocal8Bit().constData() << std::endl << std::endl;
         response = getResponse("Would you like to configure the database "
                                "connection now?",
                                "no");
@@ -785,9 +785,10 @@ bool MythContextPrivate::PromptForDatabaseParams(const QString &error)
 
         if (params.m_wolEnabled)
         {
-            params.m_wolReconnect = intResponse("Seconds to wait for "
-                                                "reconnection:",
-                                                params.m_wolReconnect);
+            params.m_wolReconnect =
+                std::chrono::seconds(intResponse("Seconds to wait for "
+                                                 "reconnection:",
+                                                 params.m_wolReconnect.count()));
             params.m_wolRetry     = intResponse("Number of times to retry:",
                                                 params.m_wolRetry);
             params.m_wolCommand   = getResponse("Command to use to wake server or server MAC address:",
@@ -832,21 +833,20 @@ QString MythContextPrivate::TestDBconnection(bool prompt)
         {"start","dbAwake","dbStarted","dbConnects","beWOL","beAwake",
             "success" };
 
-    int msStartupScreenDelay = gCoreContext->GetNumSetting("StartupScreenDelay",2);
-    if (msStartupScreenDelay > 0)
-        msStartupScreenDelay *= 1000;
+    auto secondsStartupScreenDelay = gCoreContext->GetDurSetting<std::chrono::seconds>("StartupScreenDelay",2s);
+    auto msStartupScreenDelay = std::chrono::duration_cast<std::chrono::milliseconds>(secondsStartupScreenDelay);
     do
     {
         QElapsedTimer timer;
         timer.start();
-        if (m_dbParams.m_dbHostName.isNull() && m_dbHostCp.length())
+        if (m_dbParams.m_dbHostName.isNull() && !m_dbHostCp.isEmpty())
             host = m_dbHostCp;
         else
             host = m_dbParams.m_dbHostName;
         port = m_dbParams.m_dbPort;
         if (port == 0)
             port = 3306;
-        int wakeupTime = 3;
+        std::chrono::seconds wakeupTime = 3s;
         int attempts = 11;
         if (m_dbParams.m_wolEnabled) {
             wakeupTime = m_dbParams.m_wolReconnect;
@@ -859,10 +859,10 @@ QString MythContextPrivate::TestDBconnection(bool prompt)
             attempts = 6;
         if (!prompt)
             attempts=1;
-        if (wakeupTime < 5)
-            wakeupTime = 5;
+        if (wakeupTime < 5s)
+            wakeupTime = 5s;
 
-        int progressTotal = wakeupTime * attempts;
+        std::chrono::seconds progressTotal = wakeupTime * attempts;
 
         if (m_guiStartup && !m_guiStartup->m_Exit)
             m_guiStartup->setTotal(progressTotal);
@@ -882,15 +882,17 @@ QString MythContextPrivate::TestDBconnection(bool prompt)
 
             LOG(VB_GENERAL, LOG_INFO,
                  QString("Start up testing connections. DB %1, BE %2, attempt %3, status %4, Delay: %5")
-                      .arg(host).arg(backendIP).arg(attempt).arg(kGuiStatuses[startupState]).arg(msStartupScreenDelay) );
+                      .arg(host, backendIP, QString::number(attempt),
+                           kGuiStatuses[startupState],
+                           QString::number(msStartupScreenDelay.count())) );
 
-            int useTimeout = wakeupTime;
+            std::chrono::seconds useTimeout = wakeupTime;
             if (attempt == 0)
-                useTimeout=1;
+                useTimeout=1s;
 
             if (m_gui && !m_guiStartup)
             {
-                if (msStartupScreenDelay==0 || timer.hasExpired(msStartupScreenDelay))
+                if (msStartupScreenDelay==0ms || timer.hasExpired(msStartupScreenDelay.count()))
                 {
                     ShowGuiStartup();
                     if (m_guiStartup)
@@ -932,10 +934,10 @@ QString MythContextPrivate::TestDBconnection(bool prompt)
                 ResetDatabase();
                 if (!MSqlQuery::testDBConnection())
                 {
-                    for (int temp = 0; temp < useTimeout * 2 ; temp++)
+                    for (std::chrono::seconds temp = 0s; temp < useTimeout * 2 ; temp++)
                     {
                         processEvents();
-                        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                        std::this_thread::sleep_for(500ms);
                     }
                     break;
                 }
@@ -947,13 +949,13 @@ QString MythContextPrivate::TestDBconnection(bool prompt)
                     beWOLCmd = gCoreContext->GetSetting("WOLbackendCommand", "");
                     if (!beWOLCmd.isEmpty())
                     {
-                        wakeupTime += gCoreContext->GetNumSetting
-                            ("WOLbackendReconnectWaitTime", 0);
+                        wakeupTime += gCoreContext->GetDurSetting<std::chrono::seconds>
+                            ("WOLbackendReconnectWaitTime", 0s);
                         attempts += gCoreContext->GetNumSetting
                             ("WOLbackendConnectRetry", 0);
                         useTimeout = wakeupTime;
                         if (m_gui && !m_guiStartup && attempt == 0)
-                            useTimeout=1;
+                            useTimeout=1s;
                         progressTotal = wakeupTime * attempts;
                         if (m_guiStartup && !m_guiStartup->m_Exit)
                             m_guiStartup->setTotal(progressTotal);
@@ -1005,7 +1007,7 @@ QString MythContextPrivate::TestDBconnection(bool prompt)
         stateMsg.append("Fail");
         LOG(VB_GENERAL, LOG_INFO,
              QString("Start up failure. host %1, status %2")
-                  .arg(host).arg(stateMsg));
+                  .arg(host, stateMsg));
 
         if (m_gui && !m_guiStartup)
         {
@@ -1097,7 +1099,7 @@ void MythContextPrivate::SilenceDBerrors(void)
 
     // Save the configured hostname, so that we can
     // still display it in the DatabaseSettings screens
-    if (m_dbParams.m_dbHostName.length())
+    if (!m_dbParams.m_dbHostName.isEmpty())
         m_dbHostCp = m_dbParams.m_dbHostName;
 
     m_dbParams.m_dbHostName.clear();
@@ -1107,7 +1109,7 @@ void MythContextPrivate::SilenceDBerrors(void)
 void MythContextPrivate::EnableDBerrors(void)
 {
     // Restore (possibly) blanked hostname
-    if (m_dbParams.m_dbHostName.isNull() && m_dbHostCp.length())
+    if (m_dbParams.m_dbHostName.isNull() && !m_dbHostCp.isEmpty())
     {
         m_dbParams.m_dbHostName = m_dbHostCp;
         gCoreContext->GetDB()->SetDatabaseParams(m_dbParams);
@@ -1165,12 +1167,13 @@ int MythContextPrivate::ChooseBackend(const QString &error)
  * This does <i>not</i> prompt for PIN entry. If the backend requires one,
  * it will fail, and the caller needs to put up a UI to ask for one.
  */
-int MythContextPrivate::UPnPautoconf(const int milliSeconds)
+int MythContextPrivate::UPnPautoconf(const std::chrono::milliseconds milliSeconds)
 {
+    auto seconds = duration_cast<std::chrono::seconds>(milliSeconds);
     LOG(VB_GENERAL, LOG_INFO, QString("UPNP Search %1 secs")
-        .arg(milliSeconds / 1000));
+        .arg(seconds.count()));
 
-    SSDP::Instance()->PerformSearch(kBackendURI, milliSeconds / 1000);
+    SSDP::Instance()->PerformSearch(kBackendURI, seconds);
 
     // Search for a total of 'milliSeconds' ms, sending new search packet
     // about every 250 ms until less than one second remains.
@@ -1179,12 +1182,13 @@ int MythContextPrivate::UPnPautoconf(const int milliSeconds)
     while (totalTime.elapsed() < milliSeconds)
     {
         usleep(25000);
-        int ttl = milliSeconds - totalTime.elapsed();
-        if ((searchTime.elapsed() > 249) && (ttl > 1000))
+        auto ttl = milliSeconds - totalTime.elapsed();
+        if ((searchTime.elapsed() > 249ms) && (ttl > 1s))
         {
+            auto ttlSeconds = duration_cast<std::chrono::seconds>(ttl);
             LOG(VB_GENERAL, LOG_INFO, QString("UPNP Search %1 secs")
-                .arg(ttl / 1000));
-            SSDP::Instance()->PerformSearch(kBackendURI, ttl / 1000);
+                .arg(ttlSeconds.count()));
+            SSDP::Instance()->PerformSearch(kBackendURI, ttlSeconds);
             searchTime.start();
         }
     }
@@ -1234,71 +1238,73 @@ int MythContextPrivate::UPnPautoconf(const int milliSeconds)
  *
  * Sets a string if there any connection problems
  */
-bool MythContextPrivate::DefaultUPnP(QString &error)
+bool MythContextPrivate::DefaultUPnP(QString& Error)
 {
-    QString            loc = "DefaultUPnP() - ";
-    QString            PIN = m_pConfig->GetValue(kDefaultPIN, "");
-    QString            USN = m_pConfig->GetValue(kDefaultUSN, "");
+    static const QString loc = "DefaultUPnP() - ";
+    QString pin = m_pConfig->GetValue(kDefaultPIN, "");
+    QString usn = m_pConfig->GetValue(kDefaultUSN, "");
 
-    if (USN.isEmpty())
+    if (usn.isEmpty())
     {
         LOG(VB_UPNP, LOG_INFO, loc + "No default UPnP backend");
         return false;
     }
 
-    LOG(VB_UPNP, LOG_INFO, loc + "config.xml has default " +
-             QString("PIN '%1' and host USN: %2") .arg(PIN).arg(USN));
+    LOG(VB_UPNP, LOG_INFO, loc + QString("config.xml has default PIN '%1' and host USN: %2")
+        .arg(pin, usn));
 
     // ----------------------------------------------------------------------
 
-    int timeout_ms = 2000;
-    LOG(VB_GENERAL, LOG_INFO, QString("UPNP Search up to %1 secs")
-        .arg(timeout_ms / 1000));
-    SSDP::Instance()->PerformSearch(kBackendURI, timeout_ms / 1000);
+    std::chrono::milliseconds timeout_ms { 2s };
+    auto timeout_s = duration_cast<std::chrono::seconds>(timeout_ms);
+    LOG(VB_GENERAL, LOG_INFO, loc + QString("UPNP Search up to %1 secs")
+        .arg(timeout_s.count()));
+    SSDP::Instance()->PerformSearch(kBackendURI, timeout_s);
 
     // ----------------------------------------------------------------------
     // We need to give the server time to respond...
     // ----------------------------------------------------------------------
 
-    DeviceLocation *pDevLoc = nullptr;
-    MythTimer totalTime; totalTime.start();
-    MythTimer searchTime; searchTime.start();
+    DeviceLocation* devicelocation = nullptr;
+    MythTimer totalTime;
+    MythTimer searchTime;
+    totalTime.start();
+    searchTime.start();
     while (totalTime.elapsed() < timeout_ms)
     {
-        pDevLoc = SSDP::Find( kBackendURI, USN );
-
-        if (pDevLoc)
+        devicelocation = SSDP::Find(kBackendURI, usn);
+        if (devicelocation)
             break;
 
         usleep(25000);
 
-        int ttl = timeout_ms - totalTime.elapsed();
-        if ((searchTime.elapsed() > 249) && (ttl > 1000))
+        auto ttl = timeout_ms - totalTime.elapsed();
+        if ((searchTime.elapsed() > 249ms) && (ttl > 1s))
         {
-            LOG(VB_GENERAL, LOG_INFO, QString("UPNP Search up to %1 secs")
-                .arg(ttl / 1000));
-            SSDP::Instance()->PerformSearch(kBackendURI, ttl / 1000);
+            auto ttlSeconds = duration_cast<std::chrono::seconds>(ttl);
+            LOG(VB_GENERAL, LOG_INFO, loc + QString("UPNP Search up to %1 secs")
+                .arg(ttlSeconds.count()));
+            SSDP::Instance()->PerformSearch(kBackendURI, ttlSeconds);
             searchTime.start();
         }
     }
 
     // ----------------------------------------------------------------------
 
-    if (!pDevLoc)
+    if (!devicelocation)
     {
-        error = "Cannot find default UPnP backend";
+        Error = "Cannot find default UPnP backend";
         return false;
     }
 
-    if (UPnPconnect(pDevLoc, PIN))
+    if (UPnPconnect(devicelocation, pin))
     {
-        pDevLoc->DecrRef();
+        devicelocation->DecrRef();
         return true;
     }
 
-    pDevLoc->DecrRef();
-
-    error = "Cannot connect to default backend via UPnP. Wrong saved PIN?";
+    devicelocation->DecrRef();
+    Error = "Cannot connect to default backend via UPnP. Wrong saved PIN?";
     return false;
 }
 
@@ -1423,7 +1429,7 @@ void MythContextPrivate::HideConnectionFailurePopup(void)
     MythCheckNotification n(QObject::tr("Backend is online"), sLocation);
     n.SetId(m_registration);
     n.SetParent(this);
-    n.SetDuration(5);
+    n.SetDuration(5s);
     GetNotificationCenter()->Queue(n);
     m_lastCheck = QDateTime();
 }
@@ -1444,7 +1450,7 @@ void MythContextPrivate::ShowVersionMismatchPopup(uint remote_version)
     if (HasMythMainWindow() && m_ui && m_ui->IsScreenSetup())
     {
         m_mbeVersionPopup = ShowOkPopup(
-            message, m_sh, SLOT(VersionMismatchPopupClosed()));
+            message, m_sh, &MythContextSlotHandler::VersionMismatchPopupClosed);
     }
     else
     {
@@ -1514,7 +1520,6 @@ void MythContextPrivate::loadSettingsCacheOverride(void) const
     // Prevent power off TV after temporary window
     gCoreContext->OverrideSettingForSession("PowerOffTVAllowed", nullptr);
 
-    QString language = gCoreContext->GetSetting("Language",QString());
     MythTranslation::load("mythfrontend");
 }
 
@@ -1573,6 +1578,10 @@ bool MythContext::Init(const bool gui,
         return false;
     }
 
+    qRegisterMetaType<std::chrono::seconds>("std::chrono::seconds");
+    qRegisterMetaType<std::chrono::milliseconds>("std::chrono::milliseconds");
+    qRegisterMetaType<std::chrono::microseconds>("std::chrono::microseconds");
+
     SetDisableEventPopup(true);
 
     if (m_appBinaryVersion != MYTH_BINARY_VERSION)
@@ -1580,7 +1589,7 @@ bool MythContext::Init(const bool gui,
         LOG(VB_GENERAL, LOG_EMERG,
                  QString("Application binary version (%1) does not "
                          "match libraries (%2)")
-                     .arg(m_appBinaryVersion) .arg(MYTH_BINARY_VERSION));
+                     .arg(m_appBinaryVersion, MYTH_BINARY_VERSION));
 
         QString warning = QObject::tr(
             "This application is not compatible "
@@ -1614,7 +1623,7 @@ bool MythContext::Init(const bool gui,
     // If HOME isn't defined, we won't be able to use default confdir of
     // $HOME/.mythtv nor can we rely on a MYTHCONFDIR that references $HOME
     QString homedir = QDir::homePath();
-    QString confdir = getenv("MYTHCONFDIR");
+    QString confdir = qEnvironmentVariable("MYTHCONFDIR");
     if ((homedir.isEmpty() || homedir == "/") &&
         (confdir.isEmpty() || confdir.contains("$HOME")))
     {

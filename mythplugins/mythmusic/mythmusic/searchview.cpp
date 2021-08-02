@@ -62,16 +62,16 @@ bool SearchView::Create(void)
     //new MythUIButtonListItem(m_fieldList, tr("Tags"),
     //                            QVariant::fromValue(5));
 
-    connect(m_fieldList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(fieldSelected(MythUIButtonListItem*)));
+    connect(m_fieldList, &MythUIButtonList::itemSelected,
+            this, &SearchView::fieldSelected);
 
-    connect(m_tracksList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            this, SLOT(trackClicked(MythUIButtonListItem*)));
+    connect(m_tracksList, &MythUIButtonList::itemClicked,
+            this, &SearchView::trackClicked);
 
-    connect(m_tracksList, SIGNAL(itemVisible(MythUIButtonListItem*)),
-            this, SLOT(trackVisible(MythUIButtonListItem*)));
+    connect(m_tracksList, &MythUIButtonList::itemVisible,
+            this, &SearchView::trackVisible);
 
-    connect(m_criteriaEdit, SIGNAL(valueChanged()), this, SLOT(criteriaChanged()));
+    connect(m_criteriaEdit, &MythUITextEdit::valueChanged, this, &SearchView::criteriaChanged);
 
     updateTracksList();
 

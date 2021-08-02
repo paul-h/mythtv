@@ -34,7 +34,7 @@ class MpegRecorder : public V4LRecorder,
     void Reset(void) override; // DTVRecorder
 
     void Pause(bool clear = true) override; // RecorderBase
-    bool PauseAndWait(int timeout = 100) override; // RecorderBase
+    bool PauseAndWait(std::chrono::milliseconds timeout = 100ms) override; // RecorderBase
 
     bool IsRecording(void) override // RecorderBase
         { return m_recording; }
@@ -87,7 +87,11 @@ class MpegRecorder : public V4LRecorder,
     bool           m_supportsSlicedVbi        {false};
 
     // State
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex m_startStopEncodingLock    {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex m_startStopEncodingLock;
+#endif
 
     // Pausing state
     bool           m_clearTimeOnPause         {false};

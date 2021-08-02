@@ -1,6 +1,15 @@
 #include "mythlogging.h"
 #include "captions/subtitlereader.h"
 
+// If the count of subtitle buffers is greater than this, force a clear
+static const int MAX_BUFFERS_BEFORE_CLEAR = 175;  // 125 too low for karaoke
+
+SubtitleReader::SubtitleReader()
+{
+    connect(&m_textSubtitles, &TextSubtitles::TextSubtitlesUpdated,
+            this, &SubtitleReader::TextSubtitlesUpdated);
+}
+
 SubtitleReader::~SubtitleReader()
 {
     ClearAVSubtitles();
@@ -54,10 +63,11 @@ bool SubtitleReader::AddAVSubtitle(AVSubtitle &subtitle,
     m_avSubtitles.m_buffers.push_back(subtitle);
     // in case forced subtitles aren't displayed, avoid leaking by
     // manually clearing the subtitles
-    if (m_avSubtitles.m_buffers.size() > 40)
+    if (m_avSubtitles.m_buffers.size() > MAX_BUFFERS_BEFORE_CLEAR)
     {
         LOG(VB_GENERAL, LOG_ERR,
-            "SubtitleReader: >40 AVSubtitles queued - clearing.");
+            QString("SubtitleReader: >%1 AVSubtitles queued - clearing.")
+                .arg(MAX_BUFFERS_BEFORE_CLEAR));
         clearsubs = true;
     }
     m_avSubtitles.m_lock.unlock();
@@ -89,7 +99,8 @@ void SubtitleReader::LoadExternalSubtitles(const QString &subtitleFileName,
 {
     m_textSubtitles.Clear();
     m_textSubtitles.SetInProgress(isInProgress);
-    TextSubtitleParser::LoadSubtitles(subtitleFileName, m_textSubtitles, false);
+    if (!subtitleFileName.isEmpty())
+        TextSubtitleParser::LoadSubtitles(subtitleFileName, m_textSubtitles, false);
 }
 
 bool SubtitleReader::HasTextSubtitles(void)
@@ -97,7 +108,7 @@ bool SubtitleReader::HasTextSubtitles(void)
     return m_textSubtitles.GetSubtitleCount() >= 0;
 }
 
-QStringList SubtitleReader::GetRawTextSubtitles(uint64_t &duration)
+QStringList SubtitleReader::GetRawTextSubtitles(std::chrono::milliseconds &duration)
 {
     QMutexLocker lock(&m_rawTextSubtitles.m_lock);
     if (m_rawTextSubtitles.m_buffers.empty())
@@ -109,7 +120,7 @@ QStringList SubtitleReader::GetRawTextSubtitles(uint64_t &duration)
     return result;
 }
 
-void SubtitleReader::AddRawTextSubtitle(const QStringList& list, uint64_t duration)
+void SubtitleReader::AddRawTextSubtitle(const QStringList& list, std::chrono::milliseconds duration)
 {
     if (!m_rawTextSubtitlesEnabled || list.empty())
         return;

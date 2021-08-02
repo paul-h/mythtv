@@ -35,6 +35,27 @@ class MythUISpinBox;
 class MythUITextEdit;
 class MythUIProgressBar;
 
+using FocusInfoType = QMultiMap<int, MythUIType *>;
+
+// For non-class, static class, or lambda function callbacks.
+using MythUICallbackNMF = std::function<void(void)>;
+// For class member function callbacks.
+using MythUICallbackMF  = void (QObject::*)(void);
+using MythUICallbackMFc = void (QObject::*)(void) const;
+
+Q_DECLARE_METATYPE(MythUICallbackNMF)
+Q_DECLARE_METATYPE(MythUICallbackMF)
+Q_DECLARE_METATYPE(MythUICallbackMFc)
+
+// Templates for determining if an argument is a "Pointer to a
+// Member Function"
+template<typename Func> struct FunctionPointerTest
+{ enum {MemberFunction = false, MemberConstFunction = false}; };
+template<class Obj, typename Ret, typename... Args> struct FunctionPointerTest<Ret (Obj::*) (Args...)>
+{ enum {MemberFunction = true, MemberConstFunction = false}; };
+template<class Obj, typename Ret, typename... Args> struct FunctionPointerTest<Ret (Obj::*) (Args...) const>
+{ enum {MemberFunction = false, MemberConstFunction = true}; };
+
 /**
  * \defgroup MythUI MythTV User Interface Library
  *
@@ -71,7 +92,7 @@ class MUI_PUBLIC MythUIType : public QObject, public XMLParseBase
 
     void AddChild(MythUIType *child);
     MythUIType *GetChild(const QString &name) const;
-    MythUIType *GetChildAt(const QPoint &p, bool recursive=true,
+    MythUIType *GetChildAt(QPoint p, bool recursive=true,
                            bool focusable=true) const;
     QList<MythUIType *> *GetAllChildren(void);
 
@@ -112,7 +133,7 @@ class MUI_PUBLIC MythUIType : public QObject, public XMLParseBase
     void SetPosition(QPoint point);
     virtual void SetPosition(const MythPoint &point);
     virtual MythPoint GetPosition(void) const;
-    virtual void SetSize(const QSize &size);
+    virtual void SetSize(QSize size);
     virtual void SetMinSize(const MythPoint &size);
     virtual QSize GetMinSize(void) const;
     virtual void SetArea(const MythRect &rect);
@@ -125,7 +146,7 @@ class MUI_PUBLIC MythUIType : public QObject, public XMLParseBase
     virtual MythRect GetArea(void) const;
     virtual MythRect GetFullArea(void) const;
     virtual void RecalculateArea(bool recurse = true);
-    void ExpandArea(const QRect &rect);
+    void ExpandArea(QRect rect);
 
     virtual QRegion GetDirtyArea(void) const;
 
@@ -162,7 +183,7 @@ class MUI_PUBLIC MythUIType : public QObject, public XMLParseBase
     void SetDeferLoad(bool defer) { m_deferload = defer; }
     virtual void LoadNow(void);
 
-    bool ContainsPoint(const QPoint &point) const;
+    bool ContainsPoint(QPoint point) const;
 
     virtual MythPainter *GetPainter(void);
     void SetPainter(MythPainter *painter) { m_painter = painter; }
@@ -193,10 +214,10 @@ class MUI_PUBLIC MythUIType : public QObject, public XMLParseBase
 
   signals:
     void RequestUpdate();
-    void RequestUpdate(const QRect &);
     void RequestRegionUpdate(const QRect &);
     void TakingFocus();
     void LosingFocus();
+    void VisibilityChanged(bool Visible);
     void Showing();
     void Hiding();
     void Enabling();
@@ -209,7 +230,7 @@ class MUI_PUBLIC MythUIType : public QObject, public XMLParseBase
     virtual void DrawSelf(MythPainter *p, int xoffset, int yoffset,
                           int alphaMod, QRect clipRect);
 
-    void AddFocusableChildrenToList(QMap<int, MythUIType *> &focusList);
+    void AddFocusableChildrenToList(FocusInfoType &focusList);
     void HandleAlphaPulse();
     void HandleMovementPulse();
 
@@ -280,6 +301,7 @@ class MUI_PUBLIC MythUIType : public QObject, public XMLParseBase
 
     QColor       m_borderColor     {Qt::black};
 
+    friend class MythScreenType;
     friend class XMLParseBase;
 };
 

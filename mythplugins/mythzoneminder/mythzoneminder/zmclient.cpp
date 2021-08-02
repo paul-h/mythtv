@@ -28,7 +28,7 @@ ZMClient::ZMClient()
       m_retryTimer(new QTimer(this))
 {
     setObjectName("ZMClient");
-    connect(m_retryTimer, SIGNAL(timeout()),   this, SLOT(restartConnection()));
+    connect(m_retryTimer, &QTimer::timeout,   this, &ZMClient::restartConnection);
 
     gCoreContext->addListener(this);
 }
@@ -202,13 +202,13 @@ bool ZMClient::checkProtoVersion(void)
     {
         LOG(VB_GENERAL, LOG_ERR,
             QString("Protocol version mismatch (plugin=%1, mythzmserver=%2)")
-                .arg(ZM_PROTOCOL_VERSION).arg(strList[1]));
+                .arg(ZM_PROTOCOL_VERSION, strList[1]));
 
         ShowOkPopup(QString("The mythzmserver uses protocol version %1, "
                             "but this client only understands version %2. "
                             "Make sure you are running compatible versions of "
                             "both the server and plugin.")
-                            .arg(strList[1]).arg(ZM_PROTOCOL_VERSION));
+                            .arg(strList[1], ZM_PROTOCOL_VERSION));
         return false;
     }
 
@@ -385,7 +385,7 @@ bool ZMClient::updateAlarmStates(void)
                 // alarm state has changed for this monitor
                 LOG(VB_GENERAL, LOG_DEBUG,
                     QString("ZMClient monitor %1 changed state from %2 to %3")
-                            .arg(mon->name).arg(stateToString(mon->state)).arg(stateToString(state)));
+                            .arg(mon->name, stateToString(mon->state), stateToString(state)));
                 mon->previousState = mon->state;
                 mon->state = state;
                 changed = true;
@@ -398,7 +398,7 @@ bool ZMClient::updateAlarmStates(void)
 
 void ZMClient::getEventList(const QString &monitorName, bool oldestFirst,
                             const QString &date, bool includeContinuous,
-                            vector<Event*> *eventList)
+                            std::vector<Event*> *eventList)
 {
     QMutexLocker locker(&m_commandLock);
 
@@ -497,7 +497,7 @@ void ZMClient::getEventDates(const QString &monitorName, bool oldestFirst,
     }
 }
 
-void ZMClient::getFrameList(int eventID, vector<Frame*> *frameList)
+void ZMClient::getFrameList(int eventID, std::vector<Frame*> *frameList)
 {
     QMutexLocker locker(&m_commandLock);
 
@@ -552,14 +552,14 @@ void ZMClient::deleteEvent(int eventID)
     sendReceiveStringList(strList);
 }
 
-void ZMClient::deleteEventList(vector<Event*> *eventList)
+void ZMClient::deleteEventList(std::vector<Event*> *eventList)
 {
     QMutexLocker locker(&m_commandLock);
 
     // delete events in 100 event chunks
     QStringList strList("DELETE_EVENT_LIST");
     int count = 0;
-    vector<Event*>::iterator it;
+    std::vector<Event*>::iterator it;
     for (it = eventList->begin(); it != eventList->end(); ++it)
     {
         strList << QString::number((*it)->eventID());
@@ -583,14 +583,13 @@ void ZMClient::deleteEventList(vector<Event*> *eventList)
 bool ZMClient::readData(unsigned char *data, int dataSize)
 {
     qint64 read = 0;
-    int errmsgtime = 0;
+    std::chrono::milliseconds errmsgtime { 0ms };
     MythTimer timer;
     timer.start();
 
     while (dataSize > 0)
     {
-        qint64 sret = m_socket->Read(
-            (char*) data + read, dataSize, 100 /*ms*/);
+        qint64 sret = m_socket->Read((char*) data + read, dataSize, 100ms);
         if (sret > 0)
         {
             read += sret;
@@ -615,10 +614,10 @@ bool ZMClient::readData(unsigned char *data, int dataSize)
         }
         else
         {
-            int elapsed = timer.elapsed();
-            if (elapsed  > 10000)
+            std::chrono::milliseconds elapsed = timer.elapsed();
+            if (elapsed  > 10s)
             {
-                if ((elapsed - errmsgtime) > 10000)
+                if ((elapsed - errmsgtime) > 10s)
                 {
                     errmsgtime = elapsed;
                     LOG(VB_GENERAL, LOG_ERR,
@@ -627,7 +626,7 @@ bool ZMClient::readData(unsigned char *data, int dataSize)
                 }
             }
 
-            if (elapsed > 100000)
+            if (elapsed > 100s)
             {
                 LOG(VB_GENERAL, LOG_ERR, "Error, readData timeout (readBlock)");
                 return false;
@@ -677,7 +676,7 @@ void ZMClient::getEventFrame(Event *event, int frameNo, MythImage **image)
     }
 
     // get a MythImage
-    *image = GetMythMainWindow()->GetCurrentPainter()->GetFormatImage();
+    *image = GetMythMainWindow()->GetPainter()->GetFormatImage();
 
     // extract the image data and create a MythImage from it
     if (!(*image)->loadFromData(data, imageSize, "JPEG"))
@@ -736,7 +735,7 @@ void ZMClient::getAnalyseFrame(Event *event, int frameNo, QImage &image)
     delete [] data;
 }
 
-int ZMClient::getLiveFrame(int monitorID, QString &status, unsigned char* buffer, int bufferSize)
+int ZMClient::getLiveFrame(int monitorID, QString &status, FrameData& buffer)
 {
     QMutexLocker locker(&m_commandLock);
 
@@ -771,9 +770,9 @@ int ZMClient::getLiveFrame(int monitorID, QString &status, unsigned char* buffer
     status = strList[2];
 
     // get frame length from data
-    int imageSize = strList[3].toInt();
+    size_t imageSize = strList[3].toInt();
 
-    if (bufferSize < imageSize)
+    if (buffer.size() < imageSize)
     {
         LOG(VB_GENERAL, LOG_ERR,
             "ZMClient::getLiveFrame(): Live frame buffer is too small!");
@@ -784,7 +783,7 @@ int ZMClient::getLiveFrame(int monitorID, QString &status, unsigned char* buffer
     if (imageSize == 0)
         return 0;
 
-    if (!readData(buffer, imageSize))
+    if (!readData(buffer.data(), imageSize))
     {
         LOG(VB_GENERAL, LOG_ERR,
             "ZMClient::getLiveFrame(): Failed to get image data");

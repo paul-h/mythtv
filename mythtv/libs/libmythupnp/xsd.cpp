@@ -40,6 +40,7 @@ bool Xsd::GetEnumXSD( HTTPRequest *pRequest, const QString& sEnumName )
     // ----------------------------------------------------------------------
 
     QString sParentFQN = lstTypeParts[0];
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     int nParentId = QMetaType::type( sParentFQN.toUtf8() );
 
     // ----------------------------------------------------------------------
@@ -63,6 +64,17 @@ bool Xsd::GetEnumXSD( HTTPRequest *pRequest, const QString& sEnumName )
     }
 
     const QMetaObject *pMetaObject = QMetaType::metaObjectForType(nParentId);
+#else
+    QMetaType metaType = QMetaType::fromName( sParentFQN.toUtf8() );
+    if (metaType.id() == QMetaType::UnknownType)
+        metaType = QMetaType::fromName( sParentFQN.toUtf8() + "*" );
+    if (metaType.id() == QMetaType::UnknownType)
+        metaType = QMetaType::fromName( "DTC::" + sParentFQN.toUtf8() + "*" );
+    if (metaType.id() == QMetaType::UnknownType)
+        return false;
+    const QMetaObject *pMetaObject = metaType.metaObject();
+#endif
+
     if (pMetaObject == nullptr)
         return false;
 
@@ -216,6 +228,7 @@ bool Xsd::GetXSD( HTTPRequest *pRequest, QString sTypeName )
     // Check to see if one of the Qt Types we need to handle special
     // ----------------------------------------------------------------------
 
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     int id = QMetaType::type( sTypeName.toUtf8() );
 
     // ----------------------------------------------------------------------
@@ -237,6 +250,16 @@ bool Xsd::GetXSD( HTTPRequest *pRequest, QString sTypeName )
         QString sFQN = "DTC::" + sTypeName + "*";
         id = QMetaType::type( sFQN.toUtf8() );
     }
+#else
+    QMetaType metaType = QMetaType::fromName( sTypeName.toUtf8() );
+    if (metaType.id() == QMetaType::UnknownType)
+        metaType = QMetaType::fromName( sTypeName.toUtf8() + "*" );
+    if (metaType.id() == QMetaType::UnknownType)
+        metaType = QMetaType::fromName( "DTC::" + sTypeName.toUtf8() + "*" );
+    if (metaType.id() == QMetaType::UnknownType)
+        return false;
+    int id = metaType.id();
+#endif
 
     // ----------------------------------------------------------------------
     //
@@ -273,7 +296,11 @@ bool Xsd::GetXSD( HTTPRequest *pRequest, QString sTypeName )
     }
     else
     {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
         const QMetaObject *pMetaObject = QMetaType::metaObjectForType(id);
+#else
+        const QMetaObject *pMetaObject = metaType.metaObject();
+#endif
         if (pMetaObject)
         {
             QObject* pClass = pMetaObject->newInstance();
@@ -347,7 +374,7 @@ bool Xsd::RenderXSD( HTTPRequest *pRequest, QObject *pClass )
     {
         QMetaProperty metaProperty = pMetaObject->property( nIdx );
 
-        if (metaProperty.isDesignable( pClass ))
+        if (metaProperty.isDesignable())
         {
             const char *pszPropName = metaProperty.name();
             QString     sPropName( pszPropName );
@@ -477,7 +504,7 @@ bool Xsd::RenderXSD( HTTPRequest *pRequest, QObject *pClass )
         //    <xs:include schemaLocation="<path to dependant schema"/>
         // ------------------------------------------------------------------
 
-        QString sBaseUri = "http://" + pRequest->m_mapHeaders[ "host" ] + 
+        QString sBaseUri = "http://" + pRequest->GetLastHeader( "host" ) +
                                        pRequest->m_sResourceUrl;
 
         QMap<QString, TypeInfo >::const_iterator it = typesToInclude.constBegin();
@@ -490,9 +517,9 @@ bool Xsd::RenderXSD( HTTPRequest *pRequest, QObject *pClass )
 
             TypeInfo info = it.value();
 
-            QString sValue = QString( "%1?%2=%3" ).arg( sBaseUri       )
-                                                  .arg( info.sAttrName )
-                                                  .arg( sType          );
+            QString sValue = QString( "%1?%2=%3" ).arg( sBaseUri,
+                                                        info.sAttrName,
+                                                        sType );
 
             if (!info.sContentType.isEmpty())
                 sValue += "&name=" + info.sContentType;
@@ -602,7 +629,7 @@ bool Xsd::RenderArrayXSD( HTTPRequest   *pRequest,
     {
         QDomElement oIncNode = createElement( "xs:include" );
 
-        QString sBaseUri = "http://" + pRequest->m_mapHeaders[ "host" ] + 
+        QString sBaseUri = "http://" + pRequest->GetLastHeader( "host" ) +
                                        pRequest->m_sResourceUrl + "?type=";
 
         oIncNode.setAttribute( "schemaLocation", sBaseUri + sClassName );
@@ -772,7 +799,7 @@ bool Xsd::RenderMapXSD( HTTPRequest   *pRequest,
     {
         QDomElement oIncNode = createElement( "xs:include" );
 
-        QString sBaseUri = "http://" + pRequest->m_mapHeaders[ "host" ] + pRequest->m_sResourceUrl + "?type=";
+        QString sBaseUri = "http://" + pRequest->GetLastHeader( "host" ) + pRequest->m_sResourceUrl + "?type=";
 
         oIncNode.setAttribute( "schemaLocation", sBaseUri + sClassName );
 
@@ -904,10 +931,10 @@ QString Xsd::ReadPropertyMetadata( QObject *pObject, const QString& sPropName, c
 
         QString     sFullKey  = sKey + "=";
 
-        for (int nIdx2 = 0; nIdx2 < sOptions.size(); ++nIdx2)
+        for (const QString& option : qAsConst(sOptions))
         {
-            if (sOptions.at( nIdx2 ).startsWith( sFullKey ))
-                return sOptions.at( nIdx2 ).mid( sFullKey.length() );
+            if (option.startsWith( sFullKey ))
+                return option.mid( sFullKey.length() );
         }
     }
 

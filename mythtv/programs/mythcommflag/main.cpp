@@ -7,7 +7,6 @@
 
 // POSIX headers
 #include <unistd.h>
-#include <sys/time.h> // for gettimeofday
 
 // ANSI C headers
 #include <cstdlib>
@@ -19,12 +18,10 @@
 #include <string>
 #include <iostream>
 #include <fstream>
-using namespace std;
 
 // Qt headers
 #include <QCoreApplication>
 #include <QString>
-#include <QRegExp>
 #include <QDir>
 #include <QEvent>
 
@@ -147,7 +144,7 @@ static int QueueCommFlagJob(uint chanid, const QDateTime& starttime, bool rebuil
             QString tmp = QString(
                 "Unable to find program info for chanid %1 @ %2")
                 .arg(chanid).arg(startstring);
-            cerr << tmp.toLocal8Bit().constData() << endl;
+            std::cerr << tmp.toLocal8Bit().constData() << std::endl;
         }
         return GENERIC_EXIT_NO_RECORDING_DATA;
     }
@@ -156,7 +153,7 @@ static int QueueCommFlagJob(uint chanid, const QDateTime& starttime, bool rebuil
     {
         QString tmp = QString("Job have been queued for chanid %1 @ %2")
                         .arg(chanid).arg(startstring);
-        cerr << tmp.toLocal8Bit().constData() << endl;
+        std::cerr << tmp.toLocal8Bit().constData() << std::endl;
         return GENERIC_EXIT_OK;
     }
 
@@ -170,7 +167,7 @@ static int QueueCommFlagJob(uint chanid, const QDateTime& starttime, bool rebuil
         {
             QString tmp = QString("Job Queued for chanid %1 @ %2")
                 .arg(chanid).arg(startstring);
-            cerr << tmp.toLocal8Bit().constData() << endl;
+            std::cerr << tmp.toLocal8Bit().constData() << std::endl;
         }
         return GENERIC_EXIT_OK;
     }
@@ -179,7 +176,7 @@ static int QueueCommFlagJob(uint chanid, const QDateTime& starttime, bool rebuil
     {
         QString tmp = QString("Error queueing job for chanid %1 @ %2")
             .arg(chanid).arg(startstring);
-        cerr << tmp.toLocal8Bit().constData() << endl;
+        std::cerr << tmp.toLocal8Bit().constData() << std::endl;
     }
     return GENERIC_EXIT_DB_ERROR;
 }
@@ -201,7 +198,7 @@ static int CopySkipListToCutList(uint chanid, const QDateTime& starttime)
     }
 
     pginfo.QueryCommBreakList(cutlist);
-    for (it = cutlist.begin(); it != cutlist.end(); ++it)
+    for (it = cutlist.cbegin(); it != cutlist.cend(); ++it)
     {
         if (*it == MARK_COMM_START)
             cutlist[it.key()] = MARK_CUT_START;
@@ -238,7 +235,7 @@ static int SetCutList(uint chanid, const QDateTime& starttime, QString newCutLis
 {
     frm_dir_map_t cutlist;
 
-    newCutList.replace(QRegExp(" "), "");
+    newCutList.remove(" ");
 
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QStringList tokens = newCutList.split(",", QString::SkipEmptyParts);
@@ -246,12 +243,12 @@ static int SetCutList(uint chanid, const QDateTime& starttime, QString newCutLis
     QStringList tokens = newCutList.split(",", Qt::SkipEmptyParts);
 #endif
 
-    for (int i = 0; i < tokens.size(); i++)
+    for (const QString& token : qAsConst(tokens))
     {
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
-        QStringList cutpair = tokens[i].split("-", QString::SkipEmptyParts);
+        QStringList cutpair = token.split("-", QString::SkipEmptyParts);
 #else
-        QStringList cutpair = tokens[i].split("-", Qt::SkipEmptyParts);
+        QStringList cutpair = token.split("-", Qt::SkipEmptyParts);
 #endif
         cutlist[cutpair[0].toInt()] = MARK_CUT_START;
         cutlist[cutpair[1].toInt()] = MARK_CUT_END;
@@ -298,7 +295,7 @@ static int GetMarkupList(const QString& list, uint chanid, const QDateTime& star
         pginfo.QueryCommBreakList(cutlist);
 
     uint64_t lastStart = 0;
-    for (it = cutlist.begin(); it != cutlist.end(); ++it)
+    for (it = cutlist.cbegin(); it != cutlist.cend(); ++it)
     {
         if ((*it == MARK_COMM_START) ||
             (*it == MARK_CUT_START))
@@ -324,10 +321,10 @@ static int GetMarkupList(const QString& list, uint chanid, const QDateTime& star
     }
 
     if (list == "cutlist")
-        cout << QString("Cutlist: %1\n").arg(result).toLocal8Bit().constData();
+        std::cout << QString("Cutlist: %1\n").arg(result).toLocal8Bit().constData();
     else
     {
-        cout << QString("Commercial Skip List: %1\n")
+        std::cout << QString("Commercial Skip List: %1\n")
             .arg(result).toLocal8Bit().constData();
     }
 
@@ -335,15 +332,15 @@ static int GetMarkupList(const QString& list, uint chanid, const QDateTime& star
 }
 
 static void streamOutCommercialBreakList(
-    ostream &output, const frm_dir_map_t &commercialBreakList)
+    std::ostream &output, const frm_dir_map_t &commercialBreakList)
 {
     if (progress)
-        output << "----------------------------" << endl;
+        output << "----------------------------" << std::endl;
 
     if (commercialBreakList.empty())
     {
         if (progress)
-            output << "No breaks" << endl;
+            output << "No breaks" << std::endl;
     }
     else
     {
@@ -351,12 +348,12 @@ static void streamOutCommercialBreakList(
         for (; it != commercialBreakList.end(); ++it)
         {
             output << "framenum: " << it.key() << "\tmarktype: " << *it
-                   << endl;
+                   << std::endl;
         }
     }
 
     if (progress)
-        output << "----------------------------" << endl;
+        output << "----------------------------" << std::endl;
 }
 
 static void print_comm_flag_output(
@@ -369,11 +366,11 @@ static void print_comm_flag_output(
     if (output_filename.isEmpty())
         return;
 
-    ostream *out = &cout;
+    std::ostream *out = &std::cout;
     if (output_filename != "-")
     {
         QByteArray tmp = output_filename.toLocal8Bit();
-        out = new fstream(tmp.constData(), ios::app | ios::out );
+        out = new std::fstream(tmp.constData(), std::ios::app | std::ios::out );
     }
 
     if (progress)
@@ -393,10 +390,10 @@ static void print_comm_flag_output(
         }
 
         const QByteArray tmp2 = tmp.toLocal8Bit();
-        *out << tmp2.constData() << endl;
+        *out << tmp2.constData() << std::endl;
 
         if (frame_count)
-            *out << "totalframecount: " << frame_count << endl;
+            *out << "totalframecount: " << frame_count << std::endl;
     }
 
     if (commDetect)
@@ -404,7 +401,7 @@ static void print_comm_flag_output(
     else
         streamOutCommercialBreakList(*out, commBreakList);
 
-    if (out != &cout)
+    if (out != &std::cout)
         delete out;
 }
 
@@ -461,11 +458,10 @@ static void commDetectorGotNewCommercialBreakList(void)
     frm_dir_map_t newCommercialMap;
     commDetector->GetCommercialBreakList(newCommercialMap);
 
-    frm_dir_map_t::Iterator it = newCommercialMap.begin();
     QString message = "COMMFLAG_UPDATE ";
     message += global_program_info->MakeUniqueKey();
 
-    for (it = newCommercialMap.begin();
+    for (auto it = newCommercialMap.begin();
             it != newCommercialMap.end(); ++it)
     {
         if (it != newCommercialMap.begin())
@@ -568,12 +564,12 @@ static int DoFlagCommercials(
     auto *a = new SlotRelayer(commDetectorBreathe);
     auto *b = new SlotRelayer(commDetectorStatusUpdate);
     auto *c = new SlotRelayer(commDetectorGotNewCommercialBreakList);
-    QObject::connect(commDetector, SIGNAL(breathe()),
-                     a,            SLOT(relay()));
-    QObject::connect(commDetector, SIGNAL(statusUpdate(const QString&)),
-                     b,            SLOT(relay(const QString&)));
-    QObject::connect(commDetector, SIGNAL(gotNewCommercialBreakList()),
-                     c,            SLOT(relay()));
+    QObject::connect(commDetector, &CommDetectorBase::breathe,
+                     a,            qOverload<>(&SlotRelayer::relay));
+    QObject::connect(commDetector, &CommDetectorBase::statusUpdate,
+                     b,            qOverload<const QString&>(&SlotRelayer::relay));
+    QObject::connect(commDetector, &CommDetectorBase::gotNewCommercialBreakList,
+                     c,            qOverload<>(&SlotRelayer::relay));
 
     if (useDB)
     {
@@ -633,7 +629,7 @@ static qint64 GetFileSize(ProgramInfo *program_info)
 
     if (filename.startsWith("myth://"))
     {
-        RemoteFile remotefile(filename, false, false, 0);
+        RemoteFile remotefile(filename, false, false, 0s);
         size = remotefile.GetFileSize();
     }
     else
@@ -722,8 +718,9 @@ static bool IsMarked(uint chanid, const QDateTime& starttime)
 
             LOG(VB_COMMFLAG, LOG_INFO,
                 QString("Status for chanid %1 @ %2 is '%3'")
-                    .arg(chanid).arg(starttime.toString(Qt::ISODate))
-                    .arg(flagStatusStr));
+                    .arg(QString::number(chanid),
+                         starttime.toString(Qt::ISODate),
+                         flagStatusStr));
 
             if ((flagStatus == COMM_FLAG_NOT_FLAGGED) && (marksFound == 0))
                 return false;
@@ -772,9 +769,9 @@ static int FlagCommercials(ProgramInfo *program_info, int jobid,
 
                 if (!skipTypes->contains(val))
                 {
-                    cerr << "Failed to decode --method option '"
+                    std::cerr << "Failed to decode --method option '"
                          << val.toLatin1().constData()
-                         << "'" << endl;
+                         << "'" << std::endl;
                     return GENERIC_EXIT_INVALID_CMDLINE;
                 }
 
@@ -842,7 +839,6 @@ static int FlagCommercials(ProgramInfo *program_info, int jobid,
     if (commDetectMethod == COMM_DETECT_OFF)
         return GENERIC_EXIT_OK;
 
-    frm_dir_map_t blanks;
     recorder = nullptr;
 
 /*
@@ -909,12 +905,11 @@ static int FlagCommercials(ProgramInfo *program_info, int jobid,
         flags = static_cast<PlayerFlags>(flags | kDecodeFewBlocks);
     }
 
-    auto *cfp = new MythCommFlagPlayer(flags);
     auto *ctx = new PlayerContext(kFlaggerInUseID);
+    auto *cfp = new MythCommFlagPlayer(ctx, flags);
     ctx->SetPlayingInfo(program_info);
     ctx->SetRingBuffer(tmprbuf);
     ctx->SetPlayer(cfp);
-    cfp->SetPlayerInfo(nullptr, nullptr, ctx);
 
     if (useDB)
     {
@@ -954,7 +949,7 @@ static int FlagCommercials(ProgramInfo *program_info, int jobid,
         cfp, commDetectMethod, outputfilename, useDB);
 
     if (progress)
-        cerr << breaksFound << "\n";
+        std::cerr << breaksFound << "\n";
 
     LOG(VB_GENERAL, LOG_NOTICE, QString("Finished, %1 break(s) found.")
         .arg(breaksFound));
@@ -984,9 +979,9 @@ static int FlagCommercials( uint chanid, const QDateTime &starttime,
     {
         if (progress)
         {
-            cerr << "IN USE\n";
-            cerr << "                        "
-                    "(the program is already being flagged elsewhere)\n";
+            std::cerr << "IN USE\n";
+            std::cerr << "                        "
+                         "(the program is already being flagged elsewhere)\n";
         }
         LOG(VB_GENERAL, LOG_ERR, "Program is already being flagged elsewhere");
         return GENERIC_EXIT_IN_USE;
@@ -995,12 +990,12 @@ static int FlagCommercials( uint chanid, const QDateTime &starttime,
 
     if (progress)
     {
-        cerr << "MythTV Commercial Flagger, flagging commercials for:" << endl;
+        std::cerr << "MythTV Commercial Flagger, flagging commercials for:" << std::endl;
         if (pginfo.GetSubtitle().isEmpty())
-            cerr << "    " << pginfo.GetTitle().toLocal8Bit().constData() << endl;
+            std::cerr << "    " << pginfo.GetTitle().toLocal8Bit().constData() << std::endl;
         else
-            cerr << "    " << pginfo.GetTitle().toLocal8Bit().constData() << " - "
-                 << pginfo.GetSubtitle().toLocal8Bit().constData() << endl;
+            std::cerr << "    " << pginfo.GetTitle().toLocal8Bit().constData() << " - "
+                      << pginfo.GetSubtitle().toLocal8Bit().constData() << std::endl;
     }
 
     return FlagCommercials(&pginfo, jobid, outputfilename, true, fullSpeed);
@@ -1013,8 +1008,8 @@ static int FlagCommercials(const QString& filename, int jobid,
 
     if (progress)
     {
-        cerr << "MythTV Commercial Flagger, flagging commercials for:" << endl
-             << "    " << filename.toLatin1().constData() << endl;
+        std::cerr << "MythTV Commercial Flagger, flagging commercials for:" << std::endl
+                  << "    " << filename.toLatin1().constData() << std::endl;
     }
 
     ProgramInfo pginfo(filename);
@@ -1032,7 +1027,7 @@ static int RebuildSeekTable(ProgramInfo *pginfo, int jobid, bool writefile = fal
         // and try again
 
         filename = QString("myth://Videos@%1/%2")
-                            .arg(gCoreContext->GetHostName()).arg(filename);
+                            .arg(gCoreContext->GetHostName(), filename);
         pginfo->SetPathname(filename);
         if (!DoesFileExist(pginfo))
         {
@@ -1055,18 +1050,18 @@ static int RebuildSeekTable(ProgramInfo *pginfo, int jobid, bool writefile = fal
         return GENERIC_EXIT_PERMISSIONS_ERROR;
     }
 
-    auto *cfp = new MythCommFlagPlayer((PlayerFlags)(kAudioMuted | kVideoIsNull |
-                                                     kDecodeNoDecode | kNoITV));
     auto *ctx = new PlayerContext(kFlaggerInUseID);
+    auto *cfp = new MythCommFlagPlayer(ctx, (PlayerFlags)(kAudioMuted | kVideoIsNull |
+                                                     kDecodeNoDecode | kNoITV));
+
     ctx->SetPlayingInfo(pginfo);
     ctx->SetRingBuffer(tmprbuf);
     ctx->SetPlayer(cfp);
-    cfp->SetPlayerInfo(nullptr, nullptr, ctx);
 
     if (progress)
     {
         QString time = QDateTime::currentDateTime().toString(Qt::TextDate);
-        cerr << "Rebuild started at " << qPrintable(time) << endl;
+        std::cerr << "Rebuild started at " << qPrintable(time) << std::endl;
     }
 
     if (writefile)
@@ -1078,7 +1073,7 @@ static int RebuildSeekTable(ProgramInfo *pginfo, int jobid, bool writefile = fal
     if (progress)
     {
         QString time = QDateTime::currentDateTime().toString(Qt::TextDate);
-        cerr << "Rebuild completed at " << qPrintable(time) << endl;
+        std::cerr << "Rebuild completed at " << qPrintable(time) << std::endl;
     }
 
     delete ctx;
@@ -1090,8 +1085,8 @@ static int RebuildSeekTable(const QString& filename, int jobid, bool writefile =
 {
     if (progress)
     {
-        cerr << "MythTV Commercial Flagger, building seek table for:" << endl
-             << "    " << filename.toLatin1().constData() << endl;
+        std::cerr << "MythTV Commercial Flagger, building seek table for:" << std::endl
+                  << "    " << filename.toLatin1().constData() << std::endl;
     }
     ProgramInfo pginfo(filename);
     return RebuildSeekTable(&pginfo, jobid, writefile);
@@ -1102,12 +1097,12 @@ static int RebuildSeekTable(uint chanid, const QDateTime& starttime, int jobid, 
     ProgramInfo pginfo(chanid, starttime);
     if (progress)
     {
-        cerr << "MythTV Commercial Flagger, building seek table for:" << endl;
+        std::cerr << "MythTV Commercial Flagger, building seek table for:" << std::endl;
         if (pginfo.GetSubtitle().isEmpty())
-            cerr << "    " << pginfo.GetTitle().toLocal8Bit().constData() << endl;
+            std::cerr << "    " << pginfo.GetTitle().toLocal8Bit().constData() << std::endl;
         else
-            cerr << "    " << pginfo.GetTitle().toLocal8Bit().constData() << " - "
-                 << pginfo.GetSubtitle().toLocal8Bit().constData() << endl;
+            std::cerr << "    " << pginfo.GetTitle().toLocal8Bit().constData() << " - "
+                 << pginfo.GetSubtitle().toLocal8Bit().constData() << std::endl;
     }
     return RebuildSeekTable(&pginfo, jobid, writefile);
 }
@@ -1216,8 +1211,8 @@ int main(int argc, char *argv[])
 
         if (!JobQueue::GetJobInfoFromID(jobID, jobType, chanid, starttime))
         {
-            cerr << "mythcommflag: ERROR: Unable to find DB info for "
-                 << "JobQueue ID# " << jobID << endl;
+            std::cerr << "mythcommflag: ERROR: Unable to find DB info for "
+                      << "JobQueue ID# " << jobID << std::endl;
             return GENERIC_EXIT_NO_RECORDING_DATA;
         }
         force = true;
@@ -1265,9 +1260,9 @@ int main(int argc, char *argv[])
         {
             if (cmdline.toBool("rebuild"))
             {
-                cerr << "The --rebuild parameter builds the seektable for "
-                        "internal MythTV use only. It cannot be used in "
-                        "combination with --skipdb." << endl;
+                std::cerr << "The --rebuild parameter builds the seektable for "
+                             "internal MythTV use only. It cannot be used in "
+                             "combination with --skipdb." << std::endl;
                 return GENERIC_EXIT_INVALID_CMDLINE;
             }
 

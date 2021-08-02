@@ -3,7 +3,6 @@
 
 // C++ includes
 #include <iostream>
-using namespace std;
 
 // Qt includes
 #include <QApplication>
@@ -118,41 +117,41 @@ bool MusicCommon::CreateCommon(void)
     UIUtilW::Assign(this, m_visualizerVideo, "visualizer", &err);
 
     if (m_prevButton)
-        connect(m_prevButton, SIGNAL(Clicked()), this, SLOT(previous()));
+        connect(m_prevButton, &MythUIButton::Clicked, this, &MusicCommon::previous);
 
     if (m_rewButton)
-        connect(m_rewButton, SIGNAL(Clicked()), this, SLOT(seekback()));
+        connect(m_rewButton, &MythUIButton::Clicked, this, &MusicCommon::seekback);
 
     if (m_pauseButton)
     {
         m_pauseButton->SetLockable(true);
-        connect(m_pauseButton, SIGNAL(Clicked()), this, SLOT(pause()));
+        connect(m_pauseButton, &MythUIButton::Clicked, this, &MusicCommon::pause);
     }
 
     if (m_playButton)
     {
         m_playButton->SetLockable(true);
-        connect(m_playButton, SIGNAL(Clicked()), this, SLOT(play()));
+        connect(m_playButton, &MythUIButton::Clicked, this, &MusicCommon::play);
     }
 
     if (m_stopButton)
     {
         m_stopButton->SetLockable(true);
-        connect(m_stopButton, SIGNAL(Clicked()), this, SLOT(stop()));
+        connect(m_stopButton, &MythUIButton::Clicked, this, &MusicCommon::stop);
     }
 
     if (m_ffButton)
-        connect(m_ffButton, SIGNAL(Clicked()), this, SLOT(seekforward()));
+        connect(m_ffButton, &MythUIButton::Clicked, this, &MusicCommon::seekforward);
 
     if (m_nextButton)
-        connect(m_nextButton, SIGNAL(Clicked()), this, SLOT(next()));
+        connect(m_nextButton, &MythUIButton::Clicked, this, &MusicCommon::next);
 
     if (m_currentPlaylist)
     {
-        connect(m_currentPlaylist, SIGNAL(itemClicked(MythUIButtonListItem*)),
-                this, SLOT(playlistItemClicked(MythUIButtonListItem*)));
-        connect(m_currentPlaylist, SIGNAL(itemVisible(MythUIButtonListItem*)),
-                this, SLOT(playlistItemVisible(MythUIButtonListItem*)));
+        connect(m_currentPlaylist, &MythUIButtonList::itemClicked,
+                this, &MusicCommon::playlistItemClicked);
+        connect(m_currentPlaylist, &MythUIButtonList::itemVisible,
+                this, &MusicCommon::playlistItemVisible);
 
         m_currentPlaylist->SetSearchFields("**search**");
     }
@@ -275,7 +274,7 @@ void MusicCommon::init(bool startPlayback)
 
     if (m_playlistProgress)
     {
-        m_playlistProgress->SetTotal(m_playlistMaxTime);
+        m_playlistProgress->SetTotal(m_playlistMaxTime.count());
         m_playlistProgress->SetUsed(0);
     }
 
@@ -453,7 +452,7 @@ void MusicCommon::switchView(MusicView view)
             if (plview->Create())
             {
                 mainStack->AddScreen(plview);
-                connect(plview, SIGNAL(Exiting()), this, SLOT(viewExited()));
+                connect(plview, &MythScreenType::Exiting, this, &MusicCommon::viewExited);
             }
             else
                 delete plview;
@@ -466,7 +465,7 @@ void MusicCommon::switchView(MusicView view)
             // if we are switching playlist editor views save and restore
             // the current position in the tree
             bool restorePos = (m_currentView == MV_PLAYLISTEDITORGALLERY);
-            auto *oldView = dynamic_cast<PlaylistEditorView *>(this);
+            auto *oldView = qobject_cast<PlaylistEditorView *>(this);
             if (oldView)
                 oldView->saveTreePosition();
 
@@ -477,14 +476,14 @@ void MusicCommon::switchView(MusicView view)
             if (pleview->Create())
             {
                 mainStack->AddScreen(pleview);
-                connect(pleview, SIGNAL(Exiting()), this, SLOT(viewExited()));
+                connect(pleview, &MythScreenType::Exiting, this, &MusicCommon::viewExited);
             }
             else
                 delete pleview;
 
             if (oldView)
             {
-                disconnect(this , SIGNAL(Exiting()));
+                disconnect(this, &MythScreenType::Exiting, nullptr, nullptr);
                 Close();
             }
 
@@ -496,7 +495,7 @@ void MusicCommon::switchView(MusicView view)
             // if we are switching playlist editor views save and restore
             // the current position in the tree
             bool restorePos = (m_currentView == MV_PLAYLISTEDITORTREE);
-            auto *oldView = dynamic_cast<PlaylistEditorView *>(this);
+            auto *oldView = qobject_cast<PlaylistEditorView *>(this);
             if (oldView)
                 oldView->saveTreePosition();
 
@@ -507,14 +506,14 @@ void MusicCommon::switchView(MusicView view)
             if (pleview->Create())
             {
                 mainStack->AddScreen(pleview);
-                connect(pleview, SIGNAL(Exiting()), this, SLOT(viewExited()));
+                connect(pleview, &MythScreenType::Exiting, this, &MusicCommon::viewExited);
             }
             else
                 delete pleview;
 
             if (oldView)
             {
-                disconnect(this , SIGNAL(Exiting()));
+                disconnect(this, &MythScreenType::Exiting, nullptr, nullptr);
                 Close();
             }
 
@@ -528,7 +527,7 @@ void MusicCommon::switchView(MusicView view)
             if (sview->Create())
             {
                 mainStack->AddScreen(sview);
-                connect(sview, SIGNAL(Exiting()), this, SLOT(viewExited()));
+                connect(sview, &MythScreenType::Exiting, this, &MusicCommon::viewExited);
             }
             else
                 delete sview;
@@ -543,7 +542,7 @@ void MusicCommon::switchView(MusicView view)
             if (vview->Create())
             {
                 mainStack->AddScreen(vview);
-                connect(vview, SIGNAL(Exiting()), this, SLOT(viewExited()));
+                connect(vview, &MythScreenType::Exiting, this, &MusicCommon::viewExited);
             }
             else
                 delete vview;
@@ -558,7 +557,7 @@ void MusicCommon::switchView(MusicView view)
             if (lview->Create())
             {
                 mainStack->AddScreen(lview);
-                connect(lview, SIGNAL(Exiting()), this, SLOT(viewExited()));
+                connect(lview, &MythScreenType::Exiting, this, &MusicCommon::viewExited);
             }
             else
                 delete lview;
@@ -748,7 +747,7 @@ bool MusicCommon::keyPressEvent(QKeyEvent *e)
                 m_stopButton->Push();
             else
                 stop();
-            m_currentTime = 0;
+            m_currentTime = 0s;
         }
         else if (action == "CYCLEVIS")
             cycleVisualizer();
@@ -940,8 +939,8 @@ void MusicCommon::updateProgressBar()
     {
         // show the track played time
         int percentplayed = 1;
-        if (m_maxTime)
-            percentplayed = (int)(((double)m_currentTime / (double)m_maxTime) * 100);
+        if (m_maxTime > 0s)
+            percentplayed = m_currentTime * 100 / m_maxTime;
         m_trackProgress->SetTotal(100);
         m_trackProgress->SetUsed(percentplayed);
     }
@@ -1072,7 +1071,7 @@ void MusicCommon::stop(void)
 {
     gPlayer->stop();
 
-    QString time_string = getTimeString(m_maxTime, 0);
+    QString time_string = getTimeString(m_maxTime, 0s);
 
     if (m_timeText)
         m_timeText->SetText(time_string);
@@ -1099,28 +1098,27 @@ void MusicCommon::previous()
 
 void MusicCommon::seekforward()
 {
-    int nextTime = m_currentTime + 5;
-    if (nextTime > m_maxTime)
-        nextTime = m_maxTime;
+    std::chrono::seconds nextTime = m_currentTime + 5s;
+    nextTime = std::clamp(nextTime, 0s, m_maxTime);
     seek(nextTime);
 }
 
 void MusicCommon::seekback()
 {
-    int nextTime = m_currentTime - 5;
-    if (nextTime < 0)
-        nextTime = 0;
+    std::chrono::seconds nextTime = m_currentTime - 5s;
+    nextTime = std::clamp(nextTime, 0s, m_maxTime);
     seek(nextTime);
 }
 
-void MusicCommon::seek(int pos)
+void MusicCommon::seek(std::chrono::seconds pos)
 {
     if (gPlayer->getOutput())
     {
-        if (gPlayer->getDecoder() && gPlayer->getDecoder()->isRunning())
+        Decoder *decoder = gPlayer->getDecoder();
+        if (decoder && decoder->isRunning())
         {
-            gPlayer->getDecoder()->lock();
-            gPlayer->getDecoder()->seek(pos);
+            decoder->lock();
+            decoder->seek(pos.count());
 
             if (m_mainvisual)
             {
@@ -1129,10 +1127,10 @@ void MusicCommon::seek(int pos)
                 m_mainvisual->mutex()->unlock();
             }
 
-            gPlayer->getDecoder()->unlock();
+            decoder->unlock();
         }
 
-        gPlayer->getOutput()->SetTimecode(pos*1000);
+        gPlayer->getOutput()->SetTimecode(pos);
 
         if (!gPlayer->isPlaying())
         {
@@ -1144,8 +1142,8 @@ void MusicCommon::seek(int pos)
 
             if (LCD *lcd = LCD::Get())
             {
-                float percent_heard = m_maxTime <= 0 ? 0.0F : ((float)pos /
-                                      (float)m_maxTime);
+                float percent_heard = m_maxTime <= 0s ? 0.0F : ((float)pos.count() /
+                                      (float)m_maxTime.count());
 
                 QString lcd_time_string = getTimeString(pos, m_maxTime);
 
@@ -1255,15 +1253,15 @@ void MusicCommon::customEvent(QEvent *event)
         if (!oe)
             return;
 
-        int rs = 0;
+        std::chrono::seconds rs = 0s;
         MusicMetadata *curMeta = gPlayer->getCurrentMetadata();
 
         if (gPlayer->getPlayMode() == MusicPlayer::PLAYMODE_RADIO)
         {
             if (curMeta)
-                m_currentTime = rs = curMeta->Length() / 1000;
+                m_currentTime = rs = duration_cast<std::chrono::seconds>(curMeta->Length());
             else
-                m_currentTime = 0;
+                m_currentTime = 0s;
         }
         else
             m_currentTime = rs = oe->elapsedSeconds();
@@ -1276,8 +1274,8 @@ void MusicCommon::customEvent(QEvent *event)
         {
             if (LCD *lcd = LCD::Get())
             {
-                float percent_heard = m_maxTime <= 0 ?
-                    0.0F:((float)rs / (float)curMeta->Length()) * 1000.0F;
+                float percent_heard = m_maxTime <= 0s ?
+                    0.0F:((float)rs.count() / (float)curMeta->Length().count()) * 1000.0F;
 
                 QString lcd_time_string = time_string;
 
@@ -1604,7 +1602,7 @@ void MusicCommon::customEvent(QEvent *event)
                                                      m_currentTrack, &m_playlistPlayedTime);
         if (m_playlistProgress)
         {
-            m_playlistProgress->SetTotal(m_playlistMaxTime);
+            m_playlistProgress->SetTotal(m_playlistMaxTime.count());
             m_playlistProgress->SetUsed(0);
         }
 
@@ -1911,9 +1909,9 @@ void MusicCommon::updateTrackInfo(MusicMetadata *mdata)
     }
 
     if (gPlayer->getPlayMode() == MusicPlayer::PLAYMODE_RADIO)
-        m_maxTime = 0;
+        m_maxTime = 0s;
     else
-        m_maxTime = mdata->Length() / 1000;
+        m_maxTime = duration_cast<std::chrono::seconds>(mdata->Length());
 
     // get map for current track
     InfoMap metadataMap;
@@ -2109,13 +2107,12 @@ void MusicCommon::updatePlaylistStats(void)
         QString playlistcurrent = QLocale::system().toString(m_currentTrack + 1);
         QString playlisttotal = QLocale::system().toString(trackCount);
 
-        map["playlistposition"] = tr("%1 of %2").arg(playlistcurrent)
-                                                .arg(playlisttotal);
+        map["playlistposition"] = tr("%1 of %2").arg(playlistcurrent, playlisttotal);
         map["playlistcurrent"] = playlistcurrent;
         map["playlistcount"] = playlisttotal;
         map["playlisttime"] = getTimeString(m_playlistPlayedTime + m_currentTime, m_playlistMaxTime);
-        map["playlistplayedtime"] = getTimeString(m_playlistPlayedTime + m_currentTime, 0);
-        map["playlisttotaltime"] = getTimeString(m_playlistMaxTime, 0);
+        map["playlistplayedtime"] = getTimeString(m_playlistPlayedTime + m_currentTime, 0s);
+        map["playlisttotaltime"] = getTimeString(m_playlistMaxTime, 0s);
         QString playlistName = gPlayer->getCurrentPlaylist() ? gPlayer->getCurrentPlaylist()->getName() : "";
         if (playlistName == "default_playlist_storage")
             playlistName = tr("Default Playlist");
@@ -2137,16 +2134,16 @@ void MusicCommon::updatePlaylistStats(void)
     SetTextFromMap(map);
 
     if (m_playlistProgress)
-        m_playlistProgress->SetUsed(m_playlistPlayedTime + m_currentTime);
+        m_playlistProgress->SetUsed((m_playlistPlayedTime + m_currentTime).count());
 }
 
-QString MusicCommon::getTimeString(int exTime, int maxTime)
+QString MusicCommon::getTimeString(std::chrono::seconds exTime, std::chrono::seconds maxTime)
 {
-    if (maxTime <= 0)
+    if (maxTime <= 0ms)
         return MythFormatTime(exTime,
-                              (exTime >= ONEHOURINSEC) ? "H:mm:ss" : "mm:ss");
+                              (exTime >= 1h) ? "H:mm:ss" : "mm:ss");
 
-    QString fmt = (maxTime >= ONEHOURINSEC) ? "H:mm:ss" : "mm:ss";
+    QString fmt = (maxTime >= 1h) ? "H:mm:ss" : "mm:ss";
     return MythFormatTime(exTime, fmt) + " / " + MythFormatTime(maxTime, fmt);
 }
 
@@ -2193,7 +2190,7 @@ MythMenu* MusicCommon::createMainMenu(void)
     while (screen)
     {
         screenList.append(screen->objectName());
-        screen = dynamic_cast<MusicCommon*>(screen)->m_parentScreen;
+        screen = qobject_cast<MusicCommon*>(screen)->m_parentScreen;
     }
 
     if (!screenList.contains("searchview") && !screenList.contains("streamview"))
@@ -2322,9 +2319,9 @@ MythMenu* MusicCommon::createRepeatMenu(void)
 
     auto *menu = new MythMenu(label, this, "repeatmenu");
 
-    menu->AddItem(tr("None"),  QVariant::fromValue((int)MusicPlayer::REPEAT_OFF));
-    menu->AddItem(tr("Track"), QVariant::fromValue((int)MusicPlayer::REPEAT_TRACK));
-    menu->AddItem(tr("All"),   QVariant::fromValue((int)MusicPlayer::REPEAT_ALL));
+    menu->AddItemV(tr("None"),  QVariant::fromValue((int)MusicPlayer::REPEAT_OFF));
+    menu->AddItemV(tr("Track"), QVariant::fromValue((int)MusicPlayer::REPEAT_TRACK));
+    menu->AddItemV(tr("All"),   QVariant::fromValue((int)MusicPlayer::REPEAT_ALL));
 
     menu->SetSelectedByData(static_cast<int>(gPlayer->getRepeatMode()));
 
@@ -2337,11 +2334,11 @@ MythMenu* MusicCommon::createShuffleMenu(void)
 
     auto *menu = new MythMenu(label, this, "shufflemenu");
 
-    menu->AddItem(tr("None"),   QVariant::fromValue((int)MusicPlayer::SHUFFLE_OFF));
-    menu->AddItem(tr("Random"), QVariant::fromValue((int)MusicPlayer::SHUFFLE_RANDOM));
-    menu->AddItem(tr("Smart"),  QVariant::fromValue((int)MusicPlayer::SHUFFLE_INTELLIGENT));
-    menu->AddItem(tr("Album"),  QVariant::fromValue((int)MusicPlayer::SHUFFLE_ALBUM));
-    menu->AddItem(tr("Artist"), QVariant::fromValue((int)MusicPlayer::SHUFFLE_ARTIST));
+    menu->AddItemV(tr("None"),   QVariant::fromValue((int)MusicPlayer::SHUFFLE_OFF));
+    menu->AddItemV(tr("Random"), QVariant::fromValue((int)MusicPlayer::SHUFFLE_RANDOM));
+    menu->AddItemV(tr("Smart"),  QVariant::fromValue((int)MusicPlayer::SHUFFLE_INTELLIGENT));
+    menu->AddItemV(tr("Album"),  QVariant::fromValue((int)MusicPlayer::SHUFFLE_ALBUM));
+    menu->AddItemV(tr("Artist"), QVariant::fromValue((int)MusicPlayer::SHUFFLE_ARTIST));
 
     menu->SetSelectedByData(static_cast<int>(gPlayer->getShuffleMode()));
 
@@ -2378,7 +2375,7 @@ MythMenu* MusicCommon::createVisualizerMenu(void)
     auto *menu = new MythMenu(label, this, "visualizermenu");
 
     for (uint x = 0; x < static_cast<uint>(m_visualModes.count()); x++)
-        menu->AddItem(m_visualModes.at(x), QVariant::fromValue(x));
+        menu->AddItemV(m_visualModes.at(x), QVariant::fromValue(x));
 
     menu->SetSelectedByData(m_currentVisual);
 
@@ -2648,7 +2645,7 @@ void MusicCommon::playFirstTrack()
 //---------------------------------------------------------
 // MythMusicVolumeDialog
 //---------------------------------------------------------
-#define MUSICVOLUMEPOPUPTIME (4 * 1000)
+static constexpr std::chrono::milliseconds MUSICVOLUMEPOPUPTIME { 4s };
 
 MythMusicVolumeDialog::~MythMusicVolumeDialog(void)
 {
@@ -2675,7 +2672,7 @@ bool MythMusicVolumeDialog::Create(void)
     updateDisplay();
 
     m_displayTimer = new QTimer(this);
-    connect(m_displayTimer, SIGNAL(timeout()), this, SLOT(Close()));
+    connect(m_displayTimer, &QTimer::timeout, this, &MythScreenType::Close);
     m_displayTimer->setSingleShot(true);
     m_displayTimer->start(MUSICVOLUMEPOPUPTIME);
 

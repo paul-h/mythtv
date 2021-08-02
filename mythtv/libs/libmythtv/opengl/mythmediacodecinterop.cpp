@@ -1,7 +1,7 @@
 // MythTV
 #include "mythcorecontext.h"
-#include "videocolourspace.h"
-#include "mythmediacodecinterop.h"
+#include "mythvideocolourspace.h"
+#include "opengl/mythmediacodecinterop.h"
 
 // FFmpeg
 extern "C" {
@@ -11,20 +11,24 @@ extern "C" {
 
 #define LOC QString("MediaCodecInterop: ")
 
-MythMediaCodecInterop* MythMediaCodecInterop::Create(MythRenderOpenGL *Context, QSize Size)
+MythMediaCodecInterop* MythMediaCodecInterop::CreateMediaCodec(MythPlayerUI* Player,
+                                                               MythRenderOpenGL* Context,
+                                                               QSize Size)
 {
-    MythMediaCodecInterop* result = new MythMediaCodecInterop(Context);
-    if (result)
+    if (Player && Context)
     {
-        if (result->Initialise(Size))
-            return result;
-        delete result;
+        if (auto * result = new MythMediaCodecInterop(Player, Context); result != nullptr)
+        {
+            if (result->Initialise(Size))
+                return result;
+            delete result;
+        }
     }
     return nullptr;
 }
 
-MythMediaCodecInterop::MythMediaCodecInterop(MythRenderOpenGL* Context)
-  : MythOpenGLInterop(Context, MEDIACODEC),
+MythMediaCodecInterop::MythMediaCodecInterop(MythPlayerUI* Player, MythRenderOpenGL* Context)
+  : MythOpenGLInterop(Context, GL_MEDIACODEC, Player),
     m_frameWait(),
     m_frameWaitLock(),
     m_colourSpaceInitialised(false),
@@ -58,7 +62,7 @@ void Java_org_mythtv_video_SurfaceTextureListener_frameAvailable(JNIEnv*, jobjec
 
 bool MythMediaCodecInterop::Initialise(QSize Size)
 {
-    if (!m_context)
+    if (!m_openglContext)
         return false;
 
     if (!gCoreContext->IsUIThread())
@@ -68,13 +72,13 @@ bool MythMediaCodecInterop::Initialise(QSize Size)
     }
 
     // Lock
-    OpenGLLocker locker(m_context);
+    OpenGLLocker locker(m_openglContext);
 
     // Create texture
     vector<QSize> sizes;
     sizes.push_back(Size);
-    vector<MythVideoTexture*> textures =
-            MythVideoTexture::CreateTextures(m_context, FMT_MEDIACODEC, FMT_RGBA32, sizes, GL_TEXTURE_EXTERNAL_OES);
+    vector<MythVideoTextureOpenGL*> textures =
+        MythVideoTextureOpenGL::CreateTextures(m_openglContext, FMT_MEDIACODEC, FMT_RGBA32, sizes, GL_TEXTURE_EXTERNAL_OES);
     if (textures.empty())
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create texture");
@@ -82,8 +86,8 @@ bool MythMediaCodecInterop::Initialise(QSize Size)
     }
 
     // Set the texture type
-    MythVideoTexture *texture = textures[0];
-    m_context->glBindTexture(GL_TEXTURE_EXTERNAL_OES, texture->m_textureId);
+    MythVideoTextureOpenGL *texture = textures[0];
+    m_openglContext->glBindTexture(GL_TEXTURE_EXTERNAL_OES, texture->m_textureId);
 
     // Create surface
     m_surfaceTexture = QAndroidJniObject("android/graphics/SurfaceTexture", "(I)V", texture->m_textureId);
@@ -105,21 +109,21 @@ bool MythMediaCodecInterop::Initialise(QSize Size)
         LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create Android Surface");
     }
     LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create Android SurfaceTexture");
-    MythVideoTexture::DeleteTextures(m_context, textures);
+    MythVideoTextureOpenGL::DeleteTextures(m_openglContext, textures);
     return false;
 }
 
-vector<MythVideoTexture*> MythMediaCodecInterop::Acquire(MythRenderOpenGL *Context,
-                                                         VideoColourSpace *ColourSpace,
-                                                         VideoFrame *Frame,
-                                                         FrameScanType)
+vector<MythVideoTextureOpenGL*> MythMediaCodecInterop::Acquire(MythRenderOpenGL *Context,
+                                                               MythVideoColourSpace *ColourSpace,
+                                                               MythVideoFrame *Frame,
+                                                               FrameScanType)
 {
-    vector<MythVideoTexture*> result;
+    vector<MythVideoTextureOpenGL*> result;
     if (!Frame)
         return result;
 
     // Pause frame handling - we can never release the same buffer twice
-    if (!Frame->buf)
+    if (!Frame->m_buffer)
     {
         if (!m_openglTextures.isEmpty())
             return m_openglTextures[DUMMY_INTEROP_ID];
@@ -127,7 +131,7 @@ vector<MythVideoTexture*> MythMediaCodecInterop::Acquire(MythRenderOpenGL *Conte
     }
 
     // Sanitise
-    if (!Context || !ColourSpace || !Frame || m_openglTextures.isEmpty())
+    if (!Context || !ColourSpace || m_openglTextures.isEmpty())
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Failed");
         return result;
@@ -142,7 +146,7 @@ vector<MythVideoTexture*> MythMediaCodecInterop::Acquire(MythRenderOpenGL *Conte
     }
 
     // Retrieve buffer
-    AVMediaCodecBuffer *buffer = reinterpret_cast<AVMediaCodecBuffer*>(Frame->buf);
+    AVMediaCodecBuffer *buffer = reinterpret_cast<AVMediaCodecBuffer*>(Frame->m_buffer);
     if (!buffer)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "No AVMediaCodecBuffer");
@@ -160,7 +164,7 @@ vector<MythVideoTexture*> MythMediaCodecInterop::Acquire(MythRenderOpenGL *Conte
     m_frameWaitLock.unlock();
 
     // Ensure we don't try and release it again
-    Frame->buf = nullptr;
+    Frame->m_buffer = nullptr;
 
     // Update texture
     m_surfaceTexture.callMethod<void>("updateTexImage");

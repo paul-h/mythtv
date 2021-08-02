@@ -3,7 +3,6 @@
 
 // C++ headers
 #include <vector>
-using namespace std;
 
 // MythTV headers
 #include <QObject>
@@ -16,7 +15,11 @@ using namespace std;
 #include <QVariant>
 #include <QObject>
 #include <QString>
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
 #include <QMutex>
+#else
+#include <QRecursiveMutex>
+#endif
 #include <QUrl>
 
 // MythNews headers
@@ -25,7 +28,7 @@ using namespace std;
 class NewsSiteItem
 {
   public:
-    using List = vector<NewsSiteItem>;
+    using List = std::vector<NewsSiteItem>;
 
     QString m_name;
     QString m_category;
@@ -39,7 +42,7 @@ Q_DECLARE_METATYPE(NewsSiteItem*)
 class NewsCategory
 {
   public:
-    using List = vector<NewsCategory>;
+    using List = std::vector<NewsCategory>;
 
     QString             m_name;
     NewsSiteItem::List  m_siteList;
@@ -62,7 +65,7 @@ class NewsSite : public QObject
         Success
     };
 
-    class List : public vector<NewsSite*>
+    class List : public std::vector<NewsSite*>
     {
       public:
         void clear(void)
@@ -89,7 +92,7 @@ class NewsSite : public QObject
     QDateTime lastUpdated(void) const;
     QString   imageURL(void) const;
     bool      podcast(void) const;
-    unsigned int timeSinceLastUpdate(void) const; // in minutes
+    std::chrono::minutes timeSinceLastUpdate(void) const;
 
     void insertNewsArticle(const NewsArticle &item);
     void clearNewsArticles(void);
@@ -110,7 +113,11 @@ class NewsSite : public QObject
   private:
     ~NewsSite() override;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex m_lock {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex m_lock;
+#endif
     QString    m_name;
     QString    m_sortName;
     QString    m_url;

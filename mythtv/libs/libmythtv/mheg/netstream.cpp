@@ -4,11 +4,13 @@
 #include "netstream.h"
 
 // C/C++ lib
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
 #include <cstdlib>
 using std::getenv;
+#endif
 #include <cstddef>
 #include <cstdio>
-#include <inttypes.h>
+#include <cinttypes>
 #include <utility>
 
 // Qt
@@ -22,6 +24,7 @@ using std::getenv;
 #include <QMutexLocker>
 #include <QNetworkAccessManager>
 #include <QNetworkDiskCache>
+#include <QNetworkInterface>
 #include <QNetworkProxy>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -40,6 +43,9 @@ using std::getenv;
 #include "mythcorecontext.h"
 #include "mythdirs.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#define qEnvironmentVariable getenv
+#endif
 
 /*
  * Constants
@@ -110,8 +116,8 @@ NetStream::NetStream(const QUrl &url, EMode mode /*= kPreferCache*/,
             QNetworkRequest::PreferNetwork );
 
     // Receive requestStarted signals from NAMThread when it processes a NetStreamRequest
-    connect(&NAMThread::manager(), SIGNAL(requestStarted(int, QNetworkReply*)),
-        this, SLOT(slotRequestStarted(int, QNetworkReply*)), Qt::DirectConnection );
+    connect(&NAMThread::manager(), &NAMThread::requestStarted,
+        this, &NetStream::slotRequestStarted, Qt::DirectConnection );
 
     QMutexLocker locker(&m_mutex);
 
@@ -235,7 +241,7 @@ bool NetStream::Request(const QUrl& url)
             {
                 LOG(VB_GENERAL, LOG_WARNING, LOC +
                     QString("Opening client certificate '%1': %2")
-                    .arg(f1.fileName()).arg(f1.errorString()) );
+                    .arg(f1.fileName(), f1.errorString()) );
             }
 
             // Get the private key
@@ -257,7 +263,7 @@ bool NetStream::Request(const QUrl& url)
                 {
                     LOG(VB_GENERAL, LOG_WARNING, LOC +
                         QString("Opening private key '%1': %2")
-                        .arg(f2.fileName()).arg(f2.errorString()) );
+                        .arg(f2.fileName(), f2.errorString()) );
                 }
             }
         }
@@ -298,13 +304,13 @@ void NetStream::slotRequestStarted(int id, QNetworkReply *reply)
         // was connected Qt::DirectConnection so the current thread is NAMThread
 
         // QNetworkReply signals
-        connect(reply, SIGNAL(finished()), this, SLOT(slotFinished()), Qt::DirectConnection );
+        connect(reply, &QNetworkReply::finished, this, &NetStream::slotFinished, Qt::DirectConnection );
 #ifndef QT_NO_OPENSSL
-        connect(reply, SIGNAL(sslErrors(const QList<QSslError> &)), this,
-            SLOT(slotSslErrors(const QList<QSslError> &)), Qt::DirectConnection );
+        connect(reply, &QNetworkReply::sslErrors, this,
+            &NetStream::slotSslErrors, Qt::DirectConnection );
 #endif
         // QIODevice signals
-        connect(reply, SIGNAL(readyRead()), this, SLOT(slotReadyRead()), Qt::DirectConnection );
+        connect(reply, &QIODevice::readyRead, this, &NetStream::slotReadyRead, Qt::DirectConnection );
     }
     else
         LOG(VB_GENERAL, LOG_ERR, LOC +
@@ -624,35 +630,35 @@ qlonglong NetStream::GetSize() const
 /**
  * Synchronous interface
  */
-bool NetStream::WaitTillReady(unsigned long milliseconds)
+bool NetStream::WaitTillReady(std::chrono::milliseconds timeout)
 {
     QMutexLocker locker(&m_mutex);
 
     QElapsedTimer t; t.start();
     while (m_state < kReady)
     {
-        unsigned elapsed = t.elapsed();
-        if (elapsed > milliseconds)
+        auto elapsed = std::chrono::milliseconds(t.elapsed());
+        if (elapsed > timeout)
             return false;
 
-        m_ready.wait(&m_mutex, milliseconds - elapsed);
+        m_ready.wait(&m_mutex, (timeout - elapsed).count());
     }
 
     return true;
 }
 
-bool NetStream::WaitTillFinished(unsigned long milliseconds)
+bool NetStream::WaitTillFinished(std::chrono::milliseconds timeout)
 {
     QMutexLocker locker(&m_mutex);
 
     QElapsedTimer t; t.start();
     while (m_state < kFinished)
     {
-        unsigned elapsed = t.elapsed();
-        if (elapsed > milliseconds)
+        auto elapsed = std::chrono::milliseconds(t.elapsed());
+        if (elapsed > timeout)
             return false;
 
-        m_finished.wait(&m_mutex, milliseconds - elapsed);
+        m_finished.wait(&m_mutex, (timeout - elapsed).count());
     }
 
     return true;
@@ -776,7 +782,7 @@ void NAMThread::run()
 
     // Setup a network proxy e.g. for TOR: socks://localhost:9050
     // TODO get this from mythdb
-    QString proxy(getenv("MYTHMHEG_PROXY"));
+    QString proxy(qEnvironmentVariable("MYTHMHEG_PROXY"));
     if (!proxy.isEmpty())
     {
         QUrl url(proxy, QUrl::TolerantMode);
@@ -802,7 +808,8 @@ void NAMThread::run()
     }
 
     // Quit when main app quits
-    connect(QCoreApplication::instance(), SIGNAL(aboutToQuit()), this, SLOT(quit()) );
+    connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit,
+            this, &NAMThread::quit);
 
     m_running.release();
 
@@ -905,25 +912,15 @@ bool NAMThread::AbortRequest(NetStreamAbort *p)
 // static
 bool NAMThread::isAvailable()
 {
-    NAMThread &m = manager();
-
-    if (!m.m_running.tryAcquire(1, 3000))
-        return false;
-
-    m.m_running.release();
-
-    QMutexLocker locker(&m.m_mutex);
-
-    if (!m.m_nam)
-        return false;
-
-    switch (m.m_nam->networkAccessible())
-    {
-    case QNetworkAccessManager::Accessible: return true;
-    case QNetworkAccessManager::NotAccessible: return false;
-    case QNetworkAccessManager::UnknownAccessibility: return true;
-    }
-    return false;
+    auto interfaces = QNetworkInterface::allInterfaces();
+    return std::any_of(interfaces.begin(), interfaces.end(),
+		       [](const QNetworkInterface& iface)
+			   {
+                               auto f = iface.flags();
+                               if (f.testFlag(QNetworkInterface::IsLoopBack))
+                                   return false;
+                               return f.testFlag(QNetworkInterface::IsRunning);
+                           } );
 }
 
 // Time when URI was last written to cache or invalid if not cached.
@@ -955,7 +952,7 @@ QDateTime NAMThread::GetLastModified(const QUrl &url)
     if (expire.isValid() && expire.toLocalTime() < now)
     {
         LOG(VB_FILE, LOG_INFO, LOC + QString("GetLastModified('%1') past expiration %2")
-            .arg(url.toString()).arg(expire.toString()));
+            .arg(url.toString(), expire.toString()));
         return QDateTime(); // Invalid
     }
 
@@ -997,7 +994,7 @@ QDateTime NAMThread::GetLastModified(const QUrl &url)
     }
 
     LOG(VB_FILE, LOG_DEBUG, LOC + QString("GetLastModified('%1') last modified %2")
-        .arg(url.toString()).arg(lastMod.toString()));
+        .arg(url.toString(), lastMod.toString()));
     return lastMod;
 }
 

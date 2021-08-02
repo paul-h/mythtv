@@ -47,17 +47,20 @@ private:
     void Zoom(int increment = 0);
     void Pan(QPoint offset = QPoint(0, 0));
     void SetStatus(QString msg, bool delay = false);
-    void ClearStatus(Slide &slide);
+    void ClearStatus(const Slide &slide);
 
 private slots:
     void ShowPrevSlide(int inc = 1);
-    void ShowNextSlide(int inc = 1, bool useTransition = true);
+    void ShowNextSlide(int inc, bool useTransition = true);
+    void ShowNextSlide();
     void SlideAvailable(int count);
     void TransitionComplete();
     void ShowSlide(int direction = 0);
     void Stop();
-    void Play(bool useTransition = true);
-    static void RepeatOn(int on = 1)   { gCoreContext->SaveSetting("GalleryRepeat", on); }
+    void Play(bool useTransition);
+    void Play() { Play(true); };
+    static void RepeatOn(int on)       { gCoreContext->SaveSetting("GalleryRepeat", on); }
+    static void RepeatOn()             { RepeatOn(1); }
     static void RepeatOff()            { RepeatOn(0); }
     void ShowInfo();
     void HideInfo();
@@ -84,7 +87,7 @@ private:
 
     SlideBuffer m_slides;                  //!< A queue of slides used to display images.
     InfoList    m_infoList;                //!< Image details overlay
-    int         m_slideShowTime   {3000};  //!< Time to display a slide in a slideshow
+    std::chrono::milliseconds m_slideShowTime   {3s};  //!< Time to display a slide in a slideshow
     QTimer      m_timer;                   //!< Slide duration timer
     QTimer      m_delay;                   //!< Status delay timer
     QString     m_statusText;              //!< Text to display as status

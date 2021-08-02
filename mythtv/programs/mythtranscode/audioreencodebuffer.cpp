@@ -2,7 +2,6 @@
 #include "audioreencodebuffer.h"
 
 #include <algorithm> // for min/max
-using namespace std;
 
 extern "C" {
 #include "libavutil/mem.h"
@@ -36,7 +35,7 @@ AudioBuffer::~AudioBuffer()
 }
 
 void AudioBuffer::appendData(unsigned char *buffer, int len, int frames,
-                             long long time)
+                             std::chrono::milliseconds time)
 {
     if ((m_size + len) > m_realsize)
     {
@@ -119,7 +118,7 @@ void AudioReencodeBuffer::Reset(void)
  * \return false if there wasn't enough space in audio buffer to
  *     process all the data
  */
-bool AudioReencodeBuffer::AddFrames(void *buffer, int frames, int64_t timecode)
+bool AudioReencodeBuffer::AddFrames(void *buffer, int frames, std::chrono::milliseconds timecode)
 {
     return AddData(buffer, frames * m_bytes_per_frame, timecode, frames);
 }
@@ -135,7 +134,7 @@ bool AudioReencodeBuffer::AddFrames(void *buffer, int frames, int64_t timecode)
  * \return false if there wasn't enough space in audio buffer to
  *     process all the data
  */
-bool AudioReencodeBuffer::AddData(void *buffer, int len, int64_t timecode,
+bool AudioReencodeBuffer::AddData(void *buffer, int len, std::chrono::milliseconds timecode,
                                   int frames)
 {
     auto *buf = (unsigned char *)buffer;
@@ -157,9 +156,9 @@ bool AudioReencodeBuffer::AddData(void *buffer, int len, int64_t timecode,
             // Use as many of the remaining frames as will fit in the space
             // left in the buffer.
             int bufsize = m_saveBuffer->size();
-            int part = min(len - index, m_audioFrameSize - bufsize);
+            int part = std::min(len - index, m_audioFrameSize - bufsize);
             int out_frames = part / m_bytes_per_frame;
-            timecode += out_frames * 1000 / m_eff_audiorate;
+            timecode += std::chrono::milliseconds(out_frames * 1000 / m_eff_audiorate);
 
             // Store frames in buffer, basing frame count on number of
             // bytes, which works only for uncompressed data.
@@ -188,7 +187,7 @@ bool AudioReencodeBuffer::AddData(void *buffer, int len, int64_t timecode,
         // and use 'frames' directly rather than 'len / m_bytes_per_frame',
         // thus also covering the passthrough case.
         m_saveBuffer = new AudioBuffer();
-        timecode += frames * 1000 / m_eff_audiorate;
+        timecode += std::chrono::milliseconds(frames * 1000 / m_eff_audiorate);
         m_saveBuffer->appendData(buf, len, frames, timecode);
 
         QMutexLocker locker(&m_bufferMutex);
@@ -200,7 +199,7 @@ bool AudioReencodeBuffer::AddData(void *buffer, int len, int64_t timecode,
     return true;
 }
 
-AudioBuffer *AudioReencodeBuffer::GetData(long long time)
+AudioBuffer *AudioReencodeBuffer::GetData(std::chrono::milliseconds time)
 {
     QMutexLocker locker(&m_bufferMutex);
 
@@ -218,7 +217,7 @@ AudioBuffer *AudioReencodeBuffer::GetData(long long time)
     return nullptr;
 }
 
-long long AudioReencodeBuffer::GetSamples(long long time)
+long long AudioReencodeBuffer::GetSamples(std::chrono::milliseconds time)
 {
     QMutexLocker locker(&m_bufferMutex);
 
@@ -236,7 +235,7 @@ long long AudioReencodeBuffer::GetSamples(long long time)
     return samples;
 }
 
-void AudioReencodeBuffer::SetTimecode(int64_t timecode)
+void AudioReencodeBuffer::SetTimecode(std::chrono::milliseconds timecode)
 {
     m_last_audiotime = timecode;
 }

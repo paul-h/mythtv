@@ -48,14 +48,13 @@ MythExternRecApp::MythExternRecApp(QString command,
 
     LOG(VB_CHANNEL, LOG_INFO, LOC +
         QString("Channels in '%1', Tuner: '%2', Scanner: '%3'")
-        .arg(m_channelsIni).arg(m_tuneCommand).arg(m_scanCommand));
+        .arg(m_channelsIni, m_tuneCommand, m_scanCommand));
 
     m_desc = m_recDesc;
     m_desc.replace("%URL%", "");
     m_desc.replace("%CHANNUM%", "");
     m_desc.replace("%CHANNAME%", "");
     m_desc.replace("%CALLSIGN%", "");
-    emit SetDescription(m_desc);
 }
 
 MythExternRecApp::~MythExternRecApp(void)
@@ -70,7 +69,7 @@ QString MythExternRecApp::Desc(void) const
     if (m_proc.processId() > 0)
         extra = QString("(pid %1) ").arg(m_proc.processId());
 
-    return QString("%1%2 ").arg(extra).arg(m_desc);
+    return QString("%1%2 ").arg(extra, m_desc);
 }
 
 bool MythExternRecApp::config(void)
@@ -146,7 +145,7 @@ bool MythExternRecApp::Open(void)
         {
             env.insert(Ienv.key(), Ienv.value());
             LOG(VB_RECORD, LOG_INFO, LOC + QString(" ENV: '%1' = '%2'")
-                .arg(Ienv.key()).arg(Ienv.value()));
+                .arg(Ienv.key(), Ienv.value()));
         }
         m_proc.setProcessEnvironment(env);
     }
@@ -186,21 +185,21 @@ void MythExternRecApp::TerminateProcess(QProcess & proc, const QString & desc) c
     if (proc.state() == QProcess::Running)
     {
         LOG(VB_RECORD, LOG_INFO, LOC +
-            QString("Sending SIGINT to %1(%2)").arg(desc).arg(proc.pid()));
-        kill(proc.pid(), SIGINT);
+            QString("Sending SIGINT to %1(%2)").arg(desc).arg(proc.processId()));
+        kill(proc.processId(), SIGINT);
         proc.waitForFinished(5000);
     }
     if (proc.state() == QProcess::Running)
     {
         LOG(VB_RECORD, LOG_INFO, LOC +
-            QString("Sending SIGTERM to %1(%2)").arg(desc).arg(proc.pid()));
+            QString("Sending SIGTERM to %1(%2)").arg(desc).arg(proc.processId()));
         proc.terminate();
         proc.waitForFinished();
     }
     if (proc.state() == QProcess::Running)
     {
         LOG(VB_RECORD, LOG_INFO, LOC +
-            QString("Sending SIGKILL to %1(%2)").arg(desc).arg(proc.pid()));
+            QString("Sending SIGKILL to %1(%2)").arg(desc).arg(proc.processId()));
         proc.kill();
         proc.waitForFinished();
     }
@@ -213,7 +212,7 @@ Q_SLOT void MythExternRecApp::Close(void)
         LOG(VB_RECORD, LOG_INFO, LOC + ": Closing application.");
         m_run = false;
         m_runCond.notify_all();
-        std::this_thread::sleep_for(std::chrono::microseconds(50));
+        std::this_thread::sleep_for(50us);
     }
 
     if (m_tuneProc.state() == QProcess::Running)
@@ -226,7 +225,7 @@ Q_SLOT void MythExternRecApp::Close(void)
     {
         m_proc.closeReadChannel(QProcess::StandardOutput);
         TerminateProcess(m_proc, "App");
-        std::this_thread::sleep_for(std::chrono::microseconds(50));
+        std::this_thread::sleep_for(50us);
     }
 
     emit Done();
@@ -301,33 +300,48 @@ Q_SLOT void MythExternRecApp::Cleanup(void)
 
 Q_SLOT void MythExternRecApp::DataStarted(void)
 {
+    LOG(VB_RECORD, LOG_INFO, LOC + "DataStarted");
+
     if (m_onDataStart.isEmpty())
         return;
 
     QString cmd = m_onDataStart;
     cmd.replace("%CHANNUM%", m_tunedChannel);
 
+    bool background = false;
+    int pos = cmd.lastIndexOf(QChar('&'));
+    if (pos > 0)
+    {
+        background = true;
+        cmd = cmd.left(pos);
+    }
+
     QStringList args = MythSplitCommandString(cmd);
     cmd = args.takeFirst();
 
-    LOG(VB_RECORD, LOG_INFO, LOC +
-        QString(" Data started, finishing tune: '%1'").arg(cmd));
+    TerminateProcess(m_finishTuneProc, "FinishTuning");
 
-    QProcess finish;
-    finish.start(cmd, args);
-    if (!finish.waitForStarted())
+    LOG(VB_RECORD, LOG_INFO, LOC + QString("Finishing tune: '%1' %3")
+        .arg(m_onDataStart, background ? "in the background" : ""));
+
+    m_finishTuneProc.start(cmd, args);
+    if (!m_finishTuneProc.waitForStarted())
     {
         LOG(VB_RECORD, LOG_ERR, LOC + ": Failed to finish tune process: "
             + ENO);
         return;
     }
-    finish.waitForFinished(5000);
-    if (finish.state() == QProcess::NotRunning)
+
+    if (!background)
     {
-        if (finish.exitStatus() != QProcess::NormalExit)
+        m_finishTuneProc.waitForFinished(5000);
+        if (m_finishTuneProc.state() == QProcess::NotRunning)
         {
-            LOG(VB_RECORD, LOG_ERR, LOC + ": Finish tune failed: " + ENO);
-            return;
+            if (m_finishTuneProc.exitStatus() != QProcess::NormalExit)
+            {
+                LOG(VB_RECORD, LOG_ERR, LOC + ": Finish tune failed: " + ENO);
+                return;
+            }
         }
     }
 
@@ -442,11 +456,11 @@ void MythExternRecApp::GetChannel(const QString & serial, const QString & func)
 
     LOG(VB_CHANNEL, LOG_INFO, LOC +
         QString(": NextChannel Name:'%1',Callsign:'%2',xmltvid:%3,Icon:%4")
-        .arg(name).arg(callsign).arg(xmltvid).arg(icon));
+        .arg(name, callsign, xmltvid, icon));
 
     emit SendMessage(func, serial, QString("OK:%1,%2,%3,%4,%5")
-                     .arg(channum).arg(name).arg(callsign)
-                     .arg(xmltvid).arg(icon));
+                     .arg(channum, name, callsign,
+                          xmltvid, icon));
 }
 
 Q_SLOT void MythExternRecApp::FirstChannel(const QString & serial)
@@ -520,6 +534,14 @@ Q_SLOT void MythExternRecApp::TuneChannel(const QString & serial,
 
     QString tunecmd = m_tuneCommand;
     QString url;
+    bool    background = false;
+
+    int pos = tunecmd.lastIndexOf(QChar('&'));
+    if (pos > 0)
+    {
+        background = true;
+        tunecmd = tunecmd.left(pos);
+    }
 
     if (!m_channelsIni.isEmpty())
     {
@@ -543,7 +565,7 @@ Q_SLOT void MythExternRecApp::TuneChannel(const QString & serial,
             m_command.replace("%URL%", url);
             LOG(VB_CHANNEL, LOG_DEBUG, LOC +
                 QString(": '%URL%' replaced with '%1' in cmd: '%2'")
-                .arg(url).arg(m_command));
+                .arg(url, m_command));
         }
 
         m_desc.replace("%CHANNAME%", settings.value("NAME").toString());
@@ -563,7 +585,7 @@ Q_SLOT void MythExternRecApp::TuneChannel(const QString & serial,
         m_command.replace("%LOGFILE%", m_logFile);
         LOG(VB_RECORD, LOG_DEBUG, LOC +
             QString(": '%LOGFILE%' replaced with '%1' in cmd: '%2'")
-            .arg(m_logFile).arg(m_command));
+            .arg(m_logFile, m_command));
     }
 
     if (!m_logging.isEmpty() && m_command.indexOf("%LOGGING%") >= 0)
@@ -571,7 +593,7 @@ Q_SLOT void MythExternRecApp::TuneChannel(const QString & serial,
         m_command.replace("%LOGGING%", m_logging);
         LOG(VB_RECORD, LOG_DEBUG, LOC +
             QString(": '%LOGGING%' replaced with '%1' in cmd: '%2'")
-            .arg(m_logging).arg(m_command));
+            .arg(m_logging, m_command));
     }
 
     m_desc.replace("%URL%", url);
@@ -592,10 +614,25 @@ Q_SLOT void MythExternRecApp::TuneChannel(const QString & serial,
             return;
         }
 
-        LOG(VB_CHANNEL, LOG_INFO, LOC + QString(": Started `%1` URL '%2'")
-            .arg(tunecmd).arg(url));
-        emit SendMessage("TuneChannel", serial,
-                         QString("OK:InProgress `%1`").arg(tunecmd));
+        if (background)
+        {
+            LOG(VB_CHANNEL, LOG_INFO, LOC +
+                QString(": Started in background `%1` URL '%2'")
+                .arg(tunecmd, url));
+
+            m_tunedChannel = m_tuningChannel;
+            m_tuningChannel.clear();
+            emit SetDescription(Desc());
+            emit SendMessage("TuneChannel", serial,
+                             QString("OK:Tuned `%1`").arg(m_tunedChannel));
+        }
+        else
+        {
+            LOG(VB_CHANNEL, LOG_INFO, LOC + QString(": Started `%1` URL '%2'")
+                .arg(tunecmd, url));
+            emit SendMessage("TuneChannel", serial,
+                             QString("OK:InProgress `%1`").arg(tunecmd));
+        }
     }
     else
     {
@@ -611,7 +648,7 @@ Q_SLOT void MythExternRecApp::TuneStatus(const QString & serial)
     if (m_tuneProc.state() == QProcess::Running)
     {
         LOG(VB_CHANNEL, LOG_INFO, LOC +
-            QString(": Tune process(%1) still running").arg(m_tuneProc.pid()));
+            QString(": Tune process(%1) still running").arg(m_tuneProc.processId()));
         emit SendMessage("TuneStatus", serial, "OK:InProgress");
         return;
     }
@@ -704,7 +741,7 @@ Q_SLOT void MythExternRecApp::StartStreaming(const QString & serial)
     m_proc.setReadChannel(QProcess::StandardOutput);
 
     LOG(VB_RECORD, LOG_INFO, LOC + QString(": Starting process '%1' args: '%2'")
-        .arg(m_proc.program()).arg(m_proc.arguments().join(' ')));
+        .arg(m_proc.program(), m_proc.arguments().join(' ')));
 
     if (!m_proc.waitForStarted())
     {
@@ -714,7 +751,7 @@ Q_SLOT void MythExternRecApp::StartStreaming(const QString & serial)
         return;
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(50ms);
 
     if (m_proc.state() != QProcess::Running)
     {
@@ -775,10 +812,9 @@ Q_SLOT void MythExternRecApp::ProcFinished(int exitCode,
 {
     m_result = exitCode;
     QString msg = QString("%1Finished: %2 (exit code: %3)")
-                  .arg(exitStatus != QProcess::NormalExit ? "WARN:" : "")
-                  .arg(exitStatus == QProcess::NormalExit ? "OK" :
-                       "Abnormal exit")
-                  .arg(m_result);
+        .arg(exitStatus != QProcess::NormalExit ? "WARN:" : "",
+             exitStatus == QProcess::NormalExit ? "OK" : "Abnormal exit",
+             QString::number(m_result));
     LOG(VB_RECORD, LOG_INFO, LOC + ": " + msg);
 
     if (m_streaming)

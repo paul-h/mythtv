@@ -13,6 +13,9 @@
 #include <QString>
 #include <QMap>
 #include <QMutex>                       // for QMutex
+#if QT_VERSION >= QT_VERSION_CHECK(5,14,0)
+#include <QRecursiveMutex>
+#endif
 #include <QReadWriteLock>
 #include <QHash>                        // for QHash
 
@@ -84,7 +87,7 @@ class DVBDBOptions
     DVBDBOptions() = default;
 
     bool m_dvbOnDemand    {false};
-    uint m_dvbTuningDelay {0};
+    std::chrono::milliseconds m_dvbTuningDelay {0ms};
     bool m_dvbEitScan     {true};
 };
 
@@ -135,7 +138,7 @@ class PendingInfo
     bool         m_canceled          {false};
     bool         m_ask               {false};
     bool         m_doNotAsk          {false};
-    vector<uint> m_possibleConflicts;
+    std::vector<uint> m_possibleConflicts;
 };
 using PendingMap = QMap<uint,PendingInfo>;
 
@@ -152,7 +155,7 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
 
     bool Init(void);
 
-    void RecordPending(const ProgramInfo *rcinfo, int secsleft, bool hasLater);
+    void RecordPending(const ProgramInfo *rcinfo, std::chrono::seconds secsleft, bool hasLater);
     RecStatus::Type StartRecording(ProgramInfo *pginfo);
     RecStatus::Type GetRecordingStatus(void) const;
 
@@ -180,7 +183,7 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
 
     bool SetVideoFiltersForChannel(uint sourceid, const QString &channum);
 
-    bool IsBusy(InputInfo *busy_input = nullptr, int time_buffer = 5) const;
+    bool IsBusy(InputInfo *busy_input = nullptr, std::chrono::seconds time_buffer = 5s) const;
     bool IsReallyRecording(void);
 
     float GetFramerate(void);
@@ -208,7 +211,7 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
     void SetChannel(const QString& name, uint requestType = kFlagDetect);
     bool QueueEITChannelChange(const QString &name);
 
-    int SetSignalMonitoringRate(int rate, int notifyFrontend = 1);
+    std::chrono::milliseconds SetSignalMonitoringRate(std::chrono::milliseconds rate, int notifyFrontend = 1);
     int  GetPictureAttribute(PictureAttribute attr);
     int  ChangePictureAttribute(PictureAdjustType type, PictureAttribute attr,
                                 bool direction);
@@ -253,7 +256,8 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
 
   protected:
     void run(void) override; // QRunnable
-    bool WaitForEventThreadSleep(bool wake = true, ulong time = ULONG_MAX);
+    bool WaitForEventThreadSleep(bool wake = true,
+                                 std::chrono::milliseconds time = std::chrono::milliseconds::max());
 
   private:
     void SetRingBuffer(MythMediaBuffer* Buffer);
@@ -358,11 +362,11 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
     bool               m_transcodeFirst           {false};
     bool               m_earlyCommFlag            {false};
     bool               m_runJobOnHostOnly         {false};
-    int                m_eitCrawlIdleStart        {60};
-    int                m_eitTransportTimeout      {5*60};
+    std::chrono::seconds m_eitCrawlIdleStart      {1min};
+    std::chrono::seconds m_eitTransportTimeout    {5min};
     int                m_audioSampleRateDB        {0};
-    int                m_overRecordSecNrml        {0};
-    int                m_overRecordSecCat         {0};
+    std::chrono::seconds m_overRecordSecNrml      {0s};
+    std::chrono::seconds m_overRecordSecCat       {0s};
     QString            m_overRecordCategory;
 
     // Configuration variables from setup routines
@@ -379,8 +383,13 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
 
     // State variables
     mutable QMutex     m_setChannelLock;
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex     m_stateChangeLock          {QMutex::Recursive};
     mutable QMutex     m_pendingRecLock           {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex  m_stateChangeLock;
+    mutable QRecursiveMutex  m_pendingRecLock;
+#endif
     TVState            m_internalState            {kState_None};
     TVState            m_desiredNextState         {kState_None};
     bool               m_changeState              {false};
@@ -389,10 +398,10 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
     TuningQueue        m_tuningRequests;
     TuningRequest      m_lastTuningRequest        {0};
     QDateTime          m_eitScanStartTime;
-    mutable QMutex     m_triggerEventLoopLock     {QMutex::NonRecursive};
+    mutable QMutex     m_triggerEventLoopLock;
     QWaitCondition     m_triggerEventLoopWait;
     bool               m_triggerEventLoopSignal   {false};
-    mutable QMutex     m_triggerEventSleepLock    {QMutex::NonRecursive};
+    mutable QMutex     m_triggerEventSleepLock;
     QWaitCondition     m_triggerEventSleepWait;
     bool               m_triggerEventSleepSignal  {false};
     volatile bool      m_switchingBuffer          {false};
@@ -427,7 +436,8 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
     static QMap<uint,TVRec*> s_inputs;
 
   public:
-    static const uint kSignalMonitoringRate;
+    /// How many milliseconds the signal monitor should wait between checks
+    static constexpr std::chrono::milliseconds kSignalMonitoringRate { 50ms };
 
     // General State flags
     static const uint kFlagFrontendReady        = 0x00000001;

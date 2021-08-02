@@ -29,8 +29,14 @@
 #include <QRect>
 #include <QSize>
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <vector>
+
+using namespace std::chrono_literals;
+
+using MHPointVec = std::vector<int>; // Duplicated in BaseClasses.h
 
 class MHDLADisplay;
 class MHTextDisplay;
@@ -50,10 +56,10 @@ class MHEG
   public:
     virtual ~MHEG() = default;
     virtual void SetBooting() = 0;
-    virtual void DrawDisplay(QRegion toDraw) = 0;
+    virtual void DrawDisplay(const QRegion& toDraw) = 0;
     // Run synchronous actions and process any asynchronous events until the queues are empty.
     // Returns the number of milliseconds until wake-up or 0 if none.
-    virtual int RunAll(void) = 0;
+    virtual std::chrono::milliseconds RunAll(void) = 0;
     // Generate a UserAction event i.e. a key press.
     virtual void GenerateUserAction(int nCode) = 0;
     virtual void EngineEvent(int) = 0;
@@ -99,13 +105,13 @@ class MHContext
     // so a call to GetCarouselData will not block and will return the data.
     // Returns false if the object is not currently present because it has not
     // yet appeared and also if it is not present in the containing directory.
-    virtual bool CheckCarouselObject(QString objectPath) = 0;
+    virtual bool CheckCarouselObject(const QString& objectPath) = 0;
 
     // Get an object from the carousel.  Returns true and sets the data if
     // it was able to retrieve the named object.  Blocks if the object seems
     // to be present but has not yet appeared.  Returns false if the object
     // cannot be retrieved.
-    virtual bool GetCarouselData(QString objectPath, QByteArray &result) = 0;
+    virtual bool GetCarouselData(const QString& objectPath, QByteArray &result) = 0;
 
     // Set the input register.  This sets the keys that are to be handled by MHEG.  Flushes the key queue.
     virtual void SetInputRegister(int nReg) = 0;
@@ -148,11 +154,11 @@ class MHContext
     // Stop displaying video
     virtual void StopVideo() = 0;
     // Get current stream position in mS, -1 if unknown
-    virtual long GetStreamPos() = 0;
+    virtual std::chrono::milliseconds GetStreamPos() = 0;
     // Get current stream size in mS, -1 if unknown
-    virtual long GetStreamMaxPos() = 0;
+    virtual std::chrono::milliseconds GetStreamMaxPos() = 0;
     // Set current stream position in mS
-    virtual long SetStreamPos(long) = 0;
+    virtual std::chrono::milliseconds SetStreamPos(std::chrono::milliseconds) = 0;
     // Play or pause a stream
     virtual void StreamPlay(bool play = true) = 0;
 
@@ -183,7 +189,7 @@ class MHDLADisplay
     virtual void DrawBorderedRectangle(int x, int y, int width, int height) = 0;
     virtual void DrawOval(int x, int y, int width, int height) = 0;
     virtual void DrawArcSector(int x, int y, int width, int height, int start, int arc, bool isSector) = 0;
-    virtual void DrawPoly(bool isFilled, int nPoints, const int xArray[], const int yArray[]) = 0;
+    virtual void DrawPoly(bool isFilled, const MHPointVec& xArray, const MHPointVec& yArray) = 0;
 };
 
 class MHTextDisplay {

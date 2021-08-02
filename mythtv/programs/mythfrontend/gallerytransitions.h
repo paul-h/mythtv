@@ -34,7 +34,7 @@ public:
 
     virtual void Start(Slide &from, Slide &to, bool forwards, float speed = 1.0);
     virtual void SetSpeed(float /*speed*/) {}
-    virtual void Pulse(int interval)   = 0;
+    virtual void Pulse() = 0;
     virtual void Initialise()          {}
     virtual void Finalise()            {}
 
@@ -46,7 +46,7 @@ signals:
 
 protected:
     //! Seconds transition will last
-    int m_duration {1000};
+    std::chrono::milliseconds m_duration {1s};
     //! The image currently displayed, which will be replaced
     //! (whatever the transition direction)
     Slide *m_old   {nullptr};
@@ -76,7 +76,7 @@ public:
     TransitionNone() : Transition("None") {}
     void Start(Slide &from, Slide &to,
                bool forwards, float speed = 1.0) override; // Transition
-    void Pulse(int /*interval*/)  override {} // Transition
+    void Pulse()  override {} // Transition
 };
 
 
@@ -89,7 +89,7 @@ public:
     void Start(Slide &from, Slide &to,
                bool forwards, float speed = 1.0) override; // Transition
     void SetSpeed(float speed) override; // Transition
-    void Pulse(int interval) override; // Transition
+    void Pulse() override; // Transition
     void Initialise() override = 0; // Transition
     void Finalise()   override = 0; // Transition
 
@@ -162,8 +162,8 @@ public:
     void Start(Slide &from, Slide &to, bool forwards, float speed = 1.0) override; // Transition
     void SetSpeed(float speed) override // Transition
         { if (m_current) m_current->SetSpeed(speed); }
-    void Pulse(int interval) override // Transition
-        { if (m_current) m_current->Pulse(interval); }
+    void Pulse() override // Transition
+        { if (m_current) m_current->Pulse(); }
     void Initialise() override // Transition
         { if (m_current) m_current->Initialise(); }
     void Finalise() override // Transition

@@ -71,9 +71,9 @@ bool MetaIOOggVorbis::write(const QString &filename, MusicMetadata* mdata)
             (tag->fieldListMap()["MUSICBRAINZ_ALBUMARTISTID"].toString() ==
                 MYTH_MUSICBRAINZ_ALBUMARTIST_UUID))
         {
-            tag->removeField("MUSICBRAINZ_ALBUMARTISTID");
+            tag->removeFields("MUSICBRAINZ_ALBUMARTISTID");
         }
-        tag->removeField("COMPILATION_ARTIST");
+        tag->removeFields("COMPILATION_ARTIST");
     }
 
     saveTimeStamps();
@@ -130,7 +130,7 @@ MusicMetadata* MetaIOOggVorbis::read(const QString &filename)
 
     metadata->setCompilation(compilation);
 
-    if (metadata->Length() <= 0)
+    if (metadata->Length() <= 0ms)
         metadata->setLength(getTrackLength(oggfile));
 
     delete oggfile;

@@ -5,7 +5,11 @@
 
 // Qt headers
 #include <QDomDocument>
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
 #include <QMutex>
+#else
+#include <QRecursiveMutex>
+#endif
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -31,7 +35,7 @@ class MediaServerItem
         m_name(std::move(name)), m_url(std::move(url)) { }
     QString NextUnbrowsed(void);
     MediaServerItem* Find(QString &id);
-    bool Add(MediaServerItem &item);
+    bool Add(const MediaServerItem &item);
     void Reset(void);
 
     QString m_id;
@@ -81,7 +85,7 @@ class UPNPScanner : public QObject
     void SendBrowseRequest(const QUrl &url, const QString &objectid);
     void AddServer(const QString &usn, const QString &url);
     void RemoveServer(const QString &usn);
-    void ScheduleRenewal(const QString &usn, int timeout);
+    void ScheduleRenewal(const QString &usn, std::chrono::seconds timeout);
 
     // xml parsing of browse requests
     void ParseBrowse(const QUrl &url, QNetworkReply *reply);
@@ -108,10 +112,18 @@ class UPNPScanner : public QObject
     static  UPNPScanner* gUPNPScanner;
     static  bool         gUPNPScannerEnabled;
     static  MThread*     gUPNPScannerThread;
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     static  QMutex*      gUPNPScannerLock;
+#else
+    static  QRecursiveMutex* gUPNPScannerLock;
+#endif
 
     UPNPSubscription *m_subscription {nullptr};
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QMutex  m_lock {QMutex::Recursive};
+#else
+    QRecursiveMutex  m_lock;
+#endif
     QHash<QString,MediaServer*> m_servers;
     QNetworkAccessManager *m_network {nullptr};
     // TODO Move to QMultiHash when we move to Qt >=4.7

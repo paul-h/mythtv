@@ -10,7 +10,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QTimer>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QUrl>
 
 // MythTV headers
@@ -43,7 +43,7 @@
 MythNews::MythNews(MythScreenStack *parent, const QString &name) :
     MythScreenType(parent, name),
     m_retrieveTimer(new QTimer(this)),
-    m_updateFreq(gCoreContext->GetNumSetting("NewsUpdateFrequency", 30)),
+    m_updateFreq(gCoreContext->GetDurSetting<std::chrono::minutes>("NewsUpdateFrequency", 30min)),
     m_zoom(gCoreContext->GetSetting("WebBrowserZoomLevel", "1.0")),
     m_browser(gCoreContext->GetSetting("WebBrowserCommand", ""))
 {
@@ -55,12 +55,12 @@ MythNews::MythNews(MythScreenStack *parent, const QString &name) :
     if (!dir.exists())
         dir.mkdir(fileprefix);
     fileprefix += "/MythNews";
-    dir = QDir(fileprefix);
+    dir.setPath(fileprefix);;
     if (!dir.exists())
         dir.mkdir(fileprefix);
 
-    connect(m_retrieveTimer, SIGNAL(timeout()),
-            this, SLOT(slotRetrieveNews()));
+    connect(m_retrieveTimer, &QTimer::timeout,
+            this, &MythNews::slotRetrieveNews);
 
     m_retrieveTimer->stop();
     m_retrieveTimer->setSingleShot(false);
@@ -114,12 +114,12 @@ bool MythNews::Create(void)
     loadSites();
     updateInfoView(m_sitesList->GetItemFirst());
 
-    connect(m_sitesList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT( slotSiteSelected(MythUIButtonListItem*)));
-    connect(m_articlesList, SIGNAL(itemSelected( MythUIButtonListItem*)),
-            this, SLOT( updateInfoView(MythUIButtonListItem*)));
-    connect(m_articlesList, SIGNAL(itemClicked( MythUIButtonListItem*)),
-            this, SLOT( slotViewArticle(MythUIButtonListItem*)));
+    connect(m_sitesList, &MythUIButtonList::itemSelected,
+            this, &MythNews::slotSiteSelected);
+    connect(m_articlesList, &MythUIButtonList::itemSelected,
+            this, qOverload<MythUIButtonListItem *>(&MythNews::updateInfoView));
+    connect(m_articlesList, &MythUIButtonList::itemClicked,
+            this, &MythNews::slotViewArticle);
 
     return true;
 }
@@ -172,7 +172,7 @@ void MythNews::loadSites(void)
     {
         QString name = query.value(0).toString();
         QString url  = query.value(1).toString();
-        QString icon = query.value(2).toString();
+//      QString icon = query.value(2).toString();
         QDateTime time = MythDate::fromSecsSinceEpoch(query.value(3).toLongLong());
         bool podcast = query.value(4).toBool();
         m_newsSites.push_back(new NewsSite(name, url, time, podcast));
@@ -184,8 +184,8 @@ void MythNews::loadSites(void)
         auto *item = new MythUIButtonListItem(m_sitesList, site->name());
         item->SetData(QVariant::fromValue(site));
 
-        connect(site, SIGNAL(finished(NewsSite*)),
-                this, SLOT(slotNewsRetrieved(NewsSite*)));
+        connect(site, &NewsSite::finished,
+                this, &MythNews::slotNewsRetrieved);
     }
 
     slotRetrieveNews();
@@ -228,47 +228,14 @@ void MythNews::updateInfoView(MythUIButtonListItem *selected)
         {
 
             if (m_titleText)
-                m_titleText->SetText(article.title());
+            {
+                QString title = cleanText(article.title());
+                m_titleText->SetText(title);
+            }
 
             if (m_descText)
             {
-                QString artText = article.description();
-                // replace a few HTML characters
-                artText.replace("&#8232;", "");   // LSEP
-                artText.replace("&#8233;", "");   // PSEP
-                artText.replace("&#163;",  u8"\u00A3");  // POUND
-                artText.replace("&#173;",  "");   // ?
-                artText.replace("&#8211;", "-");  // EN-DASH
-                artText.replace("&#8220;", """"); // LEFT-DOUBLE-QUOTE
-                artText.replace("&#8221;", """"); // RIGHT-DOUBLE-QUOTE
-                artText.replace("&#8216;", "'");  // LEFT-SINGLE-QUOTE
-                artText.replace("&#8217;", "'");  // RIGHT-SINGLE-QUOTE
-                // Replace paragraph and break HTML with newlines
-                if( artText.contains(QRegExp("</(p|P)>")) )
-                {
-                    artText.replace( QRegExp("<(p|P)>"), "");
-                    artText.replace( QRegExp("</(p|P)>"), "\n\n");
-                }
-                else
-                {
-                    artText.replace( QRegExp("<(p|P)>"), "\n\n");
-                    artText.replace( QRegExp("</(p|P)>"), "");
-                }
-                artText.replace( QRegExp("<(br|BR|)/>"), "\n");
-                artText.replace( QRegExp("<(br|BR|)>"), "\n");
-                // These are done instead of simplifyWhitespace
-                // because that function also strips out newlines
-                // Replace tab characters with nothing
-                artText.replace( QRegExp("\t"), "");
-                // Replace double space with single
-                artText.replace( QRegExp("  "), "");
-                // Replace whitespace at beginning of lines with newline
-                artText.replace( QRegExp("\n "), "\n");
-                // Remove any remaining HTML tags
-                QRegExp removeHTML(QRegExp("</?.+>"));
-                removeHTML.setMinimal(true);
-                artText.remove((const QRegExp&) removeHTML);
-                artText = artText.trimmed();
+                QString artText = cleanText(article.description());
                 m_descText->SetText(artText);
             }
 
@@ -516,7 +483,7 @@ void MythNews::processAndShowNews(NewsSite *site)
     for (auto & article : articles)
     {
         auto *item =
-            new MythUIButtonListItem(m_articlesList, article.title());
+            new MythUIButtonListItem(m_articlesList, cleanText(article.title()));
         m_articles[item] = article;
     }
 
@@ -541,7 +508,7 @@ void MythNews::slotSiteSelected(MythUIButtonListItem *item)
     NewsArticle::List articles = site->GetArticleList();
     for (auto & article : articles)
     {
-        auto *blitem = new MythUIButtonListItem(m_articlesList, article.title());
+        auto *blitem = new MythUIButtonListItem(m_articlesList, cleanText(article.title()));
         m_articles[blitem] = article;
     }
 
@@ -553,9 +520,9 @@ void MythNews::slotViewArticle(MythUIButtonListItem *articlesListItem)
     QMutexLocker locker(&m_lock);
 
     QMap<MythUIButtonListItem*,NewsArticle>::const_iterator it =
-        m_articles.find(articlesListItem);
+        m_articles.constFind(articlesListItem);
 
-    if (it == m_articles.end())
+    if (it == m_articles.constEnd())
         return;
 
     const NewsArticle article = *it;
@@ -619,14 +586,14 @@ void MythNews::ShowEditDialog(bool edit)
 
     if (mythnewseditor->Create())
     {
-        connect(mythnewseditor, SIGNAL(Exiting()), SLOT(loadSites()));
+        connect(mythnewseditor, &MythScreenType::Exiting, this, &MythNews::loadSites);
         mainStack->AddScreen(mythnewseditor);
     }
     else
         delete mythnewseditor;
 }
 
-void MythNews::ShowFeedManager()
+void MythNews::ShowFeedManager() const
 {
     MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
 
@@ -634,7 +601,7 @@ void MythNews::ShowFeedManager()
 
     if (mythnewsconfig->Create())
     {
-        connect(mythnewsconfig, SIGNAL(Exiting()), SLOT(loadSites()));
+        connect(mythnewsconfig, &MythScreenType::Exiting, this, &MythNews::loadSites);
         mainStack->AddScreen(mythnewsconfig);
     }
     else
@@ -723,4 +690,49 @@ void MythNews::customEvent(QEvent *event)
 
         m_menuPopup = nullptr;
     }
+}
+
+QString MythNews::cleanText(const QString &text)
+{
+    QString result = text;
+
+    // replace a few HTML characters
+    result.replace("&#8232;", "");   // LSEP
+    result.replace("&#8233;", "");   // PSEP
+    result.replace("&#163;",  u8"\u00A3");  // POUND
+    result.replace("&#173;",  "");   // ?
+    result.replace("&#8211;", "-");  // EN-DASH
+    result.replace("&#8220;", """"); // LEFT-DOUBLE-QUOTE
+    result.replace("&#8221;", """"); // RIGHT-DOUBLE-QUOTE
+    result.replace("&#8216;", "'");  // LEFT-SINGLE-QUOTE
+    result.replace("&#8217;", "'");  // RIGHT-SINGLE-QUOTE
+    result.replace("&#39;", "'");    // Apostrophe
+
+    // Replace paragraph and break HTML with newlines
+    if( result.contains(QRegularExpression("</(p|P)>")) )
+    {
+        result.replace( QRegularExpression("<(p|P)>"), "");
+        result.replace( QRegularExpression("</(p|P)>"), "\n\n");
+    }
+    else
+    {
+        result.replace( QRegularExpression("<(p|P)>"), "\n\n");
+        result.replace( QRegularExpression("</(p|P)>"), "");
+    }
+    result.replace( QRegularExpression("<(br|BR|)/>"), "\n");
+    result.replace( QRegularExpression("<(br|BR|)>"), "\n");
+    // These are done instead of simplifyWhitespace
+    // because that function also strips out newlines
+    // Replace tab characters with nothing
+    result.replace( QRegularExpression("\t"), "");
+    // Replace double space with single
+    result.replace( QRegularExpression("  "), "");
+    // Replace whitespace at beginning of lines with newline
+    result.replace( QRegularExpression("\n "), "\n");
+    // Remove any remaining HTML tags
+    QRegularExpression removeHTML(QRegularExpression("</?.+>"));
+    result.remove((const QRegularExpression&) removeHTML);
+    result = result.trimmed();
+
+    return result;
 }

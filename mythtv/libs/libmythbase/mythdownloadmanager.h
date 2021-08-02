@@ -2,15 +2,19 @@
 #define MYTHDOWNLOADMANAGER_H
 
 #include <QDateTime>
-#include <QTimer>
+#include <QHash>
 #include <QMutex>
 #include <QNetworkAccessManager>
+#include <QNetworkCookieJar>
 #include <QNetworkDiskCache>
-#include <QNetworkReply>
 #include <QNetworkProxy>
-#include <QWaitCondition>
+#include <QNetworkReply>
+#if QT_VERSION >= QT_VERSION_CHECK(5,14,0)
+#include <QRecursiveMutex>
+#endif
 #include <QString>
-#include <QHash>
+#include <QTimer>
+#include <QWaitCondition>
 
 #include "mythbaseexp.h"
 #include "mthread.h"
@@ -19,6 +23,20 @@ class MythDownloadInfo;
 class RemoteFileDownloadThread;
 
 void ShutdownMythDownloadManager(void);
+
+/** \brief A subclassed QNetworkCookieJar that allows for reading and writing
+ *         cookie files that contain raw formatted cookies and copying the
+ *         cookie jar to share between threads.
+ */
+class MBASE_PUBLIC MythCookieJar : public QNetworkCookieJar
+{
+    Q_OBJECT
+  public:
+    MythCookieJar() = default;
+    void copyAllCookies(MythCookieJar &old);
+    void load(const QString &filename);
+    void save(const QString &filename);
+};
 
 // TODO : Overlap/Clash with RequestType in libupnp/httprequest.h
 enum MRequestType {
@@ -39,7 +57,12 @@ class MBASE_PUBLIC MythDownloadManager : public QObject, public MThread
      */
     MythDownloadManager()
         : MThread("DownloadManager"),
-          m_infoLock(new QMutex(QMutex::Recursive)) {}
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
+          m_infoLock(new QMutex(QMutex::Recursive))
+#else
+          m_infoLock(new QRecursiveMutex())
+#endif
+        {}
 
    ~MythDownloadManager() override;
 
@@ -146,7 +169,11 @@ class MBASE_PUBLIC MythDownloadManager : public QObject, public MThread
     QWaitCondition                                m_queueWaitCond;
     QMutex                                        m_queueWaitLock;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QMutex                                       *m_infoLock    {nullptr};
+#else
+    QRecursiveMutex                              *m_infoLock    {nullptr};
+#endif
     QMap <QString, MythDownloadInfo*>             m_downloadInfos;
     QMap <QNetworkReply*, MythDownloadInfo*>      m_downloadReplies;
     QList <MythDownloadInfo*>                     m_downloadQueue;

@@ -10,7 +10,11 @@ QObject::customEvent to receive event notifications for subscribed services.
 
 #include "upnpsubscription.h"
 
+#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
+#include <QStringConverter>
+#else
 #include <QTextCodec>
+#endif
 #include <utility>
 
 #include "mythcorecontext.h"
@@ -21,7 +25,7 @@ QObject::customEvent to receive event notifications for subscribed services.
 // default requested time for subscription (actual is dictated by server)
 #define SUBSCRIPTION_TIME 1800
 // maximum time to wait for responses to subscription requests (UPnP spec. 30s)
-#define MAX_WAIT 30000
+static constexpr std::chrono::milliseconds MAX_WAIT { 30s };
 
 #define LOC QString("UPnPSub: ")
 
@@ -52,7 +56,7 @@ UPNPSubscription::UPNPSubscription(const QString &share_path, int port)
         host = addr.toString();
 
     m_callback = QString("http://%1:%2/Subscriptions/event?usn=")
-         .arg(host).arg(QString::number(port));
+        .arg(host, QString::number(port));
 }
 
 UPNPSubscription::~UPNPSubscription()
@@ -67,11 +71,11 @@ UPNPSubscription::~UPNPSubscription()
     LOG(VB_UPNP, LOG_DEBUG, LOC + "Finished");
 }
 
-int UPNPSubscription::Subscribe(const QString &usn, const QUrl &url,
+std::chrono::seconds UPNPSubscription::Subscribe(const QString &usn, const QUrl &url,
                                 const QString &path)
 {
     LOG(VB_UPNP, LOG_DEBUG, LOC + QString("Subscribe %1 %2 %3")
-        .arg(usn).arg(url.toString()).arg(path));
+        .arg(usn, url.toString(), path));
 
     // N.B. this is called from the client object's thread. Hence we have to
     // lock until the subscription request has returned, otherwise we may
@@ -120,7 +124,7 @@ void UPNPSubscription::Unsubscribe(const QString &usn)
         SendUnsubscribeRequest(usn, url, path, uuid);
 }
 
-int UPNPSubscription::Renew(const QString &usn)
+std::chrono::seconds UPNPSubscription::Renew(const QString &usn)
 {
     LOG(VB_UPNP, LOG_DEBUG, LOC + QString("Renew: %1").arg(usn));
 
@@ -140,7 +144,7 @@ int UPNPSubscription::Renew(const QString &usn)
     {
         LOG(VB_UPNP, LOG_ERR, LOC + QString("Unrecognised renewal usn: %1")
             .arg(usn));
-        return 0;
+        return 0s;
     }
 
     if (!sid.isEmpty())
@@ -151,7 +155,7 @@ int UPNPSubscription::Renew(const QString &usn)
 
     LOG(VB_UPNP, LOG_ERR, LOC + QString("No uuid - not renewing usn: %1")
              .arg(usn));
-    return 0;
+    return 0s;
 }
 
 void UPNPSubscription::Remove(const QString &usn)
@@ -181,15 +185,15 @@ bool UPNPSubscription::ProcessRequest(HTTPRequest *pRequest)
         return false;
 
     LOG(VB_UPNP, LOG_DEBUG, LOC + QString("%1\n%2")
-        .arg(pRequest->m_sRawRequest).arg(pRequest->m_sPayload));
+        .arg(pRequest->m_sRawRequest, pRequest->m_sPayload));
 
     if (pRequest->m_sPayload.isEmpty())
         return true;
 
     pRequest->m_eResponseType = ResponseTypeHTML;
 
-    QString nt  = pRequest->m_mapHeaders["nt"];
-    QString nts = pRequest->m_mapHeaders["nts"];
+    QString nt  = pRequest->GetLastHeader("nt");
+    QString nts = pRequest->GetLastHeader("nts");
     bool    no  = (pRequest->m_eType == RequestTypeNotify);
 
     if (nt.isEmpty() || nts.isEmpty() || !no)
@@ -203,7 +207,7 @@ bool UPNPSubscription::ProcessRequest(HTTPRequest *pRequest)
         return true;
 
     QString usn = pRequest->m_mapParams["usn"];
-    QString sid = pRequest->m_mapHeaders["sid"];
+    QString sid = pRequest->GetLastHeader("sid");
     if (usn.isEmpty() || sid.isEmpty())
         return true;
 
@@ -213,7 +217,7 @@ bool UPNPSubscription::ProcessRequest(HTTPRequest *pRequest)
     // rapidly overload if a number of events arrive. Instead let the
     // subscribing objects validate the usn - the uuid should be superfluous.
 
-    QString seq = pRequest->m_mapHeaders["seq"];
+    QString seq = pRequest->GetLastHeader("seq");
 
     // mediatomb sends some extra character(s) at the end of the payload
     // which throw Qt, so try and trim them off
@@ -280,10 +284,14 @@ bool UPNPSubscription::SendUnsubscribeRequest(const QString &usn,
 
     QByteArray sub;
     QTextStream data(&sub);
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     data.setCodec(QTextCodec::codecForName("UTF-8"));
+#else
+    data.setEncoding(QStringConverter::Utf8);
+#endif
     // N.B. Play On needs an extra space between UNSUBSCRIBE and path...
     data << QString("UNSUBSCRIBE  %1 HTTP/1.1\r\n").arg(path);
-    data << QString("HOST: %1:%2\r\n").arg(host).arg(QString::number(port));
+    data << QString("HOST: %1:%2\r\n").arg(host, QString::number(port));
     data << QString("SID: uuid:%1\r\n").arg(uuid);
     data << "\r\n";
     data.flush();
@@ -324,7 +332,7 @@ bool UPNPSubscription::SendUnsubscribeRequest(const QString &usn,
     return success;
 }
 
-int UPNPSubscription::SendSubscribeRequest(const QString &callback,
+std::chrono::seconds UPNPSubscription::SendSubscribeRequest(const QString &callback,
                                            const QString &usn,
                                            const QUrl    &url,
                                            const QString &path,
@@ -336,16 +344,20 @@ int UPNPSubscription::SendSubscribeRequest(const QString &callback,
 
     QByteArray sub;
     QTextStream data(&sub);
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     data.setCodec(QTextCodec::codecForName("UTF-8"));
+#else
+    data.setEncoding(QStringConverter::Utf8);
+#endif
     // N.B. Play On needs an extra space between SUBSCRIBE and path...
     data << QString("SUBSCRIBE  %1 HTTP/1.1\r\n").arg(path);
-    data << QString("HOST: %1:%2\r\n").arg(host).arg(QString::number(port));
+    data << QString("HOST: %1:%2\r\n").arg(host, QString::number(port));
 
 
     if (uuidin.isEmpty()) // new subscription
     {
         data << QString("CALLBACK: <%1%2>\r\n")
-            .arg(callback).arg(usn);
+            .arg(callback, usn);
         data << "NT: upnp:event\r\n";
     }
     else // renewal
@@ -363,7 +375,7 @@ int UPNPSubscription::SendSubscribeRequest(const QString &callback,
 
     QString uuid;
     QString timeout;
-    uint result = 0;
+    std::chrono::seconds result = 0s;
 
     if (sock->Connect(QHostAddress(host), port))
     {
@@ -388,7 +400,7 @@ int UPNPSubscription::SendSubscribeRequest(const QString &callback,
             if (ok && !uuid.isEmpty() && !timeout.isEmpty())
             {
                 uuidout = uuid;
-                result  = timeout.toUInt();
+                result  = std::chrono::seconds(timeout.toUInt());
             }
             else
             {

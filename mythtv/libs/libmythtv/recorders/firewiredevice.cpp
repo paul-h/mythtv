@@ -54,10 +54,7 @@ void FirewireDevice::RemoveListener(TSDataListener *listener)
     {
         it = find(m_listeners.begin(), m_listeners.end(), listener);
         if (it != m_listeners.end())
-        {
-            m_listeners.erase(it);
-            it = m_listeners.begin();
-        }
+            it = m_listeners.erase(it);
     }
     while (it != m_listeners.end());
 
@@ -69,8 +66,8 @@ bool FirewireDevice::SetPowerState(bool on)
 {
     QMutexLocker locker(&m_lock);
 
-    vector<uint8_t> cmd;
-    vector<uint8_t> ret;
+    std::vector<uint8_t> cmd;
+    std::vector<uint8_t> ret;
 
     cmd.push_back(kAVCControlCommand);
     cmd.push_back(kAVCSubunitTypeUnit | kAVCSubunitIdIgnore);
@@ -103,8 +100,8 @@ FirewireDevice::PowerState FirewireDevice::GetPowerState(void)
 {
     QMutexLocker locker(&m_lock);
 
-    vector<uint8_t> cmd;
-    vector<uint8_t> ret;
+    std::vector<uint8_t> cmd;
+    std::vector<uint8_t> ret;
 
     cmd.push_back(kAVCStatusInquiryCommand);
     cmd.push_back(kAVCSubunitTypeUnit | kAVCSubunitIdIgnore);
@@ -162,10 +159,11 @@ bool FirewireDevice::SetChannel(const QString &panel_model,
         return false;
     }
 
-    int digit[3];
-    digit[0] = (channel % 1000) / 100;
-    digit[1] = (channel % 100)  / 10;
-    digit[2] = (channel % 10);
+    std::array<uint,3> digit {
+        (channel % 1000) / 100,
+        (channel % 100)  / 10,
+        (channel % 10)
+    };
 
     if (m_subunitid >= kAVCSubunitIdExtended)
     {
@@ -175,8 +173,8 @@ bool FirewireDevice::SetChannel(const QString &panel_model,
         return false;
     }
 
-    vector<uint8_t> cmd;
-    vector<uint8_t> ret;
+    std::vector<uint8_t> cmd;
+    std::vector<uint8_t> ret;
 
     if ((panel_model.toUpper() == "SA GENERIC") ||
         (panel_model.toUpper() == "SA4200HD") ||
@@ -224,16 +222,16 @@ bool FirewireDevice::SetChannel(const QString &panel_model,
 
     // the PACE is obviously not a Motorola channel changer, but the
     // same commands work for it as the Motorola.
-    bool is_mot = ((panel_model.toUpper().startsWith("DCT-")) ||
-                   (panel_model.toUpper().startsWith("DCH-")) ||
-                   (panel_model.toUpper().startsWith("DCX-")) ||
-                   (panel_model.toUpper().startsWith("QIP-")) ||
-                   (panel_model.toUpper().startsWith("MOTO")) ||
-                   (panel_model.toUpper().startsWith("PACE-")));
+    bool is_mot = ((panel_model.startsWith("DCT-", Qt::CaseInsensitive)) ||
+                   (panel_model.startsWith("DCH-", Qt::CaseInsensitive)) ||
+                   (panel_model.startsWith("DCX-", Qt::CaseInsensitive)) ||
+                   (panel_model.startsWith("QIP-", Qt::CaseInsensitive)) ||
+                   (panel_model.startsWith("MOTO", Qt::CaseInsensitive)) ||
+                   (panel_model.startsWith("PACE-", Qt::CaseInsensitive)));
 
     if (is_mot && !alt_method)
     {
-        for (int d : digit)
+        for (uint d : digit)
         {
             cmd.clear();
             cmd.push_back(kAVCControlCommand);
@@ -248,7 +246,7 @@ bool FirewireDevice::SetChannel(const QString &panel_model,
             if (!SendAVCCommand(cmd, ret, -1))
                 return false;
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            std::this_thread::sleep_for(500ms);
         }
 
         SetLastChannel(channel);
@@ -311,7 +309,7 @@ void FirewireDevice::BroadcastToListeners(
     if ((dataSize >= TSPacket::kSize) && (data[0] == SYNC_BYTE) &&
         ((data[1] & 0x1f) == 0) && (data[2] == 0))
     {
-        ProcessPATPacket(*((const TSPacket*)data));
+        ProcessPATPacket(*(reinterpret_cast<const TSPacket*>(data)));
     }
 
     for (auto & listener : m_listeners)
@@ -361,9 +359,9 @@ QString FirewireDevice::GetModelName(uint vendor_id, uint model_id)
     return ret;
 }
 
-vector<AVCInfo> FirewireDevice::GetSTBList(void)
+std::vector<AVCInfo> FirewireDevice::GetSTBList(void)
 {
-    vector<AVCInfo> list;
+    std::vector<AVCInfo> list;
 
 #ifdef USING_LINUX_FIREWIRE
     list = LinuxFirewireDevice::GetSTBList();

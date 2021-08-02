@@ -3,15 +3,14 @@
 #define GUIDEGRID_H_
 
 // c++
+#include <list>
 #include <utility>
 #include <vector>
-using namespace std;
 
 // qt
 #include <QString>
 #include <QDateTime>
 #include <QEvent>
-#include <QLinkedList>
 
 // myth
 #include "mythscreentype.h"
@@ -25,16 +24,14 @@ using namespace std;
 // mythfrontend
 #include "schedulecommon.h"
 
-using namespace std;
-
 class ProgramInfo;
 class QTimer;
 class MythUIButtonList;
 class MythUIGuideGrid;
 
-using db_chan_list_t = vector<ChannelInfo>  ;
-using db_chan_list_list_t = vector<db_chan_list_t>;
-using ProgInfoGuideArray = ProgramInfo *[MAX_DISPLAY_CHANS][MAX_DISPLAY_TIMES];
+using db_chan_list_t = std::vector<ChannelInfo>  ;
+using db_chan_list_list_t = std::vector<db_chan_list_t>;
+using ProgInfoGuideArray = std::array<std::array<ProgramInfo *,MAX_DISPLAY_TIMES>,MAX_DISPLAY_CHANS>;
 
 class JumpToChannel;
 class JumpToChannelListener
@@ -84,7 +81,7 @@ class JumpToChannel : public QObject
 // rendering.
 class GuideUIElement {
 public:
-    GuideUIElement(int row, int col, const QRect &area,
+    GuideUIElement(int row, int col, const QRect area,
                    QString title, QString category,
                    int arrow, int recType, int recStat, bool selected)
         : m_row(row), m_col(col), m_area(area), m_title(std::move(title)),
@@ -134,6 +131,13 @@ class GuideGrid : public ScheduleCommon, public JumpToChannelListener
     uint GetCurrentStartChannel(void) const { return m_currentStartChannel; }
     QDateTime GetCurrentStartTime(void) const { return m_currentStartTime; }
 
+  public slots:
+    void PlayerExiting(TV* Player);
+
+  signals:
+    void ChangeVolume(bool Up, int NewVolume = -1);
+    void ToggleMute(bool CycleChannels);
+
   protected slots:
     void cursorLeft();
     void cursorRight();
@@ -149,8 +153,6 @@ class GuideGrid : public ScheduleCommon, public JumpToChannelListener
 
     void showProgFinder();
     void channelUpdate();
-    void volumeUpdate(bool up);
-    void toggleMute(bool muteIndividualChannels = false);
 
     void deleteRule();
 
@@ -167,11 +169,11 @@ class GuideGrid : public ScheduleCommon, public JumpToChannelListener
               int changrpid = -1);
    ~GuideGrid() override;
     ProgramInfo *GetCurrentProgram(void) const override // ScheduleCommon
+        //cppcheck-suppress CastIntegerToAddressAtReturn
         { return m_programInfos[m_currentRow][m_currentCol]; };
 
   private slots:
     void updateTimeout(void);
-    void refreshVideo(void);
     void updateInfo(void);
     void updateChannels(void);
     void updateJumpToChannel(void);
@@ -216,7 +218,7 @@ public:
                           int progPast,
                           const QVector<ProgramList*> &proglists,
                           const ProgInfoGuideArray &programInfos,
-                          const QLinkedList<GuideUIElement> &elements);
+                          const std::list<GuideUIElement> &elements);
     void updateChannelsNonUI(QVector<ChannelInfo *> &chinfos,
                              QVector<bool> &unavailables);
     void updateChannelsUI(const QVector<ChannelInfo *> &chinfos,
@@ -235,13 +237,13 @@ private:
     void updateDateText(void);
 
   private:
-    int   m_selectRecThreshold      {16};
+    std::chrono::minutes  m_selectRecThreshold {16min};
 
     bool  m_allowFinder             {false};
     db_chan_list_list_t m_channelInfos;
     QMap<uint,uint>      m_channelInfoIdx;
 
-    vector<ProgramList*> m_programs;
+    std::vector<ProgramList*> m_programs;
     ProgInfoGuideArray m_programInfos {};
     ProgramList  m_recList;
 
@@ -265,9 +267,7 @@ private:
     QDateTime m_lastTime;
 
     TV     *m_player                      {nullptr};
-    bool    m_usingNullVideo              {false};
     bool    m_embedVideo                  {false};
-    QTimer *m_previewVideoRefreshTimer    {nullptr}; // audited ref #5318
     void    EmbedTVWindow(void);
     static void    HideTVWindow(void);
     QRect   m_videoRect;
@@ -281,7 +281,11 @@ private:
     int               m_changrpid {-1};
     ChannelGroupList  m_changrplist;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QMutex            m_jumpToChannelLock {QMutex::Recursive};
+#else
+    QRecursiveMutex   m_jumpToChannelLock;
+#endif
     JumpToChannel    *m_jumpToChannel     {nullptr};
 
     MythUIButtonList *m_timeList          {nullptr};

@@ -1,8 +1,10 @@
+#include <chrono>
+
 #include "galleryinfo.h"
 
+#include "imagemetadata.h"
 #include "mythcoreutil.h"
 #include "mythdate.h"
-#include "imagemetadata.h"
 
 
 //! The exif/video tags comprising the Basic file info
@@ -49,8 +51,8 @@ InfoList::InfoList(MythScreenType &screen)
     : m_screen(screen), m_mgr(ImageManagerFe::getInstance())
 {
     m_timer.setSingleShot(true);
-    m_timer.setInterval(1000);
-    connect(&m_timer, SIGNAL(timeout()), this, SLOT(Clear()));
+    m_timer.setInterval(1s);
+    connect(&m_timer, &QTimer::timeout, this, &InfoList::Clear);
 }
 
 
@@ -244,7 +246,7 @@ void InfoList::Display(ImageItemK &im, const QStringList &tagStrings)
     if (im.IsDevice())
     {
         CreateButton(tr("Last scan"),
-                     MythDate::toString(QDateTime::fromSecsSinceEpoch(im.m_date),
+                     MythDate::toString(QDateTime::fromSecsSinceEpoch(im.m_date.count()),
                                         MythDate::kDateTimeFull | MythDate::kAddYear));
     }
 
@@ -254,7 +256,7 @@ void InfoList::Display(ImageItemK &im, const QStringList &tagStrings)
     if (!im.IsDevice())
     {
         CreateButton(tr("Modified"),
-                     MythDate::toString(QDateTime::fromSecsSinceEpoch(im.m_modTime),
+                     MythDate::toString(QDateTime::fromSecsSinceEpoch(im.m_modTime.count()),
                                         MythDate::kDateTimeFull | MythDate::kAddYear));
     }
 
@@ -265,7 +267,8 @@ void InfoList::Display(ImageItemK &im, const QStringList &tagStrings)
 
         // Create buttons for exif/video tags
         // Multimap iterates each key latest->earliest so we must do it the long way
-        for (const QString & group : tags.uniqueKeys())
+        QList groups = tags.uniqueKeys();
+        for (const QString & group : qAsConst(groups))
         {
             // Iterate earliest->latest to preserve tag order
             using TagList = QList<QStringList>;

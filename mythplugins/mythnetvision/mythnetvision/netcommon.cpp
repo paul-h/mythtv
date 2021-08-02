@@ -20,12 +20,15 @@ QString GetThumbnailFilename(const QString& url, const QString& title)
     if (!dir.exists())
         dir.mkdir(fileprefix);
 
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+    quint16 urlChecksum = qChecksum(url.toLocal8Bit().constData(), url.toLocal8Bit().size());
+    quint16 titleChecksum = qChecksum(title.toLocal8Bit().constData(), title.toLocal8Bit().size());
+#else
+    quint16 urlChecksum = qChecksum(url.toLocal8Bit());
+    quint16 titleChecksum = qChecksum(title.toLocal8Bit());
+#endif
     QString sFilename = QString("%1/%2_%3")
-        .arg(fileprefix)
-        .arg(qChecksum(url.toLocal8Bit().constData(),
-                       url.toLocal8Bit().size()))
-        .arg(qChecksum(title.toLocal8Bit().constData(),
-                       title.toLocal8Bit().size()));
+        .arg(fileprefix).arg(urlChecksum).arg(titleChecksum);
     return sFilename;
 }
 
@@ -42,6 +45,6 @@ QUrl GetMythXMLSearch(const QString& url, const QString& query, const QString& g
                          const QString& pagenum)
 {
     QString tmp = QString("%1GetInternetSearch?Query=%2&Grabber=%3&Page=%4")
-        .arg(url).arg(query).arg(grabber).arg(pagenum);
+        .arg(url, query, grabber, pagenum);
     return QUrl(tmp);
 }

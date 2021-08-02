@@ -24,7 +24,6 @@
 #include <cstdarg>
 #include <queue>
 #include <unistd.h>       // for usleep()
-using namespace std;
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -54,6 +53,10 @@ using namespace std;
 
 #define LOC      QString("MythCoreContext::%1(): ").arg(__func__)
 
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#define qEnvironmentVariable getenv
+#endif
+
 MythCoreContext *gCoreContext = nullptr;
 
 class MythCoreContextPrivate : public QObject
@@ -63,7 +66,7 @@ class MythCoreContextPrivate : public QObject
                            QObject *guicontext);
    ~MythCoreContextPrivate() override;
 
-    bool WaitForWOL(int timeout_in_ms = INT_MAX);
+    bool WaitForWOL(std::chrono::milliseconds timeout = std::chrono::milliseconds::max());
 
   public:
     MythCoreContext *m_parent;
@@ -101,7 +104,7 @@ class MythCoreContextPrivate : public QObject
 
     bool m_blockingClient;
 
-    QMap<QObject *, QByteArray> m_playbackClients;
+    QMap<QObject *, MythCoreContext::PlaybackStartCb> m_playbackClients;
     QMutex m_playbackLock;
     bool m_inwanting;
     bool m_intvwanting;
@@ -130,7 +133,6 @@ MythCoreContextPrivate::MythCoreContextPrivate(MythCoreContext *lparent,
       m_guiContext(guicontext),
       m_guiObject(nullptr),
       m_appBinaryVersion(std::move(binversion)),
-      m_sockLock(QMutex::NonRecursive),
       m_serverSock(nullptr),
       m_eventSock(nullptr),
       m_wolInProgress(false),
@@ -156,7 +158,13 @@ MythCoreContextPrivate::MythCoreContextPrivate(MythCoreContext *lparent,
 #endif
 }
 
-static void delete_sock(QMutexLocker &locker, MythSocket **s)
+static void delete_sock(
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+    QMutexLocker &locker,
+#else
+    QMutexLocker<QMutex> &locker,
+#endif
+    MythSocket **s)
 {
     if (*s)
     {
@@ -212,16 +220,15 @@ MythCoreContextPrivate::~MythCoreContextPrivate()
 /// If another thread has already started WOL process, wait on them...
 ///
 /// Note: Caller must be holding m_WOLInProgressLock.
-bool MythCoreContextPrivate::WaitForWOL(int timeout_in_ms)
+bool MythCoreContextPrivate::WaitForWOL(std::chrono::milliseconds timeout)
 {
-    int timeout_remaining = timeout_in_ms;
-    while (m_wolInProgress && (timeout_remaining > 0))
+    std::chrono::milliseconds timeout_remaining = timeout;
+    while (m_wolInProgress && (timeout_remaining > 0ms))
     {
         LOG(VB_GENERAL, LOG_INFO, LOC + "Wake-On-LAN in progress, waiting...");
 
-        int max_wait = min(1000, timeout_remaining);
-        m_wolInProgressWaitCondition.wait(
-            &m_wolInProgressLock, max_wait);
+        std::chrono::milliseconds max_wait = std::min(1000ms, timeout_remaining);
+        m_wolInProgressWaitCondition.wait(&m_wolInProgressLock, max_wait.count());
         timeout_remaining -= max_wait;
     }
 
@@ -247,7 +254,7 @@ bool MythCoreContext::Init(void)
         LOG(VB_GENERAL, LOG_CRIT,
             QString("Application binary version (%1) does not "
                     "match libraries (%2)")
-                .arg(d->m_appBinaryVersion) .arg(MYTH_BINARY_VERSION));
+                .arg(d->m_appBinaryVersion, MYTH_BINARY_VERSION));
 
         QString warning = tr("This application is not compatible with the "
                              "installed MythTV libraries. Please recompile "
@@ -264,13 +271,13 @@ bool MythCoreContext::Init(void)
     {
         // try fallback to environment variables for non-glibc systems
         // LC_ALL, then LC_CTYPE
-        lc_value = getenv("LC_ALL");
+        lc_value = qEnvironmentVariable("LC_ALL");
         if (lc_value.isEmpty())
-            lc_value = getenv("LC_CTYPE");
+            lc_value = qEnvironmentVariable("LC_CTYPE");
     }
     if (!lc_value.contains("UTF-8", Qt::CaseInsensitive))
         lang_variables.append("LC_ALL or LC_CTYPE");
-    lc_value = getenv("LANG");
+    lc_value = qEnvironmentVariable("LANG");
     if (!lc_value.contains("UTF-8", Qt::CaseInsensitive))
     {
         if (!lang_variables.isEmpty())
@@ -316,19 +323,19 @@ void MythCoreContext::setTestStringSettings(QMap<QString,QString> &overrides)
 
 bool MythCoreContext::SetupCommandSocket(MythSocket *serverSock,
                                          const QString &announcement,
-                                         uint timeout_in_ms,
+                                         std::chrono::milliseconds timeout,
                                          bool &proto_mismatch)
 {
     proto_mismatch = false;
 
 #ifndef IGNORE_PROTO_VER_MISMATCH
-    if (!CheckProtoVersion(serverSock, timeout_in_ms, true))
+    if (!CheckProtoVersion(serverSock, timeout, true))
     {
         proto_mismatch = true;
         return false;
     }
 #else
-    Q_UNUSED(timeout_in_ms);
+    Q_UNUSED(timeout);
 #endif
 
     QStringList strlist(announcement);
@@ -402,8 +409,7 @@ bool MythCoreContext::ConnectToMasterServer(bool blockingClient,
     {
         QString type = IsFrontend() ? "Frontend" : (blockingClient ? "Playback" : "Monitor");
         QString ann = QString("ANN %1 %2 %3")
-            .arg(type)
-            .arg(d->m_localHostname).arg(static_cast<int>(false));
+            .arg(type, d->m_localHostname, QString::number(static_cast<int>(false)));
         d->m_serverSock = ConnectCommandSocket(
             server, port, ann, &proto_mismatch);
     }
@@ -444,7 +450,7 @@ bool MythCoreContext::ConnectToMasterServer(bool blockingClient,
 
 MythSocket *MythCoreContext::ConnectCommandSocket(
     const QString &hostname, int port, const QString &announce,
-    bool *p_proto_mismatch, int maxConnTry, int setup_timeout)
+    bool *p_proto_mismatch, int maxConnTry, std::chrono::milliseconds setup_timeout)
 {
     MythSocket *serverSock = nullptr;
 
@@ -458,20 +464,20 @@ MythSocket *MythCoreContext::ConnectCommandSocket(
         WOLcmd = GetSetting("WOLbackendCommand", "");
 
     if (maxConnTry < 1)
-        maxConnTry = max(GetNumSetting("BackendConnectRetry", 1), 1);
+        maxConnTry = std::max(GetNumSetting("BackendConnectRetry", 1), 1);
 
-    int WOLsleepTime = 0;
+    std::chrono::seconds WOLsleepTime = 0s;
     int WOLmaxConnTry = 0;
     if (!WOLcmd.isEmpty())
     {
-        WOLsleepTime  = GetNumSetting("WOLbackendReconnectWaitTime", 0);
-        WOLmaxConnTry = max(GetNumSetting("WOLbackendConnectRetry", 1), 1);
-        maxConnTry    = max(maxConnTry, WOLmaxConnTry);
+        WOLsleepTime  = GetDurSetting<std::chrono::seconds>("WOLbackendReconnectWaitTime", 0s);
+        WOLmaxConnTry = std::max(GetNumSetting("WOLbackendConnectRetry", 1), 1);
+        maxConnTry    = std::max(maxConnTry, WOLmaxConnTry);
     }
 
     bool we_attempted_wol = false;
 
-    if (setup_timeout <= 0)
+    if (setup_timeout <= 0ms)
         setup_timeout = MythSocket::kShortTimeout;
 
     bool proto_mismatch = false;
@@ -483,7 +489,7 @@ MythSocket *MythCoreContext::ConnectCommandSocket(
 
         serverSock = new MythSocket();
 
-        int sleepms = 0;
+        std::chrono::microseconds sleepus = 0us;
         if (serverSock->ConnectToHost(hostname, port))
         {
             if (SetupCommandSocket(
@@ -502,7 +508,7 @@ MythSocket *MythCoreContext::ConnectCommandSocket(
                 break;
             }
 
-            setup_timeout = (int)(setup_timeout * 1.5F);
+            setup_timeout += setup_timeout / 2;
         }
         else if (!WOLcmd.isEmpty() && (cnt < maxConnTry))
         {
@@ -520,7 +526,7 @@ MythSocket *MythCoreContext::ConnectCommandSocket(
 
             MythWakeup(WOLcmd, kMSDontDisableDrawing | kMSDontBlockInputDevs |
                                 kMSProcessEvents);
-            sleepms = WOLsleepTime * 1000;
+            sleepus = WOLsleepTime;
         }
 
         serverSock->DecrRef();
@@ -532,8 +538,8 @@ MythSocket *MythCoreContext::ConnectCommandSocket(
                 d->m_guiContext, new MythEvent("CONNECTION_FAILURE"));
         }
 
-        if (sleepms)
-            usleep(sleepms * 1000);
+        if (sleepus != 0us)
+            usleep(sleepus.count());
     }
 
     if (we_attempted_wol)
@@ -786,7 +792,7 @@ QString MythCoreContext::GenMythURL(const QString& host, int port, QString path,
     {
         LOG(VB_GENERAL, LOG_CRIT, LOC + QString("(%1/%2): Given "
                                           "IP address instead of hostname "
-                                          "(ID). This is invalid.").arg(host).arg(path));
+                                          "(ID). This is invalid.").arg(host, path));
     }
 
     m_host = host;
@@ -1312,22 +1318,20 @@ bool MythCoreContext::CheckSubnet(const QHostAddress &peer)
 
     // loop through all available interfaces
     QList<QNetworkInterface> IFs = QNetworkInterface::allInterfaces();
-    QList<QNetworkInterface>::const_iterator qni;
-    for (qni = IFs.begin(); qni != IFs.end(); ++qni)
+    for (const auto & qni : qAsConst(IFs))
     {
-        if ((qni->flags() & QNetworkInterface::IsRunning) == 0)
+        if ((qni.flags() & QNetworkInterface::IsRunning) == 0)
             continue;
 
-        QList<QNetworkAddressEntry> IPs = qni->addressEntries();
-        QList<QNetworkAddressEntry>::iterator qnai;
-        for (qnai = IPs.begin(); qnai != IPs.end(); ++qnai)
+        QList<QNetworkAddressEntry> IPs = qni.addressEntries();
+        for (const auto & qnai : qAsConst(IPs))
         {
-            int pfxlen = qnai->prefixLength();
+            int pfxlen = qnai.prefixLength();
             // Set this to test rejection without having an extra
             // network.
             if (GetBoolSetting("DebugSubnet"))
                 pfxlen += 4;
-            if (peer.isInSubnet(qnai->ip(),pfxlen))
+            if (peer.isInSubnet(qnai.ip(),pfxlen))
             {
                 d->m_approvedIps.append(peer);
                 return true;
@@ -1406,8 +1410,7 @@ bool MythCoreContext::SendReceiveStringList(
 
     if (d->m_serverSock)
     {
-        QStringList sendstrlist = strlist;
-        uint timeout = quickTimeout ?
+        std::chrono::milliseconds timeout = quickTimeout ?
             MythSocket::kShortTimeout : MythSocket::kLongTimeout;
         ok = d->m_serverSock->SendReceiveStringList(strlist, 0, timeout);
 
@@ -1476,7 +1479,7 @@ bool MythCoreContext::SendReceiveStringList(
             {
                 LOG(VB_GENERAL, LOG_INFO, LOC +
                     QString("Protocol query '%1' responded with the error '%2'")
-                        .arg(query_type).arg(strlist[1]));
+                        .arg(query_type, strlist[1]));
             }
             else
             {
@@ -1556,14 +1559,14 @@ void MythCoreContext::SendSystemEvent(const QString &msg)
         return;
 
     SendMessage(QString("SYSTEM_EVENT %1 SENDER %2")
-                        .arg(msg).arg(GetHostName()));
+                        .arg(msg, GetHostName()));
 }
 
 void MythCoreContext::SendHostSystemEvent(const QString &msg,
                                           const QString &hostname,
                                           const QString &args)
 {
-    SendSystemEvent(QString("%1 HOST %2 %3").arg(msg).arg(hostname).arg(args));
+    SendSystemEvent(QString("%1 HOST %2 %3").arg(msg, hostname, args));
 }
 
 
@@ -1673,18 +1676,19 @@ void MythCoreContext::connectionClosed(MythSocket *sock)
     dispatch(MythEvent("BACKEND_SOCKETS_CLOSED"));
 }
 
-bool MythCoreContext::CheckProtoVersion(MythSocket *socket, uint timeout_ms,
+bool MythCoreContext::CheckProtoVersion(MythSocket *socket,
+                                        std::chrono::milliseconds timeout,
                                         bool error_dialog_desired)
 {
     if (!socket)
         return false;
 
     QStringList strlist(QString("MYTH_PROTO_VERSION %1 %2")
-                        .arg(MYTH_PROTO_VERSION)
-                        .arg(QString::fromUtf8(MYTH_PROTO_TOKEN)));
+                        .arg(MYTH_PROTO_VERSION,
+                             QString::fromUtf8(MYTH_PROTO_TOKEN)));
     socket->WriteStringList(strlist);
 
-    if (!socket->ReadStringList(strlist, timeout_ms) || strlist.empty())
+    if (!socket->ReadStringList(strlist, timeout) || strlist.empty())
     {
         LOG(VB_GENERAL, LOG_CRIT, "Protocol version check failure.\n\t\t\t"
                 "The response to MYTH_PROTO_VERSION was empty.\n\t\t\t"
@@ -1697,9 +1701,9 @@ bool MythCoreContext::CheckProtoVersion(MythSocket *socket, uint timeout_ms,
     {
         LOG(VB_GENERAL, LOG_CRIT, LOC + QString("Protocol version or token mismatch "
                                           "(frontend=%1/%2,backend=%3/\?\?)\n")
-                                      .arg(MYTH_PROTO_VERSION)
-                                      .arg(QString::fromUtf8(MYTH_PROTO_TOKEN))
-                                      .arg(strlist[1]));
+                                      .arg(MYTH_PROTO_VERSION,
+                                           QString::fromUtf8(MYTH_PROTO_TOKEN),
+                                           strlist[1]));
 
         if (error_dialog_desired && d->m_guiContext)
         {
@@ -1717,8 +1721,8 @@ bool MythCoreContext::CheckProtoVersion(MythSocket *socket, uint timeout_ms,
             d->m_announcedProtocol = true;
             LOG(VB_GENERAL, LOG_INFO, LOC +
                             QString("Using protocol version %1 %2")
-                                .arg(MYTH_PROTO_VERSION)
-                                .arg(QString::fromUtf8(MYTH_PROTO_TOKEN)));
+                                .arg(MYTH_PROTO_VERSION,
+                                     QString::fromUtf8(MYTH_PROTO_TOKEN)));
         }
 
         return true;
@@ -1891,30 +1895,30 @@ MythScheduler *MythCoreContext::GetScheduler(void)
  * Wait until any of the provided signals have been received.
  * signals being declared as SIGNAL(SignalName(args,..))
  */
-void MythCoreContext::WaitUntilSignals(std::vector<const char *> & sigs)
+void MythCoreContext::WaitUntilSignals(std::vector<CoreWaitInfo> & sigs) const
 {
     if (sigs.empty())
         return;
 
     QEventLoop eventLoop;
-    for (const auto *s : sigs)
+    for (auto s : sigs)
     {
         LOG(VB_GENERAL, LOG_DEBUG, LOC +
             QString("Waiting for signal %1")
-            .arg(s));
-        connect(this, s, &eventLoop, SLOT(quit()));
+            .arg(s.name));
+        connect(this, s.fn, &eventLoop, &QEventLoop::quit);
     }
 
     eventLoop.exec(QEventLoop::ExcludeUserInputEvents | QEventLoop::ExcludeSocketNotifiers);
 }
 
 /**
- * \fn void MythCoreContext::RegisterForPlayback(QObject *sender, const char *method)
+ * \fn void MythCoreContext::RegisterForPlayback(QObject *sender, void (QObject::*method)(void) )
  * Register sender for TVPlaybackAboutToStart signal. Method will be called upon
  * the signal being emitted.
  * sender must call MythCoreContext::UnregisterForPlayback upon deletion
  */
-void MythCoreContext::RegisterForPlayback(QObject *sender, const char *method)
+void MythCoreContext::RegisterForPlayback(QObject *sender, PlaybackStartCb method)
 {
     if (!sender || !method)
         return;
@@ -1923,8 +1927,8 @@ void MythCoreContext::RegisterForPlayback(QObject *sender, const char *method)
 
     if (!d->m_playbackClients.contains(sender))
     {
-        d->m_playbackClients.insert(sender, QByteArray(method));
-        connect(this, SIGNAL(TVPlaybackAboutToStart()),
+        d->m_playbackClients.insert(sender, method);
+        connect(this, &MythCoreContext::TVPlaybackAboutToStart,
                 sender, method,
                 Qt::BlockingQueuedConnection);
     }
@@ -1941,9 +1945,8 @@ void MythCoreContext::UnregisterForPlayback(QObject *sender)
 
     if (d->m_playbackClients.contains(sender))
     {
-        QByteArray ba = d->m_playbackClients.value(sender);
-        const char *method = ba.constData();
-        disconnect(this, SIGNAL(TVPlaybackAboutToStart()),
+        PlaybackStartCb method = d->m_playbackClients.value(sender);
+        disconnect(this, &MythCoreContext::TVPlaybackAboutToStart,
                    sender, method);
         d->m_playbackClients.remove(sender);
     }
@@ -1958,15 +1961,14 @@ void MythCoreContext::UnregisterForPlayback(QObject *sender)
 void MythCoreContext::WantingPlayback(QObject *sender)
 {
     QMutexLocker lock(&d->m_playbackLock);
-    QByteArray ba;
-    const char *method = nullptr;
+    PlaybackStartCb method { nullptr };
     d->m_inwanting = true;
 
     // If any registered client are in the same thread, they will deadlock, so rebuild
     // connections for any clients in the same thread as non-blocking connection
     QThread *currentThread = QThread::currentThread();
 
-    QMap<QObject *, QByteArray>::iterator it = d->m_playbackClients.begin();
+    QMap<QObject *, PlaybackStartCb>::iterator it = d->m_playbackClients.begin();
     for (; it != d->m_playbackClients.end(); ++it)
     {
         if (it.key() == sender)
@@ -1977,16 +1979,15 @@ void MythCoreContext::WantingPlayback(QObject *sender)
         if (thread != currentThread)
             continue;
 
-        disconnect(this, SIGNAL(TVPlaybackAboutToStart()), it.key(), it.value());
-        connect(this, SIGNAL(TVPlaybackAboutToStart()), it.key(), it.value());
+        disconnect(this, &MythCoreContext::TVPlaybackAboutToStart, it.key(), it.value());
+        connect(this, &MythCoreContext::TVPlaybackAboutToStart, it.key(), it.value());
     }
 
     // disconnect sender so it won't receive the message
     if (d->m_playbackClients.contains(sender))
     {
-        ba = d->m_playbackClients.value(sender);
-        method = ba.constData();
-        disconnect(this, SIGNAL(TVPlaybackAboutToStart()), sender, method);
+        method = d->m_playbackClients.value(sender);
+        disconnect(this, &MythCoreContext::TVPlaybackAboutToStart, sender, method);
     }
 
     // emit signal
@@ -1995,7 +1996,7 @@ void MythCoreContext::WantingPlayback(QObject *sender)
     // reconnect sender
     if (method)
     {
-        connect(this, SIGNAL(TVPlaybackAboutToStart()),
+        connect(this, &MythCoreContext::TVPlaybackAboutToStart,
                 sender, method,
                 Qt::BlockingQueuedConnection);
     }
@@ -2010,8 +2011,9 @@ void MythCoreContext::WantingPlayback(QObject *sender)
         if (thread != currentThread)
             continue;
 
-        disconnect(this, SIGNAL(TVPlaybackAboutToStart()), it.key(), it.value());
-        connect(this, SIGNAL(TVPlaybackAboutToStart()),
+        disconnect(this, &MythCoreContext::TVPlaybackAboutToStart,
+                   it.key(), it.value());
+        connect(this, &MythCoreContext::TVPlaybackAboutToStart,
                 it.key(), it.value(), Qt::BlockingQueuedConnection);
     }
     d->m_inwanting = false;
@@ -2068,7 +2070,7 @@ bool MythCoreContext::TestPluginVersion(const QString &name,
     LOG(VB_GENERAL, LOG_EMERG, LOC +
              QString("Plugin %1 (%2) binary version does not "
                      "match libraries (%3)")
-                 .arg(name).arg(pluginversion).arg(libversion));
+                 .arg(name, pluginversion, libversion));
     return false;
 }
 

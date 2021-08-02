@@ -1,6 +1,7 @@
-#include <unistd.h>
-#include <iostream>
+#include <chrono>
 #include <cstdlib>
+#include <iostream>
+#include <unistd.h>
 
 // qt
 #include <QKeyEvent>
@@ -52,7 +53,7 @@ void showLogViewer(void)
             QDir d(logDir);
             logFiles = d.entryList(filters, QDir::Files | QDir::Readable, QDir::Time);
 
-            if (logFiles.count())
+            if (!logFiles.isEmpty())
             {
                 // the first log file should be the newest one available
                 progressLog = logDir + '/' + logFiles[0];
@@ -79,14 +80,14 @@ void showLogViewer(void)
 LogViewer::LogViewer(MythScreenStack *parent) :
     MythScreenType(parent, "logviewer")
 {
-    m_updateTime = gCoreContext->GetNumSetting(
+    m_updateTime = gCoreContext->GetDurSetting<std::chrono::seconds>(
         "LogViewerUpdateTime", DEFAULT_UPDATE_TIME);
     m_autoUpdate = gCoreContext->GetBoolSetting("LogViewerAutoUpdate", true);
 }
 
 LogViewer::~LogViewer(void)
 {
-    gCoreContext->SaveSetting("LogViewerUpdateTime", m_updateTime);
+    gCoreContext->SaveDurSetting("LogViewerUpdateTime", m_updateTime);
     gCoreContext->SaveSetting("LogViewerAutoUpdate", m_autoUpdate ? "1" : "0");
     delete m_updateTimer;
 }
@@ -111,16 +112,16 @@ bool LogViewer::Create(void)
         return false;
     }
 
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(cancelClicked()));
-    connect(m_updateButton, SIGNAL(Clicked()), this, SLOT(updateClicked()));
-    connect(m_exitButton, SIGNAL(Clicked()), this, SLOT(Close()));
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &LogViewer::cancelClicked);
+    connect(m_updateButton, &MythUIButton::Clicked, this, &LogViewer::updateClicked);
+    connect(m_exitButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
 
-    connect(m_logList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(updateLogItem(MythUIButtonListItem*)));
+    connect(m_logList, &MythUIButtonList::itemSelected,
+            this, &LogViewer::updateLogItem);
 
     m_updateTimer = nullptr;
     m_updateTimer = new QTimer(this);
-    connect(m_updateTimer, SIGNAL(timeout()), SLOT(updateTimerTimeout()) );
+    connect(m_updateTimer, &QTimer::timeout, this, &LogViewer::updateTimerTimeout );
 
     BuildFocusList();
 
@@ -171,7 +172,7 @@ void LogViewer::toggleAutoUpdate(void)
     m_autoUpdate = ! m_autoUpdate;
 
     if (m_autoUpdate)
-        m_updateTimer->start(m_updateTime * 1000);
+        m_updateTimer->start(m_updateTime);
     else
         m_updateTimer->stop();
 }
@@ -211,8 +212,8 @@ void LogViewer::updateClicked(void)
                 (m_logList->GetCount() == m_logList->GetCurrentPos() + 1) ||
                 (m_logList->GetCurrentPos() == 0);
 
-        for (int x = 0; x < list.size(); x++)
-            new MythUIButtonListItem(m_logList, list[x]);
+        for (const auto & label : qAsConst(list))
+            new MythUIButtonListItem(m_logList, label);
 
         if (bUpdateCurrent)
             m_logList->SetItemCurrent(m_logList->GetCount() - 1);
@@ -229,9 +230,9 @@ void LogViewer::updateClicked(void)
     if (m_autoUpdate)
     {
         if (m_logList->GetCount() > 0)
-            m_updateTimer->start(m_updateTime * 1000);
+            m_updateTimer->start(m_updateTime);
         else
-            m_updateTimer->start(500);
+            m_updateTimer->start(500ms);
     }
 }
 
@@ -341,10 +342,10 @@ void LogViewer::ShowMenu()
     menuPopup->SetReturnEvent(this, "action");
 
     if (m_autoUpdate)
-        menuPopup->AddButton(tr("Don't Auto Update"), SLOT(toggleAutoUpdate()));
+        menuPopup->AddButton(tr("Don't Auto Update"), &LogViewer::toggleAutoUpdate);
     else
-        menuPopup->AddButton(tr("Auto Update"), SLOT(toggleAutoUpdate()));
+        menuPopup->AddButton(tr("Auto Update"), &LogViewer::toggleAutoUpdate);
 
-    menuPopup->AddButton(tr("Show Progress Log"), SLOT(showProgressLog()));
-    menuPopup->AddButton(tr("Show Full Log"), SLOT(showFullLog()));
+    menuPopup->AddButton(tr("Show Progress Log"), &LogViewer::showProgressLog);
+    menuPopup->AddButton(tr("Show Full Log"), &LogViewer::showFullLog);
 }

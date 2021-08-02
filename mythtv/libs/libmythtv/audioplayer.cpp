@@ -1,6 +1,6 @@
 
 #include "audioplayer.h"
-
+#include "visualisations/videovisual.h"
 #include "mythplayer.h"
 #include "audiooutput.h"
 #include "mythnotificationcenter.h"
@@ -107,24 +107,19 @@ QString AudioPlayer::ReinitAudio(void)
     QString errMsg;
     QMutexLocker lock(&m_lock);
 
-    if ((m_format == FORMAT_NONE) ||
-        (m_channels <= 0) ||
-        (m_sampleRate <= 0))
-    {
+    if ((m_state.m_format == FORMAT_NONE) || (m_state.m_channels <= 0) || (m_state.m_sampleRate <= 0))
         m_noAudioIn = m_noAudioOut = true;
-    }
     else
         m_noAudioIn = false;
 
     if (want_audio && !m_audioOutput)
     {
         // AudioOutput has never been created and we will want audio
-        AudioSettings aos = AudioSettings(m_mainDevice,
-                                          m_passthruDevice,
-                                          m_format, m_channels,
-                                          m_codec, m_sampleRate,
+        AudioSettings aos = AudioSettings(m_mainDevice, m_passthruDevice,
+                                          m_state.m_format, m_state.m_channels,
+                                          m_state.m_codec, m_state.m_sampleRate,
                                           AUDIOOUTPUT_VIDEO,
-                                          m_controlsVolume, m_passthru);
+                                          m_controlsVolume, m_state.m_passthru);
         if (m_noAudioIn)
             aos.m_init = false;
 
@@ -141,9 +136,9 @@ QString AudioPlayer::ReinitAudio(void)
     }
     else if (!m_noAudioIn && m_audioOutput)
     {
-        const AudioSettings settings(m_format, m_channels, m_codec,
-                                     m_sampleRate, m_passthru, 0,
-                                     m_codecProfile);
+        const AudioSettings settings(m_state.m_format, m_state.m_channels, m_state.m_codec,
+                                     m_state.m_sampleRate, m_state.m_passthru, 0,
+                                     m_state.m_codecProfile);
         m_audioOutput->Reconfigure(settings);
         errMsg = m_audioOutput->GetError();
         SetStretchFactor(m_stretchFactor);
@@ -176,7 +171,7 @@ QString AudioPlayer::ReinitAudio(void)
 
 void AudioPlayer::CheckFormat(void)
 {
-    if (m_format == FORMAT_NONE)
+    if (m_state.m_format == FORMAT_NONE)
         m_noAudioIn = m_noAudioOut = true;
 }
 
@@ -239,8 +234,9 @@ void AudioPlayer::SetAudioInfo(const QString &main_device,
         m_mainDevice = main_device;
     if (!passthru_device.isEmpty())
         m_passthruDevice = passthru_device;
-    m_sampleRate = (int)samplerate;
-    m_codecProfile = codec_profile;
+    m_state.m_sampleRate = static_cast<int>(samplerate);
+    m_state.m_codecProfile = codec_profile;
+    emit AudioPlayerStateChanged(m_state);
 }
 
 /**
@@ -252,15 +248,15 @@ void AudioPlayer::SetAudioParams(AudioFormat format, int orig_channels,
                                  int samplerate, bool passthru,
                                  int codec_profile)
 {
-    m_format        = CanProcess(format) ? format : FORMAT_S16;
-    m_origChannels  = orig_channels;
-    m_channels      = channels;
-    m_codec         = codec;
-    m_sampleRate    = samplerate;
-    m_passthru      = passthru;
-    m_codecProfile  = codec_profile;
-
+    m_state.m_format       = CanProcess(format) ? format : FORMAT_S16;
+    m_state.m_origChannels = orig_channels;
+    m_state.m_channels     = channels;
+    m_state.m_codec        = codec;
+    m_state.m_sampleRate   = samplerate;
+    m_state.m_passthru     = passthru;
+    m_state.m_codecProfile = codec_profile;
     ResetVisuals();
+    emit AudioPlayerStateChanged(m_state);
 }
 
 void AudioPlayer::SetEffDsp(int dsprate)
@@ -336,10 +332,10 @@ uint AudioPlayer::SetVolume(int newvolume)
     return GetVolume();
 }
 
-int64_t AudioPlayer::GetAudioTime(void)
+std::chrono::milliseconds AudioPlayer::GetAudioTime(void)
 {
     if (!m_audioOutput || m_noAudioOut)
-        return 0LL;
+        return 0ms;
     QMutexLocker lock(&m_lock);
     return m_audioOutput->GetAudiotime();
 }
@@ -451,7 +447,7 @@ bool AudioPlayer::CanDownmix(void)
  * if frames = 0 && len > 0: will calculate according to len
  */
 void AudioPlayer::AddAudioData(char *buffer, int len,
-                               int64_t timecode, int frames)
+                               std::chrono::milliseconds timecode, int frames)
 {
     if (!m_audioOutput || m_noAudioOut)
         return;
@@ -478,10 +474,10 @@ bool AudioPlayer::NeedDecodingBeforePassthrough(void)
     return m_audioOutput->NeedDecodingBeforePassthrough();
 }
 
-int64_t AudioPlayer::LengthLastData(void)
+std::chrono::milliseconds AudioPlayer::LengthLastData(void)
 {
     if (!m_audioOutput)
-        return 0;
+        return 0ms;
     return m_audioOutput->LengthLastData();
 }
 
@@ -503,14 +499,14 @@ bool AudioPlayer::IsBufferAlmostFull(void)
         uint othresh =  ((ototal>>1) + (ototal>>2));
         if (ofill > othresh)
             return true;
-        return GetAudioBufferedTime() > 8000;
+        return GetAudioBufferedTime() > 8s;
     }
     return false;
 }
 
-int64_t AudioPlayer::GetAudioBufferedTime(void)
+std::chrono::milliseconds AudioPlayer::GetAudioBufferedTime(void)
 {
-    return m_audioOutput ? m_audioOutput->GetAudioBufferedTime() : 0;
+    return m_audioOutput ? m_audioOutput->GetAudioBufferedTime() : 0ms;
 }
 
 

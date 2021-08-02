@@ -4,7 +4,6 @@
 // C++ headers
 #include <deque>
 #include <vector>
-using namespace std;
 
 // Qt headers
 #include <QWaitCondition>
@@ -46,7 +45,7 @@ class SchedInputInfo
 class Scheduler : public MThread, public MythScheduler
 {
   public:
-    Scheduler(bool runthread, QMap<int, EncoderLink *> *tvList,
+    Scheduler(bool runthread, QMap<int, EncoderLink *> *_tvList,
               const QString& tmptable = "record", Scheduler *master_sched = nullptr);
     ~Scheduler() override;
 
@@ -96,12 +95,12 @@ class Scheduler : public MThread, public MythScheduler
 
     void PrintList(bool onlyFutureRecordings = false)
         { PrintList(m_recList, onlyFutureRecordings); };
-    static void PrintList(RecList &list, bool onlyFutureRecordings = false);
+    static void PrintList(const RecList &list, bool onlyFutureRecordings = false);
     static void PrintRec(const RecordingInfo *p, const QString &prefix = "");
 
     void SetMainServer(MainServer *ms);
 
-    void SlaveConnected(RecordingList &slavelist);
+    void SlaveConnected(const RecordingList &slavelist);
     void SlaveDisconnected(uint cardid);
 
     void DisableScheduling(void) { m_schedulingEnabled = false; }
@@ -158,14 +157,15 @@ class Scheduler : public MThread, public MythScheduler
     bool FindNextConflict(const RecList &cardlist,
                           const RecordingInfo *p, RecConstIter &iter,
                           OpenEndType openEnd = openEndNever,
-                          uint *paffinity = nullptr) const;
+                          uint *paffinity = nullptr,
+                          bool ignoreinput = false) const;
     const RecordingInfo *FindConflict(const RecordingInfo *p,
                                       OpenEndType openEnd = openEndNever,
                                       uint *affinity = nullptr,
                                       bool checkAll = false)
         const;
     void MarkOtherShowings(RecordingInfo *p);
-    void MarkShowingsList(RecList &showinglist, RecordingInfo *p);
+    void MarkShowingsList(const RecList &showinglist, RecordingInfo *p);
     void BackupRecStatus(void);
     void RestoreRecStatus(void);
     bool TryAnotherShowing(RecordingInfo *p,  bool samePriority,
@@ -181,9 +181,9 @@ class Scheduler : public MThread, public MythScheduler
 
     bool ChangeRecordingEnd(RecordingInfo *oldp, RecordingInfo *newp);
 
-    static bool CheckShutdownServer(int prerollseconds, QDateTime &idleSince,
+    static bool CheckShutdownServer(std::chrono::seconds prerollseconds, QDateTime &idleSince,
                              bool &blockShutdown, uint logmask);
-    void ShutdownServer(int prerollseconds, QDateTime &idleSince);
+    void ShutdownServer(std::chrono::seconds prerollseconds, QDateTime &idleSince);
     void PutInactiveSlavesToSleep(void);
     bool WakeUpSlave(const QString& slaveHostname, bool setWakingStatus = true);
     void WakeUpSlaves(void);
@@ -204,18 +204,18 @@ class Scheduler : public MThread, public MythScheduler
                          const QString &programid);
     bool HandleReschedule(void);
     bool HandleRunSchedulerStartup(
-        int prerollseconds, int idleWaitForRecordingTime);
-    void HandleWakeSlave(RecordingInfo &ri, int prerollseconds);
+        std::chrono::seconds prerollseconds, std::chrono::minutes idleWaitForRecordingTime);
+    void HandleWakeSlave(RecordingInfo &ri, std::chrono::seconds prerollseconds);
     bool HandleRecording(RecordingInfo &ri, bool &statuschanged,
                          QDateTime &nextStartTime, QDateTime &nextWakeTime,
-                         int prerollseconds);
+                         std::chrono::seconds prerollseconds);
     void HandleRecordingStatusChange(
         RecordingInfo &ri, RecStatus::Type recStatus, const QString &details);
-    bool AssignGroupInput(RecordingInfo &ri, int prerollseconds);
+    bool AssignGroupInput(RecordingInfo &ri, std::chrono::seconds prerollseconds);
     void HandleIdleShutdown(
-        bool &blockShutdown, QDateTime &idleSince, int prerollseconds,
-        int idleTimeoutSecs, int idleWaitForRecordingTime,
-        bool &statuschanged);
+        bool &blockShutdown, QDateTime &idleSince, std::chrono::seconds prerollseconds,
+        std::chrono::seconds idleTimeoutSecs, std::chrono::minutes idleWaitForRecordingTime,
+        bool statuschanged);
 
     void EnqueueMatch(uint recordid, uint sourceid, uint mplexid,
                       const QDateTime &maxstarttime, const QString &why)
@@ -272,19 +272,19 @@ class Scheduler : public MThread, public MythScheduler
 
     int m_error                        {0};
 
-    QSet<QString> m_sysEvents[4];
+    std::array<QSet<QString>,4> m_sysEvents;
 
     // Try to avoid LiveTV sessions until this time
     QDateTime m_livetvTime;
 
     QDateTime m_lastPrepareTime;
     // Delay shutdown util this time (ms since epoch);
-    int64_t m_delayShutdownTime        {0};
+    std::chrono::milliseconds m_delayShutdownTime        {0ms};
 
     OpenEndType m_openEnd;
 
     // cache IsSameProgram()
-    using IsSameKey = pair<const RecordingInfo*,const RecordingInfo*>;
+    using IsSameKey = std::pair<const RecordingInfo*,const RecordingInfo*>;
     using IsSameCacheType = QMap<IsSameKey,bool>;
     mutable IsSameCacheType m_cacheIsSameProgram;
     int m_tmLastLog                    {0};

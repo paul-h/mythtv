@@ -24,10 +24,12 @@
 #define MYTHSYSTEM_H_
 
 // Qt headers
+#include <QIODevice>
 #include <QString>
 
 // MythTV headers
 #include "mythbaseexp.h"
+#include "mythchrono.h"
 
 enum MythSystemFlag {
     kMSNone               = 0x00000000,
@@ -65,9 +67,6 @@ enum MythSignal {
     kSignalTerm,
     kSignalStop,
 };
-
-class QStringList;
-class QIODevice;
 
 /** \brief class for managing sub-processes.
  *
@@ -130,7 +129,7 @@ class MBASE_PUBLIC MythSystem
      *  this will block until the sub-program exits.
      *  \return true if program has exited and has been collected.
      */
-    virtual bool Wait(uint timeout_ms = 0) = 0;
+    virtual bool Wait(std::chrono::milliseconds timeout = 0ms) = 0;
 
     /// Returns the standard input stream for the program
     /// if the kMSStdIn flag was passed to the constructor.

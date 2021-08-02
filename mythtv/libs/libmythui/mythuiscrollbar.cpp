@@ -35,7 +35,7 @@ bool MythUIScrollBar::ParseElement(
             m_layout = LayoutHorizontal;
     }
     else if (element.tagName() == "hidedelay")
-        m_hideDelay = getFirstText(element).toInt();
+        m_hideDelay = std::chrono::milliseconds(getFirstText(element).toInt());
     else
         return MythUIType::ParseElement(filename, element, showWarnings);
 
@@ -124,7 +124,7 @@ void MythUIScrollBar::CalculatePosition(void)
     slider->SetArea(newSliderArea);
     slider->SetPosition(endPos);
 
-    if (m_hideDelay > 0)
+    if (m_hideDelay > 0ms)
     {
         if (m_timerId)
             killTimer(m_timerId);
@@ -168,11 +168,11 @@ void MythUIScrollBar::timerEvent(QTimerEvent * /*event*/)
         killTimer(m_timerId);
     m_timerId = 0;
     AdjustAlpha(1, -10, 0, 255);
-    connect(this, SIGNAL(FinishedFading()), this, SLOT(DoneFading()));
+    connect(this, &MythUIType::FinishedFading, this, &MythUIScrollBar::DoneFading);
 }
 
 void MythUIScrollBar::DoneFading(void)
 {
-    disconnect(this, SIGNAL(FinishedFading()), nullptr, nullptr);
+    disconnect(this, &MythUIType::FinishedFading, nullptr, nullptr);
     Hide();
 }

@@ -1,7 +1,6 @@
 #include "vbitext/vbi.h"
 
 #include <algorithm>
-using namespace std;
 
 #include "mythplayer.h"
 #include "captions/cc608reader.h"
@@ -41,7 +40,7 @@ CC608Buffer *CC608Reader::GetOutputText(bool &changed)
         last_changed = false;
         int streamIdx = -1;
         CC608Buffer *tmp = GetOutputText(last_changed, streamIdx);
-        if (last_changed && (streamIdx == m_ccMode))
+        if (last_changed && (((streamIdx << 4) & CC_MODE_MASK) == m_ccMode))
         {
             changed = true;
             return tmp;
@@ -78,12 +77,12 @@ CC608Buffer *CC608Reader::GetOutputText(bool &changed, int &streamIdx)
         return &m_state[MAXOUTBUFFERS - 1].m_output;
     }
 
-    VideoFrame *last = nullptr;
+    MythVideoFrame *last = nullptr;
     if (m_parent->GetVideoOutput())
         last = m_parent->GetVideoOutput()->GetLastShownFrame();
 
-    if (NumInputBuffers() && m_inputBuffers[m_writePosition].timecode &&
-       (last && m_inputBuffers[m_writePosition].timecode <= last->timecode))
+    if (NumInputBuffers() && (m_inputBuffers[m_writePosition].timecode > 0ms) &&
+       (last && m_inputBuffers[m_writePosition].timecode <= last->m_timecode))
     {
         if (m_inputBuffers[m_writePosition].type == 'T')
         {
@@ -254,9 +253,10 @@ int CC608Reader::Update(unsigned char *inpos)
                 ccbuf->push_back(tmpcc);
 #if 0
                 if (ccbuf->size() > 4)
-                    LOG(VB_VBI, LOG_DEBUG, QString("CC overflow:  %1 %2 %3")
-                            .arg(m_outputCol) .arg(m_outputRow)
-                            .arg(m_outputText));
+                    LOG(VB_VBI, LOG_DEBUG, QString("CC overflow: %1 %2 %3")
+                        .arg(m_state[streamIdx].m_outputCol)
+                        .arg(m_state[streamIdx].m_outputRow)
+                        .arg(m_state[streamIdx].m_outputText));
 #endif
             }
             subtitle.row++;
@@ -324,9 +324,7 @@ int CC608Reader::Update(unsigned char *inpos)
     return streamIdx;
 }
 
-void CC608Reader::TranscodeWriteText(void (*func)
-                                    (void *, unsigned char *, int, int, int),
-                                     void * ptr)
+void CC608Reader::TranscodeWriteText(CC608WriteFn func, void * ptr)
 {
     QMutexLocker locker(&m_inputBufLock);
     while (NumInputBuffers(false))
@@ -349,7 +347,7 @@ void CC608Reader::TranscodeWriteText(void (*func)
 }
 
 void CC608Reader::Update608Text(
-    vector<CC608Text*> *ccbuf, int replace, int scroll, bool scroll_prsv,
+    std::vector<CC608Text*> *ccbuf, int replace, int scroll, bool scroll_prsv,
     int scroll_yoff, int scroll_ymax, int streamIdx)
 // ccbuf      :  new text
 // replace    :  replace last lines
@@ -358,6 +356,15 @@ void CC608Reader::Update608Text(
 // scroll_yoff:  yoff < scroll window <= ymax
 // scroll_ymax:
 {
+#if 0
+    LOG(VB_VBI, LOG_DEBUG, QString("%1:%2 ").arg(__FUNCTION__).arg(__LINE__) +
+        QString("replace:%1 ").arg(replace) +
+        QString("scroll:%1 ").arg(scroll) +
+        QString("scroll_prsv:%1 ").arg(scroll_prsv) +
+        QString("scroll_yoff:%1 ").arg(scroll_yoff) +
+        QString("scroll_ymax:%1 ").arg(scroll_ymax) +
+        QString("streamIdx:%1 ").arg(streamIdx));
+#endif
     vector<CC608Text*>::iterator i;
     int visible = 0;
 
@@ -444,7 +451,7 @@ void CC608Reader::ClearBuffers(bool input, bool output, int outputStreamIdx)
     {
         for (int i = 0; i < MAXTBUFFER; i++)
         {
-            m_inputBuffers[i].timecode = 0;
+            m_inputBuffers[i].timecode = 0ms;
             if (m_inputBuffers[i].buffer)
                 memset(m_inputBuffers[i].buffer, 0, m_maxTextSize);
         }
@@ -462,7 +469,7 @@ void CC608Reader::ClearBuffers(bool input, bool output, int outputStreamIdx)
 
     if (output && outputStreamIdx >= 0)
     {
-        outputStreamIdx = min(outputStreamIdx, MAXOUTBUFFERS - 1);
+        outputStreamIdx = std::min(outputStreamIdx, MAXOUTBUFFERS - 1);
         m_state[outputStreamIdx].Clear();
     }
 }
@@ -486,7 +493,7 @@ int CC608Reader::NumInputBuffers(bool need_to_lock)
 }
 
 void CC608Reader::AddTextData(unsigned char *buffer, int len,
-                              int64_t timecode, char type)
+                              std::chrono::milliseconds timecode, char type)
 {
     if (m_parent)
         m_parent->WrapTimecode(timecode, TC_CC);
@@ -524,9 +531,9 @@ void CC608Reader::AddTextData(unsigned char *buffer, int len,
         */
         LOG(VB_VBI, LOG_INFO,
             QString("Writing caption timecode %1 but waiting on %2")
-                .arg(timecode).arg(m_inputBuffers[m_readPosition].timecode));
+            .arg(timecode.count()).arg(m_inputBuffers[m_readPosition].timecode.count()));
         m_inputBuffers[m_readPosition].timecode =
-            m_inputBuffers[prev_readpos].timecode + 500;
+            m_inputBuffers[prev_readpos].timecode + 500ms;
     }
 
     m_inputBuffers[m_readPosition].timecode = timecode;

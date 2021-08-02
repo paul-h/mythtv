@@ -9,9 +9,9 @@
 #include "config.h"
 
 // C++ includes
+#include <chrono>
 #include <iostream>
 #include <memory>
-using namespace std;
 
 // Qt includes
 #include <QApplication>
@@ -19,7 +19,7 @@ using namespace std;
 #include <QEvent>
 #include <QFile>
 #include <QKeyEvent>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QTimer>
 #include <QUrl>
 #include <utility>
@@ -53,14 +53,14 @@ using namespace std;
 #ifdef HAVE_CDIO
 #include "cddecoder.h"
 #endif // HAVE_CDIO
+#include "editmetadata.h"
 #include "encoder.h"
-#include "vorbisencoder.h"
-#include "lameencoder.h"
 #include "flacencoder.h"
 #include "genres.h"
-#include "editmetadata.h"
-#include "mythlogging.h"
+#include "lameencoder.h"
 #include "musicutils.h"
+#include "mythlogging.h"
+#include "vorbisencoder.h"
 
 #ifdef HAVE_CDIO
 // libparanoia compatibility
@@ -128,7 +128,7 @@ static long int getSectorCount (QString &cddevice, int tracknum)
     {
         LOG(VB_GENERAL, LOG_ERR,
             QString("Error: %1('%2',track=%3) failed at cdda_identify()").
-            arg(__func__).arg(cddevice).arg(tracknum));
+            arg(__func__, cddevice, QString::number(tracknum)));
         return -1;
     }
 
@@ -136,7 +136,7 @@ static long int getSectorCount (QString &cddevice, int tracknum)
     {
         LOG(VB_GENERAL, LOG_ERR,
             QString("Error: %1('%2',track=%3) failed at cdda_open() - cdda not supported").
-            arg(__func__).arg(cddevice).arg(tracknum));
+            arg(__func__, cddevice, QString::number(tracknum)));
         cdda_close(device);
         return -1;
     }
@@ -415,7 +415,7 @@ int CDRipperThread::ripTrack(QString &cddevice, Encoder *encoder, int tracknum)
     {
         LOG(VB_MEDIA, LOG_INFO,
             QString("Error: %1('%2',track=%3) failed at cdda_open() - cdda not supported")
-            .arg(__func__).arg(cddevice).arg(tracknum));
+            .arg(__func__, cddevice, QString::number(tracknum)));
         cdda_close(device);
         return -1;
     }
@@ -424,7 +424,7 @@ int CDRipperThread::ripTrack(QString &cddevice, Encoder *encoder, int tracknum)
     long int start = cdda_track_firstsector(device, tracknum);
     long int end = cdda_track_lastsector(device, tracknum);
     LOG(VB_MEDIA, LOG_INFO, QString("%1(%2,track=%3) start=%4 end=%5")
-        .arg(__func__).arg(cddevice).arg(tracknum).arg(start).arg(end));
+        .arg(__func__,  cddevice).arg(tracknum).arg(start).arg(end));
 
     cdrom_paranoia *paranoia = paranoia_init(device);
     if (gCoreContext->GetSetting("ParanoiaLevel") == "full")
@@ -605,23 +605,23 @@ bool Ripper::Create(void)
         return false;
     }
 
-    connect(m_trackList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            SLOT(toggleTrackActive(MythUIButtonListItem *)));
-    connect(m_ripButton, SIGNAL(Clicked()), SLOT(startRipper()));
-    connect(m_scanButton, SIGNAL(Clicked()), SLOT(startScanCD()));
-    connect(m_switchTitleArtist, SIGNAL(Clicked()),
-            SLOT(switchTitlesAndArtists()));
-    connect(m_compilationCheck, SIGNAL(toggled(bool)),
-            SLOT(compilationChanged(bool)));
-    connect(m_searchGenreButton, SIGNAL(Clicked()), SLOT(searchGenre()));
-    connect(m_genreEdit, SIGNAL(valueChanged()), SLOT(genreChanged()));
+    connect(m_trackList, &MythUIButtonList::itemClicked,
+            this, qOverload<MythUIButtonListItem *>(&Ripper::toggleTrackActive));
+    connect(m_ripButton, &MythUIButton::Clicked, this, &Ripper::startRipper);
+    connect(m_scanButton, &MythUIButton::Clicked, this, &Ripper::startScanCD);
+    connect(m_switchTitleArtist, &MythUIButton::Clicked,
+            this, &Ripper::switchTitlesAndArtists);
+    connect(m_compilationCheck, &MythUICheckBox::toggled,
+            this, &Ripper::compilationChanged);
+    connect(m_searchGenreButton, &MythUIButton::Clicked, this, &Ripper::searchGenre);
+    connect(m_genreEdit, &MythUITextEdit::valueChanged, this, &Ripper::genreChanged);
     m_yearEdit->SetFilter((InputFilter)(FilterAlpha | FilterSymbols | FilterPunct));
     m_yearEdit->SetMaxLength(4);
-    connect(m_yearEdit, SIGNAL(valueChanged()), SLOT(yearChanged()));
-    connect(m_artistEdit, SIGNAL(valueChanged()), SLOT(artistChanged()));
-    connect(m_searchArtistButton, SIGNAL(Clicked()), SLOT(searchArtist()));
-    connect(m_albumEdit, SIGNAL(valueChanged()), SLOT(albumChanged()));
-    connect(m_searchAlbumButton, SIGNAL(Clicked()), SLOT(searchAlbum()));
+    connect(m_yearEdit, &MythUITextEdit::valueChanged, this, &Ripper::yearChanged);
+    connect(m_artistEdit, &MythUITextEdit::valueChanged, this, &Ripper::artistChanged);
+    connect(m_searchArtistButton, &MythUIButton::Clicked, this, &Ripper::searchArtist);
+    connect(m_albumEdit, &MythUITextEdit::valueChanged, this, &Ripper::albumChanged);
+    connect(m_searchAlbumButton, &MythUIButton::Clicked, this, &Ripper::searchAlbum);
 
     // Populate Quality List
     new MythUIButtonListItem(m_qualityList, tr("Low"), QVariant::fromValue(0));
@@ -631,7 +631,7 @@ bool Ripper::Create(void)
     m_qualityList->SetValueByData(QVariant::fromValue(
                         gCoreContext->GetNumSetting("DefaultRipQuality", 1)));
 
-    QTimer::singleShot(500, this, SLOT(startScanCD()));
+    QTimer::singleShot(500ms, this, &Ripper::startScanCD);
 
     return true;
 }
@@ -681,8 +681,9 @@ void Ripper::ShowMenu()
     }
 
     menu->SetReturnEvent(this, "menu");
-    menu->AddButton(tr("Select Where To Save Tracks"), SLOT(chooseBackend()));
-    menu->AddButton(tr("Edit Track Metadata"), SLOT(showEditMetadataDialog()));
+    menu->AddButton(tr("Select Where To Save Tracks"), &Ripper::chooseBackend);
+    menu->AddButton(tr("Edit Track Metadata"),
+                    qOverload<>(&Ripper::showEditMetadataDialog));
 }
 
 void Ripper::showEditMetadataDialog(void)
@@ -690,7 +691,7 @@ void Ripper::showEditMetadataDialog(void)
     showEditMetadataDialog(m_trackList->GetItemCurrent());
 }
 
-void Ripper::chooseBackend(void)
+void Ripper::chooseBackend(void) const
 {
     QStringList hostList;
 
@@ -726,7 +727,7 @@ void Ripper::chooseBackend(void)
         return;
     }
 
-    connect(searchDlg, SIGNAL(haveResult(QString)), SLOT(setSaveHost(QString)));
+    connect(searchDlg, &MythUISearchDialog::haveResult, this, &Ripper::setSaveHost);
 
     popupStack->AddScreen(searchDlg);
 }
@@ -749,7 +750,7 @@ void Ripper::startScanCD(void)
     OpenBusyPopup(message);
 
     m_scanThread = new CDScannerThread(this);
-    connect(m_scanThread->qthread(), SIGNAL(finished()), SLOT(ScanFinished()));
+    connect(m_scanThread->qthread(), &QThread::finished, this, &Ripper::ScanFinished);
     m_scanThread->start();
 }
 
@@ -833,7 +834,7 @@ void Ripper::scanCD(void)
 #ifdef HAVE_CDIO
     {
     LOG(VB_MEDIA, LOG_INFO, QString("Ripper::%1 CD='%2'").
-        arg(__func__).arg(m_cdDevice));
+        arg(__func__, m_cdDevice));
     (void)cdio_close_tray(m_cdDevice.toLatin1().constData(), nullptr);
     }
 #endif // HAVE_CDIO
@@ -846,7 +847,8 @@ void Ripper::scanCD(void)
 
 void Ripper::deleteAllExistingTracks(void)
 {
-    for (auto *it = m_tracks->begin(); it < m_tracks->end(); ++it)
+    // NOLINTNEXTLINE(readability-qualified-auto) // qt6
+    for (auto it = m_tracks->begin(); it < m_tracks->end(); ++it)
     {
         RipTrack *track = (*it);
         if (track && !track->isNew)
@@ -886,17 +888,15 @@ bool Ripper::deleteExistingTrack(RipTrack *track)
             " ON music_songs.directory_id=music_directories.directory_id "
             "WHERE artist_name REGEXP \'");
     QString token = artist;
-    token.replace(QRegExp(R"((/|\\|:|'|\,|\!|\(|\)|"|\?|\|))"),
-                  QString("."));
-
+    static const QRegularExpression punctuation
+        { R"((/|\\|:|'|\,|\!|\(|\)|"|\?|\|))" };
+    token.replace(punctuation, QString("."));
     queryString += token + "\' AND " + "album_name REGEXP \'";
     token = album;
-    token.replace(QRegExp(R"((/|\\|:|'|\,|\!|\(|\)|"|\?|\|))"),
-                  QString("."));
+    token.replace(punctuation, QString("."));
     queryString += token + "\' AND " + "name    REGEXP \'";
     token = title;
-    token.replace(QRegExp(R"((/|\\|:|'|\,|\!|\(|\)|"|\?|\|))"),
-                  QString("."));
+    token.replace(punctuation, QString("."));
     queryString += token + "\' ORDER BY artist_name, album_name,"
                            " name, song_id, filename LIMIT 1";
     query.prepare(queryString);
@@ -1111,7 +1111,7 @@ void Ripper::startRipper(void)
 
     if (statusDialog->Create())
     {
-        connect(statusDialog, SIGNAL(Result(bool)), SLOT(RipComplete(bool)));
+        connect(statusDialog, &RipStatus::Result, this, &Ripper::RipComplete);
         mainStack->AddScreen(statusDialog);
     }
     else
@@ -1147,7 +1147,7 @@ void Ripper::startEjectCD()
 
     m_ejectThread = new CDEjectorThread(this);
     connect(m_ejectThread->qthread(),
-            SIGNAL(finished()), SLOT(EjectFinished()));
+            &QThread::finished, this, &Ripper::EjectFinished);
     m_ejectThread->start();
 }
 
@@ -1167,7 +1167,7 @@ void Ripper::ejectCD()
     {
 #ifdef HAVE_CDIO
         LOG(VB_MEDIA, LOG_INFO, QString("Ripper::%1 '%2'").
-            arg(__func__).arg(m_cdDevice));
+            arg(__func__, m_cdDevice));
         (void)cdio_eject_media_drive(m_cdDevice.toLatin1().constData());
 #else
         MediaMonitor *mon = MediaMonitor::GetMediaMonitor();
@@ -1222,9 +1222,9 @@ void Ripper::updateTrackList(void)
             item->SetText(metadata->Title(), "title");
             item->SetText(metadata->Artist(), "artist");
 
-            if (track->length >= ONESECINMS)
+            if (track->length >= 1s)
             {
-                item->SetText(MythFormatTimeMs(track->length, "mm:ss"), "length");
+                item->SetText(MythFormatTime(track->length, "mm:ss"), "length");
             }
             else
                 item->SetText("", "length");
@@ -1235,7 +1235,7 @@ void Ripper::updateTrackList(void)
     }
 }
 
-void Ripper::searchArtist()
+void Ripper::searchArtist() const
 {
     QString msg = tr("Select an Artist");
     QStringList searchList = MusicMetadata::fillFieldList("artist");
@@ -1249,7 +1249,7 @@ void Ripper::searchArtist()
         return;
     }
 
-    connect(searchDlg, SIGNAL(haveResult(QString)), SLOT(setArtist(QString)));
+    connect(searchDlg, &MythUISearchDialog::haveResult, this, &Ripper::setArtist);
 
     popupStack->AddScreen(searchDlg);
 }
@@ -1259,7 +1259,7 @@ void Ripper::setArtist(const QString& artist)
     m_artistEdit->SetText(artist);
 }
 
-void Ripper::searchAlbum()
+void Ripper::searchAlbum() const
 {
     QString msg = tr("Select an Album");
     QStringList searchList = MusicMetadata::fillFieldList("album");
@@ -1273,7 +1273,7 @@ void Ripper::searchAlbum()
         return;
     }
 
-    connect(searchDlg, SIGNAL(haveResult(QString)), SLOT(setAlbum(QString)));
+    connect(searchDlg, &MythUISearchDialog::haveResult, this, &Ripper::setAlbum);
 
     popupStack->AddScreen(searchDlg);
 }
@@ -1289,8 +1289,8 @@ void Ripper::searchGenre()
     QStringList searchList = MusicMetadata::fillFieldList("genre");
     // load genre list
     m_searchList.clear();
-    for (int x = 0; x < genre_table_size; x++)
-        m_searchList.push_back(QString(genre_table[x]));
+    for (const auto & genre : genre_table)
+        m_searchList.push_back(QString::fromStdString(genre));
     m_searchList.sort();
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
@@ -1302,7 +1302,7 @@ void Ripper::searchGenre()
         return;
     }
 
-    connect(searchDlg, SIGNAL(haveResult(QString)), SLOT(setGenre(QString)));
+    connect(searchDlg, &MythUISearchDialog::haveResult, this, &Ripper::setGenre);
 
     popupStack->AddScreen(searchDlg);
 }
@@ -1335,7 +1335,7 @@ void Ripper::showEditMetadataDialog(MythUIButtonListItem *item)
         return;
     }
 
-    connect(editDialog, SIGNAL(metadataChanged()), this, SLOT(metadataChanged()));
+    connect(editDialog, &EditMetadataCommon::metadataChanged, this, &Ripper::metadataChanged);
 
     mainStack->AddScreen(editDialog);
 }
@@ -1404,25 +1404,26 @@ void Ripper::ShowConflictMenu(RipTrack* track)
 
     menu->SetReturnEvent(this, "conflictmenu");
     menu->AddButton(tr("No, Cancel"));
-    menu->AddButton(tr("Yes, Delete"), QVariant::fromValue(track));
+    menu->AddButtonV(tr("Yes, Delete"), QVariant::fromValue(track));
     menu->AddButton(tr("Yes, Delete All"));
 }
 
 void Ripper::updateTrackLengths()
 {
-    int length = 0;
+    std::chrono::milliseconds length = 0ms;
 
-    for (auto *it = m_tracks->end() - 1; it == m_tracks->begin(); --it)
+    // NOLINTNEXTLINE(readability-qualified-auto) // qt6
+    for (auto it = m_tracks->end() - 1; it == m_tracks->begin(); --it)
     {
         RipTrack *track = *it;
         if (track->active)
         {
             track->length = length + track->metadata->Length();
-            length = 0;
+            length = 0ms;
         }
         else
         {
-            track->length = 0;
+            track->length = 0ms;
             length += track->metadata->Length();
         }
     }
@@ -1515,8 +1516,7 @@ bool RipStatus::keyPressEvent(QKeyEvent *event)
             m_ripperThread && m_ripperThread->isRunning())
         {
             MythConfirmationDialog *dialog =
-                ShowOkPopup(tr("Cancel ripping the CD?"), this,
-                            static_cast<const char*>(nullptr), true);
+                ShowOkPopup(tr("Cancel ripping the CD?"), true);
             if (dialog)
                 dialog->SetReturnEvent(this, "stop_ripping");
         }

@@ -8,7 +8,7 @@
 #include "mythconfig.h"
 #include "standardsettings.h"
 #include "mythcontext.h"
-#include "videodisplayprofile.h"
+#include "mythvideoprofile.h"
 
 #include <QMutex>
 
@@ -38,7 +38,7 @@ class PlaybackSettings : public GroupSetting
     void Load(void) override; // StandardSetting
 
   private slots:
-    void NewPlaybackProfileSlot(void);
+    void NewPlaybackProfileSlot(void) const;
     void CreateNewPlaybackProfileSlot(const QString &name);
 
   private:
@@ -138,7 +138,7 @@ class AppearanceSettings : public GroupSetting
 
   public:
     AppearanceSettings();
-   ~AppearanceSettings() override;
+   ~AppearanceSettings() override = default;
     void applyChange() override; // GroupSetting
 
   public slots:
@@ -163,7 +163,7 @@ class HostRefreshRateComboBoxSetting : public HostComboBoxSetting
     virtual void ChangeResolution(StandardSetting *setting);
 
   private:
-    static vector<double> GetRefreshRates(const QString &resolution);
+    static std::vector<double> GetRefreshRates(const QString &resolution);
 };
 
 class MainGeneralSettings : public GroupSetting
@@ -200,14 +200,14 @@ class PlaybackProfileItemConfig : public GroupSetting
 
   public:
     PlaybackProfileItemConfig(PlaybackProfileConfig *parent, uint idx,
-                              ProfileItem &_item);
+                              MythVideoProfileItem &_item);
 
     void Load(void) override; // StandardSetting
     void Save(void) override; // StandardSetting
 
     bool keyPressEvent(QKeyEvent *e) override; // StandardSetting
     uint GetIndex(void) const;
-    void ShowDeleteDialog(void);
+    void ShowDeleteDialog(void) const;
     void DecreasePriority(void);
     void IncreasePriority(void);
 
@@ -230,7 +230,7 @@ class PlaybackProfileItemConfig : public GroupSetting
     void DoDeleteSlot(bool doDelete);
 
   private:
-    ProfileItem                &m_item;
+    MythVideoProfileItem       &m_item;
     TransTextEditSetting       *m_widthRange   {nullptr};
     TransTextEditSetting       *m_heightRange  {nullptr};
     MythUIComboBoxSetting      *m_codecs       {nullptr};
@@ -239,6 +239,7 @@ class PlaybackProfileItemConfig : public GroupSetting
     TransMythUISpinBoxSetting  *m_maxCpus      {nullptr};
     TransMythUICheckBoxSetting *m_skipLoop     {nullptr};
     TransMythUIComboBoxSetting *m_vidRend      {nullptr};
+    TransMythUIComboBoxSetting *m_upscaler     {nullptr};
     TransMythUIComboBoxSetting *m_singleDeint  {nullptr};
     TransMythUICheckBoxSetting *m_singleShader {nullptr};
     TransMythUICheckBoxSetting *m_singleDriver {nullptr};
@@ -272,15 +273,15 @@ class PlaybackProfileConfig : public GroupSetting
 
   private:
     void ReloadSettings(void);
-    vector<ProfileItem> m_items;
-    vector<ProfileItem> m_delItems;
+    std::vector<MythVideoProfileItem> m_items;
+    std::vector<MythVideoProfileItem> m_delItems;
     QString     m_profileName;
     uint        m_groupId {0};
 
     TransMythUICheckBoxSetting *m_markForDeletion {nullptr};
     ButtonStandardSetting      *m_addNewEntry     {nullptr};
-    vector<PlaybackProfileItemConfig*> m_profiles;
-    vector<TransMythUISpinBoxSetting*> m_priority;
+    std::vector<PlaybackProfileItemConfig*> m_profiles;
+    std::vector<TransMythUISpinBoxSetting*> m_priority;
 };
 
 class ChannelGroupSetting : public GroupSetting
@@ -308,7 +309,7 @@ class ChannelGroupsSetting : public GroupSetting
     void Load() override; // StandardSetting
 
   public slots:
-    void ShowNewGroupDialog(void);
+    void ShowNewGroupDialog(void) const;
     void CreateNewGroup(const QString& name);
 
   private:

@@ -46,7 +46,7 @@ bool XmlConfiguration::Load( void )
 
     QFile  file( sName );
 
-    if (file.exists() && m_sFileName.length())  // Ignore empty filenames
+    if (file.exists() && !m_sFileName.isEmpty())  // Ignore empty filenames
     {
 
         if ( !file.open( QIODevice::ReadOnly ) )
@@ -138,9 +138,15 @@ bool XmlConfiguration::Save( void )
     {
         ok = file.rename(config_filepath);
         if (ok)
-            QFile::remove(config_origpath);
+        {
+            if (!QFile::remove(config_origpath))
+                LOG(VB_GENERAL, LOG_WARNING, QString("Failed to remove '%1'").arg(config_origpath));
+        }
         else if (QFile::exists(config_origpath))
-            QFile::rename(config_origpath, config_filepath);
+        {
+            if (!QFile::rename(config_origpath, config_filepath))
+                LOG(VB_GENERAL, LOG_WARNING, QString("Failed to rename '%1").arg(config_origpath));
+        }
     }
 
     if (!ok)
@@ -221,7 +227,7 @@ int XmlConfiguration::GetValue( const QString &sSetting, int nDefault )
 //
 //////////////////////////////////////////////////////////////////////////////
 
-QString XmlConfiguration::GetValue( const QString &sSetting, QString sDefault ) 
+QString XmlConfiguration::GetValue( const QString &sSetting, const QString &sDefault )
 {
     QDomNode node = FindNode( sSetting );
 
@@ -268,7 +274,7 @@ void XmlConfiguration::SetValue( const QString &sSetting, int nValue )
 //
 //////////////////////////////////////////////////////////////////////////////
 
-void XmlConfiguration::SetValue( const QString &sSetting, QString sValue ) 
+void XmlConfiguration::SetValue( const QString &sSetting, const QString& sValue )
 {
     QDomNode node   = FindNode( sSetting, true );
 
@@ -345,7 +351,7 @@ int DBConfiguration::GetValue( const QString &sSetting, int nDefault )
 //
 //////////////////////////////////////////////////////////////////////////////
 
-QString DBConfiguration::GetValue( const QString &sSetting, QString sDefault ) 
+QString DBConfiguration::GetValue( const QString &sSetting, const QString& sDefault )
 {
     return GetMythDB()->GetSetting( sSetting, sDefault );
 }
@@ -364,7 +370,7 @@ void DBConfiguration::SetValue( const QString &sSetting, int nValue )
 //
 //////////////////////////////////////////////////////////////////////////////
 
-void DBConfiguration::SetValue( const QString &sSetting, QString sValue ) 
+void DBConfiguration::SetValue( const QString &sSetting, const QString& sValue )
 {
     GetMythDB()->SaveSetting( sSetting, sValue );
 }

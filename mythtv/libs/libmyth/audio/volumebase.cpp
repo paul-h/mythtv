@@ -2,7 +2,6 @@
 #include <cstdlib>
 
 #include <algorithm>
-using namespace std;
 
 #include <QString>
 #include <QMutex>
@@ -58,7 +57,7 @@ class VolumeWriteBackThread : public MThread
         m_state = kRunning;
         RunProlog();
 
-        const int holdoff = 500; // min ms between Db writes
+        static constexpr std::chrono::milliseconds holdoff { 500ms }; // min ms between Db writes
         QString controlLabel = gCoreContext->GetSetting("MixerControl", "PCM");
         controlLabel += "MixerVolume";
 
@@ -73,7 +72,7 @@ class VolumeWriteBackThread : public MThread
 
             // Ignore further volume changes for the holdoff period
             setTerminationEnabled(true);
-            msleep(holdoff);
+            usleep(holdoff); // cppcheck-suppress usleepCalled
             setTerminationEnabled(false);
 
             lock.relock();
@@ -122,7 +121,7 @@ uint VolumeBase::GetCurrentVolume(void) const
 
 void VolumeBase::SetCurrentVolume(int value)
 {
-    m_volume = max(min(value, 100), 0);
+    m_volume = std::max(std::min(value, 100), 0);
     UpdateVolume();
     
     // Throttle Db writes

@@ -15,7 +15,6 @@
 #include "mythuiimage.h"
 #include "imagetypes.h"
 
-
 // Min/max zoom extents available in slideshow
 #define MIN_ZOOM (0.1F)
 #define MAX_ZOOM (20.0F)
@@ -32,7 +31,7 @@ public:
     virtual void Start(bool forwards, float speed = 1.0);
     virtual void Stop()                 { m_running = false; }
     virtual void SetSpeed(float speed) { m_speed = speed; }
-    virtual void Pulse(int interval)   = 0;
+    virtual void Pulse() = 0;
     virtual void Clear()                {}
 
 protected slots:
@@ -66,9 +65,9 @@ public:
     explicit Animation(Slide *image, Type type = Alpha)
         : m_parent(image), m_type(type) {}
     void Start(bool forwards = true, float speed = 1.0) override; // AbstractAnimation
-    void Pulse(int interval) override; // AbstractAnimation
+    void Pulse() override; // AbstractAnimation
     void Set(const QVariant& from, const QVariant& to,
-             int duration = 500,
+             std::chrono::milliseconds duration = 500ms,
              const QEasingCurve& curve = QEasingCurve::InOutCubic,
              UIEffects::Centre centre = UIEffects::Middle);
     void updateCurrentValue(const QVariant &value) override; // QVariantAnimation
@@ -82,7 +81,8 @@ protected:
     UIEffects::Centre m_centre  {UIEffects::Middle};
     //! Current millisec position within animation, 0..duration.
     //! Decreases duration..0 when playing backwards
-    int               m_elapsed {0};
+    std::chrono::milliseconds m_elapsed {0ms};
+    std::chrono::milliseconds m_lastUpdate { MythDate::currentMSecsSinceEpochAsDuration() };
 };
 
 
@@ -92,7 +92,7 @@ class GroupAnimation : public AbstractAnimation
 public:
     GroupAnimation() = default;
     ~GroupAnimation() override                        { GroupAnimation::Clear(); }
-    void Pulse(int interval) override                     = 0; // AbstractAnimation
+    void Pulse() override                     = 0; // AbstractAnimation
     void Start(bool forwards, float speed = 1.0) override      // AbstractAnimation
         { AbstractAnimation::Start(forwards, speed); }
     void SetSpeed(float speed) override                        // AbstractAnimation
@@ -112,7 +112,7 @@ class SequentialAnimation : public GroupAnimation
     Q_OBJECT
 public:
     SequentialAnimation() = default;
-    void Pulse(int interval) override; // GroupAnimation
+    void Pulse() override; // GroupAnimation
     void Start(bool forwards, float speed = 1.0) override; // GroupAnimation
     void SetSpeed(float speed) override; // GroupAnimation
 
@@ -130,7 +130,7 @@ class ParallelAnimation : public GroupAnimation
     Q_OBJECT
 public:
     ParallelAnimation() = default;
-    void Pulse(int interval) override; // GroupAnimation
+    void Pulse() override; // GroupAnimation
     void Start(bool forwards, float speed = 1.0) override; // GroupAnimation
     void SetSpeed(float speed) override; // GroupAnimation
 
@@ -241,13 +241,18 @@ signals:
     void SlideReady(int count);
 
 private slots:
-    void Flush(Slide *slide, const QString& reason = "Loaded");
+    void Flush(Slide *slide, const QString& reason);
+    void Flush(Slide *slide);
 
 protected:
     QString BufferState();
 
     // Must be recursive to enable Flush->signal->Get whilst retaining lock
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     QMutex         m_mutexQ   {QMutex::Recursive}; //!< Queue protection
+#else
+    QRecursiveMutex m_mutexQ;      //!< Queue protection
+#endif
     QQueue<Slide*> m_queue;        //!< Queue of slides
     int            m_nextLoad {0}; //!< Index of first spare slide, (or last slide if none spare)
 };

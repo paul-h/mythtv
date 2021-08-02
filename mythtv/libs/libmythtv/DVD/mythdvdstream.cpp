@@ -35,7 +35,7 @@ class MythDVDStream::BlockRange
     {
     }
 
-    bool operator < (const BlockRange& rhs) const
+    bool operator < (const BlockRange rhs) const
     {
         return m_end <= rhs.m_start;
     }
@@ -84,7 +84,7 @@ MythDVDStream::~MythDVDStream()
  *  \param Filename   Path of the dvd device to read.
  *  \return Returns true if the dvd was opened.
  */
-bool MythDVDStream::OpenFile(const QString &Filename, uint /*Retry*/)
+bool MythDVDStream::OpenFile(const QString &Filename, std::chrono::milliseconds /*Retry*/)
 {
     m_rwLock.lockForWrite();
 
@@ -110,7 +110,7 @@ bool MythDVDStream::OpenFile(const QString &Filename, uint /*Retry*/)
         if (m_start == 0)
         {
             LOG(VB_GENERAL, LOG_ERR, LOC + QString("(%1) UDFFindFile(%2) failed").
-                arg(root).arg(path));
+                arg(root, path));
             DVDClose(m_reader);
             m_reader = nullptr;
             m_rwLock.unlock();
@@ -124,8 +124,8 @@ bool MythDVDStream::OpenFile(const QString &Filename, uint /*Retry*/)
         uint32_t len = 0;
 
         // Root menu
-        char name[64] = "VIDEO_TS/VIDEO_TS.VOB";
-        uint32_t start = UDFFindFile(m_reader, name, &len);
+        QString name { "VIDEO_TS/VIDEO_TS.VOB" };
+        uint32_t start = UDFFindFile(m_reader, qPrintable(name), &len);
         if( start != 0 && len != 0 )
             m_blocks.append(BlockRange(start, Len2Blocks(len), 0));
 
@@ -133,16 +133,16 @@ bool MythDVDStream::OpenFile(const QString &Filename, uint /*Retry*/)
         for (int title = 1; title < kTitles; ++title)
         {
             // Menu
-            snprintf(name, sizeof name, "/VIDEO_TS/VTS_%02d_0.VOB", title);
-            start = UDFFindFile(m_reader, name, &len);
+            name = QString("/VIDEO_TS/VTS_%1_0.VOB").arg(title,2,10,QChar('0'));
+            start = UDFFindFile(m_reader, qPrintable(name), &len);
             if( start != 0 && len != 0 )
                 m_blocks.append(BlockRange(start, Len2Blocks(len), title));
 
             for ( int part = 1; part < 10; ++part)
             {
                 // A/V track
-                snprintf(name, sizeof name, "/VIDEO_TS/VTS_%02d_%d.VOB", title, part);
-                start = UDFFindFile(m_reader, name, &len);
+                name = QString("/VIDEO_TS/VTS_%1_%2.VOB").arg(title,2,10,QChar('0')).arg(part);
+                start = UDFFindFile(m_reader, qPrintable(name), &len);
                 if( start != 0 && len != 0 )
                     m_blocks.append(BlockRange(start, Len2Blocks(len), title + part * kTitles));
             }
@@ -242,7 +242,7 @@ int MythDVDStream::SafeRead(void *Buffer, uint Size)
         }
 
         m_pos += static_cast<uint>(ret2);
-        ret += ret2;;
+        ret += ret2;
     }
 
     return ret * DVD_VIDEO_LB_LEN;

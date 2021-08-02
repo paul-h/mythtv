@@ -1,9 +1,8 @@
-#include <memory>
-
-#include <set>
-#include <map>
+#include <chrono>
 #include <functional>   //binary_negate
+#include <map>
 #include <memory>
+#include <set>
 
 #include <QApplication>
 #include <QTimer>
@@ -14,7 +13,7 @@
 #include <QUrl>
 
 #include "mythcontext.h"
-#include "compat.h"
+#include "mythmiscutil.h"
 #include "mythdirs.h"
 
 #include "mythuihelper.h"
@@ -53,6 +52,8 @@
 // for ImageDLFailureEvent
 #include "metadataimagedownload.h"
 
+#define LOC_MML QString("Manual Metadata Lookup: ")
+
 static const QString sLocation = "MythVideo";
 
 namespace
@@ -76,8 +77,8 @@ namespace
             QObject(lparent)
         {
             connect(&m_levelCheck,
-                    SIGNAL(SigResultReady(bool, ParentalLevel::Level)),
-                    SLOT(OnResultReady(bool, ParentalLevel::Level)));
+                    &ParentalLevelChangeChecker::SigResultReady,
+                    this, &ParentalLevelNotifyContainer::OnResultReady);
         }
 
         const ParentalLevel &GetLevel() const { return m_level; }
@@ -114,7 +115,7 @@ namespace
 
     MythGenericTree *GetNodePtrFromButton(MythUIButtonListItem *item)
     {
-        if (item)
+        if (item && item->GetData().canConvert<MythGenericTree *>())
             return item->GetData().value<MythGenericTree *>();
 
         return nullptr;
@@ -122,7 +123,7 @@ namespace
 
     VideoMetadata *GetMetadataPtrFromNode(MythGenericTree *node)
     {
-        if (node)
+        if (node && node->GetData().canConvert<TreeNodeData>())
             return node->GetData().value<TreeNodeData>().GetMetadata();
 
         return nullptr;
@@ -157,11 +158,8 @@ namespace
         if (sgroup == "Banners")
             suffix = "banner";
 
-        for (QList<QByteArray>::const_iterator it = image_types.begin();
-                it != image_types.end(); ++it)
-        {
-            image_exts.insert(QString(*it).toLower());
-        }
+        for (const auto & itype : qAsConst(image_types))
+            image_exts.insert(QString(itype).toLower());
 
         if (!host.isEmpty())
         {
@@ -178,32 +176,30 @@ namespace
                     if (isScreenshot)
                     {
                         sfn += hntm.arg(QString("%1 Season %2x%3_%4")
-                                 .arg(title).arg(QString::number(season))
-                                 .arg(QString::number(episode))
-                                 .arg(suffix))
-                                 .arg(ext);
+                                        .arg(title, QString::number(season),
+                                             QString::number(episode), suffix),
+                                        ext);
                     }
                     else
                     {
                         sfn += hntm.arg(QString("%1 Season %2_%3")
-                                 .arg(title).arg(QString::number(season))
-                                 .arg(suffix))
-                                 .arg(ext);
+                                        .arg(title, QString::number(season),
+                                             suffix),
+                                        ext);
                     }
 
                 }
                 else
                 {
-                sfn += hntm.arg(base_name + "_%1").arg(suffix).arg(ext);
-                sfn += hntm.arg(video_uid + "_%1").arg(suffix).arg(ext);
+                sfn += hntm.arg(base_name + "_%1", suffix, ext);
+                sfn += hntm.arg(video_uid + "_%1", suffix, ext);
                 }
 
-                for (QStringList::const_iterator i = sfn.begin();
-                        i != sfn.end(); ++i)
+                for (const auto & str : qAsConst(sfn))
                 {
-                    if (hostFiles.contains(*i))
+                    if (hostFiles.contains(str))
                     {
-                        image = *i;
+                        image = str;
                         return true;
                     }
                 }
@@ -212,10 +208,9 @@ namespace
 
         const QString fntm("%1/%2.%3");
 
-        for (QStringList::const_iterator dir = search_dirs.begin();
-                dir != search_dirs.end(); ++dir)
+        for (const auto & dir : qAsConst(search_dirs))
         {
-            if (!(*dir).length()) continue;
+            if (dir.isEmpty()) continue;
 
             for (const auto & ext : image_exts)
             {
@@ -224,36 +219,37 @@ namespace
                 {
                     if (isScreenshot)
                     {
-                        sfn += fntm.arg(*dir).arg(QString("%1 Season %2x%3_%4")
-                                 .arg(title).arg(QString::number(season))
-                                 .arg(QString::number(episode))
-                                 .arg(suffix))
-                                 .arg(ext);
+                        sfn += fntm.arg(dir,
+                                        QString("%1 Season %2x%3_%4")
+                                            .arg(title, QString::number(season),
+                                                 QString::number(episode),
+                                                 suffix),
+                                        ext);
                     }
-                    else if (!isScreenshot)
+                    else
                     {
-                        sfn += fntm.arg(*dir).arg(QString("%1 Season %2_%3")
-                                 .arg(title).arg(QString::number(season))
-                                 .arg(suffix))
-                                 .arg(ext);
+                        sfn += fntm.arg(dir,
+                                        QString("%1 Season %2_%3")
+                                            .arg(title, QString::number(season),
+                                                 suffix),
+                                        ext);
                     }
                 }
                 if (!isScreenshot)
                 {
-                sfn += fntm.arg(*dir)
-                    .arg(base_name + QString("_%1").arg(suffix))
-                    .arg(ext);
-                sfn += fntm.arg(*dir)
-                    .arg(video_uid + QString("_%1").arg(suffix))
-                    .arg(ext);
+                sfn += fntm.arg(dir,
+                                base_name + QString("_%1").arg(suffix),
+                                ext);
+                sfn += fntm.arg(dir,
+                                video_uid + QString("_%1").arg(suffix),
+                                ext);
                 }
 
-                for (QStringList::const_iterator i = sfn.begin();
-                        i != sfn.end(); ++i)
+                for (const auto & file : qAsConst(sfn))
                 {
-                    if (QFile::exists(*i))
+                    if (QFile::exists(file))
                     {
-                        image = *i;
+                        image = file;
                         return true;
                     }
                 }
@@ -309,7 +305,7 @@ namespace
         {
             if (!m_bConnected)
             {
-                connect(&m_fanartTimer, SIGNAL(timeout()), SLOT(fanartLoad()));
+                connect(&m_fanartTimer, &QTimer::timeout, this, &FanartLoader::fanartLoad);
                 m_bConnected = true;
             }
 
@@ -336,7 +332,7 @@ namespace
 
                     m_fanart->SetFilename(filename);
                     m_fanartTimer.setSingleShot(true);
-                    m_fanartTimer.start(300);
+                    m_fanartTimer.start(300ms);
 
                     if (wasActive)
                         m_itemsPast++;
@@ -591,10 +587,10 @@ class ItemDetailPopup : public MythScreenType
         UIUtilW::Assign(this, m_doneButton, "done_button");
 
         if (m_playButton)
-            connect(m_playButton, SIGNAL(Clicked()), SLOT(OnPlay()));
+            connect(m_playButton, &MythUIButton::Clicked, this, &ItemDetailPopup::OnPlay);
 
         if (m_doneButton)
-            connect(m_doneButton, SIGNAL(Clicked()), SLOT(OnDone()));
+            connect(m_doneButton, &MythUIButton::Clicked, this, &ItemDetailPopup::OnDone);
 
         BuildFocusList();
 
@@ -707,13 +703,10 @@ class VideoDialogPrivate
                 QStringList ratings =
                         ratingstring.split(':', Qt::SkipEmptyParts);
 #endif
-
-                for (QStringList::const_iterator p = ratings.begin();
-                    p != ratings.end(); ++p)
-                {
-                    m_ratingToPl.push_back(
-                        parental_level_map::value_type(*p, sl.GetLevel()));
-                }
+                auto to_pl = [sl](const auto & rating)
+                    { return parental_level_map::value_type(rating, sl.GetLevel()); };
+                std::transform(ratings.cbegin(), ratings.cend(),
+                               std::back_inserter(m_ratingToPl), to_pl);
             }
             m_ratingToPl.sort(std::binary_negate(rating_to_pl_less()));
         }
@@ -739,7 +732,7 @@ class VideoDialogPrivate
     {
         delete m_scanner;
 
-        if (m_rememberPosition && m_lastTreeNodePath.length())
+        if (m_rememberPosition && !m_lastTreeNodePath.isEmpty())
         {
             gCoreContext->SaveSetting("mythvideo.VideoTreeLastActive",
                     m_lastTreeNodePath);
@@ -830,7 +823,7 @@ VideoListDeathDelay::VideoListDeathDelay(const VideoDialog::VideoListPtr& toSave
     QObject(QCoreApplication::instance())
 {
     m_d = new VideoListDeathDelayPrivate(toSave);
-    QTimer::singleShot(kDelayTimeMS, this, SLOT(OnTimeUp()));
+    QTimer::singleShot(kDelayTimeMS, this, &VideoListDeathDelay::OnTimeUp);
 }
 
 VideoListDeathDelay::~VideoListDeathDelay()
@@ -1026,21 +1019,21 @@ bool VideoDialog::Create()
     {
         SetFocusWidget(m_videoButtonTree);
 
-        connect(m_videoButtonTree, SIGNAL(itemClicked(MythUIButtonListItem *)),
-                SLOT(handleSelect(MythUIButtonListItem *)));
-        connect(m_videoButtonTree, SIGNAL(itemSelected(MythUIButtonListItem *)),
-                SLOT(UpdateText(MythUIButtonListItem *)));
-        connect(m_videoButtonTree, SIGNAL(nodeChanged(MythGenericTree *)),
-                SLOT(SetCurrentNode(MythGenericTree *)));
+        connect(m_videoButtonTree, &MythUIButtonTree::itemClicked,
+                this, &VideoDialog::handleSelect);
+        connect(m_videoButtonTree, &MythUIButtonTree::itemSelected,
+                this, &VideoDialog::UpdateText);
+        connect(m_videoButtonTree, &MythUIButtonTree::nodeChanged,
+                this, &VideoDialog::SetCurrentNode);
     }
     else
     {
         SetFocusWidget(m_videoButtonList);
 
-        connect(m_videoButtonList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-                SLOT(handleSelect(MythUIButtonListItem *)));
-        connect(m_videoButtonList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-                SLOT(UpdateText(MythUIButtonListItem *)));
+        connect(m_videoButtonList, &MythUIButtonList::itemClicked,
+                this, &VideoDialog::handleSelect);
+        connect(m_videoButtonList, &MythUIButtonList::itemSelected,
+                this, &VideoDialog::UpdateText);
     }
 
     return true;
@@ -1048,8 +1041,8 @@ bool VideoDialog::Create()
 
 void VideoDialog::Init()
 {
-    connect(&m_d->m_parentalLevel, SIGNAL(SigLevelChanged()),
-            SLOT(reloadData()));
+    connect(&m_d->m_parentalLevel, &ParentalLevelNotifyContainer::SigLevelChanged,
+            this, &VideoDialog::reloadData);
 }
 
 void VideoDialog::Load()
@@ -1144,10 +1137,10 @@ void VideoDialog::loadData()
             return;
 
         if (!m_d->m_currentNode)
+        {
             SetCurrentNode(m_d->m_rootNode);
-
-        if (!m_d->m_currentNode)
             return;
+        }
 
         MythGenericTree *selectedNode = m_d->m_currentNode->getSelectedChild();
 
@@ -1199,20 +1192,19 @@ void VideoDialog::loadData()
         using MGTreeChildList = QList<MythGenericTree *>;
         MGTreeChildList *lchildren = m_d->m_currentNode->getAllChildren();
 
-        for (MGTreeChildList::const_iterator p = lchildren->begin();
-                p != lchildren->end(); ++p)
+        for (auto * child : qAsConst(*lchildren))
         {
-            if (*p != nullptr)
+            if (child != nullptr)
             {
                 auto *item =
                         new MythUIButtonListItem(m_videoButtonList, QString(), nullptr,
                                 true, MythUIButtonListItem::NotChecked);
 
-                item->SetData(QVariant::fromValue(*p));
+                item->SetData(QVariant::fromValue(child));
 
                 UpdateItem(item);
 
-                if (*p == selectedNode)
+                if (child == selectedNode)
                     m_videoButtonList->SetItemCurrent(item);
             }
         }
@@ -1251,7 +1243,7 @@ void VideoDialog::UpdateItem(MythUIButtonListItem *item)
                             parent->GetText().startsWith(tr("Season"), Qt::CaseInsensitive)))
         item->SetText(metadata->GetSubtitle());
     else if (metadata && !metadata->GetSubtitle().isEmpty())
-        item->SetText(QString("%1: %2").arg(metadata->GetTitle()).arg(metadata->GetSubtitle()));
+        item->SetText(QString("%1: %2").arg(metadata->GetTitle(), metadata->GetSubtitle()));
     else
         item->SetText(metadata ? metadata->GetTitle() : node->GetText());
 
@@ -1368,13 +1360,12 @@ QString VideoDialog::RemoteImageCheck(const QString& host, const QString& filena
 
     if (!dirs.isEmpty())
     {
-        for (QStringList::const_iterator iter = dirs.begin();
-             iter != dirs.end(); ++iter)
+        for (const auto & dir : qAsConst(dirs))
         {
-            QUrl sgurl = *iter;
+            QUrl sgurl = dir;
             QString path = sgurl.path();
 
-            QString fname = QString("%1/%2").arg(path).arg(filename);
+            QString fname = QString("%1/%2").arg(path, filename);
 
             QStringList list( QString("QUERY_SG_FILEQUERY") );
             list << host;
@@ -1399,7 +1390,7 @@ QString VideoDialog::RemoteImageCheck(const QString& host, const QString& filena
 #if 0
                 LOG(VB_GENERAL, LOG_DEBUG,
                     QString("RemoteImageCheck(%1) res :%2: :%3:")
-                        .arg(fname).arg(result).arg(*iter));
+                        .arg(fname).arg(result).arg(dir));
 #endif
                 break;
             }
@@ -1410,162 +1401,25 @@ QString VideoDialog::RemoteImageCheck(const QString& host, const QString& filena
     return result;
 }
 
-/** \fn VideoDialog::GetImageFromFolder(VideoMetadata *metadata)
- *  \brief Attempt to find/fallback a cover image for a given metadata item.
- *  \return QString local or myth:// for the first found cover file.
- */
-QString VideoDialog::GetImageFromFolder(VideoMetadata *metadata)
-{
-    QString icon_file;
-    const QString& host = metadata->GetHost();
-    QFileInfo fullpath(metadata->GetFilename());
-    QDir dir = fullpath.dir();
-    QString prefix = QDir::cleanPath(dir.path());
-
-    QString filename = QString("%1/folder").arg(prefix);
-
-    QStringList test_files;
-    test_files.append(filename + ".png");
-    test_files.append(filename + ".jpg");
-    test_files.append(filename + ".jpeg");
-    test_files.append(filename + ".gif");
-
-    for (QStringList::const_iterator tfp = test_files.begin();
-            tfp != test_files.end(); ++tfp)
-    {
-        QString imagePath = *tfp;
-        bool foundCover = false;
-        if (!host.isEmpty())
-        {
-            // Strip out any extra /'s
-            imagePath.replace("//", "/");
-            prefix.replace("//","/");
-            imagePath = imagePath.right(imagePath.length() - (prefix.length() + 1));
-            QString tmpCover = RemoteImageCheck(host, imagePath);
-
-            if (!tmpCover.isEmpty())
-            {
-                foundCover = true;
-                imagePath = tmpCover;
-            }
-        }
-        else
-            foundCover = QFile::exists(imagePath);
-
-        if (foundCover)
-        {
-            icon_file = imagePath;
-            return icon_file;
-        }
-    }
-
-    // If we found nothing, load something that matches the title.
-    // If that fails, load anything we find.
-    if (icon_file.isEmpty())
-    {
-        QStringList imageTypes;
-        imageTypes.append(metadata->GetTitle() + ".png");
-        imageTypes.append(metadata->GetTitle() + ".jpg");
-        imageTypes.append(metadata->GetTitle() + ".jpeg");
-        imageTypes.append(metadata->GetTitle() + ".gif");
-        imageTypes.append("*.png");
-        imageTypes.append("*.jpg");
-        imageTypes.append("*.jpeg");
-        imageTypes.append("*.gif");
-
-        QStringList fList;
-
-        if (!host.isEmpty())
-        {
-            // TODO: This can likely get a little cleaner
-
-            QStringList dirs = GetVideoDirsByHost(host);
-
-            if (!dirs.isEmpty())
-            {
-                for (QStringList::const_iterator iter = dirs.begin();
-                     iter != dirs.end(); ++iter)
-                {
-                    QUrl sgurl = *iter;
-                    QString path = sgurl.path();
-
-                    const QString& subdir = prefix;
-
-                    path = path + "/" + subdir;
-                    QStringList tmpList;
-                    bool ok = RemoteGetFileList(host, path, &tmpList, "Videos");
-
-                    if (ok)
-                    {
-                        for (QStringList::const_iterator pattern = imageTypes.begin();
-                             pattern != imageTypes.end(); ++pattern)
-                        {
-                            QRegExp rx(*pattern);
-                            rx.setPatternSyntax(QRegExp::Wildcard);
-                            rx.setCaseSensitivity(Qt::CaseInsensitive);
-                            QStringList matches = tmpList.filter(rx);
-                            if (!matches.isEmpty())
-                            {
-                                fList.clear();
-                                fList.append(subdir + "/" + matches.at(0).split("::").at(1));
-                                break;
-                            }
-                        }
-
-                        break;
-                    }
-                }
-            }
-        }
-        else
-        {
-            QDir vidDir(prefix);
-            vidDir.setNameFilters(imageTypes);
-            fList = vidDir.entryList();
-        }
-
-        if (!fList.isEmpty())
-        {
-            if (host.isEmpty())
-            {
-                icon_file = QString("%1/%2").arg(prefix).arg(fList.at(0));
-            }
-            else
-            {
-                icon_file = generate_file_url("Videos", host, fList.at(0));
-            }
-        }
-    }
-
-    if (!icon_file.isEmpty())
-    {
-        LOG(VB_GENERAL, LOG_DEBUG, QString("Found Image : %1 :")
-                .arg(icon_file));
-    }
-    else
-    {
-        LOG(VB_GENERAL, LOG_DEBUG, QString("Could not find cover Image : %1 ")
-                .arg(prefix));
-    }
-
-    if (IsDefaultCoverFile(icon_file))
-        icon_file.clear();
-
-    return icon_file;
-}
-
 /** \fn VideoDialog::GetCoverImage(MythGenericTree *node)
  *  \brief A "hunt" for cover art to apply for a folder item.
  *  \return QString local or myth:// for the first found cover file.
  */
 QString VideoDialog::GetCoverImage(MythGenericTree *node)
 {
+    if (!node)
+        return QString();
+
     int nodeInt = node->getInt();
 
     QString icon_file;
 
     if (nodeInt  == kSubFolder)  // subdirectory
     {
+        // First validate that the data can be converted
+        if (!node->GetData().canConvert<TreeNodeData>())
+            return icon_file;
+
         // load folder icon
         QString folder_path = node->GetData().value<TreeNodeData>().GetPath();
         QString host = node->GetData().value<TreeNodeData>().GetHost();
@@ -1589,12 +1443,10 @@ QString VideoDialog::GetCoverImage(MythGenericTree *node)
         test_files.append(filename + ".jpeg");
         test_files.append(filename + ".gif");
 
-        for (QStringList::const_iterator tfp = test_files.begin();
-                tfp != test_files.end(); ++tfp)
+        for (auto imagePath : qAsConst(test_files))
         {
-            QString imagePath = *tfp;
 #if 0
-            LOG(VB_GENERAL, LOG_DEBUG, QString("Cover check :%1 : ").arg(*tfp));
+            LOG(VB_GENERAL, LOG_DEBUG, QString("Cover check :%1 : ").arg(imagePath));
 #endif
 
             bool foundCover = false;
@@ -1625,12 +1477,7 @@ QString VideoDialog::GetCoverImage(MythGenericTree *node)
         // If we found nothing, load the first image we find
         if (icon_file.isEmpty())
         {
-            QStringList imageTypes;
-            imageTypes.append("*.png");
-            imageTypes.append("*.jpg");
-            imageTypes.append("*.jpeg");
-            imageTypes.append("*.gif");
-
+            QStringList imageTypes { "*.png", "*.jpg", "*.jpeg", "*.gif" };
             QStringList fList;
 
             if (!host.isEmpty())
@@ -1641,10 +1488,9 @@ QString VideoDialog::GetCoverImage(MythGenericTree *node)
 
                 if (!dirs.isEmpty())
                 {
-                    for (QStringList::const_iterator iter = dirs.begin();
-                         iter != dirs.end(); ++iter)
+                    for (const auto & dir : qAsConst(dirs))
                     {
-                        QUrl sgurl = *iter;
+                        QUrl sgurl = dir;
                         QString path = sgurl.path();
 
                         QString subdir = folder_path.right(folder_path.length() - (prefix.length() + 1));
@@ -1656,12 +1502,23 @@ QString VideoDialog::GetCoverImage(MythGenericTree *node)
 
                         if (ok)
                         {
-                            for (QStringList::const_iterator pattern = imageTypes.begin();
-                                 pattern != imageTypes.end(); ++pattern)
+                            for (const auto & pattern : qAsConst(imageTypes))
                             {
-                                QRegExp rx(*pattern);
-                                rx.setPatternSyntax(QRegExp::Wildcard);
-                                rx.setCaseSensitivity(Qt::CaseInsensitive);
+#if QT_VERSION < QT_VERSION_CHECK(5,12,0)
+                                // Quick and dirt replacement. This
+                                // only handles the '*' character.
+                                QString rePattern = "\\A" + pattern + "\\z";
+#ifdef Q_OS_WIN
+                                rePattern.replace("*","[^/\\\\]*");
+#else
+                                rePattern.replace("*","[^/]*");
+#endif
+#else
+                                auto rePattern = QRegularExpression::wildcardToRegularExpression(pattern);
+#endif
+                                QRegularExpression rx {
+                                    rePattern.mid(2,rePattern.size()-4), // Remove anchors
+                                    QRegularExpression::CaseInsensitiveOption };
                                 QStringList matches = tmpList.filter(rx);
                                 if (!matches.isEmpty())
                                 {
@@ -1730,9 +1587,7 @@ QString VideoDialog::GetCoverImage(MythGenericTree *node)
             {
                 if (host.isEmpty())
                 {
-                    icon_file = QString("%1/%2")
-                                    .arg(folder_path)
-                                    .arg(fList.at(0));
+                    icon_file = QString("%1/%2").arg(folder_path, fList.at(0));
                 }
                 else
                 {
@@ -1802,8 +1657,7 @@ QString VideoDialog::GetFirstImage(MythGenericTree *node, const QString& type,
     if (list_count > 0)
     {
         QList<MythGenericTree *> subDirs;
-        // cppcheck-suppress variableScope
-        int maxRecurse = 1;
+        static constexpr int maxRecurse { 1 };
 
         for (int i = 0; i < list_count; i++)
         {
@@ -2224,7 +2078,6 @@ void VideoDialog::searchComplete(const QString& string)
     LOG(VB_GENERAL, LOG_DEBUG, QString("Jumping to: %1").arg(string));
 
     MythGenericTree *parent = m_d->m_currentNode->getParent();
-    QStringList childList;
     QList<MythGenericTree*> *children = nullptr;
     QMap<int, QString> idTitle;
 
@@ -2281,8 +2134,8 @@ void VideoDialog::searchStart(void)
 
     if (searchDialog->Create())
     {
-        connect(searchDialog, SIGNAL(haveResult(QString)),
-                SLOT(searchComplete(QString)));
+        connect(searchDialog, &MythUISearchDialog::haveResult,
+                this, &VideoDialog::searchComplete);
 
         popupStack->AddScreen(searchDialog);
     }
@@ -2423,8 +2276,8 @@ void VideoDialog::VideoMenu()
     {
         if (!metadata->GetSubtitle().isEmpty())
         {
-            label = tr("Video Options\n%1\n%2").arg(metadata->GetTitle())
-                                           .arg(metadata->GetSubtitle());
+            label = tr("Video Options\n%1\n%2").arg(metadata->GetTitle(),
+                                                    metadata->GetSubtitle());
         }
         else
         {
@@ -2445,21 +2298,21 @@ void VideoDialog::VideoMenu()
                 m_d->m_altPlayerEnabled)
             menu->AddItem(tr("Play..."), nullptr, CreatePlayMenu());
         else
-            menu->AddItem(tr("Play"), SLOT(playVideo()));
+            menu->AddItem(tr("Play"), &VideoDialog::playVideo);
         if (metadata->GetWatched())
-            menu->AddItem(tr("Mark as Unwatched"), SLOT(ToggleWatched()));
+            menu->AddItem(tr("Mark as Unwatched"), &VideoDialog::ToggleWatched);
         else
-            menu->AddItem(tr("Mark as Watched"), SLOT(ToggleWatched()));
+            menu->AddItem(tr("Mark as Watched"), &VideoDialog::ToggleWatched);
         menu->AddItem(tr("Video Info"), nullptr, CreateInfoMenu());
         if (!m_d->m_notifications.contains(metadata->GetHash()))
         {
             menu->AddItem(tr("Change Video Details"), nullptr, CreateManageMenu());
         }
-        menu->AddItem(tr("Delete"), SLOT(RemoveVideo()));
+        menu->AddItem(tr("Delete"), &VideoDialog::RemoveVideo);
     }
     else if (node && node->getInt() != kUpFolder)
     {
-        menu->AddItem(tr("Play Folder"), SLOT(playFolder()));
+        menu->AddItem(tr("Play Folder"), &VideoDialog::playFolder);
     }
 
 
@@ -2468,7 +2321,7 @@ void VideoDialog::VideoMenu()
     if (m_menuPopup->Create())
     {
         m_popupStack->AddScreen(m_menuPopup);
-        connect(m_menuPopup, SIGNAL(Closed(QString,int)), SLOT(popupClosed(QString,int)));
+        connect(m_menuPopup, &MythDialogBox::Closed, this, &VideoDialog::popupClosed);
     }
     else
         delete m_menuPopup;
@@ -2491,23 +2344,23 @@ MythMenu* VideoDialog::CreatePlayMenu()
 
     auto *menu = new MythMenu(label, this, "actions");
 
-    menu->AddItem(tr("Play"), SLOT(playVideo()));
+    menu->AddItem(tr("Play"), &VideoDialog::playVideo);
 
     if (m_d->m_altPlayerEnabled)
     {
-        menu->AddItem(tr("Play in Alternate Player"), SLOT(playVideoAlt()));
+        menu->AddItem(tr("Play in Alternate Player"), &VideoDialog::playVideoAlt);
     }
 
     if (gCoreContext->GetBoolSetting("mythvideo.TrailersRandomEnabled", false))
     {
-         menu->AddItem(tr("Play With Trailers"), SLOT(playVideoWithTrailers()));
+         menu->AddItem(tr("Play With Trailers"), &VideoDialog::playVideoWithTrailers);
     }
 
     QString trailerFile = metadata->GetTrailer();
     if (QFile::exists(trailerFile) ||
         (!metadata->GetHost().isEmpty() && !trailerFile.isEmpty()))
     {
-        menu->AddItem(tr("Play Trailer"), SLOT(playTrailer()));
+        menu->AddItem(tr("Play Trailer"), &VideoDialog::playTrailer);
     }
 
     return menu;
@@ -2523,9 +2376,9 @@ void VideoDialog::DisplayMenu()
 
     auto *menu = new MythMenu(label, this, "display");
 
-    menu->AddItem(tr("Scan For Changes"), SLOT(doVideoScan()));
-    menu->AddItem(tr("Retrieve All Details"), SLOT(VideoAutoSearch()));
-    menu->AddItem(tr("Filter Display"), SLOT(ChangeFilter()));
+    menu->AddItem(tr("Scan For Changes"), &VideoDialog::doVideoScan);
+    menu->AddItem(tr("Retrieve All Details"), qOverload<>(&VideoDialog::VideoAutoSearch));
+    menu->AddItem(tr("Filter Display"), &VideoDialog::ChangeFilter);
     menu->AddItem(tr("Browse By..."), nullptr, CreateMetadataBrowseMenu());
     menu->AddItem(tr("Change View"), nullptr, CreateViewMenu());
     menu->AddItem(tr("Settings"), nullptr, CreateSettingsMenu());
@@ -2535,7 +2388,7 @@ void VideoDialog::DisplayMenu()
     if (m_menuPopup->Create())
     {
         m_popupStack->AddScreen(m_menuPopup);
-        connect(m_menuPopup, SIGNAL(Closed(QString,int)), SLOT(popupClosed(QString,int)));
+        connect(m_menuPopup, &MythDialogBox::Closed, this, &VideoDialog::popupClosed);
     }
     else
         delete m_menuPopup;
@@ -2566,26 +2419,26 @@ MythMenu* VideoDialog::CreateViewMenu()
     auto *menu = new MythMenu(label, this, "view");
 
     if (!(m_d->m_type & DLG_BROWSER))
-        menu->AddItem(tr("Switch to Browse View"), SLOT(SwitchBrowse()));
+        menu->AddItem(tr("Switch to Browse View"), &VideoDialog::SwitchBrowse);
 
     if (!(m_d->m_type & DLG_GALLERY))
-        menu->AddItem(tr("Switch to Gallery View"), SLOT(SwitchGallery()));
+        menu->AddItem(tr("Switch to Gallery View"), &VideoDialog::SwitchGallery);
 
     if (!(m_d->m_type & DLG_TREE))
-        menu->AddItem(tr("Switch to List View"), SLOT(SwitchTree()));
+        menu->AddItem(tr("Switch to List View"), &VideoDialog::SwitchTree);
 
     if (!(m_d->m_type & DLG_MANAGER))
-        menu->AddItem(tr("Switch to Manage View"), SLOT(SwitchManager()));
+        menu->AddItem(tr("Switch to Manage View"), &VideoDialog::SwitchManager);
 
     if (m_d->m_isFlatList)
-        menu->AddItem(tr("Show Directory Structure"), SLOT(ToggleFlatView()));
+        menu->AddItem(tr("Show Directory Structure"), &VideoDialog::ToggleFlatView);
     else
-        menu->AddItem(tr("Hide Directory Structure"), SLOT(ToggleFlatView()));
+        menu->AddItem(tr("Hide Directory Structure"), &VideoDialog::ToggleFlatView);
 
     if (m_d->m_isFileBrowser)
-        menu->AddItem(tr("Browse Library (recommended)"), SLOT(ToggleBrowseMode()));
+        menu->AddItem(tr("Browse Library (recommended)"), &VideoDialog::ToggleBrowseMode);
     else
-        menu->AddItem(tr("Browse Filesystem (slow)"), SLOT(ToggleBrowseMode()));
+        menu->AddItem(tr("Browse Filesystem (slow)"), &VideoDialog::ToggleBrowseMode);
 
 
     return menu;
@@ -2601,9 +2454,9 @@ MythMenu* VideoDialog::CreateSettingsMenu()
 
     auto *menu = new MythMenu(label, this, "settings");
 
-    menu->AddItem(tr("Player Settings"), SLOT(ShowPlayerSettings()));
-    menu->AddItem(tr("Metadata Settings"), SLOT(ShowMetadataSettings()));
-    menu->AddItem(tr("File Type Settings"), SLOT(ShowExtensionSettings()));
+    menu->AddItem(tr("Player Settings"), &VideoDialog::ShowPlayerSettings);
+    menu->AddItem(tr("Metadata Settings"), &VideoDialog::ShowMetadataSettings);
+    menu->AddItem(tr("File Type Settings"), &VideoDialog::ShowExtensionSettings);
 
     return menu;
 }
@@ -2661,34 +2514,34 @@ MythMenu* VideoDialog::CreateMetadataBrowseMenu()
     auto *menu = new MythMenu(label, this, "metadata");
 
     if (m_d->m_groupType != BRS_CAST)
-        menu->AddItem(tr("Cast"), SLOT(SwitchVideoCastGroup()));
+        menu->AddItem(tr("Cast"), &VideoDialog::SwitchVideoCastGroup);
 
     if (m_d->m_groupType != BRS_CATEGORY)
-        menu->AddItem(tr("Category"), SLOT(SwitchVideoCategoryGroup()));
+        menu->AddItem(tr("Category"), &VideoDialog::SwitchVideoCategoryGroup);
 
     if (m_d->m_groupType != BRS_INSERTDATE)
-        menu->AddItem(tr("Date Added"), SLOT(SwitchVideoInsertDateGroup()));
+        menu->AddItem(tr("Date Added"), &VideoDialog::SwitchVideoInsertDateGroup);
 
     if (m_d->m_groupType != BRS_DIRECTOR)
-        menu->AddItem(tr("Director"), SLOT(SwitchVideoDirectorGroup()));
+        menu->AddItem(tr("Director"), &VideoDialog::SwitchVideoDirectorGroup);
 
     if (m_d->m_groupType != BRS_STUDIO)
-        menu->AddItem(tr("Studio"), SLOT(SwitchVideoStudioGroup()));
+        menu->AddItem(tr("Studio"), &VideoDialog::SwitchVideoStudioGroup);
 
     if (m_d->m_groupType != BRS_FOLDER)
-        menu->AddItem(tr("Folder"), SLOT(SwitchVideoFolderGroup()));
+        menu->AddItem(tr("Folder"), &VideoDialog::SwitchVideoFolderGroup);
 
     if (m_d->m_groupType != BRS_GENRE)
-        menu->AddItem(tr("Genre"), SLOT(SwitchVideoGenreGroup()));
+        menu->AddItem(tr("Genre"), &VideoDialog::SwitchVideoGenreGroup);
 
     if (m_d->m_groupType != BRS_TVMOVIE)
-        menu->AddItem(tr("TV/Movies"),SLOT(SwitchVideoTVMovieGroup()));
+        menu->AddItem(tr("TV/Movies"), &VideoDialog::SwitchVideoTVMovieGroup);
 
     if (m_d->m_groupType != BRS_USERRATING)
-        menu->AddItem(tr("User Rating"), SLOT(SwitchVideoUserRatingGroup()));
+        menu->AddItem(tr("User Rating"), &VideoDialog::SwitchVideoUserRatingGroup);
 
     if (m_d->m_groupType != BRS_YEAR)
-        menu->AddItem(tr("Year"), SLOT(SwitchVideoYearGroup()));
+        menu->AddItem(tr("Year"), &VideoDialog::SwitchVideoYearGroup);
 
     return menu;
 }
@@ -2704,17 +2557,17 @@ MythMenu *VideoDialog::CreateInfoMenu()
     auto *menu = new MythMenu(label, this, "info");
 
     if (ItemDetailPopup::Exists())
-        menu->AddItem(tr("View Details"), SLOT(DoItemDetailShow()));
+        menu->AddItem(tr("View Details"), &VideoDialog::DoItemDetailShow2);
 
-    menu->AddItem(tr("View Full Plot"), SLOT(ViewPlot()));
+    menu->AddItem(tr("View Full Plot"), &VideoDialog::ViewPlot);
 
     VideoMetadata *metadata = GetMetadata(GetItemCurrent());
     if (metadata)
     {
         if (!metadata->GetCast().empty())
-            menu->AddItem(tr("View Cast"), SLOT(ShowCastDialog()));
+            menu->AddItem(tr("View Cast"), &VideoDialog::ShowCastDialog);
         if (!metadata->GetHomepage().isEmpty())
-            menu->AddItem(tr("View Homepage"), SLOT(ShowHomepage()));
+            menu->AddItem(tr("View Homepage"), &VideoDialog::ShowHomepage);
     }
 
     return menu;
@@ -2732,13 +2585,13 @@ MythMenu *VideoDialog::CreateManageMenu()
 
     VideoMetadata *metadata = GetMetadata(GetItemCurrent());
 
-    menu->AddItem(tr("Edit Details"), SLOT(EditMetadata()));
-    menu->AddItem(tr("Retrieve Details"), SLOT(VideoSearch()));
+    menu->AddItem(tr("Edit Details"), &VideoDialog::EditMetadata);
+    menu->AddItem(tr("Retrieve Details"), qOverload<>(&VideoDialog::VideoSearch));
     if (metadata->GetProcessed())
-        menu->AddItem(tr("Allow Updates"), SLOT(ToggleProcess()));
+        menu->AddItem(tr("Allow Updates"), &VideoDialog::ToggleProcess);
     else
-        menu->AddItem(tr("Disable Updates"), SLOT(ToggleProcess()));
-    menu->AddItem(tr("Reset Details"), SLOT(ResetMetadata()));
+        menu->AddItem(tr("Disable Updates"), &VideoDialog::ToggleProcess);
+    menu->AddItem(tr("Reset Details"), &VideoDialog::ResetMetadata);
 
     return menu;
 }
@@ -3215,7 +3068,7 @@ void VideoDialog::playVideoWithTrailers()
     while (!trailers.isEmpty() && i < trailersToPlay)
     {
         ++i;
-        QString trailer = trailers.takeAt(random() % trailers.size());
+        QString trailer = trailers.takeAt(static_cast<int>(MythRandom() % trailers.size()));
 
         LOG(VB_GENERAL, LOG_DEBUG,
             QString("Random trailer to play will be: %1").arg(trailer));
@@ -3253,7 +3106,7 @@ void VideoDialog::playTrailer()
  *  \brief Set the parental level for the library.
  *  \return void.
  */
-void VideoDialog::setParentalLevel(const ParentalLevel::Level &level)
+void VideoDialog::setParentalLevel(const ParentalLevel::Level level)
 {
     m_d->m_parentalLevel.SetLevel(level);
 }
@@ -3282,7 +3135,7 @@ void VideoDialog::ChangeFilter()
     if (filterdialog->Create())
         mainStack->AddScreen(filterdialog);
 
-    connect(filterdialog, SIGNAL(filterChanged()), SLOT(reloadData()));
+    connect(filterdialog, &VideoFilterDialog::filterChanged, this, &VideoDialog::reloadData);
 }
 
 /** \fn VideoDialog::GetMetadata(MythUIButtonListItem *item)
@@ -3325,8 +3178,8 @@ void VideoDialog::customEvent(QEvent *levent)
             dismissFetchDialog(metadata, true);
             auto *resultsdialog = new MetadataResultsDialog(m_popupStack, list);
 
-            connect(resultsdialog, SIGNAL(haveResult(RefCountHandler<MetadataLookup>)),
-                    SLOT(OnVideoSearchListSelection(RefCountHandler<MetadataLookup>)),
+            connect(resultsdialog, &MetadataResultsDialog::haveResult,
+                    this, &VideoDialog::OnVideoSearchListSelection,
                     Qt::QueuedConnection);
 
             if (resultsdialog->Create())
@@ -3487,21 +3340,20 @@ void VideoDialog::VideoAutoSearch(MythGenericTree *node)
     LOG(VB_GENERAL, LOG_DEBUG,
         QString("Fetching details in %1").arg(node->GetText()));
 
-    for (MGTreeChildList::const_iterator p = lchildren->begin();
-            p != lchildren->end(); ++p)
+    for (auto * child : qAsConst(*lchildren))
     {
-        if (((*p)->getInt() == kSubFolder) ||
-            ((*p)->getInt() == kUpFolder))
-            VideoAutoSearch((*p));
+        if ((child->getInt() == kSubFolder) ||
+            (child->getInt() == kUpFolder))
+            VideoAutoSearch(child);
         else
         {
-            VideoMetadata *metadata = GetMetadataPtrFromNode((*p));
+            VideoMetadata *metadata = GetMetadataPtrFromNode(child);
 
             if (!metadata)
                 continue;
 
             if (!metadata->GetProcessed())
-                VideoSearch((*p), true);
+                VideoSearch(child, true);
         }
     }
 }
@@ -3522,12 +3374,33 @@ void VideoDialog::ToggleWatched()
     }
 }
 
-void VideoDialog::OnVideoSearchListSelection(const RefCountHandler<MetadataLookup>& lookup)
+void VideoDialog::OnVideoSearchListSelection(RefCountHandler<MetadataLookup> lookup)
 {
     if (!lookup)
         return;
 
-    OnVideoSearchDone(lookup);
+    if(!lookup->GetInetref().isEmpty() && lookup->GetInetref() != "00000000")
+    {
+        LOG(VB_GENERAL, LOG_INFO, LOC_MML +
+            QString("Selected Item: Type: %1%2 : Subtype: %3%4%5 : InetRef: %6")
+                .arg(lookup->GetType() == kMetadataVideo ? "Video" : "",
+                     lookup->GetType() == kMetadataRecording ? "Recording" : "",
+                     lookup->GetSubtype() == kProbableMovie ? "Movie" : "",
+                     lookup->GetSubtype() == kProbableTelevision ? "Television" : "",
+                     lookup->GetSubtype() == kUnknownVideo ? "Unknown" : "",
+                     lookup->GetInetref()));
+
+        lookup->SetStep(kLookupData);
+        lookup->IncrRef();
+        m_metadataFactory->Lookup(lookup);
+    }
+    else
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC_MML +
+            QString("Selected Item has no InetRef Number!"));
+
+        OnVideoSearchDone(lookup);
+    }
 }
 
 void VideoDialog::OnParentalChange(int amount)
@@ -3560,7 +3433,7 @@ void VideoDialog::EditMetadata()
             "mythvideoeditmetadata", metadata,
             m_d->m_videoList->getListCache());
 
-    connect(md_editor, SIGNAL(Finished()), SLOT(refreshData()));
+    connect(md_editor, &EditMetadataDialog::Finished, this, &VideoDialog::refreshData);
 
     if (md_editor->Create())
         screenStack->AddScreen(md_editor);
@@ -3581,8 +3454,8 @@ void VideoDialog::RemoveVideo()
     if (confirmdialog->Create())
         m_popupStack->AddScreen(confirmdialog);
 
-    connect(confirmdialog, SIGNAL(haveResult(bool)),
-            SLOT(OnRemoveVideo(bool)));
+    connect(confirmdialog, &MythConfirmationDialog::haveResult,
+            this, &VideoDialog::OnRemoveVideo);
 }
 
 void VideoDialog::OnRemoveVideo(bool dodelete)
@@ -3751,7 +3624,7 @@ void VideoDialog::OnVideoSearchDone(MetadataLookup *lookup)
         metadata->SetUserRating(lookup->GetUserRating());
     if (metadata->GetRating() == VIDEO_RATING_DEFAULT)
         metadata->SetRating(lookup->GetCertification());
-    if (metadata->GetLength() == 0)
+    if (metadata->GetLength() == 0min)
         metadata->SetLength(lookup->GetRuntime());
     if (metadata->GetSeason() == 0)
         metadata->SetSeason(lookup->GetSeason());
@@ -3768,26 +3641,19 @@ void VideoDialog::OnVideoSearchDone(MetadataLookup *lookup)
     QList<PersonInfo> actors = lookup->GetPeople(kPersonActor);
     QList<PersonInfo> gueststars = lookup->GetPeople(kPersonGuestStar);
 
-    for (QList<PersonInfo>::const_iterator p = gueststars.begin();
-        p != gueststars.end(); ++p)
-    {
-        actors.append(*p);
-    }
+    for (const auto & name : qAsConst(gueststars))
+        actors.append(name);
 
     VideoMetadata::cast_list cast;
     QStringList cl;
 
-    for (QList<PersonInfo>::const_iterator p = actors.begin();
-        p != actors.end(); ++p)
-    {
-        cl.append((*p).name);
-    }
+    for (const auto & person : qAsConst(actors))
+        cl.append(person.name);
 
-    for (QStringList::const_iterator p = cl.begin();
-        p != cl.end(); ++p)
+    for (const auto & name : qAsConst(cl))
     {
-        QString cn = (*p).trimmed();
-        if (cn.length())
+        QString cn = name.trimmed();
+        if (!cn.isEmpty())
         {
             cast.push_back(VideoMetadata::cast_list::
                         value_type(-1, cn));
@@ -3800,11 +3666,10 @@ void VideoDialog::OnVideoSearchDone(MetadataLookup *lookup)
     VideoMetadata::genre_list video_genres;
     QStringList genres = lookup->GetCategories();
 
-    for (QStringList::const_iterator p = genres.begin();
-        p != genres.end(); ++p)
+    for (const auto & name : qAsConst(genres))
     {
-        QString genre_name = (*p).trimmed();
-        if (genre_name.length())
+        QString genre_name = name.trimmed();
+        if (!genre_name.isEmpty())
         {
             video_genres.push_back(
                     VideoMetadata::genre_list::value_type(-1, genre_name));
@@ -3817,11 +3682,10 @@ void VideoDialog::OnVideoSearchDone(MetadataLookup *lookup)
     VideoMetadata::country_list video_countries;
     QStringList countries = lookup->GetCountries();
 
-    for (QStringList::const_iterator p = countries.begin();
-        p != countries.end(); ++p)
+    for (const auto & name : qAsConst(countries))
     {
-        QString country_name = (*p).trimmed();
-        if (country_name.length())
+        QString country_name = name.trimmed();
+        if (!country_name.isEmpty())
         {
             video_countries.push_back(
                     VideoMetadata::country_list::value_type(-1,
@@ -3845,7 +3709,7 @@ void VideoDialog::doVideoScan()
 {
     if (!m_d->m_scanner)
         m_d->m_scanner = new VideoScanner();
-    connect(m_d->m_scanner, SIGNAL(finished(bool)), SLOT(scanFinished(bool)));
+    connect(m_d->m_scanner, &VideoScanner::finished, this, &VideoDialog::scanFinished);
     m_d->m_scanner->doScan(GetVideoDirs());
 }
 

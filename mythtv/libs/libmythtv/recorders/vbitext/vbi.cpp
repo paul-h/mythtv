@@ -81,21 +81,21 @@ out_of_sync(struct vbi *vbi)
 static void
 vbi_send(struct vbi *vbi, int type, int i1, int i2, int i3, void *p1)
 {
-    struct vt_event ev[1];
+    struct vt_event ev {};
     struct vbi_client *cl = nullptr;
     struct vbi_client *cln = nullptr;
 
-    ev->resource = vbi;
-    ev->type = type;
-    ev->i1 = i1;
-    ev->i2 = i2;
-    ev->i3 = i3;
-    ev->p1 = p1;
+    ev.resource = vbi;
+    ev.type = type;
+    ev.i1 = i1;
+    ev.i2 = i2;
+    ev.i3 = i3;
+    ev.p1 = p1;
 
     for (cl = static_cast<vbi_client *>((void*)vbi->clients[0].first);
          (cln = static_cast<vbi_client *>((void*)cl->node->next)) != nullptr;
          cl = cln)
-       cl->handler(cl->data, ev);
+       cl->handler(cl->data, &ev);
 }
 
 static void
@@ -220,7 +220,7 @@ vt_line(struct vbi *vbi, unsigned char *p)
            cvtp->errors = (err >> 8) + chk_parity(p + 8, 32);;
            cvtp->pgno = mag8 * 256 + b1;
            cvtp->subno = (b2 + b3 * 256) & 0x3f7f;
-           cvtp->lang = "\0\4\2\6\1\5\3\7"[b4 >> 5] + (latin1 ? 0 : 8);
+           cvtp->lang = "\0\4\2\6\1\5\3\7"[b4 >> 5] + (isLatin1 ? 0 : 8);
            cvtp->flags = b4 & 0x1f;
            cvtp->flags |= b3 & 0xc0;
            cvtp->flags |= (b2 & 0x80) >> 2;
@@ -265,14 +265,14 @@ vt_line(struct vbi *vbi, unsigned char *p)
            if (err & 0xf000)
                return 4;
 
-           int t[13];
+           std::array<unsigned int,13> t {};
            for (int i = 0; i < 13; ++i)
                t[i] = hamm24(p + 1 + 3*i, &err);
            if (err & 0xf000)
                return 4;
 
            //printf("enhance on %x/%x\n", cvtp->pgno, cvtp->subno);
-           add_enhance(rvtp->enh, d, (unsigned int *)t);
+           add_enhance(rvtp->enh, d, t);
            return 0;
        }
        case 27:
@@ -336,10 +336,10 @@ vt_line(struct vbi *vbi, unsigned char *p)
 static int
 vbi_line(struct vbi *vbi, const unsigned char *p)
 {
-    unsigned char data[43];
-    int dt[256];
-    int hi[6];
-    int lo[6];
+    std::array<unsigned char,43> data {};
+    std::array<int,2566> dt {};
+    std::array<int,6>    hi {};
+    std::array<int,6>    lo {};
     int i = 0;
     int n = 0;
     int bpb = vbi->bpb;
@@ -389,7 +389,7 @@ vbi_line(struct vbi *vbi, const unsigned char *p)
        if (p[i/FAC] > thr && p[(i+bpb)/FAC] > thr) // two ones is enough...
        {
            /* got it... */
-           memset(data, 0, sizeof(data));
+           data.fill(0);
 
            for (n = 0; n < 43*8; ++n, i += bpb)
                if (p[i/FAC] > thr)
@@ -398,7 +398,7 @@ vbi_line(struct vbi *vbi, const unsigned char *p)
            if (data[0] != 0x27)        // really 11100100? (rev order!)
                return -1;
 
-           if ((i = vt_line(vbi, data+1)))
+           if ((i = vt_line(vbi, data.data()+1)))
            {
                if (i < 0)
                    pll_add(vbi, 2, -i);
@@ -470,7 +470,6 @@ vbi_add_handler(struct vbi *vbi, vbic_handler handler, void *data)
     // cl is not leaking, the first struct element has the same address
     // as the struct
     dl_insert_last(vbi->clients, cl->node);
-    // cppcheck-suppress memleak
     return 0;
 }
 

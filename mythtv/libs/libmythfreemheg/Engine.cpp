@@ -75,10 +75,10 @@ MHEngine::~MHEngine()
 }
 
 // Check for external content every 2 seconds.
-#define CONTENT_CHECK_TIME 2000
+static constexpr std::chrono::milliseconds CONTENT_CHECK_TIME { 2s };
 
 // This is the main loop of the engine.
-int MHEngine::RunAll()
+std::chrono::milliseconds MHEngine::RunAll()
 {
     // Request to boot or reboot
     if (m_fBooting)
@@ -118,21 +118,21 @@ int MHEngine::RunAll()
             if (! Launch(startObj))
             {
                 MHLOG(MHLogNotifications, "NOTE Engine auto-boot failed");
-                return -1;
+                return -1ms;
             }
         }
 
         m_fBooting = false;
     }
 
-    int nNextTime = 0;
+    std::chrono::milliseconds nNextTime = 0ms;
 
     do
     {
         // Check to see if we need to close.
         if (m_context->CheckStop())
         {
-            return 0;
+            return 0ms;
         }
 
         // Run queued actions.
@@ -145,14 +145,14 @@ int MHEngine::RunAll()
         CheckContentRequests();
 
         // Check the timers.  This may result in timer events being raised.
-        nNextTime = CurrentScene() ? CurrentScene()->CheckTimers(this) : 0;
+        nNextTime = CurrentScene() ? CurrentScene()->CheckTimers(this) : 0ms;
 
         if (CurrentApp())
         {
             // The UK MHEG profile allows applications to have timers.
-            int nAppTime = CurrentApp()->CheckTimers(this);
+            std::chrono::milliseconds nAppTime = CurrentApp()->CheckTimers(this);
 
-            if (nAppTime != 0 && (nNextTime == 0 || nAppTime < nNextTime))
+            if (nAppTime != 0ms && (nNextTime == 0ms || nAppTime < nNextTime))
             {
                 nNextTime = nAppTime;
             }
@@ -161,7 +161,7 @@ int MHEngine::RunAll()
         if (! m_externContentTable.isEmpty())
         {
             // If we have an outstanding request for external content we need to set a timer.
-            if (nNextTime == 0 || nNextTime > CONTENT_CHECK_TIME)
+            if (nNextTime == 0ms || nNextTime > CONTENT_CHECK_TIME)
             {
                 nNextTime = CONTENT_CHECK_TIME;
             }
@@ -171,8 +171,8 @@ int MHEngine::RunAll()
         {
             MHAsynchEvent *pEvent = m_eventQueue.dequeue();
             MHLOG(MHLogLinks, QString("Asynchronous event dequeued - %1 from %2")
-                  .arg(MHLink::EventTypeToString(pEvent->m_eventType))
-                  .arg(pEvent->m_pEventSource->m_ObjectReference.Printable()));
+                  .arg(MHLink::EventTypeToString(pEvent->m_eventType),
+                       pEvent->m_pEventSource->m_ObjectReference.Printable()));
             CheckLinks(pEvent->m_pEventSource->m_ObjectReference,
                        pEvent->m_eventType, pEvent->m_eventData);
             delete pEvent;
@@ -385,10 +385,9 @@ void MHEngine::Quit()
 
     m_fInTransition = true; // Starting a transition
 
-    if (CurrentScene())
-    {
-        CurrentScene()->Destruction(this);
-    }
+    MHScene *scene = CurrentScene();
+    if (scene)
+        scene->Destruction(this);
 
     CurrentApp()->Destruction(this);
 
@@ -640,7 +639,7 @@ void MHEngine::RunActions()
 void MHEngine::EventTriggered(MHRoot *pSource, enum EventType ev, const MHUnion &evData)
 {
     MHLOG(MHLogLinks, QString("Event - %1 from %2")
-          .arg(MHLink::EventTypeToString(ev)).arg(pSource->m_ObjectReference.Printable()));
+          .arg(MHLink::EventTypeToString(ev), pSource->m_ObjectReference.Printable()));
 
     switch (ev)
     {
@@ -883,7 +882,7 @@ void MHEngine::DrawRegion(const QRegion& toDraw, int nStackPos)
 }
 
 // Redraw an area of the display.  This will be called via the context from Redraw.
-void MHEngine::DrawDisplay(QRegion toDraw)
+void MHEngine::DrawDisplay(const QRegion& toDraw)
 {
     if (m_fBooting)
     {
@@ -1005,7 +1004,7 @@ void MHEngine::RequestExternalContent(MHIngredient *pRequester)
         else
         {
             MHLOG(MHLogWarning, QString("WARN No file content %1 <= %2")
-                .arg(pRequester->m_ObjectReference.Printable()).arg(csPath));
+                .arg(pRequester->m_ObjectReference.Printable(), csPath));
             if (kProtoHTTP == PathProtocol(csPath))
                 EngineEvent(203); // 203=RemoteNetworkError if 404 reply
             EngineEvent(3); // ContentRefError
@@ -1015,7 +1014,7 @@ void MHEngine::RequestExternalContent(MHIngredient *pRequester)
     {
         // Need to record this and check later.
         MHLOG(MHLogNotifications, QString("Waiting for %1 <= %2")
-            .arg(pRequester->m_ObjectReference.Printable()).arg(csPath.left(128)) );
+            .arg(pRequester->m_ObjectReference.Printable(), csPath.left(128)) );
         auto *pContent = new MHExternContent;
         pContent->m_FileName = csPath;
         pContent->m_pRequester = pRequester;
@@ -1076,8 +1075,8 @@ void MHEngine::CheckContentRequests()
             else
             {
                 MHLOG(MHLogWarning, QString("WARN No file content %1 <= %2")
-                    .arg(pContent->m_pRequester->m_ObjectReference.Printable())
-                    .arg(pContent->m_FileName));
+                    .arg(pContent->m_pRequester->m_ObjectReference.Printable(),
+                         pContent->m_FileName));
                 if (kProtoHTTP == PathProtocol(pContent->m_FileName))
                     EngineEvent(203); // 203=RemoteNetworkError if 404 reply
                 EngineEvent(3); // ContentRefError
@@ -1091,8 +1090,8 @@ void MHEngine::CheckContentRequests()
             it = m_externContentTable.erase(it);
 
             MHLOG(MHLogWarning, QString("WARN File timed out %1 <= %2")
-                .arg(pContent->m_pRequester->m_ObjectReference.Printable())
-                .arg(pContent->m_FileName));
+                .arg(pContent->m_pRequester->m_ObjectReference.Printable(),
+                     pContent->m_FileName));
 
             if (kProtoHTTP == PathProtocol(pContent->m_FileName))
                 EngineEvent(203); // 203=RemoteNetworkError if 404 reply
@@ -1181,7 +1180,7 @@ bool MHEngine::LoadStorePersistent(bool fIsLoad, const MHOctetString &fileName, 
             pEntry->m_Data.Append(pValue);
             FindObject(*(variables.GetAt(i)))->GetVariableValue(*pValue, this);
             MHLOG(MHLogNotifications, QString("Store Persistent(%1) %2=>#%3")
-                .arg(csFile).arg(pValue->Printable()).arg(i) );
+                .arg(csFile, pValue->Printable(), QString::number(i)) );
         }
     }
 

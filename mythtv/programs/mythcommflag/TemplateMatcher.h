@@ -42,7 +42,7 @@ public:
         { return "TemplateMatcher"; }
     enum analyzeFrameResult MythPlayerInited(MythPlayer *player,
             long long nframes) override; // FrameAnalyzer
-    enum analyzeFrameResult analyzeFrame(const VideoFrame *frame,
+    enum analyzeFrameResult analyzeFrame(const MythVideoFrame *frame,
             long long frameno, long long *pNextFrame) override; // FrameAnalyzer
     int finished(long long nframes, bool final) override; // FrameAnalyzer
     int reportTime(void) const override; // FrameAnalyzer
@@ -81,7 +81,7 @@ private:
     bool                    m_debugMatches      {false};
     bool                    m_debugRemoveRunts  {false};
     bool                    m_matchesDone       {false};
-    struct timeval          m_analyzeTime       {0,0};
+    std::chrono::microseconds  m_analyzeTime    {0us};
 };
 
 #endif  /* !TEMPLATEMATCHER_H */

@@ -60,7 +60,6 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QList>
-#include <QRegExp>
 #include <QStringList>
 #include <utility>
 
@@ -76,7 +75,7 @@ int debug_level = 0;
 #define LOC_WARN QString("LCDServer, Warning: ")
 #define LOC_ERR  QString("LCDServer, Error: ")
 
-LCDServer::LCDServer(int port, QString message, int messageTime)
+LCDServer::LCDServer(int port, QString message, std::chrono::seconds messageTime)
     : m_lcd(new LCDProcClient(this)),
      m_serverPool(new ServerPool()),
      m_lastSocket(nullptr)
@@ -87,8 +86,8 @@ LCDServer::LCDServer(int port, QString message, int messageTime)
         m_lcd = nullptr;
     }
 
-    connect(m_serverPool, SIGNAL(newConnection(QTcpSocket*)),
-            this,         SLOT(newConnection(QTcpSocket*)));
+    connect(m_serverPool, &ServerPool::newConnection,
+            this,         &LCDServer::newConnection);
 
     if (!m_serverPool->listen(port))
     {
@@ -105,10 +104,10 @@ LCDServer::LCDServer(int port, QString message, int messageTime)
 
 void LCDServer::newConnection(QTcpSocket *socket)
 {
-    connect(socket, SIGNAL(readyRead()),
-            this,   SLOT(  readSocket()));
-    connect(socket, SIGNAL(disconnected()),
-            this,   SLOT(  endConnection()));
+    connect(socket, &QIODevice::readyRead,
+            this,   &LCDServer::readSocket);
+    connect(socket, &QAbstractSocket::disconnected,
+            this,   &LCDServer::endConnection);
 
     if (debug_level > 0)
         LOG(VB_NETWORK, LOG_INFO, "LCDServer: new connection");
@@ -119,7 +118,7 @@ void LCDServer::newConnection(QTcpSocket *socket)
 
 void LCDServer::endConnection(void)
 {
-    auto *socket = dynamic_cast<QTcpSocket*>(sender());
+    auto *socket = qobject_cast<QTcpSocket*>(sender());
     if (socket)
     {
         socket->close();
@@ -134,7 +133,7 @@ void LCDServer::endConnection(void)
 
 void LCDServer::readSocket()
 {
-    auto *socket = dynamic_cast<QTcpSocket*>(sender());
+    auto *socket = qobject_cast<QTcpSocket*>(sender());
     if (socket)
     {
         m_lastSocket = socket;
@@ -142,8 +141,8 @@ void LCDServer::readSocket()
         while(socket->canReadLine())
         {
             QString incoming_data = socket->readLine();
-            incoming_data = incoming_data.replace( QRegExp("\n"), "" );
-            incoming_data = incoming_data.replace( QRegExp("\r"), "" );
+            incoming_data = incoming_data.remove("\n");
+            incoming_data = incoming_data.remove("\r");
             incoming_data = incoming_data.simplified();
             QStringList tokens = parseCommand(incoming_data);
             parseTokens(tokens, socket);
@@ -631,7 +630,7 @@ void LCDServer::setGenericProgress(const QStringList &tokens, QTcpSocket *socket
     {
         LOG(VB_GENERAL, LOG_ERR,
             QString("LCDServer: bad bool value in SET_GENERIC_PROGRESS "
-                    "command: %1 %2").arg(tokens[1]).arg(tokens[2]));
+                    "command: %1 %2").arg(tokens[1], tokens[2]));
         sendMessage(socket, "HUH?");
         return;
     }

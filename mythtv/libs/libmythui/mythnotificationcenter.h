@@ -28,6 +28,13 @@ public:
     MythNotificationCenterEvent() : MythEvent(kEventType) { }
 
     static Type kEventType;
+
+    // No implicit copying.
+    MythNotificationCenterEvent(MythNotificationCenterEvent &&) = delete;
+    MythNotificationCenterEvent &operator=(MythNotificationCenterEvent &&) = delete;
+protected:
+    MythNotificationCenterEvent(const MythNotificationCenterEvent &other) = default;
+    MythNotificationCenterEvent &operator=(const MythNotificationCenterEvent &other) = default;
 };
 
 class MUI_PUBLIC MythNotificationCenter
@@ -138,7 +145,7 @@ MUI_PUBLIC void ShowNotification(bool  error,
                                  const QString &extra = QString(),
                                  const QString &progress_text = QString(),
                                  float progress = -1.0F,
-                                 int   duration = -1,
+                                 std::chrono::seconds duration = -1s,
                                  bool  fullscreen = false,
                                  VNMask visibility = MythNotification::kAll,
                                  MythNotification::Priority priority = MythNotification::kDefault,
@@ -152,7 +159,7 @@ MUI_PUBLIC void ShowNotification(MythNotification::Type type,
                                  const QString &extra = QString(),
                                  const QString &progress_text = QString(),
                                  float progress = -1.0F,
-                                 int   duration = -1,
+                                 std::chrono::seconds duration = -1s,
                                  bool  fullscreen = false,
                                  VNMask visibility = MythNotification::kAll,
                                  MythNotification::Priority priority = MythNotification::kDefault,

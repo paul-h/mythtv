@@ -72,10 +72,10 @@ bool VideoSetupWizard::Create()
                                   "next configuration step.") );
     m_prevButton->SetHelpText(tr("Return to the previous configuration step."));
 
-    connect(m_testSDButton, SIGNAL(Clicked()), this, SLOT(testSDVideo()));
-    connect(m_testHDButton, SIGNAL(Clicked()), this, SLOT(testHDVideo()));
-    connect(m_nextButton, SIGNAL(Clicked()), this, SLOT(slotNext()));
-    connect(m_prevButton, SIGNAL(Clicked()), this, SLOT(slotPrevious()));
+    connect(m_testSDButton, &MythUIButton::Clicked, this, &VideoSetupWizard::testSDVideo);
+    connect(m_testHDButton, &MythUIButton::Clicked, this, &VideoSetupWizard::testHDVideo);
+    connect(m_nextButton, &MythUIButton::Clicked, this, &VideoSetupWizard::slotNext);
+    connect(m_prevButton, &MythUIButton::Clicked, this, &VideoSetupWizard::slotPrevious);
 
     BuildFocusList();
     loadData();
@@ -90,16 +90,15 @@ VideoSetupWizard::~VideoSetupWizard()
 
 void VideoSetupWizard::loadData(void)
 {
-    QStringList profiles = VideoDisplayProfile::GetProfiles(gCoreContext->GetHostName());
+    QStringList profiles = MythVideoProfile::GetProfiles(gCoreContext->GetHostName());
 
-    for (QStringList::const_iterator i = profiles.begin();
-         i != profiles.end(); ++i)
+    for (const auto & prof : qAsConst(profiles))
     {
-        auto *item = new MythUIButtonListItem(m_playbackProfileButtonList, *i);
-        item->SetData(*i);
+        auto *item = new MythUIButtonListItem(m_playbackProfileButtonList, prof);
+        item->SetData(prof);
     }
 
-    QString currentpbp = VideoDisplayProfile::GetDefaultProfileName(gCoreContext->GetHostName());
+    QString currentpbp = MythVideoProfile::GetDefaultProfileName(gCoreContext->GetHostName());
     if (!currentpbp.isEmpty())
     {
         MythUIButtonListItem *set =
@@ -131,7 +130,7 @@ void VideoSetupWizard::save(void)
 {
     QString desiredpbp =
         m_playbackProfileButtonList->GetItemCurrent()->GetText();
-    VideoDisplayProfile::SetDefaultProfileName(desiredpbp, gCoreContext->GetHostName());
+    MythVideoProfile::SetDefaultProfileName(desiredpbp, gCoreContext->GetHostName());
 }
 
 void VideoSetupWizard::slotPrevious(void)
@@ -198,11 +197,11 @@ void VideoSetupWizard::playVideoTest(const QString& desc, const QString& title, 
 {
     QString desiredpbp =
         m_playbackProfileButtonList->GetItemCurrent()->GetText();
-    QString currentpbp = VideoDisplayProfile::GetDefaultProfileName(gCoreContext->GetHostName());
+    QString currentpbp = MythVideoProfile::GetDefaultProfileName(gCoreContext->GetHostName());
 
-    VideoDisplayProfile::SetDefaultProfileName(desiredpbp, gCoreContext->GetHostName());
+    MythVideoProfile::SetDefaultProfileName(desiredpbp, gCoreContext->GetHostName());
     GetMythMainWindow()->HandleMedia("Internal", file, desc, title);
-    VideoDisplayProfile::SetDefaultProfileName(currentpbp, gCoreContext->GetHostName());
+    MythVideoProfile::SetDefaultProfileName(currentpbp, gCoreContext->GetHostName());
 }
 
 void VideoSetupWizard::DownloadSample(const QString& url, const QString& dest)
@@ -255,8 +254,8 @@ void VideoSetupWizard::customEvent(QEvent *e)
             {
                 QString message = tr("Downloading Video Sample...\n"
                                      "(%1 of %2 MB)")
-                                     .arg(QString::number(args[2].toInt() / 1024.0 / 1024.0, 'f', 2))
-                                     .arg(QString::number(args[3].toInt() / 1024.0 / 1024.0, 'f', 2));
+                                     .arg(QString::number(args[2].toInt() / 1024.0 / 1024.0, 'f', 2),
+                                          QString::number(args[3].toInt() / 1024.0 / 1024.0, 'f', 2));
                 m_progressDialog->SetMessage(message);
                 m_progressDialog->SetTotal(args[3].toInt());
                 m_progressDialog->SetProgress(args[2].toInt());
@@ -269,7 +268,6 @@ void VideoSetupWizard::customEvent(QEvent *e)
                 if (m_progressDialog)
                     m_progressDialog->Close();
 
-                QFileInfo file(m_downloadFile);
                 if ((m_downloadFile.startsWith("myth://")))
                 {
                     if ((errorCode == 0) &&

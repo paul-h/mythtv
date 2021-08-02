@@ -1,6 +1,8 @@
 #ifndef MYTHVDPAUHELPER_H
 #define MYTHVDPAUHELPER_H
 
+#include <vector>
+
 // Qt
 #include <QSize>
 #include <QMutex>
@@ -13,13 +15,18 @@
 
 // FFmpeg
 extern "C" {
+#define Cursor XCursor // Prevent conflicts with Qt6.
+#define pointer Xpointer // Prevent conflicts with Qt6.
 #include "libavutil/hwcontext_vdpau.h"
 #include "vdpau/vdpau_x11.h"
+#undef None            // X11/X.h defines this. Causes compile failure in Qt6.
+#undef Cursor
+#undef pointer
 #include "libavcodec/avcodec.h"
 }
 
 class MythXDisplay;
-class VideoColourSpace;
+class MythVideoColourSpace;
 
 class VDPAUCodec
 {
@@ -33,7 +40,7 @@ class VDPAUCodec
 };
 
 using VDPAUProfile = QPair<MythCodecContext::CodecProfile, VDPAUCodec>;
-using VDPAUProfiles = QList<VDPAUProfile>;
+using VDPAUProfiles = std::vector<VDPAUProfile>;
 
 class MythVDPAUHelper : public QObject
 {
@@ -49,7 +56,7 @@ class MythVDPAUHelper : public QObject
 
     Q_DECLARE_FLAGS(VDPMixerFeatures, VDPMixerFeature)
 
-    static bool   HaveVDPAU(void);
+    static bool   HaveVDPAU(bool Reinit = false);
     static bool   CheckH264Decode(AVCodecContext *Context);
     static const VDPAUProfiles& GetProfiles(void);
     static void   GetDecoderList (QStringList &Decoders);
@@ -60,12 +67,13 @@ class MythVDPAUHelper : public QObject
     bool             IsValid(void) const;
     void             SetPreempted(void);
     bool             IsFeatureAvailable(uint Feature);
+    bool             IsAttributeAvailable(uint Attribute);
     VdpOutputSurface CreateOutputSurface(QSize Size);
     VdpVideoMixer    CreateMixer(QSize Size, VdpChromaType ChromaType = VDP_CHROMA_TYPE_420,
                                  MythDeintType Deinterlacer = DEINT_BASIC);
     void             MixerRender(VdpVideoMixer Mixer, VdpVideoSurface Source, VdpOutputSurface Dest,
                                  FrameScanType Scan, int TopFieldFirst, QVector<AVBufferRef*>& Frames);
-    void             SetCSCMatrix(VdpVideoMixer Mixer, VideoColourSpace *ColourSpace);
+    void             SetCSCMatrix(VdpVideoMixer Mixer, MythVideoColourSpace *ColourSpace);
     void             DeleteOutputSurface(VdpOutputSurface Surface);
     void             DeleteMixer(VdpVideoMixer Mixer);
     QSize            GetSurfaceParameters(VdpVideoSurface Surface, VdpChromaType &Chroma);
@@ -103,6 +111,7 @@ class MythVDPAUHelper : public QObject
     VdpVideoMixerSetAttributeValues  *m_vdpVideoMixerSetAttributeValues  { nullptr };
     VdpVideoMixerSetFeatureEnables   *m_vdpVideoMixerSetFeatureEnables   { nullptr };
     VdpVideoMixerQueryFeatureSupport *m_vdpVideoMixerQueryFeatureSupport { nullptr };
+    VdpVideoMixerQueryAttributeSupport *m_vdpVideoMixerQueryAttributeSupport { nullptr };
     VdpOutputSurfaceCreate           *m_vdpOutputSurfaceCreate           { nullptr };
     VdpOutputSurfaceDestroy          *m_vdpOutputSurfaceDestroy          { nullptr };
     VdpVideoSurfaceGetParameters     *m_vdpVideoSurfaceGetParameters     { nullptr };

@@ -2,6 +2,7 @@
 #define RECORDING_INFO_H
 
 #include <QDateTime>
+#include <QRegularExpression>
 #include <QString>
 
 #include "mythtvexp.h"
@@ -104,7 +105,7 @@ class MTV_PUBLIC RecordingInfo : public ProgramInfo
         const QDateTime &recendts,
 
         float stars,
-        const QDate &originalAirDate,
+        QDate originalAirDate,
 
         bool repeat,
 
@@ -183,7 +184,7 @@ class MTV_PUBLIC RecordingInfo : public ProgramInfo
         kFakedZeroMinProgram = 3,
     };
     RecordingInfo(uint _chanid, const QDateTime &desiredts,
-                  bool genUnknown, uint maxHours = 0,
+                  bool genUnknown, std::chrono::hours maxHours = 0h,
                   LoadStatus *status = nullptr);
 
     enum SpecialRecordingGroups {
@@ -191,6 +192,12 @@ class MTV_PUBLIC RecordingInfo : public ProgramInfo
         kLiveTVRecGroup      = 2,
         kDeletedRecGroup     = 3,
     };
+
+    // For removing the search type from the end of a title.
+    static const QRegularExpression kReSearchTypeName;
+
+    // For removing the string "AND" from the start of an sql fragment.
+    static const QRegularExpression kReLeadingAnd;
 
   public:
     RecordingInfo &operator=(const RecordingInfo &other)
@@ -247,6 +254,8 @@ class MTV_PUBLIC RecordingInfo : public ProgramInfo
 
     // Used to update database with recording info
     void StartedRecording(const QString& ext);
+    bool InsertRecording(const QString &ext, bool force_match = false);
+    void InsertFile(void);
     void FinishedRecording(bool allowReRecord);
     void UpdateRecordingEnd(void);//pi
     void ReactivateRecording(void);//pi

@@ -22,61 +22,38 @@ class RomInfo
             QString lallsystems = "", QString lplot = "", QString lpublisher = "",
             QString lversion = "", QString lscreenshot = "", QString lfanart = "",
             QString lboxart = "", QString linetref = "")
+        :       m_id(lid),
+                m_romname(std::move(lromname)),
+                m_system(std::move(lsystem)),
+                m_gamename(std::move(lgamename)),
+                m_genre(std::move(lgenre)),
+                m_country(std::move(lcountry)),
+                m_crcValue(std::move(lcrc_value)),
+                m_gametype(std::move(lgametype)),
+                m_allsystems(std::move(lallsystems)),
+                m_plot(std::move(lplot)),
+                m_publisher(std::move(lpublisher)),
+                m_version(std::move(lversion)),
+                m_romcount(lromcount),
+                m_diskcount(ldiskcount),
+                m_year(std::move(lyear)),
+                m_favorite(lfavorite),
+                m_rompath(std::move(lrompath)),
+                m_screenshot(std::move(lscreenshot)),
+                m_fanart(std::move(lfanart)),
+                m_boxart(std::move(lboxart)),
+                m_inetref(std::move(linetref))
             {
-                m_id = lid;
-                m_romname = std::move(lromname);
-                m_system = std::move(lsystem);
-                m_gamename = std::move(lgamename);
-                m_genre = std::move(lgenre);
-                m_year = std::move(lyear);
-                m_favorite = lfavorite;
-                m_rompath = std::move(lrompath);
-                m_screenshot = std::move(lscreenshot);
-                m_fanart = std::move(lfanart);
-                m_boxart = std::move(lboxart);
-                m_country = std::move(lcountry);
-                m_crcValue = std::move(lcrc_value);
-                m_diskcount = ldiskcount;
-                m_gametype = std::move(lgametype);
-                m_romcount = lromcount;
-                m_allsystems = std::move(lallsystems);
-                m_plot = std::move(lplot);
-                m_publisher = std::move(lpublisher);
-                m_version = std::move(lversion);
-                m_inetref = std::move(linetref);
             }
 
-    RomInfo(const RomInfo &lhs)
-            {
-                m_id = lhs.m_id;
-                m_romname = lhs.m_romname;
-                m_system = lhs.m_system;
-                m_gamename = lhs.m_gamename;
-                m_genre = lhs.m_genre;
-                m_year = lhs.m_year;
-                m_favorite = lhs.m_favorite;
-                m_rompath = lhs.m_rompath;
-                m_screenshot = lhs.m_screenshot;
-                m_fanart = lhs.m_fanart;
-                m_boxart = lhs.m_boxart;
-                m_country = lhs.m_country;
-                m_crcValue = lhs.m_crcValue;
-                m_diskcount = lhs.m_diskcount;
-                m_gametype = lhs.m_gametype;
-                m_romcount = lhs.m_romcount;
-                m_allsystems = lhs.m_allsystems;
-                m_plot = lhs.m_plot;
-                m_publisher = lhs.m_publisher;
-                m_version = lhs.m_version;
-                m_inetref = lhs.m_inetref;
-            }
+    RomInfo(const RomInfo &lhs) = default;
 
     ~RomInfo() = default;
 
     static bool FindImage(QString BaseFileName, QString *result);
 
     int Id() const { return m_id; }
-    void setId(const int &lid) { m_id = lid; }
+    void setId(int lid) { m_id = lid; }
 
     QString Rompath() const { return m_rompath; }
     void setRompath(const QString &lrompath) { m_rompath = lrompath; }
@@ -109,13 +86,13 @@ class RomInfo
     void setGameType(const QString &lgametype) { m_gametype = lgametype; }
 
     int RomCount() const { return m_romcount; }
-    void setRomCount(const int &lromcount) { m_romcount = lromcount; }
+    void setRomCount(int lromcount) { m_romcount = lromcount; }
 
     QString AllSystems() const { return m_allsystems; }
     void setAllSystems(const QString &lallsystems) { m_allsystems = lallsystems; }
 
     int DiskCount() const { return m_diskcount; }
-    void setDiskCount(const int &ldiskcount) { m_diskcount = ldiskcount; }
+    void setDiskCount(int ldiskcount) { m_diskcount = ldiskcount; }
 
     QString CRC_VALUE() const { return m_crcValue; }
     void setCRC_VALUE(const QString &lcrc_value) { m_crcValue = lcrc_value; }

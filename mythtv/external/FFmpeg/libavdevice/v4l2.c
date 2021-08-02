@@ -548,8 +548,6 @@ static int mmap_read_frame(AVFormatContext *ctx, AVPacket *pkt)
             s->buffers_ignore = 8;
             enqueue_buffer(s, &buf);
             return FFERROR_REDO;
-
-            //buf.bytesused = 0;
         }
     }
 

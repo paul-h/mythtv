@@ -1,6 +1,11 @@
 ﻿// MythTV
+#ifdef USING_DRM_VIDEO
+#include "platforms/mythdisplaydrm.h"
+#endif
+
 #include "mythvideoout.h"
-#include "videocolourspace.h"
+#include "mythplayerui.h"
+#include "mythvideocolourspace.h"
 #include "fourcc.h"
 #include "mythvaapiinterop.h"
 #include "mythvaapidrminterop.h"
@@ -14,7 +19,7 @@ extern "C" {
 
 #define LOC QString("VAAPIInterop: ")
 
-/*! \brief Return an 'interoperability' method that is supported by the current render device.
+/*! \brief Return a list of interops that are supported by the current render device.
  *
  * DRM interop is the preferred option as it is copy free but requires EGL.
  * DRM returns raw YUV frames which gives us full colourspace and deinterlacing control.
@@ -27,44 +32,63 @@ extern "C" {
  * under the hood, performs the same Pixmap copy as GLXPixmap support plus an
  * additional render to texture via a FramebufferObject. As it is less performant
  * and less widely available than GLX Pixmap, it may be removed in the future.
+ *
+ * \note The returned list is in priority order (i.e. most preferable first).
 */
-MythOpenGLInterop::Type MythVAAPIInterop::GetInteropType(VideoFrameType Format)
-{
-    if ((FMT_VAAPI != Format) || getenv("NO_VAAPI"))
-        return Unsupported;
-
-    MythRenderOpenGL *context = MythRenderOpenGL::GetOpenGLRender();
-    if (!context)
-        return Unsupported;
-
-    OpenGLLocker locker(context);
-    bool egl = context->IsEGL();
-    bool opengles = context->isOpenGLES();
-    bool wayland = qgetenv("XDG_SESSION_TYPE").contains("wayland");
-    // best first
-#ifdef USING_EGL
-    if (egl && MythVAAPIInteropDRM::IsSupported(context)) // zero copy
-        return VAAPIEGLDRM;
-#endif
-    if (!egl && !wayland && MythVAAPIInteropGLXPixmap::IsSupported(context)) // copy
-        return VAAPIGLXPIX;
-    if (!egl && !opengles && !wayland) // 2 * copy
-        return VAAPIGLXCOPY;
-    return Unsupported;
-}
-
-MythVAAPIInterop* MythVAAPIInterop::Create(MythRenderOpenGL *Context, Type InteropType)
+void MythVAAPIInterop::GetVAAPITypes(MythRenderOpenGL* Context, MythInteropGPU::InteropMap& Types)
 {
     if (!Context)
-        return nullptr;
-#ifdef USING_EGL
-    if (InteropType == VAAPIEGLDRM)
-        return new MythVAAPIInteropDRM(Context);
+        return;
+
+    OpenGLLocker locker(Context);
+    bool egl = Context->IsEGL();
+    bool opengles = Context->isOpenGLES();
+    bool wayland = qgetenv("XDG_SESSION_TYPE").contains("wayland");
+
+    // best first
+    MythInteropGPU::InteropTypes vaapitypes;
+
+#ifdef USING_DRM_VIDEO
+    if (MythDisplayDRM::DirectRenderingAvailable())
+        vaapitypes.emplace_back(DRM_DRMPRIME);
 #endif
-    if (InteropType == VAAPIGLXPIX)
-        return new MythVAAPIInteropGLXPixmap(Context);
-    if (InteropType == VAAPIGLXCOPY)
-        return new MythVAAPIInteropGLXCopy(Context);
+
+#ifdef USING_EGL
+    // zero copy
+    if (egl && MythVAAPIInteropDRM::IsSupported(Context))
+        vaapitypes.emplace_back(GL_VAAPIEGLDRM);
+#endif
+    // 1x copy
+    if (!egl && !wayland && MythVAAPIInteropGLXPixmap::IsSupported(Context))
+        vaapitypes.emplace_back(GL_VAAPIGLXPIX);
+    // 2x copy
+    if (!egl && !opengles && !wayland)
+        vaapitypes.emplace_back(GL_VAAPIGLXCOPY);
+
+    if (!vaapitypes.empty())
+        Types[FMT_VAAPI] = vaapitypes;
+}
+
+MythVAAPIInterop* MythVAAPIInterop::CreateVAAPI(MythPlayerUI *Player, MythRenderOpenGL* Context)
+{
+    if (!(Player && Context))
+        return nullptr;
+
+    const auto & types = Player->GetInteropTypes();
+    if (const auto & vaapi = types.find(FMT_VAAPI); vaapi != types.cend())
+    {
+        for (auto type : vaapi->second)
+        {
+#ifdef USING_EGL
+            if ((type == GL_VAAPIEGLDRM) || (type == DRM_DRMPRIME))
+                return new MythVAAPIInteropDRM(Player, Context, type);
+#endif
+            if (type == GL_VAAPIGLXPIX)
+                return new MythVAAPIInteropGLXPixmap(Player, Context);
+            if (type == GL_VAAPIGLXCOPY)
+                return new MythVAAPIInteropGLXCopy(Player, Context);
+        }
+    }
     return nullptr;
 }
 
@@ -75,8 +99,8 @@ MythVAAPIInterop* MythVAAPIInterop::Create(MythRenderOpenGL *Context, Type Inter
  * \todo Scaling of some 1080 H.264 material (garbage line at bottom - presumably
  * scaling from 1088 to 1080 - but only some files). Same effect on all VAAPI interop types.
 */
-MythVAAPIInterop::MythVAAPIInterop(MythRenderOpenGL *Context, Type InteropType)
-  : MythOpenGLInterop(Context, InteropType)
+MythVAAPIInterop::MythVAAPIInterop(MythPlayerUI* Player, MythRenderOpenGL *Context, InteropType Type)
+  : MythOpenGLInterop(Context, Type, Player)
 {
 }
 
@@ -114,7 +138,7 @@ void MythVAAPIInterop::InitaliseDisplay(void)
     {
         m_vaVendor = vaQueryVendorString(m_vaDisplay);
         LOG(VB_GENERAL, LOG_INFO, LOC + QString("Created VAAPI %1.%2 display for %3 (%4)")
-            .arg(major).arg(minor).arg(TypeToString(m_type)).arg(m_vaVendor));
+            .arg(major).arg(minor).arg(TypeToString(m_type), m_vaVendor));
     }
 }
 
@@ -134,34 +158,34 @@ void MythVAAPIInterop::DestroyDeinterlacer(void)
     av_buffer_unref(&m_vppFramesContext);
 }
 
-VASurfaceID MythVAAPIInterop::VerifySurface(MythRenderOpenGL *Context, VideoFrame *Frame)
+VASurfaceID MythVAAPIInterop::VerifySurface(MythRenderOpenGL *Context, MythVideoFrame *Frame)
 {
     VASurfaceID result = 0;
     if (!Frame)
         return result;
 
-    if ((Frame->pix_fmt != AV_PIX_FMT_VAAPI) || (Frame->codec != FMT_VAAPI) ||
-        !Frame->buf || !Frame->priv[1])
+    if ((Frame->m_pixFmt != AV_PIX_FMT_VAAPI) || (Frame->m_type != FMT_VAAPI) ||
+        !Frame->m_buffer || !Frame->m_priv[1])
         return result;
 
     // Sanity check the context
-    if (m_context != Context)
+    if (m_openglContext != Context)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Mismatched OpenGL contexts!");
         return result;
     }
 
     // Check size
-    QSize surfacesize(Frame->width, Frame->height);
-    if (m_openglTextureSize != surfacesize)
+    QSize surfacesize(Frame->m_width, Frame->m_height);
+    if (m_textureSize != surfacesize)
     {
-        if (!m_openglTextureSize.isEmpty())
+        if (!m_textureSize.isEmpty())
             LOG(VB_GENERAL, LOG_WARNING, LOC + "Video texture size changed!");
-        m_openglTextureSize = surfacesize;
+        m_textureSize = surfacesize;
     }
 
     // Retrieve surface
-    auto id = static_cast<VASurfaceID>(reinterpret_cast<uintptr_t>(Frame->buf));
+    auto id = static_cast<VASurfaceID>(reinterpret_cast<uintptr_t>(Frame->m_buffer));
     if (id)
         result = id;
     return result;
@@ -191,7 +215,7 @@ bool MythVAAPIInterop::SetupDeinterlacer(MythDeintType Deinterlacer, bool Double
 
     // N.B. set auto to 0 otherwise we confuse playback if VAAPI does not deinterlace
     QString filters = QString("deinterlace_vaapi=mode=%1:rate=%2:auto=0")
-            .arg(deinterlacer).arg(DoubleRate ? "field" : "frame");
+            .arg(deinterlacer, DoubleRate ? "field" : "frame");
     const AVFilter *buffersrc  = avfilter_get_by_name("buffer");
     const AVFilter *buffersink = avfilter_get_by_name("buffersink");
     AVFilterInOut *outputs = avfilter_inout_alloc();
@@ -280,7 +304,7 @@ bool MythVAAPIInterop::SetupDeinterlacer(MythDeintType Deinterlacer, bool Double
     }
 
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Created deinterlacer '%1'")
-        .arg(DeinterlacerName(Deinterlacer | DEINT_DRIVER, DoubleRate, FMT_VAAPI)));
+        .arg(MythVideoFrame::DeinterlacerName(Deinterlacer | DEINT_DRIVER, DoubleRate, FMT_VAAPI)));
 
 end:
     if (ret < 0)
@@ -293,7 +317,7 @@ end:
     return ret >= 0;
 }
 
-VASurfaceID MythVAAPIInterop::Deinterlace(VideoFrame *Frame, VASurfaceID Current, FrameScanType Scan)
+VASurfaceID MythVAAPIInterop::Deinterlace(MythVideoFrame *Frame, VASurfaceID Current, FrameScanType Scan)
 {
     VASurfaceID result = Current;
     if (!Frame)
@@ -306,8 +330,8 @@ VASurfaceID MythVAAPIInterop::Deinterlace(VideoFrame *Frame, VASurfaceID Current
         bool doublerate = true;
         // no CPU or GLSL deinterlacing so pick up these options as well
         // N.B. Override deinterlacer_allowed to pick up any preference
-        MythDeintType doublepref = GetDoubleRateOption(Frame, DEINT_DRIVER | DEINT_SHADER | DEINT_CPU, DEINT_ALL);
-        MythDeintType singlepref = GetSingleRateOption(Frame, DEINT_DRIVER | DEINT_SHADER | DEINT_CPU, DEINT_ALL);
+        MythDeintType doublepref = Frame->GetDoubleRateOption(DEINT_DRIVER | DEINT_SHADER | DEINT_CPU, DEINT_ALL);
+        MythDeintType singlepref = Frame->GetSingleRateOption(DEINT_DRIVER | DEINT_SHADER | DEINT_CPU, DEINT_ALL);
 
         if (doublepref)
         {
@@ -326,7 +350,7 @@ VASurfaceID MythVAAPIInterop::Deinterlace(VideoFrame *Frame, VASurfaceID Current
 
         if (deinterlacer != DEINT_NONE)
         {
-            auto* frames = reinterpret_cast<AVBufferRef*>(Frame->priv[1]);
+            auto* frames = reinterpret_cast<AVBufferRef*>(Frame->m_priv[1]);
             if (!frames)
                 break;
 
@@ -386,7 +410,7 @@ VASurfaceID MythVAAPIInterop::Deinterlace(VideoFrame *Frame, VASurfaceID Current
                                                      m_filterGraph, m_filterSource, m_filterSink))
             {
                 LOG(VB_GENERAL, LOG_ERR, LOC + QString("Failed to create VAAPI deinterlacer %1 - disabling")
-                    .arg(DeinterlacerName(deinterlacer | DEINT_DRIVER, doublerate, FMT_VAAPI)));
+                    .arg(MythVideoFrame::DeinterlacerName(deinterlacer | DEINT_DRIVER, doublerate, FMT_VAAPI)));
                 DestroyDeinterlacer();
                 m_filterError = true;
             }
@@ -410,11 +434,11 @@ VASurfaceID MythVAAPIInterop::Deinterlace(VideoFrame *Frame, VASurfaceID Current
         // buffering in the VAAPI frames context, causes the image to 'jiggle' when using
         // double rate deinterlacing. If we are confident this is a pause frame we have seen,
         // return the last deinterlaced frame.
-        if (Frame->pause_frame && m_lastFilteredFrame && (m_lastFilteredFrameCount == Frame->frameCounter))
+        if (Frame->m_pauseFrame && m_lastFilteredFrame && (m_lastFilteredFrameCount == Frame->m_frameCounter))
             return m_lastFilteredFrame;
 
-        Frame->deinterlace_inuse = m_deinterlacer | DEINT_DRIVER;
-        Frame->deinterlace_inuse2x = m_deinterlacer2x;
+        Frame->m_deinterlaceInuse = m_deinterlacer | DEINT_DRIVER;
+        Frame->m_deinterlaceInuse2x = m_deinterlacer2x;
 
         // 'pump' the filter with frames until it starts returning usefull output.
         // This minimises discontinuities at start up (where we would otherwise
@@ -438,7 +462,7 @@ VASurfaceID MythVAAPIInterop::Deinterlace(VideoFrame *Frame, VASurfaceID Current
                     {
                         // we have a filtered frame
                         result = m_lastFilteredFrame = static_cast<VASurfaceID>(reinterpret_cast<uintptr_t>(sinkframe->data[3]));
-                        m_lastFilteredFrameCount = Frame->frameCounter;
+                        m_lastFilteredFrameCount = Frame->m_frameCounter;
                         m_firstField = true;
                         break;
                     }
@@ -449,10 +473,10 @@ VASurfaceID MythVAAPIInterop::Deinterlace(VideoFrame *Frame, VASurfaceID Current
                 // add another frame
                 MythAVFrame sourceframe;
                 sourceframe->top_field_first =
-                    static_cast<int>(Frame->interlaced_reversed ? !Frame->top_field_first : Frame->top_field_first);
+                    static_cast<int>(Frame->m_interlacedReverse ? !Frame->m_topFieldFirst : Frame->m_topFieldFirst);
                 sourceframe->interlaced_frame = 1;
-                sourceframe->data[3] = Frame->buf;
-                auto* buffer = reinterpret_cast<AVBufferRef*>(Frame->priv[0]);
+                sourceframe->data[3] = Frame->m_buffer;
+                auto* buffer = reinterpret_cast<AVBufferRef*>(Frame->m_priv[0]);
                 sourceframe->buf[0] = buffer ? av_buffer_ref(buffer) : nullptr;
                 sourceframe->width  = m_filterWidth;
                 sourceframe->height = m_filterHeight;
@@ -473,7 +497,7 @@ VASurfaceID MythVAAPIInterop::Deinterlace(VideoFrame *Frame, VASurfaceID Current
                 {
                     // we have a filtered frame
                     result = m_lastFilteredFrame = static_cast<VASurfaceID>(reinterpret_cast<uintptr_t>(sinkframe->data[3]));
-                    m_lastFilteredFrameCount = Frame->frameCounter;
+                    m_lastFilteredFrameCount = Frame->m_frameCounter;
                     m_firstField = false;
                     break;
                 }

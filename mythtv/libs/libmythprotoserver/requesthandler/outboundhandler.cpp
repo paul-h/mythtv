@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include <QTimer>
 #include <QString>
 #include <QStringList>
@@ -15,14 +17,14 @@
 OutboundRequestHandler::OutboundRequestHandler(void) 
 {
     m_timer.setSingleShot(true);
-    connect(&m_timer, SIGNAL(timeout()), this, SLOT(ConnectToMaster()));
+    connect(&m_timer, &QTimer::timeout, this, &OutboundRequestHandler::ConnectToMaster);
 }
 
 void OutboundRequestHandler::ConnectToMaster(void)
 {
     m_timer.stop();
     if (!DoConnectToMaster())
-        m_timer.start(5000);
+        m_timer.start(5s);
 }
 
 bool OutboundRequestHandler::DoConnectToMaster(void)

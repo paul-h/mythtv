@@ -9,6 +9,7 @@
 
 // C++ headers
 #include <cerrno>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <fcntl.h>
@@ -17,8 +18,12 @@
 // Qt headers
 #include <QApplication>
 #include <QTextStream>
-#include <QTextCodec>
 #include <QByteArray>
+#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
+#include <QStringConverter>
+#else
+#include <QTextCodec>
+#endif
 #include <QTcpSocket>
 #include <QTimer>
 
@@ -52,8 +57,8 @@ LCD::LCD()
     LOG(VB_GENERAL, LOG_DEBUG, LOC +
         "An LCD object now exists (LCD() was called)");
 
-    connect(m_retryTimer, SIGNAL(timeout()),   this, SLOT(restartConnection()));
-    connect(m_ledTimer,   SIGNAL(timeout()),   this, SLOT(outputLEDs()));
+    connect(m_retryTimer, &QTimer::timeout,   this, &LCD::restartConnection);
+    connect(m_ledTimer,   &QTimer::timeout,   this, &LCD::outputLEDs);
     connect(this, &LCD::sendToServer, this, &LCD::sendToServerSlot, Qt::QueuedConnection);
 }
 
@@ -150,10 +155,10 @@ bool LCD::connectToHost(const QString &lhostname, unsigned int lport)
             delete m_socket;
             m_socket = new QTcpSocket();
 
-            QObject::connect(m_socket, SIGNAL(readyRead()),
-                             this, SLOT(ReadyRead()));
-            QObject::connect(m_socket, SIGNAL(disconnected()),
-                             this, SLOT(Disconnected()));
+            QObject::connect(m_socket, &QIODevice::readyRead,
+                             this, &LCD::ReadyRead);
+            QObject::connect(m_socket, &QAbstractSocket::disconnected,
+                             this, &LCD::Disconnected);
 
             m_socket->connectToHost(m_hostname, m_port);
             if (m_socket->waitForConnected())
@@ -201,7 +206,7 @@ void LCD::sendToServerSlot(const QString &someText)
         // Ack, connection to server has been severed try to re-establish the
         // connection
         m_retryTimer->setSingleShot(false);
-        m_retryTimer->start(10000);
+        m_retryTimer->start(10s);
         LOG(VB_GENERAL, LOG_ERR,
             "Connection to LCDServer died unexpectedly. "
             "Trying to reconnect every 10 seconds...");
@@ -211,7 +216,11 @@ void LCD::sendToServerSlot(const QString &someText)
     }
 
     QTextStream os(m_socket);
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     os.setCodec(QTextCodec::codecForName("ISO 8859-1"));
+#else
+    os.setEncoding(QStringConverter::Latin1);
+#endif
 
     m_lastCommand = someText;
 
@@ -355,7 +364,7 @@ void LCD::init()
     // send buffer if there's anything in there
     if (m_sendBuffer.length() > 0)
     {
-        sendToServer(m_sendBuffer);
+        emit sendToServer(m_sendBuffer);
         m_sendBuffer = "";
     }
 }
@@ -372,7 +381,7 @@ void LCD::stopAll()
 
     LOG(VB_GENERAL, LOG_DEBUG, LOC + "stopAll");
 
-    sendToServer("STOP_ALL");
+    emit sendToServer("STOP_ALL");
 }
 
 void LCD::setSpeakerLEDs(enum LCDSpeakerSet speaker, bool on)
@@ -382,7 +391,7 @@ void LCD::setSpeakerLEDs(enum LCDSpeakerSet speaker, bool on)
     m_lcdLedMask &= ~SPEAKER_MASK;
     if (on)
         m_lcdLedMask |= speaker;
-    sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
+    emit sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
 }
 
 void LCD::setAudioFormatLEDs(enum LCDAudioFormatSet acodec, bool on)
@@ -394,7 +403,7 @@ void LCD::setAudioFormatLEDs(enum LCDAudioFormatSet acodec, bool on)
     if (on)
         m_lcdLedMask |= (acodec & AUDIO_MASK);
 
-    sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
+    emit sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
 }
 
 void LCD::setVideoFormatLEDs(enum LCDVideoFormatSet vcodec, bool on)
@@ -406,7 +415,7 @@ void LCD::setVideoFormatLEDs(enum LCDVideoFormatSet vcodec, bool on)
     if (on)
         m_lcdLedMask |= (vcodec & VIDEO_MASK);
 
-    sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
+    emit sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
 }
 
 void LCD::setVideoSrcLEDs(enum LCDVideoSourceSet vsrc, bool on)
@@ -416,7 +425,7 @@ void LCD::setVideoSrcLEDs(enum LCDVideoSourceSet vsrc, bool on)
     m_lcdLedMask &= ~VSRC_MASK;
     if (on)
         m_lcdLedMask |=  vsrc;
-    sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
+    emit sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
 }
 
 void LCD::setFunctionLEDs(enum LCDFunctionSet func, bool on)
@@ -426,7 +435,7 @@ void LCD::setFunctionLEDs(enum LCDFunctionSet func, bool on)
     m_lcdLedMask &= ~FUNC_MASK;
     if (on)
         m_lcdLedMask |=  func;
-    sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
+    emit sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
 }
 
 void LCD::setVariousLEDs(enum LCDVariousFlags various, bool on)
@@ -442,7 +451,7 @@ void LCD::setVariousLEDs(enum LCDVariousFlags various, bool on)
         if (various == VARIOUS_SPDIF)
             m_lcdLedMask &= ~SPDIF_MASK;
     }
-    sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
+    emit sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
 }
 
 void LCD::setTunerLEDs(enum LCDTunerSet tuner, bool on)
@@ -452,7 +461,7 @@ void LCD::setTunerLEDs(enum LCDTunerSet tuner, bool on)
     m_lcdLedMask &= ~TUNER_MASK;
     if (on)
         m_lcdLedMask |=  tuner;
-    sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
+    emit sendToServer(QString("UPDATE_LEDS %1").arg(m_lcdLedMask));
 }
 
 void LCD::setChannelProgress(const QString &time, float value)
@@ -461,7 +470,7 @@ void LCD::setChannelProgress(const QString &time, float value)
         return;
 
     value = std::min(std::max(0.0F, value), 1.0F);
-    sendToServer(QString("SET_CHANNEL_PROGRESS %1 %2").arg(quotedString(time))
+    emit sendToServer(QString("SET_CHANNEL_PROGRESS %1 %2").arg(quotedString(time))
         .arg(value));
 }
 
@@ -471,7 +480,7 @@ void LCD::setGenericProgress(float value)
         return;
 
     value = std::min(std::max(0.0F, value), 1.0F);
-    sendToServer(QString("SET_GENERIC_PROGRESS 0 %1").arg(value));
+    emit sendToServer(QString("SET_GENERIC_PROGRESS 0 %1").arg(value));
 }
 
 void LCD::setGenericBusy()
@@ -479,7 +488,7 @@ void LCD::setGenericBusy()
     if (!m_lcdReady || !m_lcdShowGeneric)
         return;
 
-    sendToServer("SET_GENERIC_PROGRESS 1 0.0");
+    emit sendToServer("SET_GENERIC_PROGRESS 1 0.0");
 }
 
 void LCD::setMusicProgress(const QString &time, float value)
@@ -488,7 +497,7 @@ void LCD::setMusicProgress(const QString &time, float value)
         return;
 
     value = std::min(std::max(0.0F, value), 1.0F);
-    sendToServer("SET_MUSIC_PROGRESS " + quotedString(time) + ' ' +
+    emit sendToServer("SET_MUSIC_PROGRESS " + quotedString(time) + ' ' +
             QString().setNum(value));
 }
 
@@ -497,7 +506,7 @@ void LCD::setMusicShuffle(int shuffle)
     if (!m_lcdReady || !m_lcdShowMusic)
         return;
 
-    sendToServer(QString("SET_MUSIC_PLAYER_PROP SHUFFLE %1").arg(shuffle));
+    emit sendToServer(QString("SET_MUSIC_PLAYER_PROP SHUFFLE %1").arg(shuffle));
 }
 
 void LCD::setMusicRepeat(int repeat)
@@ -505,7 +514,7 @@ void LCD::setMusicRepeat(int repeat)
     if (!m_lcdReady || !m_lcdShowMusic)
         return;
 
-    sendToServer(QString("SET_MUSIC_PLAYER_PROP REPEAT %1").arg(repeat));
+    emit sendToServer(QString("SET_MUSIC_PLAYER_PROP REPEAT %1").arg(repeat));
 }
 
 void LCD::setVolumeLevel(float value)
@@ -518,7 +527,8 @@ void LCD::setVolumeLevel(float value)
     else if (value > 1.0F)
         value = 1.0F;
 
-    sendToServer("SET_VOLUME_LEVEL " + QString().setNum(value));
+    // NOLINTNEXTLINE(readability-misleading-indentation)
+    emit sendToServer("SET_VOLUME_LEVEL " + QString().setNum(value));
 }
 
 void LCD::setupLEDs(int(*LedMaskFunc)(void))
@@ -526,7 +536,7 @@ void LCD::setupLEDs(int(*LedMaskFunc)(void))
     m_getLEDMask = LedMaskFunc;
     // update LED status every 10 seconds
     m_ledTimer->setSingleShot(false);
-    m_ledTimer->start(10000);
+    m_ledTimer->start(10s);
 }
 
 void LCD::outputLEDs()
@@ -542,7 +552,7 @@ void LCD::outputLEDs()
         mask = m_getLEDMask();
     aString = "UPDATE_LEDS ";
     aString += QString::number(mask);
-    sendToServer(aString);
+    emit sendToServer(aString);
 #endif
 }
 
@@ -553,7 +563,7 @@ void LCD::switchToTime()
 
     LOG(VB_GENERAL, LOG_DEBUG, LOC + "switchToTime");
 
-    sendToServer("SWITCH_TO_TIME");
+    emit sendToServer("SWITCH_TO_TIME");
 }
 
 void LCD::switchToMusic(const QString &artist, const QString &album, const QString &track)
@@ -563,7 +573,7 @@ void LCD::switchToMusic(const QString &artist, const QString &album, const QStri
 
     LOG(VB_GENERAL, LOG_DEBUG, LOC + "switchToMusic");
 
-    sendToServer("SWITCH_TO_MUSIC " + quotedString(artist) + ' '
+    emit sendToServer("SWITCH_TO_MUSIC " + quotedString(artist) + ' '
             + quotedString(album) + ' '
             + quotedString(track));
 }
@@ -576,7 +586,7 @@ void LCD::switchToChannel(const QString &channum, const QString &title,
 
     LOG(VB_GENERAL, LOG_DEBUG, LOC + "switchToChannel");
 
-    sendToServer("SWITCH_TO_CHANNEL " + quotedString(channum) + ' '
+    emit sendToServer("SWITCH_TO_CHANNEL " + quotedString(channum) + ' '
             + quotedString(title) + ' '
             + quotedString(subtitle));
 }
@@ -619,7 +629,7 @@ void LCD::switchToMenu(QList<LCDMenuItem> &menuItems, const QString &app_name,
         s += ' ' + sIndent;
     }
 
-    sendToServer(s);
+    emit sendToServer(s);
 }
 
 void LCD::switchToGeneric(QList<LCDTextItem> &textItems)
@@ -656,7 +666,7 @@ void LCD::switchToGeneric(QList<LCDTextItem> &textItems)
         s += ' ' + QString(curItem->getScroll() ? "TRUE" : "FALSE");
     }
 
-    sendToServer(s);
+    emit sendToServer(s);
 }
 
 void LCD::switchToVolume(const QString &app_name)
@@ -666,7 +676,7 @@ void LCD::switchToVolume(const QString &app_name)
 
     LOG(VB_GENERAL, LOG_DEBUG, LOC + "switchToVolume");
 
-    sendToServer("SWITCH_TO_VOLUME " + quotedString(app_name));
+    emit sendToServer("SWITCH_TO_VOLUME " + quotedString(app_name));
 }
 
 void LCD::switchToNothing()
@@ -676,7 +686,7 @@ void LCD::switchToNothing()
 
     LOG(VB_GENERAL, LOG_DEBUG, LOC + "switchToNothing");
 
-    sendToServer("SWITCH_TO_NOTHING");
+    emit sendToServer("SWITCH_TO_NOTHING");
 }
 
 void LCD::shutdown()
@@ -701,7 +711,7 @@ void LCD::resetServer()
 
     LOG(VB_GENERAL, LOG_DEBUG, LOC + "RESET");
 
-    sendToServer("RESET");
+    emit sendToServer("RESET");
 }
 
 LCD::~LCD()

@@ -25,6 +25,13 @@
 #include <QFile>
 #include <QTextStream>
 #include <QHostAddress>
+#include <QHostInfo>
+
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
+  #define QT_FLUSH flush
+#else
+  #define QT_FLUSH Qt::flush
+#endif
 
 int DeviceLocation::g_nAllocated   = 0;       // Debugging only
 
@@ -224,8 +231,8 @@ void UPnpDeviceDesc::ProcessServiceList( const QDomNode& oListNode, UPnpDevice *
 
             LOG(VB_UPNP, LOG_INFO,
                 QString("ProcessServiceList adding service : %1 : %2 :")
-                    .arg(pService->m_sServiceType)
-                    .arg(pService->m_sServiceId));
+                    .arg(pService->m_sServiceType,
+                         pService->m_sServiceId));
         }
     }
 }
@@ -305,7 +312,7 @@ QString  UPnpDeviceDesc::GetValidXML( const QString &sBaseAddress, int nPort )
     QTextStream os( &sXML, QIODevice::WriteOnly );
 
     GetValidXML( sBaseAddress, nPort, os );
-    os << flush;
+    os << QT_FLUSH;
     return( sXML );
 }
 
@@ -331,7 +338,7 @@ void UPnpDeviceDesc::GetValidXML(
     OutputDevice( os, &m_rootDevice, sUserAgent );
 
     os << "</root>\n";
-    os << flush;
+    os << QT_FLUSH;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -346,8 +353,8 @@ void UPnpDeviceDesc::OutputDevice( QTextStream &os,
         return;
 
     QString sFriendlyName = QString( "%1: %2" )
-                               .arg( GetHostName() )
-                               .arg( pDevice->m_sFriendlyName );
+                               .arg( GetHostName(),
+                                     pDevice->m_sFriendlyName );
 
     // ----------------------------------------------------------------------
     // Only override the root device
@@ -490,7 +497,7 @@ void UPnpDeviceDesc::OutputDevice( QTextStream &os,
         os << "</deviceList>";
     }
     os << "</device>\n";
-    os << flush;
+    os << QT_FLUSH;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -505,9 +512,9 @@ QString UPnpDeviceDesc::FormatValue(const NameValue& node)
     NameValues::iterator it;
     for (it = node.m_pAttributes->begin(); it != node.m_pAttributes->end(); ++it)
     {
-        sAttributes += QString(" %1='%2'").arg((*it).m_sName).arg((*it).m_sValue);
+        sAttributes += QString(" %1='%2'").arg((*it).m_sName, (*it).m_sValue);
     }
-    sStr = QString("<%1%2>%3</%1>\n").arg(node.m_sName).arg(sAttributes).arg(node.m_sValue);
+    sStr = QString("<%1%2>%3</%1>\n").arg(node.m_sName, sAttributes, node.m_sValue);
 
     return( sStr );
 }
@@ -522,7 +529,7 @@ QString UPnpDeviceDesc::FormatValue( const QString &sName,
     QString sStr;
 
     if (sValue.length() > 0)
-        sStr = QString("<%1>%2</%1>\n") .arg(sName) .arg(sValue);
+        sStr = QString("<%1>%2</%1>\n") .arg(sName, sValue);
 
     return( sStr );
 }
@@ -663,14 +670,13 @@ QString UPnpDeviceDesc::GetHostName() const
     {
         // Get HostName
 
-        char localHostName[1024];
-
-        if (gethostname(localHostName, 1024))
+        QString localHostName = QHostInfo::localHostName();
+        if (localHostName.isEmpty())
             LOG(VB_GENERAL, LOG_ERR,
                 "UPnpDeviceDesc: Error, could not determine host name." + ENO);
 
         return UPnp::GetConfiguration()->GetValue("Settings/HostName",
-                                                  QString(localHostName));
+                                                  localHostName);
     }
 
     return m_sHostName;
@@ -824,22 +830,22 @@ QString UPnpDevice::toString(uint padding) const
                 "modelName:        %6\n"
                 "modelNumber:      %7\n"
                 "modelURL:         %8\n")
-        .arg(m_sDeviceType      )
-        .arg(m_sFriendlyName    )
-        .arg(m_sManufacturer    )
-        .arg(m_sManufacturerURL )
-        .arg(m_sModelDescription)
-        .arg(m_sModelName       )
-        .arg(m_sModelNumber     )
-        .arg(m_sModelURL        ) +
+        .arg(m_sDeviceType,
+             m_sFriendlyName,
+             m_sManufacturer,
+             m_sManufacturerURL,
+             m_sModelDescription,
+             m_sModelName,
+             m_sModelNumber,
+             m_sModelURL) +
         QString("serialNumber:     %1\n"
                 "UPC:              %2\n"
                 "presentationURL:  %3\n"
                 "UDN:              %4\n")
-        .arg(m_sSerialNumber    )
-        .arg(m_sUPC             )
-        .arg(m_sPresentationURL )
-        .arg(m_sUDN             );
+        .arg(m_sSerialNumber,
+             m_sUPC,
+             m_sPresentationURL,
+             m_sUDN);
 
     if (!m_lstExtra.empty())
     {

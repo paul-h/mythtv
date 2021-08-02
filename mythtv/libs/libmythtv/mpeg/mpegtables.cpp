@@ -7,7 +7,7 @@
 #include "mythlogging.h"
 #include "mpegtables.h"
 
-const unsigned char DEFAULT_PAT_HEADER[8] =
+const std::array<const uint8_t,8> DEFAULT_PAT_HEADER
 {
     0x00, // TableID::PAT
     0xb0, // Syntax indicator
@@ -20,7 +20,7 @@ const unsigned char DEFAULT_PAT_HEADER[8] =
     0x00, // Last Section
 };
 
-const unsigned char DEFAULT_PMT_HEADER[12] =
+const std::array<const uint8_t,12> DEFAULT_PMT_HEADER
 {
     0x02, // TableID::PMT
     0xb0, // Syntax indicator
@@ -239,8 +239,8 @@ bool PSIPTable::VerifyPSIP(bool verify_crc) const
     {
         LOG(VB_SIPARSER, LOG_ERR,
             QString("PSIPTable: Failed CRC check 0x%1 != 0x%2 "
-                    "for StreamID = 0x%3")
-                .arg(CRC(),0,16).arg(CalcCRC(),0,16).arg(StreamID(),0,16));
+                    "for TableID = 0x%3")
+                .arg(CRC(),0,16).arg(CalcCRC(),0,16).arg(TableID(),0,16));
         return false;
     }
 
@@ -331,23 +331,23 @@ ProgramAssociationTable* ProgramAssociationTable::CreateBlank(bool smallPacket)
 {
     (void) smallPacket; // currently always a small packet..
     TSPacket *tspacket = TSPacket::CreatePayloadOnlyPacket();
-    memcpy(tspacket->data() + sizeof(TSHeader) + 1/* start of field pointer */,
-           DEFAULT_PAT_HEADER, sizeof(DEFAULT_PAT_HEADER));
+    auto *dst = tspacket->data() + sizeof(TSHeader) + 1; /* start of field pointer */
+    std::copy(DEFAULT_PAT_HEADER.cbegin(), DEFAULT_PAT_HEADER.cend(), dst);
     PSIPTable psip = PSIPTable::View(*tspacket);
     psip.SetLength(TSPacket::kPayloadSize
                    - 1 /* for start of field pointer */
                    - 3 /* for data before data last byte of pes length */);
     auto *pat = new ProgramAssociationTable(psip);
-    pat->SetTotalLength(sizeof(DEFAULT_PAT_HEADER));
+    pat->SetTotalLength(DEFAULT_PAT_HEADER.size());
     delete tspacket;
     return pat;
 }
 
 ProgramAssociationTable* ProgramAssociationTable::Create(
     uint tsid, uint version,
-    const vector<uint>& pnum, const vector<uint>& pid)
+    const std::vector<uint>& pnum, const std::vector<uint>& pid)
 {
-    const uint count = min(pnum.size(), pid.size());
+    const uint count = std::min(pnum.size(), pid.size());
     ProgramAssociationTable* pat = CreateBlank();
     pat->SetVersionNumber(version);
     pat->SetTranportStreamID(tsid);
@@ -382,8 +382,8 @@ ProgramMapTable* ProgramMapTable::CreateBlank(bool smallPacket)
 {
     ProgramMapTable *pmt = nullptr;
     TSPacket *tspacket = TSPacket::CreatePayloadOnlyPacket();
-    memcpy(tspacket->data() + sizeof(TSHeader) + 1/* start of field pointer */,
-           DEFAULT_PMT_HEADER, sizeof(DEFAULT_PMT_HEADER));
+    auto *dst = tspacket->data() + sizeof(TSHeader) + 1; /* start of field pointer */
+    std::copy(DEFAULT_PMT_HEADER.cbegin(), DEFAULT_PMT_HEADER.cend(), dst);
 
     if (smallPacket)
     {
@@ -398,16 +398,16 @@ ProgramMapTable* ProgramMapTable::CreateBlank(bool smallPacket)
         pmt = new ProgramMapTable(psip);
     }
 
-    pmt->SetTotalLength(sizeof(DEFAULT_PMT_HEADER));
+    pmt->SetTotalLength(DEFAULT_PMT_HEADER.size());
     delete tspacket;
     return pmt;
 }
 
 ProgramMapTable* ProgramMapTable::Create(
     uint programNumber, uint basepid, uint pcrpid, uint version,
-    vector<uint> pids, vector<uint> types)
+    std::vector<uint> pids, std::vector<uint> types)
 {
-    const uint count = min(pids.size(), types.size());
+    const uint count = std::min(pids.size(), types.size());
     ProgramMapTable* pmt = CreateBlank(false);
     pmt->tsheader()->SetPID(basepid);
 
@@ -426,11 +426,11 @@ ProgramMapTable* ProgramMapTable::Create(
 ProgramMapTable* ProgramMapTable::Create(
     uint programNumber, uint basepid, uint pcrpid, uint version,
     const desc_list_t         &global_desc,
-    const vector<uint>        &pids,
-    const vector<uint>        &types,
-    const vector<desc_list_t> &prog_desc)
+    const std::vector<uint>        &pids,
+    const std::vector<uint>        &types,
+    const std::vector<desc_list_t> &prog_desc)
 {
-    const uint count = min(pids.size(), types.size());
+    const uint count = std::min(pids.size(), types.size());
     ProgramMapTable* pmt = CreateBlank(false);
     pmt->tsheader()->SetPID(basepid);
 
@@ -439,7 +439,7 @@ ProgramMapTable* ProgramMapTable::Create(
     pmt->SetPCRPID(pcrpid);
     pmt->SetVersionNumber(version);
 
-    vector<unsigned char> gdesc;
+    std::vector<unsigned char> gdesc;
     for (const auto *gd : global_desc)
     {
         uint len = gd[1] + 2;
@@ -449,7 +449,7 @@ ProgramMapTable* ProgramMapTable::Create(
 
     for (uint i = 0; i < count; i++)
     {
-        vector<unsigned char> pdesc;
+        std::vector<unsigned char> pdesc;
         for (const auto *pd : prog_desc[i])
         {
             uint len = pd[1] + 2;
@@ -639,7 +639,7 @@ bool ProgramMapTable::IsStillPicture(const QString& sistandard) const
  *  \return number of pids in list
  */
 uint ProgramMapTable::FindPIDs(uint           type,
-                               vector<uint>  &pids,
+                               std::vector<uint>  &pids,
                                const QString &sistandard) const
 {
     if ((StreamID::AnyMask & type) != StreamID::AnyMask)
@@ -675,8 +675,8 @@ uint ProgramMapTable::FindPIDs(uint           type,
  *  \return number of items in pids and types lists.
  */
 uint ProgramMapTable::FindPIDs(uint           type,
-                               vector<uint>  &pids,
-                               vector<uint>  &types,
+                               std::vector<uint>  &pids,
+                               std::vector<uint>  &types,
                                const QString &sistandard,
                                bool           normalize) const
 {
@@ -736,20 +736,20 @@ uint ProgramMapTable::FindPIDs(uint           type,
 uint ProgramMapTable::FindUnusedPID(uint desired_pid) const
 {
     uint pid = desired_pid;
-    if (pid >= MPEG_NULL_PID)
+    if (pid >= PID::MPEG_NULL_PID)
         pid = 0x20;
 
     while (FindPID(pid) != -1)
         pid += 0x10;
 
-    if (pid < MPEG_NULL_PID)
+    if (pid < PID::MPEG_NULL_PID)
         return pid;
 
     pid = desired_pid;
     while (FindPID(pid) != -1)
         pid += 1;
 
-    if (pid < MPEG_NULL_PID)
+    if (pid < PID::MPEG_NULL_PID)
         return pid;
 
     pid = 0x20;
@@ -860,8 +860,8 @@ QString ProgramAssociationTable::toStringXML(uint indent_level) const
         .arg(indent_0)
         .arg(TransportStreamID(),4,16,QChar('0'))
         .arg(ProgramCount())
-        .arg(indent_1)
-        .arg(PSIPTable::XMLValues(indent_level + 1));
+        .arg(indent_1,
+             PSIPTable::XMLValues(indent_level + 1));
 
     for (uint i = 0; i < ProgramCount(); i++)
     {
@@ -881,30 +881,30 @@ QString ProgramMapTable::toString(void) const
     QString str =
         QString("Program Map Section"
                 "\n%1"
-                "       pnum(%2) pid(0x%3) pcrpid(0x%4)\n")
+                "       pnum(%2) pid(0x%3) pcrpid(0x%4)")
         .arg(PSIPTable::toString())
         .arg(ProgramNumber())
         .arg(tsheader()->PID(),0,16)
         .arg(PCRPID(),0,16);
 
-    vector<const unsigned char*> desc =
+    std::vector<const unsigned char*> desc =
         MPEGDescriptor::Parse(ProgramInfo(), ProgramInfoLength());
     for (auto & d : desc)
     {
-        str.append(QString("  %1\n")
+        str.append(QString("\n  %1")
                    .arg(MPEGDescriptor(d, 300).toString()));
     }
 
     for (uint i = 0; i < StreamCount(); i++)
     {
-        str.append(QString("  Stream #%1 pid(0x%2) type(0x%3 %4)\n")
+        str.append(QString("\n  Stream #%1 pid(0x%2) type(0x%3 %4)")
                    .arg(i).arg(StreamPID(i), 0, 16)
                    .arg(StreamType(i), 2, 16, QChar('0'))
                    .arg(StreamTypeString(i)));
         desc = MPEGDescriptor::Parse(StreamInfo(i), StreamInfoLength(i));
         for (auto & d : desc)
         {
-            str.append(QString("    %1\n")
+            str.append(QString("\n    %1")
                        .arg(MPEGDescriptor(d, 300).toString()));
         }
     }
@@ -927,7 +927,7 @@ QString ProgramMapTable::toStringXML(uint indent_level) const
         .arg(StreamCount())
         .arg(PSIPTable::XMLValues(indent_level + 1));
 
-    vector<const unsigned char*> gdesc =
+    std::vector<const unsigned char*> gdesc =
         MPEGDescriptor::Parse(ProgramInfo(), ProgramInfoLength());
     for (auto & gd : gdesc)
     {
@@ -944,7 +944,7 @@ QString ProgramMapTable::toStringXML(uint indent_level) const
             .arg(StreamType(i),2,16,QChar('0'))
             .arg(StreamTypeString(i))
             .arg(StreamInfoLength(i));
-        vector<const unsigned char*> ldesc =
+        std::vector<const unsigned char*> ldesc =
             MPEGDescriptor::Parse(StreamInfo(i), StreamInfoLength(i));
         str += (ldesc.empty()) ? " />\n" : ">\n";
         for (auto & ld : ldesc)
@@ -1178,7 +1178,7 @@ QString ConditionalAccessTable::toString(void) const
         QString("Conditional Access Section %1")
         .arg(PSIPTable::toString());
 
-    vector<const unsigned char*> gdesc =
+    std::vector<const unsigned char*> gdesc =
         MPEGDescriptor::Parse(Descriptors(), DescriptorsLength());
     for (auto & gd : gdesc)
         str += "  " + MPEGDescriptor(gd, 300).toString() + "\n";
@@ -1192,10 +1192,10 @@ QString ConditionalAccessTable::toStringXML(uint indent_level) const
 
     QString str =
         QString("%1<ConditionalAccessSection %3")
-        .arg(indent_0)
-        .arg(PSIPTable::XMLValues(indent_level + 1));
+        .arg(indent_0,
+             PSIPTable::XMLValues(indent_level + 1));
 
-    vector<const unsigned char*> gdesc =
+    std::vector<const unsigned char*> gdesc =
         MPEGDescriptor::Parse(Descriptors(), DescriptorsLength());
     str += (gdesc.empty()) ? " />\n" : ">\n";
     for (auto & gd : gdesc)
@@ -1226,9 +1226,9 @@ QString SpliceTimeView::toString(int64_t first, int64_t last) const
         QTime rel = QTime(0,0,0,0).addMSecs(elapsed/90);
 
         return QString("splice_time(pts: %1 abs: %2, rel: +%3)")
-            .arg(abs_pts_time)
-            .arg(abs.toString("hh:mm:ss.zzz"))
-            .arg(rel.toString("hh:mm:ss.zzz"));
+            .arg(QString::number(abs_pts_time),
+                 abs.toString("hh:mm:ss.zzz"),
+                 rel.toString("hh:mm:ss.zzz"));
     }
 
     return QString("splice_time(pts: %1)").arg(abs_pts_time);
@@ -1265,7 +1265,7 @@ QString SpliceTimeView::toStringXML(
     }
 
     return QString("%1<SpliceTime pts=\"%2\" %3%4/>")
-        .arg(indent).arg(abs_pts_time).arg(abs_str).arg(rel_str);
+        .arg(indent,QString::number(abs_pts_time),abs_str,rel_str);
 }
 
 /// \brief Returns decrypted version of this packet.
@@ -1443,11 +1443,11 @@ QString SpliceInsertView::toString(int64_t first, int64_t last) const
                 "out_of_network(%3) program_splice(%4) "
                 "duration(%5) immediate(%6)\n  ")
         .arg(SpliceEventID(),0,16)
-        .arg(IsSpliceEventCancel()?"yes":"no")
-        .arg(IsOutOfNetwork()?"yes":"no")
-        .arg(IsProgramSplice()?"yes":"no")
-        .arg(IsDuration()?"yes":"no")
-        .arg(IsSpliceImmediate()?"yes":"no");
+        .arg(IsSpliceEventCancel()?"yes":"no",
+             IsOutOfNetwork()?"yes":"no",
+             IsProgramSplice()?"yes":"no",
+             IsDuration()?"yes":"no",
+             IsSpliceImmediate()?"yes":"no");
 
     if (IsProgramSplice() && !IsSpliceImmediate())
         str += SpliceTime().toString(first, last);
@@ -1481,9 +1481,9 @@ QString SpliceInformationTable::toStringXML(
     QString str = QString(
         "%1<SpliceInformationSection %2 encryption_algorithm=\"%3\" "
         "pts_adjustment=\"%4\" code_word_index=\"%5\" command_type=\"%6\" scte_pid=\"0x%7\" >\n")
-        .arg(indent)
-        .arg(cap_time)
-        .arg(EncryptionAlgorithmString())
+        .arg(indent,
+             cap_time,
+             EncryptionAlgorithmString())
         .arg(PTSAdjustment())
         .arg(CodeWordIndex())
         .arg(SpliceCommandTypeString())
@@ -1523,16 +1523,16 @@ QString SpliceInsertView::toStringXML(
 
     str += QString(
         "%1out_of_network=\"%2\" program_splice=\"%3\" duration=\"%4\"\n")
-        .arg(indent_1)
-        .arg(xml_bool_to_string(IsOutOfNetwork()))
-        .arg(xml_bool_to_string(IsProgramSplice()))
-        .arg(xml_bool_to_string(IsDuration()));
+        .arg(indent_1,
+             xml_bool_to_string(IsOutOfNetwork()),
+             xml_bool_to_string(IsProgramSplice()),
+             xml_bool_to_string(IsDuration()));
 
     str += QString(
         "%1immediate=\"%2\" unique_program_id=\"%3\"\n"
         "%4avail_num=\"%5\" avails_expected=\"%6\">\n")
-        .arg(indent_1)
-        .arg(xml_bool_to_string(IsSpliceImmediate()))
+        .arg(indent_1,
+             xml_bool_to_string(IsSpliceImmediate()))
         .arg(UniqueProgramID())
         .arg(indent_1)
         .arg(AvailNum())

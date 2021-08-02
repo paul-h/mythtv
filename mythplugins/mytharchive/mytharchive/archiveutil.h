@@ -36,8 +36,7 @@ struct ArchiveDestination
     int64_t freeSpace;
 };
 
-extern struct ArchiveDestination ArchiveDestinations[];
-extern int ArchiveDestinationsCount;
+extern std::vector<ArchiveDestination> ArchiveDestinations;
 
 struct EncoderProfile
 {

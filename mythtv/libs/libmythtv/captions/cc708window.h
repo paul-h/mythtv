@@ -7,11 +7,14 @@
 #include <array>
 #include <utility>
 #include <vector>
-using namespace std;
 
 // Qt headers
 #include <QString>
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
 #include <QMutex>
+#else
+#include <QRecursiveMutex>
+#endif
 #include <QColor>
 
 // MythTV headers
@@ -74,6 +77,13 @@ const int k708MaxWindows = 8;
 const int k708MaxRows    = 16; // 4-bit field in DefineWindow
 const int k708MaxColumns = 64; // 6-bit field in DefineWindow
 
+// Weird clang-tidy error from cc708window.cpp:212 that the attribute
+// assignment is using zero allocated memory. Changing that code to
+// explicitly copy each field of the structure, and then changing the
+// first copy statement to assign a constant instead, shows that the
+// warning is about the left side of the assignment statement. That
+// should overwrite any zero-allocated memory, not reference it.
+// NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDelete)
 class CC708CharacterAttribute
 {
   public:
@@ -101,6 +111,7 @@ class CC708CharacterAttribute
         m_underline(isUnderline),
         m_italics(isItalic),
         m_boldface(isBold),
+        // NOLINTNEXTLINE(performance-move-const-arg)
         m_actualFgColor(std::move(fgColor))
     {
     }
@@ -159,7 +170,7 @@ class CC708Pen
         m_attr.m_boldface  = false;
     }
   public:
-    CC708CharacterAttribute m_attr;
+    CC708CharacterAttribute m_attr {};
 
     uint m_row    {0};
     uint m_column {0};
@@ -171,7 +182,7 @@ class CC708Character
   public:
     CC708Character() = default;
     explicit CC708Character(const CC708Window &win);
-    CC708CharacterAttribute m_attr;
+    CC708CharacterAttribute m_attr {};
     QChar                   m_character {' '};
 };
 
@@ -181,7 +192,7 @@ class CC708String
     uint                    m_x {0};
     uint                    m_y {0};
     QString                 m_str;
-    CC708CharacterAttribute m_attr;
+    CC708CharacterAttribute m_attr {};
 };
 
 class MTV_PUBLIC CC708Window
@@ -212,8 +223,8 @@ class MTV_PUBLIC CC708Window
                 (m_pen.m_column < m_true_column_count));
     }
     CC708Character &GetCCChar(void) const;
-    vector<CC708String*> GetStrings(void) const;
-    static void DisposeStrings(vector<CC708String*> &strings);
+    std::vector<CC708String*> GetStrings(void) const;
+    static void DisposeStrings(std::vector<CC708String*> &strings);
     QColor GetFillColor(void) const
     {
         QColor fill = CC708CharacterAttribute::ConvertToQColor(m_fill_color);
@@ -269,7 +280,7 @@ class MTV_PUBLIC CC708Window
     uint            m_true_column_count {0};
 
     CC708Character *m_text              {nullptr};
-    CC708Pen        m_pen;
+    CC708Pen        m_pen               {};
 
  private:
     /// set to false when DeleteWindow is called on the window.
@@ -300,7 +311,11 @@ class MTV_PUBLIC CC708Window
     {
         m_changed = false;
     }
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex  m_lock {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex  m_lock;
+#endif
 };
 
 class CC708Service
@@ -310,7 +325,7 @@ class CC708Service
 
   public:
     uint        m_currentWindow {0};
-    CC708Window m_windows[k708MaxWindows];
+    std::array<CC708Window,k708MaxWindows> m_windows;
 };
 
 #endif // CC708_WINDOW_H

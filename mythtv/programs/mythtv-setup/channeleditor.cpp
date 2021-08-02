@@ -7,6 +7,7 @@
 #include "mythuibuttonlist.h"
 #include "channelsettings.h"
 #include "transporteditor.h"
+#include "restoredata.h"
 #include "mythuicheckbox.h"
 #include "mythuitextedit.h"
 #include "channeleditor.h"
@@ -22,6 +23,8 @@
 #include "cardutil.h"
 #include "mythdirs.h"
 #include "mythdb.h"
+
+#define LOC QString("ChannelEditor: ")
 
 ChannelWizard::ChannelWizard(int id, int default_sourceid)
 {
@@ -39,10 +42,10 @@ ChannelWizard::ChannelWizard(int id, int default_sourceid)
 
     bool all_v4l = !cardtypes.empty();
     bool all_asi = !cardtypes.empty();
-    for (uint i = 0; i < (uint) cardtypes.size(); i++)
+    for (const QString& cardtype : qAsConst(cardtypes))
     {
-        all_v4l &= CardUtil::IsV4L(cardtypes[i]);
-        all_asi &= cardtypes[i] == "ASI";
+        all_v4l &= CardUtil::IsV4L(cardtype);
+        all_asi &= cardtype == "ASI";
     }
 
     auto *common = new ChannelOptionsCommon(*m_cid, default_sourceid,!all_v4l);
@@ -61,7 +64,7 @@ ChannelWizard::ChannelWizard(int id, int default_sourceid)
 
 ChannelEditor::ChannelEditor(MythScreenStack *parent)
               : MythScreenType(parent, "channeleditor"),
-    m_currentSortMode(QCoreApplication::translate("(Common)", "Channel Name"))
+    m_currentSortMode(QCoreApplication::translate("(Common)", "Channel Number"))
 {
 }
 
@@ -81,10 +84,13 @@ bool ChannelEditor::Create()
     m_callsign = dynamic_cast<MythUIText *>(GetChild("callsign"));
     m_chanid = dynamic_cast<MythUIText *>(GetChild("chanid"));
     m_sourcename = dynamic_cast<MythUIText *>(GetChild("sourcename"));
+    m_frequency = dynamic_cast<MythUIText *>(GetChild("frequency"));
+    m_transportid = dynamic_cast<MythUIText *>(GetChild("transportid"));
     m_compoundname = dynamic_cast<MythUIText *>(GetChild("compoundname"));
 
     MythUIButton *deleteButton = dynamic_cast<MythUIButton *>(GetChild("delete"));
     MythUIButton *scanButton = dynamic_cast<MythUIButton *>(GetChild("scan"));
+    MythUIButton *restoreDataButton = dynamic_cast<MythUIButton *>(GetChild("restoredata"));
     MythUIButton *importIconButton = dynamic_cast<MythUIButton *>(GetChild("importicons"));
     MythUIButton *transportEditorButton = dynamic_cast<MythUIButton *>(GetChild("edittransport"));
 
@@ -94,21 +100,23 @@ bool ChannelEditor::Create()
         !scanButton || !importIconButton || !transportEditorButton ||
         !hideCheck)
     {
-
+        LOG(VB_GENERAL, LOG_ERR, LOC + "One or more buttons not found in theme.");
         return false;
     }
 
     // Delete button help text
-    deleteButton->SetHelpText(tr("Delete all channels on currently selected source(s)."));
+    deleteButton->SetHelpText(tr("Delete all channels on currently selected video source."));
 
     // Sort List
-    new MythUIButtonListItem(sortList, tr("Channel Name"));
     new MythUIButtonListItem(sortList, tr("Channel Number"));
-    new MythUIButtonListItem(sortList, tr("Multiplex Frequency"));
-    connect(m_sourceList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            SLOT(setSourceID(MythUIButtonListItem *)));
+    new MythUIButtonListItem(sortList, tr("Channel Name"));
+    new MythUIButtonListItem(sortList, tr("Service ID"));
+    new MythUIButtonListItem(sortList, tr("Frequency"));
+    new MythUIButtonListItem(sortList, tr("Transport ID"));
+    new MythUIButtonListItem(sortList, tr("Video Source"));
+    connect(m_sourceList, &MythUIButtonList::itemSelected,
+            this, &ChannelEditor::setSourceID);
     sortList->SetValue(m_currentSortMode);
-
 
     // Source List
     new MythUIButtonListItem(m_sourceList,tr("All"),
@@ -125,22 +133,34 @@ bool ChannelEditor::Create()
     }
     new MythUIButtonListItem(m_sourceList,tr("(Unassigned)"),
                              QVariant::fromValue((int)FILTER_UNASSIGNED));
-    connect(sortList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            SLOT(setSortMode(MythUIButtonListItem *)));
+    connect(sortList, &MythUIButtonList::itemSelected,
+            this, &ChannelEditor::setSortMode);
 
     // Hide/Show channels without channum checkbox
     hideCheck->SetCheckState(m_currentHideMode);
-    connect(hideCheck, SIGNAL(toggled(bool)),
-            SLOT(setHideMode(bool)));
+    connect(hideCheck, &MythUICheckBox::toggled,
+            this, &ChannelEditor::setHideMode);
 
     // Scan Button
     scanButton->SetHelpText(tr("Starts the channel scanner."));
     scanButton->SetEnabled(SourceUtil::IsAnySourceScanable());
 
+    // Restore Data button
+    if (restoreDataButton)
+    {
+        restoreDataButton->SetHelpText(tr("Restore Data from deleted channels."));
+        restoreDataButton->SetEnabled(true);
+        connect(restoreDataButton, &MythUIButton::Clicked, this, &ChannelEditor::restoreData);
+    }
+    else
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Button \"Restore Data\" not found in theme.");
+    }
+
     // Import Icons Button
     importIconButton->SetHelpText(tr("Starts the icon downloader"));
     importIconButton->SetEnabled(true);
-    connect(importIconButton,  SIGNAL(Clicked()), SLOT(channelIconImport()));
+    connect(importIconButton,  &MythUIButton::Clicked, this, &ChannelEditor::channelIconImport);
 
     // Transport Editor Button
     transportEditorButton->SetHelpText(
@@ -148,15 +168,15 @@ bool ChannelEditor::Create()
             "This is rarely required unless you are using "
             "a satellite dish and must enter an initial "
             "frequency to for the channel scanner to try."));
-    connect(transportEditorButton, SIGNAL(Clicked()), SLOT(transportEditor()));
+    connect(transportEditorButton, &MythUIButton::Clicked, this, &ChannelEditor::transportEditor);
 
     // Other signals
-    connect(m_channelList, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            SLOT(edit(MythUIButtonListItem *)));
-    connect(m_channelList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            SLOT(itemChanged(MythUIButtonListItem *)));
-    connect(scanButton, SIGNAL(Clicked()), SLOT(scan()));
-    connect(deleteButton,  SIGNAL(Clicked()), SLOT(deleteChannels()));
+    connect(m_channelList, &MythUIButtonList::itemClicked,
+            this, &ChannelEditor::edit);
+    connect(m_channelList, &MythUIButtonList::itemSelected,
+            this, &ChannelEditor::itemChanged);
+    connect(scanButton, &MythUIButton::Clicked, this, &ChannelEditor::scan);
+    connect(deleteButton,  &MythUIButton::Clicked, this, &ChannelEditor::deleteChannels);
 
     fillList();
 
@@ -206,7 +226,7 @@ void ChannelEditor::itemChanged(MythUIButtonListItem *item)
         if (!iconpath.isEmpty())
         {
             // mythtv-setup needs direct access to channel icon dir to import.  We
-            // also can't rely on the backend to be running, so access the file directly
+            // also can't rely on the backend to be running, so access the file directly.
             QString tmpIcon = GetConfDir() + "/channels/" + iconpath;
             m_preview->SetFilename(tmpIcon);
             m_preview->Load();
@@ -224,6 +244,15 @@ void ChannelEditor::itemChanged(MythUIButtonListItem *item)
 
     if (m_chanid)
         m_chanid->SetText(item->GetText("chanid"));
+
+    if (m_serviceid)
+        m_serviceid->SetText(item->GetText("serviceid"));
+
+    if (m_frequency)
+        m_frequency->SetText(item->GetText("frequency"));
+
+    if (m_transportid)
+        m_transportid->SetText(item->GetText("transportid"));
 
     if (m_sourcename)
         m_sourcename->SetText(item->GetText("sourcename"));
@@ -244,9 +273,10 @@ void ChannelEditor::fillList(void)
 
     bool fAllSources = true;
 
-    QString querystr = "SELECT channel.name,channum,chanid,callsign,icon,"
-                       "channel.visible ,videosource.name, serviceid, "
-                       "dtv_multiplex.frequency FROM channel "
+    QString querystr = "SELECT channel.name, channum, chanid, callsign, icon, "
+                       "channel.visible, videosource.name, serviceid, "
+                       "dtv_multiplex.frequency, dtv_multiplex.polarity, "
+                       "dtv_multiplex.transportid, dtv_multiplex.mod_sys FROM channel "
                        "LEFT JOIN videosource ON "
                        "(channel.sourceid = videosource.sourceid) "
                        "LEFT JOIN dtv_multiplex ON "
@@ -272,9 +302,21 @@ void ChannelEditor::fillList(void)
     {
         querystr += " ORDER BY channum + 0, SUBSTRING_INDEX(channum, '_', -1) + 0";
     }
-    else if (m_currentSortMode == tr("Multiplex Frequency"))
+    else if (m_currentSortMode == tr("Service ID"))
+    {
+        querystr += " ORDER BY serviceid";
+    }
+    else if (m_currentSortMode == tr("Frequency"))
     {
         querystr += " ORDER BY dtv_multiplex.frequency, serviceid";
+    }
+    else if (m_currentSortMode == tr("Transport ID"))
+    {
+        querystr += " ORDER BY dtv_multiplex.transportid, serviceid";
+    }
+    else if (m_currentSortMode == tr("Video Source"))
+    {
+        querystr += " ORDER BY videosource.name, dtv_multiplex.transportid";
     }
 
     MSqlQuery query(MSqlQuery::InitCon());
@@ -292,7 +334,18 @@ void ChannelEditor::fillList(void)
             QString callsign = query.value(3).toString();
             QString icon = query.value(4).toString();
             bool visible =  query.value(5).toBool();
+            QString serviceid = query.value(7).toString();
+            QString frequency = query.value(8).toString();
+            QString polarity = query.value(9).toString().toUpper();
+            QString transportid = query.value(10).toString();
+            QString mod_sys = query.value(11).toString();
             QString sourceid = "Unassigned";
+
+            // Add polarity for satellite frequencies
+            if (mod_sys.startsWith("DVB-S"))
+            {
+                frequency += polarity;
+            }
 
             QString state = "normal";
 
@@ -338,14 +391,17 @@ void ChannelEditor::fillList(void)
             item = new MythUIButtonListItem(m_channelList, "",
                                                      QVariant::fromValue(chanid));
             item->SetText(compoundname, "compoundname");
-            item->SetText(name, "name");
-            item->SetText(channum, "channum");
             item->SetText(chanid, "chanid");
+            item->SetText(channum, "channum");
+            item->SetText(name, "name");
             item->SetText(callsign, "callsign");
+            item->SetText(serviceid, "serviceid");
+            item->SetText(frequency, "frequency");
+            item->SetText(transportid, "transportid");
             item->SetText(sourceid, "sourcename");
 
             // mythtv-setup needs direct access to channel icon dir to import.  We
-            // also can't rely on the backend to be running, so access the file directly
+            // also can't rely on the backend to be running, so access the file directly.
             QString tmpIcon = GetConfDir() + "/channels/" + icon;
             item->SetImage(tmpIcon);
             item->SetImage(tmpIcon, "icon");
@@ -460,7 +516,7 @@ void ChannelEditor::edit(MythUIButtonListItem *item)
     auto *ssd = new StandardSettingDialog(mainStack, "channelwizard", cw);
     if (ssd->Create())
     {
-        connect(ssd, SIGNAL(Exiting()), SLOT(fillList()));
+        connect(ssd, &MythScreenType::Exiting, this, &ChannelEditor::fillList);
         mainStack->AddScreen(ssd);
     }
     else
@@ -580,7 +636,28 @@ void ChannelEditor::scan(void)
                                           new ScanWizard(m_sourceFilter));
     if (ssd->Create())
     {
-        connect(ssd, SIGNAL(Exiting()), SLOT(fillList()));
+        connect(ssd, &MythScreenType::Exiting, this, &ChannelEditor::fillList);
+        mainStack->AddScreen(ssd);
+    }
+    else
+        delete ssd;
+}
+
+void ChannelEditor::restoreData(void)
+{
+    // Check that we have a videosource and a connected capture card
+    if (!check_cardsource(m_sourceFilter, m_sourceFilterName))
+        return;
+
+    // Create the dialog now that we have a video source and a capture card
+    MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
+
+    auto *ssd = new StandardSettingDialog(mainStack, "restoredata",
+                                  new RestoreData((uint)m_sourceFilter));
+    if (ssd->Create())
+    {
+        // Reload channel list with fillList after Restore
+        connect(ssd, &MythScreenType::Exiting, this, &ChannelEditor::fillList);
         mainStack->AddScreen(ssd);
     }
     else
@@ -599,7 +676,7 @@ void ChannelEditor::transportEditor(void)
                                   new TransportListEditor(m_sourceFilter));
     if (ssd->Create())
     {
-        connect(ssd, SIGNAL(Exiting()), SLOT(fillList()));
+        connect(ssd, &MythScreenType::Exiting, this, &ChannelEditor::fillList);
         mainStack->AddScreen(ssd);
     }
     else
@@ -644,8 +721,8 @@ void ChannelEditor::channelIconImport(void)
         menu->AddButton(tr("Download all icons..."));
         menu->AddButton(tr("Rescan for missing icons..."));
         if (!channelname.isEmpty())
-            menu->AddButton(tr("Download icon for %1").arg(channelname),
-                            channelname);
+            menu->AddButtonV(tr("Download icon for %1").arg(channelname),
+                             channelname);
 
         popupStack->AddScreen(menu);
     }
@@ -764,7 +841,7 @@ void ChannelEditor::customEvent(QEvent *event)
 
             if (iconwizard->Create())
             {
-                connect(iconwizard, SIGNAL(Exiting()), SLOT(fillList()));
+                connect(iconwizard, &MythScreenType::Exiting, this, &ChannelEditor::fillList);
                 mainStack->AddScreen(iconwizard);
             }
             else

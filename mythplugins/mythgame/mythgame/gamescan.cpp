@@ -40,6 +40,8 @@ void GameScannerThread::run(void)
     verifyFiles();
     updateDB();
 
+    LOG(VB_GENERAL, LOG_INFO, QString("Finished Game Scan."));
+
     RunEpilog();
 }
 
@@ -67,7 +69,6 @@ void GameScannerThread::verifyFiles()
     for (const auto *info : qAsConst(m_dbgames))
     {
         QString romfile = info->Romname();
-        QString system = info->System();
         QString gametype = info->GameType();
         if (!romfile.isEmpty())
         {
@@ -137,11 +138,10 @@ bool GameScannerThread::buildFileList()
         SendProgressEvent(counter, (uint)m_handlers.size(),
                           GameScanner::tr("Searching for games..."));
 
-    for (QList<GameHandler*>::const_iterator iter = m_handlers.begin();
-         iter != m_handlers.end(); ++iter)
+    for (auto * handler : qAsConst(m_handlers))
     {
-        QDir dir((*iter)->SystemRomPath());
-        QStringList extensions = (*iter)->ValidExtensions();
+        QDir dir(handler->SystemRomPath());
+        QStringList extensions = handler->ValidExtensions();
         QStringList filters;
         for (const auto & ext : qAsConst(extensions))
         {
@@ -155,10 +155,10 @@ bool GameScannerThread::buildFileList()
         for (const auto & file : qAsConst(files))
         {
             RomFileInfo info;
-            info.system = (*iter)->SystemName();
-            info.gametype = (*iter)->GameType();
+            info.system = handler->SystemName();
+            info.gametype = handler->GameType();
             info.romfile = file;
-            info.rompath = (*iter)->SystemRomPath();
+            info.rompath = handler->SystemRomPath();
             info.romname = QFileInfo(file).baseName();
             info.indb = false;
             m_files.append(info);
@@ -207,10 +207,10 @@ void GameScanner::doScan(QList<GameHandler*> handlers)
         if (progressDlg->Create())
         {
             popupStack->AddScreen(progressDlg, false);
-            connect(m_scanThread->qthread(), SIGNAL(finished()),
-                    progressDlg, SLOT(Close()));
-            connect(m_scanThread->qthread(), SIGNAL(finished()),
-                    SLOT(finishedScan()));
+            connect(m_scanThread->qthread(), &QThread::finished,
+                    progressDlg, &MythScreenType::Close);
+            connect(m_scanThread->qthread(), &QThread::finished,
+                    this, &GameScanner::finishedScan);
         }
         else
         {

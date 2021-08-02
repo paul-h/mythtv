@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-class MythUIButton;using namespace std;
+class MythUIButton;
 
 // qt
 #include <QDateTime>
@@ -125,7 +125,7 @@ class SmartPlaylistEditor : public MythScreenType
     void getSmartPlaylistCategories(void);
     void loadFromDatabase(const QString& category, const QString& name);
 
-    QList<SmartPLCriteriaRow*> m_criteriaRows {nullptr};
+    QList<SmartPLCriteriaRow*> m_criteriaRows {};
     SmartPLCriteriaRow* m_tempCriteriaRow     {nullptr};
 
     int     m_matchesCount                    {0};
@@ -262,6 +262,7 @@ class SmartPLOrderByDialog: public MythScreenType
     void descendingPressed(void);
     void okPressed(void);
     void orderByChanged(void);
+    void orderByChanged(MythUIButtonListItem */*item*/);
     void fieldListSelectionChanged(MythUIButtonListItem *item);
 
   private:

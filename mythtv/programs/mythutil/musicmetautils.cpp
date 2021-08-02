@@ -10,6 +10,7 @@
 #include "storagegroup.h"
 #include "musicmetadata.h"
 #include "metaio.h"
+#include "mythchrono.h"
 #include "mythcontext.h"
 #include "musicfilescanner.h"
 #include "musicutils.h"
@@ -266,13 +267,13 @@ static int CalcTrackLength(const MythUtilCommandLineParser &cmdline)
         return GENERIC_EXIT_NOT_OK;;
     }
 
-    int duration = 0;
+    std::chrono::seconds duration = 0s;
     long long time = 0;
 
     for (uint i = 0; i < inputFC->nb_streams; i++)
     {
         AVStream *st = inputFC->streams[i];
-        char buf[256];
+        std::array<char,256> buf {};
 
         const AVCodec *pCodec = avcodec_find_decoder(st->codecpar->codec_id);
         if (!pCodec)
@@ -285,7 +286,7 @@ static int CalcTrackLength(const MythUtilCommandLineParser &cmdline)
         avcodec_parameters_to_context(avctx, st->codecpar);
         avctx->pkt_timebase = st->time_base;
 
-        avcodec_string(buf, sizeof(buf), avctx, static_cast<int>(false));
+        avcodec_string(buf.data(), buf.size(), avctx, static_cast<int>(false));
 
         switch (inputFC->streams[i]->codecpar->codec_type)
         {
@@ -302,7 +303,7 @@ static int CalcTrackLength(const MythUtilCommandLineParser &cmdline)
                     av_packet_unref(&pkt);
                 }
 
-                duration = time * av_q2d(inputFC->streams[i]->time_base);
+                duration = secondsFromFloat(time * av_q2d(inputFC->streams[i]->time_base));
                 break;
             }
 
@@ -319,13 +320,14 @@ static int CalcTrackLength(const MythUtilCommandLineParser &cmdline)
     avformat_close_input(&inputFC);
     inputFC = nullptr;
 
-    if (mdata->Length() / 1000 != duration)
+    std::chrono::seconds dbLength = duration_cast<std::chrono::seconds>(mdata->Length());
+    if (dbLength != duration)
     {
         LOG(VB_GENERAL, LOG_INFO, QString("The length of this track in the database was %1s "
-                                          "it is now %2s").arg(mdata->Length() / 1000).arg(duration));
+                                          "it is now %2s").arg(dbLength.count()).arg(duration.count()));
 
         // update the track length in the database
-        mdata->setLength(duration * 1000);
+        mdata->setLength(duration);
         mdata->dumpToDatabase();
 
         // tell any clients that the metadata for this track has changed
@@ -334,7 +336,7 @@ static int CalcTrackLength(const MythUtilCommandLineParser &cmdline)
     else
     {
         LOG(VB_GENERAL, LOG_INFO, QString("The length of this track is unchanged %1s")
-                                          .arg(mdata->Length() / 1000));
+                                          .arg(dbLength.count()));
     }
 
     return GENERIC_EXIT_OK;
@@ -476,14 +478,11 @@ static int FindLyrics(const MythUtilCommandLineParser &cmdline)
     }
 
     QStringList scripts;
-    QFileInfoList::const_iterator it = list.begin();
 
-    while (it != list.end())
+    for (const auto& fi : qAsConst(list))
     {
-        const QFileInfo *fi = &(*it);
-        ++it;
-        LOG(VB_GENERAL, LOG_NOTICE, QString("Found lyric script at: %1").arg(fi->filePath()));
-        scripts.append(fi->filePath());
+        LOG(VB_GENERAL, LOG_NOTICE, QString("Found lyric script at: %1").arg(fi.filePath()));
+        scripts.append(fi.filePath());
     }
 
     QMap<int, LyricsGrabber> grabberMap;

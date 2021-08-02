@@ -150,24 +150,24 @@ static const std::array<const int,8> cea_sampling_frequencies {
     ((buf)[byte] >> (lowbit)) & ((1 << (bits)) - 1)  \
 )
 
-ELD::ELD(const char *buf, int size)
+eld::eld(const char *buf, int size)
 {
     m_e.formats = 0LL;
     update_eld(buf, size);
 }
 
-ELD::ELD(const ELD &rhs)
+eld::eld(const eld &rhs)
 {
     m_e = rhs.m_e;
 }
 
-ELD::ELD()
+eld::eld()
 {
     m_e.formats = 0LL;
     m_e.eld_valid = false;
 }
 
-ELD& ELD::operator=(const ELD &rhs)
+eld& eld::operator=(const eld &rhs)
 {
     if (this == &rhs)
         return *this;
@@ -175,7 +175,7 @@ ELD& ELD::operator=(const ELD &rhs)
     return *this;
 }
 
-void ELD::update_sad(int index,
+void eld::update_sad(int index,
                      const char *buf)
 {
     cea_sad *a = m_e.sad + index;
@@ -243,7 +243,7 @@ void ELD::update_sad(int index,
     }
 }
 
-int ELD::update_eld(const char *buf, int size)
+int eld::update_eld(const char *buf, int size)
 {
     int mnl = 0;
 
@@ -274,20 +274,15 @@ int ELD::update_eld(const char *buf, int size)
     m_e.manufacture_id  = LE_SHORT(buf + 16);
     m_e.product_id      = LE_SHORT(buf + 18);
 
-    if (mnl > ELD_MAX_MNL)
-    {
-        VBAUDIO(QString("MNL is reserved value %1").arg(mnl));
-        goto out_fail;
-    }
-    else if (ELD_FIXED_BYTES + mnl > size)
+    if (ELD_FIXED_BYTES + mnl > size)
     {
         VBAUDIO(QString("out of range MNL %1").arg(mnl));
         goto out_fail;
     }
     else
     {
-        strncpy(m_e.monitor_name, (char *)buf + ELD_FIXED_BYTES, mnl + 1);
-        m_e.monitor_name[mnl] = '\0';
+        std::string tmp(buf + ELD_FIXED_BYTES, mnl);
+        m_e.monitor_name = QString::fromStdString(tmp);
     }
 
     for (int i = 0; i < m_e.sad_count; i++)
@@ -318,7 +313,7 @@ int ELD::update_eld(const char *buf, int size)
  * SNDRV_PCM_RATE_* and AC_PAR_PCM values don't match, print correct rates with
  * hdmi-specific routine.
  */
-QString ELD::print_pcm_rates(int pcm)
+QString eld::print_pcm_rates(int pcm)
 {
     static const std::array<const uint32_t,12> rates {
         5512, 8000, 11025, 16000, 22050, 32000, 44100, 48000, 88200,
@@ -339,7 +334,7 @@ QString ELD::print_pcm_rates(int pcm)
  * Print the supported PCM fmt bits to the string buffer
  * \param pcm PCM caps bits
  */
-QString ELD::print_pcm_bits(int pcm)
+QString eld::print_pcm_bits(int pcm)
 {
     static const std::array<const uint8_t,3> bits { 16, 20, 24 };
     QString result = QString();
@@ -354,7 +349,7 @@ QString ELD::print_pcm_bits(int pcm)
     return result;
 }
 
-QString ELD::sad_desc(int index)
+QString eld::sad_desc(int index)
 {
     cea_sad *a = m_e.sad + index;
     if (!a->format)
@@ -372,13 +367,11 @@ QString ELD::sad_desc(int index)
 
     return QString("supports coding type %1:"
                    " channels = %2, rates =%3%4")
-        .arg(audiotype_names[a->format])
-        .arg(a->channels)
-        .arg(buf)
-        .arg(buf2);
+        .arg(audiotype_names[a->format], QString::number(a->channels),
+             buf, buf2);
 }
 
-QString ELD::channel_allocation_desc() const
+QString eld::channel_allocation_desc() const
 {
     QString result = QString();
 
@@ -392,7 +385,7 @@ QString ELD::channel_allocation_desc() const
     return result;
 }
 
-QString ELD::eld_version_name() const
+QString eld::eld_version_name() const
 {
     switch (m_e.eld_ver)
     {
@@ -402,7 +395,7 @@ QString ELD::eld_version_name() const
     }
 }
 
-QString ELD::edid_version_name() const
+QString eld::edid_version_name() const
 {
     switch (m_e.cea_edid_ver)
     {
@@ -414,7 +407,7 @@ QString ELD::edid_version_name() const
     }
 }
 
-QString ELD::info_desc() const
+QString eld::info_desc() const
 {
     QString result = QString("manufacture_id\t\t0x%1\n")
         .arg(m_e.manufacture_id, 0, 16);
@@ -427,12 +420,12 @@ QString ELD::info_desc() const
     return result;
 }
 
-bool ELD::isValid() const
+bool eld::isValid() const
 {
     return m_e.eld_valid;
 }
 
-void ELD::show()
+void eld::show()
 {
     if (!isValid())
     {
@@ -440,8 +433,7 @@ void ELD::show()
         return;
     }
     VBAUDIO(QString("Detected monitor %1 at connection type %2")
-            .arg(product_name().simplified())
-            .arg(connection_name()));
+            .arg(product_name().simplified(), connection_name()));
 
     if (m_e.spk_alloc)
     {
@@ -457,17 +449,17 @@ void ELD::show()
     }
 }
 
-QString ELD::product_name()
+QString eld::product_name() const
 {
-    return QString(m_e.monitor_name);
+    return m_e.monitor_name;
 }
 
-QString ELD::connection_name() const
+QString eld::connection_name() const
 {
     return eld_connection_type_names[m_e.conn_type];
 }
 
-int ELD::maxLPCMChannels()
+int eld::maxLPCMChannels()
 {
     int channels = 2; // assume stereo at the minimum
     for (int i = 0; i < m_e.sad_count; i++)
@@ -482,7 +474,7 @@ int ELD::maxLPCMChannels()
     return channels;
 }
 
-int ELD::maxChannels()
+int eld::maxChannels()
 {
     int channels = 2; // assume stereo at the minimum
     for (int i = 0; i < m_e.sad_count; i++)
@@ -494,7 +486,7 @@ int ELD::maxChannels()
     return channels;
 }
 
-QString ELD::codecs_desc() const
+QString eld::codecs_desc() const
 {
     QString result = QString();
     bool found_one = false;

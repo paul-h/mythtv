@@ -6,6 +6,7 @@
 // Qt
 #include <QCoreApplication>
 #include <QElapsedTimer>
+#include <QRegularExpression>
 #include <QSemaphore>
 #include <QSqlDriver>
 #include <QSqlError>
@@ -32,7 +33,7 @@
 #include <cstdlib>
 #endif
 
-static const uint kPurgeTimeout = 60 * 60;
+static constexpr std::chrono::seconds kPurgeTimeout { 1h };
 
 bool TestDatabase(const QString& dbHostName,
                   const QString& dbUserName,
@@ -58,7 +59,7 @@ bool TestDatabase(const QString& dbHostName,
 
     // Just use some sane defaults for these values
     dbparms.m_wolEnabled = false;
-    dbparms.m_wolReconnect = 1;
+    dbparms.m_wolReconnect = 1s;
     dbparms.m_wolRetry = 3;
     dbparms.m_wolCommand = QString();
 
@@ -185,7 +186,7 @@ bool MSqlDatabase::OpenDatabase(bool skipdb)
                             .arg(m_dbparms.m_wolCommand));
                 }
 
-                sleep(m_dbparms.m_wolReconnect);
+                sleep(m_dbparms.m_wolReconnect.count());
                 connected = m_db.open();
             }
 
@@ -199,8 +200,7 @@ bool MSqlDatabase::OpenDatabase(bool skipdb)
         {
             LOG(VB_DATABASE, LOG_INFO,
                     QString("[%1] Connected to database '%2' at host: %3")
-                            .arg(m_name)
-                            .arg(m_db.databaseName()).arg(m_db.hostName()));
+                        .arg(m_name, m_db.databaseName(), m_db.hostName()));
 
             InitSessionVars();
 
@@ -386,7 +386,7 @@ void MDBManager::PurgeIdleConnections(bool leaveOne)
     while (it != list.end())
     {
         totalConnections++;
-        if ((*it)->m_lastDBKick.secsTo(now) <= (int)kPurgeTimeout)
+        if ((*it)->m_lastDBKick.secsTo(now) <= kPurgeTimeout.count())
         {
             ++it;
             continue;
@@ -638,23 +638,27 @@ bool MSqlQuery::exec()
     bool result = QSqlQuery::exec();
     qint64 elapsed = timer.elapsed();
 
-    // if the query failed with "MySQL server has gone away"
-    // Close and reopen the database connection and retry the query if it
-    // connects again
-    if (!result
-        && QSqlQuery::lastError().nativeErrorCode() == "2006"
-        && Reconnect())
+    if (!result && lostConnectionCheck())
         result = QSqlQuery::exec();
 
     if (!result)
     {
         QString err = MythDB::GetError("MSqlQuery", *this);
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
         MSqlBindings tmp = QSqlQuery::boundValues();
+#else
+        QVariantList tmp = QSqlQuery::boundValues();
+#endif
         bool has_null_strings = false;
         // NOLINTNEXTLINE(modernize-loop-convert)
-        for (MSqlBindings::iterator it = tmp.begin(); it != tmp.end(); ++it)
+        for (auto it = tmp.begin(); it != tmp.end(); ++it)
         {
-            if (it->type() != QVariant::String)
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+            auto type = static_cast<QMetaType::Type>(it->type());
+#else
+            auto type = it->typeId();
+#endif
+            if (type != QMetaType::QString)
                 continue;
             if (it->isNull() || it->toString().isNull())
             {
@@ -664,7 +668,12 @@ bool MSqlQuery::exec()
         }
         if (has_null_strings)
         {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
             bindValues(tmp);
+#else
+	    for (int i = 0; i < static_cast<int>(tmp.size()); i++)
+		QSqlQuery::bindValue(i, tmp.at(i));
+#endif
             timer.restart();
             result = QSqlQuery::exec();
             elapsed = timer.elapsed();
@@ -690,19 +699,34 @@ bool MSqlQuery::exec()
             // the values in bound queries against a MySQL5 database.
             // So, replace the named placeholders with their values.
 
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
             QMapIterator<QString, QVariant> b = boundValues();
             while (b.hasNext())
             {
                 b.next();
                 str.replace(b.key(), '\'' + b.value().toString() + '\'');
             }
+#else
+            QVariantList b = boundValues();
+            static const QRegularExpression placeholders { "(:\\w+)" };
+            auto match = placeholders.match(str);
+            while (match.hasMatch())
+            {
+                str.replace(match.capturedStart(), match.capturedLength(),
+                            b.isEmpty()
+                            ? "\'INVALID\'"
+                            : '\'' + b.takeFirst().toString() + '\'');
+                match = placeholders.match(str);
+            }
+#endif
 
             LOG(VB_DATABASE, LOG_INFO,
                 QString("MSqlQuery::exec(%1) %2%3%4")
-                        .arg(m_db->MSqlDatabase::GetConnectionName()).arg(str)
-                        .arg(QString(" <<<< Took %1ms").arg(QString::number(elapsed)))
-                        .arg(isSelect() ? QString(", Returned %1 row(s)")
-                                              .arg(size()) : QString()));
+                        .arg(m_db->MSqlDatabase::GetConnectionName(), str,
+                             QString(" <<<< Took %1ms").arg(QString::number(elapsed)),
+                             isSelect()
+                             ? QString(", Returned %1 row(s)").arg(size())
+                             : QString()));
         }
     }
 
@@ -727,19 +751,15 @@ bool MSqlQuery::exec(const QString &query)
 
     bool result = QSqlQuery::exec(query);
 
-    // if the query failed with "MySQL server has gone away"
-    // Close and reopen the database connection and retry the query if it
-    // connects again
-    if (!result
-        && QSqlQuery::lastError().nativeErrorCode() == "2006"
-        && Reconnect())
+    if (!result && lostConnectionCheck())
         result = QSqlQuery::exec(query);
 
     LOG(VB_DATABASE, LOG_INFO,
             QString("MSqlQuery::exec(%1) %2%3")
-                    .arg(m_db->MSqlDatabase::GetConnectionName()).arg(query)
-                    .arg(isSelect() ? QString(" <<<< Returns %1 row(s)")
-                                          .arg(size()) : QString()));
+                    .arg(m_db->MSqlDatabase::GetConnectionName(), query,
+                         isSelect()
+                         ? QString(" <<<< Returns %1 row(s)").arg(size())
+                         : QString()));
 
     return result;
 }
@@ -773,8 +793,7 @@ bool MSqlQuery::seekDebug(const char *type, bool result,
         {
             LOG(VB_DATABASE, LOG_DEBUG,
                 QString("MSqlQuery::%1(%2) Result: \"%3\"")
-                .arg(type).arg(m_db->MSqlDatabase::GetConnectionName())
-                .arg(str));
+                .arg(type, m_db->MSqlDatabase::GetConnectionName(), str));
         }
     }
     return result;
@@ -830,12 +849,7 @@ bool MSqlQuery::prepare(const QString& query)
 
     bool ok = QSqlQuery::prepare(query);
 
-    // if the prepare failed with "MySQL server has gone away"
-    // Close and reopen the database connection and retry the query if it
-    // connects again
-    if (!ok
-        && QSqlQuery::lastError().nativeErrorCode() == "2006"
-        && Reconnect())
+    if (!ok && lostConnectionCheck())
         ok = true;
 
     if (!ok && !(GetMythDB()->SuppressDBMessages()))
@@ -868,7 +882,12 @@ void MSqlQuery::bindValue(const QString &placeholder, const QVariant &val)
 
 void MSqlQuery::bindValueNoNull(const QString &placeholder, const QVariant &val)
 {
-    if ((val.type() == QVariant::String) && val.isNull())
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+    auto type = static_cast<QMetaType::Type>(val.type());
+#else
+    auto type = val.typeId();
+#endif
+    if (type == QMetaType::QString && val.toString().isNull())
     {
         QSqlQuery::bindValue(placeholder, QString(""), QSql::In);
         return;
@@ -896,12 +915,41 @@ bool MSqlQuery::Reconnect(void)
         return false;
     if (!m_lastPreparedQuery.isEmpty())
     {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
         MSqlBindings tmp = QSqlQuery::boundValues();
         if (!QSqlQuery::prepare(m_lastPreparedQuery))
             return false;
         bindValues(tmp);
+#else
+        QVariantList tmp = QSqlQuery::boundValues();
+        if (!QSqlQuery::prepare(m_lastPreparedQuery))
+            return false;
+	for (int i = 0; i < static_cast<int>(tmp.size()); i++)
+	    QSqlQuery::bindValue(i, tmp.at(i));
+#endif
     }
     return true;
+}
+
+bool MSqlQuery::lostConnectionCheck()
+{
+    // MySQL: Error number: 2006; Symbol: CR_SERVER_GONE_ERROR
+    // MySQL: Error number: 2013; Symbol: CR_SERVER_LOST
+    // MySQL: Error number: 4031; Symbol: ER_CLIENT_INTERACTION_TIMEOUT
+    // Note: In MariaDB, 4031 = ER_REFERENCED_TRG_DOES_NOT_EXIST
+
+    static QStringList kLostConnectionCodes = { "2006", "2013", "4031" };
+
+    QString error_code = QSqlQuery::lastError().nativeErrorCode();
+
+    // Make capturing of new 'lost connection' like error codes easy.
+    LOG(VB_GENERAL, LOG_DEBUG, QString("SQL Native Error Code: %1")
+        .arg(error_code));
+
+    // If the query failed with any of the error codes that say the server
+    // is gone, close and reopen the database connection.
+    return (kLostConnectionCodes.contains(error_code) && Reconnect());
+
 }
 
 void MSqlAddMoreBindings(MSqlBindings &output, MSqlBindings &addfrom)
@@ -925,31 +973,35 @@ struct Holder {
     int     m_holderPos;
 };
 
-void MSqlEscapeAsAQuery(QString &query, MSqlBindings &bindings)
+void MSqlEscapeAsAQuery(QString &query, const MSqlBindings &bindings)
 {
     MSqlQuery result(MSqlQuery::InitCon());
 
-    QString q = query;
-    QRegExp rx(QString::fromLatin1("'[^']*'|:([a-zA-Z0-9_]+)"));
+    QRegularExpression rx { "('[^']+'|:\\w+)",
+        QRegularExpression::UseUnicodePropertiesOption};
 
     QVector<Holder> holders;
 
-    int i = 0;
-    while ((i = rx.indexIn(q, i)) != -1)
+    auto matchIter = rx.globalMatch(query);
+    while (matchIter.hasNext())
     {
-        if (!rx.cap(1).isEmpty())
-            holders.append(Holder(rx.cap(0), i));
-        i += rx.matchedLength();
+        auto match = matchIter.next();
+        if (match.capturedLength(1) > 0)
+            holders.append(Holder(match.captured(), match.capturedStart()));
     }
 
     QVariant val;
     QString holder;
 
-    for (i = holders.count() - 1; i >= 0; --i)
+    for (int i = holders.count() - 1; i >= 0; --i)
     {
         holder = holders[(uint)i].m_holderName;
         val = bindings[holder];
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
         QSqlField f("", val.type());
+#else
+        QSqlField f("", val.metaType());
+#endif
         if (val.isNull())
             f.clear();
         else

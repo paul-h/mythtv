@@ -7,7 +7,7 @@
 namespace UPnPDateTime
 {
 
-QString DurationFormat(uint32_t msec)
+QString DurationFormat(std::chrono::milliseconds msec)
 {
     // Appendix D. Date&Time Syntax - UPnP ContentDirectory Service 2008, 2013
     // duration ::= 'P' [n 'D'] time
@@ -19,24 +19,24 @@ QString DurationFormat(uint32_t msec)
 
     QString durationStr = "P%1%2";
     QString dayStr;
-    if ( msec > (1000 * 3600 * 24) )
+    if ( msec > 24h )
     {
-        dayStr = QString("D%1").arg(msec % (1000 * 3600 * 24)); // 24 Hours
+        dayStr = QString("D%1").arg((msec % 24h).count());
     }
     QString timeStr = UPnPDateTime::TimeFormat(msec);
 
-    return durationStr.arg(dayStr).arg(timeStr);
+    return durationStr.arg(dayStr, timeStr);
 }
 
-QString TimeFormat(const QTime &time)
+QString TimeFormat(const QTime time)
 {
     QString timeStr = time.toString("HH:mm:ss");
     return timeStr;
 }
 
-QString TimeFormat(uint32_t msec)
+    QString TimeFormat(std::chrono::milliseconds msec)
 {
-    QTime time = QTime::fromMSecsSinceStartOfDay(msec);
+    QTime time = QTime::fromMSecsSinceStartOfDay(msec.count());
     return time.toString("HH:mm:ss");
 }
 
@@ -51,7 +51,7 @@ QString NamedDayFormat(const QDateTime &dateTime)
     return UPnPDateTime::NamedDayFormat(dateTime.date());
 }
 
-QString NamedDayFormat(const QDate &date)
+QString NamedDayFormat(const QDate date)
 {
     // Note QDate::toString() and QDate::shortDayName() return localized strings
     // which are of no use to us.
@@ -78,7 +78,7 @@ QString NamedDayFormat(const QDate &date)
     }
 }
 
-QString resDurationFormat(uint32_t msec)
+QString resDurationFormat(std::chrono::milliseconds msec)
 {
     // Appendix B.2 Resource Encoding Characteristics Properties
     //          B.2.1.4 res@duration
@@ -88,7 +88,7 @@ QString resDurationFormat(uint32_t msec)
     // M = Minutes (2 digits, 0 prefix)
     // S = Seconds (2 digits, 0 prefix)
     // FS = Fractional Seconds (milliseconds)
-    QTime time = QTime::fromMSecsSinceStartOfDay(msec);
+    QTime time = QTime::fromMSecsSinceStartOfDay(msec.count());
     return time.toString("H:mm:ss:zzz");
 }
 
@@ -97,7 +97,7 @@ QString resDurationFormat(uint32_t msec)
 namespace DLNA
 {
 
-QString DLNAProfileName(const QString &mimeType, const QSize &resolution,
+QString DLNAProfileName(const QString &mimeType, const QSize resolution,
                         const double /*videoFrameRate*/, const QString &container,
                         const QString &vidCodec, const QString &audioCodec)
 {
@@ -234,7 +234,7 @@ QString DLNAProfileName(const QString &mimeType, const QSize &resolution,
 }
 
 QString DLNAFourthField(UPNPProtocol::TransferProtocol protocol,
-                        const QString &mimeType, const QSize &resolution,
+                        const QString &mimeType, const QSize resolution,
                         double videoFrameRate, const QString &container,
                         const QString &videoCodec, const QString &audioCodec,
                         bool isTranscoded)
@@ -313,7 +313,7 @@ QString DLNAFourthField(UPNPProtocol::TransferProtocol protocol,
 
 // NOTE The order of the DLNA args is mandatory - 7.4.1.3.17 MM protocolInfo values: 4th field
 QString ProtocolInfoString(UPNPProtocol::TransferProtocol protocol,
-                           const QString &mimeType, const QSize &resolution,
+                           const QString &mimeType, const QSize resolution,
                            double videoFrameRate, const QString &container,
                            const QString &videoCodec, const QString &audioCodec,
                            bool isTranscoded)
@@ -393,14 +393,14 @@ QString OpParamString(UPNPProtocol::TransferProtocol protocol)
     if (protocol == UPNPProtocol::kHTTP)
     {
         // Section 7.4.1.3.20
-        str = str.arg("0")  // A-val - DLNA Time Seek header support (not currently supported)
-                 .arg("1"); // B-val - HTTP Range support
+        str = str.arg("0",  // A-val - DLNA Time Seek header support (not currently supported)
+                      "1"); // B-val - HTTP Range support
     }
     else if (protocol == UPNPProtocol::kRTP)
     {
         // Section 7.4.1.3.21
-        str = str.arg("0")  // A-val - Range Header Support
-                 .arg("0"); // B-val - Must always zero
+        str = str.arg("0",  // A-val - Range Header Support
+                      "0"); // B-val - Must always zero
     }
 
     return str;

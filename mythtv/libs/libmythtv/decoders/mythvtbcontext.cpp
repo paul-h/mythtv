@@ -7,6 +7,7 @@
 #include "opengl/mythrenderopengl.h"
 #include "videobuffers.h"
 #include "mythvtbinterop.h"
+#include "mythplayerui.h"
 #include "mythvtbcontext.h"
 
 // FFmpeg
@@ -41,7 +42,7 @@ void MythVTBContext::InitVideoCodec(AVCodecContext *Context, bool SelectedStream
     MythCodecContext::InitVideoCodec(Context, SelectedStream, DirectRendering);
 }
 
-bool MythVTBContext::RetrieveFrame(AVCodecContext* Context, VideoFrame* Frame, AVFrame* AvFrame)
+bool MythVTBContext::RetrieveFrame(AVCodecContext* Context, MythVideoFrame* Frame, AVFrame* AvFrame)
 {
     if (AvFrame->format != AV_PIX_FMT_VIDEOTOOLBOX)
         return false;
@@ -82,6 +83,10 @@ MythCodecID MythVTBContext::GetSupportedCodec(AVCodecContext **Context,
 
     if (!Decoder.startsWith("vtb") || IsUnsupportedProfile(*Context))
         return failure;
+
+    if (!decodeonly)
+        if (!FrameTypeIsSupported(*Context, FMT_VTB))
+            return failure;
 
     // Check decoder support
     MythCodecContext::CodecProfile mythprofile = MythCodecContext::NoProfile;
@@ -127,35 +132,25 @@ int MythVTBContext::InitialiseDecoder(AVCodecContext *Context)
     if (!gCoreContext->IsUIThread())
         return -1;
 
+    // The interop must have a reference to the ui player so it can be deleted
+    // from the main thread.
+    auto * player = GetPlayerUI(Context);
+    if (!player)
+        return -1;
+
     // Retrieve OpenGL render context
-    MythRenderOpenGL* render = MythRenderOpenGL::GetOpenGLRender();
+    auto * render = dynamic_cast<MythRenderOpenGL*>(player->GetRender());
     if (!render)
         return -1;
     OpenGLLocker locker(render);
 
-    // We need a player to release the interop
-    MythPlayer *player = nullptr;
-    auto *decoder = reinterpret_cast<AvFormatDecoder*>(Context->opaque);
-    if (decoder)
-        player = decoder->GetPlayer();
-    if (!player)
-        return -1;
-
-    // Check interop support
-    MythVTBInterop::Type type = MythOpenGLInterop::GetInteropType(FMT_VTB, player);
-    if (type == MythOpenGLInterop::Unsupported)
-        return -1;
-
     // Create interop
-    MythVTBInterop* interop = MythVTBInterop::Create(render, type);
+    auto * interop = MythVTBInterop::CreateVTB(player, render);
     if (!interop)
         return -1;
 
-    // Set player
-    interop->SetPlayer(player);
-
     // Allocate the device context
-    AVBufferRef* deviceref = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
+    auto * deviceref = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VIDEOTOOLBOX);
     if (!deviceref)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create device context");
@@ -164,7 +159,7 @@ int MythVTBContext::InitialiseDecoder(AVCodecContext *Context)
     }
 
     // Add our interop class and set the callback for its release
-    auto* devicectx = reinterpret_cast<AVHWDeviceContext*>(deviceref->data);
+    auto * devicectx = reinterpret_cast<AVHWDeviceContext*>(deviceref->data);
     devicectx->user_opaque = interop;
     devicectx->free        = MythCodecContext::DeviceContextFinished;
 
@@ -205,7 +200,11 @@ enum AVPixelFormat MythVTBContext::GetFormat(struct AVCodecContext* Context, con
 
 const VTBProfiles& MythVTBContext::GetProfiles(void)
 {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     static QMutex lock(QMutex::Recursive);
+#else
+    static QRecursiveMutex lock;
+#endif
     static bool s_initialised = false;
     static VTBProfiles s_profiles;
 
@@ -237,13 +236,17 @@ const VTBProfiles& MythVTBContext::GetProfiles(void)
     return s_profiles;
 }
 
-bool MythVTBContext::HaveVTB(void)
+bool MythVTBContext::HaveVTB(bool Reinit /*=false*/)
 {
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     static QMutex lock(QMutex::Recursive);
+#else
+    static QRecursiveMutex lock;
+#endif
     QMutexLocker locker(&lock);
     static bool s_checked = false;
     static bool s_available = false;
-    if (!s_checked)
+    if (!s_checked || Reinit)
     {
         const VTBProfiles& profiles = MythVTBContext::GetProfiles();
         if (profiles.empty())
@@ -306,7 +309,7 @@ void MythVTBContext::InitFramesContext(AVCodecContext *Context)
         return;
 
     AVPixelFormat format = AV_PIX_FMT_NV12;
-    if (ColorDepth(PixelFormatToFrameType(Context->sw_pix_fmt)) > 8)
+    if (MythVideoFrame::ColorDepth(MythAVUtil::PixelFormatToFrameType(Context->sw_pix_fmt)) > 8)
         format = AV_PIX_FMT_P010;
 
     if (m_framesContext)

@@ -1,5 +1,4 @@
 #include <algorithm>
-using namespace std;
 
 #include "ClassicSceneChangeDetector.h"
 #include "Histogram.h"
@@ -27,7 +26,7 @@ void ClassicSceneChangeDetector::deleteLater(void)
     SceneChangeDetectorBase::deleteLater();
 }
 
-void ClassicSceneChangeDetector::processFrame(VideoFrame* frame)
+void ClassicSceneChangeDetector::processFrame(MythVideoFrame* frame)
 {
     m_histogram->generateFromImage(frame, m_width, m_height, m_commdetectborder,
                                  m_width-m_commdetectborder, m_commdetectborder,
@@ -36,7 +35,7 @@ void ClassicSceneChangeDetector::processFrame(VideoFrame* frame)
 
     bool isSceneChange = (similar < .85F && !m_previousFrameWasSceneChange);
 
-    emit(haveNewInformation(m_frameNumber,isSceneChange,similar));
+    emit haveNewInformation(m_frameNumber,isSceneChange,similar);
     m_previousFrameWasSceneChange = isSceneChange;
 
     std::swap(m_histogram,m_previousHistogram);

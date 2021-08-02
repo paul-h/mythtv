@@ -51,7 +51,7 @@ struct RipTrack
 {
     MusicMetadata *metadata;
     bool           active;
-    int            length;
+    std::chrono::milliseconds length;
     bool           isNew;
 };
 
@@ -119,8 +119,8 @@ class Ripper : public MythScreenType
     void yearChanged(void);
     void compilationChanged(bool state);
     void switchTitlesAndArtists();
-    void searchArtist(void);
-    void searchAlbum(void);
+    void searchArtist(void) const;
+    void searchAlbum(void) const;
     void searchGenre(void);
     void setArtist(const QString& artist);
     void setAlbum(const QString& album);
@@ -132,7 +132,7 @@ class Ripper : public MythScreenType
     void ScanFinished(void);
     void metadataChanged(void);
     void showEditMetadataDialog(void);
-    void chooseBackend(void);
+    void chooseBackend(void) const;
     void setSaveHost(const QString& host);
 
   signals:

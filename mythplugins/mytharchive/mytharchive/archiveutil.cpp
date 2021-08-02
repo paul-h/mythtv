@@ -4,7 +4,6 @@
 #include <iostream>
 #include <sys/stat.h>
 #include <unistd.h>
-using namespace std;
 
 // qt
 #include <QDomDocument>
@@ -26,7 +25,7 @@ using namespace std;
 #include "archiveutil.h"
 
 
-struct ArchiveDestination ArchiveDestinations[] =
+std::vector<ArchiveDestination> ArchiveDestinations
 {
     {AD_DVD_SL,
      QT_TRANSLATE_NOOP("SelectDestination", "Single Layer DVD"),
@@ -45,8 +44,6 @@ struct ArchiveDestination ArchiveDestinations[] =
      QT_TRANSLATE_NOOP("SelectDestination", "Any file accessable from your filesystem."),
      -1},
 };
-
-int ArchiveDestinationsCount = sizeof(ArchiveDestinations) / sizeof(ArchiveDestinations[0]);
 
 QString formatSize(int64_t sizeKB, int prec)
 {
@@ -125,7 +122,7 @@ void checkTempDirectory()
                 "Failed to change permissions on archive directory: " + ENO);
     }
 
-    dir = QDir(workDir);
+    dir.setPath(workDir);;
     if (!dir.exists())
     {
         dir.mkdir(workDir);
@@ -137,7 +134,7 @@ void checkTempDirectory()
         }
     }
 
-    dir = QDir(logDir);
+    dir.setPath(logDir);;
     if (!dir.exists())
     {
         dir.mkdir(logDir);
@@ -148,7 +145,7 @@ void checkTempDirectory()
                 ENO);
         }
     }
-    dir = QDir(configDir);
+    dir.setPath(configDir);;
     if (!dir.exists())
     {
         dir.mkdir(configDir);
@@ -196,7 +193,7 @@ bool extractDetailsFromFilename(const QString &inFile,
     }
 
     LOG(VB_JOBQUEUE, LOG_INFO,
-        QString("chanid: %1 starttime:%2 ").arg(chanID).arg(startTime));
+        QString("chanid: %1 starttime:%2 ").arg(chanID, startTime));
 
     return true;
 }
@@ -265,7 +262,7 @@ bool getFileDetails(ArchiveItem *a)
     // call mytharchivehelper to get files stream info etc.
     QString command = QString("mytharchivehelper --getfileinfo --infile \"%1\" "
                               "--outfile \"%2\" --method %3")
-            .arg(inFile).arg(outFile).arg(lenMethod);
+            .arg(inFile, outFile, QString::number(lenMethod));
     command += logPropagateArgs;
     if (!logPropagateQuiet())
         command += " --quiet";

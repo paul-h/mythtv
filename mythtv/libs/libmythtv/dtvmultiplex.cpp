@@ -34,13 +34,14 @@ bool DTVMultiplex::operator==(const DTVMultiplex &m) const
 QString DTVMultiplex::toString() const
 {
     QString ret = QString("%1 %2 %3 ")
-        .arg(m_frequency).arg(m_modulation.toString()).arg(m_inversion.toString());
+        .arg(QString::number(m_frequency), m_modulation.toString(),
+             m_inversion.toString());
 
     ret += QString("%1 %2 %3 %4 %5 %6 %7")
-        .arg(m_hpCodeRate.toString()).arg(m_lpCodeRate.toString())
-        .arg(m_bandwidth.toString()).arg(m_transMode.toString())
-        .arg(m_guardInterval.toString()).arg(m_hierarchy.toString())
-        .arg(m_polarity.toString());
+        .arg(m_hpCodeRate.toString(),    m_lpCodeRate.toString(),
+             m_bandwidth.toString(),     m_transMode.toString(),
+             m_guardInterval.toString(), m_hierarchy.toString(),
+             m_polarity.toString());
     ret += QString(" fec:%1 msys:%2 ro:%3")
         .arg(m_fec.toString(),-4).arg(m_modSys.toString(),-6).arg(m_rolloff.toString());
 
@@ -257,7 +258,6 @@ bool DTVMultiplex::ParseDVB_C(
 
     // Only DVB-C variants can be used with a DVB-C tuner.
     if ((DTVModulationSystem::kModulationSystem_DVBC_ANNEX_A != m_modSys) &&
-        (DTVModulationSystem::kModulationSystem_DVBC_ANNEX_B != m_modSys) &&
         (DTVModulationSystem::kModulationSystem_DVBC_ANNEX_C != m_modSys))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Unsupported DVB-C modulation system " +
@@ -322,7 +322,7 @@ bool DTVMultiplex::ParseDVB_T2(
     {
         m_modSys = DTVModulationSystem::kModulationSystem_DVBT;
         LOG(VB_GENERAL, LOG_WARNING, LOC + "Deprecated DVB-T modulation system " +
-                QString("parameter '%1', using %2.").arg(_mod_sys).arg(m_modSys.toString()));
+                QString("parameter '%1', using %2.").arg(_mod_sys, m_modSys.toString()));
     }
 
     // Accept 1 for DVB-T2
@@ -330,7 +330,7 @@ bool DTVMultiplex::ParseDVB_T2(
     {
         m_modSys = DTVModulationSystem::kModulationSystem_DVBT2;
         LOG(VB_GENERAL, LOG_WARNING, LOC + "Deprecated DVB-T2 modulation system " +
-                QString("parameter '%1', using %2.").arg(_mod_sys).arg(m_modSys.toString()));
+                QString("parameter '%1', using %2.").arg(_mod_sys, m_modSys.toString()));
     }
 
     // We have a DVB-T2 tuner, change undefined modulation system to DVB-T2
@@ -622,21 +622,21 @@ uint ScanDTVTransport::SaveScan(uint scanid) const
     query.prepare(
         "INSERT INTO channelscan_dtv_multiplex "
         " (  scanid, "
-        "    mplexid,            frequency,       inversion,  "
-        "    symbolrate,         fec,             polarity,   "
-        "    hp_code_rate,       lp_code_rate,    modulation, "
-        "    transmission_mode,  guard_interval,  hierarchy,  "
-        "    mod_sys,            rolloff,                     "
-        "    bandwidth,          sistandard,      tuner_type  "
+        "    mplexid,            frequency,       inversion,      "
+        "    symbolrate,         fec,             polarity,       "
+        "    hp_code_rate,       lp_code_rate,    modulation,     "
+        "    transmission_mode,  guard_interval,  hierarchy,      "
+        "    mod_sys,            rolloff,         bandwidth,      "
+        "    sistandard,         tuner_type,      signal_strength "
         " ) "
         "VALUES "
         " ( :SCANID, "
-        "   :MPLEXID,           :FREQUENCY,      :INVERSION,  "
-        "   :SYMBOLRATE,        :FEC,            :POLARITY,   "
-        "   :HP_CODE_RATE,      :LP_CODE_RATE,   :MODULATION, "
-        "   :TRANSMISSION_MODE, :GUARD_INTERVAL, :HIERARCHY,  "
-        "   :MOD_SYS,           :ROLLOFF,                     "
-        "   :BANDWIDTH,         :SISTANDARD,     :TUNER_TYPE  "
+        "   :MPLEXID,           :FREQUENCY,      :INVERSION,      "
+        "   :SYMBOLRATE,        :FEC,            :POLARITY,       "
+        "   :HP_CODE_RATE,      :LP_CODE_RATE,   :MODULATION,     "
+        "   :TRANSMISSION_MODE, :GUARD_INTERVAL, :HIERARCHY,      "
+        "   :MOD_SYS,           :ROLLOFF,        :BANDWIDTH,      "
+        "   :SISTANDARD,        :TUNER_TYPE,     :SIGNAL_STRENGTH "
         " );");
 
     query.bindValue(":SCANID", scanid);
@@ -656,7 +656,8 @@ uint ScanDTVTransport::SaveScan(uint scanid) const
     query.bindValue(":ROLLOFF", m_rolloff.toString());
     query.bindValue(":BANDWIDTH", m_bandwidth.toString());
     query.bindValue(":SISTANDARD", m_sistandard);
-    query.bindValue(":TUNER_TYPE", (uint)m_tuner_type);
+    query.bindValue(":TUNER_TYPE", m_tunerType.toUInt());
+    query.bindValue(":SIGNAL_STRENGTH", m_signalStrength);
 
     if (!query.exec())
     {
@@ -686,9 +687,10 @@ bool ScanDTVTransport::ParseTuningParams(
     const QString& _hp_code_rate, const QString& _lp_code_rate,   const QString& _ofdm_modulation,
     const QString& _trans_mode,   const QString& _guard_interval, const QString& _hierarchy,
     const QString& _modulation,   const QString& _bandwidth,      const QString& _mod_sys,
-    const QString& _rolloff)
+    const QString& _rolloff,      const QString& signal_strength)
 {
-    m_tuner_type = type;
+    m_tunerType = type;
+    m_signalStrength = signal_strength.toInt();
 
     return DTVMultiplex::ParseTuningParams(
         type,

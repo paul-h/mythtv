@@ -18,8 +18,8 @@ MythUIButtonTree::MythUIButtonTree(MythUIType *parent, const QString &name)
 {
     SetCanTakeFocus(true);
 
-    connect(this, SIGNAL(TakingFocus()), this, SLOT(Select()));
-    connect(this, SIGNAL(LosingFocus()), this, SLOT(Deselect()));
+    connect(this, &MythUIType::TakingFocus, this, &MythUIButtonTree::Select);
+    connect(this, &MythUIType::LosingFocus, this, &MythUIButtonTree::Deselect);
 }
 
 /*!
@@ -146,7 +146,7 @@ void MythUIButtonTree::SetTreeState(bool refreshAll)
  *
  * \return True if successful, False if the node had no children or was invalid
  */
-bool MythUIButtonTree::UpdateList(MythUIButtonList *list, MythGenericTree *node)
+bool MythUIButtonTree::UpdateList(MythUIButtonList *list, MythGenericTree *node) const
 {
     disconnect(list, nullptr, nullptr, nullptr);
 
@@ -184,12 +184,12 @@ bool MythUIButtonTree::UpdateList(MythUIButtonList *list, MythGenericTree *node)
     if (selectedItem)
         list->SetItemCurrent(selectedItem);
 
-    connect(list, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            SLOT(handleSelect(MythUIButtonListItem *)));
-    connect(list, SIGNAL(itemClicked(MythUIButtonListItem *)),
-            SLOT(handleClick(MythUIButtonListItem *)));
-    connect(list, SIGNAL(itemVisible(MythUIButtonListItem *)),
-            SLOT(handleVisible(MythUIButtonListItem *)));
+    connect(list, &MythUIButtonList::itemSelected,
+            this, &MythUIButtonTree::handleSelect);
+    connect(list, &MythUIButtonList::itemClicked,
+            this, &MythUIButtonTree::handleClick);
+    connect(list, &MythUIButtonList::itemVisible,
+            this, &MythUIButtonTree::handleVisible);
 
     return true;
 }
@@ -624,7 +624,7 @@ bool MythUIButtonTree::gestureEvent(MythGestureEvent *event)
 {
     bool handled = false;
 
-    if (event->gesture() == MythGestureEvent::Click)
+    if (event->GetGesture() == MythGestureEvent::Click)
     {
         // We want the relative position of the click
         QPoint position = event->GetPosition() -

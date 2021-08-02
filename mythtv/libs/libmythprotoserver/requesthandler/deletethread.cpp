@@ -2,8 +2,6 @@
 #include <iostream>
 #include <fcntl.h>
 
-using namespace std;
-
 #include <QList>
 #include <QTimer>
 #include <QString>
@@ -44,7 +42,7 @@ void DeleteThread::run(void)
         // loop through any stored files every half second 
         ProcessNew();
         ProcessOld();
-        usleep(500000);
+        usleep(0.5s);
     }
 
     if (!m_files.empty())
@@ -126,7 +124,7 @@ void DeleteThread::ProcessNew(void)
                 {
                     LOG(VB_GENERAL, LOG_ERR, 
                         QString("Error deleting '%1' -> '%2': ")
-                            .arg(handler->m_path).arg(tmppath) + ENO);
+                            .arg(handler->m_path, tmppath) + ENO);
                     handler->DeleteFailed();
                     handler->DecrRef();
                     continue;

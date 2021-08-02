@@ -30,13 +30,13 @@ bool KeyGrabPopupBox::Create(void)
         return false;
     }
 
-    QString label = QString("%1\n\n%2").arg(tr("Press A Key"))
-                                       .arg(tr("Waiting for key press"));
+    QString label = QString("%1\n\n%2").arg(tr("Press A Key"),
+                                            tr("Waiting for key press"));
 
     m_messageText->SetText(label);
 
-    connect(m_okButton, SIGNAL(Clicked()), SLOT(SendResult()));
-    connect(m_cancelButton, SIGNAL(Clicked()), SLOT(Close()));
+    connect(m_okButton, &MythUIButton::Clicked, this, &KeyGrabPopupBox::SendResult);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
 
     m_okButton->SetEnabled(false);
     m_cancelButton->SetEnabled(false);

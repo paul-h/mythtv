@@ -13,11 +13,9 @@
 
 #include <QKeyEvent>
 #include <QEvent>
-#include <QTextCodec>
 #include <QWidget>
 #include <QApplication>
 #include <QString>
-#include <QRegExp>
 #include <QFileInfo>
 #include <QDir>
 
@@ -42,8 +40,6 @@
 #define LOC      QString("MythScreenWizard: ")
 #define LOC_WARN QString("MythScreenWizard, Warning: ")
 #define LOC_ERR  QString("MythScreenWizard, Error: ")
-
-using namespace std;
 
 namespace
 {
@@ -119,7 +115,7 @@ int main(int argc, char **argv)
         return GENERIC_EXIT_OK;
     }
 
-    MythDisplay::ConfigureQtGUI(1, cmdline.toString("display"));
+    MythDisplay::ConfigureQtGUI(1, cmdline);
     QApplication a(argc, argv);
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHSCREENWIZARD);
 
@@ -170,8 +166,6 @@ int main(int argc, char **argv)
     gCoreContext->OverrideSettingForSession("GuiHeight",  "0");
 
     cmdline.ApplySettingsOverride();
-
-    GetMythUI()->LoadQtConfig();
 
     QString themename = gCoreContext->GetSetting("Theme", DEFAULT_UI_THEME);
     QString themedir = GetMythUI()->FindThemeDir(themename);

@@ -15,7 +15,7 @@ namespace DTC
 class SERVICE_PUBLIC RecRule : public QObject
 {
     Q_OBJECT
-    Q_CLASSINFO( "version"    , "2.00" );
+    Q_CLASSINFO( "version"    , "2.10" );
 
     Q_PROPERTY( int             Id              READ Id               WRITE setId             )
     Q_PROPERTY( int             ParentId        READ ParentId         WRITE setParentId       )
@@ -46,6 +46,7 @@ class SERVICE_PUBLIC RecRule : public QObject
     Q_PROPERTY( int             EndOffset       READ EndOffset        WRITE setEndOffset      )
     Q_PROPERTY( QString         DupMethod       READ DupMethod        WRITE setDupMethod      )
     Q_PROPERTY( QString         DupIn           READ DupIn            WRITE setDupIn          )
+    Q_PROPERTY( bool            NewEpisOnly     READ NewEpisOnly      WRITE setNewEpisOnly    )
     Q_PROPERTY( uint            Filter          READ Filter           WRITE setFilter         )
 
     Q_PROPERTY( QString         RecProfile      READ RecProfile       WRITE setRecProfile     )
@@ -74,34 +75,35 @@ class SERVICE_PUBLIC RecRule : public QObject
     PROPERTYIMP    ( int        , Id             )
     PROPERTYIMP    ( int        , ParentId       )
     PROPERTYIMP    ( bool       , Inactive       )
-    PROPERTYIMP    ( QString    , Title          )
-    PROPERTYIMP    ( QString    , SubTitle       )
-    PROPERTYIMP    ( QString    , Description    )
+    PROPERTYIMP_REF( QString    , Title          )
+    PROPERTYIMP_REF( QString    , SubTitle       )
+    PROPERTYIMP_REF( QString    , Description    )
     PROPERTYIMP    ( uint       , Season         )
     PROPERTYIMP    ( uint       , Episode        )
-    PROPERTYIMP    ( QString    , Category       )
-    PROPERTYIMP    ( QDateTime  , StartTime      )
-    PROPERTYIMP    ( QDateTime  , EndTime        )
-    PROPERTYIMP    ( QString    , SeriesId       )
-    PROPERTYIMP    ( QString    , ProgramId      )
-    PROPERTYIMP    ( QString    , Inetref        )
+    PROPERTYIMP_REF( QString    , Category       )
+    PROPERTYIMP_REF( QDateTime  , StartTime      )
+    PROPERTYIMP_REF( QDateTime  , EndTime        )
+    PROPERTYIMP_REF( QString    , SeriesId       )
+    PROPERTYIMP_REF( QString    , ProgramId      )
+    PROPERTYIMP_REF( QString    , Inetref        )
     PROPERTYIMP    ( int        , ChanId         )
-    PROPERTYIMP    ( QString    , CallSign       )
+    PROPERTYIMP_REF( QString    , CallSign       )
     PROPERTYIMP    ( int        , FindDay        )
     PROPERTYIMP    ( QTime      , FindTime       )
-    PROPERTYIMP    ( QString    , Type           )
-    PROPERTYIMP    ( QString    , SearchType     )
+    PROPERTYIMP_REF( QString    , Type           )
+    PROPERTYIMP_REF( QString    , SearchType     )
     PROPERTYIMP    ( int        , RecPriority    )
     PROPERTYIMP    ( uint       , PreferredInput )
     PROPERTYIMP    ( int        , StartOffset    )
     PROPERTYIMP    ( int        , EndOffset      )
-    PROPERTYIMP    ( QString    , DupMethod      )
-    PROPERTYIMP    ( QString    , DupIn          )
+    PROPERTYIMP_REF( QString    , DupMethod      )
+    PROPERTYIMP_REF( QString    , DupIn          )
+    PROPERTYIMP    ( bool       , NewEpisOnly    )
     PROPERTYIMP    ( uint       , Filter         )
-    PROPERTYIMP    ( QString    , RecProfile     )
-    PROPERTYIMP    ( QString    , RecGroup       )
-    PROPERTYIMP    ( QString    , StorageGroup   )
-    PROPERTYIMP    ( QString    , PlayGroup      )
+    PROPERTYIMP_REF( QString    , RecProfile     )
+    PROPERTYIMP_REF( QString    , RecGroup       )
+    PROPERTYIMP_REF( QString    , StorageGroup   )
+    PROPERTYIMP_REF( QString    , PlayGroup      )
     PROPERTYIMP    ( bool       , AutoExpire     )
     PROPERTYIMP    ( int        , MaxEpisodes    )
     PROPERTYIMP    ( bool       , MaxNewest      )
@@ -113,9 +115,9 @@ class SERVICE_PUBLIC RecRule : public QObject
     PROPERTYIMP    ( bool       , AutoUserJob3   )
     PROPERTYIMP    ( bool       , AutoUserJob4   )
     PROPERTYIMP    ( int        , Transcoder     )
-    PROPERTYIMP    ( QDateTime  , NextRecording  )
-    PROPERTYIMP    ( QDateTime  , LastRecorded   )
-    PROPERTYIMP    ( QDateTime  , LastDeleted    )
+    PROPERTYIMP_REF( QDateTime  , NextRecording  )
+    PROPERTYIMP_REF( QDateTime  , LastRecorded   )
+    PROPERTYIMP_REF( QDateTime  , LastDeleted    )
     PROPERTYIMP    ( int        , AverageDelay   )
 
     public:
@@ -135,6 +137,7 @@ class SERVICE_PUBLIC RecRule : public QObject
               m_PreferredInput( 0      ),
               m_StartOffset   ( 0      ),
               m_EndOffset     ( 0      ),
+              m_NewEpisOnly   ( false  ),
               m_Filter        ( 0      ),
               m_AutoExpire    ( false  ),
               m_MaxEpisodes   ( 0      ),
@@ -179,6 +182,7 @@ class SERVICE_PUBLIC RecRule : public QObject
             m_EndOffset     = src->m_EndOffset     ;
             m_DupMethod     = src->m_DupMethod     ;
             m_DupIn         = src->m_DupIn         ;
+            m_NewEpisOnly   = src->m_NewEpisOnly   ;
             m_Filter        = src->m_Filter        ;
             m_RecProfile    = src->m_RecProfile    ;
             m_RecGroup      = src->m_RecGroup      ;

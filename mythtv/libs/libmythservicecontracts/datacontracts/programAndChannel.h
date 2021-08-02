@@ -3,7 +3,7 @@
 // Created     : Jan. 15, 2010
 //
 // Copyright (c) 2010 David Blain <dblain@mythtv.org>
-//                                          
+//
 // Licensed under the GPL v2 or later, see COPYING for details
 //
 //////////////////////////////////////////////////////////////////////////////
@@ -14,7 +14,7 @@
 #include <QDateTime>
 #include <QString>
 
-#include "serviceexp.h" 
+#include "serviceexp.h"
 #include "datacontracthelper.h"
 
 #include "recording.h"
@@ -32,7 +32,7 @@ class SERVICE_PUBLIC ChannelInfo : public QObject
     Q_OBJECT
     Q_CLASSINFO( "version", "2.2" );
 
-    // Q_CLASSINFO Used to augment Metadata for properties. 
+    // Q_CLASSINFO Used to augment Metadata for properties.
     // See datacontracthelper.h for details
 
     Q_CLASSINFO( "Programs", "type=DTC::Program");
@@ -66,28 +66,28 @@ class SERVICE_PUBLIC ChannelInfo : public QObject
     Q_PROPERTY( QVariantList Programs    READ Programs )
 
     PROPERTYIMP       ( uint        , ChanId         )
-    PROPERTYIMP       ( QString     , ChanNum        )
-    PROPERTYIMP       ( QString     , CallSign       )
-    PROPERTYIMP       ( QString     , IconURL        )
-    PROPERTYIMP       ( QString     , ChannelName    )
+    PROPERTYIMP_REF   ( QString     , ChanNum        )
+    PROPERTYIMP_REF   ( QString     , CallSign       )
+    PROPERTYIMP_REF   ( QString     , IconURL        )
+    PROPERTYIMP_REF   ( QString     , ChannelName    )
     PROPERTYIMP       ( uint        , MplexId        )
     PROPERTYIMP       ( uint        , ServiceId      )
     PROPERTYIMP       ( uint        , ATSCMajorChan  )
     PROPERTYIMP       ( uint        , ATSCMinorChan  )
-    PROPERTYIMP       ( QString     , Format         )
-    PROPERTYIMP       ( QString     , FrequencyId    )
+    PROPERTYIMP_REF   ( QString     , Format         )
+    PROPERTYIMP_REF   ( QString     , FrequencyId    )
     PROPERTYIMP       ( int         , FineTune       )
-    PROPERTYIMP       ( QString     , ChanFilters    )
+    PROPERTYIMP_REF   ( QString     , ChanFilters    )
     PROPERTYIMP       ( int         , SourceId       )
     PROPERTYIMP       ( int         , InputId        )
     PROPERTYIMP       ( bool        , CommFree       )
     PROPERTYIMP       ( bool        , UseEIT         )
     PROPERTYIMP       ( bool        , Visible        )
-    PROPERTYIMP       ( QString     , ExtendedVisible )
-    PROPERTYIMP       ( QString     , XMLTVID        )
-    PROPERTYIMP       ( QString     , DefaultAuth    )
-    PROPERTYIMP       ( QString     , ChannelGroups  )
-    PROPERTYIMP       ( QString     , Inputs         )
+    PROPERTYIMP_REF   ( QString     , ExtendedVisible )
+    PROPERTYIMP_REF   ( QString     , XMLTVID        )
+    PROPERTYIMP_REF   ( QString     , DefaultAuth    )
+    PROPERTYIMP_REF   ( QString     , ChannelGroups  )
+    PROPERTYIMP_REF   ( QString     , Inputs         )
     PROPERTYIMP       ( uint        , ServiceType    )
 
     PROPERTYIMP_RO_REF( QVariantList, Programs       )
@@ -145,7 +145,7 @@ class SERVICE_PUBLIC ChannelInfo : public QObject
 class SERVICE_PUBLIC Program : public QObject
 {
     Q_OBJECT
-    Q_CLASSINFO( "version"    , "1.11" );
+    Q_CLASSINFO( "version"    , "1.12" );
     Q_CLASSINFO( "defaultProp", "Description" );
     Q_CLASSINFO( "deprecated" , "FileSize,FileName,HostName");
 
@@ -157,14 +157,18 @@ class SERVICE_PUBLIC Program : public QObject
     Q_PROPERTY( QString     CatType      READ CatType      WRITE setCatType   )
     Q_PROPERTY( bool        Repeat       READ Repeat       WRITE setRepeat    )
     Q_PROPERTY( int         VideoProps   READ VideoProps   WRITE setVideoProps)
+    Q_PROPERTY( QString     VideoPropNames READ VideoPropNames WRITE setVideoPropNames  )
     Q_PROPERTY( int         AudioProps   READ AudioProps   WRITE setAudioProps)
+    Q_PROPERTY( QString     AudioPropNames READ AudioPropNames WRITE setAudioPropNames  )
     Q_PROPERTY( int         SubProps     READ SubProps     WRITE setSubProps  )
+    Q_PROPERTY( QString     SubPropNames READ SubPropNames WRITE setSubPropNames  )
 
     Q_PROPERTY( QString     SeriesId      READ SeriesId      WRITE setSeriesId      )
     Q_PROPERTY( QString     ProgramId     READ ProgramId     WRITE setProgramId     )
     Q_PROPERTY( double      Stars         READ Stars         WRITE setStars         )
     Q_PROPERTY( QDateTime   LastModified  READ LastModified  WRITE setLastModified  )
     Q_PROPERTY( int         ProgramFlags  READ ProgramFlags  WRITE setProgramFlags  )
+    Q_PROPERTY( QString     ProgramFlagNames READ ProgramFlagNames WRITE setProgramFlagNames  )
     Q_PROPERTY( QDate       Airdate       READ Airdate       WRITE setAirdate       )
     Q_PROPERTY( QString     Description   READ Description   WRITE setDescription   )
     Q_PROPERTY( QString     Inetref       READ Inetref       WRITE setInetref       )
@@ -185,25 +189,29 @@ class SERVICE_PUBLIC Program : public QObject
     Q_PROPERTY( QObject*    Artwork      READ Artwork   )
     Q_PROPERTY( QObject*    Cast         READ Cast      )
 
-    PROPERTYIMP    ( QDateTime   , StartTime    )
-    PROPERTYIMP    ( QDateTime   , EndTime      )
-    PROPERTYIMP    ( QString     , Title        )
-    PROPERTYIMP    ( QString     , SubTitle     )
-    PROPERTYIMP    ( QString     , Category     )
-    PROPERTYIMP    ( QString     , CatType      )
+    PROPERTYIMP_REF( QDateTime   , StartTime    )
+    PROPERTYIMP_REF( QDateTime   , EndTime      )
+    PROPERTYIMP_REF( QString     , Title        )
+    PROPERTYIMP_REF( QString     , SubTitle     )
+    PROPERTYIMP_REF( QString     , Category     )
+    PROPERTYIMP_REF( QString     , CatType      )
     PROPERTYIMP    ( bool        , Repeat       )
 
-    PROPERTYIMP    ( QString     , SeriesId     )
-    PROPERTYIMP    ( QString     , ProgramId    )
+    PROPERTYIMP_REF( QString     , SeriesId     )
+    PROPERTYIMP_REF( QString     , ProgramId    )
     PROPERTYIMP    ( double      , Stars        )
-    PROPERTYIMP    ( QDateTime   , LastModified )
+    PROPERTYIMP_REF( QDateTime   , LastModified )
     PROPERTYIMP    ( int         , ProgramFlags )
+    PROPERTYIMP_REF( QString     , ProgramFlagNames )
     PROPERTYIMP    ( int         , VideoProps   )
+    PROPERTYIMP_REF( QString     , VideoPropNames )
     PROPERTYIMP    ( int         , AudioProps   )
+    PROPERTYIMP_REF( QString     , AudioPropNames )
     PROPERTYIMP    ( int         , SubProps     )
+    PROPERTYIMP_REF( QString     , SubPropNames )
     PROPERTYIMP    ( QDate       , Airdate      )
-    PROPERTYIMP    ( QString     , Description  )
-    PROPERTYIMP    ( QString     , Inetref      )
+    PROPERTYIMP_REF( QString     , Description  )
+    PROPERTYIMP_REF( QString     , Inetref      )
     PROPERTYIMP    ( int         , Season       )
     PROPERTYIMP    ( int         , Episode      )
     PROPERTYIMP    ( int         , TotalEpisodes)
@@ -212,8 +220,8 @@ class SERVICE_PUBLIC Program : public QObject
     // DEPRECATED
     // These don't belong here, they are Recording only metadata
     PROPERTYIMP    ( qlonglong   , FileSize     )
-    PROPERTYIMP    ( QString     , FileName     )
-    PROPERTYIMP    ( QString     , HostName     )
+    PROPERTYIMP_REF( QString     , FileName     )
+    PROPERTYIMP_REF( QString     , HostName     )
     // ----
 
     PROPERTYIMP_PTR( ChannelInfo    , Channel     )
@@ -320,7 +328,7 @@ inline void ChannelInfo::InitializeCustomTypes()
 {
     qRegisterMetaType< ChannelInfo* >();
 
-    if (QMetaType::type( "DTC::Program*" ) == 0)
+    if (qMetaTypeId<DTC::Program*>() == 0)
         Program::InitializeCustomTypes();
 }
 
@@ -328,16 +336,16 @@ inline void Program::InitializeCustomTypes()
 {
     qRegisterMetaType< Program* >();
 
-    if (QMetaType::type( "DTC::ChannelInfo*" ) == 0)
+    if (qMetaTypeId<DTC::ChannelInfo*>() == QMetaType::UnknownType)
         ChannelInfo::InitializeCustomTypes();
 
-    if (QMetaType::type( "DTC::RecordingInfo*" ) == 0)
+    if (qMetaTypeId<DTC::RecordingInfo*>() == QMetaType::UnknownType)
         RecordingInfo::InitializeCustomTypes();
 
-    if (QMetaType::type( "DTC::ArtworkInfoList*" ) == 0)
+    if (qMetaTypeId<DTC::ArtworkInfoList*>() == QMetaType::UnknownType)
         ArtworkInfoList::InitializeCustomTypes();
 
-     if (QMetaType::type( "DTC::CastMemberList*" ) == 0)
+    if (qMetaTypeId<DTC::CastMemberList*>() == QMetaType::UnknownType)
         CastMemberList::InitializeCustomTypes();
 }
 

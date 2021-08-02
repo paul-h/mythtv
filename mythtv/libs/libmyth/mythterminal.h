@@ -7,7 +7,11 @@
 #include <QObject>
 #include <QString>
 #include <QProcess>
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
 #include <QMutex>
+#else
+#include <QRecursiveMutex>
+#endif
 
 // MythTV headers
 #include "mythexp.h"
@@ -29,11 +33,11 @@ class MPUBLIC MythTerminal : public MythScreenType
         { TeardownAll(); MythScreenType::deleteLater(); }
     void Init(void) override; // MythScreenType
     bool Create(void) override; // MythScreenType
+    bool IsDone(void) const;
 
   public slots:
     void Start(void);
     void Kill(void);
-    bool IsDone(void) const;
     void AddText(const QString& _str);
 
   protected slots:
@@ -44,7 +48,11 @@ class MPUBLIC MythTerminal : public MythScreenType
     ~MythTerminal() override { TeardownAll(); }
     void TeardownAll(void);
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex         m_lock        {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex m_lock;
+#endif
     bool                   m_running     {false};
     QProcess              *m_process     {nullptr};
     QString                m_program;

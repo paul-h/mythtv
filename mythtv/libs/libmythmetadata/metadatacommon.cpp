@@ -66,10 +66,10 @@ MetadataLookup::MetadataLookup(
     uint tracknum,
     QString system,
     const uint year,
-    const QDate &releasedate,
+    const QDate releasedate,
     QDateTime lastupdated,
-    const uint runtime,
-    const uint runtimesecs,
+    std::chrono::minutes runtime,
+    std::chrono::seconds runtimesecs,
     QString inetref,
     QString collectionref,
     QString tmsref,
@@ -190,10 +190,10 @@ MetadataLookup::MetadataLookup(
     uint videoproperties,
     uint subtitletype,
     const uint year,
-    const QDate &releasedate,
+    const QDate releasedate,
     QDateTime lastupdated,
-    const uint runtime,
-    const uint runtimesecs) :
+    std::chrono::minutes runtime,
+    std::chrono::seconds runtimesecs) :
     ReferenceCounter("MetadataLookup"),
 
     m_type(type),
@@ -266,8 +266,8 @@ MetadataLookup::MetadataLookup(
     QString certification,
     const uint year,
     const QDate releasedate,
-    const uint runtime,
-    const uint runtimesecs,
+    std::chrono::minutes runtime,
+    std::chrono::seconds runtimesecs,
     QString inetref,
     PeopleMap people,
     QString trailerURL,
@@ -476,13 +476,13 @@ void MetadataLookup::toMap(InfoMap &metadataMap)
     metadataMap["runtime"] = QCoreApplication::translate("(Common)",
                                                          "%n minute(s)",
                                                          "",
-                                                         m_runtime);
+                                                         m_runtime.count());
 
 
     metadataMap["runtimesecs"] = QCoreApplication::translate("(Common)",
                                                              "%n second(s)",
                                                              "",
-                                                             m_runtimeSecs);
+                                                             m_runtimeSecs.count());
     metadataMap["inetref"] = m_inetRef;
     metadataMap["collectionref"] = m_collectionRef;
     metadataMap["tmsref"] = m_tmsRef;
@@ -494,9 +494,10 @@ void MetadataLookup::toMap(InfoMap &metadataMap)
 
 MetadataLookup* LookupFromProgramInfo(ProgramInfo *pginfo)
 {
-    uint runtimesecs = pginfo->GetRecordingStartTime()
-                           .secsTo(pginfo->GetRecordingEndTime());
-    uint runtime = (runtimesecs/60);
+    auto runtimesecs =
+        std::chrono::seconds(pginfo->GetRecordingStartTime()
+                             .secsTo(pginfo->GetRecordingEndTime()));
+    auto runtime = duration_cast<std::chrono::minutes>(runtimesecs);
 
     auto *ret = new MetadataLookup(kMetadataRecording, kUnknownVideo,
         QVariant::fromValue(pginfo), kLookupData, false, false, false, false, false,
@@ -528,11 +529,8 @@ QDomDocument CreateMetadataXML(MetadataLookupList list)
     QDomElement root = doc.createElement("metadata");
     doc.appendChild(root);
 
-    for (MetadataLookupList::const_iterator i = list.begin();
-            i != list.end(); ++i)
-    {
-        CreateMetadataXMLItem(*i, root, doc);
-    }
+    for (const auto & item : qAsConst(list))
+        CreateMetadataXMLItem(item, root, doc);
 
     return doc;
 }
@@ -889,20 +887,22 @@ void CreateMetadataXMLItem(MetadataLookup *lookup,
                        lookup->GetRevenue())));
     }
     // Runtime
-    if (lookup->GetRuntime() > 0)
+    auto minutes = lookup->GetRuntime();
+    if (minutes > 0min)
     {
         QDomElement runtime = docroot.createElement("runtime");
         item.appendChild(runtime);
         runtime.appendChild(docroot.createTextNode(QString::number(
-                       lookup->GetRuntime())));
+                       minutes.count())));
     }
     // Runtimesecs
-    if (lookup->GetRuntimeSeconds() > 0)
+    auto seconds = lookup->GetRuntimeSeconds();
+    if (seconds > 0s)
     {
         QDomElement runtimesecs = docroot.createElement("runtimesecs");
         item.appendChild(runtimesecs);
         runtimesecs.appendChild(docroot.createTextNode(QString::number(
-                       lookup->GetRuntimeSeconds())));
+                       seconds.count())));
     }
 
     if (!lookup->GetCertification().isEmpty())
@@ -937,13 +937,12 @@ void AddCategories(MetadataLookup *lookup,
     QDomElement categories = docroot.createElement("categories");
     placetoadd.appendChild(categories);
 
-    for (QStringList::const_iterator i = cats.begin();
-            i != cats.end(); ++i)
+    for (const auto & str : qAsConst(cats))
     {
         QDomElement cat = docroot.createElement("category");
         categories.appendChild(cat);
         cat.setAttribute("type", "genre");
-        cat.setAttribute("name", *i);
+        cat.setAttribute("name", str);
     }
 }
 
@@ -955,12 +954,11 @@ void AddStudios(MetadataLookup *lookup,
     QDomElement studios = docroot.createElement("studios");
     placetoadd.appendChild(studios);
 
-    for (QStringList::const_iterator i = studs.begin();
-            i != studs.end(); ++i)
+    for (const auto & str : qAsConst(studs))
     {
         QDomElement stud = docroot.createElement("studio");
         studios.appendChild(stud);
-        stud.setAttribute("name", *i);
+        stud.setAttribute("name", str);
     }
 }
 
@@ -972,12 +970,11 @@ void AddCountries(MetadataLookup *lookup,
     QDomElement countries = docroot.createElement("countries");
     placetoadd.appendChild(countries);
 
-    for (QStringList::const_iterator i = counts.begin();
-            i != counts.end(); ++i)
+    for (const auto & str : qAsConst(counts))
     {
         QDomElement count = docroot.createElement("country");
         countries.appendChild(count);
-        count.setAttribute("name", *i);
+        count.setAttribute("name", str);
     }
 }
 
@@ -999,8 +996,6 @@ MetadataLookup* ParseMetadataItem(const QDomElement& item,
     uint budget = 0;
     uint revenue = 0;
     uint year = 0;
-    uint runtime = 0;
-    uint runtimesecs = 0;
     uint ratingcount = 0;
     QString title;
     QString network;
@@ -1096,8 +1091,8 @@ MetadataLookup* ParseMetadataItem(const QDomElement& item,
     year = item.firstChildElement("year").text().toUInt();
     if (!year && !releasedate.isNull())
         year = releasedate.toString("yyyy").toUInt();
-    runtime = item.firstChildElement("runtime").text().toUInt();
-    runtimesecs = item.firstChildElement("runtimesecs").text().toUInt();
+    auto runtime = std::chrono::minutes(item.firstChildElement("runtime").text().toUInt());
+    auto runtimesecs = std::chrono::seconds(item.firstChildElement("runtimesecs").text().toUInt());
 
     QDomElement systems = item.firstChildElement("systems");
     if (!systems.isNull())
@@ -1110,7 +1105,7 @@ MetadataLookup* ParseMetadataItem(const QDomElement& item,
     // TODO: Once TMDB supports certification per-locale, come back and match
     // locale of myth to certification locale.
     QDomElement certifications = item.firstChildElement("certifications");
-    QList< QPair<QString,QString> > ratinglist;
+    QVector< QPair<QString,QString> > ratinglist;
     if (!certifications.isNull())
     {
         QDomElement cert = certifications.firstChildElement("certification");
@@ -1249,8 +1244,6 @@ MetadataLookup* ParseMetadataMovieNFO(const QDomElement& item,
         return new MetadataLookup();
 
     uint year = 0;
-    uint runtime = 0;
-    uint runtimesecs = 0;
     uint season = 0;
     uint episode = 0;
     QString title;
@@ -1267,7 +1260,6 @@ MetadataLookup* ParseMetadataMovieNFO(const QDomElement& item,
     ArtworkMap artwork;
 
     // Get the easy parses
-    QString titletmp;
     if (item.tagName() == "movie")
         title = Parse::UnescapeHTML(item.firstChildElement("title").text());
     else if (item.tagName() == "episodedetails")
@@ -1289,10 +1281,10 @@ MetadataLookup* ParseMetadataMovieNFO(const QDomElement& item,
     else if (year > 0)
         releasedate = QDate::fromString(QString::number(year), "yyyy");
 
-    runtime = item.firstChildElement("runtime").text()
-                                               .remove(QRegExp("[A-Za-z]"))
-                                               .trimmed().toUInt();
-    runtimesecs = runtime * 60;
+    auto runtime =
+        std::chrono::minutes(item.firstChildElement("runtime").text()
+                                               .remove(QRegularExpression("[A-Za-z]"))
+                                               .trimmed().toUInt());
 
     QDomElement actor = item.firstChildElement("actor");
     if (!actor.isNull())
@@ -1323,7 +1315,7 @@ MetadataLookup* ParseMetadataMovieNFO(const QDomElement& item,
         lookup->GetPreferDVDOrdering(), lookup->GetHost(),
         lookup->GetFilename(), title, categories,
         userrating, subtitle, tagline, description, season, episode,
-        certification, year, releasedate, runtime, runtimesecs,
+        certification, year, releasedate, runtime, runtime,
         inetref, people, trailer, artwork, DownloadMap());
 }
 
@@ -1516,7 +1508,7 @@ QDateTime RFC822TimeToQDateTime(const QString& t)
     QStringList tmp = time.split(' ');
     if (tmp.isEmpty())
         return QDateTime();
-    if (tmp. at(0).contains(QRegExp("\\D")))
+    if (tmp.at(0).contains(QRegularExpression("\\D")))
         tmp.removeFirst();
     if (tmp.size() != 5)
         return QDateTime();

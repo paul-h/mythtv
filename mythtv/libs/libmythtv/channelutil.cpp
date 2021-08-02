@@ -3,13 +3,11 @@
 #include <algorithm>
 #include <cstdint>
 #include <set>
-using namespace std;
 
 #include <QFile>
 #include <QHash>
 #include <QImage>
 #include <QReadWriteLock>
-#include <QRegExp>
 #include <utility>
 
 #include "channelutil.h"
@@ -60,7 +58,7 @@ static uint get_dtv_multiplex(uint     db_source_id,  const QString& sistandard,
     {
         query.bindValue(":TRANSPORTID", transport_id);
         query.bindValue(":NETWORKID",   network_id);
-        query.bindValue(":POLARITY",    QString(polarity));
+        query.bindValue(":POLARITY",    QChar(polarity));
     }
 
     if (!query.exec() || !query.isActive())
@@ -206,7 +204,7 @@ static uint insert_dtv_multiplex(
         {
             query.bindValue(":TRANSPORTID",   transport_id);
             query.bindValue(":NETWORKID",     network_id);
-            query.bindValue(":WHEREPOLARITY", QString(polarity));
+            query.bindValue(":WHEREPOLARITY", QChar(polarity));
         }
         else
         {
@@ -274,7 +272,7 @@ static uint insert_dtv_multiplex(
     return mplex;
 }
 
-static void handle_transport_desc(vector<uint> &muxes,
+static void handle_transport_desc(std::vector<uint> &muxes,
                                   const MPEGDescriptor &desc,
                                   uint sourceid, uint tsid, uint netid)
 {
@@ -303,11 +301,11 @@ static void handle_transport_desc(vector<uint> &muxes,
             freq,                  QString(),
             // DVB specific
             (int)tsid,            (int)netid,
-            -1,                   cd.BandwidthString()[0].toLatin1(),
+            -1,                   cd.BandwidthString().at(0).toLatin1(),
             -1,                   'a',
-            cd.TransmissionModeString()[0].toLatin1(),
+            cd.TransmissionModeString().at(0).toLatin1(),
             QString(),                         cd.ConstellationString(),
-            cd.HierarchyString()[0].toLatin1(), cd.CodeRateHPString(),
+            cd.HierarchyString().at(0).toLatin1(), cd.CodeRateHPString(),
             cd.CodeRateLPString(),             cd.GuardIntervalString(),
             QString(),                         QString());
 
@@ -332,7 +330,7 @@ static void handle_transport_desc(vector<uint> &muxes,
             // DVB specific
             tsid,                 netid,
             cd.SymbolRateHz(),    -1,
-            cd.PolarizationString()[0].toLatin1(), 'a',
+            cd.PolarizationString().at(0).toLatin1(), 'a',
             -1,
             cd.FECInnerString(),  QString(),
             -1,                   QString(),
@@ -433,10 +431,10 @@ uint ChannelUtil::CreateMultiplex(uint sourceid, const DTVMultiplex &mux,
 /** \fn ChannelUtil::CreateMultiplexes(int, const NetworkInformationTable*)
  *
  */
-vector<uint> ChannelUtil::CreateMultiplexes(
+std::vector<uint> ChannelUtil::CreateMultiplexes(
     int sourceid, const NetworkInformationTable *nit)
 {
-    vector<uint> muxes;
+    std::vector<uint> muxes;
 
     if (sourceid <= 0)
         return muxes;
@@ -778,9 +776,9 @@ QString ChannelUtil::GetChanNum(int chan_id)
     return GetChannelStringField(chan_id, QString("channum"));
 }
 
-int ChannelUtil::GetTimeOffset(int chan_id)
+std::chrono::minutes ChannelUtil::GetTimeOffset(int chan_id)
 {
-    return GetChannelStringField(chan_id, QString("tmoffset")).toInt();
+    return std::chrono::minutes(GetChannelStringField(chan_id, QString("tmoffset")).toInt());
 }
 
 int ChannelUtil::GetSourceID(int db_mplexid)
@@ -843,7 +841,7 @@ QStringList ChannelUtil::GetInputTypes(uint chanid)
 }
 
 static bool lt_pidcache(
-    const pid_cache_item_t &a, const pid_cache_item_t &b)
+    const pid_cache_item_t a, const pid_cache_item_t b)
 {
     return a.GetPID() < b.GetPID();
 }
@@ -1099,10 +1097,10 @@ QStringList ChannelUtil::GetValidRecorderList(
 }
 
 
-vector<uint> ChannelUtil::GetConflicting(const QString &channum, uint sourceid)
+std::vector<uint> ChannelUtil::GetConflicting(const QString &channum, uint sourceid)
 {
     MSqlQuery query(MSqlQuery::InitCon());
-    vector<uint> conflicting;
+    std::vector<uint> conflicting;
 
     if (sourceid)
     {
@@ -1170,20 +1168,20 @@ bool ChannelUtil::SetChannelValue(const QString &field_name,
     return query.exec();
 }
 
+QReadWriteLock ChannelUtil::s_channelDefaultAuthorityMapLock;
+QMap<uint,QString> ChannelUtil::s_channelDefaultAuthorityMap;
+bool ChannelUtil::s_channelDefaultAuthority_runInit = true;
+
 /** Returns the DVB default authority for the chanid given. */
 QString ChannelUtil::GetDefaultAuthority(uint chanid)
 {
-    static QReadWriteLock s_channelDefaultAuthorityMapLock;
-    static QMap<uint,QString> s_channelDefaultAuthorityMap;
-    static bool s_runInit = true;
-
     s_channelDefaultAuthorityMapLock.lockForRead();
 
-    if (s_runInit)
+    if (s_channelDefaultAuthority_runInit)
     {
         s_channelDefaultAuthorityMapLock.unlock();
         s_channelDefaultAuthorityMapLock.lockForWrite();
-        if (s_runInit)
+        if (s_channelDefaultAuthority_runInit)
         {
             MSqlQuery query(MSqlQuery::InitCon());
             query.prepare(
@@ -1202,7 +1200,7 @@ QString ChannelUtil::GetDefaultAuthority(uint chanid)
                             query.value(1).toString();
                     }
                 }
-                s_runInit = false;
+                s_channelDefaultAuthority_runInit = false;
             }
             else
             {
@@ -1223,7 +1221,7 @@ QString ChannelUtil::GetDefaultAuthority(uint chanid)
                             query.value(1).toString();
                     }
                 }
-                s_runInit = false;
+                s_channelDefaultAuthority_runInit = false;
             }
             else
             {
@@ -1464,7 +1462,7 @@ int ChannelUtil::CreateChanID(uint sourceid, const QString &chan_num)
         return chanid;
 
     // try to at least base it on the sourceid for human readability
-    chanid = max(get_max_chanid(sourceid) + 1, sourceid * 10000);
+    chanid = std::max(get_max_chanid(sourceid) + 1, sourceid * 10000);
 
     if (chanid_available(chanid))
         return chanid;
@@ -1591,12 +1589,12 @@ bool ChannelUtil::UpdateChannel(uint db_mplexid,
         "    sourceid        = :SOURCEID,  useonairguide   = :USEOAG,    "
         "    visible         = :VISIBLE,   service_type    = :SERVICETYPE "
         "WHERE chanid=:CHANID")
-        .arg((!set_channum)       ? "" : "channum  = :CHANNUM,  ")
-        .arg((freqid.isEmpty())   ? "" : "freqid   = :FREQID,   ")
-        .arg((icon.isEmpty())     ? "" : "icon     = :ICON,     ")
-        .arg((tvformat.isEmpty()) ? "" : "tvformat = :TVFORMAT, ")
-        .arg((xmltvid.isEmpty())  ? "" : "xmltvid  = :XMLTVID,  ")
-        .arg((default_authority.isEmpty()) ?
+        .arg((!set_channum)       ? "" : "channum  = :CHANNUM,  ",
+             (freqid.isEmpty())   ? "" : "freqid   = :FREQID,   ",
+             (icon.isEmpty())     ? "" : "icon     = :ICON,     ",
+             (tvformat.isEmpty()) ? "" : "tvformat = :TVFORMAT, ",
+             (xmltvid.isEmpty())  ? "" : "xmltvid  = :XMLTVID,  ",
+             (default_authority.isEmpty()) ?
              "" : "default_authority = :AUTHORITY,");
 
     MSqlQuery query(MSqlQuery::InitCon());
@@ -1964,8 +1962,7 @@ bool ChannelUtil::GetChannelData(
     if (!chanid)
     {
         LOG(VB_GENERAL, LOG_ERR,
-            QString("GetChannelData() failed because it could not\n"
-                    "\t\t\tfind channel number '%1' in DB for source '%2'.")
+            QString("Could not find channel '%1' in DB for source '%2'.")
                 .arg(channum).arg(sourceid));
         return false;
     }
@@ -2118,12 +2115,10 @@ ChannelInfoList ChannelUtil::GetChannelsInternal(
         chan.m_xmltvId = query.value(12).toString();      /* xmltvid    */
 
         QStringList inputIDs = query.value(11).toString().split(",");
-        QString inputid;
         while (!inputIDs.isEmpty())
                 chan.AddInputId(inputIDs.takeFirst().toUInt());
 
         QStringList groupIDs = query.value(10).toString().split(",");
-        QString groupid;
         while (!groupIDs.isEmpty())
                 chan.AddGroupId(groupIDs.takeFirst().toUInt());
 
@@ -2134,7 +2129,7 @@ ChannelInfoList ChannelUtil::GetChannelsInternal(
     return list;
 }
 
-vector<uint> ChannelUtil::GetChanIDs(int sourceid, bool onlyVisible)
+std::vector<uint> ChannelUtil::GetChanIDs(int sourceid, bool onlyVisible)
 {
     MSqlQuery query(MSqlQuery::InitCon());
 
@@ -2148,7 +2143,7 @@ vector<uint> ChannelUtil::GetChanIDs(int sourceid, bool onlyVisible)
             select += "AND sourceid=" + QString::number(sourceid);
     }
 
-    vector<uint> list;
+    std::vector<uint> list;
     query.prepare(select);
     if (!query.exec())
     {
@@ -2343,7 +2338,8 @@ uint ChannelUtil::GetNextChannel(
     uint              chanid_restriction,
     ChannelChangeDirection direction,
     bool              skip_non_visible,
-    bool              skip_same_channum_and_callsign)
+    bool              skip_same_channum_and_callsign,
+    bool              skip_other_sources)
 {
     auto it = find(sorted.cbegin(), sorted.cend(), old_chanid);
 
@@ -2373,6 +2369,8 @@ uint ChannelUtil::GetNextChannel(
         }
         while ((it != start) &&
                ((skip_non_visible && it->m_visible < kChannelVisible) ||
+                (skip_other_sources &&
+                 it->m_sourceId != start->m_sourceId) ||
                 (skip_same_channum_and_callsign &&
                  it->m_chanNum  == start->m_chanNum &&
                  it->m_callSign == start->m_callSign) ||
@@ -2392,6 +2390,8 @@ uint ChannelUtil::GetNextChannel(
         }
         while ((it != start) &&
                ((skip_non_visible && it->m_visible < kChannelVisible) ||
+                (skip_other_sources &&
+                 it->m_sourceId != start->m_sourceId) ||
                 (skip_same_channum_and_callsign &&
                  it->m_chanNum  == start->m_chanNum &&
                  it->m_callSign == start->m_callSign) ||
@@ -2453,6 +2453,8 @@ ChannelInfoList ChannelUtil::LoadChannels(uint startIndex, uint count,
 
     if (groupBy == kChanGroupByCallsign)
         sql += "GROUP BY channel.callsign ";
+    else if (groupBy == kChanGroupByCallsignAndChannum)
+        sql += "GROUP BY channel.callsign, channel.channum ";
     else
         sql += "GROUP BY channel.chanid "; // We must always group for this query
 
@@ -2546,12 +2548,10 @@ ChannelInfoList ChannelUtil::LoadChannels(uint startIndex, uint count,
         channelInfo.m_chanId            = query.value(27).toUInt();
 
         QStringList groupIDs = query.value(28).toString().split(",");
-        QString groupid;
         while (!groupIDs.isEmpty())
                 channelInfo.AddGroupId(groupIDs.takeFirst().toUInt());
 
         QStringList inputIDs = query.value(29).toString().split(",");
-        QString inputid;
         while (!inputIDs.isEmpty())
                 channelInfo.AddInputId(inputIDs.takeFirst().toUInt());
 

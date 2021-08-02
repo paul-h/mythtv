@@ -3,9 +3,9 @@
 #include <cstdlib>
 
 // Qt headers
-#include <QRegExp>
 #include <QDir>
 #include <QFile>
+#include <QRegularExpression>
 
 // libmythbase headers
 #include "mythdownloadmanager.h"
@@ -25,18 +25,24 @@
 #include "channeldata.h"
 #include "fillutil.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(5,15,2)
+#define capturedView capturedRef
+#endif
+
+static const QRegularExpression parseMajorMinor { R"((\d+)\D(\d+))" };
+
 static void get_atsc_stuff(const QString& channum, int sourceid, int freqid,
                            int &major, int &minor, long long &freq)
 {
     major = freqid;
     minor = 0;
 
-    int chansep = channum.indexOf(QRegExp("\\D"));
-    if (chansep < 0)
+    auto match = parseMajorMinor.match(channum);
+    if (!match.hasMatch())
         return;
 
-    major = channum.left(chansep).toInt();
-    minor = channum.right(channum.length() - (chansep + 1)).toInt();
+    major = match.capturedView(1).toInt();
+    minor = match.capturedView(2).toInt();
 
     freq = get_center_frequency("atsc", "vsb8", "us", freqid);
 
@@ -136,7 +142,9 @@ ChannelList ChannelData::channelList(int sourceId)
     ChannelInfoList channelList = ChannelUtil::LoadChannels(0, 0, avail, false,
                                                 ChannelUtil::kChanOrderByChanNum,
                                                 ChannelUtil::kChanGroupByChanid,
-                                                sourceId);
+                                                            sourceId, 0,
+                                                            false, "", "",
+                                                            false);
 
     for (auto & channel : channelList)
     {
@@ -164,13 +172,12 @@ ChannelInfo ChannelData::FindMatchingChannel(const ChannelInfo &chanInfo,
     if (existChan.m_chanId < 1)
     {
         // Check if it is ATSC
-        int chansep = chanInfo.m_chanNum.indexOf(QRegExp("\\D"));
-        if (chansep > 0)
+        auto match = parseMajorMinor.match(chanInfo.m_chanNum);
+        if (match.hasMatch())
         {
             // Populate xmltvid for scanned ATSC channels
-            uint major = chanInfo.m_chanNum.left(chansep).toInt();
-            uint minor = chanInfo.m_chanNum.right
-                         (chanInfo.m_chanNum.length() - (chansep + 1)).toInt();
+            uint major = match.capturedView(1).toUInt();
+            uint minor = match.capturedView(2).toUInt();
 
             for (it = existingChannels.begin();
                  it != existingChannels.end(); ++it)
@@ -246,7 +253,7 @@ void ChannelData::handleChannels(int id, ChannelInfoList *chanlist) const
             {
                 LOG(VB_GENERAL, LOG_INFO,
                     QString("Converting old xmltvid (%1) to new (%2)")
-                        .arg((*i).m_oldXmltvId).arg((*i).m_xmltvId));
+                        .arg((*i).m_oldXmltvId, (*i).m_xmltvId));
 
                 query.prepare("UPDATE channel "
                               "SET xmltvid = :NEWXMLTVID"
@@ -264,37 +271,37 @@ void ChannelData::handleChannels(int id, ChannelInfoList *chanlist) const
         ChannelInfo dbChan = FindMatchingChannel(*i, existingChannels);
         if (dbChan.m_chanId > 0) // Channel exists, updating
         {
-            LOG(VB_XMLTV, LOG_NOTICE,
+            LOG(VB_XMLTV, LOG_DEBUG,
                     QString("Match found for xmltvid %1 to channel %2 (%3)")
-                        .arg((*i).m_xmltvId).arg(dbChan.m_name).arg(dbChan.m_chanId));
+                .arg((*i).m_xmltvId, dbChan.m_name, QString::number(dbChan.m_chanId)));
             if (m_interactive)
             {
 
-                cout << "### " << endl;
-                cout << "### Existing channel found" << endl;
-                cout << "### " << endl;
-                cout << "### xmltvid  = "
-                     << (*i).m_xmltvId.toLocal8Bit().constData()      << endl;
-                cout << "### chanid   = "
-                     << dbChan.m_chanId                               << endl;
-                cout << "### name     = "
-                     << dbChan.m_name.toLocal8Bit().constData()       << endl;
-                cout << "### callsign = "
-                     << dbChan.m_callSign.toLocal8Bit().constData()   << endl;
-                cout << "### channum  = "
-                     << dbChan.m_chanNum.toLocal8Bit().constData()    << endl;
+                std::cout << "### " << std::endl;
+                std::cout << "### Existing channel found" << std::endl;
+                std::cout << "### " << std::endl;
+                std::cout << "### xmltvid  = "
+                          << (*i).m_xmltvId.toLocal8Bit().constData()    << std::endl;
+                std::cout << "### chanid   = "
+                          << dbChan.m_chanId                             << std::endl;
+                std::cout << "### name     = "
+                          << dbChan.m_name.toLocal8Bit().constData()     << std::endl;
+                std::cout << "### callsign = "
+                          << dbChan.m_callSign.toLocal8Bit().constData() << std::endl;
+                std::cout << "### channum  = "
+                          << dbChan.m_chanNum.toLocal8Bit().constData()  << std::endl;
                 if (m_channelPreset)
                 {
-                    cout << "### freqid   = "
-                         << dbChan.m_freqId.toLocal8Bit().constData() << endl;
+                    std::cout << "### freqid   = "
+                              << dbChan.m_freqId.toLocal8Bit().constData() << std::endl;
                 }
-                cout << "### finetune = "
-                     << dbChan.m_fineTune                             << endl;
-                cout << "### tvformat = "
-                     << dbChan.m_tvFormat.toLocal8Bit().constData()   << endl;
-                cout << "### icon     = "
-                     << dbChan.m_icon.toLocal8Bit().constData()       << endl;
-                cout << "### " << endl;
+                std::cout << "### finetune = "
+                          << dbChan.m_fineTune                           << std::endl;
+                std::cout << "### tvformat = "
+                          << dbChan.m_tvFormat.toLocal8Bit().constData() << std::endl;
+                std::cout << "### icon     = "
+                          << dbChan.m_icon.toLocal8Bit().constData()     << std::endl;
+                std::cout << "### " << std::endl;
 
                 // The only thing the xmltv data supplies here is the icon
                 (*i).m_name     = dbChan.m_name;
@@ -342,16 +349,16 @@ void ChannelData::handleChannels(int id, ChannelInfoList *chanlist) const
                     }
                     else
                     {
-                        cout << "### " << endl;
-                        cout << "### Change performed" << endl;
-                        cout << "### " << endl;
+                        std::cout << "### " << std::endl;
+                        std::cout << "### Change performed" << std::endl;
+                        std::cout << "### " << std::endl;
                     }
                 }
                 else
                 {
-                    cout << "### " << endl;
-                    cout << "### Nothing changed" << endl;
-                    cout << "### " << endl;
+                    std::cout << "### " << std::endl;
+                    std::cout << "### Nothing changed" << std::endl;
+                    std::cout << "### " << std::endl;
                 }
             }
             else if ((dbChan.m_icon != localfile) ||
@@ -400,27 +407,27 @@ void ChannelData::handleChannels(int id, ChannelInfoList *chanlist) const
 
             if (m_interactive && ((minor == 0) || (freq > 0)))
             {
-                cout << "### " << endl;
-                cout << "### New channel found" << endl;
-                cout << "### " << endl;
-                cout << "### name     = "
-                     << (*i).m_name.toLocal8Bit().constData()       << endl;
-                cout << "### callsign = "
-                     << (*i).m_callSign.toLocal8Bit().constData()   << endl;
-                cout << "### channum  = "
-                     << (*i).m_chanNum.toLocal8Bit().constData()    << endl;
+                std::cout << "### " << std::endl;
+                std::cout << "### New channel found" << std::endl;
+                std::cout << "### " << std::endl;
+                std::cout << "### name     = "
+                          << (*i).m_name.toLocal8Bit().constData()       << std::endl;
+                std::cout << "### callsign = "
+                          << (*i).m_callSign.toLocal8Bit().constData()   << std::endl;
+                std::cout << "### channum  = "
+                          << (*i).m_chanNum.toLocal8Bit().constData()    << std::endl;
                 if (m_channelPreset)
                 {
-                    cout << "### freqid   = "
-                         << (*i).m_freqId.toLocal8Bit().constData() << endl;
+                    std::cout << "### freqid   = "
+                              << (*i).m_freqId.toLocal8Bit().constData() << std::endl;
                 }
-                cout << "### finetune = "
-                     << (*i).m_fineTune                             << endl;
-                cout << "### tvformat = "
-                     << (*i).m_tvFormat.toLocal8Bit().constData()   << endl;
-                cout << "### icon     = "
-                     << localfile.toLocal8Bit().constData()         << endl;
-                cout << "### " << endl;
+                std::cout << "### finetune = "
+                          << (*i).m_fineTune                             << std::endl;
+                std::cout << "### tvformat = "
+                          << (*i).m_tvFormat.toLocal8Bit().constData()   << std::endl;
+                std::cout << "### icon     = "
+                          << localfile.toLocal8Bit().constData()         << std::endl;
+                std::cout << "### " << std::endl;
 
                 uint chanid = promptForChannelUpdates(i,0);
 
@@ -441,15 +448,15 @@ void ChannelData::handleChannels(int id, ChannelInfoList *chanlist) const
                         (*i).m_freqId,    localfile,        (*i).m_tvFormat,
                         (*i).m_xmltvId))
                 {
-                    cout << "### " << endl;
-                    cout << "### Channel inserted" << endl;
-                    cout << "### " << endl;
+                    std::cout << "### " << std::endl;
+                    std::cout << "### Channel inserted" << std::endl;
+                    std::cout << "### " << std::endl;
                 }
                 else
                 {
-                    cout << "### " << endl;
-                    cout << "### Channel skipped" << endl;
-                    cout << "### " << endl;
+                    std::cout << "### " << std::endl;
+                    std::cout << "### Channel skipped" << std::endl;
+                    std::cout << "### " << std::endl;
                 }
             }
             else if ((minor == 0) || (freq > 0))
@@ -507,8 +514,8 @@ void ChannelData::handleChannels(int id, ChannelInfoList *chanlist) const
                                                      (*i).m_xmltvId
                                                             );
                     if (!retval)
-                        cout << "Channel " << chanid << " creation failed"
-                             << endl;
+                        std::cout << "Channel " << chanid << " creation failed"
+                                  << std::endl;
                 }
             }
         }

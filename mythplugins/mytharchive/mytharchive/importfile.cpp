@@ -252,8 +252,8 @@ void ImportFile::showMenu()
 
     menuPopup->SetReturnEvent(this, "action");
 
-    menuPopup->AddButton(tr("Clear All"), SLOT(clearAll()));
-    menuPopup->AddButton(tr("Select All"), SLOT(selectAll()));
+    menuPopup->AddButton(tr("Clear All"), &ImportFile::clearAll);
+    menuPopup->AddButton(tr("Select All"), &ImportFile::selectAll);
 }
 
 void ImportFile::selectAll()
@@ -536,7 +536,7 @@ void ImportFile::getRecordingList(void)
         command.replace("%XMLFILE%", xmlFile);
 
         QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
-        cmd->Wait(0);
+        cmd->Wait(0s);
         if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
         {
             LOG(VB_GENERAL, LOG_ERR, QString("ERROR - Failed to get recording list"));
@@ -670,7 +670,7 @@ bool ImportFile::doPlayFile(ImportItem *importItem, bool startPlayback)
     command.replace("%FILENAME%", importItem->filename);
 
     QScopedPointer<MythSystem> cmd(MythSystem::Create(command));
-    cmd->Wait(0);
+    cmd->Wait(0s);
     if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("ERROR - Failed to start playing file: %1").arg(importItem->filename));
@@ -747,7 +747,7 @@ void ImportFile::doGetRecording(void)
                                  .arg(STREAMURL).arg(duration).arg(videoFile);
 
     QScopedPointer<MythSystem> cmd(MythSystem::Create(recCommand, kMSRunShell));
-    cmd->Wait(0);
+    cmd->Wait(0s);
     if (cmd.data()->GetExitCode() != GENERIC_EXIT_OK)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("ERROR - ffmpeg exited with result: %1").arg(cmd.data()->GetExitCode()));

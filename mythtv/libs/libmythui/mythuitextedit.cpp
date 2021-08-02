@@ -3,7 +3,6 @@
 
 // QT headers
 #include <QApplication>
-#include <QRegExp>
 #include <QChar>
 #include <QKeyEvent>
 #include <QDomDocument>
@@ -46,8 +45,8 @@ MythUITextEdit::MythUITextEdit(MythUIType *parent, const QString &name)
 
     m_keyboardPosition = VK_POSBELOWEDIT;
 
-    connect(this, SIGNAL(TakingFocus()), SLOT(Select()));
-    connect(this, SIGNAL(LosingFocus()), SLOT(Deselect()));
+    connect(this, &MythUIType::TakingFocus, this, &MythUITextEdit::Select);
+    connect(this, &MythUIType::LosingFocus, this, &MythUITextEdit::Deselect);
 
     m_canHaveFocus = true;
 
@@ -82,7 +81,7 @@ void MythUITextEdit::Pulse(void)
 
     if (m_hasFocus)
     {
-        if (m_lastKeyPress.elapsed() < 500)
+        if (m_lastKeyPress.elapsed() < 500ms)
         {
             m_cursorImage->SetVisible(true);
             m_blinkInterval = 0;
@@ -450,7 +449,8 @@ bool MythUITextEdit::keyPressEvent(QKeyEvent *event)
         if (gDeadKeyMap.isEmpty())
             LoadDeadKeys(gDeadKeyMap);
 
-        LOG(VB_GUI, LOG_DEBUG, QString("Compose key: %1 Key: %2").arg(QString::number(m_composeKey, 16)).arg(QString::number(keynum, 16)));
+        LOG(VB_GUI, LOG_DEBUG, QString("Compose key: %1 Key: %2")
+            .arg(QString::number(m_composeKey, 16), QString::number(keynum, 16)));
 
         if (gDeadKeyMap.contains(keyCombo(m_composeKey, keynum)))
         {
@@ -527,7 +527,6 @@ bool MythUITextEdit::keyPressEvent(QKeyEvent *event)
 
             if (kb->Create())
             {
-                //connect(kb, SIGNAL(keyPress(QString)), SLOT(keyPress(QString)));
                 popupStack->AddScreen(kb);
             }
             else
@@ -561,8 +560,8 @@ bool MythUITextEdit::gestureEvent(MythGestureEvent *event)
 {
     bool handled = false;
 
-    if (event->gesture() == MythGestureEvent::Click &&
-        event->GetButton() == MythGestureEvent::MiddleButton)
+    if (event->GetGesture() == MythGestureEvent::Click &&
+        event->GetButton() == Qt::MiddleButton)
     {
         PasteTextFromClipboard(QClipboard::Selection);
     }

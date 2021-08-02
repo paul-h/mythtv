@@ -1,5 +1,4 @@
 #include <vector>
-using namespace std;
 
 #include <QReadWriteLock>
 #include <QTextStream>
@@ -8,6 +7,7 @@ using namespace std;
 #include <QFile>
 #include <QHash>
 #include <QDir>
+#include <QRegularExpression>
 
 #include "mythdb.h"
 #include "mythdbcon.h"
@@ -19,8 +19,8 @@ static MythDB *mythdb = nullptr;
 static QMutex dbLock;
 
 // For thread safety reasons this is not a QString
-const char *kSentinelValue = "<settings_sentinel_value>";
-const char *kClearSettingValue = "<clear_setting_value>";
+const char * const kSentinelValue     { "<settings_sentinel_value>" };
+const char * const kClearSettingValue { "<clear_setting_value>" };
 
 MythDB *MythDB::getMythDB(void)
 {
@@ -133,7 +133,13 @@ QString MythDB::toCommaList(const QMap<QString, QVariant> &bindings,
         {
             val = "NULL";
         }
-        else if (it->type() == QVariant::String)
+        else if (
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+            it->type() == QVariant::String
+#else
+            it->typeId() == QMetaType::QString
+#endif
+            )
         {
             val = (it->toString().isNull()) ?
                 "NULL" : QString("\"%1\"").arg(val);
@@ -166,7 +172,22 @@ QString MythDB::GetError(const QString &where, const MSqlQuery &query)
 
     str += "Query was:\n";
     str += query.executedQuery() + '\n';
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     QString tmp = toCommaList(query.boundValues());
+#else
+    QVariantList numberedBindings = query.boundValues();
+    QMap<QString, QVariant> namedBindings;
+    static const QRegularExpression placeholders { "(:\\w+)" };
+    auto iter = placeholders.globalMatch(str);
+    while (iter.hasNext())
+    {
+        auto match = iter.next();
+        namedBindings[match.captured()] = numberedBindings.isEmpty()
+	    ? QString("INVALID")
+	    : numberedBindings.takeFirst();
+    }
+    QString tmp = toCommaList(namedBindings);
+#endif
     if (!tmp.isEmpty())
     {
         str += "Bindings were:\n";
@@ -191,9 +212,9 @@ QString MythDB::DBErrorMessage(const QSqlError& err)
                    "Database error was:\n"
                    "%4\n")
         .arg(err.type())
-        .arg(err.nativeErrorCode())
-        .arg(err.driverText())
-        .arg(err.databaseText());
+        .arg(err.nativeErrorCode(),
+             err.driverText(),
+             err.databaseText());
 }
 
 DatabaseParams MythDB::GetDatabaseParams(void) const
@@ -375,16 +396,16 @@ QString MythDB::GetSetting(const QString &_key, const QString &defaultval)
     d->m_settingsCacheLock.lockForRead();
     if (d->m_useSettingsCache)
     {
-        SettingsMap::const_iterator it = d->m_settingsCache.find(key);
-        if (it != d->m_settingsCache.end())
+        SettingsMap::const_iterator it = d->m_settingsCache.constFind(key);
+        if (it != d->m_settingsCache.constEnd())
         {
             value = *it;
             d->m_settingsCacheLock.unlock();
             return value;
         }
     }
-    SettingsMap::const_iterator it = d->m_overriddenSettings.find(key);
-    if (it != d->m_overriddenSettings.end())
+    SettingsMap::const_iterator it = d->m_overriddenSettings.constFind(key);
+    if (it != d->m_overriddenSettings.constEnd())
     {
         value = *it;
         d->m_settingsCacheLock.unlock();
@@ -457,8 +478,8 @@ bool MythDB::GetSettings(QMap<QString,QString> &_key_value_pairs)
         {
             for (; kvit != _key_value_pairs.end(); ++dit, ++kvit)
             {
-                SettingsMap::const_iterator it = d->m_settingsCache.find(dit.key());
-                if (it != d->m_settingsCache.end())
+                SettingsMap::const_iterator it = d->m_settingsCache.constFind(dit.key());
+                if (it != d->m_settingsCache.constEnd())
                 {
                     *kvit = *it;
                     *dit = true;
@@ -469,8 +490,8 @@ bool MythDB::GetSettings(QMap<QString,QString> &_key_value_pairs)
         for (; kvit != _key_value_pairs.end(); ++dit, ++kvit)
         {
             SettingsMap::const_iterator it =
-                d->m_overriddenSettings.find(dit.key());
-            if (it != d->m_overriddenSettings.end())
+                d->m_overriddenSettings.constFind(dit.key());
+            if (it != d->m_overriddenSettings.constEnd())
             {
                 *kvit = *it;
                 *dit = true;
@@ -521,7 +542,7 @@ bool MythDB::GetSettings(QMap<QString,QString> &_key_value_pairs)
                 "WHERE (hostname = '%1' OR hostname IS NULL) AND "
                 "      value IN (%2) "
                 "ORDER BY hostname DESC")
-            .arg(d->m_localhostname).arg(keylist)))
+            .arg(d->m_localhostname, keylist)))
     {
         if (!d->m_suppressDBMessages)
             DBError("GetSettings", query);
@@ -531,16 +552,15 @@ bool MythDB::GetSettings(QMap<QString,QString> &_key_value_pairs)
     while (query.next())
     {
         QString key = query.value(0).toString().toLower();
-        QMap<QString,KVIt>::const_iterator it = keymap.find(key);
-        if (it != keymap.end())
+        QMap<QString,KVIt>::const_iterator it = keymap.constFind(key);
+        if (it != keymap.constEnd())
             **it = query.value(1).toString();
     }
 
     if (d->m_useSettingsCache)
     {
         d->m_settingsCacheLock.lockForWrite();
-        QMap<QString,KVIt>::const_iterator it = keymap.begin();
-        for (; it != keymap.end(); ++it)
+        for (auto it = keymap.cbegin(); it != keymap.cend(); ++it)
         {
             QString key = it.key();
             QString value = **it;
@@ -626,16 +646,16 @@ QString MythDB::GetSettingOnHost(const QString &_key, const QString &_host,
     d->m_settingsCacheLock.lockForRead();
     if (d->m_useSettingsCache)
     {
-        SettingsMap::const_iterator it = d->m_settingsCache.find(myKey);
-        if (it != d->m_settingsCache.end())
+        SettingsMap::const_iterator it = d->m_settingsCache.constFind(myKey);
+        if (it != d->m_settingsCache.constEnd())
         {
             value = *it;
             d->m_settingsCacheLock.unlock();
             return value;
         }
     }
-    SettingsMap::const_iterator it = d->m_overriddenSettings.find(myKey);
-    if (it != d->m_overriddenSettings.end())
+    SettingsMap::const_iterator it = d->m_overriddenSettings.constFind(myKey);
+    if (it != d->m_overriddenSettings.constEnd())
     {
         value = *it;
         d->m_settingsCacheLock.unlock();
@@ -850,8 +870,8 @@ static void clear(
     SettingsMap::iterator it = cache.find(myKey);
     if (it != cache.end())
     {
-        SettingsMap::const_iterator oit = overrides.find(myKey);
-        if (oit == overrides.end())
+        SettingsMap::const_iterator oit = overrides.constFind(myKey);
+        if (oit == overrides.constEnd())
         {
             LOG(VB_DATABASE, LOG_INFO,
                     QString("Clearing Settings Cache for '%1'.").arg(myKey));
@@ -876,8 +896,8 @@ void MythDB::ClearSettingsCache(const QString &_key)
         d->m_settingsCache.clear();
         d->m_settingsCache.reserve(settings_reserve);
 
-        SettingsMap::const_iterator it = d->m_overriddenSettings.begin();
-        for (; it != d->m_overriddenSettings.end(); ++it)
+        SettingsMap::const_iterator it = d->m_overriddenSettings.cbegin();
+        for (; it != d->m_overriddenSettings.cend(); ++it)
         {
             QString mk2 = d->m_localhostname + ' ' + it.key();
             mk2.squeeze();

@@ -1,13 +1,9 @@
-// POSIX headers
-#include <sys/time.h>      /* gettimeofday */
-
 // ANSI C headers
 #include <cstdlib>
 #include <cmath>
 
 // C++ headers
 #include <algorithm>
-using namespace std;
 
 // Qt headers
 #include <QFile>
@@ -72,11 +68,11 @@ int pgm_match(const AVFrame *tmpl, const AVFrame *test, int height,
             if (!tmpl->data[0][rr * width + cc])
                 continue;
 
-            int r2min = max(0, rr - radius);
-            int r2max = min(height, rr + radius);
+            int r2min = std::max(0, rr - radius);
+            int r2max = std::min(height, rr + radius);
 
-            int c2min = max(0, cc - radius);
-            int c2max = min(width, cc + radius);
+            int c2min = std::max(0, cc - radius);
+            int c2max = std::min(width, cc + radius);
 
             for (int r2 = r2min; r2 <= r2max; r2++)
             {
@@ -119,13 +115,13 @@ bool readMatches(const QString& filename, unsigned short *matches, long long nfr
 
     if (fclose(fp))
         LOG(VB_COMMFLAG, LOG_ERR, QString("Error closing %1: %2")
-                .arg(filename).arg(strerror(errno)));
+                .arg(filename, strerror(errno)));
     return true;
 
 error:
     if (fclose(fp))
         LOG(VB_COMMFLAG, LOG_ERR, QString("Error closing %1: %2")
-                .arg(filename).arg(strerror(errno)));
+                .arg(filename, strerror(errno)));
     return false;
 }
 
@@ -141,7 +137,7 @@ bool writeMatches(const QString& filename, unsigned short *matches, long long nf
 
     if (fclose(fp))
         LOG(VB_COMMFLAG, LOG_ERR, QString("Error closing %1: %2")
-                .arg(filename).arg(strerror(errno)));
+                .arg(filename, strerror(errno)));
     return true;
 }
 
@@ -399,7 +395,7 @@ free_cropped:
 }
 
 enum FrameAnalyzer::analyzeFrameResult
-TemplateMatcher::analyzeFrame(const VideoFrame *frame, long long frameno,
+TemplateMatcher::analyzeFrame(const MythVideoFrame *frame, long long frameno,
         long long *pNextFrame)
 {
     /*
@@ -440,9 +436,8 @@ TemplateMatcher::analyzeFrame(const VideoFrame *frame, long long frameno,
     const AVFrame  *edges = nullptr;
     int             pgmwidth = 0;
     int             pgmheight = 0;
-    struct timeval  start {};
-    struct timeval  end {};
-    struct timeval  elapsed {};
+    std::chrono::microseconds start {0us};
+    std::chrono::microseconds end   {0us};
 
     *pNextFrame = kNextFrame;
 
@@ -450,7 +445,7 @@ TemplateMatcher::analyzeFrame(const VideoFrame *frame, long long frameno,
     if (pgm == nullptr)
         goto error;
 
-    (void)gettimeofday(&start, nullptr);
+    start = nowAsDuration<std::chrono::microseconds>();
 
     if (pgm_crop(&m_cropped, pgm, pgmheight, m_tmplRow, m_tmplCol,
                 m_tmplWidth, m_tmplHeight))
@@ -463,9 +458,8 @@ TemplateMatcher::analyzeFrame(const VideoFrame *frame, long long frameno,
     if (pgm_match(m_tmpl, edges, m_tmplHeight, JITTER_RADIUS, &m_matches[frameno]))
         goto error;
 
-    (void)gettimeofday(&end, nullptr);
-    timersub(&end, &start, &elapsed);
-    timeradd(&m_analyzeTime, &elapsed, &m_analyzeTime);
+    end = nowAsDuration<std::chrono::microseconds>();
+    m_analyzeTime += (end - start);
 
     return ANALYZE_OK;
 
@@ -582,7 +576,7 @@ TemplateMatcher::reportTime(void) const
         return -1;
 
     LOG(VB_COMMFLAG, LOG_INFO, QString("TM Time: analyze=%1s")
-            .arg(strftimeval(&m_analyzeTime)));
+            .arg(strftimeval(m_analyzeTime)));
     return 0;
 }
 
@@ -741,10 +735,10 @@ TemplateMatcher::adjustForBlanks(const BlankFrameDetector *blankFrameDetector,
         if (brkb > 0)
         {
             jj = frameMapSearchForwards(blankMap,
-                max(prevbrke,
-                    brkb - max(BLANK_NEARBY, TEMPLATE_DISAPPEARS_LATE)),
-                min(brke,
-                    brkb + max(BLANK_NEARBY, TEMPLATE_DISAPPEARS_EARLY)));
+                std::max(prevbrke,
+                    brkb - std::max(BLANK_NEARBY, TEMPLATE_DISAPPEARS_LATE)),
+                std::min(brke,
+                    brkb + std::max(BLANK_NEARBY, TEMPLATE_DISAPPEARS_EARLY)));
         }
         long long newbrkb = brkb;
         if (jj != blankMap->constEnd())
@@ -762,10 +756,10 @@ TemplateMatcher::adjustForBlanks(const BlankFrameDetector *blankFrameDetector,
          */
         FrameAnalyzer::FrameMap::const_iterator kk = frameMapSearchBackwards(
             blankMap,
-            max(newbrkb,
-                brke - max(BLANK_NEARBY, TEMPLATE_REAPPEARS_LATE)),
-            min(iinext == m_breakMap.end() ? nframes : iinext.key(),
-                brke + max(BLANK_NEARBY, TEMPLATE_REAPPEARS_EARLY)));
+            std::max(newbrkb,
+                brke - std::max(BLANK_NEARBY, TEMPLATE_REAPPEARS_LATE)),
+            std::min(iinext == m_breakMap.end() ? nframes : iinext.key(),
+                brke + std::max(BLANK_NEARBY, TEMPLATE_REAPPEARS_EARLY)));
         long long newbrke = brke;
         if (kk != blankMap->constEnd())
         {

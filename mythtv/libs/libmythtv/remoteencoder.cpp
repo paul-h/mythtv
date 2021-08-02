@@ -11,11 +11,9 @@
 #include "mythsocket.h"
 #include "mythlogging.h"
 
-using namespace std;
-
 #define LOC QString("RemoteEncoder(%1): ").arg(m_recordernum)
 
-#define MAX_SIZE_CHECK 500  // in ms
+static constexpr std::chrono::milliseconds MAX_SIZE_CHECK { 500ms };
 
 RemoteEncoder::~RemoteEncoder()
 {
@@ -281,7 +279,7 @@ void RemoteEncoder::FillPositionMap(int64_t start, int64_t end,
     {
         bool ok = false;
         uint64_t index = (*it).toLongLong(&ok);
-        if (++it == strlist.end() || !ok)
+        if (++it == strlist.cend() || !ok)
             break;
 
         uint64_t pos = (*it).toLongLong(&ok);
@@ -307,7 +305,7 @@ void RemoteEncoder::FillDurationMap(int64_t start, int64_t end,
     {
         bool ok = false;
         uint64_t index = (*it).toLongLong(&ok);
-        if (++it == strlist.end() || !ok)
+        if (++it == strlist.cend() || !ok)
             break;
 
         uint64_t pos = (*it).toLongLong(&ok);
@@ -475,7 +473,7 @@ void RemoteEncoder::SetChannel(const QString& channel)
     m_lastinput = "";
 }
 
-/** \fn RemoteEncoder::SetSignalMonitoringRate(int,bool)
+/**
  *  \brief Sets the signal monitoring rate.
  *
  *  This will actually call SetupSignalMonitor() and
@@ -483,33 +481,33 @@ void RemoteEncoder::SetChannel(const QString& channel)
  *  be used directly, without worrying about the
  *  SignalMonitor instance.
  *
- *  \sa TVRec::SetSignalMonitoringRate(int,int),
- *      EncoderLink::SetSignalMonitoringRate(int,bool)
+ *  \sa TVRec::SetSignalMonitoringRate(milliseconds,int),
+ *      EncoderLink::SetSignalMonitoringRate(milliseconds,int)
  *  \param rate           The update rate to use in milliseconds,
  *                        use 0 to disable.
  *  \param notifyFrontend If true, SIGNAL messages will be sent to
  *                        the frontend using this recorder.
  *  \return Previous update rate
  */
-int RemoteEncoder::SetSignalMonitoringRate(int rate, bool notifyFrontend)
+std::chrono::milliseconds RemoteEncoder::SetSignalMonitoringRate(std::chrono::milliseconds rate, int notifyFrontend)
 {
     QStringList strlist( QString("QUERY_RECORDER %1").arg(m_recordernum) );
     strlist << "SET_SIGNAL_MONITORING_RATE";
-    strlist << QString::number(rate);
+    strlist << QString::number(rate.count());
     strlist << QString::number((int)notifyFrontend);
 
     if (SendReceiveStringList(strlist, 1))
-        return strlist[0].toInt();
+        return std::chrono::milliseconds(strlist[0].toInt());
 
-    return 0;
+    return 0ms;
 }
 
 uint RemoteEncoder::GetSignalLockTimeout(const QString& input)
 {
     QMutexLocker locker(&m_lock);
 
-    QMap<QString,uint>::const_iterator it = m_cachedTimeout.find(input);
-    if (it != m_cachedTimeout.end())
+    QMap<QString,uint>::const_iterator it = m_cachedTimeout.constFind(input);
+    if (it != m_cachedTimeout.constEnd())
         return *it;
 
     uint cardid  = m_recordernum;
@@ -526,7 +524,7 @@ uint RemoteEncoder::GetSignalLockTimeout(const QString& input)
         MythDB::DBError("Getting timeout", query);
     else if (query.next() &&
              SignalMonitor::IsRequired(query.value(1).toString()))
-        timeout = max(query.value(0).toInt(), 500);
+        timeout = std::max(query.value(0).toInt(), 500);
 
 #if 0
     LOG(VB_PLAYBACK, LOG_DEBUG, "RemoteEncoder: " +

@@ -55,7 +55,7 @@ class MTV_PUBLIC RecordingProfile : public GroupSetting
             MythUITextEditSetting(
                 new RecordingProfileStorage(this, parent, "name"))
         {
-            setEnabled(false);
+            setReadOnly(true);
             setLabel(QObject::tr("Profile name"));
             setName("name");
         }
@@ -66,8 +66,8 @@ class MTV_PUBLIC RecordingProfile : public GroupSetting
       public:
         void setValue(const QString &newValue) override // StandardSetting
         {
-            bool editable = (newValue != "Default") && (newValue != "Live TV");
-            setEnabled(editable);
+            bool readonly = (newValue == "Default") || (newValue == "Live TV");
+            setReadOnly(readonly);
 
             MythUITextEditSetting::setValue(newValue);
         }
@@ -161,7 +161,7 @@ class RecordingProfileEditor :
     void Load(void) override; // StandardSetting
 
   public slots:
-    void ShowNewProfileDialog();
+    void ShowNewProfileDialog() const;
     void CreateNewProfile(const QString &profName);
 
   protected:

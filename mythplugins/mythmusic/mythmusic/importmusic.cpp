@@ -57,7 +57,7 @@ void FileCopyThread::run()
 
 ImportMusicDialog::ImportMusicDialog(MythScreenStack *parent) :
     MythScreenType(parent, "musicimportfiles"),
-    m_tracks(new vector<TrackInfo*>)
+    m_tracks(new std::vector<TrackInfo*>)
 {
     QString lastHost = gCoreContext->GetSetting("MythMusicLastImportHost", gCoreContext->GetMasterHostName());
     QStringList dirs = StorageGroup::getGroupDirs("Music", lastHost);
@@ -179,7 +179,7 @@ bool ImportMusicDialog::keyPressEvent(QKeyEvent *event)
                 if (found)
                 {
                     QString msg = tr("You might have unsaved changes.\nAre you sure you want to exit this screen?");
-                    ShowOkPopup(msg, this, SLOT(doExit(bool)), true);
+                    ShowOkPopup(msg, this, &ImportMusicDialog::doExit, true);
                 }
             }
 
@@ -269,15 +269,15 @@ bool ImportMusicDialog::Create()
         return false;
     }
 
-    connect(m_prevButton, SIGNAL(Clicked()), SLOT(prevPressed()));
-    connect(m_locationButton, SIGNAL(Clicked()), SLOT(locationPressed()));
-    connect(m_scanButton, SIGNAL(Clicked()), SLOT(startScan()));
-    connect(m_coverartButton, SIGNAL(Clicked()), SLOT(coverArtPressed()));
-    connect(m_playButton, SIGNAL(Clicked()), SLOT(playPressed()));
-    connect(m_nextnewButton, SIGNAL(Clicked()), SLOT(nextNewPressed()));
-    connect(m_addButton, SIGNAL(Clicked()), SLOT(addPressed()));
-    connect(m_addallnewButton, SIGNAL(Clicked()), SLOT(addAllNewPressed()));
-    connect(m_nextButton, SIGNAL(Clicked()), SLOT(nextPressed()));
+    connect(m_prevButton, &MythUIButton::Clicked, this, &ImportMusicDialog::prevPressed);
+    connect(m_locationButton, &MythUIButton::Clicked, this, &ImportMusicDialog::locationPressed);
+    connect(m_scanButton, &MythUIButton::Clicked, this, &ImportMusicDialog::startScan);
+    connect(m_coverartButton, &MythUIButton::Clicked, this, &ImportMusicDialog::coverArtPressed);
+    connect(m_playButton, &MythUIButton::Clicked, this, &ImportMusicDialog::playPressed);
+    connect(m_nextnewButton, &MythUIButton::Clicked, this, &ImportMusicDialog::nextNewPressed);
+    connect(m_addButton, &MythUIButton::Clicked, this, &ImportMusicDialog::addPressed);
+    connect(m_addallnewButton, &MythUIButton::Clicked, this, &ImportMusicDialog::addAllNewPressed);
+    connect(m_nextButton, &MythUIButton::Clicked, this, &ImportMusicDialog::nextPressed);
 
     fillWidgets();
 
@@ -483,7 +483,8 @@ bool ImportMusicDialog::copyFile(const QString &src, const QString &dst)
 
     while (!copy->isFinished())
     {
-        usleep(500);
+        const struct timespec halfms {0, 500000};
+        nanosleep(&halfms, nullptr);
         QCoreApplication::processEvents();
     }
 
@@ -522,7 +523,8 @@ void ImportMusicDialog::startScan()
 
     while (!scanner->isFinished())
     {
-        usleep(500);
+        const struct timespec halfms {0, 500000};
+        nanosleep(&halfms, nullptr);
         QCoreApplication::processEvents();
     }
 
@@ -543,7 +545,7 @@ void ImportMusicDialog::doScan()
     scanDirectory(location, m_tracks);
 }
 
-void ImportMusicDialog::scanDirectory(QString &directory, vector<TrackInfo*> *tracks)
+void ImportMusicDialog::scanDirectory(QString &directory, std::vector<TrackInfo*> *tracks)
 {
     QDir d(directory);
 
@@ -605,7 +607,7 @@ void ImportMusicDialog::showEditMetadataDialog()
 
     editDialog->setSaveMetadataOnly();
 
-    connect(editDialog, SIGNAL(metadataChanged()), this, SLOT(metadataChanged()));
+    connect(editDialog, &EditMetadataCommon::metadataChanged, this, &ImportMusicDialog::metadataChanged);
 
     mainStack->AddScreen(editDialog);
 }
@@ -637,23 +639,23 @@ void ImportMusicDialog::ShowMenu()
     }
 
     menu->SetReturnEvent(this, "menu");
-    menu->AddButton(tr("Select Where To Save Tracks"), SLOT(chooseBackend()));
-    menu->AddButton(tr("Save Defaults"), SLOT(saveDefaults()));
+    menu->AddButton(tr("Select Where To Save Tracks"), &ImportMusicDialog::chooseBackend);
+    menu->AddButton(tr("Save Defaults"), &ImportMusicDialog::saveDefaults);
 
     if (m_haveDefaults)
     {
-        menu->AddButton(tr("Change Compilation Flag"), SLOT(setCompilation()));
+        menu->AddButton(tr("Change Compilation Flag"), &ImportMusicDialog::setCompilation);
         menu->AddButton(tr("Change Compilation Artist"),
-                                SLOT(setCompilationArtist()));
-        menu->AddButton(tr("Change Artist"), SLOT(setArtist()));
-        menu->AddButton(tr("Change Album"), SLOT(setAlbum()));
-        menu->AddButton(tr("Change Genre"), SLOT(setGenre()));
-        menu->AddButton(tr("Change Year"), SLOT(setYear()));
-        menu->AddButton(tr("Change Rating"), SLOT(setRating()));
+                                &ImportMusicDialog::setCompilationArtist);
+        menu->AddButton(tr("Change Artist"), &ImportMusicDialog::setArtist);
+        menu->AddButton(tr("Change Album"), &ImportMusicDialog::setAlbum);
+        menu->AddButton(tr("Change Genre"), &ImportMusicDialog::setGenre);
+        menu->AddButton(tr("Change Year"), &ImportMusicDialog::setYear);
+        menu->AddButton(tr("Change Rating"), &ImportMusicDialog::setRating);
     }
 }
 
-void ImportMusicDialog::chooseBackend(void)
+void ImportMusicDialog::chooseBackend(void) const
 {
     QStringList hostList;
 
@@ -689,7 +691,7 @@ void ImportMusicDialog::chooseBackend(void)
         return;
     }
 
-    connect(searchDlg, SIGNAL(haveResult(QString)), SLOT(setSaveHost(QString)));
+    connect(searchDlg, &MythUISearchDialog::haveResult, this, &ImportMusicDialog::setSaveHost);
 
     popupStack->AddScreen(searchDlg);
 }
@@ -834,6 +836,7 @@ void ImportMusicDialog::setTitleWordCaps(void)
     QString title = locale.toLower(data->Title().simplified());
     QStringList title_words = title.split(' ');
 
+    // NOLINTNEXTLINE(modernize-loop-convert)
     for (int x = 0; x < title_words.size(); ++x)
         title_words[x][0] = title_words[x][0].toUpper();
 
@@ -942,21 +945,21 @@ bool ImportCoverArtDialog::Create()
         new MythUIButtonListItem(m_typeList, tr("<Unknown>"),
                                  QVariant::fromValue((int)IT_UNKNOWN));
 
-        connect(m_typeList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-                SLOT(selectorChanged()));
+        connect(m_typeList, &MythUIButtonList::itemSelected,
+                this, &ImportCoverArtDialog::selectorChanged);
     }
 
     if (m_copyButton)
-        connect(m_copyButton, SIGNAL(Clicked()), this, SLOT(copyPressed()));
+        connect(m_copyButton, &MythUIButton::Clicked, this, &ImportCoverArtDialog::copyPressed);
 
     if (m_exitButton)
-        connect(m_exitButton, SIGNAL(Clicked()), this, SLOT(Close()));
+        connect(m_exitButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
 
     if (m_prevButton)
-        connect(m_prevButton, SIGNAL(Clicked()), this, SLOT(prevPressed()));
+        connect(m_prevButton, &MythUIButton::Clicked, this, &ImportCoverArtDialog::prevPressed);
 
     if (m_nextButton)
-        connect(m_nextButton, SIGNAL(Clicked()), this, SLOT(nextPressed()));
+        connect(m_nextButton, &MythUIButton::Clicked, this, &ImportCoverArtDialog::nextPressed);
 
     BuildFocusList();
 
@@ -1033,13 +1036,10 @@ void ImportCoverArtDialog::scanDirectory()
     if (list.isEmpty())
         return;
 
-    QFileInfoList::const_iterator it = list.begin();
-    while (it != list.end())
+    for (const auto & fi : qAsConst(list))
     {
-        const QFileInfo *fi = &(*it);
-        ++it;
-        QString filename = fi->absoluteFilePath();
-        if (!fi->isDir())
+        QString filename = fi.absoluteFilePath();
+        if (!fi.isDir())
         {
             m_filelist.append(filename);
         }

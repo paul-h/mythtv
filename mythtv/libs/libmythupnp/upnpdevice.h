@@ -62,7 +62,7 @@ class UPNP_PUBLIC UPnpIcon
         for (uint i = 0; i < padding; i++)
             pad += " ";
         return QString("%0Icon %1 %2x%3^%4 %5")
-            .arg(pad).arg(m_sURL).arg(m_nWidth).arg(m_nHeight)
+            .arg(pad, m_sURL).arg(m_nWidth).arg(m_nHeight)
             .arg(m_nDepth).arg(m_sMimeType);
     }
 };
@@ -86,11 +86,13 @@ class UPNP_PUBLIC UPnpService
         for (uint i = 0; i < padding; i++)
             pad += " ";
         return
-            QString("%0Service %1\n").arg(pad).arg(m_sServiceType) +
-            QString("%0  id:            %1\n").arg(pad).arg(m_sServiceId) +
-            QString("%0  SCPD URL:      %1\n").arg(pad).arg(m_sSCPDURL) +
-            QString("%0  Control URL:   %1\n").arg(pad).arg(m_sControlURL) +
-            QString("%0  Event Sub URL: %1").arg(pad).arg(m_sEventSubURL);
+            QString("%0Service %1\n"
+                    "%0  id:            %2\n"
+                    "%0  SCPD URL:      %3\n"
+                    "%0  Control URL:   %4\n"
+                    "%0  Event Sub URL: %5")
+            .arg(pad, m_sEventSubURL, m_sServiceType, m_sServiceId,
+                 m_sSCPDURL, m_sControlURL, m_sEventSubURL);
     }
 };
 
@@ -255,12 +257,10 @@ class UPNP_PUBLIC DeviceLocation : public ReferenceCounter
 
         // ==================================================================
 
-        int ExpiresInSecs(void) const
+        std::chrono::seconds ExpiresInSecs(void) const
         {
-            TaskTime ttNow;
-            gettimeofday( (&ttNow), nullptr );
-
-            return m_ttExpires.tv_sec - ttNow.tv_sec;
+            auto ttNow = nowAsDuration<std::chrono::microseconds>();
+            return duration_cast<std::chrono::seconds>(m_ttExpires - ttNow);
         }
 
         // ==================================================================
@@ -326,8 +326,9 @@ class UPNP_PUBLIC DeviceLocation : public ReferenceCounter
         {
             return QString("\nURI:%1\nUSN:%2\nDeviceXML:%3\n"
                            "Expires:%4\nMythTV PIN:%5")
-                .arg(m_sURI).arg(m_sUSN).arg(m_sLocation)
-                .arg(ExpiresInSecs()).arg(m_sSecurityPin);
+                .arg(m_sURI, m_sUSN, m_sLocation,
+                     QString::number(ExpiresInSecs().count()),
+                     m_sSecurityPin);
         }
 };
 

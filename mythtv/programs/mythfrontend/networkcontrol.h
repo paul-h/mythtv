@@ -2,7 +2,6 @@
 #define NETWORKCONTROL_H_
 
 #include <deque>
-using namespace std;
 
 #include <QWaitCondition>
 #include <QStringList>
@@ -10,6 +9,9 @@ using namespace std;
 #include <QRunnable>
 #include <QMutex>
 #include <QEvent>
+#if QT_VERSION >= QT_VERSION_CHECK(5,14,0)
+#include <QRecursiveMutex>
+#endif
 
 #include "mthread.h"
 #include "serverpool.h"
@@ -47,9 +49,9 @@ class NetworkCommand : public QObject
     Q_OBJECT
   public:
     NetworkCommand(NetworkControlClient *cli, const QString& c)
+        : m_command(c.trimmed()),
+          m_client(cli)
     {
-        m_command = c.trimmed();
-        m_client = cli;
         m_args = m_command.simplified().split(" ");
     }
 
@@ -101,7 +103,7 @@ class NetworkControl : public ServerPool, public QRunnable
     ~NetworkControl() override;
 
   private slots:
-    void newConnection(QTcpSocket *client);
+    void newControlConnection(QTcpSocket *client);
     void receiveCommand(QString &command);
     void deleteClient(void);
 
@@ -142,7 +144,11 @@ class NetworkControl : public ServerPool, public QRunnable
     QMap <QString, int>     m_keyMap;
     QMap <int, QString>     m_keyTextMap;
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex  m_clientLock {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex  m_clientLock;
+#endif
     QList<NetworkControlClient*> m_clients;
 
     QList<NetworkCommand*> m_networkControlCommands; // protected by ncLock

@@ -30,14 +30,14 @@ MythUIButtonList::MythUIButtonList(MythUIType *parent, const QString &name)
     : MythUIType(parent, name)
 {
     // Parent members
-    connect(this, SIGNAL(Enabling()), this, SLOT(ToggleEnabled()));
-    connect(this, SIGNAL(Disabling()), this, SLOT(ToggleEnabled()));
+    connect(this, &MythUIType::Enabling, this, &MythUIButtonList::ToggleEnabled);
+    connect(this, &MythUIType::Disabling, this, &MythUIButtonList::ToggleEnabled);
 
     Const();
 }
 
 MythUIButtonList::MythUIButtonList(MythUIType *parent, const QString &name,
-                                   const QRect &area, bool showArrow,
+                                   const QRect area, bool showArrow,
                                    bool showScrollBar)
     : MythUIType(parent, name),
       m_showArrow(showArrow), m_showScrollBar(showScrollBar)
@@ -47,8 +47,8 @@ MythUIButtonList::MythUIButtonList(MythUIType *parent, const QString &name,
     m_initiator = true;
     m_enableInitiator = true;
 
-    connect(this, SIGNAL(Enabling()), this, SLOT(ToggleEnabled()));
-    connect(this, SIGNAL(Disabling()), this, SLOT(ToggleEnabled()));
+    connect(this, &MythUIType::Enabling, this, &MythUIButtonList::ToggleEnabled);
+    connect(this, &MythUIType::Disabling, this, &MythUIButtonList::ToggleEnabled);
 
     Const();
 }
@@ -58,8 +58,8 @@ void MythUIButtonList::Const(void)
 
     SetCanTakeFocus(true);
 
-    connect(this, SIGNAL(TakingFocus()), this, SLOT(Select()));
-    connect(this, SIGNAL(LosingFocus()), this, SLOT(Deselect()));
+    connect(this, &MythUIType::TakingFocus, this, &MythUIButtonList::Select);
+    connect(this, &MythUIType::LosingFocus, this, &MythUIButtonList::Deselect);
 }
 
 MythUIButtonList::~MythUIButtonList()
@@ -554,7 +554,7 @@ bool MythUIButtonList::DistributeRow(int &first_button, int &last_button,
          * Allocate array to hold columns widths, now that we know
          * how many columns there are.
          */
-        *col_widths = new int[col_cnt];
+        *col_widths = new int[static_cast<size_t>(col_cnt)];
 
         for (col_idx = 0; col_idx < col_cnt; ++col_idx)
             (*col_widths)[col_idx] = 0;
@@ -2390,7 +2390,7 @@ void MythUIButtonList::Init()
     {
         LOG(VB_GENERAL, LOG_ERR, QString("(%1) Statetype buttonitem is "
                                          "required in mythuibuttonlist: %2")
-            .arg(GetXMLLocation()).arg(objectName()));
+            .arg(GetXMLLocation(), objectName()));
         return;
     }
 
@@ -2473,7 +2473,7 @@ uint MythUIButtonList::ItemWidth(void)
     if (!m_initialized)
         Init();
 
-    return m_itemWidth;
+    return static_cast<uint>(m_itemWidth);
 }
 
 uint MythUIButtonList::ItemHeight(void)
@@ -2481,7 +2481,7 @@ uint MythUIButtonList::ItemHeight(void)
     if (!m_initialized)
         Init();
 
-    return m_itemHeight;
+    return static_cast<uint>(m_itemHeight);
 }
 
 /**
@@ -2494,12 +2494,12 @@ bool MythUIButtonList::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
     // Handle action remappings
-    for (int i = 0; i < actions.size(); ++i)
+    for (const QString& action : qAsConst(actions))
     {
-        if (!m_actionRemap.contains(actions[i]))
+        if (!m_actionRemap.contains(action))
             continue;
 
-        QString key = m_actionRemap[actions[i]];
+        QString key = m_actionRemap[action];
         if (key.isEmpty())
             return true;
 
@@ -2507,6 +2507,7 @@ bool MythUIButtonList::keyPressEvent(QKeyEvent *event)
         if (a.isEmpty())
             continue;
 
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
         int keyCode = a[0];
         Qt::KeyboardModifiers modifiers = Qt::NoModifier;
         QStringList parts = key.split('+');
@@ -2521,6 +2522,10 @@ bool MythUIButtonList::keyPressEvent(QKeyEvent *event)
             if (parts[j].toUpper() == "META")
                 modifiers |= Qt::MetaModifier;
         }
+#else
+        int keyCode = a[0].key();
+        Qt::KeyboardModifiers modifiers = a[0].keyboardModifiers();
+#endif
 
         QCoreApplication::postEvent(
             GetMythMainWindow(),
@@ -2631,7 +2636,7 @@ bool MythUIButtonList::gestureEvent(MythGestureEvent *event)
 {
     bool handled = false;
 
-    switch (event->gesture())
+    switch (event->GetGesture())
     {
         case MythGestureEvent::Click:
             {
@@ -2678,10 +2683,6 @@ bool MythUIButtonList::gestureEvent(MythGestureEvent *event)
             break;
 
         case MythGestureEvent::Up:
-            if ((m_layout == LayoutVertical) || (m_layout == LayoutGrid))
-                handled = MoveUp(MovePage);
-            break;
-
         case MythGestureEvent::UpLeft:
         case MythGestureEvent::UpRight:
             if ((m_layout == LayoutVertical) || (m_layout == LayoutGrid))
@@ -2689,10 +2690,6 @@ bool MythUIButtonList::gestureEvent(MythGestureEvent *event)
             break;
 
         case MythGestureEvent::Down:
-            if ((m_layout == LayoutVertical) || (m_layout == LayoutGrid))
-                handled = MoveDown(MovePage);
-            break;
-
         case MythGestureEvent::DownLeft:
         case MythGestureEvent::DownRight:
             if ((m_layout == LayoutVertical) || (m_layout == LayoutGrid))
@@ -2747,19 +2744,21 @@ void MythUIButtonList::customEvent(QEvent *event)
 {
     if (event->type() == NextButtonListPageEvent::kEventType)
     {
-        auto *npe = dynamic_cast<NextButtonListPageEvent*>(event);
-        int cur = npe->m_start;
-        for (; cur < npe->m_start + npe->m_pageSize && cur < GetCount(); ++cur)
+        if (auto *npe = dynamic_cast<NextButtonListPageEvent*>(event); npe)
         {
-            const int loginterval = (cur < 1000 ? 100 : 500);
-            if (cur > 200 && cur % loginterval == 0)
-                LOG(VB_GUI, LOG_INFO,
-                    QString("Build background buttonlist item %1").arg(cur));
-            emit itemLoaded(GetItemAt(cur));
+            int cur = npe->m_start;
+            for (; cur < npe->m_start + npe->m_pageSize && cur < GetCount(); ++cur)
+            {
+                const int loginterval = (cur < 1000 ? 100 : 500);
+                if (cur > 200 && cur % loginterval == 0)
+                    LOG(VB_GUI, LOG_INFO,
+                        QString("Build background buttonlist item %1").arg(cur));
+                emit itemLoaded(GetItemAt(cur));
+            }
+            m_nextItemLoaded = cur;
+            if (cur < GetCount())
+                LoadInBackground(cur, npe->m_pageSize);
         }
-        m_nextItemLoaded = cur;
-        if (cur < GetCount())
-            LoadInBackground(cur, npe->m_pageSize);
     }
 }
 
@@ -3060,8 +3059,8 @@ void MythUIButtonList::updateLCD(void)
     // Build a list of the menu items
     QList<LCDMenuItem> menuItems;
 
-    int start = std::max(0, (int)(m_selPosition - lcddev->getLCDHeight()));
-    int end = std::min(m_itemCount, (int)(start + (lcddev->getLCDHeight() * 2)));
+    auto start = std::max(0, m_selPosition - lcddev->getLCDHeight());
+    auto end = std::min(m_itemCount, start + (lcddev->getLCDHeight() * 2));
 
     for (int r = start; r < end; ++r)
     {
@@ -3729,10 +3728,10 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
                     if (!value.isEmpty())
                     {
                         replacement = QString("%1%2%3%4")
-                                      .arg(match.captured(2))
-                                      .arg(match.captured(3))
-                                      .arg(m_strings.value(key).text)
-                                      .arg(match.captured(6));
+                                      .arg(match.captured(2),
+                                           match.captured(3),
+                                           m_strings.value(key).text,
+                                           match.captured(6));
                     }
 
                     tempString.replace(match.captured(0), replacement);
@@ -3833,9 +3832,9 @@ bool SearchButtonListDialog::Create(void)
 
     m_searchEdit->SetText(m_searchText);
 
-    connect(m_searchEdit, SIGNAL(valueChanged()), SLOT(searchChanged()));
-    connect(m_prevButton, SIGNAL(Clicked()), SLOT(prevClicked()));
-    connect(m_nextButton, SIGNAL(Clicked()), SLOT(nextClicked()));
+    connect(m_searchEdit, &MythUITextEdit::valueChanged, this, &SearchButtonListDialog::searchChanged);
+    connect(m_prevButton, &MythUIButton::Clicked, this, &SearchButtonListDialog::prevClicked);
+    connect(m_nextButton, &MythUIButton::Clicked, this, &SearchButtonListDialog::nextClicked);
 
     BuildFocusList();
 

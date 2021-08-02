@@ -56,7 +56,7 @@
  *
  */
 UPnpCDSMusic::UPnpCDSMusic()
-             : UPnpCDSExtension( "Music", "Music",
+             : UPnpCDSExtension( QObject::tr("Music"), "Music",
                                  "object.item.audioItem.musicTrack" )
 {
     QString sServerIp   = gCoreContext->GetBackendServerIP();
@@ -446,9 +446,9 @@ void UPnpCDSMusic::PopulateArtworkURIS(CDSObject* pItem, int nSongID)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("Unable to designate album artwork "
                                          "for '%1' with class '%2' and id '%3'")
-                                            .arg(pItem->m_sId)
-                                            .arg(pItem->m_sClass)
-                                            .arg(nSongID));
+                                            .arg(pItem->m_sId,
+                                                 pItem->m_sClass,
+                                                 QString::number(nSongID)));
     }
 }
 
@@ -591,7 +591,7 @@ bool UPnpCDSMusic::LoadArtists(const UPnpCDSRequest *pRequest,
     {
         int nArtistId = query.value(0).toInt();
         QString sArtistName = query.value(1).toString();
-        QStringList sGenres = query.value(2).toString().split(',');
+//      QStringList sGenres = query.value(2).toString().split(',');
         int nAlbumCount = query.value(3).toInt();
 
         CDSObject* pContainer = CDSObject::CreateMusicArtist( CreateIDString(sRequestId, "Artist", nArtistId),
@@ -755,7 +755,7 @@ bool UPnpCDSMusic::LoadTracks(const UPnpCDSRequest *pRequest,
         int            nTrackNum    = query.value( 6).toInt();
         QString        sDescription = query.value( 7).toString();
         QString        sFileName    = query.value( 8).toString();
-        uint32_t       nLengthMS    = query.value( 9).toUInt();
+        auto           nLengthMS    = std::chrono::milliseconds(query.value( 9).toUInt());
         uint64_t       nFileSize    = query.value(10).toULongLong();
 
         int            nPlaybackCount = query.value(11).toInt();

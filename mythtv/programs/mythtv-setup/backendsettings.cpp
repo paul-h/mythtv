@@ -29,7 +29,8 @@ static GlobalTextEditSetting *MasterServerName()
     auto *gc = new GlobalTextEditSetting("MasterServerName");
     gc->setLabel(QObject::tr("Master Backend Name"));
     gc->setValue("");
-    gc->setEnabled(false);
+    gc->setEnabled(true);
+    gc->setReadOnly(true);
     gc->setHelpText(QObject::tr(
                     "Host name of Master Backend. This is set by selecting "
                     "\"This server is the Master Backend\" on that server."));
@@ -217,8 +218,8 @@ static GlobalComboBoxSetting *TVFormat()
     gc->setLabel(QObject::tr("TV format"));
 
     QStringList list = ChannelTVFormat::GetFormats();
-    for (int i = 0; i < list.size(); i++)
-        gc->addSelection(list[i]);
+    for (const QString& item : qAsConst(list))
+        gc->addSelection(item);
 
     gc->setHelpText(QObject::tr("The TV standard to use for viewing TV."));
     return gc;

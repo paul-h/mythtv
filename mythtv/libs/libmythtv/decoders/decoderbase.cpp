@@ -1,6 +1,5 @@
 
 #include <algorithm>
-using namespace std;
 
 #include "mythconfig.h"
 
@@ -32,6 +31,12 @@ DecoderBase::DecoderBase(MythPlayer *parent, const ProgramInfo &pginfo)
 DecoderBase::~DecoderBase()
 {
     delete m_playbackInfo;
+}
+
+void DecoderBase::SetRenderFormats(const VideoFrameTypes* RenderFormats)
+{
+    if (RenderFormats != nullptr)
+        m_renderFormats = RenderFormats;
 }
 
 void DecoderBase::SetProgramInfo(const ProgramInfo &pginfo)
@@ -103,7 +108,7 @@ bool DecoderBase::PosMapFromDb(void)
         if (m_fps < 26 && m_fps > 24)
            m_keyframeDist = 12;
         auto totframes =
-            (long long)(m_ringBuffer->DVD()->GetTotalTimeOfTitle() * m_fps);
+            (long long)(m_ringBuffer->DVD()->GetTotalTimeOfTitle().count() * m_fps);
         posMap[totframes] = m_ringBuffer->DVD()->GetTotalReadPosition();
     }
     else if (m_ringBuffer && m_ringBuffer->IsBD())
@@ -113,7 +118,7 @@ bool DecoderBase::PosMapFromDb(void)
         if (m_fps < 26 && m_fps > 24)
            m_keyframeDist = 12;
         auto totframes =
-            (long long)(m_ringBuffer->BD()->GetTotalTimeOfTitle() * m_fps);
+            (long long)(m_ringBuffer->BD()->GetTotalTimeOfTitle().count() * m_fps);
         posMap[totframes] = m_ringBuffer->BD()->GetTotalReadPosition();
 #if 0
         LOG(VB_PLAYBACK, LOG_DEBUG, LOC +
@@ -174,8 +179,7 @@ bool DecoderBase::PosMapFromDb(void)
     m_frameToDurMap.clear();
     m_durToFrameMap.clear();
 
-    for (frm_pos_map_t::const_iterator it = posMap.begin();
-         it != posMap.end(); ++it)
+    for (auto it = posMap.cbegin(); it != posMap.cend(); ++it)
     {
         PosMapEntry e = {it.key(), it.key() * m_keyframeDist, *it};
         m_positionMap.push_back(e);
@@ -192,8 +196,7 @@ bool DecoderBase::PosMapFromDb(void)
     }
 
     uint64_t last = 0;
-    for (frm_pos_map_t::const_iterator it = durMap.begin();
-         it != durMap.end(); ++it)
+    for (auto it = durMap.cbegin(); it != durMap.cend(); ++it)
     {
         m_frameToDurMap[it.key()] = it.value();
         m_durToFrameMap[it.value()] = it.key();
@@ -242,8 +245,7 @@ bool DecoderBase::PosMapFromEnc(void)
     long long last_index = 0;
     if (!m_positionMap.empty())
         last_index = m_positionMap.back().index;
-    for (frm_pos_map_t::const_iterator it = posMap.begin();
-         it != posMap.end(); ++it)
+    for (auto it = posMap.cbegin(); it != posMap.cend(); ++it)
     {
         if (it.key() <= last_index)
             continue;
@@ -265,12 +267,12 @@ bool DecoderBase::PosMapFromEnc(void)
     bool isEmpty = m_frameToDurMap.empty();
     if (!isEmpty)
     {
-        frm_pos_map_t::const_iterator it = m_frameToDurMap.end();
+        frm_pos_map_t::const_iterator it = m_frameToDurMap.cend();
         --it;
         last_index = it.key();
     }
-    for (frm_pos_map_t::const_iterator it = durMap.begin();
-         it != durMap.end(); ++it)
+    for (frm_pos_map_t::const_iterator it = durMap.cbegin();
+         it != durMap.cend(); ++it)
     {
         if (!isEmpty && it.key() <= last_index)
             continue; // we released the m_positionMapLock for a few ms...
@@ -280,7 +282,7 @@ bool DecoderBase::PosMapFromEnc(void)
 
     if (!m_frameToDurMap.empty())
     {
-        frm_pos_map_t::const_iterator it = m_frameToDurMap.end();
+        frm_pos_map_t::const_iterator it = m_frameToDurMap.cend();
         --it;
         LOG(VB_PLAYBACK, LOG_INFO, LOC +
             QString("Duration map filled from Encoder to: %1").arg(it.key()));
@@ -374,7 +376,7 @@ bool DecoderBase::SyncPositionMap(void)
     if (ret_val && m_keyframeDist > 0)
     {
         long long totframes = 0;
-        int length = 0;
+        std::chrono::seconds length = 0s;
 
         if (m_ringBuffer && m_ringBuffer->IsDVD())
         {
@@ -393,7 +395,7 @@ bool DecoderBase::SyncPositionMap(void)
             QMutexLocker locker(&m_positionMapLock);
             totframes = m_positionMap.back().index * m_keyframeDist;
             if (m_fps != 0.0)
-                length = (int)((totframes * 1.0) / m_fps);
+                length = secondsFromFloat((totframes * 1.0) / m_fps);
         }
 
         m_parent->SetFileLength(length, totframes);
@@ -403,7 +405,7 @@ bool DecoderBase::SyncPositionMap(void)
         LOG(VB_PLAYBACK, LOG_INFO, LOC +
             QString("SyncPositionMap, new totframes: %1, new length: %2, "
                     "posMap size: %3")
-                .arg(totframes).arg(length).arg(new_posmap_size));
+                .arg(totframes).arg(length.count()).arg(new_posmap_size));
     }
     m_recordingHasPositionMap |= (0 != new_posmap_size);
     {
@@ -474,8 +476,8 @@ bool DecoderBase::FindPosition(long long desired_value, bool search_adjusted,
             upper++;
     }
     // keep in bounds
-    lower = max(lower, 0LL);
-    upper = min(upper, size - 1LL);
+    lower = std::max(lower, 0LL);
+    upper = std::min(upper, size - 1LL);
 
     upper_bound = upper;
     lower_bound = lower;
@@ -523,8 +525,7 @@ uint64_t DecoderBase::SavePositionMapDelta(long long first, long long last)
     }
 
     frm_pos_map_t durMap;
-    for (frm_pos_map_t::const_iterator it = m_frameToDurMap.begin();
-         it != m_frameToDurMap.end(); ++it)
+    for (auto it = m_frameToDurMap.cbegin(); it != m_frameToDurMap.cend(); ++it)
     {
         if (it.key() < first)
             continue;
@@ -569,7 +570,7 @@ bool DecoderBase::DoRewind(long long desiredFrame, bool discardFrames)
     // And flush pre-seek frame if we are allowed to and need to..
     int normalframes = (uint64_t)(desiredFrame - (m_framesPlayed - 1)) > m_seekSnap
         ? desiredFrame - m_framesPlayed : 0;
-    normalframes = max(normalframes, 0);
+    normalframes = std::max(normalframes, 0);
     SeekReset(m_lastKey, normalframes, true, discardFrames);
 
     if (discardFrames || (m_ringBuffer && m_ringBuffer->IsDisc()))
@@ -721,7 +722,7 @@ bool DecoderBase::DoFastForward(long long desiredFrame, bool discardFrames)
 
     if (m_ringBuffer->IsDVD() &&
         !m_ringBuffer->IsInDiscMenuOrStillFrame() &&
-        m_ringBuffer->DVD()->TitleTimeLeft() < 5)
+        m_ringBuffer->DVD()->TitleTimeLeft() < 5s)
     {
         return false;
     }
@@ -732,7 +733,7 @@ bool DecoderBase::DoFastForward(long long desiredFrame, bool discardFrames)
     // that point the decoding is more than one frame ahead of display.
     if (desiredFrame+1 < m_framesPlayed)
         return DoRewind(desiredFrame, discardFrames);
-    desiredFrame = max(desiredFrame, m_framesPlayed);
+    desiredFrame = std::max(desiredFrame, m_framesPlayed);
 
     // Save rawframe state, for later restoration...
     bool oldrawstate = m_getRawFrames;
@@ -800,7 +801,7 @@ bool DecoderBase::DoFastForward(long long desiredFrame, bool discardFrames)
     // And flush pre-seek frame if we are allowed to and need to..
     int normalframes = (uint64_t)(desiredFrame - (m_framesPlayed - 1)) > m_seekSnap
         ? desiredFrame - m_framesPlayed : 0;
-    normalframes = max(normalframes, 0);
+    normalframes = std::max(normalframes, 0);
     SeekReset(m_lastKey, normalframes, needflush, discardFrames);
 
     if (discardFrames || m_transcoding)
@@ -965,7 +966,7 @@ int DecoderBase::SetTrack(uint Type, int TrackNo)
     if (TrackNo >= static_cast<int>(m_tracks[Type].size()))
         return -1;
 
-    m_currentTrack[Type] = max(-1, TrackNo);
+    m_currentTrack[Type] = std::max(-1, TrackNo);
     if (m_currentTrack[Type] < 0)
     {
         m_selectedTrack[Type].m_av_stream_index = -1;
@@ -999,9 +1000,9 @@ int DecoderBase::ChangeTrack(uint Type, int Dir)
     if (size)
     {
         if (Dir > 0)
-            next_track = (max(-1, m_currentTrack[Type]) + 1) % size;
+            next_track = (std::max(-1, m_currentTrack[Type]) + 1) % size;
         else
-            next_track = (max(+0, m_currentTrack[Type]) + size - 1) % size;
+            next_track = (std::max(+0, m_currentTrack[Type]) + size - 1) % size;
     }
     return SetTrack(Type, next_track);
 }
@@ -1013,7 +1014,7 @@ int DecoderBase::NextTrack(uint Type)
     int next_track = -1;
     int size = static_cast<int>(m_tracks[Type].size());
     if (size)
-        next_track = (max(0, m_currentTrack[Type]) + 1) % size;
+        next_track = (std::max(0, m_currentTrack[Type]) + 1) % size;
     return next_track;
 }
 
@@ -1021,14 +1022,16 @@ bool DecoderBase::InsertTrack(uint Type, const StreamInfo &Info)
 {
     QMutexLocker locker(&m_trackLock);
 
-    for (auto & i : m_tracks[Type])
-        if (Info.m_stream_id == i.m_stream_id)
-            return false;
+    if (std::any_of(m_tracks[Type].cbegin(), m_tracks[Type].cend(),
+                    [&](const StreamInfo& Si) { return Si.m_stream_id == Info.m_stream_id; } ))
+    {
+        return false;
+    }
 
     m_tracks[Type].push_back(Info);
 
     if (m_parent)
-        m_parent->TracksChanged(Type);
+        emit m_parent->SignalTracksChanged(Type);
 
     return true;
 }
@@ -1134,7 +1137,7 @@ int DecoderBase::AutoSelectTrack(uint Type)
             .arg(m_currentTrack[Type]+1).arg(Type).arg(iso639_key_toName(lang)).arg(lang));
 
     if (m_parent && (oldTrack != m_currentTrack[Type]))
-        m_parent->TracksChanged(Type);
+        emit m_parent->SignalTracksChanged(Type);
 
     return selTrack;
 }
@@ -1148,8 +1151,7 @@ void DecoderBase::AutoSelectTracks(void)
 void DecoderBase::ResetTracks(void)
 {
     QMutexLocker locker(&m_trackLock);
-    for (int & i : m_currentTrack)
-        i = -1;
+    std::fill(m_currentTrack.begin(), m_currentTrack.end(), -1);
 }
 
 QString toString(TrackType type)
@@ -1241,7 +1243,7 @@ void DecoderBase::SaveTotalDuration(void)
     if (!m_playbackInfo || av_q2d(m_totalDuration) == 0)
         return;
 
-    m_playbackInfo->SaveTotalDuration(1000000 * av_q2d(m_totalDuration));
+    m_playbackInfo->SaveTotalDuration(millisecondsFromFloat(1000 * av_q2d(m_totalDuration)));
 }
 
 void DecoderBase::SaveTotalFrames(void)
@@ -1306,7 +1308,7 @@ uint64_t DecoderBase::TranslatePosition(const frm_pos_map_t &map,
 
 // Convert from an absolute frame number (not cutlist adjusted) to its
 // cutlist-adjusted position in milliseconds.
-uint64_t DecoderBase::TranslatePositionFrameToMs(long long position,
+std::chrono::milliseconds DecoderBase::TranslatePositionFrameToMs(long long position,
                                                  float fallback_framerate,
                                                  const frm_dir_map_t &cutlist)
 {
@@ -1318,7 +1320,7 @@ uint64_t DecoderBase::TranslatePositionFrameToMs(long long position,
     // somewhat arbitrary value).
     if (!m_frameToDurMap.empty())
     {
-        frm_pos_map_t::const_iterator it = m_frameToDurMap.end();
+        frm_pos_map_t::const_iterator it = m_frameToDurMap.cend();
         --it;
         if (position > it.key())
         {
@@ -1328,20 +1330,20 @@ uint64_t DecoderBase::TranslatePositionFrameToMs(long long position,
                 SyncPositionMap();
         }
     }
-    return TranslatePositionAbsToRel(cutlist, position, m_frameToDurMap,
-                                     1000 / fallback_framerate);
+    return std::chrono::milliseconds(TranslatePositionAbsToRel(cutlist, position, m_frameToDurMap,
+                                     1000 / fallback_framerate));
 }
 
 // Convert from a cutlist-adjusted position in milliseconds to its
 // absolute frame number (not cutlist-adjusted).
-uint64_t DecoderBase::TranslatePositionMsToFrame(uint64_t dur_ms,
+uint64_t DecoderBase::TranslatePositionMsToFrame(std::chrono::milliseconds dur_ms,
                                                  float fallback_framerate,
                                                  const frm_dir_map_t &cutlist)
 {
     QMutexLocker locker(&m_positionMapLock);
     // Convert relative position in milliseconds (cutlist-adjusted) to
     // its absolute position in milliseconds (not cutlist-adjusted).
-    uint64_t ms = TranslatePositionRelToAbs(cutlist, dur_ms, m_frameToDurMap,
+    uint64_t ms = TranslatePositionRelToAbs(cutlist, dur_ms.count(), m_frameToDurMap,
                                             1000 / fallback_framerate);
     // Convert absolute position in milliseconds to its absolute frame
     // number.
@@ -1443,17 +1445,13 @@ DecoderBase::TranslatePositionRelToAbs(const frm_dir_map_t &deleteMap,
  * \note Most hardware decoders will only provide one software frame format.
  * \note Currently only the OpenGL renderer supports anything other than FMT_YV12/AV_PIX_FMT_YUV420P
 */
-AVPixelFormat DecoderBase::GetBestVideoFormat(AVPixelFormat* Formats)
+AVPixelFormat DecoderBase::GetBestVideoFormat(AVPixelFormat* Formats, const VideoFrameTypes* RenderFormats)
 {
-    if (m_parent)
+    for (AVPixelFormat *format = Formats; *format != AV_PIX_FMT_NONE; format++)
     {
-        VideoFrameType* mythfmts = m_parent->DirectRenderFormats();
-        for (AVPixelFormat *format = Formats; *format != AV_PIX_FMT_NONE; format++)
-        {
-            for (VideoFrameType* mythfmt = mythfmts; *mythfmt != FMT_NONE; mythfmt++)
-                if (FrameTypeToPixelFormat(*mythfmt) == *format)
-                    return *format;
-        }
+        for (auto fmt : *RenderFormats)
+            if (MythAVUtil::FrameTypeToPixelFormat(fmt) == *format)
+                return *format;
     }
     return AV_PIX_FMT_NONE;
 }

@@ -13,6 +13,7 @@ extern "C" {
 
 class MythPlayer;
 class MythAVCopy;
+class MythVideoFrame;
 
 /*
  * PGM_CONVERT_GREYSCALE:
@@ -34,7 +35,7 @@ public:
     ~PGMConverter(void);
 
     int MythPlayerInited(const MythPlayer *player);
-    const AVFrame *getImage(const VideoFrame *frame, long long frameno,
+    const AVFrame *getImage(const MythVideoFrame *frame, long long frameno,
             int *pwidth, int *pheight);
     int reportTime(void);
 
@@ -44,7 +45,7 @@ private:
     int             m_height        {-1}; /* frame dimensions */
     AVFrame         m_pgm           {};   /* grayscale frame */
 #ifdef PGM_CONVERT_GREYSCALE
-    struct timeval  m_convertTime   {0,0};
+    std::chrono::microseconds  m_convertTime  {0us};
     bool            m_timeReported  {false};
     MythAVCopy     *m_copy          {nullptr};
 #endif /* PGM_CONVERT_GREYSCALE */

@@ -18,14 +18,14 @@ class SceneChangeDetector : public FrameAnalyzer
 {
 public:
     SceneChangeDetector(std::shared_ptr<HistogramAnalyzer> ha, const QString& debugdir);
-    virtual void deleteLater(void);
+    virtual void deleteLater(void) {};
 
     /* FrameAnalyzer interface. */
     const char *name(void) const override // FrameAnalyzer
         { return "SceneChangeDetector"; }
     enum analyzeFrameResult MythPlayerInited(MythPlayer *player,
             long long nframes) override; // FrameAnalyzer
-    enum analyzeFrameResult analyzeFrame(const VideoFrame *frame,
+    enum analyzeFrameResult analyzeFrame(const MythVideoFrame *frame,
             long long frameno, long long *pNextFrame) override; // FrameAnalyzer
     int finished(long long nframes, bool final) override; // FrameAnalyzer
     int reportTime(void) const override; // FrameAnalyzer
@@ -39,7 +39,7 @@ public:
         unsigned char   color;
         unsigned char   frequency;
     };
-    using SceneChangeData = scenechange_data[UCHAR_MAX + 1];
+    using SceneChangeData = std::array<scenechange_data,UCHAR_MAX + 1>;
 
   protected:
     ~SceneChangeDetector(void) override = default;
@@ -49,8 +49,8 @@ public:
     float                   m_fps                {0.0F};
 
     /* per-frame info */
-    SceneChangeData         *m_scData            {nullptr};
-    unsigned short          *m_scDiff            {nullptr};
+    std::vector<SceneChangeData> m_scData        {};
+    std::vector<uint16_t>        m_scDiff        {};
 
     FrameAnalyzer::FrameMap m_changeMap;
 

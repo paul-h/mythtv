@@ -28,28 +28,26 @@
 #include "mythexp.h"
 
 #define ELD_FIXED_BYTES    20
-#define ELD_MAX_SIZE       256
-#define ELD_MAX_MNL        16
 #define ELD_MAX_SAD        16
 
 #define PRINT_RATES_ADVISED_BUFSIZE              80
 #define PRINT_BITS_ADVISED_BUFSIZE               16
 #define PRINT_CHANNEL_ALLOCATION_ADVISED_BUFSIZE 80
 
-class MPUBLIC ELD
+class MPUBLIC eld
 {
   public:
-    ELD(const char *buf, int size);
-    ELD(const ELD& /*rhs*/);
-    ELD();
-    ~ELD()= default;
-    ELD& operator=(const ELD& /*rhs*/);
+    eld(const char *buf, int size);
+    eld(const eld& /*rhs*/);
+    eld();
+    ~eld()= default;
+    eld& operator=(const eld& /*rhs*/);
     void show();
     QString eld_version_name() const;
     QString edid_version_name() const;
     QString info_desc() const;
     QString channel_allocation_desc() const;
-    QString product_name();
+    QString product_name() const;
     QString connection_name() const;
     bool isValid() const;
     int maxLPCMChannels();
@@ -109,7 +107,7 @@ class MPUBLIC ELD
         int      baseline_len    { 0 };
         int      eld_ver         { 0 };
         int      cea_edid_ver    { 0 };
-        char     monitor_name[ELD_MAX_MNL + 1] {};
+        QString  monitor_name    {};
         int      manufacture_id  { 0 };
         int      product_id      { 0 };
         uint64_t port_id         { 0 };
@@ -120,8 +118,9 @@ class MPUBLIC ELD
         int      aud_synch_delay { 0 };
         int      spk_alloc       { 0 };
         int      sad_count       { 0 };
+        // NOLINTNEXTLINE(modernize-avoid-c-arrays)
         struct cea_sad sad[ELD_MAX_SAD] {};
-        eld_data() { memset(this, 0, sizeof(*this)); }
+        eld_data() = default;
     };
     eld_data m_e;
 };

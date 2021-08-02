@@ -42,15 +42,13 @@
  */
 EncoderLink::EncoderLink(int inputid, PlaybackSock *lsock,
                          QString lhostname)
-    : m_inputid(inputid), m_sock(lsock), m_hostname(std::move(lhostname))
+    : m_inputid(inputid), m_sock(lsock), m_hostname(std::move(lhostname)),
+      m_sleepStatusTime(MythDate::current()),
+      m_lastSleepTime(MythDate::current()),
+      m_lastWakeTime(MythDate::current()),
+      m_endRecordingTime(MythDate::current().addDays(-2)),
+      m_startRecordingTime(m_endRecordingTime)
 {
-    m_endRecordingTime = MythDate::current().addDays(-2);
-    m_startRecordingTime = m_endRecordingTime;
-
-    m_sleepStatusTime = MythDate::current();
-    m_lastSleepTime   = MythDate::current();
-    m_lastWakeTime    = MythDate::current();
-
     HasSockAndIncrRef();
 }
 
@@ -58,14 +56,13 @@ EncoderLink::EncoderLink(int inputid, PlaybackSock *lsock,
  *  \brief This is the EncoderLink constructor for local recorders.
  */
 EncoderLink::EncoderLink(int inputid, TVRec *ltv)
-    : m_inputid(inputid), m_tv(ltv), m_local(true)
+    : m_inputid(inputid), m_tv(ltv), m_local(true),
+      m_sleepStatusTime(MythDate::current()),
+      m_lastSleepTime(MythDate::current()),
+      m_lastWakeTime(MythDate::current()),
+      m_endRecordingTime(MythDate::current().addDays(-2)),
+      m_startRecordingTime(m_endRecordingTime)
 {
-    m_endRecordingTime = MythDate::current().addDays(-2);
-    m_startRecordingTime = m_endRecordingTime;
-
-    m_sleepStatusTime = MythDate::current();
-    m_lastSleepTime   = MythDate::current();
-    m_lastWakeTime    = MythDate::current();
 }
 
 /** \fn EncoderLink::~EncoderLink()
@@ -147,12 +144,12 @@ void EncoderLink::SetSleepStatus(SleepStatus newStatus)
     m_sleepStatusTime = MythDate::current();
 }
 
-/** \fn EncoderLink::IsBusy(InputInfo*,int)
+/**
  *  \brief  Returns true if the recorder is busy, or will be within the
  *          next time_buffer seconds.
  *  \sa IsBusyRecording(void), TVRec::IsBusy(InputInfo*)
  */
-bool EncoderLink::IsBusy(InputInfo *busy_input, int time_buffer)
+bool EncoderLink::IsBusy(InputInfo *busy_input, std::chrono::seconds time_buffer)
 {
     if (m_local)
         return m_tv->IsBusy(busy_input, time_buffer);
@@ -265,7 +262,7 @@ bool EncoderLink::MatchesRecording(const ProgramInfo *rec)
     if (m_local)
     {
         while (kState_ChangingState == GetState())
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
+            std::this_thread::sleep_for(100us);
 
         if (IsBusyRecording())
             tvrec = m_tv->GetRecording();
@@ -288,7 +285,7 @@ bool EncoderLink::MatchesRecording(const ProgramInfo *rec)
     return retval;
 }
 
-/** \fn EncoderLink::RecordPending(const ProgramInfo*, int, bool)
+/**
  *  \brief Tells TVRec there is a pending recording "rec" in "secsleft" seconds.
  *
  *  \param rec      Recording to make.
@@ -296,7 +293,8 @@ bool EncoderLink::MatchesRecording(const ProgramInfo *rec)
  *  \param hasLater If true, a later non-conflicting showing is available.
  *  \sa StartRecording(const ProgramInfo*), CancelNextRecording(bool)
  */
-void EncoderLink::RecordPending(const ProgramInfo *rec, int secsleft,
+void EncoderLink::RecordPending(const ProgramInfo *rec,
+                                std::chrono::seconds secsleft,
                                 bool hasLater)
 {
     if (m_local)
@@ -370,12 +368,12 @@ long long EncoderLink::GetMaxBitrate()
     return -1;
 }
 
-/** \fn EncoderLink::SetSignalMonitoringRate(int,int)
+/**
  *  \brief Sets the signal monitoring rate.
  *
  *   May be a local or remote query.
  *
- *  \sa TVRec::SetSignalMonitoringRate(int,int),
+ *  \sa TVRec::SetSignalMonitoringRate(milliseconds,int),
  *      RemoteEncoder::SetSignalMonitoringRate(int,int)
  *  \param rate           Milliseconds between each signal check,
  *                        0 to disable, -1 to preserve old value.
@@ -384,7 +382,7 @@ long long EncoderLink::GetMaxBitrate()
  *                        -1 the old value is preserved.
  *  \return Old rate if it succeeds, -1 if it fails.
  */
-int EncoderLink::SetSignalMonitoringRate(int rate, int notifyFrontend)
+std::chrono::milliseconds EncoderLink::SetSignalMonitoringRate(std::chrono::milliseconds rate, int notifyFrontend)
 {
     if (m_local)
         return m_tv->SetSignalMonitoringRate(rate, notifyFrontend);
@@ -394,7 +392,7 @@ int EncoderLink::SetSignalMonitoringRate(int rate, int notifyFrontend)
         return m_sock->SetSignalMonitoringRate(m_inputid, rate,
                                              notifyFrontend);
     }
-    return -1;
+    return -1ms;
 }
 
 /** \brief Tell a slave to go to sleep

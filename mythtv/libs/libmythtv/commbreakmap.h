@@ -7,18 +7,20 @@
 #include "playercontext.h"
 
 // Qt headers
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
 #include <QMutex>
+#else
+#include <QRecursiveMutex>
+#endif
 #include <QMap>
 #include <QCoreApplication>
 
 #include <cstdint>
 #include "compat.h"
 
-class NuppelVideoPlayer;
-
 class CommBreakMap
 {
-    Q_DECLARE_TR_FUNCTIONS(CommBreakMap);
+    Q_DECLARE_TR_FUNCTIONS(CommBreakMap)
 
   public:
     CommBreakMap(void);
@@ -48,19 +50,23 @@ class CommBreakMap
   private:
     void MergeShortCommercials(double video_frame_rate);
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex          m_commBreakMapLock      {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex m_commBreakMapLock;
+#endif
     int                     m_skipcommercials       {0};
     CommSkipMode            m_autocommercialskip    {kCommSkipOff};
-    int                     m_commrewindamount      {0};
-    int                     m_commnotifyamount      {0};
+    std::chrono::seconds    m_commrewindamount      {0s};
+    std::chrono::seconds    m_commnotifyamount      {0s};
     int                     m_lastCommSkipDirection {0};
     time_t                  m_lastCommSkipTime      {0/*1970*/};
     uint64_t                m_lastCommSkipStart     {0};
     time_t                  m_lastSkipTime          {0 /*1970*/};
     bool                    m_hascommbreaktable     {false};
     QDateTime               m_lastIgnoredManualSkip;
-    int                     m_maxskip               {3600};
-    int                     m_maxShortMerge         {0};
+    std::chrono::seconds    m_maxskip               {1h};
+    std::chrono::seconds    m_maxShortMerge         {0s};
     frm_dir_map_t           m_commBreakMap;
     frm_dir_map_t::Iterator m_commBreakIter;
 };

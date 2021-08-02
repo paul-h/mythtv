@@ -1,7 +1,10 @@
 #ifndef MYTHUIANIMATION_H
 #define MYTHUIANIMATION_H
 
+#include "mythchrono.h"
+#include "mythdate.h"
 #include "xmlparsebase.h"
+#include <QDateTime>
 #include <QVariantAnimation>
 
 class MythUIType;
@@ -15,7 +18,7 @@ class UIEffects
 
     UIEffects() = default;
 
-    QPointF GetCentre(const QRect &rect, int xoff, int yoff) const
+    QPointF GetCentre(const QRect rect, int xoff, int yoff) const
     {
         float x = static_cast<float>(xoff) + static_cast<float>(rect.left());
         float y = static_cast<float>(yoff) + static_cast<float>(rect.top());
@@ -30,7 +33,7 @@ class UIEffects
         return {x, y};
     }
 
-    QRect GetExtent(const QSize &size) const;
+    QRect GetExtent(QSize size) const;
 
     int    m_alpha  {255};
     float  m_hzoom  {1.0F};
@@ -84,6 +87,7 @@ class MythUIAnimation : public QVariantAnimation, XMLParseBase
     bool        m_active       {false};
     bool        m_looped       {false};
     bool        m_reversible   {false};
+    std::chrono::milliseconds m_lastUpdate { MythDate::currentMSecsSinceEpochAsDuration() };
 };
 
 #endif // MYTHUIANIMATION_H

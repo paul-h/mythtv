@@ -43,7 +43,7 @@
         ((m_tvrec != nullptr) ? QString::number(m_tvrec->GetInputId()) : "NULL")
 
 #define LOC QString("ImportRec[%1](%2): ") \
-            .arg(TVREC_CARDNUM).arg(m_videodevice)
+            .arg(TVREC_CARDNUM, m_videodevice)
 
 void ImportRecorder::SetOptionsFromProfile(RecordingProfile *profile,
                                            const QString &videodev,
@@ -56,7 +56,7 @@ void ImportRecorder::SetOptionsFromProfile(RecordingProfile *profile,
 
     QString testVideoDev = videodev;
 
-    if (videodev.toLower().startsWith("file:"))
+    if (videodev.startsWith("file:", Qt::CaseInsensitive))
         testVideoDev = videodev.mid(5);
 
     QFileInfo fi(testVideoDev);
@@ -118,17 +118,15 @@ void ImportRecorder::run(void)
     // build seek table
     if (m_importFd && IsRecordingRequested() && !IsErrored())
     {
-        auto *cfp = new MythCommFlagPlayer((PlayerFlags)(kAudioMuted | kVideoIsNull | kNoITV));
-        MythMediaBuffer *buffer = MythMediaBuffer::Create(m_ringBuffer->GetFilename(), false, true, 6000);
+        auto *ctx = new PlayerContext(kImportRecorderInUseID);
+        auto *cfp = new MythCommFlagPlayer(ctx, (PlayerFlags)(kAudioMuted | kVideoIsNull | kNoITV));
+        MythMediaBuffer *buffer = MythMediaBuffer::Create(m_ringBuffer->GetFilename(), false, true, 6s);
         //This does update the status but does not set the ultimate
         //recorded / failure status for the relevant recording
         SetRecordingStatus(RecStatus::Recording, __FILE__, __LINE__);
-
-        auto *ctx = new PlayerContext(kImportRecorderInUseID);
         ctx->SetPlayingInfo(m_curRecording);
         ctx->SetRingBuffer(buffer);
         ctx->SetPlayer(cfp);
-        cfp->SetPlayerInfo(nullptr, nullptr, ctx);
 
         m_cfp=cfp;
         gCoreContext->RegisterFileForWrite(m_ringBuffer->GetFilename());
@@ -182,7 +180,7 @@ bool ImportRecorder::Open(void)
         }
 
         LOG(VB_RECORD, LOG_INFO, LOC + QString("Trying to link %1 to %2")
-                           .arg(m_videodevice).arg(fn));
+                           .arg(m_videodevice, fn));
 
         if (preRecorded.link(fn))
             LOG(VB_RECORD, LOG_DEBUG, LOC + "success!");
@@ -190,7 +188,7 @@ bool ImportRecorder::Open(void)
             LOG(VB_RECORD, LOG_ERR, LOC + preRecorded.errorString());
     }
 
-    if (fn.toLower().startsWith("myth://"))
+    if (fn.startsWith("myth://", Qt::CaseInsensitive))
     {
         LOG(VB_RECORD, LOG_ERR, LOC + "Malformed recording ProgramInfo.");
         return false;
@@ -205,7 +203,7 @@ bool ImportRecorder::Open(void)
         // Slow down run open loop when debugging -v record.
         // This is just to make the debugging output less spammy.
         if (VERBOSE_LEVEL_CHECK(VB_RECORD, LOG_ANY))
-            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            std::this_thread::sleep_for(250ms);
 
         return false;
     }

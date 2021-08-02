@@ -68,8 +68,8 @@ extern "C" {
 // the amount to seek before the required frame
 #define PRE_SEEK_AMOUNT 50
 
-struct SeekAmount SeekAmounts[] =
-{
+static const std::array<const SeekAmount,9> kSeekAmounts
+{{
     {"frame",       -1},
     {"1 second",     1},
     {"5 seconds",    5},
@@ -79,9 +79,7 @@ struct SeekAmount SeekAmounts[] =
     {"5 minutes",  300},
     {"10 minutes", 600},
     {"Cut Point",   -2},
-};
-
-int SeekAmountsCount = sizeof(SeekAmounts) / sizeof(SeekAmounts[0]);
+}};
 
 ThumbFinder::ThumbFinder(MythScreenStack *parent, ArchiveItem *archiveItem,
                          const QString &menuTheme)
@@ -137,15 +135,15 @@ bool ThumbFinder::Create(void)
         return false;
     }
 
-    connect(m_imageGrid, SIGNAL(itemSelected(MythUIButtonListItem *)),
-            this, SLOT(gridItemChanged(MythUIButtonListItem *)));
+    connect(m_imageGrid, &MythUIButtonList::itemSelected,
+            this, &ThumbFinder::gridItemChanged);
 
-    connect(m_saveButton, SIGNAL(Clicked()), this, SLOT(savePressed()));
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(cancelPressed()));
+    connect(m_saveButton, &MythUIButton::Clicked, this, &ThumbFinder::savePressed);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &ThumbFinder::cancelPressed);
 
-    connect(m_frameButton, SIGNAL(Clicked()), this, SLOT(updateThumb()));
+    connect(m_frameButton, &MythUIButton::Clicked, this, &ThumbFinder::updateThumb);
 
-    m_seekAmountText->SetText(SeekAmounts[m_currentSeek].name);
+    m_seekAmountText->SetText(kSeekAmounts[m_currentSeek].name);
 
     BuildFocusList();
 
@@ -266,15 +264,15 @@ void ThumbFinder::loadCutList()
     }
 
     // if the first mark is a end mark then add the start mark at the beginning
-    frm_dir_map_t::const_iterator it = m_deleteMap.begin();
+    frm_dir_map_t::const_iterator it = m_deleteMap.constBegin();
     if (it.value() == MARK_CUT_END)
         m_deleteMap.insert(0, MARK_CUT_START);
 
 
     // if the last mark is a start mark then add the end mark at the end
-    it = m_deleteMap.end();
+    it = m_deleteMap.constEnd();
     --it;
-    if (it != m_deleteMap.end())
+    if (it != m_deleteMap.constEnd())
     {
         if (it.value() == MARK_CUT_START)
             m_deleteMap.insert(m_archiveItem->duration * m_fps, MARK_CUT_END);
@@ -319,17 +317,17 @@ void ThumbFinder::changeSeekAmount(bool up)
     if (up)
     {
         m_currentSeek++;
-        if (m_currentSeek >= SeekAmountsCount)
+        if (m_currentSeek >= kSeekAmounts.size())
             m_currentSeek = 0;
     }
     else
     {
+        if (m_currentSeek == 0)
+            m_currentSeek = kSeekAmounts.size();
         m_currentSeek--;
-        if (m_currentSeek < 0)
-            m_currentSeek = SeekAmountsCount - 1;
     }
 
-    m_seekAmountText->SetText(SeekAmounts[m_currentSeek].name);
+    m_seekAmountText->SetText(kSeekAmounts[m_currentSeek].name);
 }
 
 void ThumbFinder::gridItemChanged(MythUIButtonListItem *item)
@@ -405,7 +403,7 @@ QString ThumbFinder::frameToTime(int64_t frame, bool addFrame) const
     int sec = (int) (frame / m_fps);
     frame = frame - (int) (sec * m_fps);
 
-    QString str = MythFormatTime(sec, "HH:mm:ss");
+    QString str = MythFormatTime(std::chrono::seconds(sec), "HH:mm:ss");
     if (addFrame)
         str += QString(".%1").arg(frame,10,2,QChar('0'));
     return str;
@@ -441,7 +439,6 @@ bool ThumbFinder::getThumbImages()
     else
         chapterLen = m_finalDuration;
 
-    QString thumbList = "";
     m_updateFrame = false;
 
     // add title thumb
@@ -584,7 +581,7 @@ bool ThumbFinder::initAVCodec(const QString &inFile)
     }
 
     // get the codec context for the video stream
-    m_codecCtx = m_codecMap.getCodecContext(m_inputFC->streams[m_videostream]);
+    m_codecCtx = m_codecMap.GetCodecContext(m_inputFC->streams[m_videostream]);
     m_codecCtx->debug_mv = 0;
     m_codecCtx->debug = 0;
     m_codecCtx->workaround_bugs = 1;
@@ -617,11 +614,7 @@ bool ThumbFinder::initAVCodec(const QString &inFile)
     // allocate temp buffer
     int bufflen = m_frameWidth * m_frameHeight * 4;
     m_outputbuf = new unsigned char[bufflen];
-
     m_frameFile = getTempDirectory() + "work/frame.jpg";
-
-    m_deinterlacer.reset(new MythPictureDeinterlacer(m_codecCtx->pix_fmt,
-                                                     m_frameWidth, m_frameHeight));
     return true;
 }
 
@@ -631,14 +624,14 @@ int ThumbFinder::checkFramePosition(int frameNumber)
         return frameNumber;
 
     int diff = 0;
-    frm_dir_map_t::const_iterator it = m_deleteMap.find(frameNumber);
+    frm_dir_map_t::const_iterator it = m_deleteMap.constFind(frameNumber);
 
-    for (it = m_deleteMap.begin(); it != m_deleteMap.end(); ++it)
+    for (it = m_deleteMap.constBegin(); it != m_deleteMap.constEnd(); ++it)
     {
         int start = it.key();
 
         ++it;
-        if (it == m_deleteMap.end())
+        if (it == m_deleteMap.constEnd())
         {
             LOG(VB_GENERAL, LOG_ERR, "ThumbFinder: found a start cut but no cut end");
             break;
@@ -684,7 +677,7 @@ bool ThumbFinder::seekForward()
 {
     int64_t currentFrame = (m_currentPTS - m_startPTS) / m_frameTime;
 
-    int inc = SeekAmounts[m_currentSeek].amount;
+    int inc = kSeekAmounts[m_currentSeek].amount;
 
     if (inc == -1)
         inc = 1;
@@ -692,7 +685,7 @@ bool ThumbFinder::seekForward()
     {
         int pos = 0;
         frm_dir_map_t::const_iterator it;
-        for (it = m_deleteMap.begin(); it != m_deleteMap.end(); ++it)
+        for (it = m_deleteMap.constBegin(); it != m_deleteMap.constEnd(); ++it)
         {
             if (it.key() > (uint64_t)currentFrame)
             {
@@ -721,7 +714,7 @@ bool ThumbFinder::seekBackward()
 {
     int64_t currentFrame = (m_currentPTS - m_startPTS) / m_frameTime;
 
-    int inc = SeekAmounts[m_currentSeek].amount;
+    int inc = kSeekAmounts[m_currentSeek].amount;
     if (inc == -1)
         inc = -1;
     else if (inc == -2)
@@ -729,7 +722,7 @@ bool ThumbFinder::seekBackward()
         // seek to previous cut point
         frm_dir_map_t::const_iterator it;
         int pos = 0;
-        for (it = m_deleteMap.begin(); it != m_deleteMap.end(); ++it)
+        for (it = m_deleteMap.constBegin(); it != m_deleteMap.constEnd(); ++it)
         {
             if (it.key() >= (uint64_t)currentFrame)
                 break;
@@ -812,9 +805,7 @@ bool ThumbFinder::getFrameImage(bool needKeyFrame, int64_t requiredPTS)
         av_image_fill_arrays(retbuf.data, retbuf.linesize, m_outputbuf,
             AV_PIX_FMT_RGB32, m_frameWidth, m_frameHeight, IMAGE_ALIGN);
         AVFrame *tmp = m_frame;
-
-        m_deinterlacer->DeinterlaceSingle(tmp, tmp);
-
+        MythAVUtil::DeinterlaceAVFrame(m_frame);
         m_copy.Copy(&retbuf, AV_PIX_FMT_RGB32, tmp, m_codecCtx->pix_fmt,
                     m_frameWidth, m_frameHeight);
 
@@ -830,7 +821,7 @@ bool ThumbFinder::getFrameImage(bool needKeyFrame, int64_t requiredPTS)
         if (m_updateFrame)
         {
             MythImage *mimage =
-                GetMythMainWindow()->GetCurrentPainter()->GetFormatImage();
+                GetMythMainWindow()->GetPainter()->GetFormatImage();
             mimage->Assign(img);
             m_frameImage->SetImage(mimage);
             mimage->DecrRef();
@@ -847,7 +838,8 @@ void ThumbFinder::closeAVCodec()
     delete[] m_outputbuf;
 
     // close the codec
-    m_codecMap.freeCodecContext(m_inputFC->streams[m_videostream]);
+    if (m_inputFC.isOpen() && m_inputFC->streams)
+        m_codecMap.FreeCodecContext(m_inputFC->streams[m_videostream]);
 
     // close the video file
     m_inputFC.Close();
@@ -863,8 +855,8 @@ void ThumbFinder::ShowMenu()
 
     menuPopup->SetReturnEvent(this, "action");
 
-    menuPopup->AddButton(tr("Exit, Save Thumbnails"), SLOT(savePressed()));
-    menuPopup->AddButton(tr("Exit, Don't Save Thumbnails"), SLOT(cancelPressed()));
+    menuPopup->AddButton(tr("Exit, Save Thumbnails"), &ThumbFinder::savePressed);
+    menuPopup->AddButton(tr("Exit, Don't Save Thumbnails"), &ThumbFinder::cancelPressed);
 }
 
 void ThumbFinder::updatePositionBar(int64_t frame)
@@ -886,14 +878,14 @@ void ThumbFinder::updatePositionBar(int64_t frame)
 
     brush.setColor(Qt::red);
 
-    for (it = m_deleteMap.begin(); it != m_deleteMap.end(); ++it)
+    for (it = m_deleteMap.constBegin(); it != m_deleteMap.constEnd(); ++it)
     {
         double startdelta = size.width();
         if (it.key() != 0)
             startdelta = (m_archiveItem->duration * m_fps) / it.key();
 
         ++it;
-        if (it == m_deleteMap.end())
+        if (it == m_deleteMap.constEnd())
         {
             LOG(VB_GENERAL, LOG_ERR, "ThumbFinder: found a start cut but no cut end");
             break;
@@ -914,7 +906,7 @@ void ThumbFinder::updatePositionBar(int64_t frame)
     int pos = (int) (size.width() / ((m_archiveItem->duration * m_fps) / frame));
     p.fillRect(pos, 0, 3, size.height(), brush);
 
-    MythImage *image = GetMythMainWindow()->GetCurrentPainter()->GetFormatImage();
+    MythImage *image = GetMythMainWindow()->GetPainter()->GetFormatImage();
     image->Assign(*pixmap);
     m_positionImage->SetImage(image);
 
@@ -932,12 +924,12 @@ int ThumbFinder::calcFinalDuration()
 
             int cutLen = 0;
 
-            for (it = m_deleteMap.begin(); it != m_deleteMap.end(); ++it)
+            for (it = m_deleteMap.constBegin(); it != m_deleteMap.constEnd(); ++it)
             {
                 int start = it.key();
 
                 ++it;
-                if (it == m_deleteMap.end())
+                if (it == m_deleteMap.constEnd())
                 {
                     LOG(VB_GENERAL, LOG_ERR, "ThumbFinder: found a start cut but no cut end");
                     break;

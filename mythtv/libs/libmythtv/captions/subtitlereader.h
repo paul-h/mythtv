@@ -7,6 +7,7 @@ extern "C" {
 #include "libavcodec/avcodec.h"
 }
 
+#include "mythchrono.h"
 #include "mythdeque.h"
 #include "textsubtitleparser.h"
 
@@ -25,15 +26,20 @@ class RawTextSubs
     RawTextSubs(void) = default;
 
     QStringList m_buffers;
-    uint64_t    m_duration {0};
+    std::chrono::milliseconds m_duration {0ms};
     QMutex      m_lock;
 };
 
-class SubtitleReader
+class SubtitleReader : public QObject
 {
+    Q_OBJECT
+
+  signals:
+    void TextSubtitlesUpdated();
+
   public:
-    SubtitleReader() = default;
-    ~SubtitleReader();
+    SubtitleReader();
+   ~SubtitleReader() override;
 
     void EnableAVSubtitles(bool enable);
     void EnableTextSubtitles(bool enable);
@@ -49,8 +55,8 @@ class SubtitleReader
     bool HasTextSubtitles(void);
     void LoadExternalSubtitles(const QString &subtitleFileName, bool isInProgress);
 
-    QStringList GetRawTextSubtitles(uint64_t &duration);
-    void AddRawTextSubtitle(const QStringList& list, uint64_t duration);
+    QStringList GetRawTextSubtitles(std::chrono::milliseconds &duration);
+    void AddRawTextSubtitle(const QStringList& list, std::chrono::milliseconds duration);
     void ClearRawTextSubtitles(void);
 
   private:

@@ -116,7 +116,7 @@ void MythUISpinBox::AddSelection(int value, const QString &label)
         }
     }
 
-    new MythUIButtonListItem(this, label.isEmpty() ? QString(value) : label,
+    new MythUIButtonListItem(this, label.isEmpty() ? QChar(value) : label,
                                     QVariant::fromValue(value), insertPos);
 }
 
@@ -232,16 +232,16 @@ bool MythUISpinBox::keyPressEvent(QKeyEvent *event)
     if (!isNumber)
         return MythUIButtonList::keyPressEvent(event);
 
-    for (int i = 0; i < actions.size(); ++i)
+    for (const QString& action : qAsConst(actions))
     {
-        if (actions[i] >= ACTION_0 && actions[i] <= ACTION_9)
+        if (action >= ACTION_0 && action <= ACTION_9)
         {
             if (!m_hasTemplate)
-                initialEntry = actions[i];
+                initialEntry = action;
             doEntry=true;
             break;
         }
-        if (actions[i] == ACTION_SELECT || actions[i] == "SEARCH")
+        if (action == ACTION_SELECT || action == "SEARCH")
         {
             doEntry=true;
             break;
@@ -328,10 +328,10 @@ bool SpinBoxEntryDialog::Create(void)
         m_rulesText->SetTextFromMap(infoMap);
     }
 
-    connect(m_entryEdit, SIGNAL(valueChanged()), SLOT(entryChanged()));
+    connect(m_entryEdit, &MythUITextEdit::valueChanged, this, &SpinBoxEntryDialog::entryChanged);
     if (m_cancelButton)
-        connect(m_cancelButton, SIGNAL(Clicked()), SLOT(Close()));
-    connect(m_okButton, SIGNAL(Clicked()), SLOT(okClicked()));
+        connect(m_cancelButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
+    connect(m_okButton, &MythUIButton::Clicked, this, &SpinBoxEntryDialog::okClicked);
 
     BuildFocusList();
 

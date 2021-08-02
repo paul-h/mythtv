@@ -13,6 +13,7 @@
 #include <QMap>
 
 #include "mythcontext.h"
+#include "mythdate.h"
 #include "mythdbcon.h"
 #include "dtvchannel.h"
 #include "dtvconfparserhelpers.h" // for DTVTunerType
@@ -42,8 +43,8 @@ class DVBChannel : public DTVChannel
     // Sets
     void SetPMT(const ProgramMapTable *pmt);
     void SetTimeOffset(double offset);
-    void SetSlowTuning(uint how_slow_in_ms)
-        { m_tuningDelay = how_slow_in_ms; }
+    void SetSlowTuning(std::chrono::milliseconds how_slow)
+        { m_tuningDelay = how_slow; }
 
     // Gets
     bool IsOpen(void) const override; // ChannelBase
@@ -60,7 +61,7 @@ class DVBChannel : public DTVChannel
     bool IsMaster(void)                 const override; // DTVChannel
     /// Returns true iff we have a faulty DVB driver that munges PMT
     bool HasCRCBug(void)                const { return m_hasCrcBug; }
-    uint GetMinSignalMonitorDelay(void) const { return m_sigMonDelay; }
+    std::chrono::milliseconds GetMinSignalMonitorDelay(void) const { return m_sigMonDelay; }
     /// Returns rotor object if it exists, nullptr otherwise.
     const DiSEqCDevRotor *GetRotor(void) const;
 
@@ -80,6 +81,8 @@ class DVBChannel : public DTVChannel
     double GetBitErrorRate(bool *ok = nullptr) const;
     /// Returns # of uncorrected blocks since last call. First call undefined.
     double GetUncorrectedBlockCount(bool *ok = nullptr) const;
+    uint64_t GetCapabilities(void) const { return m_capabilities; }
+    bool CanDo(uint64_t capability) const { return (m_capabilities & capability) != 0; }
 
     // Commands
     bool SwitchToInput(int newcapchannel, bool setstarting);
@@ -124,14 +127,16 @@ class DVBChannel : public DTVChannel
     /// \return     block count
     double GetUncorrectedBlockCountDVBv5(bool *ok) const;
 
+    void DrainDVBEvents(void);
+    bool WaitForBackend(std::chrono::milliseconds timeout_ms);
+
   private:
     IsOpenMap         m_isOpen;
 
     // Data
     DiSEqCDevSettings m_diseqcSettings;
     DiSEqCDevTree    *m_diseqcTree          {nullptr};
-                      /// Used to decrypt encrypted streams
-    DVBCam           *m_dvbCam              {nullptr};
+    DVBCam           *m_dvbCam              {nullptr};  // Used to decrypt encrypted streams
 
     // Device info
     QString           m_frontendName;
@@ -142,32 +147,36 @@ class DVBChannel : public DTVChannel
     uint              m_symbolRateMinimum   {0};
     uint              m_symbolRateMaximum   {0};
 
+    uint              m_version             {0};      // DVB API version
+    bool              m_legacyFe            {false};  // Use legacy DVBv3 API
+    bool              m_hasV5Stats          {false};  // Use DVBv5 API for statistics
+	  DTVModulationSystem        m_currentSys;          // Currently configured modulation system
+    QList<DTVModulationSystem> m_sysList;             // List of supported modulation systems
+
     // Tuning State
     mutable QMutex    m_tuneLock;
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex    m_hwLock              {QMutex::Recursive};
-    /// Last tuning options Tune() attempted to send to hardware
-    DTVMultiplex      m_desiredTuning;
-    /// Last tuning options Tune() succesfully sent to hardware
-    DTVMultiplex      m_prevTuning;
+#else
+    mutable QRecursiveMutex m_hwLock;
+#endif
+
+    DTVMultiplex      m_desiredTuning;      // Last tuning options Tune() attempted to send to hardware
+    DTVMultiplex      m_prevTuning;         // Last tuning options Tune() succesfully sent to hardware
 
     uint              m_lastLnbDevId        {(uint)~0x0};
 
-                      /// Extra delay to add for broken drivers
-    uint              m_tuningDelay         {0};
-                      /// Minimum delay between FE_LOCK checks
-    uint              m_sigMonDelay         {25};
-                      /// Used to force hardware reset
-    bool              m_firstTune           {true};
+    std::chrono::milliseconds m_tuningDelay { 0ms};   // Extra delay to add for broken drivers
+    std::chrono::milliseconds m_sigMonDelay {25ms};   // Minimum delay between FE_LOCK checks
+    bool              m_firstTune           {true};   // Used to force hardware reset
 
     // Other State
-                      /// File descriptor for tuning hardware
-    int               m_fdFrontend          {-1};
-    QString           m_device;                 // DVB Device
-    QString           m_key;                    // master lock key
-                      /// true iff our driver munges PMT
-    bool              m_hasCrcBug           {false};
+    int               m_fdFrontend          {-1};     // File descriptor for tuning hardware
+    QString           m_device;                       // DVB Device
+    QString           m_key;                          // master lock key
+    bool              m_hasCrcBug           {false};  // true iff our driver munges PMT
 
-    static QDateTime  s_lastTuning;
+    static std::chrono::milliseconds s_lastTuning;    // Time of last tuning
     QMutex            m_tuneDelayLock;
 };
 

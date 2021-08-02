@@ -10,7 +10,6 @@
 #include "mythlogging.h"
 
 #include <cmath>
-#include <QRegExp>
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -87,7 +86,7 @@ bool UPnpMSRR::ProcessRequest( HTTPRequest *pRequest )
 
         LOG(VB_UPNP, LOG_INFO,
             QString("UPnpMSRR::ProcessRequest : %1 : %2 :")
-                .arg(pRequest->m_sBaseUrl) .arg(pRequest->m_sMethod));
+                .arg(pRequest->m_sBaseUrl, pRequest->m_sMethod));
 
         switch(GetMethod(pRequest->m_sMethod))
         {

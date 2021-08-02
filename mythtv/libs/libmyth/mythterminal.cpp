@@ -35,26 +35,23 @@ MythTerminal::MythTerminal(MythScreenStack *parent, QString _program,
     m_arguments(std::move(_arguments))
 {
     m_process->setProcessChannelMode(QProcess::MergedChannels);
-    connect(m_process, SIGNAL(readyRead()),
-            this,      SLOT(ProcessHasText()));
+    connect(m_process, &QIODevice::readyRead,
+            this,      &MythTerminal::ProcessHasText);
 
-    connect(m_process, SIGNAL(finished(int, QProcess::ExitStatus)),
-            this,      SLOT(  ProcessFinished(int, QProcess::ExitStatus)));
+    connect(m_process, qOverload<int,QProcess::ExitStatus>(&QProcess::finished),
+            this,      &MythTerminal::ProcessFinished);
 }
 
 void MythTerminal::TeardownAll(void)
 {
+    QMutexLocker locker(&m_lock);
     if (m_process)
     {
-        QMutexLocker locker(&m_lock);
-        if (m_process)
-        {
-            if (m_running)
-                Kill();
-            m_process->disconnect();
-            m_process->deleteLater();
-            m_process = nullptr;
-        }
+        if (m_running)
+            Kill();
+        m_process->disconnect();
+        m_process->deleteLater();
+        m_process = nullptr;
     }
 }
 
@@ -62,14 +59,14 @@ void MythTerminal::AddText(const QString &_str)
 {
     QMutexLocker locker(&m_lock);
     QString str = _str;
-    while (str.length())
+    while (!str.isEmpty())
     {
         int nlf = str.indexOf("\r\n");
         nlf = (nlf < 0) ? str.indexOf("\r") : nlf;
         nlf = (nlf < 0) ? str.indexOf("\n") : nlf;
 
         QString curStr = (nlf >= 0) ? str.left(nlf) : str;
-        if (curStr.length())
+        if (!curStr.isEmpty())
         {
             if (!m_currentLine)
                 m_currentLine = new MythUIButtonListItem(m_output, curStr);
@@ -162,7 +159,7 @@ bool MythTerminal::Create(void)
     MythUIButton *close = nullptr;
     UIUtilW::Assign(this, close, "close");
     if (close)
-        connect(close, SIGNAL(Clicked()), this, SLOT(Close()));
+        connect(close, &MythUIButton::Clicked, this, &MythScreenType::Close);
 
     connect(m_enterButton, &MythUIButton::Clicked,
             this,

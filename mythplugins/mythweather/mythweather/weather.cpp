@@ -22,7 +22,7 @@
 Weather::Weather(MythScreenStack *parent, const QString &name, SourceManager *srcMan)
     : MythScreenType(parent, name),
       m_weatherStack(new MythScreenStack(GetMythMainWindow(), "weather stack")),
-      m_nextpageInterval(gCoreContext->GetNumSetting("weatherTimeout", 10)),
+      m_nextpageInterval(gCoreContext->GetDurSetting<std::chrono::seconds>("weatherTimeout", 10s)),
       m_nextPageTimer(new QTimer(this))
 {
     if (!srcMan)
@@ -42,7 +42,7 @@ Weather::Weather(MythScreenStack *parent, const QString &name, SourceManager *sr
         m_createdSrcMan = false;
     }
 
-    connect(m_nextPageTimer, SIGNAL(timeout()), SLOT(nextpage_timeout()) );
+    connect(m_nextPageTimer, &QTimer::timeout, this, &Weather::nextpage_timeout );
 
     m_allScreens = loadScreens();
 }
@@ -145,7 +145,7 @@ bool Weather::SetupScreens()
             auto *ssetup = new ScreenSetup(mainStack, "weatherscreensetup",
                                            m_srcMan);
 
-            connect(ssetup, SIGNAL(Exiting()), this, SLOT(setupScreens()));
+            connect(ssetup, &MythScreenType::Exiting, this, &Weather::setupScreens);
 
             if (ssetup->Create())
             {
@@ -182,8 +182,8 @@ bool Weather::SetupScreens()
             ws->setUnits(units);
             ws->setInUse(true);
             m_screens.insert(draworder, ws);
-            connect(ws, SIGNAL(screenReady(WeatherScreen *)), this,
-                    SLOT(screenReady(WeatherScreen *)));
+            connect(ws, &WeatherScreen::screenReady, this,
+                    &Weather::screenReady);
             m_srcMan->connectScreen(id, ws);
         }
 
@@ -214,10 +214,9 @@ void Weather::screenReady(WeatherScreen *ws)
     {
         m_firstRun = false;
         showScreen(ws);
-        m_nextPageTimer->start(1000 * m_nextpageInterval);
+        m_nextPageTimer->start(m_nextpageInterval);
     }
-    disconnect(ws, SIGNAL(screenReady(WeatherScreen *)), this,
-               SLOT(screenReady(WeatherScreen *)));
+    disconnect(ws, &WeatherScreen::screenReady, this, &Weather::screenReady);
 }
 
 WeatherScreen *Weather::nextScreen(void)
@@ -302,7 +301,7 @@ void Weather::hideScreen()
 void Weather::holdPage()
 {
     if (!m_nextPageTimer->isActive())
-        m_nextPageTimer->start(1000 * m_nextpageInterval);
+        m_nextPageTimer->start(m_nextpageInterval);
     else
         m_nextPageTimer->stop();
 
@@ -328,7 +327,7 @@ void Weather::setupPage()
 
     auto *ssetup = new ScreenSetup(mainStack, "weatherscreensetup", m_srcMan);
 
-    connect(ssetup, SIGNAL(Exiting()), this, SLOT(setupScreens()));
+    connect(ssetup, &MythScreenType::Exiting, this, &Weather::setupScreens);
 
     if (ssetup->Create())
     {
@@ -351,7 +350,7 @@ void Weather::cursorRight()
         hideScreen();
         showScreen(ws);
         if (!m_paused)
-            m_nextPageTimer->start(1000 * m_nextpageInterval);
+            m_nextPageTimer->start(m_nextpageInterval);
     }
 }
 
@@ -363,7 +362,7 @@ void Weather::cursorLeft()
         hideScreen();
         showScreen(ws);
         if (!m_paused)
-            m_nextPageTimer->start(1000 * m_nextpageInterval);
+            m_nextPageTimer->start(m_nextpageInterval);
     }
 }
 
@@ -379,7 +378,7 @@ void Weather::nextpage_timeout()
     else
         LOG(VB_GENERAL, LOG_ERR, "Next screen not ready");
 
-    m_nextPageTimer->start(1000 * m_nextpageInterval);
+    m_nextPageTimer->start(m_nextpageInterval);
 }
 
 /*

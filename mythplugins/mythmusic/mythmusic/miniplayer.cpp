@@ -1,6 +1,8 @@
 
 #include "miniplayer.h"
 
+#include <chrono>
+
 // mythtv
 #include <mythcontext.h>
 #include <mythmainwindow.h>
@@ -12,13 +14,14 @@
 
 #include <QTimer>
 
+
 MiniPlayer::MiniPlayer(MythScreenStack *parent)
           : MusicCommon(parent, nullptr, "music_miniplayer")
 {
     m_currentView = MV_MINIPLAYER;
     m_displayTimer = new QTimer(this);
     m_displayTimer->setSingleShot(true);
-    connect(m_displayTimer, SIGNAL(timeout()), this, SLOT(timerTimeout()));
+    connect(m_displayTimer, &QTimer::timeout, this, &MiniPlayer::timerTimeout);
 }
 
 MiniPlayer::~MiniPlayer(void)
@@ -55,7 +58,7 @@ bool MiniPlayer::Create(void)
         return false;
     }
 
-    m_displayTimer->start(10000);
+    m_displayTimer->start(10s);
 
     BuildFocusList();
 

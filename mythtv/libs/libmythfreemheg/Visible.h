@@ -50,7 +50,7 @@ class MHVisible : public MHPresentable
     void GetPosition(MHRoot *pXPosN, MHRoot *pYPosN) override; // MHRoot
     void SetBoxSize(int nWidth, int nHeight, MHEngine *engine) override; // MHRoot
     void GetBoxSize(MHRoot *pWidthDest, MHRoot *pHeightDest) override; // MHRoot
-    void SetPaletteRef(MHObjectRef newPalette, MHEngine *engine) override; // MHRoot
+    void SetPaletteRef(const MHObjectRef& newPalette, MHEngine *engine) override; // MHRoot
     void BringToFront(MHEngine *engine) override; // MHRoot
     void SendToBack(MHEngine *engine) override; // MHRoot
     void PutBefore(const MHRoot *pRef, MHEngine *engine) override; // MHRoot
@@ -211,8 +211,8 @@ class MHSlider : public MHVisible, public MHInteractible
     void SetSliderParameters(int newMin, int newMax, int newStep, MHEngine *engine) override; // MHRoot
 
     // Enumerated type lookup functions for the text parser.
-    static int GetOrientation(const char *str);
-    static int GetStyle(const char *str);
+    static int GetOrientation(const QString& str);
+    static int GetStyle(const QString& str);
   protected:
     void Increment(MHEngine *engine);
     void Decrement(MHEngine *engine);

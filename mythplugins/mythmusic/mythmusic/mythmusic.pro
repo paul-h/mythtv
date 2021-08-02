@@ -3,7 +3,7 @@ include ( ../../settings.pro )
 include ( ../../programs-libs.pro )
 include (config.pro)
 
-QT += xml sql opengl network widgets webkitwidgets
+QT += xml sql opengl network widgets
 
 !exists( config.pro ) {
    error(Missing config.pro: please run the configure script)
@@ -66,8 +66,8 @@ SOURCES += lyricsview.cpp
 cdio {
     INCLUDEPATH -= $${SYSROOT}/usr/include/cdda
     INCLUDEPATH *= $${SYSROOT}/usr/include/cdio
-    HEADERS += cddecoder.h cdrip.h cddb.h
-    SOURCES += cddecoder.cpp cdrip.cpp cddb.cpp
+    HEADERS += cddecoder.h cdrip.h
+    SOURCES += cddecoder.cpp cdrip.cpp
     QT += network
     LIBS += -lcdio -lcdio_cdda -lcdio_paranoia
 }

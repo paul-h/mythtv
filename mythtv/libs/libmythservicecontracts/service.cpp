@@ -2,17 +2,18 @@
 // Program Name: service.cpp
 // Created     : Jan. 19, 2010
 //
-// Purpose     : Base class for all Web Services 
-//                                                                            
+// Purpose     : Base class for all Web Services
+//
 // Copyright (c) 2010 David Blain <dblain@mythtv.org>
-//                                          
+//
 // Licensed under the GPL v2 or later, see COPYING for details
 //
 //////////////////////////////////////////////////////////////////////////////
 
 #include "service.h"
 #include <QMetaEnum>
-
+#include <QJsonDocument>
+#include <QJsonObject>
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -23,7 +24,7 @@ QVariant Service::ConvertToVariant( int nType, void *pValue )
     // -=>NOTE: This assumes any UserType will be derived from QObject...
     //          (Exception for QFileInfo )
 
-    if ( nType == QMetaType::type( "QFileInfo" ))
+    if ( nType == qMetaTypeId<QFileInfo>() )
         return QVariant::fromValue< QFileInfo >( *((QFileInfo *)pValue) );
 
     if (nType > QMetaType::User)
@@ -33,19 +34,23 @@ QVariant Service::ConvertToVariant( int nType, void *pValue )
         return QVariant::fromValue<QObject*>( pObj );
     }
 
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     return QVariant( nType, pValue );
+#else
+    return QVariant( QMetaType(nType), pValue );
+#endif
 }
 
 
 //////////////////////////////////////////////////////////////////////////////
-// 
+//
 //////////////////////////////////////////////////////////////////////////////
 
 void* Service::ConvertToParameterPtr( int            nTypeId,
-                                      const QString &sParamType, 
+                                      const QString &sParamType,
                                       void*          pParam,
                                       const QString &sValue )
-{      
+{
     // -=>NOTE: Only intrinsic or Qt type conversions should be here
     //          All others should be added to overridden implementation.
 
@@ -55,7 +60,7 @@ void* Service::ConvertToParameterPtr( int            nTypeId,
 
         case QMetaType::Char        : *(( char           *)pParam) = ( sValue.length() > 0) ? sValue.at( 0 ).toLatin1() : 0; break;
         case QMetaType::UChar       : *(( unsigned char  *)pParam) = ( sValue.length() > 0) ? sValue.at( 0 ).toLatin1() : 0; break;
-        case QMetaType::QChar       : *(( QChar          *)pParam) = ( sValue.length() > 0) ? sValue.at( 0 )           : 0; break;
+        case QMetaType::QChar       : *(( QChar          *)pParam) = ( sValue.length() > 0) ? sValue.at( 0 )            : QChar(0); break;
 
         case QMetaType::Short       : *(( short          *)pParam) = sValue.toShort     (); break;
         case QMetaType::UShort      : *(( ushort         *)pParam) = sValue.toUShort    (); break;
@@ -84,7 +89,21 @@ void* Service::ConvertToParameterPtr( int            nTypeId,
         }
         case QMetaType::QTime       : *(( QTime          *)pParam) = QTime::fromString    ( sValue, Qt::ISODate ); break;
         case QMetaType::QDate       : *(( QDate          *)pParam) = QDate::fromString    ( sValue, Qt::ISODate ); break;
+        case QMetaType::QJsonObject :
+        {
+            QJsonDocument doc = QJsonDocument::fromJson(sValue.toUtf8());
 
+            // check validity of the document
+            if(!doc.isNull())
+            {
+                if(doc.isObject())
+                    *(( QJsonObject *)pParam) = doc.object();
+            }
+            else
+                throw QString("Invalid JSON: %1").arg(sValue);
+
+            break;
+        }
         default:
 
             // --------------------------------------------------------------
@@ -103,6 +122,7 @@ void* Service::ConvertToParameterPtr( int            nTypeId,
             // Create Parent object so we can get to its metaObject
             // --------------------------------------------------------------
 
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
             int nParentId = QMetaType::type( sParentFQN.toUtf8() );
 
             auto *pParentClass = (QObject *)QMetaType::create( nParentId );
@@ -112,6 +132,10 @@ void* Service::ConvertToParameterPtr( int            nTypeId,
             const QMetaObject *pMetaObject = pParentClass->metaObject();
 
             QMetaType::destroy( nParentId, pParentClass );
+#else
+            const QMetaObject *pMetaObject =
+                QMetaType::fromName( sParentFQN.toUtf8() ).metaObject();
+#endif
 
             // --------------------------------------------------------------
             // Now look up enum

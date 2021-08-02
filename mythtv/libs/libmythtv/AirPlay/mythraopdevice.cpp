@@ -17,7 +17,11 @@
 
 MythRAOPDevice *MythRAOPDevice::gMythRAOPDevice = nullptr;
 MThread        *MythRAOPDevice::gMythRAOPDeviceThread = nullptr;
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
 QMutex         *MythRAOPDevice::gMythRAOPDeviceMutex = new QMutex(QMutex::Recursive);
+#else
+QRecursiveMutex *MythRAOPDevice::gMythRAOPDeviceMutex = new QRecursiveMutex();
+#endif
 
 #define LOC QString("RAOP Device: ")
 
@@ -55,11 +59,11 @@ bool MythRAOPDevice::Create(void)
     {
         gMythRAOPDevice->moveToThread(gMythRAOPDeviceThread->qthread());
         QObject::connect(
-            gMythRAOPDeviceThread->qthread(), SIGNAL(started()),
-            gMythRAOPDevice,                  SLOT(Start()));
+            gMythRAOPDeviceThread->qthread(), &QThread::started,
+            gMythRAOPDevice,                  &MythRAOPDevice::Start);
         QObject::connect(
-            gMythRAOPDeviceThread->qthread(), SIGNAL(finished()),
-            gMythRAOPDevice,                  SLOT(Stop()));
+            gMythRAOPDeviceThread->qthread(), &QThread::finished,
+            gMythRAOPDevice,                  &MythRAOPDevice::Stop);
         gMythRAOPDeviceThread->start(QThread::LowestPriority);
     }
 
@@ -85,7 +89,11 @@ void MythRAOPDevice::Cleanup(void)
 }
 
 MythRAOPDevice::MythRAOPDevice()
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     : m_lock(new QMutex(QMutex::Recursive))
+#else
+    : m_lock(new QRecursiveMutex())
+#endif
 {
     m_hardwareId = QByteArray::fromHex(AirPlayHardwareId().toLatin1());
 }
@@ -120,8 +128,8 @@ void MythRAOPDevice::Start(void)
         return;
 
     // join the dots
-    connect(this, SIGNAL(newConnection(QTcpSocket *)),
-            this, SLOT(newConnection(QTcpSocket *)));
+    connect(this, &ServerPool::newConnection,
+            this, &MythRAOPDevice::newRaopConnection);
 
     m_basePort = m_setupPort;
     m_setupPort = tryListeningPort(m_setupPort, RAOP_PORT_RANGE);
@@ -163,9 +171,9 @@ bool MythRAOPDevice::RegisterForBonjour(void)
 
     QByteArray name = m_hardwareId.toHex();
     name.append("@");
-    name.append(m_name);
+    name.append(m_name.toUtf8());
     name.append(" on ");
-    name.append(gCoreContext->GetHostName());
+    name.append(gCoreContext->GetHostName().toUtf8());
     QByteArray type = "_raop._tcp";
     QByteArray txt;
     txt.append(6); txt.append("tp=UDP");
@@ -193,7 +201,7 @@ bool MythRAOPDevice::RegisterForBonjour(void)
     txt.append(11); txt.append("am=MythTV,1");
 
     LOG(VB_GENERAL, LOG_INFO, QString("Registering service %1.%2 port %3 TXT %4")
-        .arg(QString(name)).arg(QString(type)).arg(m_setupPort).arg(QString(txt)));
+        .arg(QString(name), QString(type), QString::number(m_setupPort), QString(txt)));
     return m_bonjour->Register(m_setupPort, type, name, txt);
 }
 
@@ -203,7 +211,7 @@ void MythRAOPDevice::TVPlaybackStarting(void)
     DeleteAllClients(nullptr);
 }
 
-void MythRAOPDevice::newConnection(QTcpSocket *client)
+void MythRAOPDevice::newRaopConnection(QTcpSocket *client)
 {
     QMutexLocker locker(m_lock);
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("New connection from %1:%2")
@@ -221,8 +229,8 @@ void MythRAOPDevice::newConnection(QTcpSocket *client)
     if (obj->Init())
     {
         m_clients.append(obj);
-        connect(client, SIGNAL(disconnected()), this, SLOT(deleteClient()));
-        gCoreContext->RegisterForPlayback(this, SLOT(TVPlaybackStarting()));
+        connect(client, &QAbstractSocket::disconnected, this, &MythRAOPDevice::deleteClient);
+        gCoreContext->RegisterForPlayback(this, &MythRAOPDevice::TVPlaybackStarting);
         return;
     }
 
@@ -251,7 +259,7 @@ void MythRAOPDevice::deleteClient(void)
         {
             LOG(VB_GENERAL, LOG_INFO, LOC + "Removing client connection.");
             delete *it;
-            m_clients.erase(it);
+            it = m_clients.erase(it);
             break;
         }
         ++it;

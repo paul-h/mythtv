@@ -7,10 +7,13 @@
 #include <QTime>
 #include <QSize>
 
+#include <chrono>
 #include <cstdint>
 
 #include "upnpexp.h"
 #include "compat.h"
+
+using namespace std::chrono_literals;
 
 // NOTE These are for formatting to the UPnP related specs or extracting data
 //      from UPnP formatted strings ONLY.
@@ -52,7 +55,7 @@ namespace UPnPDateTime
      * res\@duration Format
      *  B.2.1.4 res\@duration - UPnP ContentDirectory Service 2008, 2013
      */
-    UPNP_PUBLIC QString resDurationFormat(uint32_t msec);
+    UPNP_PUBLIC QString resDurationFormat(std::chrono::milliseconds msec);
 
     //-----------------------------------------------------------------------
     //    Appendix D. EBNF Syntax Definitions
@@ -65,7 +68,7 @@ namespace UPnPDateTime
      * UPnP ContentDirectory Service 2008, 2013
      * Appendix D.1 Date&Time Syntax
      */
-    UPNP_PUBLIC QString DurationFormat(uint32_t msec);
+    UPNP_PUBLIC QString DurationFormat(std::chrono::milliseconds msec);
 
     /**
      * Time Format
@@ -73,7 +76,7 @@ namespace UPnPDateTime
      * UPnP ContentDirectory Service 2008, 2013
      * Appendix D.1 Date&Time Syntax
      */
-    UPNP_PUBLIC QString TimeFormat(const QTime &time);
+    UPNP_PUBLIC QString TimeFormat(QTime time);
 
     /**
      * Time Format
@@ -81,7 +84,7 @@ namespace UPnPDateTime
      * UPnP ContentDirectory Service 2008, 2013
      * Appendix D.1 Date&Time Syntax
      */
-    UPNP_PUBLIC QString TimeFormat(uint32_t msec);
+    UPNP_PUBLIC QString TimeFormat(std::chrono::milliseconds msec);
 
     /**
      * Date-Time Format
@@ -105,7 +108,7 @@ namespace UPnPDateTime
      * UPnP ContentDirectory Service 2008, 2013
      * Appendix D.1 Date&Time Syntax
      */
-    UPNP_PUBLIC QString NamedDayFormat(const QDate &date);
+    UPNP_PUBLIC QString NamedDayFormat(QDate date);
 };
 
 /**
@@ -156,7 +159,7 @@ namespace DLNA
      * Section 7.4.1.3.17
      */
     UPNP_PUBLIC QString DLNAProfileName( const QString &mimeType,
-                                         const QSize &resolution = QSize(),
+                                         QSize resolution = QSize(),
                                          double videoFrameRate = 0.0,
                                          const QString &container = "",
                                          const QString &vidCodec = "",
@@ -176,7 +179,7 @@ namespace DLNA
      */
     UPNP_PUBLIC QString DLNAFourthField( UPNPProtocol::TransferProtocol protocol,
                                          const QString &mimeType,
-                                         const QSize &resolution,
+                                         QSize resolution,
                                          double videoFrameRate,
                                          const QString &container,
                                          const QString &vidCodec,
@@ -196,7 +199,7 @@ namespace DLNA
      */
     UPNP_PUBLIC QString ProtocolInfoString( UPNPProtocol::TransferProtocol protocol,
                                             const QString &mimeType,
-                                            const QSize &resolution = QSize(),
+                                            QSize resolution = QSize(),
                                             double videoFrameRate = 0.0,
                                             const QString &container = "",
                                             const QString &vidCodec = "",

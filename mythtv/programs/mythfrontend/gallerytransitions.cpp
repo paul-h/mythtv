@@ -12,7 +12,7 @@
 
 
 Transition::Transition(const QString& name)
-    : m_duration(gCoreContext->GetNumSetting("GalleryTransitionTime", 1000))
+  : m_duration(gCoreContext->GetDurSetting<std::chrono::milliseconds>("GalleryTransitionTime", 1s))
 {
     setObjectName(name);
 }
@@ -148,7 +148,7 @@ GroupTransition::GroupTransition(GroupAnimation *animation, const QString& name)
     : Transition(name), m_animation(animation)
 {
     // Complete transition when the group finishes
-    connect(m_animation, SIGNAL(finished()), this, SLOT(Finished()));
+    connect(m_animation, &AbstractAnimation::finished, this, &GroupTransition::Finished);
 }
 
 
@@ -194,14 +194,12 @@ void GroupTransition::SetSpeed(float speed)
 }
 
 
-/*!
- \brief Update group transition
- \param interval Millisecs since last update
+/*! \brief Update group transition
 */
-void GroupTransition::Pulse(int interval)
+void GroupTransition::Pulse()
 {
     if (m_animation)
-        m_animation->Pulse(interval);
+        m_animation->Pulse();
 }
 
 
@@ -414,11 +412,12 @@ void TransitionRandom::Start(Slide &from, Slide &to, bool forwards, float speed)
 #if QT_VERSION >= QT_VERSION_CHECK(5,10,0)
     int rand = QRandomGenerator::global()->bounded(m_peers.size());
 #else
+    // cppcheck-suppress qrandCalled
     int rand = qrand() % m_peers.size();
 #endif
     m_current = m_peers[rand];
     // Invoke peer
-    connect(m_current, SIGNAL(finished()), this, SLOT(Finished()));
+    connect(m_current, &Transition::finished, this, &TransitionRandom::Finished);
     m_current->Start(from, to, forwards, speed);
 }
 

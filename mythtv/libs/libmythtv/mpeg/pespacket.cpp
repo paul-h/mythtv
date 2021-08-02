@@ -15,10 +15,8 @@ extern "C" {
 #include <vector>
 #include <map>
 
-using namespace std;
-
 // return true if complete or broken
-bool PESPacket::AddTSPacket(const TSPacket* packet, bool &broken)
+bool PESPacket::AddTSPacket(const TSPacket* packet, int cardid, bool &broken)
 {
     broken = true;
     if (!tsheader()->PayloadStart())
@@ -45,6 +43,25 @@ bool PESPacket::AddTSPacket(const TSPacket* packet, bool &broken)
     {
         payloadSize--;
         payloadStart++;
+    }
+    else
+    {
+        // Skip past the adaptation field if present
+        if (packet->HasAdaptationField())
+        {
+            uint delta = packet->AdaptationFieldSize() + 1;
+
+            // Adaptation field size is max 182 (control is '11') or 183 (control is '10').
+            // Do not skip beyond end of packet when the adaptation field size is wrong.
+            if (delta > TSPacket::kPayloadSize)
+            {
+                delta = TSPacket::kPayloadSize;
+                LOG(VB_GENERAL, LOG_ERR, QString("PESPacket[%1] Invalid adaptation field size:%2  control:%3")
+                    .arg(cardid).arg(packet->AdaptationFieldSize()).arg(packet->AdaptationFieldControl()));
+            }
+            payloadSize -= delta;
+            payloadStart += delta;
+        }
     }
 
     if (ccExp == cc)
@@ -74,9 +91,9 @@ bool PESPacket::AddTSPacket(const TSPacket* packet, bool &broken)
     else
     {
         LOG(VB_RECORD, LOG_ERR,
-            "AddTSPacket: Out of sync!!! Need to wait for next payloadStart" +
-            QString(" PID: 0x%1, continuity counter: %2 (expected %3).")
-                .arg(packet->PID(),0,16).arg(cc).arg(ccExp));
+            QString("AddTSPacket[%1]: Out of sync!!! Need to wait for next payloadStart ").arg(cardid) +
+            QString("PID: 0x%1, continuity counter: %2 ").arg(packet->PID(),0,16).arg(cc) +
+            QString("(expected %1)").arg(ccExp));
         return true;
     }
 
@@ -90,7 +107,7 @@ bool PESPacket::AddTSPacket(const TSPacket* packet, bool &broken)
 
         if (m_pesDataSize >= tlen)
         {
-            m_badPacket = !VerifyCRC();
+            m_badPacket = !VerifyCRC(cardid, packet->PID());
             return true;
         }
     }
@@ -101,7 +118,7 @@ bool PESPacket::AddTSPacket(const TSPacket* packet, bool &broken)
 /** \fn PESPacket::GetAsTSPackets(vector<TSPacket>&,uint) const
  *  \brief Returns payload only PESPacket as series of TSPackets
  */
-void PESPacket::GetAsTSPackets(vector<TSPacket> &output, uint cc) const
+void PESPacket::GetAsTSPackets(std::vector<TSPacket> &output, uint cc) const
 {
 #define INCR_CC(_CC_) do { (_CC_) = ((_CC_) + 1) & 0xf; } while (false)
     uint last_byte_of_pesdata = Length() + 4 - 1;
@@ -134,7 +151,7 @@ void PESPacket::GetAsTSPackets(vector<TSPacket> &output, uint cc) const
         header.SetContinuityCounter(cc);
         output.resize(output.size()+1);
         output[output.size()-1].InitHeader(header.data());
-        uint write_size = min(size, TSPacket::kPayloadSize);
+        uint write_size = std::min(size, TSPacket::kPayloadSize);
         output[output.size()-1].InitPayload(data, write_size);
         data += write_size;
         size -= write_size;
@@ -158,6 +175,19 @@ bool PESPacket::VerifyCRC(void) const
         LOG(VB_SIPARSER, LOG_INFO,
             QString("PESPacket: Failed CRC check 0x%1 != 0x%2 "
                     "for StreamID = 0x%3")
+                .arg(CRC(),8,16,QLatin1Char('0')).arg(CalcCRC(),8,16,QLatin1Char('0')).arg(StreamID(),0,16));
+    }
+    return ret;
+}
+
+bool PESPacket::VerifyCRC(int cardid, int pid) const
+{
+    bool ret = !HasCRC() || (CalcCRC() == CRC());
+    if (!ret)
+    {
+        LOG(VB_RECORD, LOG_INFO,
+            QString("PESPacket[%1] pid(0x%2): ").arg(cardid).arg(pid,0,16) +
+            QString("Failed CRC check 0x%1 != 0x%2 for ID = 0x%3")
                 .arg(CRC(),8,16,QLatin1Char('0')).arg(CalcCRC(),8,16,QLatin1Char('0')).arg(StreamID(),0,16));
     }
     return ret;
@@ -213,13 +243,13 @@ float SequenceHeader::aspect(bool mpeg1) const
 /////////////////////////////////////////////////////////////////////////
 
 #ifndef USING_VALGRIND
-static vector<unsigned char*> mem188;
-static vector<unsigned char*> free188;
-static map<unsigned char*, bool> alloc188;
+static std::vector<unsigned char*> mem188;
+static std::vector<unsigned char*> free188;
+static std::map<unsigned char*, bool> alloc188;
 
-static vector<unsigned char*> mem4096;
-static vector<unsigned char*> free4096;
-static map<unsigned char*, bool> alloc4096;
+static std::vector<unsigned char*> mem4096;
+static std::vector<unsigned char*> free4096;
+static std::map<unsigned char*, bool> alloc4096;
 
 #define BLOCKS188 512
 static unsigned char* get_188_block()
@@ -252,7 +282,7 @@ static void return_188_block(unsigned char* ptr)
     // free the allocator only if more than 1 block was used
     if (alloc188.empty() && mem188.size() > 1)
     {
-        vector<unsigned char*>::iterator it;
+        std::vector<unsigned char*>::iterator it;
         for (it = mem188.begin(); it != mem188.end(); ++it)
             free(*it);
         mem188.clear();
@@ -313,7 +343,7 @@ static void return_4096_block(unsigned char* ptr)
     // free the allocator only if more than 1 block was used
     if (alloc4096.empty() && mem4096.size() > 1)
     {
-        vector<unsigned char*>::iterator it;
+        std::vector<unsigned char*>::iterator it;
         for (it = mem4096.begin(); it != mem4096.end(); ++it)
             free(*it);
         mem4096.clear();

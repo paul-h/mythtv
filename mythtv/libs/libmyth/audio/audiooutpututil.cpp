@@ -7,7 +7,7 @@
 #include "audiooutpututil.h"
 #include "audioconvert.h"
 #include "bswap.h"
-#include "libmythtv/mythavutil.h"
+#include "mythaverror.h"
 
 extern "C" {
 #include "libavcodec/avcodec.h"
@@ -148,6 +148,7 @@ void AudioOutputUtil::AdjustVolume(void *buf, int len, int volume,
             "jnz        1b                  \n\t"
             :"+r"(fptr)
             :"c"(loops),"m"(g)
+            :"xmm0","xmm1","xmm2","xmm3","xmm4"
         );
     }
 #endif //ARCH_X86

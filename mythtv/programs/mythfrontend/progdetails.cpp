@@ -82,7 +82,7 @@ QString ProgDetails::getRatings(bool recorded, uint chanid, const QDateTime& sta
 
     QString ratings;
     QMap<QString,QString>::const_iterator it;
-    for (it = main_ratings.begin(); it != main_ratings.end(); ++it)
+    for (it = main_ratings.cbegin(); it != main_ratings.cend(); ++it)
     {
         ratings += it.key() + ": " + *it + ", ";
     }
@@ -122,7 +122,7 @@ bool ProgDetails::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     bool handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    for (int i = 0; i < actions.size() && !handled; ++i)
     {
         QString action = actions[i];
         handled = true;
@@ -159,8 +159,7 @@ void ProgDetails::PowerPriorities(const QString & ptable)
         return;
 
     using string_pair = QPair<QString, QString>;
-    QList<string_pair > tests;
-    QList<string_pair >::iterator Itest;
+    QVector<string_pair> tests;
     QString  recmatch;
     QString  pwrpri;
     QString  desc;
@@ -183,7 +182,7 @@ void ProgDetails::PowerPriorities(const QString & ptable)
     tests.append(qMakePair(QString("capturecard.recpriority"),
                            QString("capturecard.recpriority")));
 
-    if (recordid && prefinputpri)
+    if (prefinputpri)
     {
         pwrpri = QString("(capturecard.cardid = record.prefinput) * %1")
               .arg(prefinputpri);
@@ -255,12 +254,10 @@ void ProgDetails::PowerPriorities(const QString & ptable)
         if (adj)
         {
             QString sclause = query.value(1).toString();
-            sclause.remove(QRegExp("^\\s*AND\\s+", Qt::CaseInsensitive));
+            sclause.remove(RecordingInfo::kReLeadingAnd);
             sclause.remove(';');
             pwrpri = QString("(%1) * %2").arg(sclause)
                                             .arg(query.value(0).toInt());
-            if (!recordid && pwrpri.indexOf("RECTABLE") != -1)
-                continue;
             pwrpri.replace("RECTABLE", "record");
 
             desc = pwrpri;
@@ -270,16 +267,14 @@ void ProgDetails::PowerPriorities(const QString & ptable)
         }
     }
 
-    if (recordid)
-    {
-        recmatch = QString("INNER JOIN record "
-                           "      ON ( record.recordid = %1 ) ")
-                   .arg(recordid);
-    }
+    recmatch = QString("INNER JOIN record "
+                       "      ON ( record.recordid = %1 ) ")
+        .arg(recordid);
 
-    for (Itest = tests.begin(); Itest != tests.end(); ++Itest)
+    for (const auto & [label, csqlStart] : qAsConst(tests))
     {
-        query.prepare("SELECT " + (*Itest).second.replace("program.", "p.")
+        QString sqlStart = csqlStart;
+        query.prepare("SELECT " + sqlStart.replace("program.", "p.")
                       + QString
                       (" FROM %1 as p "
                        "INNER JOIN channel "
@@ -295,7 +290,7 @@ void ProgDetails::PowerPriorities(const QString & ptable)
         query.bindValue(":CHANID",    m_progInfo.GetChanID());
         query.bindValue(":STARTTIME", m_progInfo.GetScheduledStartTime());
 
-        adjustmsg = QString("%1 : ").arg((*Itest).first);
+        adjustmsg = QString("%1 : ").arg(label);
         if (query.exec() && query.next())
         {
             int adj = query.value(0).toInt();
@@ -505,25 +500,28 @@ void ProgDetails::loadPage(void)
     QString commentators;
     QString guests;
 
+    using string_pair = QPair<QString, QString>;
+    QVector<string_pair> actor_list;
+    QVector<string_pair> guest_star_list;
+
     if (m_progInfo.GetScheduledEndTime() != m_progInfo.GetScheduledStartTime())
     {
+        QString table;
         if (recorded)
-        {
-            query.prepare("SELECT role,people.name FROM recordedcredits"
-                          " AS credits"
-                          " LEFT JOIN people ON credits.person = people.person"
-                          " WHERE credits.chanid = :CHANID"
-                          " AND credits.starttime = :STARTTIME"
-                          " ORDER BY role;");
-        }
+            table = "recordedcredits";
         else
-        {
-            query.prepare("SELECT role,people.name FROM credits"
-                          " LEFT JOIN people ON credits.person = people.person"
-                          " WHERE credits.chanid = :CHANID"
-                          " AND credits.starttime = :STARTTIME"
-                          " ORDER BY role;");
-        }
+            table = "credits";
+
+        query.prepare(QString("SELECT role, people.name, roles.name FROM %1"
+                              " AS credits"
+                              " LEFT JOIN people ON"
+                              "  credits.person = people.person"
+                              " LEFT JOIN roles ON"
+                              "  credits.roleid = roles.roleid"
+                              " WHERE credits.chanid = :CHANID"
+                              " AND credits.starttime = :STARTTIME"
+                              " ORDER BY role, priority;").arg(table));
+
         query.bindValue(":CHANID",    m_progInfo.GetChanID());
         query.bindValue(":STARTTIME", m_progInfo.GetScheduledStartTime());
 
@@ -533,11 +531,12 @@ void ProgDetails::loadPage(void)
             QString rstr;
             QString role;
             QString pname;
+            QString character;
 
             while(query.next())
             {
                 role = query.value(0).toString();
-                /* The people.name column uses utf8_bin collation.
+                /* The people.name, roles.name columns uses utf8_bin collation.
                  * Qt-MySQL drivers use QVariant::ByteArray for string-type
                  * MySQL fields marked with the BINARY attribute (those using a
                  * *_bin collation) and QVariant::String for all others.
@@ -554,9 +553,20 @@ void ProgDetails::loadPage(void)
                  */
                 pname = QString::fromUtf8(query.value(1)
                                           .toByteArray().constData());
+                character = QString::fromUtf8(query.value(2)
+                                              .toByteArray().constData());
+
+                if (!character.isEmpty())
+                {
+                    if (role == "actor")
+                        actor_list.append(qMakePair(pname, character));
+                    else if (role == "guest_star")
+                        guest_star_list.append(qMakePair(pname, character));
+                }
 
                 if (rstr != role)
                 {
+                    plist.removeDuplicates();
                     if (rstr == "actor")
                         actors = plist.join(", ");
                     else if (rstr == "director")
@@ -586,6 +596,7 @@ void ProgDetails::loadPage(void)
 
                 plist.append(pname);
             }
+            plist.removeDuplicates();
             if (rstr == "actor")
                 actors = plist.join(", ");
             else if (rstr == "director")
@@ -613,6 +624,18 @@ void ProgDetails::loadPage(void)
     addItem(tr("Actors"), actors, ProgInfoList::kLevel1);
     addItem(tr("Guest Star"), guestStars, ProgInfoList::kLevel1);
     addItem(tr("Guest"), guests, ProgInfoList::kLevel1);
+
+    if (!actor_list.isEmpty())
+    {
+        for (const auto & [actor, role] : qAsConst(actor_list))
+            addItem(role, actor, ProgInfoList::kLevel2);
+    }
+    if (!guest_star_list.isEmpty())
+    {
+        for (const auto & [actor, role] : qAsConst(guest_star_list))
+            addItem(role, actor, ProgInfoList::kLevel2);
+    }
+
     addItem(tr("Host"), hosts, ProgInfoList::kLevel1);
     addItem(tr("Presenter"), presenters, ProgInfoList::kLevel1);
     addItem(tr("Commentator"), commentators, ProgInfoList::kLevel1);
@@ -626,7 +649,7 @@ void ProgDetails::loadPage(void)
 
     query.prepare("SELECT genre FROM programgenres "
                   "WHERE chanid = :CHANID AND starttime = :STARTTIME "
-                  "AND relevance > 0 ORDER BY relevance;");
+                  "AND relevance <> '0' ORDER BY relevance;");
     query.bindValue(":CHANID",    m_progInfo.GetChanID());
     query.bindValue(":STARTTIME", m_progInfo.GetScheduledStartTime());
 

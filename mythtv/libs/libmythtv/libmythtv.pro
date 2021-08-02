@@ -31,7 +31,10 @@ contains(INCLUDEPATH, /usr/X11R6/include) {
 DEPENDPATH  += .
 DEPENDPATH  += ../libmyth ../libmyth/audio
 DEPENDPATH  += ../libmythbase
-DEPENDPATH  += ./mpeg ./channelscan ./visualisations ./mheg ./decoders ./opengl ./io ./captions
+DEPENDPATH  += ./mpeg ./channelscan ./mheg ./decoders ./opengl ./io ./captions
+DEPENDPATH  += ./visualisations ./visualisations/opengl ./visualisations/vulkan
+DEPENDPATH  += ./vulkan ./drm
+DEPENDPATH  += ./overlays
 DEPENDPATH  += ./recorders
 DEPENDPATH  += ./recorders/dvbdev
 DEPENDPATH  += ./recorders/rtp
@@ -68,16 +71,21 @@ macx {
     LIBS += -framework CoreFoundation
     LIBS += -framework OpenGL
     LIBS += -framework IOKit
-    LIBS += -framework CoreVideo
-    LIBS += -framework VideoToolbox
-    LIBS += -framework IOSurface
-    DEFINES += USING_VTB
-    HEADERS += decoders/mythvtbcontext.h
-    SOURCES += decoders/mythvtbcontext.cpp
+
+    using_videotoolbox {
+        DEFINES += USING_VTB
+        LIBS += -framework CoreVideo
+        LIBS += -framework VideoToolbox
+        LIBS += -framework IOSurface
+        HEADERS += decoders/mythvtbcontext.h
+        SOURCES += decoders/mythvtbcontext.cpp
+    }
 
     using_firewire:using_backend {
         QMAKE_CXXFLAGS += -F$${CONFIG_MAC_AVC}
     }
+
+    LIBS += -liconv
 }
 
 cygwin:QMAKE_LFLAGS_SHLIB += -Wl,--noinhibit-exec
@@ -139,6 +147,7 @@ HEADERS += livetvchain.h            playgroup.h
 HEADERS += channelsettings.h
 HEADERS += previewgenerator.h       previewgeneratorqueue.h
 HEADERS += transporteditor.h        listingsources.h
+HEADERS += restoredata.h
 HEADERS += channelgroup.h
 HEADERS += recordingrule.h
 HEADERS += mythsystemevent.h
@@ -152,6 +161,8 @@ HEADERS += metadataimagehelper.h
 HEADERS += mythavutil.h
 HEADERS += recordingfile.h
 HEADERS += driveroption.h
+HEADERS += mythhdrvideometadata.h
+HEADERS += mythhdrtracker.h
 
 SOURCES += recordinginfo.cpp
 SOURCES += dbcheck.cpp
@@ -175,6 +186,7 @@ SOURCES += livetvchain.cpp          playgroup.cpp
 SOURCES += channelsettings.cpp
 SOURCES += previewgenerator.cpp     previewgeneratorqueue.cpp
 SOURCES += transporteditor.cpp
+SOURCES += restoredata.cpp
 SOURCES += channelgroup.cpp
 SOURCES += recordingrule.cpp
 SOURCES += mythsystemevent.cpp
@@ -185,8 +197,11 @@ SOURCES += io/mythstreamingbuffer.cpp
 SOURCES += io/mythinteractivebuffer.cpp
 SOURCES += io/mythopticalbuffer.cpp
 SOURCES += metadataimagehelper.cpp
-SOURCES += mythframe.cpp            mythavutil.cpp
+SOURCES += mythframe.cpp
+SOURCES += mythavutil.cpp
 SOURCES += recordingfile.cpp
+SOURCES += mythhdrvideometadata.cpp
+SOURCES += mythhdrtracker.cpp
 
 # DiSEqC
 HEADERS += diseqc.h                 diseqcsettings.h
@@ -369,22 +384,53 @@ using_frontend {
     SOURCES += profilegroup.cpp
 
     # Video playback
-    HEADERS += tv_play.h                mythplayer.h
+    HEADERS += tv_play.h
+    HEADERS += tvplaybackstate.h
+    HEADERS += mythtvmenu.h
+    HEADERS += mythtvactionutils.h
+    HEADERS += mythplayer.h
+    HEADERS += mythplayerstate.h
+    HEADERS += mythplayeruibase.h
+    HEADERS += mythplayerui.h
+    HEADERS += mythplayereditorui.h
+    HEADERS += mythplayervideoui.h
+    HEADERS += mythplayercaptionsui.h
+    HEADERS += mythplayeroverlayui.h
+    HEADERS += mythvideoscantracker.h
+    HEADERS += mythplayervisualiserui.h
+    HEADERS += mythplayeravsync.h
+    HEADERS += mythplayeraudioui.h
     HEADERS += audioplayer.h
     HEADERS += mythccextractorplayer.h
     HEADERS += captions/teletextextractorreader.h
     HEADERS += playercontext.h
     HEADERS += tv_play_win.h            deletemap.h
     HEADERS += mythcommflagplayer.h     commbreakmap.h
+    HEADERS += mythpreviewplayer.h
     HEADERS += tvbrowsehelper.h
     HEADERS += mheg/netstream.h
-    SOURCES += tv_play.cpp              mythplayer.cpp
+    SOURCES += tv_play.cpp
+    SOURCES += tvplaybackstate.cpp
+    SOURCES += mythtvmenu.cpp
+    SOURCES += mythplayer.cpp
+    SOURCES += mythplayerstate.cpp
+    SOURCES += mythplayeruibase.cpp
+    SOURCES += mythplayerui.cpp
+    SOURCES += mythplayereditorui.cpp
+    SOURCES += mythplayervideoui.cpp
+    SOURCES += mythplayercaptionsui.cpp
+    SOURCES += mythplayeroverlayui.cpp
+    SOURCES += mythvideoscantracker.cpp
+    SOURCES += mythplayervisualiserui.cpp
+    SOURCES += mythplayeravsync.cpp
+    SOURCES += mythplayeraudioui.cpp
     SOURCES += audioplayer.cpp
     SOURCES += mythccextractorplayer.cpp
     SOURCES += captions/teletextextractorreader.cpp
     SOURCES += playercontext.cpp
     SOURCES += tv_play_win.cpp          deletemap.cpp
     SOURCES += mythcommflagplayer.cpp   commbreakmap.cpp
+    SOURCES += mythpreviewplayer.cpp
     SOURCES += tvbrowsehelper.cpp
     SOURCES += mheg/netstream.cpp
 
@@ -402,15 +448,13 @@ using_frontend {
 
     # A/V decoders
     HEADERS += decoders/decoderbase.h
-    HEADERS += decoders/nuppeldecoder.h
     HEADERS += decoders/avformatdecoder.h
-    HEADERS += decoders/privatedecoder.h
     HEADERS += decoders/mythcodeccontext.h
+    HEADERS += decoders/mythdecoderthread.h
     SOURCES += decoders/decoderbase.cpp
-    SOURCES += decoders/nuppeldecoder.cpp
     SOURCES += decoders/avformatdecoder.cpp
-    SOURCES += decoders/privatedecoder.cpp
     SOURCES += decoders/mythcodeccontext.cpp
+    SOURCES += decoders/mythdecoderthread.cpp
 
     using_libass {
         DEFINES += USING_LIBASS
@@ -419,32 +463,49 @@ using_frontend {
 
     # On screen display (video output overlay)
     HEADERS += osd.h
+    HEADERS += mythmediaoverlay.h
+    HEADERS += mythcaptionsoverlay.h
     HEADERS += captions/teletextscreen.h
     HEADERS += captions/subtitlescreen.h
+    HEADERS += overlays/mythnavigationoverlay.h
+    HEADERS += overlays/mythchanneloverlay.h
     HEADERS += mheg/interactivescreen.h
     SOURCES += osd.cpp
+    SOURCES += mythmediaoverlay.cpp
+    SOURCES += mythcaptionsoverlay.cpp
     SOURCES += captions/teletextscreen.cpp
     SOURCES += captions/subtitlescreen.cpp
+    SOURCES += overlays/mythnavigationoverlay.cpp
+    SOURCES += overlays/mythchanneloverlay.cpp
     SOURCES += mheg/interactivescreen.cpp
 
     # Video output
-    HEADERS += mythvideoout.h           mythvideooutnull.h
+    HEADERS += mythvideoout.h
+    HEADERS += mythvideooutnull.h
+    HEADERS += mythvideooutgpu.h
+    HEADERS += mythvideogpu.h
     HEADERS += videobuffers.h
     HEADERS += jitterometer.h
-    HEADERS += videodisplayprofile.h    mythcodecid.h
+    HEADERS += mythvideoprofile.h mythcodecid.h
     HEADERS += videoouttypes.h
-    HEADERS += videooutwindow.h         videocolourspace.h
+    HEADERS += mythvideobounds.h
+    HEADERS += mythvideocolourspace.h
     HEADERS += visualisations/videovisual.h
     HEADERS += visualisations/videovisualdefs.h
     HEADERS += mythdeinterlacer.h
-    SOURCES += mythvideoout.cpp         mythvideooutnull.cpp
+    HEADERS += mythinteropgpu.h
+    SOURCES += mythvideoout.cpp
+    SOURCES += mythvideooutnull.cpp
+    SOURCES += mythvideooutgpu.cpp
+    SOURCES += mythvideogpu.cpp
     SOURCES += videobuffers.cpp
     SOURCES += jitterometer.cpp
-    SOURCES += videodisplayprofile.cpp  mythcodecid.cpp
-    SOURCES += videooutwindow.cpp
-    SOURCES += videocolourspace.cpp
+    SOURCES += mythvideoprofile.cpp mythcodecid.cpp
+    SOURCES += mythvideobounds.cpp
+    SOURCES += mythvideocolourspace.cpp
     SOURCES += visualisations/videovisual.cpp
     SOURCES += mythdeinterlacer.cpp
+    SOURCES += mythinteropgpu.cpp
 
     # Note - all OpenGL/EGL interop files are added under using_opengl...
     # They are however referenced, without ifdef guards, from the relevant
@@ -469,6 +530,20 @@ using_frontend {
         HEADERS += decoders/mythvdpaucontext.h   decoders/mythvdpauhelper.h
         SOURCES += decoders/mythvdpaucontext.cpp decoders/mythvdpauhelper.cpp
         LIBS += -lvdpau
+    }
+
+    using_drm:using_qtprivateheaders {
+        DEFINES += USING_DRM
+        DEFINES += USING_DRM_VIDEO
+        DEFINES += USING_QTPRIVATEHEADERS
+        QT += gui-private
+        QMAKE_CXXFLAGS += $${LIBDRM_CFLAGS}
+        HEADERS += drm/mythvideodrm.h
+        HEADERS += drm/mythvideodrmbuffer.h
+        HEADERS += drm/mythvideodrmutils.h
+        SOURCES += drm/mythvideodrm.cpp
+        SOURCES += drm/mythvideodrmbuffer.cpp
+        SOURCES += drm/mythvideodrmutils.cpp
     }
 
     using_vaapi {
@@ -500,19 +575,52 @@ using_frontend {
     HEADERS += decoders/mythdrmprimecontext.h
     SOURCES += decoders/mythdrmprimecontext.cpp
 
+    using_vulkan {
+        DEFINES += USING_VULKAN
+        HEADERS += vulkan/mythvideovulkan.h
+        HEADERS += vulkan/mythvideooutputvulkan.h
+        HEADERS += vulkan/mythvideotexturevulkan.h
+        HEADERS += vulkan/mythvideoshadersvulkan.h
+        SOURCES += vulkan/mythvideovulkan.cpp
+        SOURCES += vulkan/mythvideooutputvulkan.cpp
+        SOURCES += vulkan/mythvideotexturevulkan.cpp
+        using_libglslang: DEFINES += USING_GLSLANG
+    }
+
+    using_vulkan|using_opengl {
+        using_libfftw3 {
+            HEADERS += visualisations/videovisualmonoscope.h
+            SOURCES += visualisations/videovisualmonoscope.cpp
+
+            using_opengl {
+                HEADERS += visualisations/opengl/mythvisualmonoscopeopengl.h
+                SOURCES += visualisations/opengl/mythvisualmonoscopeopengl.cpp
+            }
+
+            using_vulkan {
+                HEADERS += visualisations/vulkan/mythvisualvulkan.h
+                HEADERS += visualisations/vulkan/mythvisualcirclesvulkan.h
+                HEADERS += visualisations/vulkan/mythvisualmonoscopevulkan.h
+                SOURCES += visualisations/vulkan/mythvisualvulkan.cpp
+                SOURCES += visualisations/vulkan/mythvisualcirclesvulkan.cpp
+                SOURCES += visualisations/vulkan/mythvisualmonoscopevulkan.cpp
+            }
+        }
+    }
+
     using_opengl {
         DEFINES += USING_OPENGL
         HEADERS += opengl/mythopenglvideo.h
         HEADERS += opengl/mythvideooutopengl.h
         HEADERS += opengl/mythopenglvideoshaders.h
         HEADERS += opengl/mythopenglinterop.h
-        HEADERS += opengl/mythvideotexture.h
+        HEADERS += opengl/mythvideotextureopengl.h
         HEADERS += opengl/mythopengltonemap.h
         HEADERS += opengl/mythopenglcomputeshaders.h
         SOURCES += opengl/mythopenglvideo.cpp
         SOURCES += opengl/mythvideooutopengl.cpp
         SOURCES += opengl/mythopenglinterop.cpp
-        SOURCES += opengl/mythvideotexture.cpp
+        SOURCES += opengl/mythvideotextureopengl.cpp
         SOURCES += opengl/mythopengltonemap.cpp
 
         using_vaapi {
@@ -536,7 +644,7 @@ using_frontend {
             SOURCES += opengl/mythmediacodecinterop.cpp
         }
 
-        macx {
+        macx:using_videotoolbox {
             HEADERS += opengl/mythvtbinterop.h
             SOURCES += opengl/mythvtbinterop.cpp
         }
@@ -562,9 +670,7 @@ using_frontend {
 
         using_libfftw3 {
             HEADERS += visualisations/videovisualcircles.h
-            HEADERS += visualisations/videovisualmonoscope.h
             SOURCES += visualisations/videovisualcircles.cpp
-            SOURCES += visualisations/videovisualmonoscope.cpp
         }
 
         !win32-msvc* {
@@ -632,7 +738,18 @@ using_frontend {
         DEFINES += USING_MHEG
     }
 
+    using_v4l2 {
+        HEADERS += decoders/mythv4l2m2mcontext.h
+        SOURCES += decoders/mythv4l2m2mcontext.cpp
+    }
+
     DEFINES += USING_FRONTEND
+}
+
+if(using_backend|using_frontend):using_v4l2 {
+    HEADERS += v4l2util.h
+    SOURCES += v4l2util.cpp
+    DEFINES += USING_V4L2
 }
 
 using_backend {
@@ -751,9 +868,6 @@ using_backend {
     }
 
     using_v4l2 {
-        HEADERS += v4l2util.h
-        SOURCES += v4l2util.cpp
-
         HEADERS += recorders/v4lchannel.h
         HEADERS += recorders/analogsignalmonitor.h
         SOURCES += recorders/v4lchannel.cpp
@@ -765,10 +879,6 @@ using_backend {
         SOURCES += recorders/v4l2encstreamhandler.cpp
         HEADERS += recorders/v4l2encsignalmonitor.h
         SOURCES += recorders/v4l2encsignalmonitor.cpp
-
-        HEADERS += decoders/mythv4l2m2mcontext.h
-        SOURCES += decoders/mythv4l2m2mcontext.cpp
-        DEFINES += USING_V4L2
     }
 
     # Support for cable boxes that provide Firewire out

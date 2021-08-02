@@ -10,7 +10,6 @@
 #include <QTextStream>
 #include <QDir>
 #include <QFile>
-#include <QRegExp>
 #include <QBuffer>
 #include <QEventLoop>
 #include <QImage>
@@ -58,8 +57,8 @@ bool InternetContent::ProcessRequest( HTTPRequest *pRequest )
 
             LOG(VB_UPNP, LOG_INFO,
                 QString("InternetContent::ProcessRequest: %1 : %2")
-                    .arg(pRequest->m_sMethod)
-                    .arg(pRequest->m_sRawRequest));
+                    .arg(pRequest->m_sMethod,
+                         pRequest->m_sRawRequest));
 
             // --------------------------------------------------------------
 
@@ -114,8 +113,8 @@ void InternetContent::GetInternetSearch( HTTPRequest *pRequest )
     if (grabber.isEmpty() || query.isEmpty())
         return;
 
-    QString command = QString("%1internetcontent/%2").arg(GetShareDir())
-                        .arg(grabber);
+    QString command = QString("%1internetcontent/%2")
+                      .arg(GetShareDir(), grabber);
 
     if (!QFile::exists(command))
     {
@@ -127,10 +126,10 @@ void InternetContent::GetInternetSearch( HTTPRequest *pRequest )
     auto *search = new Search();
     QEventLoop loop;
 
-    QObject::connect(search, SIGNAL(finishedSearch(Search *)),
-                     &loop, SLOT(quit(void)));
-    QObject::connect(search, SIGNAL(searchTimedOut(Search *)),
-                     &loop, SLOT(quit(void)));
+    QObject::connect(search, &Search::finishedSearch,
+                     &loop, &QEventLoop::quit);
+    QObject::connect(search, &Search::searchTimedOut,
+                     &loop, &QEventLoop::quit);
 
     search->executeSearch(command, query, page);
     loop.exec();
@@ -161,10 +160,9 @@ void InternetContent::GetInternetSources( HTTPRequest *pRequest )
     QDir GrabberPath(GrabberDir);
     QStringList Grabbers = GrabberPath.entryList(QDir::Files | QDir::Executable);
 
-    for (QStringList::const_iterator i = Grabbers.begin();
-            i != Grabbers.end(); ++i)
+    for (const auto & name : qAsConst(Grabbers))
     {
-        QString commandline = GrabberDir + (*i);
+        QString commandline = GrabberDir + name;
         MythSystemLegacy scriptcheck(commandline, QStringList("-v"),
                                kMSRunShell | kMSStdOut);
         scriptcheck.Run();

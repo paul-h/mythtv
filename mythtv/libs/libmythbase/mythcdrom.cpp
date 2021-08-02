@@ -32,7 +32,7 @@
 #define PATHTO_AUDIO_DETECT "/.TOC.plist"
 
 
-MythCDROM* MythCDROM::get(QObject* par, const char* devicePath,
+MythCDROM* MythCDROM::get(QObject* par, const QString& devicePath,
                           bool SuperMount, bool AllowEject)
 {
 #if defined(linux) && !defined(Q_OS_ANDROID)
@@ -46,7 +46,7 @@ MythCDROM* MythCDROM::get(QObject* par, const char* devicePath,
 #endif
 }
 
-MythCDROM::MythCDROM(QObject* par, const char* DevicePath, bool SuperMount,
+MythCDROM::MythCDROM(QObject* par, const QString& DevicePath, bool SuperMount,
                      bool AllowEject)
          : MythMediaDevice(par, DevicePath, SuperMount, AllowEject)
 {
@@ -109,9 +109,9 @@ void MythCDROM::onDeviceMounted()
     {
         LOG(VB_GENERAL, LOG_ERR,
                 QString("CD/DVD '%1' contained none of\n").arg(m_mountPath) +
-                QString("\t\t\t%1, %2, %3 or %4").arg(PATHTO_DVD_DETECT)
-                .arg(PATHTO_AUDIO_DETECT).arg(PATHTO_VCD_DETECT)
-                .arg(PATHTO_SVCD_DETECT));
+            QString("\t\t\t%1, %2, %3 or %4")
+                .arg(PATHTO_DVD_DETECT, PATHTO_AUDIO_DETECT,
+                     PATHTO_VCD_DETECT,  PATHTO_SVCD_DETECT));
         LOG(VB_GENERAL, LOG_INFO, "Searching CD statistically - file by file!");
     }
 

@@ -1,6 +1,6 @@
 // MythTV
 #include "mythlogging.h"
-#include "videocolourspace.h"
+#include "mythvideocolourspace.h"
 #include "mythvdpauhelper.h"
 #include "platforms/mythxdisplay.h" // always last
 
@@ -50,14 +50,14 @@ bool VDPAUCodec::Supported(int Width, int Height, int Level) const
     return result;
 }
 
-bool MythVDPAUHelper::HaveVDPAU(void)
+bool MythVDPAUHelper::HaveVDPAU(bool Reinit /*=false*/)
 {
     static QMutex s_mutex;
     static bool s_checked = false;
     static bool s_available = false;
 
     QMutexLocker locker(&s_mutex);
-    if (s_checked)
+    if (s_checked && !Reinit)
         return s_available;
 
     {
@@ -166,7 +166,11 @@ const VDPAUProfiles& MythVDPAUHelper::GetProfiles(void)
         return MythCodecContext::NoProfile;
     };
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     static QMutex lock(QMutex::Recursive);
+#else
+    static QRecursiveMutex lock;
+#endif
     static bool s_initialised = false;
     static VDPAUProfiles s_profiles;
 
@@ -188,7 +192,7 @@ const VDPAUProfiles& MythVDPAUHelper::GetProfiles(void)
         if (helper.ProfileCheck(profile, level, macros, width, height))
         {
             MythCodecContext::CodecProfile prof = VDPAUToMythProfile(profile);
-            s_profiles.append(VDPAUProfile(prof,
+            s_profiles.push_back(VDPAUProfile(prof,
                 VDPAUCodec(prof, QSize(static_cast<int>(width), static_cast<int>(height)), macros, level)));
         }
     }
@@ -200,7 +204,7 @@ const VDPAUProfiles& MythVDPAUHelper::GetProfiles(void)
             if (helper.ProfileCheck(profile, level, macros, width, height))
             {
                 MythCodecContext::CodecProfile prof = VDPAUToMythProfile(profile);
-                s_profiles.append(VDPAUProfile(prof,
+                s_profiles.push_back(VDPAUProfile(prof,
                     VDPAUCodec(prof, QSize(static_cast<int>(width), static_cast<int>(height)), macros, level)));
             }
         }
@@ -212,7 +216,7 @@ const VDPAUProfiles& MythVDPAUHelper::GetProfiles(void)
 void MythVDPAUHelper::GetDecoderList(QStringList &Decoders)
 {
     const VDPAUProfiles& profiles = MythVDPAUHelper::GetProfiles();
-    if (profiles.isEmpty())
+    if (profiles.empty())
         return;
 
     Decoders.append("VDPAU:");
@@ -301,6 +305,7 @@ bool MythVDPAUHelper::InitProcs(void)
     GET_PROC(VDP_FUNC_ID_VIDEO_MIXER_SET_ATTRIBUTE_VALUES, m_vdpVideoMixerSetAttributeValues)
     GET_PROC(VDP_FUNC_ID_VIDEO_MIXER_SET_FEATURE_ENABLES, m_vdpVideoMixerSetFeatureEnables)
     GET_PROC(VDP_FUNC_ID_VIDEO_MIXER_QUERY_FEATURE_SUPPORT, m_vdpVideoMixerQueryFeatureSupport)
+    GET_PROC(VDP_FUNC_ID_VIDEO_MIXER_QUERY_ATTRIBUTE_SUPPORT, m_vdpVideoMixerQueryAttributeSupport)
     GET_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_CREATE, m_vdpOutputSurfaceCreate)
     GET_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_DESTROY, m_vdpOutputSurfaceDestroy)
     GET_PROC(VDP_FUNC_ID_VIDEO_SURFACE_GET_PARAMETERS, m_vdpVideoSurfaceGetParameters)
@@ -331,6 +336,9 @@ bool MythVDPAUHelper::HEVCSupported(void)
     CHECK_ST
     if (!ok || !infostring)
         return false;
+
+    if (!QString(infostring).contains("NVIDIA", Qt::CaseInsensitive))
+        return true;
 
     int driver = 0;
     sscanf(infostring, "NVIDIA VDPAU Driver Shared Library  %d", &driver);
@@ -427,23 +435,21 @@ VdpVideoMixer MythVDPAUHelper::CreateMixer(QSize Size, VdpChromaType ChromaType,
 
     VdpVideoMixer result = 0;
 
-    VdpVideoMixerParameter parameters[] = {
+    static const std::array<const VdpVideoMixerParameter,3> parameters {
         VDP_VIDEO_MIXER_PARAMETER_VIDEO_SURFACE_WIDTH,
         VDP_VIDEO_MIXER_PARAMETER_VIDEO_SURFACE_HEIGHT,
-        VDP_VIDEO_MIXER_PARAMETER_CHROMA_TYPE,
-        VDP_VIDEO_MIXER_PARAMETER_LAYERS,
+        VDP_VIDEO_MIXER_PARAMETER_CHROMA_TYPE
     };
 
 
     uint width  = static_cast<uint>(Size.width());
     uint height = static_cast<uint>(Size.height());
-    uint layers = 0;
-    void const * parametervalues[] = { &width, &height, &ChromaType, &layers};
+    std::array<void const *,3> parametervalues { &width, &height, &ChromaType};
 
     uint32_t featurecount = 0;
-    VdpVideoMixerFeature features[2];
+    std::array<VdpVideoMixerFeature,2> features {};
     VdpBool enable = VDP_TRUE;
-    const VdpBool enables[2] = { enable, enable };
+    const std::array<VdpBool,2> enables = { enable, enable };
 
     if (DEINT_MEDIUM == Deinterlacer || DEINT_HIGH == Deinterlacer)
     {
@@ -458,8 +464,8 @@ VdpVideoMixer MythVDPAUHelper::CreateMixer(QSize Size, VdpChromaType ChromaType,
     }
 
     INIT_ST
-    status = m_vdpVideoMixerCreate(m_device, featurecount, featurecount ? features : nullptr,
-                                   4, parameters, parametervalues, &result);
+    status = m_vdpVideoMixerCreate(m_device, featurecount, featurecount ? features.data() : nullptr,
+                                   3, parameters.data(), parametervalues.data(), &result);
     CHECK_ST
 
     if (!ok || !result)
@@ -468,8 +474,11 @@ VdpVideoMixer MythVDPAUHelper::CreateMixer(QSize Size, VdpChromaType ChromaType,
         return result;
     }
 
-    status = m_vdpVideoMixerSetFeatureEnables(result, featurecount, features, enables);
-    CHECK_ST
+    if (featurecount)
+    {
+        status = m_vdpVideoMixerSetFeatureEnables(result, featurecount, features.data(), enables.data());
+        CHECK_ST
+    }
     return result;
 }
 
@@ -502,8 +511,8 @@ void MythVDPAUHelper::MixerRender(VdpVideoMixer Mixer, VdpVideoSurface Source,
     }
     else
     {
-        VdpVideoSurface past[2]   = { VDP_INVALID_HANDLE, VDP_INVALID_HANDLE };
-        VdpVideoSurface future[1] = { VDP_INVALID_HANDLE };
+        std::array<VdpVideoSurface,2> past   = { VDP_INVALID_HANDLE, VDP_INVALID_HANDLE };
+        std::array<VdpVideoSurface,1> future = { VDP_INVALID_HANDLE };
 
         auto next    = static_cast<VdpVideoSurface>(reinterpret_cast<uintptr_t>(Frames[0]->data));
         auto current = static_cast<VdpVideoSurface>(reinterpret_cast<uintptr_t>(Frames[count > 1 ? 1 : 0]->data));
@@ -523,7 +532,8 @@ void MythVDPAUHelper::MixerRender(VdpVideoMixer Mixer, VdpVideoSurface Source,
 
         INIT_ST
         status = m_vdpVideoMixerRender(Mixer, VDP_INVALID_HANDLE, nullptr, field,
-                                       2, past, current, 1, future, nullptr, Dest, nullptr, nullptr, 0, nullptr);
+                                       2, past.data(), current, 1, future.data(),
+                                       nullptr, Dest, nullptr, nullptr, 0, nullptr);
         CHECK_ST
     }
 }
@@ -538,7 +548,7 @@ void MythVDPAUHelper::DeleteMixer(VdpVideoMixer Mixer)
     CHECK_ST
 }
 
-void MythVDPAUHelper::SetCSCMatrix(VdpVideoMixer Mixer, VideoColourSpace *ColourSpace)
+void MythVDPAUHelper::SetCSCMatrix(VdpVideoMixer Mixer, MythVideoColourSpace *ColourSpace)
 {
     if (!Mixer || !ColourSpace)
         return;
@@ -559,6 +569,18 @@ bool MythVDPAUHelper::IsFeatureAvailable(uint Feature)
     INIT_ST
     auto supported = static_cast<VdpBool>(false);
     status = m_vdpVideoMixerQueryFeatureSupport(m_device, Feature, &supported);
+    CHECK_ST
+    return ok && static_cast<bool>(supported);
+}
+
+bool MythVDPAUHelper::IsAttributeAvailable(uint Attribute)
+{
+    if (!m_valid)
+        return false;
+
+    INIT_ST
+    auto supported = static_cast<VdpBool>(false);
+    status = m_vdpVideoMixerQueryAttributeSupport(m_device, Attribute, &supported);
     CHECK_ST
     return ok && static_cast<bool>(supported);
 }

@@ -40,7 +40,7 @@ class FirewireRecorder :
     void StopStreaming(void);
 
     void run(void) override; // RecorderBase
-    bool PauseAndWait(int timeout = 100) override; // RecorderBase
+    bool PauseAndWait(std::chrono::milliseconds timeout = 100ms) override; // RecorderBase
 
     // Implements TSDataListener
     void AddData(const unsigned char *data, uint len) override; // TSDataListener
@@ -60,7 +60,7 @@ class FirewireRecorder :
   private:
     FirewireChannel       *m_channel {nullptr};
     bool                   m_isopen  {false};
-    vector<unsigned char>  m_buffer;
+    std::vector<unsigned char>  m_buffer;
 };
 
 #endif // FIREWIRERECORDER_H

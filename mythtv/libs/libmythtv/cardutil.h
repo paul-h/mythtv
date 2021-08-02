@@ -3,9 +3,9 @@
 #define CARDUTIL_H
 
 // C++ headers
+#include <chrono>
 #include <cstdint>
 #include <vector>
-using namespace std;
 
 // Qt headers
 #include <QList>
@@ -238,8 +238,8 @@ class MTV_PUBLIC CardUtil
                                           uint firewire_speed,
                                           const QString &firewire_model,
                                           uint firewire_connection,
-                                          uint signal_timeout,
-                                          uint channel_timeout,
+                                          std::chrono::milliseconds signal_timeout,
+                                          std::chrono::milliseconds channel_timeout,
                                           uint dvb_tuning_delay,
                                           uint contrast,
                                           uint brightness,
@@ -250,26 +250,26 @@ class MTV_PUBLIC CardUtil
 
     static bool         DeleteInput(uint inputid);
     static bool         DeleteAllInputs(void);
-    static vector<uint> GetInputList(void);
-    static vector<uint> GetSchedInputList(void);
-    static vector<uint> GetLiveTVInputList(void);
+    static std::vector<uint> GetInputList(void);
+    static std::vector<uint> GetSchedInputList(void);
+    static std::vector<uint> GetLiveTVInputList(void);
 
     /// Convenience function for GetInputIDs()
     static uint         GetFirstInputID(const QString &videodevice)
     {
-        vector<uint> list = GetInputIDs(videodevice);
+        std::vector<uint> list = GetInputIDs(videodevice);
         if (list.empty())
             return 0;
         return list[0];
     }
 
-    static vector<uint> GetInputIDs(const QString& videodevice = QString(),
+    static std::vector<uint> GetInputIDs(const QString& videodevice = QString(),
                                     const QString& rawtype     = QString(),
                                     const QString& inputname   = QString(),
                                     QString hostname    = QString());
 
     static uint         GetChildInputCount(uint inputid);
-    static vector<uint> GetChildInputIDs(uint inputid);
+    static std::vector<uint> GetChildInputIDs(uint inputid);
 
     static bool         IsInputTypePresent(const QString &rawtype,
                                            QString hostname = QString());
@@ -324,9 +324,9 @@ class MTV_PUBLIC CardUtil
 
     // Other input functions
 
-    static vector<uint> GetInputIDs(uint sourceid);
+    static std::vector<uint> GetInputIDs(uint sourceid);
     static bool         GetInputInfo(InputInfo &input,
-                                     vector<uint> *groupids = nullptr);
+                                     std::vector<uint> *groupids = nullptr);
     static QList<InputInfo> GetAllInputInfo();
     static QString      GetInputName(uint inputid);
     static QString      GetStartingChannel(uint inputid);
@@ -344,9 +344,9 @@ class MTV_PUBLIC CardUtil
     static uint         GetDeviceInputGroup(uint inputid);
     static bool         LinkInputGroup(uint inputid, uint inputgroupid);
     static bool         UnlinkInputGroup(uint inputid, uint inputgroupid);
-    static vector<uint> GetInputGroups(uint inputid);
-    static vector<uint> GetGroupInputIDs(uint inputgroupid);
-    static vector<uint> GetConflictingInputs(uint inputid);
+    static std::vector<uint> GetInputGroups(uint inputid);
+    static std::vector<uint> GetGroupInputIDs(uint inputgroupid);
+    static std::vector<uint> GetConflictingInputs(uint inputid);
 
     static QString      GetDeviceLabel(const QString &inputtype,
                                        const QString &videodevice);
@@ -374,8 +374,8 @@ class MTV_PUBLIC CardUtil
 
     // DTV info
     static bool         GetTimeouts(uint inputid,
-                                    uint &signal_timeout,
-                                    uint &channel_timeout);
+                                    std::chrono::milliseconds &signal_timeout,
+                                    std::chrono::milliseconds &channel_timeout);
     static bool         IgnoreEncrypted(uint inputid,
                                         const QString &inputname);
     static bool         TVOnly(uint inputid, const QString &inputname);
@@ -393,7 +393,7 @@ class MTV_PUBLIC CardUtil
     static QString      ProbeDVBType(const QString &device);
     static QString      ProbeDVBFrontendName(const QString &device);
     static bool         HasDVBCRCBug(const QString &device);
-    static uint         GetMinSignalMonitoringDelay(const QString &device);
+    static std::chrono::milliseconds GetMinSignalMonitoringDelay(const QString &device);
     static DTVTunerType ConvertToTunerType(DTVModulationSystem delsys);
     static DTVTunerType GetTunerType(uint inputid);
     static DTVTunerType ProbeTunerType(int fd_frontend);
@@ -413,6 +413,7 @@ class MTV_PUBLIC CardUtil
     static int          OpenVideoDevice(const QString &device);
     static QString      GetDeviceName(dvb_dev_type_t type, const QString &device);
     static InputNames   GetConfiguredDVBInputs(const QString &device);
+    static QStringList  CapabilitiesToString(uint64_t capabilities);
 
     // V4L info
     static bool         hasV4L2(int videofd);

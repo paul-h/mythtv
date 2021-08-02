@@ -36,6 +36,11 @@ ExternalRecChannelFetcher::ExternalRecChannelFetcher(int cardid,
     , m_command(std::move(cmd))
 {
     m_streamHandler = ExternalStreamHandler::Get(m_command, m_cardid, m_cardid);
+    if (!m_streamHandler || m_streamHandler->HasError())
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Open failed");
+        Close();
+    }
 }
 
 ExternalRecChannelFetcher::~ExternalRecChannelFetcher(void)
@@ -87,7 +92,7 @@ bool ExternalRecChannelFetcher::FetchChannel(const QString & cmd,
     if (result.startsWith("ERR"))
     {
         LOG(VB_CHANNEL, LOG_ERR, LOC + QString("%1: %2")
-            .arg(cmd).arg(result));
+            .arg(cmd, result));
         return false;
     }
     if (result.startsWith("OK:DONE"))
@@ -126,7 +131,7 @@ int ExternalRecChannelFetcher::LoadChannels(void)
     QString result;
     int     cnt = -1;
 
-    if (!m_streamHandler->ProcessCommand("LoadChannels", result, 50000))
+    if (!m_streamHandler->ProcessCommand("LoadChannels", result, 50s))
     {
         LOG(VB_CHANNEL, LOG_ERR, LOC + "LoadChannels command failed.");
         return -1;

@@ -4,11 +4,9 @@
 
 // C/C++ headers
 #include <vector> // For std::vector
-using namespace std;
 
 // QT headers
 #include <QDateTime>
-#include <QRegExp>
 
 // libmythtv headers
 #include "recordingrule.h"
@@ -92,9 +90,10 @@ void ProgramRecPriorityInfo::clear(void)
 }
 
 void ProgramRecPriorityInfo::ToMap(InfoMap &progMap,
-                                   bool showrerecord, uint star_range) const
+                                   bool showrerecord, uint star_range,
+                                   uint date_format) const
 {
-    RecordingInfo::ToMap(progMap, showrerecord, star_range);
+    RecordingInfo::ToMap(progMap, showrerecord, star_range, date_format);
     progMap["title"] = (m_title == "Default (Template)") ?
         QObject::tr("Default (Template)") : m_title;
     progMap["category"] = (m_category == "Default") ?
@@ -418,10 +417,10 @@ bool ProgramRecPriority::Create()
         return false;
     }
 
-    connect(m_programList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            SLOT(updateInfo(MythUIButtonListItem*)));
-    connect(m_programList, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            SLOT(edit(MythUIButtonListItem*)));
+    connect(m_programList, &MythUIButtonList::itemSelected,
+            this, &ProgramRecPriority::updateInfo);
+    connect(m_programList, &MythUIButtonList::itemClicked,
+            this, &ProgramRecPriority::edit);
 
     m_programList->SetLCDTitles(tr("Schedule Priorities"),
                           "rec_type|titlesubtitle|progpriority");
@@ -822,7 +821,7 @@ void ProgramRecPriority::customEvent(QEvent *event)
     }
 }
 
-void ProgramRecPriority::edit(MythUIButtonListItem *item)
+void ProgramRecPriority::edit(MythUIButtonListItem *item) const
 {
     if (!item)
         return;
@@ -841,8 +840,8 @@ void ProgramRecPriority::edit(MythUIButtonListItem *item)
     if (schededit->Create())
     {
         mainStack->AddScreen(schededit);
-        connect(schededit, SIGNAL(ruleSaved(int)), SLOT(scheduleChanged(int)));
-        connect(schededit, SIGNAL(ruleDeleted(int)), SLOT(scheduleChanged(int)));
+        connect(schededit, &ScheduleEditor::ruleSaved, this, &ProgramRecPriority::scheduleChanged);
+        connect(schededit, &ScheduleEditor::ruleDeleted, this, &ProgramRecPriority::scheduleChanged);
     }
     else
         delete schededit;
@@ -879,8 +878,8 @@ void ProgramRecPriority::newTemplate(QString category)
     if (schededit->Create())
     {
         mainStack->AddScreen(schededit);
-        connect(schededit, SIGNAL(ruleSaved(int)), SLOT(scheduleChanged(int)));
-        connect(schededit, SIGNAL(ruleDeleted(int)), SLOT(scheduleChanged(int)));
+        connect(schededit, &ScheduleEditor::ruleSaved, this, &ProgramRecPriority::scheduleChanged);
+        connect(schededit, &ScheduleEditor::ruleDeleted, this, &ProgramRecPriority::scheduleChanged);
     }
     else
         delete schededit;
@@ -985,8 +984,8 @@ void ProgramRecPriority::remove(void)
         return;
     }
 
-    QString message = tr("Delete '%1' %2 rule?").arg(record->m_title)
-        .arg(toString(pgRecInfo->GetRecordingRuleType()));
+    QString message = tr("Delete '%1' %2 rule?")
+        .arg(record->m_title, toString(pgRecInfo->GetRecordingRuleType()));
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
@@ -1150,10 +1149,10 @@ void ProgramRecPriority::FillList(void)
         countMatches();
         do {
             uint recordid = result.value(0).toUInt();
-            QString title = result.value(1).toString();
-            QString chanid = result.value(2).toString();
-            QString tempTime = result.value(3).toString();
-            QString tempDate = result.value(4).toString();
+//          QString title = result.value(1).toString();
+//          QString chanid = result.value(2).toString();
+//          QString tempTime = result.value(3).toString();
+//          QString tempDate = result.value(4).toString();
             RecordingType recType = (RecordingType)result.value(5).toInt();
             int inactive = result.value(6).toInt();
             QDateTime lastrec = MythDate::as_utc(result.value(7).toDateTime());
@@ -1353,7 +1352,7 @@ void ProgramRecPriority::UpdateList()
                         .arg(m_listMatch[progInfo->GetRecordingRuleID()]);
         }
 
-        subtitle = QString("(%1) %2").arg(matchInfo).arg(subtitle);
+        subtitle = QString("(%1) %2").arg(matchInfo, subtitle);
         item->SetText(subtitle, "scheduleinfo", state);
 
         item->SetText(QString::number(progRecPriority), "progpriority", state);
@@ -1447,7 +1446,7 @@ void ProgramRecPriority::updateInfo(MythUIButtonListItem *item)
             .arg(m_listMatch[pgRecInfo->GetRecordingRuleID()]);
     }
 
-    subtitle = QString("(%1) %2").arg(matchInfo).arg(subtitle);
+    subtitle = QString("(%1) %2").arg(matchInfo, subtitle);
 
     InfoMap infoMap;
     pgRecInfo->ToMap(infoMap);

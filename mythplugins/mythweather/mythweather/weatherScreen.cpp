@@ -1,6 +1,5 @@
 // C++ headers
 #include <vector>
-using namespace std;
 
 // MythTV headers
 #include <mythcontext.h>
@@ -25,9 +24,9 @@ WeatherScreen::WeatherScreen(MythScreenStack *parent,
 
     QStringList types = m_screenDefn->m_dataTypes;
 
-    for (int i = 0; i < types.size(); ++i)
+    for (const QString& type : qAsConst(types))
     {
-        m_dataValueMap[types.at(i)] =  "";
+        m_dataValueMap[type] =  "";
     }
 }
 

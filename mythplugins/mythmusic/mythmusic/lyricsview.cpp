@@ -4,7 +4,6 @@
 
 // qt
 #include <QKeyEvent>
-#include <QRegExp>
 #include <QThread>
 #include <QDomDocument>
 
@@ -83,7 +82,7 @@ bool LyricsView::Create(void)
         return false;
     }
 
-    connect(m_lyricsList, SIGNAL(itemClicked(MythUIButtonListItem*)), this, SLOT(setLyricTime()));
+    connect(m_lyricsList, &MythUIButtonList::itemClicked, this, &LyricsView::setLyricTime);
 
     BuildFocusList();
 
@@ -111,14 +110,14 @@ void LyricsView::customEvent(QEvent *event)
             if (!oe || !curMeta)
                 return;
 
-            int rs = 0;
+            std::chrono::milliseconds rs = 0ms;
 
             if (gPlayer->getPlayMode() == MusicPlayer::PLAYMODE_RADIO)
             {
-                rs = gPlayer->getCurrentTrackTime() * 1000; 
+                rs = gPlayer->getCurrentTrackTime();
             }
             else
-                rs = oe->elapsedSeconds() * 1000;
+                rs = oe->elapsedSeconds();
 
             int pos = 0;
             for (int x = 0; x < m_lyricsList->GetCount(); x++)
@@ -127,7 +126,7 @@ void LyricsView::customEvent(QEvent *event)
                 auto *lyric = item->GetData().value<LyricsLine*>();
                 if (lyric)
                 {
-                    if (lyric->m_time > 1000 && rs >= lyric->m_time)
+                    if (lyric->m_time > 1s && rs >= lyric->m_time)
                         pos = x;
                 }
             }
@@ -229,12 +228,12 @@ void LyricsView::ShowMenu(void)
 
         if (gPlayer->getPlayMode() != MusicPlayer::PLAYMODE_RADIO)
         {
-            if (m_lyricData->lyrics()->count())
+            if (!m_lyricData->lyrics()->isEmpty())
                 menu->AddItem(tr("Edit Lyrics"), nullptr, nullptr);
             else
                 menu->AddItem(tr("Add Lyrics"), nullptr, nullptr);
 
-            if (m_lyricData->lyrics()->count() && m_lyricData->changed())
+            if (!m_lyricData->lyrics()->isEmpty() && m_lyricData->changed())
                 menu->AddItem(tr("Save Lyrics"), nullptr, nullptr);
         }
 
@@ -259,13 +258,13 @@ MythMenu* LyricsView::createFindLyricsMenu(void)
     QString label = tr("Find Lyrics");
 
     auto *menu = new MythMenu(label, this, "findlyricsmenu");
-    menu->AddItem(tr("Search All Grabbers"), QVariant::fromValue(QString("ALL")));
+    menu->AddItemV(tr("Search All Grabbers"), QVariant::fromValue(QString("ALL")));
 
     QStringList strList("MUSIC_LYRICS_GETGRABBERS");
     if (gCoreContext->SendReceiveStringList(strList))
     {
         for (int x = 1; x < strList.count(); x++)
-            menu->AddItem(tr("Search %1").arg(strList.at(x)), QVariant::fromValue(strList.at(x)));
+            menu->AddItemV(tr("Search %1").arg(strList.at(x)), QVariant::fromValue(strList.at(x)));
     }
 
     return menu;
@@ -339,7 +338,7 @@ void LyricsView::setLyricTime(void)
             auto *lyric = item->GetData().value<LyricsLine*>();
             if (lyric)
             {
-                lyric->m_time = gPlayer->getOutput()->GetAudiotime() - 750;
+                lyric->m_time = gPlayer->getOutput()->GetAudiotime() - 750ms;
                 m_lyricData->setChanged(true);
                 m_lyricData->setSyncronized(true);
                 m_autoScroll = false;
@@ -363,7 +362,7 @@ void LyricsView::findLyrics(const QString &grabber)
 
     if (gPlayer->getPlayMode() == MusicPlayer::PLAYMODE_RADIO)
     {
-        if (gPlayer->getPlayedTracksList().count())
+        if (!gPlayer->getPlayedTracksList().isEmpty())
             mdata = gPlayer->getPlayedTracksList().last();
     }
     else
@@ -379,8 +378,8 @@ void LyricsView::findLyrics(const QString &grabber)
 
     m_lyricData = mdata->getLyricsData();
 
-    connect(m_lyricData, SIGNAL(statusChanged(LyricsData::Status, const QString&)), 
-            this,  SLOT(lyricStatusChanged(LyricsData::Status, const QString&)));
+    connect(m_lyricData, &LyricsData::statusChanged, 
+            this,  &LyricsView::lyricStatusChanged);
 
     m_lyricData->findLyrics(grabber);
 }
@@ -446,15 +445,13 @@ void LyricsView::showLyrics(void)
     m_lyricsList->Reset();
 
     QString syncronized = m_lyricData->syncronized() ? tr("Syncronized") : tr("Unsyncronized");
-    new MythUIButtonListItem(m_lyricsList, tr("** Lyrics from %1 (%2) **").arg(m_lyricData->grabber()).arg(syncronized));
+    new MythUIButtonListItem(m_lyricsList, tr("** Lyrics from %1 (%2) **")
+                             .arg(m_lyricData->grabber(), syncronized));
 
-    QMap<int, LyricsLine*>::iterator i = m_lyricData->lyrics()->begin();
-    while (i != m_lyricData->lyrics()->end())
+    for (auto * line : qAsConst(*m_lyricData->lyrics()))
     {
-        LyricsLine *line = (*i);
         if (line)
             new MythUIButtonListItem(m_lyricsList, line->m_lyric, QVariant::fromValue(line));
-        ++i;
     }
 
     m_autoScroll = true;
@@ -477,7 +474,7 @@ void LyricsView::editLyrics(void)
         delete editDialog;
         return;
     }
-    connect(editDialog, SIGNAL(haveResult(bool)), this, SLOT(editFinished(bool)));
+    connect(editDialog, &EditLyricsDialog::haveResult, this, &LyricsView::editFinished);
     mainStack->AddScreen(editDialog);
 }
 
@@ -520,9 +517,9 @@ bool EditLyricsDialog::Create(void)
         return false;
     }
 
-    connect(m_okButton, SIGNAL(Clicked()), this, SLOT(okPressed()));
-    connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(cancelPressed()));
-    connect(m_syncronizedCheck, SIGNAL(toggled(bool)), this, SLOT(syncronizedChanged(bool)));
+    connect(m_okButton, &MythUIButton::Clicked, this, &EditLyricsDialog::okPressed);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &EditLyricsDialog::cancelPressed);
+    connect(m_syncronizedCheck, &MythUICheckBox::toggled, this, &EditLyricsDialog::syncronizedChanged);
 
     m_grabberEdit->SetText(m_sourceData->grabber());
     m_syncronizedCheck->SetCheckState(m_sourceData->syncronized());
@@ -564,7 +561,7 @@ bool EditLyricsDialog::keyPressEvent(QKeyEvent *event)
 void EditLyricsDialog::loadLyrics(void)
 {
     QString lyrics;
-    QMap<int, LyricsLine*>::iterator i = m_sourceData->lyrics()->begin();
+    LyricsLineMap::iterator i = m_sourceData->lyrics()->begin();
     while (i != m_sourceData->lyrics()->end())
     {
         LyricsLine *line = (*i);
@@ -602,14 +599,10 @@ bool EditLyricsDialog::somethingChanged(void)
         return true;
 
     int x = 0;
-    QMap<int, LyricsLine*>::iterator i = m_sourceData->lyrics()->begin();
-    while (i != m_sourceData->lyrics()->end())
+    for (auto * line : qAsConst(*m_sourceData->lyrics()))
     {
-        LyricsLine *line = (*i);
         if (line->toString(m_sourceData->syncronized()) != lines.at(x))
             changed = true;
-
-        ++i;
         ++x;
     }
 
@@ -657,7 +650,7 @@ void EditLyricsDialog::cancelPressed(void )
 {
     if (somethingChanged())
     {
-        ShowOkPopup(tr("Save changes?"), this, SLOT(saveEdits(bool)), true);
+        ShowOkPopup(tr("Save changes?"), this, &EditLyricsDialog::saveEdits, true);
         return;
     }
 

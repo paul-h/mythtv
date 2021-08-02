@@ -145,8 +145,8 @@ ChannelTVFormat::ChannelTVFormat(const ChannelID &id) :
     addSelection(QCoreApplication::translate("(Common)", "Default"), "Default");
 
     QStringList list = GetFormats();
-    for (int i = 0; i < list.size(); i++)
-        addSelection(list[i]);
+    for (const QString& format : qAsConst(list))
+        addSelection(format);
 }
 
 QStringList ChannelTVFormat::GetFormats(void)
@@ -300,8 +300,8 @@ class XmltvID : public MythUIComboBoxSetting
 
             idList.sort();
 
-            for (int x = 0; x < idList.size(); x++)
-                addSelection(idList.at(x), idList.at(x));
+            for (const QString& idName : qAsConst(idList))
+                addSelection(idName, idName);
         }
     }
 
@@ -360,8 +360,8 @@ class Frequency_CO : public GroupSetting
     {
         setLabel(QObject::tr("Frequency"));
         setHelpText(
-            QObject::tr("Frequency of the transport of this channel in Hz "
-                "(for DVB-T/T2 and DVB-C) or in kHz (for DVB-S/S2)."));
+            QObject::tr("Frequency of the transport of this channel in Hz for "
+                "DVB-T/T2/C or in kHz plus polarization H or V for DVB-S/S2."));
     }
 };
 
@@ -379,7 +379,7 @@ class CommMethod : public MythUIComboBoxSetting
             "this channel or skips detection by marking the channel as "
             "Commercial Free."));
 
-        deque<int> tmp = GetPreferredSkipTypeCombinations();
+        std::deque<int> tmp = GetPreferredSkipTypeCombinations();
         tmp.push_front(COMM_DETECT_UNINIT);
         tmp.push_back(COMM_DETECT_COMMFREE);
 
@@ -551,26 +551,37 @@ ChannelOptionsCommon::ChannelOptionsCommon(const ChannelID &id,
     addChild(new CommMethod(id));
     addChild(new Icon(id));
 
-    connect(m_onAirGuide, SIGNAL(valueChanged(     bool)),
-            this,         SLOT(  onAirGuideChanged(bool)));
-    connect(source,       SIGNAL(valueChanged( const QString&)),
-            this,         SLOT(  sourceChanged(const QString&)));
+    connect(m_onAirGuide, &MythUICheckBoxSetting::valueChanged,
+            this,         &ChannelOptionsCommon::onAirGuideChanged);
+    connect(source,       qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,         &ChannelOptionsCommon::sourceChanged);
 
     // Transport stream ID and frequency from dtv_multiplex
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
-        "SELECT transportid, frequency FROM dtv_multiplex "
+        "SELECT transportid, frequency, polarity, mod_sys FROM dtv_multiplex "
         "JOIN channel ON channel.mplexid = dtv_multiplex.mplexid "
         "WHERE channel.chanid = :CHANID");
 
     query.bindValue(":CHANID", id.getValue().toUInt());
 
-    if (!query.exec())
+    if (!query.exec() || !query.isActive())
+    {
         MythDB::DBError("ChannelOptionsCommon::ChannelOptionsCommon", query);
+    }
     else if (query.next())
     {
+        QString frequency = query.value(1).toString();
+        DTVModulationSystem modSys;
+        modSys.Parse(query.value(3).toString());
+        if ((modSys == DTVModulationSystem::kModulationSystem_DVBS) ||
+            (modSys == DTVModulationSystem::kModulationSystem_DVBS2))
+        {
+            QString polarization = query.value(2).toString().toUpper();
+            frequency.append(polarization);
+        }
         m_transportId->setValue(query.value(0).toString());
-        m_frequency->setValue(query.value(1).toString());
+        m_frequency->setValue(frequency);
     }
 };
 

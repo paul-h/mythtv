@@ -10,7 +10,6 @@
 #include <mythdbcon.h>
 #include <mythmainwindow.h>
 #include <mythuibuttonlist.h>
-#include <mythuiwebbrowser.h>
 #include <mythuitext.h>
 #include <mythuiimage.h>
 #include <mythuistatetype.h>
@@ -94,7 +93,7 @@ void VisualizerView::ShowMenu(void)
     auto *menu = new MythMenu(label, this, "menu");
 
     menu->AddItem(tr("Change Visualizer"), nullptr, createVisualizerMenu());
-    menu->AddItem(tr("Show Track Info"), SLOT(showTrackInfoPopup()));
+    menu->AddItem(tr("Show Track Info"), &VisualizerView::showTrackInfoPopup);
     menu->AddItem(tr("Other Options"), nullptr, createMainMenu());
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
@@ -125,7 +124,7 @@ void VisualizerView::showTrackInfoPopup(void)
 //---------------------------------------------------------
 // TrackInfoPopup
 //---------------------------------------------------------
-#define MUSICINFOPOPUPTIME (8 * 1000)
+static constexpr std::chrono::seconds MUSICINFOPOPUPTIME { 8s };
 
 TrackInfoPopup::~TrackInfoPopup(void)
 {
@@ -170,7 +169,7 @@ bool TrackInfoPopup::Create(void)
     }
 
     m_displayTimer = new QTimer(this);
-    connect(m_displayTimer, SIGNAL(timeout()), this, SLOT(Close()));
+    connect(m_displayTimer, &QTimer::timeout, this, &MythScreenType::Close);
     m_displayTimer->setSingleShot(true);
     m_displayTimer->start(MUSICINFOPOPUPTIME);
 

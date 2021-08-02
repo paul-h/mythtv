@@ -8,6 +8,9 @@
 #include <QDateTime>
 #include <QMutex>
 #include <QList>
+#if QT_VERSION >= QT_VERSION_CHECK(5,14,0)
+#include <QRecursiveMutex>
+#endif
 
 #include "mythtvexp.h"
 #include "referencecounter.h"
@@ -54,8 +57,8 @@ class MTV_PUBLIC LiveTVChain : public ReferenceCounter
     int  GetCurPos(void) const { return m_curPos; }
     int  ProgramIsAt(uint chanid, const QDateTime &starttime) const;
     int  ProgramIsAt(const ProgramInfo &pginfo) const;
-    int  GetLengthAtCurPos(void);
-    int  GetLengthAtPos(int pos);
+    std::chrono::seconds  GetLengthAtCurPos(void);
+    std::chrono::seconds  GetLengthAtPos(int pos);
     int  TotalSize(void) const;
     bool HasNext(void)   const;
     bool HasPrev(void)   const { return (m_curPos > 0); }
@@ -63,10 +66,10 @@ class MTV_PUBLIC LiveTVChain : public ReferenceCounter
     /// Returns true iff a switch is required but no jump is required
     /// m_jumppos sets to INT_MAX means not set
     bool NeedsToSwitch(void) const
-        { return (m_switchId >= 0 && m_jumpPos == INT_MAX); }
+        { return (m_switchId >= 0 && m_jumpPos == std::chrono::seconds::max()); }
     /// Returns true iff a switch and jump are required
     bool NeedsToJump(void)   const
-        { return (m_switchId >= 0 && m_jumpPos != INT_MAX); }
+        { return (m_switchId >= 0 && m_jumpPos != std::chrono::seconds::max()); }
     QString GetChannelName(int pos = -1) const;
     QString GetInputName(int pos = -1) const;
     QString GetInputType(int pos = -1) const;
@@ -79,9 +82,9 @@ class MTV_PUBLIC LiveTVChain : public ReferenceCounter
     ProgramInfo *GetSwitchProgram(bool &discont, bool &newtype, int &newid);
 
     // sets/gets program to jump to
-    void JumpTo(int num, int pos);
-    void JumpToNext(bool up, int pos);
-    int  GetJumpPos(void);
+    void JumpTo(int num, std::chrono::seconds pos);
+    void JumpToNext(bool up, std::chrono::seconds pos);
+    std::chrono::seconds GetJumpPos(void);
 
     // socket stuff
     void SetHostSocket(MythSocket *sock);
@@ -106,7 +109,11 @@ class MTV_PUBLIC LiveTVChain : public ReferenceCounter
     QString                 m_id;
     QList<LiveTVChainEntry> m_chain;
     int                     m_maxPos      {0};
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex          m_lock        {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex m_lock;
+#endif
 
     QString                 m_hostPrefix;
     QString                 m_inputType;
@@ -118,7 +125,7 @@ class MTV_PUBLIC LiveTVChain : public ReferenceCounter
     int                     m_switchId    {-1};
     LiveTVChainEntry        m_switchEntry;
 
-    int                     m_jumpPos     {INT_MAX};
+    std::chrono::seconds    m_jumpPos     {std::chrono::seconds::max()};
 
     mutable QMutex          m_sockLock;
     QList<MythSocket*>      m_inUseSocks;

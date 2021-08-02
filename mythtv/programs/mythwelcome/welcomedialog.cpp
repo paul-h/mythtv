@@ -4,8 +4,11 @@
 // POSIX
 #include <unistd.h>
 
+// C++
+#include <chrono>
+
 // qt
-#include <QCoreApplication>
+#include <QGuiApplication>
 #include <QKeyEvent>
 #include <QEvent>
 
@@ -23,8 +26,8 @@
 #include "welcomedialog.h"
 #include "welcomesettings.h"
 
-#define UPDATE_STATUS_INTERVAL   30000
-#define UPDATE_SCREEN_INTERVAL   15000
+static constexpr std::chrono::milliseconds UPDATE_STATUS_INTERVAL { 30s };
+static constexpr std::chrono::milliseconds UPDATE_SCREEN_INTERVAL { 15s };
 
 
 WelcomeDialog::WelcomeDialog(MythScreenStack *parent, const char *name)
@@ -35,21 +38,20 @@ WelcomeDialog::WelcomeDialog(MythScreenStack *parent, const char *name)
     gCoreContext->addListener(this);
 
     m_appBinDir = GetAppBinDir();
-    m_preRollSeconds = gCoreContext->GetNumSetting("RecordPreRoll");
+    m_preRollSeconds = gCoreContext->GetDurSetting<std::chrono::seconds>("RecordPreRoll");
     m_idleWaitForRecordingTime =
-                       gCoreContext->GetNumSetting("idleWaitForRecordingTime", 15);
+        gCoreContext->GetDurSetting<std::chrono::minutes>("idleWaitForRecordingTime", 15min);
+    m_idleTimeoutSecs = gCoreContext->GetDurSetting<std::chrono::seconds>("idleTimeoutSecs", 0s);
 
     // if idleTimeoutSecs is 0, the user disabled the auto-shutdown feature
-    m_willShutdown = (gCoreContext->GetNumSetting("idleTimeoutSecs", 0) != 0);
+    m_willShutdown = (m_idleTimeoutSecs != 0s);
 
-    m_idleTimeoutSecs = gCoreContext->GetNumSetting("idleTimeoutSecs", 0);
-
-    connect(m_updateStatusTimer, SIGNAL(timeout()),
-            this, SLOT(updateStatus()));
+    connect(m_updateStatusTimer, &QTimer::timeout,
+            this, &WelcomeDialog::updateStatus);
     m_updateStatusTimer->start(UPDATE_STATUS_INTERVAL);
 
-    connect(m_updateScreenTimer, SIGNAL(timeout()),
-            this, SLOT(updateScreen()));
+    connect(m_updateScreenTimer, &QTimer::timeout,
+            this, &WelcomeDialog::updateScreen);
 }
 
 bool WelcomeDialog::Create(void)
@@ -75,8 +77,8 @@ bool WelcomeDialog::Create(void)
     m_warningText->SetVisible(false);
 
     m_startFrontendButton->SetText(tr("Start Frontend"));
-    connect(m_startFrontendButton, SIGNAL(Clicked()),
-            this, SLOT(startFrontendClick()));
+    connect(m_startFrontendButton, &MythUIButton::Clicked,
+            this, &WelcomeDialog::startFrontendClick);
 
     BuildFocusList();
 
@@ -93,7 +95,11 @@ void WelcomeDialog::startFrontend(void)
     QString startFECmd = gCoreContext->GetSetting("MythWelcomeStartFECmd",
                          m_appBinDir + "mythfrontend");
 
-    myth_system(startFECmd, kMSDisableUDPListener | kMSProcessEvents);
+    // Ensure we use the same platform for mythfrontend
+    QStringList args;
+    if (!startFECmd.contains("platform"))
+        args << QString("--platform %1").arg(QGuiApplication::platformName());
+    myth_system(startFECmd, args, kMSDisableUDPListener | kMSProcessEvents);
     updateAll();
     m_frontendIsRunning = false;
 }
@@ -106,7 +112,7 @@ void WelcomeDialog::startFrontendClick(void)
     m_frontendIsRunning = true;
 
     // this makes sure the button appears to click properly
-    QTimer::singleShot(500, this, SLOT(startFrontend()));
+    QTimer::singleShot(500ms, this, &WelcomeDialog::startFrontend);
 }
 
 void WelcomeDialog::checkAutoStart(void)
@@ -153,7 +159,7 @@ void WelcomeDialog::customEvent(QEvent *e)
             else
             {
                 // we can't query the backend from inside a customEvent
-                QTimer::singleShot(500, this, SLOT(updateRecordingList()));
+                QTimer::singleShot(500ms, this, &WelcomeDialog::updateRecordingList);
                 setPendingRecListUpdate(true);
             }
         }
@@ -171,7 +177,7 @@ void WelcomeDialog::customEvent(QEvent *e)
             }
             else
             {
-                QTimer::singleShot(500, this, SLOT(updateScheduledList()));
+                QTimer::singleShot(500ms, this, &WelcomeDialog::updateScheduledList);
                 setPendingSchedUpdate(true);
             }
         }
@@ -355,8 +361,8 @@ void WelcomeDialog::updateScreen(void)
 
             status += "\n" +
               tr("%1 to %2", "Time period, 'starttime to endtime'")
-                  .arg(MythDate::toString(tuner.startTime, MythDate::kTime))
-                  .arg(MythDate::toString(tuner.endTime, MythDate::kTime));
+                  .arg(MythDate::toString(tuner.startTime, MythDate::kTime),
+                       MythDate::toString(tuner.endTime, MythDate::kTime));
         }
         else
             status = tr("There are no recordings currently taking place");
@@ -427,7 +433,7 @@ void WelcomeDialog::runMythFillDatabase()
                                           "mythfilldatabase");
     QString mfarg = gCoreContext->GetSetting("MythFillDatabaseArgs", "");
 
-    command = QString("%1 %2").arg(mfpath).arg(mfarg);
+    command = QString("%1 %2").arg(mfpath, mfarg);
     command += logPropagateArgs;
 
     command += "&";
@@ -499,8 +505,8 @@ void WelcomeDialog::updateStatusMessage(void)
     QDateTime curtime = MythDate::current();
 
     if (!m_isRecording && !m_nextRecordingStart.isNull() &&
-        curtime.secsTo(m_nextRecordingStart) - m_preRollSeconds <
-        (m_idleWaitForRecordingTime * 60) + m_idleTimeoutSecs)
+        std::chrono::seconds(curtime.secsTo(m_nextRecordingStart)) - m_preRollSeconds <
+        m_idleWaitForRecordingTime + m_idleTimeoutSecs)
     {
          m_statusList.append(tr("MythTV is about to start recording."));
     }
@@ -569,7 +575,7 @@ bool WelcomeDialog::checkConnectionToServer(void)
     if (bRes)
         m_updateStatusTimer->start(UPDATE_STATUS_INTERVAL);
     else
-        m_updateStatusTimer->start(5000);
+        m_updateStatusTimer->start(5s);
 
     return bRes;
 }
@@ -589,13 +595,13 @@ void WelcomeDialog::ShowMenu(void)
     uint statusCode = myth_system(mythshutdown_status + logPropagateArgs, kMSDontBlockInputDevs);
 
     if (!(statusCode & 0xFF00) && statusCode & 16)
-        m_menuPopup->AddButton(tr("Unlock Shutdown"), SLOT(unlockShutdown()));
+        m_menuPopup->AddButton(tr("Unlock Shutdown"), &WelcomeDialog::unlockShutdown);
     else
-        m_menuPopup->AddButton(tr("Lock Shutdown"), SLOT(lockShutdown()));
+        m_menuPopup->AddButton(tr("Lock Shutdown"), &WelcomeDialog::lockShutdown);
 
-    m_menuPopup->AddButton(tr("Run mythfilldatabase"), SLOT(runEPGGrabber()));
-    m_menuPopup->AddButton(tr("Shutdown Now"), SLOT(shutdownNow()));
-    m_menuPopup->AddButton(tr("Exit"), SLOT(closeDialog()));
+    m_menuPopup->AddButton(tr("Run mythfilldatabase"), &WelcomeDialog::runEPGGrabber);
+    m_menuPopup->AddButton(tr("Shutdown Now"), &WelcomeDialog::shutdownNow);
+    m_menuPopup->AddButton(tr("Exit"), &WelcomeDialog::closeDialog);
     m_menuPopup->AddButton(tr("Cancel"));
 }
 
@@ -649,8 +655,8 @@ void WelcomeDialog::shutdownNow(void)
 
     // don't shutdown if we are about to start recording
     if (!m_nextRecordingStart.isNull() &&
-        curtime.secsTo(m_nextRecordingStart) - m_preRollSeconds <
-        (m_idleWaitForRecordingTime * 60) + m_idleTimeoutSecs)
+        std::chrono::seconds(curtime.secsTo(m_nextRecordingStart)) - m_preRollSeconds <
+        m_idleWaitForRecordingTime + m_idleTimeoutSecs)
     {
         ShowOkPopup(tr("Cannot shutdown because MythTV is about to start recording"));
         return;
@@ -671,7 +677,7 @@ void WelcomeDialog::shutdownNow(void)
     // set the wakeup time for the next scheduled recording
     if (!m_nextRecordingStart.isNull())
     {
-        QDateTime restarttime = m_nextRecordingStart.addSecs((-1) * m_preRollSeconds);
+        QDateTime restarttime = m_nextRecordingStart.addSecs((-1) * m_preRollSeconds.count());
 
         int add = gCoreContext->GetNumSetting("StartupSecsBeforeRecording", 240);
         if (add)

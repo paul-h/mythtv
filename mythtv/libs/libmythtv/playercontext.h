@@ -3,12 +3,15 @@
 
 #include <vector>
 #include <deque>
-using namespace std;
 
 // Qt headers
 #include <QWidget>
 #include <QString>
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
 #include <QMutex>
+#else
+#include <QRecursiveMutex>
+#endif
 #include <QHash>
 #include <QRect>
 #include <QObject>
@@ -29,6 +32,7 @@ class MythMediaBuffer;
 class ProgramInfo;
 class LiveTVChain;
 class QPainter;
+class MythMainWindow;
 
 struct osdInfo
 {
@@ -52,23 +56,10 @@ class MTV_PUBLIC PlayerContext
     ~PlayerContext();
 
     // Actions
-    bool CreatePlayer(TV *tv, QWidget *widget,
-                   TVState desiredState,
-                   bool embed, const QRect &embedBounds = QRect(),
-                   bool muted = false);
     void TeardownPlayer(void);
-    bool StartPlaying(int maxWait = -1);
     void StopPlaying(void) const;
     void UpdateTVChain(const QStringList &data = QStringList());
     bool ReloadTVChain(void);
-    void CreatePIPWindow(const QRect &rect, int pos = -1,
-                        QWidget *widget = nullptr);
-    void ResizePIPWindow(const QRect &rect);
-    bool StartPIPPlayer(TV *tv, TVState desiredState);
-    void PIPTeardown(void);
-    void SetNullVideo(bool setting) { m_useNullVideo = setting; }
-    bool StartEmbedding(const QRect &rect) const;
-    void StopEmbedding(void) const;
     void    PushPreviousChannel(void);
     QString PopPreviousChannel(void);
 
@@ -76,7 +67,6 @@ class MTV_PUBLIC PlayerContext
     void ForceNextStateNone(void);
     TVState DequeueNextState(void);
 
-    void ResizePIPWindow(void);
     bool HandlePlayerSpeedChangeFFRew(void);
     bool HandlePlayerSpeedChangeEOF(void);
 
@@ -90,9 +80,6 @@ class MTV_PUBLIC PlayerContext
     void LockDeletePlayer(const char *file, int line) const;
     void UnlockDeletePlayer(const char *file, int line) const;
 
-    void LockOSD(void) const;
-    void UnlockOSD(void) const;
-
     // Sets
     void SetInitialTVState(bool islivetv);
     void SetPlayer(MythPlayer *newplayer);
@@ -102,17 +89,10 @@ class MTV_PUBLIC PlayerContext
     void SetPlayingInfo(const ProgramInfo *info);
     void SetPlayGroup(const QString &group);
     void SetPseudoLiveTV(const ProgramInfo *pi, PseudoState new_state);
-    void SetPIPLocation(int loc) { m_pipLocation = loc; }
-    void SetPIPState(PIPState change) { m_pipState = change; }
     void SetPlayerChangingBuffers(bool val) { m_playerUnsafe = val; }
-    void SetNoHardwareDecoders(bool Disallow = true) { m_nohardwaredecoders = Disallow; }
 
     // Gets
-    QRect    GetStandAlonePIPRect(void);
-    PIPState GetPIPState(void) const { return m_pipState; }
     QString  GetPreviousChannel(void) const;
-    bool     CalcPlayerSliderPosition(osdInfo &info,
-                                   bool paddedFields = false) const;
     uint     GetCardID(void) const { return m_lastCardid; }
     QString  GetFilters(const QString &baseFilters) const;
     QString  GetPlayMessage(void) const;
@@ -120,21 +100,7 @@ class MTV_PUBLIC PlayerContext
     bool     GetPlayingInfoMap(InfoMap &infoMap) const;
 
     // Boolean Gets
-    bool IsPIPSupported(void) const;
-    bool IsPBPSupported(void) const;
-    bool IsPIP(void) const
-        { return (kPIPonTV == m_pipState) || (kPIPStandAlone == m_pipState); }
-    bool IsPBP(void) const
-        { return (kPBPLeft == m_pipState) || (kPBPRight      == m_pipState); }
-    bool IsPrimaryPBP(void) const
-        { return (kPBPLeft == m_pipState); }
-    bool IsAudioNeeded(void) const
-        { return (kPIPOff  == m_pipState) || (kPBPLeft       == m_pipState); }
-    bool IsPiPOrSecondaryPBP(void) const
-        { return IsPIP() || (IsPBP() && !IsPrimaryPBP()); }
-    bool IsNullVideoDesired(void)   const { return m_useNullVideo; }
     bool IsPlayerChangingBuffers(void) const { return m_playerUnsafe; }
-    bool IsEmbedding(void) const;
     bool HasPlayer(void) const;
     bool IsPlayerErrored(void) const;
     bool IsPlayerPlaying(void) const;
@@ -143,8 +109,6 @@ class MTV_PUBLIC PlayerContext
     /// This is set if the player encountered some irrecoverable error.
     bool IsErrored(void) const { return m_errored; }
     bool IsSameProgram(const ProgramInfo &p) const;
-    bool IsValidLiveTV(void) const
-        { return m_player && m_tvchain && m_recorder && m_buffer; }
 
   public:
     QString             m_recUsage;
@@ -154,8 +118,7 @@ class MTV_PUBLIC PlayerContext
     LiveTVChain        *m_tvchain            {nullptr};
     MythMediaBuffer    *m_buffer             {nullptr};
     ProgramInfo        *m_playingInfo        {nullptr}; ///< Currently playing info
-    long long           m_playingLen         {0};  ///< Initial CalculateLength()
-    bool                m_nohardwaredecoders {false}; // < Disable use of VDPAU decoding
+    std::chrono::seconds m_playingLen        {0s};  ///< Initial CalculateLength()
     int                 m_lastCardid         {-1}; ///< CardID of current/last recorder
     /// 0 == normal, +1 == fast forward, -1 == rewind
     int                 m_ffRewState         {0};
@@ -174,9 +137,9 @@ class MTV_PUBLIC PlayerContext
     ProgramInfo        *m_pseudoLiveTVRec    {nullptr};
     PseudoState         m_pseudoLiveTVState  {kPseudoNormalLiveTV};
 
-    int                 m_fftime             {0};
-    int                 m_rewtime            {0};
-    int                 m_jumptime           {0};
+    std::chrono::seconds  m_fftime           {0s};
+    std::chrono::seconds  m_rewtime          {0s};
+    std::chrono::minutes  m_jumptime         {0min};
     /** \brief Time stretch speed, 1.0F for normal playback.
      *
      *  Begins at 1.0F meaning normal playback, but can be increased
@@ -186,9 +149,15 @@ class MTV_PUBLIC PlayerContext
     float               m_tsNormal           {1.0F};
     float               m_tsAlt              {1.5F};
 
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     mutable QMutex      m_playingInfoLock    {QMutex::Recursive};
     mutable QMutex      m_deletePlayerLock   {QMutex::Recursive};
     mutable QMutex      m_stateLock          {QMutex::Recursive};
+#else
+    mutable QRecursiveMutex  m_playingInfoLock;
+    mutable QRecursiveMutex  m_deletePlayerLock;
+    mutable QRecursiveMutex  m_stateLock;
+#endif
 
     // Signal info
     mutable QStringList m_lastSignalMsg;
@@ -199,18 +168,9 @@ class MTV_PUBLIC PlayerContext
     // tv state related
     MythDeque<TVState>  m_nextState;
 
-    // Picture-in-Picture related
-    PIPState            m_pipState           {kPIPOff};
-    QRect               m_pipRect            {0,0,0,0};
-    QWidget            *m_parentWidget       {nullptr};
-    /// Position of PIP on TV screen
-    int                 m_pipLocation        {0};
-    /// True iff software scaled PIP should be used
-    bool                m_useNullVideo       {false};
-
     /// Timeout after last Signal Monitor message for ignoring OSD when exiting.
-    static const uint kSMExitTimeout;
-    static const uint kMaxChannelHistory;
+    static constexpr std::chrono::milliseconds kSMExitTimeout { 2s };
+    static constexpr uint kMaxChannelHistory { 30 };
 };
 
 #endif // PLAYER_CONTEXT_H

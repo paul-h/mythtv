@@ -25,7 +25,7 @@ class SatIPRecorder : public DTVRecorder
     QString GetSIStandard(void) const override; // DTVRecorder
 
   private:
-    bool PauseAndWait(int timeout = 100) override;  // RecorderBase
+    bool PauseAndWait(std::chrono::milliseconds timeout = 100ms) override;  // RecorderBase
 
   private:
     SatIPChannel       *m_channel         {nullptr};

@@ -14,6 +14,7 @@
 
 // Qt headers
 #include <QMap>
+#include <QObject>
 #include <QString>
 #include <QCoreApplication>
 
@@ -30,24 +31,19 @@ enum OkCancelType {
     kOCTOkAll     = +2,
 };
 
+using ChanStats = std::array<uint,3>;
+
 class ChannelImporterBasicStats
 {
   public:
-    ChannelImporterBasicStats()
-    {
-        memset(m_atscChannels, 0, sizeof(m_atscChannels));
-        memset(m_dvbChannels,  0, sizeof(m_dvbChannels));
-        memset(m_scteChannels, 0, sizeof(m_scteChannels));
-        memset(m_mpegChannels, 0, sizeof(m_mpegChannels));
-        memset(m_ntscChannels, 0, sizeof(m_ntscChannels));
-    }
+    ChannelImporterBasicStats() = default;
 
     // totals
-    uint m_atscChannels[3] {};
-    uint m_dvbChannels [3] {};
-    uint m_scteChannels[3] {};
-    uint m_mpegChannels[3] {};
-    uint m_ntscChannels[3] {};
+    ChanStats m_atscChannels {};
+    ChanStats m_dvbChannels  {};
+    ChanStats m_scteChannels {};
+    ChanStats m_mpegChannels {};
+    ChanStats m_ntscChannels {};
 
     // per channel counts
     QMap<uint,uint>    m_progNumCnt;
@@ -70,9 +66,9 @@ class ChannelImporterUniquenessStats
     uint m_maxAtscMajCnt {0};
 };
 
-class MTV_PUBLIC ChannelImporter
+class MTV_PUBLIC ChannelImporter : public QObject
 {
-    Q_DECLARE_TR_FUNCTIONS(ChannelImporter)
+    Q_OBJECT
 
   public:
     ChannelImporter(bool gui, bool interactive,
@@ -268,6 +264,7 @@ class MTV_PUBLIC ChannelImporter
     bool m_fullChannelSearch            {false};    // Full search for old channels across transports in database
     bool m_removeDuplicates             {false};    // Remove duplicate transports and channels in scan
     bool m_success                      {false};    // To pass information IPTV channel scan succeeded
+    int  m_functorRetval                {0};
 
     ServiceRequirements m_serviceRequirements;  // Services desired post scan
     QEventLoop          m_eventLoop;

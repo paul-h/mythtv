@@ -76,12 +76,6 @@ Checks: '-*,
        -cert-str34-c,
 
     clang-analyzer-*,
-        # One instance in mpegdescriptors.h ,
-       -clang-analyzer-core.NullDereference,
-
-        # One instance in cc708window.h. ,
-       -clang-analyzer-cplusplus.NewDelete,
-
         # The "safe" versions functions were optional in the standard
         # and were never implemented by GCC or Clang.  There has been
         # a move to have these functions removed from the standard as
@@ -150,16 +144,13 @@ Checks: '-*,
         # Cases exist. Need to add getters/setters to classes. ,
        -misc-non-private-member-variables-in-classes,
 
-        # The Q_DECLARE_METATYPE_IMPL macro triggers a warning from
+        # The Q_DECLARE_METATYPE macro triggers a warning from
         # this checker. There are also a handful of places where
         # MythTV uses recursion on purpose. These should be checked to
         # ensure there are no problems. ,
        -misc-no-recursion,
 
     modernize-*,
-
-        # Lots of changes to be done. ,
-       -modernize-avoid-c-arrays,
 
         # Noisy!!!  foo(void) => foo()  ,
        -modernize-redundant-void-arg,
@@ -172,7 +163,14 @@ Checks: '-*,
 
     performance-*,
 
+        # The Q_DECLARE_METATYPE macro triggers a warning from this
+        # new clang12 checker. ,
+        -performance-no-int-to-ptr,
+
     readability-*,
+
+        # Need to decide on an appropriate value. ,
+       -readability-function-cognitive-complexity,
 
         # Not investigated yet. ,
        -readability-function-size,

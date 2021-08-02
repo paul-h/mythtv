@@ -72,19 +72,19 @@ bool CustomPriority::Create()
         return false;
     }
 
-    connect(m_ruleList, SIGNAL(itemSelected(MythUIButtonListItem *)),
-                SLOT(ruleChanged(MythUIButtonListItem *)));
+    connect(m_ruleList, &MythUIButtonList::itemSelected,
+                this, &CustomPriority::ruleChanged);
 
-    connect(m_titleEdit, SIGNAL(valueChanged()), SLOT(textChanged()));
+    connect(m_titleEdit, &MythUITextEdit::valueChanged, this, &CustomPriority::textChanged);
     m_titleEdit->SetMaxLength(128);
-    connect(m_descriptionEdit, SIGNAL(valueChanged()), SLOT(textChanged()));
+    connect(m_descriptionEdit, &MythUITextEdit::valueChanged, this, &CustomPriority::textChanged);
     m_descriptionEdit->SetMaxLength(0);
 
-    connect(m_addButton, SIGNAL(Clicked()), SLOT(addClicked()));
-    connect(m_testButton, SIGNAL(Clicked()), SLOT(testClicked()));
-    connect(m_installButton, SIGNAL(Clicked()), SLOT(installClicked()));
-    connect(m_deleteButton, SIGNAL(Clicked()), SLOT(deleteClicked()));
-    connect(m_cancelButton, SIGNAL(Clicked()), SLOT(Close()));
+    connect(m_addButton, &MythUIButton::Clicked, this, &CustomPriority::addClicked);
+    connect(m_testButton, &MythUIButton::Clicked, this, &CustomPriority::testClicked);
+    connect(m_installButton, &MythUIButton::Clicked, this, &CustomPriority::installClicked);
+    connect(m_deleteButton, &MythUIButton::Clicked, this, &CustomPriority::deleteClicked);
+    connect(m_cancelButton, &MythUIButton::Clicked, this, &MythScreenType::Close);
 
     loadData();
 
@@ -96,7 +96,7 @@ bool CustomPriority::Create()
 void CustomPriority::loadData()
 {
     QString baseTitle = m_pginfo->GetTitle();
-    baseTitle.remove(QRegExp(" \\(.*\\)$"));
+    baseTitle.remove(RecordingInfo::kReSearchTypeName);
 
     QString quoteTitle = baseTitle;
     quoteTitle.replace("\'","\'\'");
@@ -120,7 +120,7 @@ void CustomPriority::loadData()
         while (result.next())
         {
             QString trimTitle = result.value(0).toString();
-            trimTitle.remove(QRegExp(" \\(.*\\)$"));
+            trimTitle.remove(RecordingInfo::kReSearchTypeName);
 
             rule.title = trimTitle;
             rule.priority = result.value(1).toString();
@@ -264,9 +264,9 @@ void CustomPriority::addClicked(void)
 
     QString desc = m_descriptionEdit->GetText();
 
-    if (desc.contains(QRegExp("\\S")))
+    if (desc.contains(QRegularExpression("\\S")))
         clause = "AND ";
-    clause = item->GetData().toString();
+    clause += item->GetData().toString();
     m_descriptionEdit->SetText(desc.append(clause));
 }
 
@@ -334,7 +334,7 @@ bool CustomPriority::checkSyntax(void)
 
     QString desc = m_descriptionEdit->GetText();
 
-    if (desc.contains(QRegExp("^\\s*AND\\s", Qt::CaseInsensitive)))
+    if (desc.contains(RecordingInfo::kReLeadingAnd))
     {
         msg = "Power Priority rules do not reqiure a leading \"AND\"";
     }
@@ -398,8 +398,8 @@ void CustomPriority::testSchedule(void)
         QString msg =
             QString("DB Error (Obtaining lock in testRecording): \n"
                     "Query was: %1 \nError was: %2 \n")
-            .arg(thequery)
-            .arg(MythDB::DBErrorMessage(query.lastError()));
+            .arg(thequery,
+                 MythDB::DBErrorMessage(query.lastError()));
         LOG(VB_GENERAL, LOG_ERR, msg);
         return;
     }
@@ -411,8 +411,8 @@ void CustomPriority::testSchedule(void)
         QString msg =
             QString("DB Error (deleting old table in testRecording): \n"
                     "Query was: %1 \nError was: %2 \n")
-            .arg(thequery)
-            .arg(MythDB::DBErrorMessage(query.lastError()));
+            .arg(thequery,
+                 MythDB::DBErrorMessage(query.lastError()));
         LOG(VB_GENERAL, LOG_ERR, msg);
         return;
     }
@@ -425,8 +425,8 @@ void CustomPriority::testSchedule(void)
         QString msg =
             QString("DB Error (create new table): \n"
                     "Query was: %1 \nError was: %2 \n")
-            .arg(thequery)
-            .arg(MythDB::DBErrorMessage(query.lastError()));
+            .arg(thequery,
+                 MythDB::DBErrorMessage(query.lastError()));
         LOG(VB_GENERAL, LOG_ERR, msg);
         return;
     }
@@ -469,8 +469,8 @@ void CustomPriority::testSchedule(void)
         QString msg =
             QString("DB Error (free lock): \n"
                     "Query was: %1 \nError was: %2 \n")
-            .arg(thequery)
-            .arg(MythDB::DBErrorMessage(query.lastError()));
+            .arg(thequery,
+                 MythDB::DBErrorMessage(query.lastError()));
         LOG(VB_GENERAL, LOG_ERR, msg);
     }
 }

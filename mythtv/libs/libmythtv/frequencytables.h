@@ -7,7 +7,6 @@
 #include <list>
 #include <utility>
 #include <vector>
-using namespace std;
 
 // Qt includes
 #include <QString>
@@ -23,7 +22,7 @@ class FrequencyTable;
 class TransportScanItem;
 
 using freq_table_map_t  = QMap<QString, const FrequencyTable*>;
-using freq_table_list_t = vector<const FrequencyTable*>;
+using freq_table_list_t = std::vector<const FrequencyTable*>;
 
 bool teardown_frequency_tables(void);
 
@@ -39,6 +38,7 @@ MTV_PUBLIC int get_closest_freqid(
 class FrequencyTable
 {
   public:
+    // ATSC -- VSB, QAM
     FrequencyTable(QString                 _name_format,
                    int                     _name_offset,
                    uint64_t                _frequencyStart,
@@ -49,6 +49,7 @@ class FrequencyTable
           m_frequencyStart(_frequencyStart), m_frequencyEnd(_frequencyEnd),
           m_frequencyStep(_frequencyStep),   m_modulation(_modulation) {}
 
+    // DVB-T/T2 -- OFDM
     FrequencyTable(uint64_t                _frequencyStart,
                    uint64_t                _frequencyEnd,
                    uint                    _frequencyStep,
@@ -74,6 +75,7 @@ class FrequencyTable
           m_constellation(_constellation),   m_transMode(_trans_mode),
           m_guardInterval(_guard_interval),  m_hierarchy(_hierarchy) {}
 
+    // DVB-C -- QAM
     FrequencyTable(uint64_t                _frequencyStart,
                    uint64_t                _frequencyEnd,
                    uint                    _frequencyStep,
@@ -92,17 +94,17 @@ class FrequencyTable
 
     virtual ~FrequencyTable() { ; }
 
-    // Common Stuff
-    QString           m_nameFormat;     ///< pretty name format
-    int               m_nameOffset;    ///< Offset to add to the pretty name
-    uint64_t          m_frequencyStart; ///< The staring centre frequency
-    uint64_t          m_frequencyEnd;   ///< The ending centre frequency
-    uint              m_frequencyStep;  ///< The step in frequency
+    // Common
+    QString           m_nameFormat;     // Pretty name format
+    int               m_nameOffset;     // Offset to add to the pretty name
+    uint64_t          m_frequencyStart; // Starting centre frequency
+    uint64_t          m_frequencyEnd;   // Ending centre frequency
+    uint              m_frequencyStep;  // Frequency step
     DTVModulation     m_modulation;
-    int               m_offset1 {0};    ///< The first  offset from the centre freq
-    int               m_offset2 {0};    ///< The second offset from the centre freq
+    int               m_offset1 {0};    // First offset from the centre frequency
+    int               m_offset2 {0};    // Second offset from the centre frequency
 
-    // DVB OFDM stuff
+    // DVB-T/T2 -- OFDM
     DTVInversion      m_inversion;
     DTVBandwidth      m_bandwidth;
     DTVCodeRate       m_coderateHp;
@@ -112,7 +114,7 @@ class FrequencyTable
     DTVGuardInterval  m_guardInterval;
     DTVHierarchy      m_hierarchy;
 
-    // DVB-C/DVB-S stuff
+    // DVB-C
     uint              m_symbolRate {0};
     DTVCodeRate       m_fecInner;
 };
@@ -130,18 +132,18 @@ class TransportScanItem
                       const QString &_si_std,
                       QString        _name,
                       uint           _mplexid,
-                      uint           _timeoutTune);
+                      std::chrono::milliseconds _timeoutTune);
 
     TransportScanItem(uint           _sourceid,
                       QString        _name,
-                      DTVMultiplex  &_tuning,
-                      uint           _timeoutTune);
+                      const DTVMultiplex &_tuning,
+                      std::chrono::milliseconds _timeoutTune);
 
     TransportScanItem(uint                _sourceid,
                       QString             _name,
                       DTVTunerType        _tuner_type,
                       const DTVTransport &_tuning,
-                      uint                _timeoutTune);
+                      std::chrono::milliseconds _timeoutTune);
 
     TransportScanItem(uint                _sourceid,
                       const QString      &_si_std,
@@ -149,13 +151,13 @@ class TransportScanItem
                       uint freqNum,
                       uint frequency,         /* center frequency to use     */
                       const FrequencyTable &ft,  /* freq table to get info from */
-                      uint                _timeoutTune);
+                      std::chrono::milliseconds _timeoutTune);
 
     TransportScanItem(uint                  _sourceid,
                       QString               _name,
                       IPTVTuningData        _tuning,
                       QString               _channel,
-                      uint                  _timeoutTune);
+                      std::chrono::milliseconds _timeoutTune);
 
     uint offset_cnt() const
         { return (m_freqOffsets[2]) ? 3 : ((m_freqOffsets[1]) ? 2 : 1); }
@@ -168,34 +170,33 @@ class TransportScanItem
     uint GetMultiplexIdFromDB(void) const;
 
   public:
-    uint               m_mplexid     {UINT_MAX}; ///< DB Mplexid
+    uint               m_mplexid     {UINT_MAX};    // DB mplexid in dtv_multiplex
 
-    QString            m_friendlyName;        ///< Name to display in scanner dialog
-    uint               m_friendlyNum {0};     ///< Frequency number (freqid w/freq table)
-    int                m_sourceID    {0};     ///< Associated SourceID
-    bool               m_useTimer    {false}; /**< Set if timer is used after
-                                              lock for getting PAT */
+    QString            m_friendlyName;          // Name to display in scanner dialog
+    uint               m_friendlyNum {0};       // Frequency number (freqid w/freq table)
+    int                m_sourceID    {0};       // DB sourceid in videosource
+    bool               m_useTimer    {false};   // Set if timer is used after lock for getting PAT
 
-    bool               m_scanning    {false}; ///< Probably Unnecessary
-    std::array<int,3>  m_freqOffsets {0,0,0}; ///< Frequency offsets
-    unsigned           m_timeoutTune {1000};  ///< Timeout to tune to a frequency
+    bool               m_scanning    {false};   // Probably unnecessary
+    std::array<int,3>  m_freqOffsets {0,0,0};   // Frequency offsets
+    std::chrono::milliseconds m_timeoutTune {1s};  ///< Timeout to tune to a frequency
 
-    DTVMultiplex       m_tuning;              ///< Tuning info
-    IPTVTuningData     m_iptvTuning;          ///< IPTV Tuning info
-    QString            m_iptvChannel;         ///< IPTV base channel
+    DTVMultiplex       m_tuning;                // Tuning info
+    IPTVTuningData     m_iptvTuning;            // IPTV Tuning info
+    QString            m_iptvChannel;           // IPTV base channel
 
     DTVChannelInfoList m_expectedChannels;
 
-    int                m_signalStrength {0};
     uint               m_networkID      {0};
     uint               m_transportID    {0};
+    int                m_signalStrength {0};
 };
 
 class transport_scan_items_it_t
 {
   public:
     transport_scan_items_it_t() = default;
-    transport_scan_items_it_t(const list<TransportScanItem>::iterator it)
+    transport_scan_items_it_t(const std::list<TransportScanItem>::iterator it)
         : m_it(it) {}
 
     transport_scan_items_it_t& operator++()
@@ -248,46 +249,46 @@ class transport_scan_items_it_t
     const TransportScanItem& operator*() const { return *m_it; }
     TransportScanItem&       operator*()       { return *m_it; }
 
-    list<TransportScanItem>::iterator iter() { return m_it; }
-    list<TransportScanItem>::const_iterator iter() const { return m_it; }
+    std::list<TransportScanItem>::iterator iter() { return m_it; }
+    std::list<TransportScanItem>::const_iterator iter() const { return m_it; }
     uint offset() const { return (uint) m_offset; }
     transport_scan_items_it_t nextTransport() const
     {
-        list<TransportScanItem>::iterator tmp = m_it;
+        std::list<TransportScanItem>::iterator tmp = m_it;
         return {++tmp};
     }
 
   private:
-    list<TransportScanItem>::iterator m_it;
+    std::list<TransportScanItem>::iterator m_it;
     int m_offset {0};
 
-    friend bool operator==(const transport_scan_items_it_t&A,
-                           const transport_scan_items_it_t&B);
-    friend bool operator!=(const transport_scan_items_it_t&A,
-                           const transport_scan_items_it_t&B);
+    friend bool operator==(transport_scan_items_it_t A,
+                           transport_scan_items_it_t B);
+    friend bool operator!=(transport_scan_items_it_t A,
+                           transport_scan_items_it_t B);
 
-    friend bool operator==(const transport_scan_items_it_t&A,
-                           const list<TransportScanItem>::iterator&B);
+    friend bool operator==(transport_scan_items_it_t A,
+                           std::list<TransportScanItem>::iterator B);
 };
 
-inline bool operator==(const transport_scan_items_it_t& A,
-                       const transport_scan_items_it_t& B)
+inline bool operator==(const transport_scan_items_it_t A,
+                       const transport_scan_items_it_t B)
 {
     return (A.m_it == B.m_it) && (A.m_offset == B.m_offset);
 }
 
-inline bool operator!=(const transport_scan_items_it_t &A,
-                       const transport_scan_items_it_t &B)
+inline bool operator!=(const transport_scan_items_it_t A,
+                       const transport_scan_items_it_t B)
 {
     return (A.m_it != B.m_it) || (A.m_offset != B.m_offset);
 }
 
-inline bool operator==(const transport_scan_items_it_t& A,
-                       const list<TransportScanItem>::iterator& B)
+inline bool operator==(const transport_scan_items_it_t A,
+                       const std::list<TransportScanItem>::iterator B)
 {
     return (A.m_it == B) && (0 == A.offset());
 }
 
-using transport_scan_items_t = list<TransportScanItem>;
+using transport_scan_items_t = std::list<TransportScanItem>;
 
 #endif // FREQUENCY_TABLE_H

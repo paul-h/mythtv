@@ -50,7 +50,7 @@ class IdleScreen : public MythScreenType
     MythUIButtonList *m_conflictingRecordings {nullptr};
     MythUIText       *m_conflictWarning       {nullptr};
 
-    int             m_secondsToShutdown       {-1};
+    std::chrono::seconds  m_secondsToShutdown {-1s};
     int             m_FEShutdownEnabled       {false};
     bool            m_shutdownLocked          {false};
     bool            m_shuttingDown            {false};

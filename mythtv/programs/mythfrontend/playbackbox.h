@@ -8,7 +8,6 @@
 #include <deque>
 #include <utility>
 #include <vector>
-using namespace std;
 
 #include <QStringList>
 #include <QDateTime>
@@ -47,9 +46,13 @@ class MythDialogBox;
 class MythMenu;
 class MythUIProgressDialog;
 class MythUIBusyDialog;
+class PlaybackBox;
 
 using ProgramMap = QMap<QString,ProgramList>;
 using Str2StrMap = QMap<QString,QString>;
+using PlaybackBoxCb = void (PlaybackBox::*)();
+
+static constexpr int kMaxJobs {7};
 
 enum {
     kArtworkFanTimeout    = 300,
@@ -61,6 +64,7 @@ class PlaybackBox : public ScheduleCommon
 {
     Q_OBJECT
     friend class PlaybackBoxListItem;
+    friend class ChangeView;
 
   public:
     // ViewType values cannot change; they are stored in the database.
@@ -117,6 +121,8 @@ class PlaybackBox : public ScheduleCommon
         kDone
     };
 
+    static std::array<PlaybackBoxCb,kMaxJobs*2> kMySlots;
+
     PlaybackBox(MythScreenStack *parent, const QString& name,
                 TV *player = nullptr, bool showTV = false);
    ~PlaybackBox(void) override;
@@ -142,10 +148,14 @@ class PlaybackBox : public ScheduleCommon
     void ItemLoaded(MythUIButtonListItem *item);
     void selected(MythUIButtonListItem *item);
     void updateRecGroup(MythUIButtonListItem *sel_item);
-    void PlayFromBookmarkOrProgStart(MythUIButtonListItem *item = nullptr);
-    void PlayFromBookmark(MythUIButtonListItem *item = nullptr);
-    void PlayFromBeginning(MythUIButtonListItem *item = nullptr);
-    void PlayFromLastPlayPos(MythUIButtonListItem *item = nullptr);
+    void PlayFromBookmarkOrProgStart(MythUIButtonListItem *item);
+    void PlayFromBookmarkOrProgStart() { PlayFromBookmarkOrProgStart(nullptr); }
+    void PlayFromBookmark(MythUIButtonListItem *item);
+    void PlayFromBookmark() { PlayFromBookmark(nullptr); }
+    void PlayFromBeginning(MythUIButtonListItem *item);
+    void PlayFromBeginning() { PlayFromBeginning(nullptr); }
+    void PlayFromLastPlayPos(MythUIButtonListItem *item);
+    void PlayFromLastPlayPos() { PlayFromLastPlayPos(nullptr); }
     void deleteSelected(MythUIButtonListItem *item);
     void ClearBookmark();
     void SwitchList(void);
@@ -160,6 +170,8 @@ class PlaybackBox : public ScheduleCommon
     MythMenu*  createRecordingMenu();
     MythMenu*  createJobMenu();
     MythMenu*  createTranscodingProfilesMenu();
+    void doCreateTranscodingProfilesMenu()
+        {static_cast<void>(createTranscodingProfilesMenu());}
     MythMenu* createStorageMenu();
     MythMenu* createPlaylistMenu();
     MythMenu* createPlaylistStorageMenu();
@@ -167,7 +179,9 @@ class PlaybackBox : public ScheduleCommon
     void changeProfileAndTranscode(int id);
     void showIconHelp();
     void ShowRecGroupChangerUsePlaylist(void)  { ShowRecGroupChanger(true);  }
+    void ShowRecGroupChangerNoPlaylist(void)   { ShowRecGroupChanger(false);  }
     void ShowPlayGroupChangerUsePlaylist(void) { ShowPlayGroupChanger(true); }
+    void ShowPlayGroupChangerNoPlaylist(void)  { ShowPlayGroupChanger(false); }
     void ShowRecGroupChanger(bool use_playlist = false);
     void ShowPlayGroupChanger(bool use_playlist = false);
 
@@ -181,7 +195,8 @@ class PlaybackBox : public ScheduleCommon
 
     void askDelete();
     void Undelete(void);
-    void Delete(DeleteFlags flags = kNoFlags);
+    void Delete(PlaybackBox::DeleteFlags flags);
+    void Delete() { Delete(kNoFlags); }
     void DeleteForgetHistory(void)      { Delete(kForgetHistory); }
     void DeleteForce(void)              { Delete(kForce);         }
     void DeleteIgnore(void)             { Delete(kIgnore);        }
@@ -197,7 +212,7 @@ class PlaybackBox : public ScheduleCommon
     void toggleAutoExpire();
     void togglePreserveEpisode();
 
-    void toggleView(ViewMask itemMask, bool setOn);
+    void toggleView(PlaybackBox::ViewMask itemMask, bool setOn);
     void toggleTitleView(bool setOn)     { toggleView(VIEW_TITLES, setOn); }
     void toggleCategoryView(bool setOn)  { toggleView(VIEW_CATEGORIES, setOn); }
     void toggleRecGroupView(bool setOn)  { toggleView(VIEW_RECGROUPS, setOn); }
@@ -245,6 +260,7 @@ class PlaybackBox : public ScheduleCommon
     void stopPlaylistUserJob4()       { stopPlaylistJobQueueJob(JOB_USERJOB4); }
     void doClearPlaylist();
     void PlaylistDeleteForgetHistory(void) { PlaylistDelete(true); }
+    void PlaylistDeleteKeepHistory(void)   { PlaylistDelete(false); }
     void PlaylistDelete(bool forgetHistory = false);
     void doPlaylistChangeStorageGroup();
     void doPlaylistExpireSetting(bool turnOn);
@@ -256,7 +272,7 @@ class PlaybackBox : public ScheduleCommon
     void doPlaylistAllowRerecord();
     void togglePlayListTitle(void);
     void togglePlayListItem(void);
-    void playSelectedPlaylist(bool random);
+    void playSelectedPlaylist(bool Random);
     void doPlayList(void);
     void showViewChanger(void);
     void saveViewChanges(void);
@@ -343,8 +359,6 @@ class PlaybackBox : public ScheduleCommon
     QString extract_commflag_state(const ProgramInfo &pginfo);
 
 
-    QRegExp m_titleChaff; ///< stuff to remove for search rules
-
     MythUIButtonList *m_recgroupList          {nullptr};
     MythUIButtonList *m_groupList             {nullptr};
     MythUIButtonList *m_recordingList         {nullptr};
@@ -355,8 +369,8 @@ class PlaybackBox : public ScheduleCommon
 
     QString      m_artHostOverride;
     constexpr static int kNumArtImages = 3;
-    MythUIImage *m_artImage[kNumArtImages]    {};
-    QTimer      *m_artTimer[kNumArtImages]    {};
+    std::array<MythUIImage*,kNumArtImages> m_artImage {};
+    std::array<QTimer*,kNumArtImages>      m_artTimer {};
 
     InfoMap m_currentMap;
 
@@ -374,7 +388,7 @@ class PlaybackBox : public ScheduleCommon
     /// add 1 to the Watch List scord up to this many days
     int                 m_watchListMaxAge     {60};
     /// adjust exclusion of a title from the Watch List after a delete
-    int                 m_watchListBlackOut   {2};
+    std::chrono::hours  m_watchListBlackOut   {std::chrono::days(2)};
     /// allOrder controls the ordering of the "All Programs" list
     int                 m_allOrder;
     /// listOrder controls the ordering of the recordings in the list
@@ -468,7 +482,7 @@ class PlaybackBox : public ScheduleCommon
         bool IsJobQueuedOrRunning(int jobType, uint chanid,
                                   const QDateTime &recstartts);
     private:
-        static const qint64 kInvalidateTimeMs = 15000;
+        static constexpr std::chrono::milliseconds kInvalidateTimeMs { 15s };
         void Update();
         QDateTime m_lastUpdated;
         // Maps <chanid, recstartts> to a set of JobQueueEntry values.
@@ -511,7 +525,7 @@ class ChangeView : public MythScreenType
     Q_OBJECT
 
   public:
-    ChangeView(MythScreenStack *lparent, MythScreenType *parentScreen,
+    ChangeView(MythScreenStack *lparent, PlaybackBox *parentScreen,
                int viewMask)
         : MythScreenType(lparent, "changeview"),
           m_parentScreen(parentScreen), m_viewMask(viewMask) {}
@@ -525,7 +539,7 @@ class ChangeView : public MythScreenType
     void SaveChanges(void);
 
   private:
-    MythScreenType *m_parentScreen;
+    PlaybackBox *m_parentScreen;
     int m_viewMask;
 };
 

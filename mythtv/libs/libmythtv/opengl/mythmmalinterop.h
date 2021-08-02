@@ -2,7 +2,7 @@
 #define MYTHMMALINTEROP_H
 
 // MythTV
-#include "mythopenglinterop.h"
+#include "opengl/mythopenglinterop.h"
 
 // MMAL
 extern "C" {
@@ -12,22 +12,19 @@ extern "C" {
 
 class MythMMALInterop : public MythOpenGLInterop
 {
-    friend class MythOpenGLInterop;
-
   public:
-    static MythMMALInterop* Create(MythRenderOpenGL *Context, Type InteropType);
-    virtual vector<MythVideoTexture*> Acquire(MythRenderOpenGL *Context,
-                                              VideoColourSpace *ColourSpace,
-                                              VideoFrame *Frame, FrameScanType Scan) override;
+    static void GetMMALTypes(MythRenderOpenGL* Render, MythInteropGPU::InteropMap& Types);
+    static MythMMALInterop* CreateMMAL(MythRenderOpenGL* Context);
+    virtual vector<MythVideoTextureOpenGL*> Acquire(MythRenderOpenGL *Context,
+                                                    MythVideoColourSpace *ColourSpace,
+                                                    MythVideoFrame *Frame, FrameScanType Scan) override;
 
   protected:
-    static Type GetInteropType(VideoFrameType Format);
-
     MythMMALInterop(MythRenderOpenGL *Context);
     virtual ~MythMMALInterop() override;
 
   private:
-    MMAL_BUFFER_HEADER_T* VerifyBuffer(MythRenderOpenGL *Context, VideoFrame *Frame);
+    MMAL_BUFFER_HEADER_T* VerifyBuffer(MythRenderOpenGL *Context, MythVideoFrame *Frame);
 };
 
 #endif // MYTHMMALINTEROP_H

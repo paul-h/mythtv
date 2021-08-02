@@ -59,20 +59,20 @@ void ScanWizard::SetupConfig(
     addChild(m_scanType);
     addChild(m_scanConfig);
 
-    connect(m_videoSource, SIGNAL(valueChanged(const QString&)),
-            m_scanConfig,  SLOT(  SetSourceID( const QString&)));
+    connect(m_videoSource, qOverload<const QString&>(&StandardSetting::valueChanged),
+            m_scanConfig,  &ScanOptionalConfig::SetSourceID);
 
-    connect(m_videoSource, SIGNAL(valueChanged(const QString&)),
-            m_input,       SLOT(  SetSourceID( const QString&)));
+    connect(m_videoSource, qOverload<const QString&>(&StandardSetting::valueChanged),
+            m_input,       &InputSelector::SetSourceID);
 
-    connect(m_input,       SIGNAL(valueChanged(const QString&)),
-            m_scanType,    SLOT(  SetInput(    const QString&)));
+    connect(m_input,       qOverload<const QString&>(&StandardSetting::valueChanged),
+            m_scanType,    &ScanTypeSetting::SetInput);
 
-    connect(m_input,       SIGNAL(valueChanged(const QString&)),
-            this,          SLOT(  SetInput(    const QString&)));
+    connect(m_input,       qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,          &ScanWizard::SetInput);
 
-    connect(m_input,       SIGNAL(valueChanged(const QString&)),
-            this,          SLOT(  SetPaneDefaults(const QString)));
+    connect(m_input,       qOverload<const QString&>(&StandardSetting::valueChanged),
+            this,          &ScanWizard::SetPaneDefaults);
 
 }
 
@@ -190,7 +190,7 @@ void ScanWizard::SetPaneDefaults(const QString &cardid_inputname)
         LOG(VB_CHANSCAN, LOG_DEBUG,
             QString("SetPaneDefaults sourceid:%1 frequency:%2 mplexid:%3 tuner_type:%4 mpx:%5")
                 .arg(sourceid).arg(scanfrequency).arg(mplexid)
-                .arg(tuner_type.toString()).arg(mpx.toString()));
+                .arg(tuner_type.toString(), mpx.toString()));
     }
 
     m_scanConfig->SetTuningPaneValues(scanfrequency, mpx);
@@ -221,7 +221,7 @@ void ScanTypeSetting::SetInput(const QString &cardids_inputname)
     {
         nCardType = SatIP::toDVBInputType(CardUtil::GetVideoDevice(cardid));
     }
-#endif
+#endif // USING_SATIP
 
     clearSelections();
 

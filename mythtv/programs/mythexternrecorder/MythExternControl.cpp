@@ -29,9 +29,9 @@
 
 #include <iostream>
 
-using namespace std;
+using namespace std::chrono_literals;
 
-const QString VERSION = "0.6";
+const QString VERSION = "1.0";
 
 #define LOC Desc()
 
@@ -79,12 +79,12 @@ Q_SLOT void MythExternControl::Done(void)
         m_flowCond.notify_all();
         m_runCond.notify_all();
 
-        std::this_thread::sleep_for(std::chrono::microseconds(50));
+        std::this_thread::sleep_for(50us);
 
         while (m_commandsRunning || m_bufferRunning)
         {
             std::unique_lock<std::mutex> lk(m_flowMutex);
-            m_flowCond.wait_for(lk, std::chrono::milliseconds(1000));
+            m_flowCond.wait_for(lk, 1s);
         }
 
         LOG(VB_RECORD, LOG_CRIT, LOC + "Terminated.");
@@ -201,9 +201,9 @@ void Commands::Cleanup(void)
 bool Commands::SendStatus(const QString & command, const QString & status)
 {
     int len = write(2, status.toUtf8().constData(), status.size());
-    write(2, "\n", 1);
+    len += write(2, "\n", 1);
 
-    if (len != status.size())
+    if (len != status.size() + 1)
     {
         LOG(VB_RECORD, LOG_ERR, LOC +
             QString("%1: Only wrote %2 of %3 bytes of message '%4'.")
@@ -212,7 +212,7 @@ bool Commands::SendStatus(const QString & command, const QString & status)
     }
 
     LOG(VB_RECORD, LOG_INFO, LOC + QString("Processing '%1' --> '%2'")
-        .arg(command).arg(status));
+        .arg(command, status));
 
     m_parent->ClearError();
     return true;
@@ -221,12 +221,12 @@ bool Commands::SendStatus(const QString & command, const QString & status)
 bool Commands::SendStatus(const QString & command, const QString & serial,
                           const QString & status)
 {
-    QString msg = QString("%1:%2").arg(serial).arg(status);
+    QString msg = QString("%1:%2").arg(serial, status);
 
     int len = write(2, msg.toUtf8().constData(), msg.size());
-    write(2, "\n", 1);
+    len += write(2, "\n", 1);
 
-    if (len != msg.size())
+    if (len != msg.size() + 1)
     {
         LOG(VB_RECORD, LOG_ERR, LOC +
             QString("%1: Only wrote %2 of %3 bytes of message '%4'.")
@@ -237,7 +237,7 @@ bool Commands::SendStatus(const QString & command, const QString & serial,
     if (!command.isEmpty())
     {
         LOG(VB_RECORD, LOG_INFO, LOC + QString("Processing '%1' --> '%2'")
-            .arg(command).arg(msg));
+            .arg(command, msg));
     }
 #if 0
     else
@@ -440,8 +440,7 @@ void Commands::Run(void)
 
     QString cmd;
 
-    struct pollfd polls[2];
-    memset(polls, 0, sizeof(polls));
+    std::array<struct pollfd,2> polls {};
 
     polls[0].fd      = 0;
     polls[0].events  = POLLIN | POLLPRI;
@@ -457,7 +456,7 @@ void Commands::Run(void)
     {
         int timeout = 250;
         int poll_cnt = 1;
-        int ret = poll(polls, poll_cnt, timeout);
+        int ret = poll(polls.data(), poll_cnt, timeout);
 
         if (polls[0].revents & POLLHUP)
         {
@@ -543,7 +542,7 @@ bool Buffer::Fill(const QByteArray & buffer)
             QString("Packet queue overrun. Dropped %1 packets, %2 bytes.")
             .arg(++s_dropped).arg(s_droppedBytes));
 
-        std::this_thread::sleep_for(std::chrono::microseconds(250));
+        std::this_thread::sleep_for(250us);
     }
 
     m_parent->m_flowMutex.unlock();
@@ -560,7 +559,7 @@ void Buffer::Run(void)
 
     bool       is_empty = false;
     bool       wait = false;
-    time_t     send_time = time (nullptr) + (60 * 5);
+    auto       send_time = std::chrono::system_clock::now() + 5min;
     uint64_t   write_total = 0;
     uint64_t   written = 0;
     uint64_t   write_cnt = 0;
@@ -572,16 +571,14 @@ void Buffer::Run(void)
     {
         {
             std::unique_lock<std::mutex> lk(m_parent->m_flowMutex);
-            m_parent->m_flowCond.wait_for(lk,
-                                           std::chrono::milliseconds
-                                           (wait ? 5000 : 25));
+            m_parent->m_flowCond.wait_for(lk, wait ? 5s : 25ms);
             wait = false;
         }
 
-        if (send_time < static_cast<double>(time (nullptr)))
+        if (send_time < std::chrono::system_clock::now())
         {
             // Every 5 minutes, write out some statistics.
-            send_time = time (nullptr) + (60 * 5);
+            send_time = std::chrono::system_clock::now() + 5min;
             write_total += written;
             if (m_parent->m_streaming)
             {

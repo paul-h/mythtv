@@ -1,6 +1,3 @@
-// POSIX headers
-#include <sys/time.h>      /* gettimeofday */
-
 // ANSI C headers
 #include <cmath>
 #include <cstdlib>
@@ -54,7 +51,7 @@ bool writeJPG(const QString& prefix, const AVFrame *img, int imgheight)
         }
 
         QString cmd = QString("convert -quality 50 -resize 192x144 %1 %2")
-                      .arg(pgmfile.fileName()).arg(jpgfi.filePath());
+                      .arg(pgmfile.fileName(), jpgfi.filePath());
         if (myth_system(cmd) != GENERIC_EXIT_OK)
             return false;
 
@@ -62,7 +59,7 @@ bool writeJPG(const QString& prefix, const AVFrame *img, int imgheight)
         {
             LOG(VB_COMMFLAG, LOG_ERR, 
                 QString("TemplateFinder.writeJPG error removing %1 (%2)")
-                    .arg(pgmfile.fileName()).arg(strerror(errno)));
+                    .arg(pgmfile.fileName(), strerror(errno)));
             return false;
         }
     }
@@ -156,8 +153,8 @@ bounding_box(const AVFrame *img, int imgheight,
      * Higher values cut more, but avoid noise as part of the template..
      * Lower values cut less, but can include noise as part of the template.
      */
-    const int           VERTSLOP = max(4, imgheight * 1 / 15);
-    const int           HORIZSLOP = max(4, imgwidth * 1 / 20);
+    const int           VERTSLOP = std::max(4, imgheight * 1 / 15);
+    const int           HORIZSLOP = std::max(4, imgwidth * 1 / 20);
 
     int maxwidth = (maxcol1 - mincol) * kMaxWidthPct / 100;
     int maxheight = (maxrow1 - minrow) * kMaxHeightPct / 100;
@@ -270,8 +267,8 @@ bounding_box(const AVFrame *img, int imgheight,
                 QString("bounding_box too wide (%1 > %2); left=%3, right=%4")
                     .arg(width).arg(maxwidth)
                     .arg(left, 0, 'f', 3).arg(right, 0, 'f', 3));
-            float minscore = min(left, right);
-            float maxscore = max(left, right);
+            float minscore = std::min(left, right);
+            float maxscore = std::max(left, right);
             if (maxscore < 3 * minscore / 2)
             {
                 /*
@@ -302,8 +299,8 @@ bounding_box(const AVFrame *img, int imgheight,
                 QString("bounding_box too tall (%1 > %2); upper=%3, lower=%4")
                     .arg(height).arg(maxheight)
                     .arg(upper, 0, 'f', 3).arg(lower, 0, 'f', 3));
-            float minscore = min(upper, lower);
-            float maxscore = max(upper, lower);
+            float minscore = std::min(upper, lower);
+            float maxscore = std::max(upper, lower);
             if (maxscore < 3 * minscore / 2)
             {
                 /*
@@ -358,7 +355,7 @@ bounding_box(const AVFrame *img, int imgheight,
         }
         newrow--;
     }
-    newrow = max(minrow, newrow - 1);   /* Empty row on top. */
+    newrow = std::max(minrow, newrow - 1);   /* Empty row on top. */
 
     /* Expand leftwards. */
     newcol = col - 1;
@@ -381,7 +378,7 @@ bounding_box(const AVFrame *img, int imgheight,
         }
         newcol--;
     }
-    newcol = max(mincol, newcol - 1);   /* Empty column to left. */
+    newcol = std::max(mincol, newcol - 1);   /* Empty column to left. */
 
     /* Expand rightwards. */
     newright = col + width;
@@ -401,7 +398,7 @@ bounding_box(const AVFrame *img, int imgheight,
             break;
         newright++;
     }
-    newright = min(maxcol1, newright + 1);  /* Empty column to right. */
+    newright = std::min(maxcol1, newright + 1);  /* Empty column to right. */
 
     /* Expand downwards. */
     newbottom = row + height;
@@ -421,7 +418,7 @@ bounding_box(const AVFrame *img, int imgheight,
             break;
         newbottom++;
     }
-    newbottom = min(maxrow1, newbottom + 1);    /* Empty row on bottom. */
+    newbottom = std::min(maxrow1, newbottom + 1);    /* Empty row on bottom. */
 
     row = newrow;
     col = newcol;
@@ -699,14 +696,15 @@ writeTemplate(const QString& tmplfile, const AVFrame *tmpl, const QString& dataf
 TemplateFinder::TemplateFinder(std::shared_ptr<PGMConverter> pgmc,
                                std::shared_ptr<BorderDetector> bd,
                                std::shared_ptr<EdgeDetector> ed,
-                               MythPlayer *player, int proglen,
-        const QString& debugdir)
-    : m_pgmConverter(std::move(pgmc))
-    , m_borderDetector(std::move(bd))
-    , m_edgeDetector(std::move(ed))
-    , m_debugDir(debugdir)
-    , m_debugData(debugdir + "/TemplateFinder.txt")
-    , m_debugTmpl(debugdir + "/TemplateFinder.pgm")
+                               MythPlayer *player, std::chrono::seconds proglen,
+                               const QString& debugdir)
+  : m_pgmConverter(std::move(pgmc)),
+    m_borderDetector(std::move(bd)),
+    m_edgeDetector(std::move(ed)),
+    m_sampleTime(std::min(proglen / 2, 20 * 60s)),
+    m_debugDir(debugdir),
+    m_debugData(debugdir + "/TemplateFinder.txt"),
+    m_debugTmpl(debugdir + "/TemplateFinder.pgm")
 {
     /*
      * TUNABLE:
@@ -728,16 +726,16 @@ TemplateFinder::TemplateFinder(std::shared_ptr<PGMConverter> pgmc,
      *
      * Sample half of the program length or 20 minutes, whichever is less.
      */
-    m_sampleTime = min(proglen / 2, 20 * 60);
+    // m_sampleTime
 
     const float fps = player->GetFrameRate();
 
-    m_frameInterval = (int)roundf(m_sampleTime * fps / samplesNeeded);
+    m_frameInterval = (int)roundf(m_sampleTime.count() * fps / samplesNeeded);
     m_endFrame = 0 + (long long)m_frameInterval * samplesNeeded - 1;
 
     LOG(VB_COMMFLAG, LOG_INFO,
         QString("TemplateFinder: sampleTime=%1s, samplesNeeded=%2, endFrame=%3")
-            .arg(m_sampleTime).arg(samplesNeeded).arg(m_endFrame));
+            .arg(m_sampleTime.count()).arg(samplesNeeded).arg(m_endFrame));
 
     /*
      * debugLevel:
@@ -801,8 +799,7 @@ TemplateFinder::MythPlayerInited(MythPlayer *player, long long nframes)
 
             LOG(VB_COMMFLAG, LOG_INFO,
                 QString("TemplateFinder::MythPlayerInited read %1: %2")
-                    .arg(m_debugTmpl)
-                    .arg(tmpldims));
+                    .arg(m_debugTmpl, tmpldims));
         }
     }
 
@@ -818,7 +815,7 @@ TemplateFinder::MythPlayerInited(MythPlayer *player, long long nframes)
         {
             LOG(VB_COMMFLAG, LOG_INFO,
                 QString("TemplateFinder::MythPlayerInited %1 of %2 (%3)")
-                    .arg(tmpldims).arg(playerdims).arg(m_debugTmpl));
+                    .arg(tmpldims, playerdims, m_debugTmpl));
         }
         return ANALYZE_FINISHED;
     }
@@ -859,7 +856,7 @@ TemplateFinder::resetBuffers(int newwidth, int newheight)
 }
 
 enum FrameAnalyzer::analyzeFrameResult
-TemplateFinder::analyzeFrame(const VideoFrame *frame, long long frameno,
+TemplateFinder::analyzeFrame(const MythVideoFrame *frame, long long frameno,
         long long *pNextFrame)
 {
     /*
@@ -898,9 +895,6 @@ TemplateFinder::analyzeFrame(const VideoFrame *frame, long long frameno,
     int            cropcol = 0;
     int            cropwidth = 0;
     int            cropheight = 0;
-    struct timeval start {};
-    struct timeval end {};
-    struct timeval elapsed {};
 
     if (frameno < m_nextFrame)
     {
@@ -909,7 +903,7 @@ TemplateFinder::analyzeFrame(const VideoFrame *frame, long long frameno,
     }
 
     m_nextFrame = frameno + m_frameInterval;
-    *pNextFrame = min(m_endFrame, m_nextFrame);
+    *pNextFrame = std::min(m_endFrame, m_nextFrame);
 
     const AVFrame *pgm = m_pgmConverter->getImage(frame, frameno, &pgmwidth, &pgmheight);
     if (pgm == nullptr)
@@ -920,7 +914,7 @@ TemplateFinder::analyzeFrame(const VideoFrame *frame, long long frameno,
     {
         /* Not a blank frame. */
 
-        (void)gettimeofday(&start, nullptr);
+        auto start = nowAsDuration<std::chrono::microseconds>();
 
         if (croprow < m_minContentRow)
             m_minContentRow = croprow;
@@ -965,9 +959,8 @@ TemplateFinder::analyzeFrame(const VideoFrame *frame, long long frameno,
                 goto error;
         }
 
-        (void)gettimeofday(&end, nullptr);
-        timersub(&end, &start, &elapsed);
-        timeradd(&m_analyzeTime, &elapsed, &m_analyzeTime);
+        auto end = nowAsDuration<std::chrono::microseconds>();
+        m_analyzeTime += (end - start);
     }
 
     if (m_nextFrame > m_endFrame)
@@ -1012,7 +1005,7 @@ TemplateFinder::finished(long long nframes, bool final)
                 LOG(VB_COMMFLAG, LOG_INFO,
                     QString("TemplateFinder::finished wrote %1"
                             " and %2 [%3x%4@(%5,%6)]")
-                        .arg(m_debugTmpl).arg(m_debugData)
+                        .arg(m_debugTmpl, m_debugData)
                         .arg(m_tmplWidth).arg(m_tmplHeight)
                         .arg(m_tmplCol).arg(m_tmplRow));
             }
@@ -1041,7 +1034,7 @@ TemplateFinder::reportTime(void) const
         return -1;
 
     LOG(VB_COMMFLAG, LOG_INFO, QString("TF Time: analyze=%1s")
-            .arg(strftimeval(&m_analyzeTime)));
+            .arg(strftimeval(m_analyzeTime)));
     return 0;
 }
 

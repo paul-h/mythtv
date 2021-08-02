@@ -105,11 +105,11 @@ bool Wsdl::GetWSDL( HTTPRequest *pRequest )
         QString sResponseTypeName = oInfo.m_sName + "Response";
 
         QString sInputMsgName  = QString( "%1_%2_InputMessage"  )
-                                    .arg( sClassName )
-                                    .arg( oInfo.m_sName );
+                                    .arg( sClassName,
+                                          oInfo.m_sName );
         QString sOutputMsgName = QString( "%1_%2_OutputMessage" )
-                                    .arg( sClassName )
-                                    .arg( oInfo.m_sName );
+                                    .arg( sClassName,
+                                          oInfo.m_sName );
 
         // ------------------------------------------------------------------
         // Create PortType Operations
@@ -144,9 +144,9 @@ bool Wsdl::GetWSDL( HTTPRequest *pRequest )
     
         oNode = createElement( "input" );
         oNode.setAttribute( "wsaw:Action", QString( "%1/%2/%3" )
-                                              .arg( sTargetNamespace )
-                                              .arg( sClassName )
-                                              .arg( oInfo.m_sName ));
+                                              .arg( sTargetNamespace,
+                                                    sClassName,
+                                                    oInfo.m_sName ));
         oNode.setAttribute( "message"    , "tns:" + sInputMsgName );
     
         oOp.appendChild( oNode );
@@ -157,9 +157,9 @@ bool Wsdl::GetWSDL( HTTPRequest *pRequest )
     
         oNode = createElement( "output" );
         oNode.setAttribute( "wsaw:Action", QString( "%1/%2/%3Response" )
-                                        .arg( sTargetNamespace )
-                                        .arg( sClassName )
-                                        .arg( oInfo.m_sName ));
+                                        .arg( sTargetNamespace,
+                                              sClassName,
+                                              oInfo.m_sName ));
         oNode.setAttribute( "message", "tns:" + sOutputMsgName );
     
         oOp.appendChild( oNode );
@@ -238,7 +238,7 @@ bool Wsdl::GetWSDL( HTTPRequest *pRequest )
 
     oNode = createElement( "soap:address" );
     oNode.setAttribute( "location", "http://" + 
-                                    pRequest->m_mapHeaders[ "host" ] + "/" +
+                                    pRequest->GetLastHeader( "host" ) + "/" +
                                     m_pServiceHost->GetServiceControlURL() );
 
     oPort.appendChild( oNode );
@@ -256,7 +256,7 @@ bool Wsdl::GetWSDL( HTTPRequest *pRequest )
         //	<xs:import schemaLocation="<path to dependant schema" namespace="http://mythtv.org"/>
         // ------------------------------------------------------------------
 
-        QString sBaseUri = "http://" + pRequest->m_mapHeaders[ "host" ] + pRequest->m_sBaseUrl + "/xsd";
+        QString sBaseUri = "http://" + pRequest->GetLastHeader( "host" ) + pRequest->m_sBaseUrl + "/xsd";
 
         QMap<QString, TypeInfo>::const_iterator it2 = m_typesToInclude.constBegin();
         while( it2 != m_typesToInclude.constEnd())
@@ -267,9 +267,9 @@ bool Wsdl::GetWSDL( HTTPRequest *pRequest )
 
             sType.remove( "DTC::" );
 
-            QString sValue = QString( "%1?%2=%3" ).arg( sBaseUri       )
-                                                  .arg( info.sAttrName )
-                                                  .arg( sType          );
+            QString sValue = QString( "%1?%2=%3" ).arg( sBaseUri,
+                                                        info.sAttrName,
+                                                        sType);
 
             if (!info.sContentType.isEmpty())
                 sValue += "&name=" + info.sContentType;
@@ -312,8 +312,8 @@ QDomElement Wsdl::CreateBindingOperation( MethodInfo    &oInfo,
 
     QDomElement oNode = createElement( "soap:operation" );
     oNode.setAttribute( "soapAction", QString( "http://mythtv.org/%1/%2" )
-                                         .arg( sClassName )
-                                         .arg( oInfo.m_sName ));
+                                         .arg( sClassName,
+                                               oInfo.m_sName ));
     oNode.setAttribute( "style"     , "document" );
 
     oOp.appendChild( oNode );
@@ -461,7 +461,11 @@ QDomElement Wsdl::CreateMethodType( MethodInfo   &oInfo,
 
 bool Wsdl::IsCustomType( QString &sTypeName )
 {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     int id = QMetaType::type( sTypeName.toUtf8() );
+#else
+    int id = QMetaType::fromName( sTypeName.toUtf8() ).id();
+#endif
 
     switch( id )
     {
@@ -472,7 +476,7 @@ bool Wsdl::IsCustomType( QString &sTypeName )
 
         default:
             // for now, treat QFileInfo as a string.  Need to turn into MTOM later.
-            if (id == QMetaType::type( "QFileInfo" ))
+            if (id == qMetaTypeId<QFileInfo>())
                 return false;
             break;
     }

@@ -13,6 +13,7 @@
 
 // Mythbase headers
 #include "mythlogging.h"
+#include "mythmiscutil.h"
 #include "mythmedia.h"
 
 // MythUI headers
@@ -45,7 +46,7 @@ MythUIType::MythUIType(QObject *parent, const QString &name)
 
     if (parent)
     {
-        m_parent = dynamic_cast<MythUIType *>(parent);
+        m_parent = qobject_cast<MythUIType *>(parent);
 
         if (m_parent)
             m_parent->AddChild(this);
@@ -53,7 +54,7 @@ MythUIType::MythUIType(QObject *parent, const QString &name)
 
     m_fonts = new FontMap();
 
-    m_borderColor = QColor(random() % 255, random()  % 255, random()  % 255);
+    m_borderColor = QColor(MythRandom() % 255, MythRandom()  % 255, MythRandom()  % 255);
 }
 
 MythUIType::~MythUIType()
@@ -111,7 +112,7 @@ static QObject *qChildHelper(const char *objName, const char *inheritsClass,
                  && (!objName || obj->objectName() == oName))
             return obj;
 
-        if (recursiveSearch && (dynamic_cast<MythUIGroup *>(obj) != nullptr)
+        if (recursiveSearch && (qobject_cast<MythUIGroup *>(obj) != nullptr)
             && (obj = qChildHelper(objName, inheritsClass,
                                    recursiveSearch,
                                    obj->children())))
@@ -132,7 +133,7 @@ MythUIType *MythUIType::GetChild(const QString &name) const
     QObject *ret = qChildHelper(name.toLatin1().constData(), nullptr, true, children());
 
     if (ret)
-        return dynamic_cast<MythUIType *>(ret);
+        return qobject_cast<MythUIType *>(ret);
 
     return nullptr;
 }
@@ -218,7 +219,7 @@ void MythUIType::DeleteAllChildren(void)
  *
  *  \return The widget at these coordinates
  */
-MythUIType *MythUIType::GetChildAt(const QPoint &p, bool recursive,
+MythUIType *MythUIType::GetChildAt(const QPoint p, bool recursive,
                                    bool focusable) const
 {
     if (GetArea().contains(p))
@@ -550,7 +551,7 @@ MythPoint MythUIType::GetPosition(void) const
     return m_area.topLeft();
 }
 
-void MythUIType::SetSize(const QSize &size)
+void MythUIType::SetSize(const QSize size)
 {
     if (size == m_area.size())
         return;
@@ -850,7 +851,7 @@ void MythUIType::SetMinArea(const MythRect &rect)
         m_parent->SetMinAreaParent(m_minArea, m_area, this);
 }
 
-void MythUIType::ExpandArea(const QRect &rect)
+void MythUIType::ExpandArea(const QRect rect)
 {
     QSize childSize = rect.size();
     QSize size = m_area.size();
@@ -1077,7 +1078,7 @@ void MythUIType::UpdateDependState(MythUIType *dependee, bool isDefault)
 
 void MythUIType::UpdateDependState(bool isDefault)
 {
-    auto *dependee = dynamic_cast<MythUIType*>(sender());
+    auto *dependee = qobject_cast<MythUIType*>(sender());
 
     UpdateDependState(dependee, isDefault);
 }
@@ -1097,6 +1098,7 @@ void MythUIType::SetVisible(bool visible)
         emit Showing();
     else
         emit Hiding();
+    emit VisibilityChanged(m_visible);
 }
 
 void MythUIType::SetDependIsDefault(bool isDefault)
@@ -1125,14 +1127,12 @@ void MythUIType::Show(void)
     SetVisible(true);
 }
 
-void MythUIType::AddFocusableChildrenToList(QMap<int, MythUIType *> &focusList)
+void MythUIType::AddFocusableChildrenToList(FocusInfoType &focusList)
 {
     if (m_canHaveFocus)
-        focusList.insertMulti(m_focusOrder, this);
+        focusList.insert(m_focusOrder, this);
 
-    QList<MythUIType *>::Iterator it;
-
-    for (it = m_childrenList.end() - 1; it != m_childrenList.begin() - 1; --it)
+    for (auto it = m_childrenList.crbegin(); it != m_childrenList.crend(); ++it)
         (*it)->AddFocusableChildrenToList(focusList);
 }
 
@@ -1391,7 +1391,7 @@ void MythUIType::LoadNow(void)
  *
  *  Largely used For correctly handling mouse clicks
  */
-bool MythUIType::ContainsPoint(const QPoint &point) const
+bool MythUIType::ContainsPoint(const QPoint point) const
 {
     return m_area.contains(point);
 }
@@ -1420,18 +1420,20 @@ void MythUIType::SetReverseDependence(MythUIType *dependee, bool reverse)
 void MythUIType::ConnectDependants(bool recurse)
 {
     QMapIterator<QString, QString> it(m_dependsMap);
+    QStringList dependees;
+    QList<int> operators;
     while(it.hasNext())
     {
         it.next();
 
         // build list of operators and dependeees.
-        QStringList dependees;
-        QList<int> operators;
+        dependees.clear();
+        operators.clear();
         QString name = it.value();
         QStringList tmp1 = name.split("&");
-        for (int i = 0; i < tmp1.size(); i++)
+        for (const QString& t1 : qAsConst(tmp1))
         {
-            QStringList tmp2 = tmp1[i].split("|");
+            QStringList tmp2 = t1.split("|");
 
             dependees.append(tmp2[0]);
             for (int j = 1; j < tmp2.size(); j++)
@@ -1458,8 +1460,8 @@ void MythUIType::ConnectDependants(bool recurse)
 
                 if (dependee)
                 {
-                    QObject::connect(dependee, SIGNAL(DependChanged(bool)),
-                                     dependant, SLOT(UpdateDependState(bool)));
+                    QObject::connect(dependee, &MythUIType::DependChanged,
+                                     dependant, qOverload<bool>(&MythUIType::UpdateDependState));
                     dependant->SetReverseDependence(dependee, reverse);
                     dependant->m_dependsValue.append(QPair<MythUIType *, bool>(dependee, false));
                     dependant->UpdateDependState(dependee, true);

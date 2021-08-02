@@ -78,9 +78,9 @@ MusicPlayer::MusicPlayer(QObject *parent)
     loadSettings();
 
     gCoreContext->addListener(this);
-    gCoreContext->RegisterForPlayback(this, SLOT(StopPlayback()));
-    connect(gCoreContext, SIGNAL(TVPlaybackStopped()), this, SLOT(StartPlayback()));
-    connect(gCoreContext, SIGNAL(TVPlaybackAborted()), this, SLOT(StartPlayback()));
+    gCoreContext->RegisterForPlayback(this, &MusicPlayer::StopPlayback);
+    connect(gCoreContext, &MythCoreContext::TVPlaybackStopped, this, &MusicPlayer::StartPlayback);
+    connect(gCoreContext, &MythCoreContext::TVPlaybackAborted, this, &MusicPlayer::StartPlayback);
 }
 
 MusicPlayer::~MusicPlayer()
@@ -215,7 +215,7 @@ void MusicPlayer::loadSettings(void)
     m_resumeModeEditor = (ResumeMode) gCoreContext->GetNumSetting("ResumeModeEditor", MusicPlayer::RESUME_OFF);
     m_resumeModeRadio = (ResumeMode) gCoreContext->GetNumSetting("ResumeModeRadio", MusicPlayer::RESUME_TRACK);
 
-    m_lastplayDelay = gCoreContext->GetNumSetting("MusicLastPlayDelay", LASTPLAY_DELAY);
+    m_lastplayDelay = gCoreContext->GetDurSetting<std::chrono::seconds>("MusicLastPlayDelay", LASTPLAY_DELAY);
     m_autoShowPlayer = (gCoreContext->GetNumSetting("MusicAutoShowPlayer", 1) > 0);
 }
 
@@ -291,11 +291,12 @@ void MusicPlayer::pause(void)
         m_output->Pause(!m_isPlaying);
     }
     // wake up threads
-    if (getDecoder())
+    Decoder *decoder = getDecoder();
+    if (decoder)
     {
-        getDecoder()->lock();
-        getDecoder()->cond()->wakeAll();
-        getDecoder()->unlock();
+        decoder->lock();
+        decoder->cond()->wakeAll();
+        decoder->unlock();
     }
 
     GetMythMainWindow()->PauseIdleTimer(false);
@@ -680,12 +681,12 @@ void MusicPlayer::customEvent(QEvent *event)
                     QString mdataStr;
                     MusicMetadata *mdata = getCurrentMetadata();
                     if (mdata)
-                        mdataStr = QString("%1 by %2 from %3").arg(mdata->Title()).arg(mdata->Artist()).arg(mdata->Album());
+                        mdataStr = QString("%1 by %2 from %3").arg(mdata->Title(), mdata->Artist(), mdata->Album());
                     else
                         mdataStr = "Unknown Track2";
 
                     QString message = QString("MUSIC_CONTROL ANSWER %1 %2")
-                            .arg(gCoreContext->GetHostName()).arg(mdataStr);
+                            .arg(gCoreContext->GetHostName(), mdataStr);
                     MythEvent me2(message);
                     gCoreContext->dispatch(me2);
                 }
@@ -699,7 +700,7 @@ void MusicPlayer::customEvent(QEvent *event)
                         statusStr = "PAUSED";
 
                     QString message = QString("MUSIC_CONTROL ANSWER %1 %2")
-                            .arg(gCoreContext->GetHostName()).arg(statusStr);
+                            .arg(gCoreContext->GetHostName(), statusStr);
                     MythEvent me2(message);
                     gCoreContext->dispatch(me2);
                 }
@@ -877,8 +878,8 @@ void MusicPlayer::customEvent(QEvent *event)
         {
             // we update the lastplay and playcount after playing
             // for m_lastplayDelay seconds or half the total track time
-            if ((getCurrentMetadata() &&  m_currentTime >
-                 (getCurrentMetadata()->Length() / 1000) / 2) ||
+            if ((getCurrentMetadata() &&
+                 m_currentTime > duration_cast<std::chrono::seconds>(getCurrentMetadata()->Length()) / 2) ||
                  m_currentTime >= m_lastplayDelay)
             {
                 updateLastplay();
@@ -890,7 +891,7 @@ void MusicPlayer::customEvent(QEvent *event)
         {
             if (!m_playedList.isEmpty())
             {
-                m_playedList.last()->setLength(m_currentTime * 1000);
+                m_playedList.last()->setLength(m_currentTime);
                 // this will update any track lengths displayed on screen
                 gPlayer->sendMetadataChangedEvent(m_playedList.last()->ID());
             }
@@ -906,13 +907,14 @@ void MusicPlayer::customEvent(QEvent *event)
         }
         else
         {
+            auto metadataSecs = duration_cast<std::chrono::seconds>(getCurrentMetadata()->Length());
             if (m_playMode != PLAYMODE_RADIO && getCurrentMetadata() &&
-                m_currentTime != getCurrentMetadata()->Length() / 1000)
+                m_currentTime != metadataSecs)
             {
                 LOG(VB_GENERAL, LOG_NOTICE, QString("MusicPlayer: Updating track length was %1s, should be %2s")
-                    .arg(getCurrentMetadata()->Length() / 1000).arg(m_currentTime));
+                    .arg(metadataSecs.count()).arg(m_currentTime.count()));
 
-                getCurrentMetadata()->setLength(m_currentTime * 1000);
+                getCurrentMetadata()->setLength(m_currentTime);
                 getCurrentMetadata()->dumpToDatabase();
 
                 // this will update any track lengths displayed on screen
@@ -1058,7 +1060,7 @@ void MusicPlayer::savePosition(void)
     else
     {
         gCoreContext->SaveSetting("MusicBookmark", getCurrentMetadata()->ID());
-        gCoreContext->SaveSetting("MusicBookmarkPosition", m_currentTime);
+        gCoreContext->SaveDurSetting("MusicBookmarkPosition", m_currentTime);
     }
 }
 
@@ -1098,18 +1100,19 @@ void MusicPlayer::restorePosition(void)
             play();
 
         if (gPlayer->getResumeMode() == MusicPlayer::RESUME_EXACT && m_playMode != PLAYMODE_RADIO)
-            seek(gCoreContext->GetNumSetting("MusicBookmarkPosition", 0));
+            seek(gCoreContext->GetDurSetting<std::chrono::seconds>("MusicBookmarkPosition", 0s));
     }
 }
 
-void MusicPlayer::seek(int pos)
+void MusicPlayer::seek(std::chrono::seconds pos)
 {
     if (m_output)
     {
-        if (getDecoder() && getDecoder()->isRunning())
-            getDecoder()->seek(pos);
+        Decoder *decoder = getDecoder();
+        if (decoder && decoder->isRunning())
+            decoder->seek(pos.count());
 
-        m_output->SetTimecode(pos*1000);
+        m_output->SetTimecode(pos);
     }
 }
 
@@ -1503,60 +1506,61 @@ void MusicPlayer::setupDecoderHandler(void)
 
 void MusicPlayer::decoderHandlerReady(void)
 {
-    if (!getDecoder())
+    Decoder *decoder = getDecoder();
+    if (!decoder)
         return;
 
     LOG(VB_PLAYBACK, LOG_INFO, QString ("decoder handler is ready, decoding %1")
-            .arg(getDecoder()->getURL()));
+            .arg(decoder->getURL()));
 
 #ifdef HAVE_CDIO
-    auto *cddecoder = dynamic_cast<CdDecoder*>(getDecoder());
+    auto *cddecoder = dynamic_cast<CdDecoder*>(decoder);
     if (cddecoder)
         cddecoder->setDevice(gCDdevice);
 #endif
 
     // Decoder thread can't be running while being initialized
-    if (getDecoder()->isRunning())
+    if (decoder->isRunning())
     {
-        getDecoder()->stop();
-        getDecoder()->wait();
+        decoder->stop();
+        decoder->wait();
     }
 
-    getDecoder()->setOutput(m_output);
-    //getDecoder()-> setBlockSize(2 * 1024);
-    getDecoder()->addListener(this);
+    decoder->setOutput(m_output);
+    //decoder-> setBlockSize(2 * 1024);
+    decoder->addListener(this);
 
     // add any listeners to the decoder
     {
         QMutexLocker locker(m_lock);
         // NOLINTNEXTLINE(modernize-loop-convert)
         for (auto it = m_listeners.begin(); it != m_listeners.end() ; ++it)
-            getDecoder()->addListener(*it);
+            decoder->addListener(*it);
     }
 
-    m_currentTime = 0;
-    m_lastTrackStart = 0;
+    m_currentTime = 0s;
+    m_lastTrackStart = 0s;
 
     // NOLINTNEXTLINE(modernize-loop-convert)
     for (auto it = m_visualisers.begin(); it != m_visualisers.end() ; ++it)
     {
         //m_output->addVisual((MythTV::Visual*)(*it));
-        //(*it)->setDecoder(getDecoder());
+        //(*it)->setDecoder(decoder);
         //m_visual->setOutput(m_output);
     }
 
-    if (getDecoder()->initialize())
+    if (decoder->initialize())
     {
         if (m_output)
              m_output->PauseUntilBuffered();
 
-        getDecoder()->start();
+        decoder->start();
 
         if (!m_oneshotMetadata && getResumeMode() == RESUME_EXACT &&
-            gCoreContext->GetNumSetting("MusicBookmarkPosition", 0) > 0)
+            gCoreContext->GetDurSetting<std::chrono::seconds>("MusicBookmarkPosition", 0s) > 0s)
         {
-            seek(gCoreContext->GetNumSetting("MusicBookmarkPosition", 0));
-            gCoreContext->SaveSetting("MusicBookmarkPosition", 0);
+            seek(gCoreContext->GetDurSetting<std::chrono::seconds>("MusicBookmarkPosition", 0s));
+            gCoreContext->SaveDurSetting("MusicBookmarkPosition", 0s);
         }
 
         m_isPlaying = true;
@@ -1565,7 +1569,7 @@ void MusicPlayer::decoderHandlerReady(void)
     else
     {
         LOG(VB_PLAYBACK, LOG_ERR, QString("Cannot initialise decoder for %1")
-                .arg(getDecoder()->getURL()));
+                .arg(decoder->getURL()));
         return;
     }
 
@@ -1632,7 +1636,7 @@ void MusicPlayer::sendNotification(int notificationID, const QString &title, con
 
     n->SetId(notificationID);
     n->SetParent(this);
-    n->SetDuration(5);
+    n->SetDuration(5s);
     n->SetFullScreen(false);
     GetNotificationCenter()->Queue(*n);
     delete n;

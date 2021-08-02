@@ -121,8 +121,12 @@
             <fill color="#333333" alpha="180" />
         </shape>
 
+        <shape name="frequency_background" from="channum_column">
+            <area>650,54,140,372</area>
+        </shape>
+
         <shape name="sourcename_background" from="channum_column">
-            <area>854,54,290,372</area>
+            <area>899,54,245,372</area>
         </shape>
 
         <buttonlist name="channels" from="basebuttonlist2">
@@ -136,15 +140,27 @@
                         <preserveaspect>true</preserveaspect>
                     </imagetype>
                     <textarea name="channum" from="buttontext">
-                        <area>32,2,80,26</area>
-                        <align>center,vcenter</align>
+                        <area>22,2,80,26</area>
+                        <align>right,vcenter</align>
                     </textarea>
                     <textarea name="name" from="buttontext">
-                        <area>120,2,740,26</area>
+                        <area>120,2,400,26</area>
                         <align>left,vcenter</align>
                     </textarea>
+                    <textarea name="serviceid" from="name">
+                        <area>520,2,100,26</area>
+                        <align>right,vcenter</align>
+                    </textarea>
+                    <textarea name="frequency" from="name">
+                        <area>620,2,140,26</area>
+                        <align>right,vcenter</align>
+                    </textarea>
+                    <textarea name="transportid" from="name">
+                        <area>770,2,100,26</area>
+                        <align>right,vcenter</align>
+                    </textarea>
                     <textarea name="sourcename" from="name">
-                        <area>860,2,276,26</area>
+                        <area>890,2,246,26</area>
                     </textarea>
                 </state>
                 <state name="selectedactive" from="active" />
@@ -192,19 +208,34 @@
         </checkbox>
 
         <button name="scan" from="basewidebutton">
-            <position>90,644</position>
+            <position>40,644</position>
             <value>Channel Scan</value>
         </button>
 
+        <button name="restoredata" from="basewidebutton">
+            <position>340,644</position>
+            <value>Restore Data</value>
+        </button>
+
         <button name="importicons" from="basewidebutton">
-            <position>490,644</position>
+            <position>640,644</position>
             <value>Icon Download</value>
         </button>
 
         <button name="edittransport" from="basewidebutton">
-            <position>890,644</position>
+            <position>940,644</position>
             <value>Edit Transports</value>
         </button>
+
+    </window>
+
+    <window name="restoredata">
+
+        <textarea name="pagetitle">
+            <area>20,4,570,40</area>
+            <font>baselarge</font>
+            <value>Restore Data</value>
+        </textarea>
 
     </window>
 

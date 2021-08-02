@@ -12,7 +12,7 @@
 #include "satiputils.h"
 #include "satipchannel.h"
 
-#define LOC  QString("SatIPChan[%1](%2): ").arg(m_inputId).arg(SatIPChannel::GetDevice())
+#define LOC QString("SatIPChan[%1]: ").arg(m_inputId)
 
 SatIPChannel::SatIPChannel(TVRec *parent, QString  device) :
     DTVChannel(parent), m_device(std::move(device))
@@ -29,14 +29,14 @@ SatIPChannel::~SatIPChannel(void)
 bool SatIPChannel::IsMaster(void) const
 {
     DTVChannel *master = DTVChannel::GetMasterLock(m_device);
-    bool is_master = (master == static_cast<const DTVChannel*>(this));
+    bool is_master = (master == this);
     DTVChannel::ReturnMasterLock(master);
     return is_master;
 }
 
 bool SatIPChannel::Open(void)
 {
-    LOG(VB_CHANNEL, LOG_INFO, LOC + "Open()");
+    LOG(VB_CHANNEL, LOG_INFO, LOC + QString("Open(%1)").arg(m_device));
 
     if (IsOpen())
         return true;
@@ -45,12 +45,12 @@ bool SatIPChannel::Open(void)
 
     m_tunerType = SatIP::toTunerType(m_device);
 
-    LOG(VB_CHANNEL, LOG_DEBUG, LOC + QString("Open() m_tunerType:%1 %2")
-        .arg(m_tunerType).arg(m_tunerType.toString()));
+    LOG(VB_CHANNEL, LOG_DEBUG, LOC + QString("Open(%1) m_tunerType:%2 %3")
+        .arg(m_device).arg(m_tunerType).arg(m_tunerType.toString()));
 
     if (!InitializeInput())
     {
-        LOG(VB_CHANNEL, LOG_INFO, LOC + "InitializeInput() failed");
+        LOG(VB_CHANNEL, LOG_ERR, LOC + "InitializeInput() failed");
         Close();
         return false;
     }
@@ -60,9 +60,9 @@ bool SatIPChannel::Open(void)
     return true;
 }
 
-void SatIPChannel::Close()
+void SatIPChannel::Close(void)
 {
-    LOG(VB_CHANNEL, LOG_INFO, LOC + "Close()");
+    LOG(VB_CHANNEL, LOG_INFO, LOC + QString("Close(%1)").arg(m_device));
 
     QMutexLocker locker(&m_streamLock);
     if (m_streamHandler)
@@ -96,5 +96,5 @@ bool SatIPChannel::Tune(const DTVMultiplex &tuning)
 bool SatIPChannel::IsOpen(void) const
 {
     QMutexLocker locker(&m_streamLock);
-    return m_streamHandler;
+    return m_streamHandler != nullptr;
 }

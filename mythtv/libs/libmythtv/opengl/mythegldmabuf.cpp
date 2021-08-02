@@ -2,9 +2,9 @@
 #include "fourcc.h"
 #include "opengl/mythrenderopengl.h"
 #include "mythavutil.h"
-#include "mythvideotexture.h"
-#include "mythegldmabuf.h"
-#include "mythegldefs.h"
+#include "opengl/mythvideotextureopengl.h"
+#include "opengl/mythegldmabuf.h"
+#include "opengl/mythegldefs.h"
 
 // FFmpeg
 extern "C" {
@@ -24,8 +24,6 @@ MythEGLDMABUF::MythEGLDMABUF(MythRenderOpenGL *Context)
 
 bool MythEGLDMABUF::HaveDMABuf(MythRenderOpenGL *Context)
 {
-    if (!Context)
-        Context = MythRenderOpenGL::GetOpenGLRender();
     if (!Context)
         return false;
     OpenGLLocker locker(Context);
@@ -59,20 +57,20 @@ static void inline DebugDRMFrame(AVDRMFrameDescriptor* Desc)
  * \note This assumes one layer with multiple planes, typically where the layer
  * is a YUV format.
 */
-inline vector<MythVideoTexture*> MythEGLDMABUF::CreateComposed(AVDRMFrameDescriptor* Desc,
-                                                               MythRenderOpenGL *Context,
-                                                               VideoFrame *Frame, FrameScanType Scan) const
+inline std::vector<MythVideoTextureOpenGL*> MythEGLDMABUF::CreateComposed(AVDRMFrameDescriptor* Desc,
+                                                                          MythRenderOpenGL *Context,
+                                                                           MythVideoFrame *Frame, FrameScanType Scan) const
 {
-    Frame->already_deinterlaced = true;
-    vector<MythVideoTexture*> result;
+    Frame->m_alreadyDeinterlaced = true;
+    std::vector<MythVideoTextureOpenGL*> result;
     for (int i = 0; i < (Scan == kScan_Progressive ? 1 : 2); ++i)
     {
-        vector<QSize> sizes;
-        int frameheight = Scan == kScan_Progressive ? Frame->height : Frame->height >> 1;
-        sizes.emplace_back(QSize(Frame->width, frameheight));
-        vector<MythVideoTexture*> textures =
-                MythVideoTexture::CreateTextures(Context, Frame->codec, FMT_RGBA32, sizes,
-                                                 GL_TEXTURE_EXTERNAL_OES);
+        std::vector<QSize> sizes;
+        int frameheight = Scan == kScan_Progressive ? Frame->m_height : Frame->m_height >> 1;
+        sizes.emplace_back(QSize(Frame->m_width, frameheight));
+        std::vector<MythVideoTextureOpenGL*> textures =
+            MythVideoTextureOpenGL::CreateTextures(Context, Frame->m_type, FMT_RGBA32, sizes,
+                                                   GL_TEXTURE_EXTERNAL_OES);
         if (textures.empty())
         {
             ClearDMATextures(Context, result);
@@ -82,7 +80,7 @@ inline vector<MythVideoTexture*> MythEGLDMABUF::CreateComposed(AVDRMFrameDescrip
         textures[0]->m_allowGLSLDeint = false;
 
         EGLint colourspace = EGL_ITU_REC709_EXT;
-        switch (Frame->colorspace)
+        switch (Frame->m_colorspace)
         {
             case AVCOL_SPC_BT470BG:
             case AVCOL_SPC_SMPTE170M:
@@ -94,7 +92,7 @@ inline vector<MythVideoTexture*> MythEGLDMABUF::CreateComposed(AVDRMFrameDescrip
                 colourspace = EGL_ITU_REC2020_EXT;
                 break;
             default:
-                if (Frame->width < 1280)
+                if (Frame->m_width < 1280)
                     colourspace = EGL_ITU_REC601_EXT;
                 break;
         }
@@ -119,10 +117,10 @@ inline vector<MythVideoTexture*> MythEGLDMABUF::CreateComposed(AVDRMFrameDescrip
 
         QVector<EGLint> attribs = {
             EGL_LINUX_DRM_FOURCC_EXT,      static_cast<EGLint>(layer->format),
-            EGL_WIDTH,                     Frame->width,
+            EGL_WIDTH,                     Frame->m_width,
             EGL_HEIGHT,                    frameheight,
             EGL_YUV_COLOR_SPACE_HINT_EXT,  colourspace,
-            EGL_SAMPLE_RANGE_HINT_EXT,     Frame->colorrange == AVCOL_RANGE_JPEG ? EGL_YUV_FULL_RANGE_EXT : EGL_YUV_NARROW_RANGE_EXT,
+            EGL_SAMPLE_RANGE_HINT_EXT,     Frame->m_colorrange == AVCOL_RANGE_JPEG ? EGL_YUV_FULL_RANGE_EXT : EGL_YUV_NARROW_RANGE_EXT,
             EGL_YUV_CHROMA_VERTICAL_SITING_HINT_EXT,   EGL_YUV_CHROMA_SITING_0_EXT,
             EGL_YUV_CHROMA_HORIZONTAL_SITING_HINT_EXT, EGL_YUV_CHROMA_SITING_0_EXT
         };
@@ -161,7 +159,7 @@ inline vector<MythVideoTexture*> MythEGLDMABUF::CreateComposed(AVDRMFrameDescrip
             return result;
         }
 
-        MythVideoTexture *texture = textures[0];
+        MythVideoTextureOpenGL *texture = textures[0];
         Context->glBindTexture(texture->m_target, texture->m_textureId);
         Context->eglImageTargetTexture2DOES(texture->m_target, image);
         Context->glBindTexture(texture->m_target, 0);
@@ -176,22 +174,22 @@ inline vector<MythVideoTexture*> MythEGLDMABUF::CreateComposed(AVDRMFrameDescrip
  *
  * \note This assumes multiple layers each with one plane.
 */
-inline vector<MythVideoTexture*> MythEGLDMABUF::CreateSeparate(AVDRMFrameDescriptor* Desc,
-                                                               MythRenderOpenGL *Context,
-                                                               VideoFrame *Frame) const
+inline std::vector<MythVideoTextureOpenGL*> MythEGLDMABUF::CreateSeparate(AVDRMFrameDescriptor* Desc,
+                                                                          MythRenderOpenGL *Context,
+                                                                          MythVideoFrame *Frame) const
 {
     // N.B. this works for YV12/NV12/P010 etc but will probably break for YUV422 etc
-    vector<QSize> sizes;
+    std::vector<QSize> sizes;
     for (int plane = 0 ; plane < Desc->nb_layers; ++plane)
     {
-        int width = Frame->width >> ((plane > 0) ? 1 : 0);
-        int height = Frame->height >> ((plane > 0) ? 1 : 0);
+        int width = Frame->m_width >> ((plane > 0) ? 1 : 0);
+        int height = Frame->m_height >> ((plane > 0) ? 1 : 0);
         sizes.emplace_back(QSize(width, height));
     }
 
-    VideoFrameType format = PixelFormatToFrameType(static_cast<AVPixelFormat>(Frame->sw_pix_fmt));
-    vector<MythVideoTexture*> result =
-            MythVideoTexture::CreateTextures(Context, Frame->codec, format, sizes,
+    VideoFrameType format = MythAVUtil::PixelFormatToFrameType(static_cast<AVPixelFormat>(Frame->m_swPixFmt));
+    std::vector<MythVideoTextureOpenGL*> result =
+            MythVideoTextureOpenGL::CreateTextures(Context, Frame->m_type, format, sizes,
                                              QOpenGLTexture::Target2D);
     if (result.empty())
         return result;
@@ -266,17 +264,17 @@ inline vector<MythVideoTexture*> MythEGLDMABUF::CreateSeparate(AVDRMFrameDescrip
  *
  * \todo Add support for simple onefield/bob with YUV textures.
 */
-inline vector<MythVideoTexture*> MythEGLDMABUF::CreateSeparate2(AVDRMFrameDescriptor* Desc,
-                                                                MythRenderOpenGL *Context,
-                                                                VideoFrame *Frame) const
+inline std::vector<MythVideoTextureOpenGL*> MythEGLDMABUF::CreateSeparate2(AVDRMFrameDescriptor* Desc,
+                                                                           MythRenderOpenGL *Context,
+                                                                           MythVideoFrame *Frame) const
 {
     // As for CreateSeparate - may not work for some formats
     AVDRMLayerDescriptor* layer = &Desc->layers[0];
-    vector<QSize> sizes;
+    std::vector<QSize> sizes;
     for (int plane = 0 ; plane < layer->nb_planes; ++plane)
     {
-        int width = Frame->width >> ((plane > 0) ? 1 : 0);
-        int height = Frame->height >> ((plane > 0) ? 1 : 0);
+        int width = Frame->m_width >> ((plane > 0) ? 1 : 0);
+        int height = Frame->m_height >> ((plane > 0) ? 1 : 0);
         sizes.emplace_back(QSize(width, height));
     }
 
@@ -297,8 +295,8 @@ inline vector<MythVideoTexture*> MythEGLDMABUF::CreateSeparate2(AVDRMFrameDescri
         fourcc2 = DRM_FORMAT_GR32;
     }
 
-    vector<MythVideoTexture*> result =
-            MythVideoTexture::CreateTextures(Context, Frame->codec, format, sizes,
+    std::vector<MythVideoTextureOpenGL*> result =
+            MythVideoTextureOpenGL::CreateTextures(Context, Frame->m_type, format, sizes,
                                              QOpenGLTexture::Target2D);
     if (result.empty())
         return result;
@@ -349,7 +347,7 @@ inline vector<MythVideoTexture*> MythEGLDMABUF::CreateSeparate2(AVDRMFrameDescri
 }
 
 void MythEGLDMABUF::ClearDMATextures(MythRenderOpenGL* Context,
-                                     vector<MythVideoTexture *> &Textures)
+                                     std::vector<MythVideoTextureOpenGL *> &Textures)
 {
     for (auto & texture : Textures)
     {
@@ -358,18 +356,18 @@ void MythEGLDMABUF::ClearDMATextures(MythRenderOpenGL* Context,
         texture->m_data = nullptr;
         if (texture->m_textureId)
             Context->glDeleteTextures(1, &texture->m_textureId);
-        MythVideoTexture::DeleteTexture(Context, texture);
+        MythVideoTextureOpenGL::DeleteTexture(Context, texture);
     }
     Textures.clear();
 }
 
-vector<MythVideoTexture*> MythEGLDMABUF::CreateTextures(AVDRMFrameDescriptor* Desc,
-                                                        MythRenderOpenGL *Context,
-                                                        VideoFrame *Frame,
-                                                        bool UseSeparate,
-                                                        FrameScanType Scan)
+std::vector<MythVideoTextureOpenGL*> MythEGLDMABUF::CreateTextures(AVDRMFrameDescriptor* Desc,
+                                                                   MythRenderOpenGL *Context,
+                                                                   MythVideoFrame *Frame,
+                                                                   bool UseSeparate,
+                                                                   FrameScanType Scan)
 {
-    vector<MythVideoTexture*> result;
+    std::vector<MythVideoTextureOpenGL*> result;
     if (!Desc || !Context || !Frame)
         return result;
 

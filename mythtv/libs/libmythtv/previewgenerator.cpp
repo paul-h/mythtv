@@ -21,7 +21,7 @@
 // MythTV headers
 #include "mythconfig.h"
 #include "io/mythmediabuffer.h"
-#include "mythplayer.h"
+#include "mythpreviewplayer.h"
 #include "previewgenerator.h"
 #include "tv_rec.h"
 #include "mythsocket.h"
@@ -242,14 +242,10 @@ bool PreviewGenerator::Run(void)
 
         cmdargs << "--size"
                 << QString("%1x%2").arg(m_outSize.width()).arg(m_outSize.height());
-        if (m_captureTime >= 0)
-        {
-            if (m_timeInSeconds)
-                cmdargs << "--seconds";
-            else
-                cmdargs << "--frame";
-            cmdargs << QString::number(m_captureTime);
-        }
+        if (m_captureTime >= 0s)
+            cmdargs << "--seconds" << QString::number(m_captureTime.count());
+        else if (m_captureFrame >= 0)
+            cmdargs << "--frame" << QString::number(m_captureFrame);
         cmdargs << "--chanid"
                 << QString::number(m_programInfo.GetChanID())
                 << "--starttime"
@@ -268,7 +264,7 @@ bool PreviewGenerator::Run(void)
         ms->SetNice(10);
         ms->SetIOPrio(7);
 
-        ms->Run(30);
+        ms->Run(30s);
         uint ret = ms->Wait();
         delete ms;
 
@@ -276,7 +272,7 @@ bool PreviewGenerator::Run(void)
         {
             LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("Encountered problems running '%1 %2' - (%3)")
-                    .arg(command).arg(cmdargs.join(" ")).arg(ret));
+                    .arg(command, cmdargs.join(" "), QString::number(ret)));
         }
         else
         {
@@ -361,12 +357,20 @@ bool PreviewGenerator::RemotePreviewRun(void)
     if (m_token.isEmpty())
     {
         m_token = QString("%1:%2")
-            .arg(m_programInfo.MakeUniqueKey()).arg(random());
+            .arg(m_programInfo.MakeUniqueKey()).arg(MythRandom());
     }
     strlist.push_back(m_token);
     m_programInfo.ToStringList(strlist);
-    strlist.push_back(m_timeInSeconds ? "s" : "f");
-    strlist.push_back(QString::number(m_captureTime));
+    if (m_captureTime >= 0s)
+    {
+        strlist.push_back("s");
+        strlist.push_back(QString::number(m_captureTime.count()));
+    }
+    else
+    {
+        strlist.push_back("f");
+        strlist.push_back(QString::number(m_captureFrame));
+    }
     if (m_outFileName.isEmpty())
     {
         strlist.push_back("<EMPTY>");
@@ -423,7 +427,7 @@ bool PreviewGenerator::event(QEvent *e)
 
     auto *me = dynamic_cast<MythEvent*>(e);
     if (me == nullptr)
-        return false;
+        return QObject::event(e);
     if (me->Message() != "GENERATED_PIXMAP" || me->ExtraDataCount() < 3)
         return QObject::event(e);
 
@@ -433,7 +437,7 @@ bool PreviewGenerator::event(QEvent *e)
     for (; i < (uint) me->ExtraDataCount() && !ours; i++)
         ours |= me->ExtraData(i) == m_token;
     if (!ours)
-        return false;
+        return QObject::event(e);
 
     const QString& pginfokey = me->ExtraData(1);
 
@@ -460,7 +464,7 @@ bool PreviewGenerator::event(QEvent *e)
         m_pixmapOk = false;
         LOG(VB_GENERAL, LOG_ERR, LOC + pginfokey + "Got invalid date");
         m_previewWaitCondition.wakeAll();
-        return false;
+        return QObject::event(e);
     }
 
     size_t     length     = me->ExtraData(4).toULongLong();
@@ -476,7 +480,12 @@ bool PreviewGenerator::event(QEvent *e)
     }
     data.resize(length);
 
-    if (checksum16 != qChecksum(data.constData(), data.size()))
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+    quint16 calculated = qChecksum(data.constData(), data.size());
+#else
+    quint16 calculated = qChecksum(data);
+#endif
+    if (checksum16 != calculated)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Preview checksum failed");
         data.clear();
@@ -509,7 +518,7 @@ bool PreviewGenerator::SaveOutFile(const QByteArray &data, const QDateTime &dt)
         }
 
         QString filename = m_programInfo.GetBasename() + ".png";
-        SetOutputFilename(QString("%1/%2").arg(remotecachedirname).arg(filename));
+        SetOutputFilename(QString("%1/%2").arg(remotecachedirname, filename));
     }
 
     QFile file(m_outFileName);
@@ -529,7 +538,7 @@ bool PreviewGenerator::SaveOutFile(const QByteArray &data, const QDateTime &dt)
         if (written < 0)
         {
             failure_cnt++;
-            usleep(50000);
+            usleep(50ms);
             continue;
         }
 
@@ -566,8 +575,8 @@ bool PreviewGenerator::SavePreview(const QString &filename,
     const QImage img((unsigned char*) data,
                      width, height, QImage::Format_RGB32);
 
-    float ppw = max(desired_width, 0);
-    float pph = max(desired_height, 0);
+    float ppw = std::max(desired_width, 0);
+    float pph = std::max(desired_height, 0);
     bool desired_size_exactly_specified = true;
     if ((ppw < 1.0F) && (pph < 1.0F))
     {
@@ -588,8 +597,8 @@ bool PreviewGenerator::SavePreview(const QString &filename,
             ppw = (pph * aspect);
     }
 
-    ppw = max(1.0F, ppw);
-    pph = max(1.0F, pph);;
+    ppw = std::max(1.0F, ppw);
+    pph = std::max(1.0F, pph);;
 
     QImage small_img = img.scaled((int) ppw, (int) pph,
         Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
@@ -628,64 +637,63 @@ bool PreviewGenerator::LocalPreviewRun(void)
     m_programInfo.SetAllowLastPlayPos(false);
 
     float aspect = 0;
-    long long captime = m_captureTime;
+    std::chrono::seconds captime = m_captureTime;
+    long long capframe = -1;
 
     QDateTime dt = MythDate::current();
 
-    if (captime > 0)
+    if (captime > 0s)
         LOG(VB_GENERAL, LOG_INFO, "Preview from time spec");
-
-    if (captime < 0)
+    else
     {
-        captime = m_programInfo.QueryBookmark();
-        if (captime > 0)
+        capframe = m_programInfo.QueryBookmark();
+        if (capframe > 0)
         {
-            m_timeInSeconds = false;
             LOG(VB_GENERAL, LOG_INFO,
-                QString("Preview from bookmark (frame %1)").arg(captime));
+                QString("Preview from bookmark (frame %1)").arg(capframe));
         }
-        else
-            captime = -1;
     }
 
-    if (captime <= 0)
+    if ((captime <= 0s) && (capframe <= 0))
     {
-        m_timeInSeconds = true;
-        int startEarly = 0;
-        int programDuration = 0;
-        int preroll =  gCoreContext->GetNumSetting("RecordPreRoll", 0);
+        std::chrono::seconds startEarly = 0s;
+        std::chrono::seconds programDuration = 0s;
+        auto preroll = gCoreContext->GetDurSetting<std::chrono::seconds>("RecordPreRoll", 0s);
         if (m_programInfo.GetScheduledStartTime().isValid() &&
             m_programInfo.GetScheduledEndTime().isValid() &&
             (m_programInfo.GetScheduledStartTime() !=
              m_programInfo.GetScheduledEndTime()))
         {
-            programDuration = m_programInfo.GetScheduledStartTime()
-                .secsTo(m_programInfo.GetScheduledEndTime());
+            programDuration = std::chrono::seconds(m_programInfo.GetScheduledStartTime()
+                .secsTo(m_programInfo.GetScheduledEndTime()));
         }
         if (m_programInfo.GetRecordingStartTime().isValid() &&
             m_programInfo.GetScheduledStartTime().isValid() &&
             (m_programInfo.GetRecordingStartTime() !=
              m_programInfo.GetScheduledStartTime()))
         {
-            startEarly = m_programInfo.GetRecordingStartTime()
-                .secsTo(m_programInfo.GetScheduledStartTime());
+            startEarly = std::chrono::seconds(m_programInfo.GetRecordingStartTime()
+                .secsTo(m_programInfo.GetScheduledStartTime()));
         }
-        if (programDuration > 0)
+        if (programDuration > 0s)
         {
-            captime = startEarly + (programDuration / 3);
+            captime = programDuration / 3;
+            if (captime > 10min)
+                captime = 10min;
+            captime += startEarly;
         }
-        if (captime < 0)
-            captime = 600;
+        if (captime < 0s)
+            captime = 10min;
         captime += preroll;
         LOG(VB_GENERAL, LOG_INFO,
-            QString("Preview at calculated offset (%1 seconds)").arg(captime));
+            QString("Preview at calculated offset (%1 seconds)").arg(captime.count()));
     }
 
     int width = 0;
     int height = 0;
     int sz = 0;
     auto *data = (unsigned char*) GetScreenGrab(m_programInfo, m_pathname,
-                                                captime, m_timeInSeconds,
+                                                captime, capframe,
                                                 sz, width, height, aspect);
 
     QString outname = CreateAccessibleFilename(m_pathname, m_outFileName);
@@ -739,7 +747,7 @@ QString PreviewGenerator::CreateAccessibleFilename(
         }
         outname = dir  + "/" + fi.fileName();
         LOG(VB_FILE, LOG_INFO, LOC + QString("outfile '%1' -> '%2'")
-                .arg(outFileName).arg(outname));
+                .arg(outFileName, outname));
     }
 
     return outname;
@@ -773,9 +781,10 @@ bool PreviewGenerator::IsLocal(void) const
  *
  *  \param pginfo       Recording to grab from.
  *  \param filename     File containing recording.
- *  \param seektime     Seconds or frames into the video to seek before
- *                      capturing a frame.
- *  \param time_in_secs if true time is in seconds, otherwise it is in frames.
+ *  \param seektime     Seconds into the video to seek before capturing
+ *                      a frame.  This field has priority. If it is set
+ *                      to -1s then seekframe will be used.
+ *  \param seekframe    Frames into the video to seek before capturing a frame.
  *  \param bufferlen    Returns size of buffer returned (in bytes).
  *  \param video_width  Returns width of frame grabbed.
  *  \param video_height Returns height of frame grabbed.
@@ -785,17 +794,10 @@ bool PreviewGenerator::IsLocal(void) const
  */
 char *PreviewGenerator::GetScreenGrab(
     const ProgramInfo &pginfo, const QString &filename,
-    long long seektime, bool time_in_secs,
+    std::chrono::seconds seektime, long long seekframe,
     int &bufferlen,
     int &video_width, int &video_height, float &video_aspect)
 {
-    (void) pginfo;
-    (void) filename;
-    (void) seektime;
-    (void) time_in_secs;
-    (void) bufferlen;
-    (void) video_width;
-    (void) video_height;
     char *retbuf = nullptr;
     bufferlen = 0;
 
@@ -809,17 +811,16 @@ char *PreviewGenerator::GetScreenGrab(
     if (filename.startsWith("/"))
     {
         QFileInfo info(filename);
-        bool invalid = (!info.exists() || !info.isReadable() ||
-                        (info.isFile() && (info.size() < 8*1024)));
+        bool invalid = (!info.exists() || !info.isReadable() || (info.isFile() && (info.size() < 8*1024)));
         if (invalid)
         {
-            LOG(VB_GENERAL, LOG_ERR, LOC + "Previewer file " +
-                    QString("'%1'").arg(filename) + " is not valid.");
+            LOG(VB_GENERAL, LOG_ERR, LOC + QString("Previewer file '%1' is not valid.")
+                .arg(filename));
             return nullptr;
         }
     }
 
-    MythMediaBuffer* buffer = MythMediaBuffer::Create(filename, false, false, 0);
+    MythMediaBuffer* buffer = MythMediaBuffer::Create(filename, false, false, 0ms);
     if (!buffer || !buffer->IsOpen())
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Previewer could not open file: " +
@@ -829,41 +830,36 @@ char *PreviewGenerator::GetScreenGrab(
     }
 
     auto *ctx = new PlayerContext(kPreviewGeneratorInUseID);
+    auto * player = new MythPreviewPlayer(ctx, static_cast<PlayerFlags>(kAudioMuted | kVideoIsNull | kNoITV));
     ctx->SetRingBuffer(buffer);
     ctx->SetPlayingInfo(&pginfo);
-    ctx->SetPlayer(new MythPlayer((PlayerFlags)(kAudioMuted | kVideoIsNull | kNoITV)));
-    ctx->m_player->SetPlayerInfo(nullptr, nullptr, ctx);
+    ctx->SetPlayer(player);
 
-    if (time_in_secs)
+    if (seektime >= 0s)
     {
-        retbuf = ctx->m_player->GetScreenGrab(seektime, bufferlen,
-                                    video_width, video_height, video_aspect);
+        retbuf = player->GetScreenGrab(seektime, bufferlen,
+                                       video_width, video_height, video_aspect);
     }
     else
     {
-        retbuf = ctx->m_player->GetScreenGrabAtFrame(
-            seektime, true, bufferlen,
-            video_width, video_height, video_aspect);
+        retbuf = player->GetScreenGrabAtFrame(static_cast<uint64_t>(seekframe), true,
+                                              bufferlen, video_width, video_height, video_aspect);
     }
-
     delete ctx;
 
+    auto pos_text = (seektime != std::chrono::seconds::max())
+        ? QString::number(seektime.count()) + "s"
+        : QString::number(seekframe)+ "f";
     if (retbuf)
     {
-        LOG(VB_GENERAL, LOG_INFO, LOC +
-            QString("Grabbed preview '%0' %1x%2@%3%4")
-                .arg(filename).arg(video_width).arg(video_height)
-                .arg(seektime).arg((time_in_secs) ? "s" : "f"));
+        LOG(VB_GENERAL, LOG_INFO, LOC + QString("Grabbed preview '%0' %1x%2@%3")
+                .arg(filename).arg(video_width).arg(video_height).arg(pos_text));
     }
     else
     {
-        LOG(VB_GENERAL, LOG_ERR, LOC +
-            QString("Failed to grab preview '%0' %1x%2@%3%4")
-            .arg(filename).arg(video_width).arg(video_height)
-            .arg(seektime).arg((time_in_secs) ? "s" : "f"));
+        LOG(VB_GENERAL, LOG_ERR, LOC + QString("Failed to grab preview '%0' %1x%2@%3")
+            .arg(filename).arg(video_width).arg(video_height).arg(pos_text));
     }
 
     return retbuf;
 }
-
-/* vim: set expandtab tabstop=4 shiftwidth=4: */

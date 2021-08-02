@@ -50,8 +50,7 @@ MythUIText::MythUIText(const QString &text, const MythFontProperties &font,
 
     m_scrollStartDelay = m_scrollReturnDelay = ScrollBounceDelay;
     m_scrollPause = 0;
-    m_scrollForwardRate = m_scrollReturnRate =
-                          70.0 / MythMainWindow::drawRefresh;
+    m_scrollForwardRate = m_scrollReturnRate = 1.0;
     m_scrollBounce = false;
     m_scrollOffset = 0;
     m_scrollPos = 0;
@@ -185,10 +184,10 @@ void MythUIText::SetTextFromMap(const InfoMap &map)
             if (!map.value(key).isEmpty())
             {
                 replacement = QString("%1%2%3%4")
-                .arg(match.captured(2))
-                .arg(match.captured(3))
-                .arg(map.value(key))
-                .arg(match.captured(6));
+                .arg(match.captured(2),
+                     match.captured(3),
+                     map.value(key),
+                     match.captured(6));
             }
 
             tempString.replace(match.captured(0), replacement);
@@ -290,7 +289,7 @@ void MythUIText::SetCutDown(Qt::TextElideMode mode)
         {
             LOG(VB_GENERAL, LOG_ERR, QString("'%1' (%2): <scroll> and "
                                              "<cutdown> are not combinable.")
-                .arg(objectName()).arg(GetXMLLocation()));
+                .arg(objectName(), GetXMLLocation()));
             m_cutdown = Qt::ElideNone;
         }
         if (!m_message.isEmpty())
@@ -492,9 +491,9 @@ bool MythUIText::FormatTemplate(QString & paragraph, QTextLayout *layout)
                     formats.push_back(range);
                     LOG(VB_GUI, LOG_DEBUG,
                         QString("'%1' Setting \"%2\" with FONT %3")
-                        .arg(objectName())
-                        .arg(paragraph.mid(range.start, range.length))
-                        .arg(fontname));
+                        .arg(objectName(),
+                             paragraph.mid(range.start, range.length),
+                             fontname));
                 }
                 range.length = 0;
             }
@@ -520,8 +519,7 @@ bool MythUIText::FormatTemplate(QString & paragraph, QTextLayout *layout)
             {
                 LOG(VB_GUI, LOG_ERR,
                     QString("'%1' Unknown Font '%2' specified in template.")
-                    .arg(objectName())
-                    .arg(fontname));
+                    .arg(objectName(), fontname));
             }
 
             LOG(VB_GUI, LOG_DEBUG, QString("Removing %1 through %2 '%3'")
@@ -545,9 +543,9 @@ bool MythUIText::FormatTemplate(QString & paragraph, QTextLayout *layout)
         formats.push_back(range);
         LOG(VB_GUI, LOG_DEBUG,
             QString("'%1' Setting \"%2\" with FONT %3")
-            .arg(objectName())
-            .arg(paragraph.mid(range.start, range.length))
-            .arg(fontname));
+            .arg(objectName(),
+                 paragraph.mid(range.start, range.length),
+                 fontname));
     }
 
     if (!formats.empty())
@@ -599,8 +597,8 @@ bool MythUIText::Layout(QString & paragraph, QTextLayout *layout, bool final,
                 LOG(VB_GUI, num_lines ? LOG_DEBUG : LOG_NOTICE,
                     QString("'%1' (%2): height overflow. line height %3 "
                             "paragraph height %4, area height %5")
-                    .arg(objectName())
-                    .arg(GetXMLLocation())
+                    .arg(objectName(),
+                         GetXMLLocation())
                     .arg(line.height())
                     .arg(height)
                     .arg(m_area.height()));
@@ -779,7 +777,7 @@ bool MythUIText::GetNarrowWidth(const QStringList & paragraphs,
     LOG(VB_GENERAL, LOG_ERR, QString("'%1' (%2) GetNarrowWidth: Gave up "
                                      "while trying to find optimal width "
                                      "for '%3'.")
-        .arg(objectName()).arg(GetXMLLocation()).arg(m_cutMessage));
+        .arg(objectName(), GetXMLLocation(), m_cutMessage));
 
     width = best_width;
     m_cutdown = cutdown;
@@ -862,7 +860,8 @@ void MythUIText::FillCutMessage(void)
             templist = m_cutMessage.split(". ");
 
             for (it = templist.begin(); it != templist.end(); ++it)
-                (*it).replace(0, 1, (*it).left(1).toUpper());
+                if (!(*it).isEmpty())
+                    (*it).replace(0, 1, (*it).at(0).toUpper());
 
             m_cutMessage = templist.join(". ");
             break;
@@ -871,7 +870,8 @@ void MythUIText::FillCutMessage(void)
             templist = m_cutMessage.split(" ");
 
             for (it = templist.begin(); it != templist.end(); ++it)
-                (*it).replace(0, 1, (*it).left(1).toUpper());
+                if (!(*it).isEmpty())
+                    (*it).replace(0, 1, (*it).at(0).toUpper());
 
             m_cutMessage = templist.join(" ");
             break;
@@ -1073,7 +1073,7 @@ int MythUIText::MoveCursor(int lines)
     {
         LOG(VB_GENERAL, LOG_ERR,
             QString("'%1' (%2) MoveCursor offset %3 not found in ANY paragraph!")
-            .arg(objectName()).arg(GetXMLLocation()).arg(m_textCursor));
+            .arg(objectName(), GetXMLLocation(), QString::number(m_textCursor)));
         return m_textCursor;
     }
 
@@ -1140,7 +1140,7 @@ QPoint MythUIText::CursorPosition(int text_offset)
         LOG(VB_GENERAL, LOG_ERR,
             QString("'%1' (%2) CursorPosition offset %3 not found in "
                     "ANY paragraph!")
-            .arg(objectName()).arg(GetXMLLocation()).arg(text_offset));
+            .arg(objectName(), GetXMLLocation(), QString::number(text_offset)));
         return m_area.topLeft().toQPoint();
     }
 
@@ -1197,6 +1197,16 @@ void MythUIText::Pulse(void)
 
     MythUIType::Pulse();
 
+    // Calculate interval since last update in msecs - clamped to 50msecs (20Hz)
+    // in case of UI blocking/pauses
+    int64_t currentmsecs = QDateTime::currentMSecsSinceEpoch();
+    int64_t interval = std::min(currentmsecs - m_lastUpdate, static_cast<int64_t>(50));
+    m_lastUpdate = currentmsecs;
+
+    // Rates are pixels per second (float) normalised to 70Hz for historical reasons.
+    // Convert interval accordingly.
+    float rate = (interval / 1000.0F) * DEFAULT_REFRESH_RATE;
+
     if (m_colorCycling)
     {
         m_curR += m_incR;
@@ -1213,8 +1223,9 @@ void MythUIText::Pulse(void)
             m_incB *= -1;
         }
 
-        QColor newColor = QColor((int)m_curR, (int)m_curG, (int)m_curB);
-
+        QColor newColor = QColor(static_cast<int>(m_curR),
+                                 static_cast<int>(m_curG),
+                                 static_cast<int>(m_curB));
         if (newColor != m_font->color())
         {
             m_font->SetColor(newColor);
@@ -1224,14 +1235,14 @@ void MythUIText::Pulse(void)
 
     if (m_scrolling)
     {
-        if (m_scrollPause > 0)
-            --m_scrollPause;
+        if (m_scrollPause > 0.0F)
+            m_scrollPause -= rate;
         else
         {
             if (m_scrollBounce)
-                m_scrollPos += m_scrollReturnRate;
+                m_scrollPos += m_scrollReturnRate * rate;
             else
-                m_scrollPos += m_scrollForwardRate;
+                m_scrollPos += m_scrollForwardRate * rate;
         }
 
         int whole = static_cast<int>(m_scrollPos);
@@ -1399,10 +1410,9 @@ bool MythUIText::ParseElement(
         if (fp)
         {
             MythFontProperties font = *fp;
-            int screenHeight = GetMythMainWindow()->GetUIScreenRect().height();
-            font.Rescale(screenHeight);
-            int fontStretch = GetMythUI()->GetFontStretch();
-            font.AdjustStretch(fontStretch);
+            MythMainWindow* window = GetMythMainWindow();
+            font.Rescale(window->GetUIScreenRect().height());
+            font.AdjustStretch(window->GetFontStretch());
             QString state = element.attribute("state", "");
 
             if (!state.isEmpty())
@@ -1518,7 +1528,7 @@ bool MythUIText::ParseElement(
                     m_scrollDirection = ScrollNone;
                     LOG(VB_GENERAL, LOG_ERR,
                         QString("'%1' (%2) Invalid scroll attribute")
-                        .arg(objectName()).arg(GetXMLLocation()));
+                        .arg(objectName(), GetXMLLocation()));
                 }
             }
 
@@ -1526,27 +1536,23 @@ bool MythUIText::ParseElement(
             if (!tmp.isEmpty())
             {
                 float seconds = tmp.toFloat();
-                m_scrollStartDelay = lroundf(seconds *
-                      static_cast<float>(MythMainWindow::drawRefresh));
+                m_scrollStartDelay = static_cast<int>(lroundf(seconds * DEFAULT_REFRESH_RATE));
             }
             tmp = element.attribute("returndelay");
             if (!tmp.isEmpty())
             {
                 float seconds = tmp.toFloat();
-                m_scrollReturnDelay = lroundf(seconds *
-                      static_cast<float>(MythMainWindow::drawRefresh));
+                m_scrollReturnDelay = static_cast<int>(lroundf(seconds * DEFAULT_REFRESH_RATE));
             }
             tmp = element.attribute("rate");
             if (!tmp.isEmpty())
             {
 #if 0 // scroll rate as a percentage of 70Hz
                 float percent = tmp.toFloat() / 100.0;
-                m_scrollForwardRate = percent *
-                      static_cast<float>(MythMainWindow::drawRefresh) / 70.0;
+                m_scrollForwardRate = percent;
 #else // scroll rate as pixels per second
                 int pixels = tmp.toInt();
-                m_scrollForwardRate =
-                    pixels / static_cast<float>(MythMainWindow::drawRefresh);
+                m_scrollForwardRate = pixels / static_cast<float>(DEFAULT_REFRESH_RATE);
 #endif
             }
             tmp = element.attribute("returnrate");
@@ -1554,12 +1560,10 @@ bool MythUIText::ParseElement(
             {
 #if 0 // scroll rate as a percentage of 70Hz
                 float percent = tmp.toFloat() / 100.0;
-                m_scrollReturnRate = percent *
-                      static_cast<float>(MythMainWindow::drawRefresh) / 70.0;
+                m_scrollReturnRate = percent;
 #else // scroll rate as pixels per second
                 int pixels = tmp.toInt();
-                m_scrollReturnRate =
-                    pixels / static_cast<float>(MythMainWindow::drawRefresh);
+                m_scrollReturnRate = pixels / static_cast<float>(DEFAULT_REFRESH_RATE);
 #endif
             }
 
@@ -1605,8 +1609,8 @@ void MythUIText::CopyFrom(MythUIType *base)
     {
         LOG(VB_GENERAL, LOG_ERR,
             QString("'%1' (%2) ERROR, bad parsing '%3' (%4)")
-            .arg(objectName()).arg(GetXMLLocation())
-            .arg(base->objectName()).arg(base->GetXMLLocation()));
+            .arg(objectName(), GetXMLLocation(),
+                 base->objectName(), base->GetXMLLocation()));
         return;
     }
 
@@ -1677,7 +1681,7 @@ void MythUIText::Finalize(void)
     {
         LOG(VB_GENERAL, LOG_ERR,
             QString("'%1' (%2): <scroll> and <cutdown> are not combinable.")
-            .arg(objectName()).arg(GetXMLLocation()));
+            .arg(objectName(), GetXMLLocation()));
         m_cutdown = Qt::ElideNone;
     }
     FillCutMessage();

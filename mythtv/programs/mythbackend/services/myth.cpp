@@ -48,6 +48,10 @@
 #include "serviceUtil.h"
 #include "scheduler.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+#define qEnvironmentVariable getenv
+#endif
+
 /////////////////////////////////////////////////////////////////////////////
 //
 /////////////////////////////////////////////////////////////////////////////
@@ -112,7 +116,7 @@ DTC::ConnectionInfo* Myth::GetConnectionInfo( const QString  &sPin )
     pDatabase->setLocalHostName( params.m_localHostName );
 
     pWOL->setEnabled           ( params.m_wolEnabled   );
-    pWOL->setReconnect         ( params.m_wolReconnect );
+    pWOL->setReconnect         ( params.m_wolReconnect.count() );
     pWOL->setRetry             ( params.m_wolRetry     );
     pWOL->setCommand           ( params.m_wolCommand   );
 
@@ -411,7 +415,7 @@ DTC::TimeZoneInfo *Myth::GetTimeZone(  )
 //
 /////////////////////////////////////////////////////////////////////////////
 
-QString Myth::GetFormatDate(const QDateTime Date, bool ShortDate)
+QString Myth::GetFormatDate(const QDateTime &Date, bool ShortDate)
 {
     uint dateFormat = MythDate::kDateFull | MythDate::kSimplify | MythDate::kAutoYear;
     if (ShortDate)
@@ -424,7 +428,7 @@ QString Myth::GetFormatDate(const QDateTime Date, bool ShortDate)
 //
 /////////////////////////////////////////////////////////////////////////////
 
-QString Myth::GetFormatDateTime(const QDateTime DateTime, bool ShortDate)
+QString Myth::GetFormatDateTime(const QDateTime &DateTime, bool ShortDate)
 {
     uint dateFormat = MythDate::kDateTimeFull | MythDate::kSimplify | MythDate::kAutoYear;
     if (ShortDate)
@@ -437,7 +441,7 @@ QString Myth::GetFormatDateTime(const QDateTime DateTime, bool ShortDate)
 //
 /////////////////////////////////////////////////////////////////////////////
 
-QString Myth::GetFormatTime(const QDateTime Time)
+QString Myth::GetFormatTime(const QDateTime &Time)
 {
     return MythDate::toString(Time, MythDate::kTime);
 }
@@ -514,7 +518,7 @@ DTC::LogMessageList *Myth::GetLogs(  const QString   &HostName,
     {
         // Get log messages
         sql = "SELECT host, application, pid, tid, thread, filename, "
-              "       line, function, msgtime, level, message "
+              "       line, `function`, msgtime, level, message "
               "  FROM logging "
               " WHERE host = COALESCE(:HOSTNAME, host) "
               "   AND application = COALESCE(:APPLICATION, application) "
@@ -523,7 +527,7 @@ DTC::LogMessageList *Myth::GetLogs(  const QString   &HostName,
               "   AND thread = COALESCE(:THREAD, thread) "
               "   AND filename = COALESCE(:FILENAME, filename) "
               "   AND line = COALESCE(:LINE, line) "
-              "   AND function = COALESCE(:FUNCTION, function) "
+              "   AND `function` = COALESCE(:FUNCTION, `function`) "
               "   AND msgtime >= COALESCE(:FROMTIME, msgtime) "
               "   AND msgtime <= COALESCE(:TOTIME, msgtime) "
               "   AND level <= COALESCE(:LEVEL, level) "
@@ -534,24 +538,25 @@ DTC::LogMessageList *Myth::GetLogs(  const QString   &HostName,
         }
         sql.append(" ORDER BY msgtime ASC;");
 
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        QVariant ullNull = QVariant(QVariant::ULongLong);
+#else
+        QVariant ullNull = QVariant(QMetaType(QMetaType::ULongLong));
+#endif
         query.prepare(sql);
 
         query.bindValue(":HOSTNAME", (HostName.isEmpty()) ? QString() : HostName);
         query.bindValue(":APPLICATION", (Application.isEmpty()) ? QString() :
                                                                   Application);
-        query.bindValue(":PID", ( PID == 0 ) ? QVariant(QVariant::ULongLong) :
-                                               (qint64)PID);
-        query.bindValue(":TID", ( TID == 0 ) ? QVariant(QVariant::ULongLong) :
-                                               (qint64)TID);
+        query.bindValue(":PID", ( PID == 0 ) ? ullNull : (qint64)PID);
+        query.bindValue(":TID", ( TID == 0 ) ? ullNull : (qint64)TID);
         query.bindValue(":THREAD", (Thread.isEmpty()) ? QString() : Thread);
         query.bindValue(":FILENAME", (Filename.isEmpty()) ? QString() : Filename);
-        query.bindValue(":LINE", ( Line == 0 ) ? QVariant(QVariant::ULongLong) :
-                                                 (qint64)Line);
+        query.bindValue(":LINE", ( Line == 0 ) ? ullNull : (qint64)Line);
         query.bindValue(":FUNCTION", (Function.isEmpty()) ? QString() : Function);
         query.bindValue(":FROMTIME", (FromTime.isValid()) ? FromTime : QDateTime());
         query.bindValue(":TOTIME", (ToTime.isValid()) ? ToTime : QDateTime());
-        query.bindValue(":LEVEL", (Level.isEmpty()) ?
-                                        QVariant(QVariant::ULongLong) :
+        query.bindValue(":LEVEL", (Level.isEmpty()) ? ullNull :
                                         (qint64)logLevelGet(Level));
 
         if (!MsgContains.isEmpty())
@@ -601,16 +606,15 @@ DTC::FrontendList *Myth::GetFrontends( bool OnLine )
     else
         frontends = gBackendContext->GetFrontends();
 
-    QMap<QString, Frontend*>::const_iterator it;
-    for (it = frontends.begin(); it != frontends.end(); ++it)
+    for (auto * fe : qAsConst(frontends))
     {
         DTC::Frontend *pFrontend = pList->AddNewFrontend();
-        pFrontend->setName((*it)->m_name);
-        pFrontend->setIP((*it)->m_ip.toString());
+        pFrontend->setName(fe->m_name);
+        pFrontend->setIP(fe->m_ip.toString());
         int port = gCoreContext->GetNumSettingOnHost("FrontendStatusPort",
-                                                        (*it)->m_name, 6547);
+                                                        fe->m_name, 6547);
         pFrontend->setPort(port);
-        pFrontend->setOnLine((*it)->m_connectionCount > 0);
+        pFrontend->setOnLine(fe->m_connectionCount > 0);
     }
 
     return pList;
@@ -805,14 +809,15 @@ bool Myth::SendMessage( const QString &sMessage,
         LOG(VB_GENERAL, LOG_ERR,
             QString("Failed to send UDP/XML packet (Message: %1 "
                     "Address: %2 Port: %3")
-                .arg(sMessage).arg(sAddress).arg(port));
+                .arg(sMessage, sAddress, QString::number(port)));
     }
     else
     {
         LOG(VB_GENERAL, LOG_DEBUG,
             QString("UDP/XML packet sent! (Message: %1 Address: %2 Port: %3")
-                .arg(sMessage)
-                .arg(address.toString().toLocal8Bit().constData()).arg(port));
+                .arg(sMessage,
+                     address.toString().toLocal8Bit(),
+                     QString::number(port)));
         bResult = true;
     }
 
@@ -879,14 +884,14 @@ bool Myth::SendNotification( bool  bError,
         LOG(VB_GENERAL, LOG_ERR,
             QString("Failed to send UDP/XML packet (Notification: %1 "
                     "Address: %2 Port: %3")
-                .arg(sMessage).arg(sAddress).arg(port));
+            .arg(sMessage, sAddress, QString::number(port)));
     }
     else
     {
         LOG(VB_GENERAL, LOG_DEBUG,
             QString("UDP/XML packet sent! (Notification: %1 Address: %2 Port: %3")
-                .arg(sMessage)
-                .arg(address.toString().toLocal8Bit().constData()).arg(port));
+                .arg(sMessage,
+                     address.toString().toLocal8Bit(), QString::number(port)));
         bResult = true;
     }
 
@@ -1047,11 +1052,11 @@ DTC::BackendInfo* Myth::GetBackendInfo( void )
     pBuild->setVersion     ( MYTH_SOURCE_VERSION   );
     pBuild->setLibX264     ( CONFIG_LIBX264        );
     pBuild->setLibDNS_SD   ( CONFIG_LIBDNS_SD      );
-    pEnv->setLANG          ( getenv("LANG")        );
-    pEnv->setLCALL         ( getenv("LC_ALL")      );
-    pEnv->setLCCTYPE       ( getenv("LC_CTYPE")    );
-    pEnv->setHOME          ( getenv("HOME")        );
-    pEnv->setMYTHCONFDIR   ( getenv("MYTHCONFDIR") );
+    pEnv->setLANG          ( qEnvironmentVariable("LANG")        );
+    pEnv->setLCALL         ( qEnvironmentVariable("LC_ALL")      );
+    pEnv->setLCCTYPE       ( qEnvironmentVariable("LC_CTYPE")    );
+    pEnv->setHOME          ( qEnvironmentVariable("HOME")        );
+    pEnv->setMYTHCONFDIR   ( qEnvironmentVariable("MYTHCONFDIR") );
     pLog->setLogArgs       ( logPropagateArgs      );
 
     // ----------------------------------------------------------------------

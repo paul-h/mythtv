@@ -88,11 +88,6 @@ void MythUtilCommandLineParser::LoadArguments(void)
                 ->SetGroup("Recording Markup")
                 ->SetParentOf(ChanidStartimeVideo)
 
-        // recordingutils.cpp
-        << add("--checkrecordings", "checkrecordings", false,
-                "Check all recordings exist and have a seektable etc.", "")
-                ->SetGroup("Recording Utils")
-
         // backendutils.cpp
         << add("--resched", "resched", false,
                 "Trigger a run of the recording scheduler on the existing "
@@ -112,7 +107,7 @@ void MythUtilCommandLineParser::LoadArguments(void)
                 "access those files to do so. If enabled, this will also "
                 "trigger the bulk metadata scanner upon completion.")
                 ->SetGroup("Backend")
-        << add("--event", "event", QVariant::StringList, 
+        << add("--event", "event", QMetaType::QStringList,
                 "Send a backend event test message.", "")
                 ->SetGroup("Backend")
         << add("--systemevent", "systemevent", "",

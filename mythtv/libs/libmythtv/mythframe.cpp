@@ -1,36 +1,371 @@
-//
-//  mythframe.cpp
-//  MythTV
-//
-//  Created by Jean-Yves Avenard on 10/06/2014.
-//  Copyright (c) 2014 Bubblestuff Pty Ltd. All rights reserved.
-//
-// derived from copy.c: Fast YV12/NV12 copy from VLC project
-// portion of SSE Code Copyright (C) 2010 Laurent Aimar
-
-/******************************************************************************
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.
- *****************************************************************************/
-
-#include <mythtimer.h>
-#include "mythconfig.h"
-#include "mythframe.h"
-#include "mythcorecontext.h"
+// MythTV
 #include "mythlogging.h"
+#include "mythvideoprofile.h"
+#include "mythframe.h"
 
-const char* format_description(VideoFrameType Type)
+// FFmpeg - for av_malloc/av_free
+extern "C" {
+#include "libavcodec/avcodec.h"
+}
+
+#define LOC QString("VideoFrame: ")
+
+/*! \class MythVideoFrame
+ *
+ * \var m_frameCounter Raw frame counter/ticker for discontinuity checks in the player.
+ * \var m_newGOP       Signals to the player that the scan can be unlocked.
+ * \var m_colorshifted Hardware decoded 10/12bit frames are already bit-shifted.
+ * \var m_alreadyDeinterlaced The frame has already been deinterlaced (either in the
+ * decoder or on the first pass of multi-pass display).
+ *
+*/
+MythVideoFrame::~MythVideoFrame()
+{
+    if (m_buffer && HardwareFormat(m_type))
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Frame still contains a hardware buffer!");
+    else if (m_buffer)
+        av_freep(&m_buffer);
+}
+
+MythVideoFrame::MythVideoFrame(VideoFrameType Type, int Width, int Height, const VideoFrameTypes* RenderFormats)
+{
+    Init(Type, Width, Height, (RenderFormats == nullptr) ? &kDefaultRenderFormats : RenderFormats);
+}
+
+MythVideoFrame::MythVideoFrame(VideoFrameType Type, uint8_t* Buffer, size_t BufferSize,
+                               int Width, int Height, const VideoFrameTypes* RenderFormats, int Alignment)
+{
+    const VideoFrameTypes* formats = (RenderFormats == nullptr) ? &kDefaultRenderFormats : RenderFormats;
+    Init(Type, Buffer, BufferSize, Width, Height, formats, Alignment);
+}
+
+void MythVideoFrame::Init(VideoFrameType Type, int Width, int Height, const VideoFrameTypes* RenderFormats)
+{
+    size_t   newsize   = 0;
+    uint8_t* newbuffer = nullptr;
+    if ((Width > 0 && Height > 0) && !((Type == FMT_NONE) || HardwareFormat(Type)))
+    {
+        newsize = GetBufferSize(Type, Width, Height);
+        bool reallocate = !((Width == m_width) && (Height == m_height) && (newsize == m_bufferSize) && (Type == m_type));
+        newbuffer = reallocate ? GetAlignedBuffer(newsize) : m_buffer;
+        newsize   = reallocate ? newsize : m_bufferSize;
+    }
+    Init(Type, newbuffer, newsize, Width, Height, (RenderFormats == nullptr) ? &kDefaultRenderFormats : RenderFormats);
+}
+
+void MythVideoFrame::Init(VideoFrameType Type, uint8_t *Buffer, size_t BufferSize,
+                          int Width, int Height, const VideoFrameTypes* RenderFormats, int Alignment)
+{
+    if (HardwareFormat(m_type) && m_buffer)
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Trying to reinitialise a hardware frame. Ignoring");
+        return;
+    }
+
+    if (std::any_of(m_priv.cbegin(), m_priv.cend(), [](const uint8_t* P) { return P != nullptr; }))
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Priv buffers are set (hardware frame?). Ignoring Init");
+        return;
+    }
+
+    if ((Buffer && !BufferSize) || (!Buffer && BufferSize))
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Inconsistent frame buffer data");
+        return;
+    }
+
+    if (m_buffer && (m_buffer != Buffer))
+    {
+        LOG(VB_GENERAL, LOG_DEBUG, LOC + "Deleting old frame buffer");
+        av_freep(&m_buffer);
+    }
+
+    m_type         = Type;
+    m_bitsPerPixel = BitsPerPixel(m_type);
+    m_buffer       = Buffer;
+    m_bufferSize   = BufferSize;
+    m_width        = Width;
+    m_height       = Height;
+    m_renderFormats = (RenderFormats == nullptr) ? &kDefaultRenderFormats : RenderFormats;
+
+    ClearMetadata();
+
+    if ((m_type == FMT_NONE) || HardwareFormat(m_type) || !m_buffer || !m_bufferSize)
+        return;
+
+    int alignedwidth = Alignment > 0 ? (m_width + Alignment - 1) & ~(Alignment - 1) : m_width;
+    int alignedheight = (m_height + MYTH_HEIGHT_ALIGNMENT - 1) & ~(MYTH_HEIGHT_ALIGNMENT -1);
+
+    for (uint i = 0; i < 3; ++i)
+        m_pitches[i] = GetPitchForPlane(m_type, alignedwidth, i);
+
+    m_offsets[0] = 0;
+    if (FMT_YV12 == m_type)
+    {
+        m_offsets[1] = alignedwidth * alignedheight;
+        m_offsets[2] = m_offsets[1] + ((alignedwidth + 1) >> 1) * ((alignedheight+1) >> 1);
+    }
+    else if (FormatIs420(m_type))
+    {
+        m_offsets[1] = (alignedwidth << 1) * alignedheight;
+        m_offsets[2] = m_offsets[1] + (alignedwidth * (alignedheight >> 1));
+    }
+    else if (FMT_YUV422P == m_type)
+    {
+        m_offsets[1] = alignedwidth * alignedheight;
+        m_offsets[2] = m_offsets[1] + ((alignedwidth + 1) >> 1) * alignedheight;
+    }
+    else if (FormatIs422(m_type))
+    {
+        m_offsets[1] = (alignedwidth << 1) * alignedheight;
+        m_offsets[2] = m_offsets[1] + (alignedwidth * alignedheight);
+    }
+    else if (FMT_YUV444P == m_type)
+    {
+        m_offsets[1] = alignedwidth * alignedheight;
+        m_offsets[2] = m_offsets[1] + (alignedwidth * alignedheight);
+    }
+    else if (FormatIs444(m_type))
+    {
+        m_offsets[1] = (alignedwidth << 1) * alignedheight;
+        m_offsets[2] = m_offsets[1] + ((alignedwidth << 1) * alignedheight);
+    }
+    else if (FMT_NV12 == m_type)
+    {
+        m_offsets[1] = alignedwidth * alignedheight;
+        m_offsets[2] = 0;
+    }
+    else if (FormatIsNV12(m_type))
+    {
+        m_offsets[1] = (alignedwidth << 1) * alignedheight;
+        m_offsets[2] = 0;
+    }
+    else
+    {
+        m_offsets[1] = m_offsets[2] = 0;
+    }
+}
+
+void MythVideoFrame::ClearMetadata()
+{
+    m_aspect              = -1.0F;
+    m_frameRate           = -1.0 ;
+    m_frameNumber         = 0;
+    m_frameCounter        = 0;
+    m_timecode            = 0ms;
+    m_displayTimecode     = 0ms;
+    m_priv                = { nullptr };
+    m_interlaced          = 0;
+    m_topFieldFirst       = true;
+    m_interlacedReverse   = false;
+    m_newGOP              = false;
+    m_repeatPic           = false;
+    m_forceKey            = false;
+    m_dummy               = false;
+    m_pauseFrame          = false;
+    m_pitches             = { 0 };
+    m_offsets             = { 0 };
+    m_pixFmt              = 0;
+    m_swPixFmt            = 0;
+    m_directRendering     = true;
+    m_colorspace          = 1;
+    m_colorrange          = 1;
+    m_colorprimaries      = 1;
+    m_colortransfer       = 1;
+    m_chromalocation      = 1;
+    m_colorshifted        = false;
+    m_alreadyDeinterlaced = false;
+    m_rotation            = 0;
+    m_stereo3D            = 0;
+    m_hdrMetadata         = nullptr;
+    m_deinterlaceSingle   = DEINT_NONE;
+    m_deinterlaceDouble   = DEINT_NONE;
+    m_deinterlaceAllowed  = DEINT_NONE;
+    m_deinterlaceInuse    = DEINT_NONE;
+    m_deinterlaceInuse2x  = false;
+}
+
+void MythVideoFrame::CopyPlane(uint8_t *To, int ToPitch, const uint8_t *From, int FromPitch,
+                               int PlaneWidth, int PlaneHeight)
+{
+    if ((ToPitch == PlaneWidth) && (FromPitch == PlaneWidth))
+    {
+        memcpy(To, From, static_cast<size_t>(PlaneWidth * PlaneHeight));
+        return;
+    }
+
+    for (int y = 0; y < PlaneHeight; y++)
+    {
+        memcpy(To, From, static_cast<size_t>(PlaneWidth));
+        From += FromPitch;
+        To += ToPitch;
+    }
+}
+
+void MythVideoFrame::ClearBufferToBlank()
+{
+    if (!m_buffer)
+        return;
+
+    if (HardwareFormat(m_type))
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Cannot clear a hardware frame");
+        return;
+    }
+
+    // luma (or RGBA)
+    int uv_height = GetHeightForPlane(m_type, m_height, 1);
+    int uv = (1 << (ColorDepth(m_type) - 1)) - 1;
+    if (FMT_YV12 == m_type || FMT_YUV422P == m_type || FMT_YUV444P == m_type)
+    {
+        memset(m_buffer + m_offsets[0], 0, static_cast<size_t>(m_pitches[0] * m_height));
+        memset(m_buffer + m_offsets[1], uv & 0xff, static_cast<size_t>(m_pitches[1] * uv_height));
+        memset(m_buffer + m_offsets[2], uv & 0xff, static_cast<size_t>(m_pitches[2] * uv_height));
+    }
+    else if ((FormatIs420(m_type) || FormatIs422(m_type) || FormatIs444(m_type)) &&
+             (m_pitches[1] == m_pitches[2]))
+    {
+        memset(m_buffer + m_offsets[0], 0, static_cast<size_t>(m_pitches[0] * m_height));
+        unsigned char uv1 = (uv & 0xff00) >> 8;
+        unsigned char uv2 = (uv & 0x00ff);
+        unsigned char* buf1 = m_buffer + m_offsets[1];
+        unsigned char* buf2 = m_buffer + m_offsets[2];
+        for (int row = 0; row < uv_height; ++row)
+        {
+            for (int col = 0; col < m_pitches[1]; col += 2)
+            {
+                buf1[col]     = buf2[col]     = uv1;
+                buf1[col + 1] = buf2[col + 1] = uv2;
+            }
+            buf1 += m_pitches[1];
+            buf2 += m_pitches[2];
+        }
+    }
+    else if (FMT_NV12 == m_type)
+    {
+        memset(m_buffer + m_offsets[0], 0, static_cast<size_t>(m_pitches[0] * m_height));
+        memset(m_buffer + m_offsets[1], uv & 0xff, static_cast<size_t>(m_pitches[1] * uv_height));
+    }
+    else if (FormatIsNV12(m_type))
+    {
+        memset(m_buffer + m_offsets[0], 0, static_cast<size_t>(m_pitches[0] * m_height));
+        unsigned char uv1 = (uv & 0xff00) >> 8;
+        unsigned char uv2 = (uv & 0x00ff);
+        unsigned char* buf3 = m_buffer + m_offsets[1];
+        for (int row = 0; row < uv_height; ++row)
+        {
+            for (int col = 0; col < m_pitches[1]; col += 4)
+            {
+                buf3[col]     = buf3[col + 2] = uv1;
+                buf3[col + 1] = buf3[col + 3] = uv2;
+            }
+            buf3 += m_pitches[1];
+        }
+    }
+    else if (PackedFormat(m_type))
+    {
+        // TODO
+    }
+    else
+    {
+        memset(m_buffer, 0, m_bufferSize);
+    }
+}
+
+bool MythVideoFrame::CopyFrame(MythVideoFrame *From)
+{
+    // Sanity checks
+    if (!From || (this == From))
+        return false;
+
+    if (m_type != From->m_type)
+    {
+        LOG(VB_GENERAL, LOG_ERR, "Cannot copy frames of differing types");
+        return false;
+    }
+
+    if (From->m_type == FMT_NONE || HardwareFormat(From->m_type))
+    {
+        LOG(VB_GENERAL, LOG_ERR, "Invalid frame format");
+        return false;
+    }
+
+    if (!((m_width > 0) && (m_height > 0) &&
+          (m_width == From->m_width) && (m_height == From->m_height)))
+    {
+        LOG(VB_GENERAL, LOG_ERR, "Invalid frame sizes");
+        return false;
+    }
+
+    if (!(m_buffer && From->m_buffer && (m_buffer != From->m_buffer)))
+    {
+        LOG(VB_GENERAL, LOG_ERR, "Invalid frames for copying");
+        return false;
+    }
+
+    // N.B. Minimum based on zero width alignment but will apply height alignment
+    size_t minsize = GetBufferSize(m_type, m_width, m_height, 0);
+    if ((m_bufferSize < minsize) || (From->m_bufferSize < minsize))
+    {
+        LOG(VB_GENERAL, LOG_ERR, "Invalid buffer size");
+        return false;
+    }
+
+    // We have 2 frames of the same valid size and format, they are not hardware frames
+    // and both have buffers reported to satisfy a minimal size.
+
+    // Copy data
+    uint count = GetNumPlanes(From->m_type);
+    for (uint plane = 0; plane < count; plane++)
+    {
+        CopyPlane(m_buffer + m_offsets[plane], m_pitches[plane],
+                  From->m_buffer + From->m_offsets[plane], From->m_pitches[plane],
+                  GetPitchForPlane(From->m_type, From->m_width, plane),
+                  GetHeightForPlane(From->m_type, From->m_height, plane));
+    }
+
+    // Copy metadata
+    // Not copied: codec, width, height - should already be the same
+    // Not copied: buf, size, pitches, offsets - should/could be different
+    // Not copied: priv - hardware frames only
+    m_aspect              = From->m_aspect;
+    m_frameRate           = From->m_frameRate;
+    m_bitsPerPixel        = From->m_bitsPerPixel;
+    m_frameNumber         = From->m_frameNumber;
+    m_frameCounter        = From->m_frameCounter;
+    m_timecode            = From->m_timecode;
+    m_displayTimecode     = From->m_displayTimecode;
+    m_interlaced          = From->m_interlaced;
+    m_topFieldFirst       = From->m_topFieldFirst;
+    m_interlacedReverse   = From->m_interlacedReverse;
+    m_newGOP              = From->m_newGOP;
+    m_repeatPic           = From->m_repeatPic;
+    m_forceKey            = From->m_forceKey;
+    m_dummy               = From->m_dummy;
+    m_pauseFrame          = From->m_pauseFrame;
+    m_pixFmt              = From->m_pixFmt;
+    m_swPixFmt            = From->m_swPixFmt;
+    m_directRendering     = From->m_directRendering;
+    m_colorspace          = From->m_colorspace;
+    m_colorrange          = From->m_colorrange;
+    m_colorprimaries      = From->m_colorprimaries;
+    m_colortransfer       = From->m_colortransfer;
+    m_chromalocation      = From->m_chromalocation;
+    m_colorshifted        = From->m_colorshifted;
+    m_alreadyDeinterlaced = From->m_alreadyDeinterlaced;
+    m_rotation            = From->m_rotation;
+    m_stereo3D            = From->m_stereo3D;
+    m_hdrMetadata         = From->m_hdrMetadata;
+    m_deinterlaceSingle   = From->m_deinterlaceSingle;
+    m_deinterlaceDouble   = From->m_deinterlaceDouble;
+    m_deinterlaceAllowed  = From->m_deinterlaceAllowed;
+    m_deinterlaceInuse    = From->m_deinterlaceInuse;
+    m_deinterlaceInuse2x  = From->m_deinterlaceInuse2x;
+
+    return true;
+}
+
+QString MythVideoFrame::FormatDescription(VideoFrameType Type)
 {
     switch (Type)
     {
@@ -74,790 +409,157 @@ const char* format_description(VideoFrameType Type)
     return "?";
 }
 
-#if ARCH_X86
-
-static bool features_detected = false;
-static bool has_sse2     = false;
-static bool has_sse3     = false;
-static bool has_ssse3    = false;
-static bool has_sse4     = false;
-
-#if defined _WIN32 && !defined __MINGW32__
-//  Windows
-#define cpuid    __cpuid
-
-#else
-/* NOLINTNEXTLINE(readability-non-const-parameter) */
-inline void cpuid(int CPUInfo[4],int InfoType)
+size_t MythVideoFrame::GetBufferSize(VideoFrameType Type, int Width, int Height, int Aligned)
 {
-    __asm__ __volatile__ (
-    // pic requires to save ebx/rbx
-#if ARCH_X86_32
-    "push       %%ebx\n"
-#endif
-    "cpuid\n"
-    "movl %%ebx ,%[ebx]\n"
-#if ARCH_X86_32
-    "pop        %%ebx\n"
-#endif
-    :"=a" (CPUInfo[0]),
-    [ebx] "=r"(CPUInfo[1]),
-    "=c" (CPUInfo[2]),
-    "=d" (CPUInfo[3])
-    :"a" (InfoType)
-    );
-}
-#endif
+    // bits per pixel div common factor
+    int bpp = BitsPerPixel(Type) / 4;
+    // bits per byte div common factor
+    int bpb =  8 / 4;
 
-static void cpu_detect_features()
-{
-    int info[4];
-    cpuid(info, 0);
-    int nIds = info[0];
+    // Align height and width. We always align height to 16 rows and the *default*
+    // width alignment is 64bytes, which allows SIMD operations on subsampled
+    // planes (i.e. 32byte alignment)
+    int adj_w = Aligned ? ((Width  + Aligned - 1) & ~(Aligned - 1)) : Width;
+    int adj_h = (Height + MYTH_HEIGHT_ALIGNMENT - 1) & ~(MYTH_HEIGHT_ALIGNMENT - 1);
 
-    //  Detect Features
-    if (nIds >= 0x00000001)
-    {
-        cpuid(info,0x00000001);
-        has_sse2  = (info[3] & (1 << 26)) != 0;
-        has_sse3  = (info[2] & (1 <<  0)) != 0;
-        has_ssse3 = (info[2] & (1 <<  9)) != 0;
-        has_sse4  = (info[2] & (1 << 19)) != 0;
-    }
-    features_detected = true;
+    // Calculate rounding as necessary.
+    int remainder = (adj_w * adj_h * bpp) % bpb;
+    return static_cast<uint>((adj_w * adj_h * bpp) / bpb + (remainder ? 1 : 0));
 }
 
-static inline bool sse2_check()
+uint8_t *MythVideoFrame::GetAlignedBuffer(size_t Size)
 {
-    if (!features_detected)
-        cpu_detect_features();
-    return has_sse2;
+    return static_cast<uint8_t*>(av_malloc(Size + 64));
 }
 
-static inline bool sse3_check()
+uint8_t *MythVideoFrame::CreateBuffer(VideoFrameType Type, int Width, int Height)
 {
-    if (!features_detected)
-        cpu_detect_features();
-    return has_sse3;
+    size_t size = GetBufferSize(Type, Width, Height);
+    return GetAlignedBuffer(size);
 }
 
-static inline bool ssse3_check()
+MythDeintType MythVideoFrame::GetSingleRateOption(MythDeintType Type, MythDeintType Override) const
 {
-    if (!features_detected)
-        cpu_detect_features();
-    return has_ssse3;
-}
-
-static inline bool sse4_check()
-{
-    if (!features_detected)
-        cpu_detect_features();
-    return has_sse4;
-}
-
-static inline void SSE_splitplanes(uint8_t* dstu, int dstu_pitch,
-                                   uint8_t* dstv, int dstv_pitch,
-                                   const uint8_t* src, int src_pitch,
-                                   int width, int height)
-{
-    const uint8_t shuffle[] = { 0, 2, 4, 6, 8, 10, 12, 14,
-                                1, 3, 5, 7, 9, 11, 13, 15 };
-    const uint8_t mask[] = { 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00,
-                             0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00 };
-    const bool sse3 = sse3_check();
-    const bool ssse3 = ssse3_check();
-
-    asm volatile ("mfence");
-
-#define LOAD64A \
-    "movdqa  0(%[src]), %%xmm0\n" \
-    "movdqa 16(%[src]), %%xmm1\n" \
-    "movdqa 32(%[src]), %%xmm2\n" \
-    "movdqa 48(%[src]), %%xmm3\n"
-
-#define LOAD64U \
-    "movdqu  0(%[src]), %%xmm0\n" \
-    "movdqu 16(%[src]), %%xmm1\n" \
-    "movdqu 32(%[src]), %%xmm2\n" \
-    "movdqu 48(%[src]), %%xmm3\n"
-
-#define STORE2X32 \
-    "movq   %%xmm0,   0(%[dst1])\n" \
-    "movq   %%xmm1,   8(%[dst1])\n" \
-    "movhpd %%xmm0,   0(%[dst2])\n" \
-    "movhpd %%xmm1,   8(%[dst2])\n" \
-    "movq   %%xmm2,  16(%[dst1])\n" \
-    "movq   %%xmm3,  24(%[dst1])\n" \
-    "movhpd %%xmm2,  16(%[dst2])\n" \
-    "movhpd %%xmm3,  24(%[dst2])\n"
-
-    for (int y = 0; y < height; y++)
-    {
-        int x = 0;
-
-        if (((uintptr_t)src & 0xf) == 0)
-        {
-            if (sse3 && ssse3)
-            {
-                for (; x < (width & ~31); x += 32)
-                {
-                    asm volatile (
-                        "movdqu (%[shuffle]), %%xmm7\n"
-                        LOAD64A
-                        "pshufb  %%xmm7, %%xmm0\n"
-                        "pshufb  %%xmm7, %%xmm1\n"
-                        "pshufb  %%xmm7, %%xmm2\n"
-                        "pshufb  %%xmm7, %%xmm3\n"
-                        STORE2X32
-                        : : [dst1]"r"(&dstu[x]), [dst2]"r"(&dstv[x]), [src]"r"(&src[2*x]), [shuffle]"r"(shuffle) : "memory", "xmm0", "xmm1", "xmm2", "xmm3", "xmm7");
-                }
-            }
-            else
-            {
-                for (; x < (width & ~31); x += 32)
-                {
-                    asm volatile (
-                        "movdqu (%[mask]), %%xmm7\n"
-                        LOAD64A
-                        "movdqa   %%xmm0, %%xmm4\n"
-                        "movdqa   %%xmm1, %%xmm5\n"
-                        "movdqa   %%xmm2, %%xmm6\n"
-                        "psrlw    $8,     %%xmm0\n"
-                        "psrlw    $8,     %%xmm1\n"
-                        "pand     %%xmm7, %%xmm4\n"
-                        "pand     %%xmm7, %%xmm5\n"
-                        "pand     %%xmm7, %%xmm6\n"
-                        "packuswb %%xmm4, %%xmm0\n"
-                        "packuswb %%xmm5, %%xmm1\n"
-                        "pand     %%xmm3, %%xmm7\n"
-                        "psrlw    $8,     %%xmm2\n"
-                        "psrlw    $8,     %%xmm3\n"
-                        "packuswb %%xmm6, %%xmm2\n"
-                        "packuswb %%xmm7, %%xmm3\n"
-                        STORE2X32
-                        : : [dst2]"r"(&dstu[x]), [dst1]"r"(&dstv[x]), [src]"r"(&src[2*x]), [mask]"r"(mask) : "memory", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7");
-                }
-            }
-        }
-        else
-        {
-            if (sse3 && ssse3)
-            {
-                for (; x < (width & ~31); x += 32)
-                {
-                    asm volatile (
-                        "movdqu (%[shuffle]), %%xmm7\n"
-                        LOAD64U
-                        "pshufb  %%xmm7, %%xmm0\n"
-                        "pshufb  %%xmm7, %%xmm1\n"
-                        "pshufb  %%xmm7, %%xmm2\n"
-                        "pshufb  %%xmm7, %%xmm3\n"
-                        STORE2X32
-                        : : [dst1]"r"(&dstu[x]), [dst2]"r"(&dstv[x]), [src]"r"(&src[2*x]), [shuffle]"r"(shuffle) : "memory", "xmm0", "xmm1", "xmm2", "xmm3", "xmm7");
-                }
-            }
-            else
-            {
-                for (; x < (width & ~31); x += 32)
-                {
-                    asm volatile (
-                        "movdqu (%[mask]), %%xmm7\n"
-                        LOAD64U
-                        "movdqu   %%xmm0, %%xmm4\n"
-                        "movdqu   %%xmm1, %%xmm5\n"
-                        "movdqu   %%xmm2, %%xmm6\n"
-                        "psrlw    $8,     %%xmm0\n"
-                        "psrlw    $8,     %%xmm1\n"
-                        "pand     %%xmm7, %%xmm4\n"
-                        "pand     %%xmm7, %%xmm5\n"
-                        "pand     %%xmm7, %%xmm6\n"
-                        "packuswb %%xmm4, %%xmm0\n"
-                        "packuswb %%xmm5, %%xmm1\n"
-                        "pand     %%xmm3, %%xmm7\n"
-                        "psrlw    $8,     %%xmm2\n"
-                        "psrlw    $8,     %%xmm3\n"
-                        "packuswb %%xmm6, %%xmm2\n"
-                        "packuswb %%xmm7, %%xmm3\n"
-                        STORE2X32
-                        : : [dst2]"r"(&dstu[x]), [dst1]"r"(&dstv[x]), [src]"r"(&src[2*x]), [mask]"r"(mask) : "memory", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7");
-                }
-            }
-        }
-
-        for (; x < width; x++)
-        {
-            dstu[x] = src[2*x+0];
-            dstv[x] = src[2*x+1];
-        }
-        src  += src_pitch;
-        dstu += dstu_pitch;
-        dstv += dstv_pitch;
-    }
-    asm volatile ("mfence");
-
-#undef STORE2X32
-#undef LOAD64U
-#undef LOAD64A
-}
-#endif /* ARCH_X86 */
-
-static void splitplanes(uint8_t* dstu, int dstu_pitch,
-                        uint8_t* dstv, int dstv_pitch,
-                        const uint8_t* src, int src_pitch,
-                        int width, int height)
-{
-    for (int y = 0; y < height; y++)
-    {
-        for (int x = 0; x < width; x++)
-        {
-            dstu[x] = src[2*x+0];
-            dstv[x] = src[2*x+1];
-        }
-        src  += src_pitch;
-        dstu += dstu_pitch;
-        dstv += dstv_pitch;
-    }
-}
-
-void framecopy(VideoFrame* dst, const VideoFrame* src, bool useSSE)
-{
-    VideoFrameType codec = dst->codec;
-    if (!(dst->codec == src->codec ||
-          (src->codec == FMT_NV12 && dst->codec == FMT_YV12)))
-        return;
-
-    dst->interlaced_frame = src->interlaced_frame;
-    dst->repeat_pict      = src->repeat_pict;
-    dst->top_field_first  = src->top_field_first;
-    dst->interlaced_reversed = src->interlaced_reversed;
-    dst->colorspace       = src->colorspace;
-    dst->colorrange       = src->colorrange;
-    dst->colorprimaries   = src->colorprimaries;
-    dst->colortransfer    = src->colortransfer;
-    dst->chromalocation   = src->chromalocation;
-
-    if (FMT_YV12 == codec)
-    {
-        int width   = src->width;
-        int height  = src->height;
-        int dwidth  = dst->width;
-        int dheight = dst->height;
-
-        if (src->codec == FMT_NV12 &&
-            height == dheight && width == dwidth)
-        {
-            copyplane(dst->buf + dst->offsets[0], dst->pitches[0],
-                      src->buf + src->offsets[0], src->pitches[0],
-                      width, height);
-#if ARCH_X86
-            if (useSSE && sse2_check())
-            {
-                SSE_splitplanes(dst->buf + dst->offsets[1], dst->pitches[1],
-                                dst->buf + dst->offsets[2], dst->pitches[2],
-                                src->buf + src->offsets[1], src->pitches[1],
-                                (width+1) / 2, (height+1) / 2);
-                asm volatile ("emms");
-                return;
-            }
-#else
-            Q_UNUSED(useSSE);
-#endif
-            splitplanes(dst->buf + dst->offsets[1], dst->pitches[1],
-                        dst->buf + dst->offsets[2], dst->pitches[2],
-                        src->buf + src->offsets[1], src->pitches[1],
-                        (width+1) / 2, (height+1) / 2);
-            return;
-        }
-
-        if (dst->pitches[0] != src->pitches[0] ||
-            dst->pitches[1] != src->pitches[1] ||
-            dst->pitches[2] != src->pitches[2])
-        {
-            // We have a different stride between the two frames
-            // drop the garbage data
-            height = (dst->height < src->height) ? dst->height : src->height;
-            width = (dst->width < src->width) ? dst->width : src->width;
-            copyplane(dst->buf + dst->offsets[0], dst->pitches[0],
-                      src->buf + src->offsets[0], src->pitches[0],
-                      width, height);
-            copyplane(dst->buf + dst->offsets[1], dst->pitches[1],
-                      src->buf + src->offsets[1], src->pitches[1],
-                      (width+1) / 2, (height+1) / 2);
-            copyplane(dst->buf + dst->offsets[2], dst->pitches[2],
-                      src->buf + src->offsets[2], src->pitches[2],
-                      (width+1) / 2, (height+1) / 2);
-            return;
-        }
-
-        int height0 = (dst->height < src->height) ? dst->height : src->height;
-        int height1 = (height0+1) >> 1;
-        int height2 = (height0+1) >> 1;
-        int pitch0  = ((dst->pitches[0] < src->pitches[0]) ?
-                       dst->pitches[0] : src->pitches[0]);
-        int pitch1  = ((dst->pitches[1] < src->pitches[1]) ?
-                       dst->pitches[1] : src->pitches[1]);
-        int pitch2  = ((dst->pitches[2] < src->pitches[2]) ?
-                       dst->pitches[2] : src->pitches[2]);
-
-        memcpy(dst->buf + dst->offsets[0],
-               src->buf + src->offsets[0], pitch0 * height0);
-        memcpy(dst->buf + dst->offsets[1],
-               src->buf + src->offsets[1], pitch1 * height1);
-        memcpy(dst->buf + dst->offsets[2],
-               src->buf + src->offsets[2], pitch2 * height2);
-    }
-}
-
-/***************************************
- * USWC Fast Copy
- *
- * https://software.intel.com/en-us/articles/copying-accelerated-video-decode-frame-buffers:
- ***************************************/
-#if ARCH_X86
-#define COPY16(dstp, srcp, load, store) \
-    asm volatile (                      \
-        load "  0(%[src]), %%xmm1\n"    \
-        store " %%xmm1,    0(%[dst])\n" \
-        : : [dst]"r"(dstp), [src]"r"(srcp) : "memory", "xmm1")
-
-#define COPY64(dstp, srcp, load, store) \
-    asm volatile (                      \
-        load "  0(%[src]), %%xmm1\n"    \
-        load " 16(%[src]), %%xmm2\n"    \
-        load " 32(%[src]), %%xmm3\n"    \
-        load " 48(%[src]), %%xmm4\n"    \
-        store " %%xmm1,    0(%[dst])\n" \
-        store " %%xmm2,   16(%[dst])\n" \
-        store " %%xmm3,   32(%[dst])\n" \
-        store " %%xmm4,   48(%[dst])\n" \
-        : : [dst]"r"(dstp), [src]"r"(srcp) : "memory", "xmm1", "xmm2", "xmm3", "xmm4")
-
-/*
- * Optimized copy from "Uncacheable Speculative Write Combining" memory
- * as used by some hardware accelerated decoder (VAAPI and DXVA2).
- */
-static void CopyFromUswc(uint8_t *dst, int dst_pitch,
-                         const uint8_t *src, int src_pitch,
-                         int width, int height)
-{
-    const bool sse4 = sse4_check();
-
-    asm volatile ("mfence");
-
-    for (int y = 0; y < height; y++)
-    {
-        const int unaligned = (-(uintptr_t)src) & 0x0f;
-        int x = unaligned;
-
-        if (sse4)
-        {
-            if (!unaligned)
-            {
-                for (; x+63 < width; x += 64)
-                {
-                    COPY64(&dst[x], &src[x], "movntdqa", "movdqa");
-                }
-            }
-            else
-            {
-                COPY16(dst, src, "movdqu", "movdqa");
-                for (; x+63 < width; x += 64)
-                {
-                    COPY64(&dst[x], &src[x], "movntdqa", "movdqu");
-                }
-            }
-        }
-        else
-        {
-            if (!unaligned)
-            {
-                for (; x+63 < width; x += 64)
-                {
-                    COPY64(&dst[x], &src[x], "movdqa", "movdqa");
-                }
-            }
-            else
-            {
-                COPY16(dst, src, "movdqu", "movdqa");
-                for (; x+63 < width; x += 64)
-                {
-                    COPY64(&dst[x], &src[x], "movdqa", "movdqu");
-                }
-            }
-        }
-
-        for (; x < width; x++)
-        {
-            dst[x] = src[x];
-        }
-
-        src += src_pitch;
-        dst += dst_pitch;
-    }
-    asm volatile ("mfence");
-}
-
-static void Copy2d(uint8_t *dst, int dst_pitch,
-                   const uint8_t *src, int src_pitch,
-                   int width, int height)
-{
-    for (int y = 0; y < height; y++)
-    {
-        int x = 0;
-
-        bool unaligned = ((intptr_t)dst & 0x0f) != 0;
-        if (!unaligned)
-        {
-            for (; x+63 < width; x += 64)
-            {
-                COPY64(&dst[x], &src[x], "movdqa", "movntdq");
-            }
-        }
-        else
-        {
-            for (; x+63 < width; x += 64)
-            {
-                COPY64(&dst[x], &src[x], "movdqa", "movdqu");
-            }
-        }
-
-        for (; x < width; x++)
-        {
-            dst[x] = src[x];
-        }
-
-        src += src_pitch;
-        dst += dst_pitch;
-    }
-}
-
-static void SSE_copyplane(uint8_t *dst, int dst_pitch,
-                          const uint8_t *src, int src_pitch,
-                          uint8_t *cache, int cache_size,
-                          int width, int height)
-{
-    const int w16 = (width+15) & ~15;
-    const int hstep = cache_size / w16;
-
-    for (int y = 0; y < height; y += hstep)
-    {
-        const int hblock =  std::min(hstep, height - y);
-
-        /* Copy a bunch of line into our cache */
-        CopyFromUswc(cache, w16,
-                     src, src_pitch,
-                     width, hblock);
-
-        /* Copy from our cache to the destination */
-        Copy2d(dst, dst_pitch,
-               cache, w16,
-               width, hblock);
-
-        /* */
-        src += src_pitch * hblock;
-        dst += dst_pitch * hblock;
-    }
-}
-
-static void SSE_splitplanes(uint8_t *dstu, int dstu_pitch,
-                            uint8_t *dstv, int dstv_pitch,
-                            const uint8_t *src, int src_pitch,
-                            uint8_t *cache, int cache_size,
-                            int width, int height)
-{
-    const int w16 = (2*width+15) & ~15;
-    const int hstep = cache_size / w16;
-
-    for (int y = 0; y < height; y += hstep)
-    {
-        const int hblock =  std::min(hstep, height - y);
-
-        /* Copy a bunch of line into our cache */
-        CopyFromUswc(cache, w16, src, src_pitch,
-                     2*width, hblock);
-
-        /* Copy from our cache to the destination */
-        SSE_splitplanes(dstu, dstu_pitch, dstv, dstv_pitch,
-                        cache, w16, width, hblock);
-
-        /* */
-        src  += src_pitch  * hblock;
-        dstu += dstu_pitch * hblock;
-        dstv += dstv_pitch * hblock;
-    }
-}
-#endif // ARCH_X86
-
-MythUSWCCopy::MythUSWCCopy(int width, bool nocache)
-{
-#if ARCH_X86
-    if (!nocache)
-    {
-        allocateCache(width);
-    }
-#else
-    Q_UNUSED(width);
-    Q_UNUSED(nocache);
-#endif
-}
-
-MythUSWCCopy::~MythUSWCCopy()
-{
-    m_size = 0;
-#if ARCH_X86
-    av_freep(&m_cache);
-#endif
-}
-
-/**
- * \fn copy
- * Copy frame src into dst.
- * Both frames must be of the same dimensions. Pitch can be different
- * src can be a frame in either YV12 or NV12 format
- * dst must be a YV12 frane
- * The first time copy is called, it will attempt to detect which copy
- * algorithm is the fastest.
- */
-
-void MythUSWCCopy::copy(VideoFrame *dst, const VideoFrame *src)
-{
-    dst->interlaced_frame = src->interlaced_frame;
-    dst->repeat_pict      = src->repeat_pict;
-    dst->top_field_first  = src->top_field_first;
-    dst->interlaced_reversed = src->interlaced_reversed;
-    dst->colorspace       = src->colorspace;
-    dst->colorrange       = src->colorrange;
-    dst->colorprimaries   = src->colorprimaries;
-    dst->colortransfer    = src->colortransfer;
-    dst->chromalocation   = src->chromalocation;
-
-    int width   = src->width;
-    int height  = src->height;
-
-    if (src->codec == FMT_NV12)
-    {
-#if ARCH_X86
-        if (sse2_check())
-        {
-            MythTimer *timer = nullptr;
-
-            if ((m_uswc != uswcState::Use_SW) && m_cache)
-            {
-                if (m_uswc == uswcState::Detect)
-                {
-                    timer = new MythTimer(MythTimer::kStartRunning);
-                }
-                SSE_copyplane(dst->buf + dst->offsets[0], dst->pitches[0],
-                              src->buf + src->offsets[0], src->pitches[0],
-                              m_cache, m_size,
-                              width, height);
-                SSE_splitplanes(dst->buf + dst->offsets[1], dst->pitches[1],
-                                dst->buf + dst->offsets[2], dst->pitches[2],
-                                src->buf + src->offsets[1], src->pitches[1],
-                                m_cache, m_size,
-                                (width+1) / 2, (height+1) / 2);
-                if (m_uswc == uswcState::Detect)
-                {
-                    // Measure how long standard method takes
-                    // if shorter, use it in the future
-                    long sse_duration = timer->nsecsElapsed();
-                    timer->restart();
-                    copyplane(dst->buf + dst->offsets[0], dst->pitches[0],
-                              src->buf + src->offsets[0], src->pitches[0],
-                              width, height);
-                    SSE_splitplanes(dst->buf + dst->offsets[1], dst->pitches[1],
-                                    dst->buf + dst->offsets[2], dst->pitches[2],
-                                    src->buf + src->offsets[1], src->pitches[1],
-                                    (width+1) / 2, (height+1) / 2);
-                    if (timer->nsecsElapsed() < sse_duration)
-                    {
-                        m_uswc = uswcState::Use_SW;
-                        LOG(VB_GENERAL, LOG_DEBUG, "Enabling USWC code acceleration");
-                    }
-                    else
-                    {
-                        m_uswc = uswcState::Use_SSE;
-                    }
-                    delete timer;
-                }
-            }
-            else
-            {
-                copyplane(dst->buf + dst->offsets[0], dst->pitches[0],
-                          src->buf + src->offsets[0], src->pitches[0],
-                          width, height);
-                SSE_splitplanes(dst->buf + dst->offsets[1], dst->pitches[1],
-                                dst->buf + dst->offsets[2], dst->pitches[2],
-                                src->buf + src->offsets[1], src->pitches[1],
-                                (width+1) / 2, (height+1) / 2);
-            }
-            asm volatile ("emms");
-            return;
-        }
-#endif
-        copyplane(dst->buf + dst->offsets[0], dst->pitches[0],
-                  src->buf + src->offsets[0], src->pitches[0],
-                  width, height);
-        splitplanes(dst->buf + dst->offsets[1], dst->pitches[1],
-                    dst->buf + dst->offsets[2], dst->pitches[2],
-                    src->buf + src->offsets[1], src->pitches[1],
-                    (width+1) / 2, (height+1) / 2);
-        return;
-    }
-
-#if ARCH_X86
-    if (sse2_check() && (m_uswc != uswcState::Use_SW) && m_cache)
-    {
-        MythTimer *timer = nullptr;
-
-        if (m_uswc == uswcState::Detect)
-        {
-            timer = new MythTimer(MythTimer::kStartRunning);
-        }
-        SSE_copyplane(dst->buf + dst->offsets[0], dst->pitches[0],
-                      src->buf + src->offsets[0], src->pitches[0],
-                      m_cache, m_size,
-                      width, height);
-        SSE_copyplane(dst->buf + dst->offsets[1], dst->pitches[1],
-                      src->buf + src->offsets[1], src->pitches[1],
-                      m_cache, m_size,
-                      (width+1) / 2, (height+1) / 2);
-        SSE_copyplane(dst->buf + dst->offsets[2], dst->pitches[2],
-                      src->buf + src->offsets[2], src->pitches[2],
-                      m_cache, m_size,
-                      (width+1) / 2, (height+1) / 2);
-        if (m_uswc == uswcState::Detect)
-        {
-            // Measure how long standard method takes
-            // if shorter, use it in the future
-            long sse_duration = timer->nsecsElapsed();
-            timer->restart();
-            copyplane(dst->buf + dst->offsets[0], dst->pitches[0],
-                      src->buf + src->offsets[0], src->pitches[0],
-                      width, height);
-            copyplane(dst->buf + dst->offsets[1], dst->pitches[1],
-                      src->buf + src->offsets[1], src->pitches[1],
-                      (width+1) / 2, (height+1) / 2);
-            copyplane(dst->buf + dst->offsets[2], dst->pitches[2],
-                      src->buf + src->offsets[2], src->pitches[2],
-                      (width+1) / 2, (height+1) / 2);
-            if (timer->nsecsElapsed() < sse_duration)
-            {
-                m_uswc = uswcState::Use_SW;
-                LOG(VB_GENERAL, LOG_DEBUG, "Enabling USWC code acceleration");
-            }
-            else
-            {
-                m_uswc = uswcState::Use_SSE;
-            }
-            delete timer;
-        }
-        asm volatile ("emms");
-        return;
-    }
-#endif
-    copyplane(dst->buf + dst->offsets[0], dst->pitches[0],
-              src->buf + src->offsets[0], src->pitches[0],
-              width, height);
-    copyplane(dst->buf + dst->offsets[1], dst->pitches[1],
-              src->buf + src->offsets[1], src->pitches[1],
-              (width+1) / 2, (height+1) / 2);
-    copyplane(dst->buf + dst->offsets[2], dst->pitches[2],
-              src->buf + src->offsets[2], src->pitches[2],
-              (width+1) / 2, (height+1) / 2);
-}
-
-/**
- * reset USWC detection. USWC detection will be made during the next copy
- */
-void MythUSWCCopy::resetUSWCDetection(void)
-{
-    m_uswc = uswcState::Detect;
-}
-
-void MythUSWCCopy::allocateCache(int width)
-{
-    av_freep(&m_cache);
-    m_size  = std::max((width + 63) & ~63, 4096);
-    m_cache = (uint8_t*)av_malloc(m_size);
-}
-
-/**
- * disable USWC detection. If true: USWC code will always be used, otherwise
- * will use generic SSE code (faster with non-USWC memory
- */
-void MythUSWCCopy::setUSWC(bool uswc)
-{
-    m_uswc = uswc ? uswcState::Use_SW : uswcState::Use_SSE;
-}
-
-/**
- * Will reset the cache for a frame with "width" and reset USWC detection.
- */
-void MythUSWCCopy::reset(int width)
-{
-#if ARCH_X86
-    allocateCache(width);
-#else
-    Q_UNUSED(width);
-#endif
-    resetUSWCDetection();
-}
-
-/// \brief Return the color depth for the given MythTV frame format
-int ColorDepth(int Format)
-{
-    switch (Format)
-    {
-        case FMT_YUV420P9:
-        case FMT_YUV422P9:
-        case FMT_YUV444P9:  return 9;
-        case FMT_P010:
-        case FMT_YUV420P10:
-        case FMT_YUV422P10:
-        case FMT_YUV444P10: return 10;
-        case FMT_YUV420P12:
-        case FMT_YUV422P12:
-        case FMT_YUV444P12: return 12;
-        case FMT_YUV420P14:
-        case FMT_YUV422P14:
-        case FMT_YUV444P14: return 14;
-        case FMT_P016:
-        case FMT_YUV420P16:
-        case FMT_YUV422P16:
-        case FMT_YUV444P16: return 16;
-        default: break;
-    }
-    return 8;
-}
-
-MythDeintType GetSingleRateOption(const VideoFrame* Frame, MythDeintType Type,
-                                  MythDeintType Override)
-{
-    if (Frame)
-    {
-        MythDeintType options = Frame->deinterlace_single &
-                (Override ? Override : Frame->deinterlace_allowed);
-        if (options & Type)
-            return GetDeinterlacer(options);
-    }
+    MythDeintType options = m_deinterlaceSingle & (Override ? Override : m_deinterlaceAllowed);
+    if (options & Type)
+        return GetDeinterlacer(options);
     return DEINT_NONE;
 }
 
-MythDeintType GetDoubleRateOption(const VideoFrame* Frame, MythDeintType Type,
-                                  MythDeintType Override)
+MythDeintType MythVideoFrame::GetDoubleRateOption(MythDeintType Type, MythDeintType Override) const
 {
-    if (Frame)
-    {
-        MythDeintType options = Frame->deinterlace_double &
-                (Override ? Override : Frame->deinterlace_allowed);
-        if (options & Type)
-            return GetDeinterlacer(options);
-    }
+    MythDeintType options = m_deinterlaceDouble & (Override ? Override : m_deinterlaceAllowed);
+    if (options & Type)
+        return GetDeinterlacer(options);
     return DEINT_NONE;
 }
 
-MythDeintType GetDeinterlacer(MythDeintType Option)
+MythDeintType MythVideoFrame::GetDeinterlacer(MythDeintType Option)
 {
     return Option & (DEINT_BASIC | DEINT_MEDIUM | DEINT_HIGH);
+}
+
+QString MythVideoFrame::DeinterlacerName(MythDeintType Deint, bool DoubleRate, VideoFrameType Format)
+{
+    MythDeintType deint = GetDeinterlacer(Deint);
+    QString result = DoubleRate ? "2x " : "";
+    if (Deint & DEINT_CPU)
+    {
+        result += "CPU ";
+        switch (deint)
+        {
+            case DEINT_HIGH:   return result + "Yadif";
+            case DEINT_MEDIUM: return result + "Linearblend";
+            case DEINT_BASIC:  return result + "Onefield";
+            default: break;
+        }
+    }
+    else if (Deint & DEINT_SHADER)
+    {
+        result += "GLSL ";
+        switch (deint)
+        {
+            case DEINT_HIGH:   return result + "Kernel";
+            case DEINT_MEDIUM: return result + "Linearblend";
+            case DEINT_BASIC:  return result + "Onefield";
+            default: break;
+        }
+    }
+    else if (Deint & DEINT_DRIVER)
+    {
+        switch (Format)
+        {
+            case FMT_MEDIACODEC: return "MediaCodec";
+            case FMT_DRMPRIME: return result + "EGL Onefield";
+            case FMT_VDPAU:
+                result += "VDPAU ";
+                switch (deint)
+                {
+                    case DEINT_HIGH:   return result + "Advanced";
+                    case DEINT_MEDIUM: return result + "Temporal";
+                    case DEINT_BASIC:  return result + "Basic";
+                    default: break;
+                }
+                break;
+            case FMT_NVDEC:
+                result += "NVDec ";
+                switch (deint)
+                {
+                    case DEINT_HIGH:
+                    case DEINT_MEDIUM: return result + "Adaptive";
+                    case DEINT_BASIC:  return result + "Basic";
+                    default: break;
+                }
+                break;
+            case FMT_VAAPI:
+                result += "VAAPI ";
+                switch (deint)
+                {
+                    case DEINT_HIGH:   return result + "Compensated";
+                    case DEINT_MEDIUM: return result + "Adaptive";
+                    case DEINT_BASIC:  return result + "Basic";
+                    default: break;
+                }
+                break;
+            default: break;
+        }
+    }
+    return "None";
+}
+
+QString MythVideoFrame::DeinterlacerPref(MythDeintType Deint)
+{
+    if (DEINT_NONE == Deint)
+        return QString("None");
+    QString result;
+    if (Deint & DEINT_BASIC)       result = "Basic";
+    else if (Deint & DEINT_MEDIUM) result = "Medium";
+    else if (Deint & DEINT_HIGH)   result = "High";
+    if (Deint & DEINT_CPU)         result += "|CPU";
+    if (Deint & DEINT_SHADER)      result += "|GLSL";
+    if (Deint & DEINT_DRIVER)      result += "|DRIVER";
+    return result;
+}
+
+MythDeintType MythVideoFrame::ParseDeinterlacer(const QString& Deinterlacer)
+{
+    MythDeintType result = DEINT_NONE;
+
+    if (Deinterlacer.contains(DEINT_QUALITY_HIGH))
+        result = DEINT_HIGH;
+    else if (Deinterlacer.contains(DEINT_QUALITY_MEDIUM))
+        result = DEINT_MEDIUM;
+    else if (Deinterlacer.contains(DEINT_QUALITY_LOW))
+        result = DEINT_BASIC;
+
+    if (result != DEINT_NONE)
+    {
+        result = result | DEINT_CPU; // NB always assumed
+        if (Deinterlacer.contains(DEINT_QUALITY_SHADER))
+            result = result | DEINT_SHADER;
+        if (Deinterlacer.contains(DEINT_QUALITY_DRIVER))
+            result = result | DEINT_DRIVER;
+    }
+
+    return result;
 }

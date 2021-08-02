@@ -3,6 +3,7 @@
 #ifndef MYTHSYSTEM_UNIX_H
 #define MYTHSYSTEM_UNIX_H
 
+#include <array>
 #include <csignal>
 #include <sys/select.h>
 
@@ -18,6 +19,7 @@
 
 #include "mythsystemprivate.h"
 #include "mythbaseexp.h"
+#include "mythchrono.h"
 #include "mythsystemlegacy.h"
 #include "mthread.h"
 
@@ -54,7 +56,7 @@ class MythSystemLegacyIOHandler: public MThread
         fd_set m_fds   {};
         int    m_maxfd {-1};
         bool   m_read  {true};
-        char   m_readbuf[65536] {0};
+        std::array<char,65536> m_readbuf {};
 };
 
 // spawn separate thread for signals to prevent manager
@@ -95,7 +97,7 @@ class MBASE_PUBLIC MythSystemLegacyUnix : public MythSystemLegacyPrivate
         explicit MythSystemLegacyUnix(MythSystemLegacy *parent);
         ~MythSystemLegacyUnix() override = default;
 
-        void Fork(time_t timeout) override; // MythSystemLegacyPrivate
+        void Fork(std::chrono::seconds timeout) override; // MythSystemLegacyPrivate
         void Manage(void) override; // MythSystemLegacyPrivate
 
         void Term(bool force=false) override; // MythSystemLegacyPrivate
@@ -111,9 +113,9 @@ class MBASE_PUBLIC MythSystemLegacyUnix : public MythSystemLegacyPrivate
 
     private:
         pid_t       m_pid     {0};
-        time_t      m_timeout {0};
+        SystemTime  m_timeout {0s};
 
-        int         m_stdpipe[3] {-1,-1, -1};
+        std::array<int,3> m_stdpipe {-1, -1, -1};
 };
 
 #endif // MYTHSYSTEM_UNIX_H

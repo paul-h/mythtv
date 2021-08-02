@@ -18,7 +18,6 @@
 #include "programtypes.h"
 #include "mythtimer.h"
 
-class QStringList;
 class ProgramInfo;
 class MythSocket;
 
@@ -65,7 +64,7 @@ class MTV_PUBLIC RemoteEncoder
     void ChangeDeinterlacer(int deint_mode);
     void ToggleChannelFavorite(const QString &changroupname);
     void SetChannel(const QString& channel);
-    int  SetSignalMonitoringRate(int rate, bool notifyFrontend = true);
+    std::chrono::milliseconds SetSignalMonitoringRate(std::chrono::milliseconds rate, int notifyFrontend = 1);
     uint GetSignalLockTimeout(const QString& input);
     bool CheckChannel(const QString& channel);
     bool ShouldSwitchToAnotherCard(const QString& channelid);

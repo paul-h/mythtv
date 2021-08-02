@@ -31,16 +31,31 @@ void MythFontManager::LoadFonts(const QString &directory,
     int maxDirs = MAX_DIRS;
     LoadFonts(directory, registeredFor, &maxDirs);
 
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     QFontDatabase database;
-    for (const QString & family : database.families())
+    QStringList families = database.families();
+#else
+    QStringList families = QFontDatabase::families();
+#endif
+    for (const QString & family : qAsConst(families))
     {
         QString result = QString("Font Family '%1': ").arg(family);
-        for (const QString & style : database.styles(family))
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        QStringList styles = database.styles(family);
+#else
+        QStringList styles = QFontDatabase::styles(family);
+#endif
+        for (const QString & style : qAsConst(styles))
         {
             result += QString("%1(").arg(style);
 
             QString sizes;
-            for (int points : database.smoothSizes(family, style))
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+            QList<int> pointList = database.smoothSizes(family, style);
+#else
+            QList<int> pointList = QFontDatabase::smoothSizes(family, style);
+#endif
+            for (int points : qAsConst(pointList))
                 sizes += QString::number(points) + ' ';
 
             result += QString("%1) ").arg(sizes.trimmed());
@@ -81,15 +96,14 @@ void MythFontManager::LoadFonts(const QString &directory,
     // Recurse through subdirectories
     QDir dir(directory);
     QFileInfoList files = dir.entryInfoList();
-    QFileInfo info;
-    for (QFileInfoList::const_iterator it = files.begin();
-         ((it != files.end()) && (*maxDirs > 0)); ++it)
+    for (const auto& info : qAsConst(files))
     {
-        info = *it;
         // Skip '.' and '..' and other files starting with "." by checking
         // baseName()
         if (!info.baseName().isEmpty() && info.isDir())
             LoadFonts(info.absoluteFilePath(), registeredFor, maxDirs);
+        if (*maxDirs <= 0)
+            break;
     }
 }
 
@@ -161,11 +175,8 @@ void MythFontManager::LoadFontsFromDirectory(const QString &directory,
     QDir dir(directory);
     QStringList nameFilters = QStringList() << "*.ttf" << "*.otf" << "*.ttc";
     QStringList fontFiles = dir.entryList(nameFilters);
-    for (QStringList::const_iterator it = fontFiles.begin();
-         it != fontFiles.end(); ++it)
-    {
-        LoadFontFile(dir.absoluteFilePath(*it), registeredFor);
-    }
+    for (const auto & path : qAsConst(fontFiles))
+        LoadFontFile(dir.absoluteFilePath(path), registeredFor);
 }
 
 /**
@@ -204,8 +215,8 @@ void MythFontManager::LoadFontFile(const QString &fontPath,
         {
             LOG(VB_GUI | VB_FILE, LOG_DEBUG, LOC +
                 QString("In file '%1', found font(s) '%2'")
-                    .arg(fontPath)
-                    .arg(QFontDatabase::applicationFontFamilies(result)
+                    .arg(fontPath,
+                         QFontDatabase::applicationFontFamilies(result)
                          .join(", ")));
 
             if (!RegisterFont(fontPath, registeredFor, result))

@@ -4,7 +4,6 @@
 #define IPTVSTREAMHANDLER_H
 
 #include <vector>
-using namespace std;
 
 #include <QHostAddress>
 #include <QUdpSocket>
@@ -19,7 +18,7 @@ using namespace std;
 #include "streamhandler.h"
 
 #define IPTV_SOCKET_COUNT   3
-#define RTCP_TIMER          10
+static constexpr std::chrono::milliseconds RTCP_TIMER { 10s };
 
 class IPTVStreamHandler;
 class DTVSignalMonitor;
@@ -27,7 +26,7 @@ class MPEGStreamData;
 class PacketBuffer;
 class IPTVChannel;
 
-class IPTVStreamHandlerReadHelper : QObject
+class IPTVStreamHandlerReadHelper : public QObject
 {
     Q_OBJECT
 
@@ -55,11 +54,11 @@ public:
 
     void Start(void)
     {
-        m_timer = startTimer(200);
+        m_timer = startTimer(200ms);
     }
     void StartRTCPRR(void)
     {
-        m_timerRtcp = startTimer(RTCP_TIMER * 1000);
+        m_timerRtcp = startTimer(RTCP_TIMER);
     }
 
     void SendRTCPReport(void);
@@ -89,7 +88,7 @@ class IPTVStreamHandler : public StreamHandler
     void AddListener(MPEGStreamData *data,
                      bool /*allow_section_reader*/ = false,
                      bool /*needs_drb*/            = false,
-                     QString output_file           = QString()) override // StreamHandler
+                     const QString& output_file    = QString()) override // StreamHandler
     {
         // Force allow_section_reader and needs_buffering to false;
         StreamHandler::AddListener(data, false, false, output_file);
@@ -102,9 +101,9 @@ class IPTVStreamHandler : public StreamHandler
 
   protected:
     IPTVTuningData                m_tuning;
-    QUdpSocket                   *m_sockets[IPTV_SOCKET_COUNT] {};
-    IPTVStreamHandlerReadHelper  *m_readHelpers[IPTV_SOCKET_COUNT] {};
-    QHostAddress                  m_sender[IPTV_SOCKET_COUNT];
+    std::array<QUdpSocket*,IPTV_SOCKET_COUNT>                  m_sockets {};
+    std::array<IPTVStreamHandlerReadHelper*,IPTV_SOCKET_COUNT> m_readHelpers {};
+    std::array<QHostAddress,IPTV_SOCKET_COUNT>                 m_sender;
     IPTVStreamHandlerWriteHelper *m_writeHelper       {nullptr};
     PacketBuffer                 *m_buffer            {nullptr};
 

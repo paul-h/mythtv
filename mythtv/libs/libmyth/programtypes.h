@@ -29,23 +29,24 @@
 class QDateTime;
 class QMutex;
 
-MPUBLIC extern const char *kPlayerInUseID;
-MPUBLIC extern const char *kPIPPlayerInUseID;
-MPUBLIC extern const char *kPBPPlayerInUseID;
-MPUBLIC extern const char *kImportRecorderInUseID;
-MPUBLIC extern const char *kRecorderInUseID;
-MPUBLIC extern const char *kFileTransferInUseID;
-MPUBLIC extern const char *kTruncatingDeleteInUseID;
-MPUBLIC extern const char *kFlaggerInUseID;
-MPUBLIC extern const char *kTranscoderInUseID;
-MPUBLIC extern const char *kPreviewGeneratorInUseID;
-MPUBLIC extern const char *kJobQueueInUseID;
-MPUBLIC extern const char *kCCExtractorInUseID;
+MPUBLIC extern const QString kPlayerInUseID;
+MPUBLIC extern const QString kPIPPlayerInUseID;
+MPUBLIC extern const QString kPBPPlayerInUseID;
+MPUBLIC extern const QString kImportRecorderInUseID;
+MPUBLIC extern const QString kRecorderInUseID;
+MPUBLIC extern const QString kFileTransferInUseID;
+MPUBLIC extern const QString kTruncatingDeleteInUseID;
+MPUBLIC extern const QString kFlaggerInUseID;
+MPUBLIC extern const QString kTranscoderInUseID;
+MPUBLIC extern const QString kPreviewGeneratorInUseID;
+MPUBLIC extern const QString kJobQueueInUseID;
+MPUBLIC extern const QString kCCExtractorInUseID;
 
 /// Frame # -> File offset map
 using frm_pos_map_t = QMap<long long, long long>;
 
 enum MarkTypes {
+    MARK_INVALID       = -9999,
     MARK_ALL           = -100,
     MARK_UNSET         = -10,
     MARK_TMP_CUT_END   = -5,
@@ -76,7 +77,43 @@ enum MarkTypes {
     MARK_UTIL_PROGSTART = 40,
     MARK_UTIL_LASTPLAYPOS = 41,
 };
+
 MPUBLIC QString toString(MarkTypes type);
+
+using stringMarkMap = std::map<QString, MarkTypes>;
+static stringMarkMap MarkTypeStrings =
+{
+    { "ALL",              MARK_ALL },
+    { "UNSET",            MARK_UNSET },
+    { "TMP_CUT_END",      MARK_TMP_CUT_END },
+    { "TMP_CUT_START",    MARK_TMP_CUT_START },
+    { "UPDATED_CUT",      MARK_UPDATED_CUT },
+    { "PLACEHOLDER",      MARK_PLACEHOLDER },
+    { "CUT_END",          MARK_CUT_END },
+    { "CUT_START",        MARK_CUT_START },
+    { "BOOKMARK",         MARK_BOOKMARK },
+    { "BLANK_FRAME",      MARK_BLANK_FRAME },
+    { "COMM_START",       MARK_COMM_START },
+    { "COMM_END",         MARK_COMM_END },
+    { "GOP_START",        MARK_GOP_START },
+    { "KEYFRAME",         MARK_KEYFRAME },
+    { "SCENE_CHANGE",     MARK_SCENE_CHANGE },
+    { "GOP_BYFRAME",      MARK_GOP_BYFRAME },
+    { "ASPECT_4_3",       MARK_ASPECT_4_3 },
+    { "ASPECT_16_9",      MARK_ASPECT_16_9 },
+    { "ASPECT_2_21_1",    MARK_ASPECT_2_21_1 },
+    { "ASPECT_CUSTOM",    MARK_ASPECT_CUSTOM },
+    { "PROGRESSIVE",      MARK_SCAN_PROGRESSIVE },
+    { "VIDEO_WIDTH",      MARK_VIDEO_WIDTH },
+    { "VIDEO_HEIGHT",     MARK_VIDEO_HEIGHT },
+    { "VIDEO_RATE",       MARK_VIDEO_RATE },
+    { "DURATION_MS",      MARK_DURATION_MS },
+    { "TOTAL_FRAMES",     MARK_TOTAL_FRAMES },
+    { "UTIL_PROGSTART",   MARK_UTIL_PROGSTART },
+    { "UTIL_LASTPLAYPOS", MARK_UTIL_LASTPLAYPOS }
+};
+
+MPUBLIC MarkTypes markTypeFromString(const QString & str);
 
 /// Frame # -> Mark map
 using frm_dir_map_t = QMap<uint64_t, MarkTypes>;
@@ -124,36 +161,9 @@ enum TranscodingStatus {
     TRANSCODING_RUNNING        = 2
 };
 
-/// If you change these please update:
-/// mythplugins/mythweb/modules/tv/classes/Program.php
-/// mythtv/bindings/perl/MythTV/Program.pm
-/// (search for "Assign the program flags" in both)
-enum ProgramFlag {
-    FL_NONE           = 0x00000000,
-    FL_COMMFLAG       = 0x00000001,
-    FL_CUTLIST        = 0x00000002,
-    FL_AUTOEXP        = 0x00000004,
-    FL_EDITING        = 0x00000008,
-    FL_BOOKMARK       = 0x00000010,
-    FL_REALLYEDITING  = 0x00000020,
-    FL_COMMPROCESSING = 0x00000040,
-    FL_DELETEPENDING  = 0x00000080,
-    FL_TRANSCODED     = 0x00000100,
-    FL_WATCHED        = 0x00000200,
-    FL_PRESERVED      = 0x00000400,
-    FL_CHANCOMMFREE   = 0x00000800,
-    FL_REPEAT         = 0x00001000,
-    FL_DUPLICATE      = 0x00002000,
-    FL_REACTIVATE     = 0x00004000,
-    FL_IGNOREBOOKMARK = 0x00008000,
-    FL_IGNOREPROGSTART = 0x00010000,
-    FL_ALLOWLASTPLAYPOS = 0x00020000,
-    // if you move the type mask please edit {Set,Get}ProgramInfoType()
-    FL_TYPEMASK       = 0x00F00000,
-    FL_INUSERECORDING = 0x01000000,
-    FL_INUSEPLAYING   = 0x02000000,
-    FL_INUSEOTHER     = 0x04000000,
-};
+#define DEFINE_FLAGS_ENUM
+#include "programtypeflags.h"
+#undef DEFINE_FLAGS_ENUM
 
 enum ProgramInfoType {
     kProgramInfoTypeRecording = 0,
@@ -163,57 +173,6 @@ enum ProgramInfoType {
     kProgramInfoTypeVideoStreamingRTSP,
     kProgramInfoTypeVideoBD,
 };
-
-/// if AudioProps changes, the audioprop column in program and
-/// recordedprogram has to changed accordingly
-enum AudioProps {
-    AUD_UNKNOWN       = 0x00, // For backwards compatibility do not change 0 or 1
-    AUD_STEREO        = 0x01,
-    AUD_MONO          = 0x02,
-    AUD_SURROUND      = 0x04,
-    AUD_DOLBY         = 0x08,
-    AUD_HARDHEAR      = 0x10,
-    AUD_VISUALIMPAIR  = 0x20,
-}; // has 6 bits in ProgramInfo::properties
-#define kAudioPropertyBits 6
-#define kAudioPropertyOffset 0
-#define kAudioPropertyMask (0x3f<<kAudioPropertyOffset)
-
-/// if VideoProps changes, the videoprop column in program and
-/// recordedprogram has to changed accordingly
-enum VideoProps {
-    // For backwards compatibility do not change 0 or 1
-    VID_UNKNOWN       = 0x000,
-    VID_WIDESCREEN    = 0x001,
-    VID_HDTV          = 0x002,
-    VID_MPEG2         = 0x004,
-    VID_AVC           = 0x008,
-    VID_HEVC          = 0x010,
-    VID_720           = 0x020,
-    VID_1080          = 0x040,
-    VID_4K            = 0x080,
-    VID_3DTV          = 0x100,
-    VID_PROGRESSIVE   = 0x200,
-    VID_DAMAGED       = 0x400,
-}; // has 11 bits in ProgramInfo::properties
-#define kVideoPropertyBits 11
-#define kVideoPropertyOffset kAudioPropertyBits
-#define kVideoPropertyMask (0x7ff<<kVideoPropertyOffset)
-
-/// if SubtitleTypes changes, the subtitletypes column in program and
-/// recordedprogram has to changed accordingly
-enum SubtitleType {
-    // For backwards compatibility do not change 0 or 1
-    SUB_UNKNOWN       = 0x00,
-    SUB_HARDHEAR      = 0x01,
-    SUB_NORMAL        = 0x02,
-    SUB_ONSCREEN      = 0x04,
-    SUB_SIGNED        = 0x08
-}; // has 4 bits in ProgramInfo::properties
-#define kSubtitlePropertyBits 4
-#define kSubtitlePropertyOffset (kAudioPropertyBits+kVideoPropertyBits)
-#define kSubtitlePropertyMask (0x0f<<kSubtitlePropertyOffset)
-
 
 enum AvailableStatusType {
     asAvailable = 0,

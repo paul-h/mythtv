@@ -32,7 +32,6 @@
 
 // C++ includes
 #include <vector>
-using namespace std;
 
 // MythTV includes
 #include "transporteditor.h"
@@ -71,7 +70,7 @@ static QString pp_modulation(const QString& mod)
 
 static CardUtil::INPUT_TYPES get_cardtype(uint sourceid)
 {
-    vector<uint> cardids;
+    std::vector<uint> cardids;
 
     // Work out what card we have.. (doesn't always work well)
     MSqlQuery query(MSqlQuery::InitCon());
@@ -101,7 +100,7 @@ static CardUtil::INPUT_TYPES get_cardtype(uint sourceid)
         return CardUtil::ERROR_PROBE;
     }
 
-    vector<CardUtil::INPUT_TYPES> cardtypes;
+    std::vector<CardUtil::INPUT_TYPES> cardtypes;
 
     for (uint cardid : cardids)
     {
@@ -118,12 +117,13 @@ static CardUtil::INPUT_TYPES get_cardtype(uint sourceid)
             else if (CardUtil::HDHRdoesDVB(CardUtil::GetVideoDevice(cardid)))
                 nType = CardUtil::DVBT2;
         }
-
+#ifdef USING_SATIP
         if (nType == CardUtil::SATIP)
         {
             QString deviceid = CardUtil::GetVideoDevice(cardid);
             nType = SatIP::toDVBInputType(deviceid);
         }
+#endif // USING_SATIP
 
         if ((CardUtil::ERROR_OPEN    == nType) ||
             (CardUtil::ERROR_UNKNOWN == nType) ||
@@ -194,7 +194,7 @@ static CardUtil::INPUT_TYPES get_cardtype(uint sourceid)
 
 void TransportListEditor::SetSourceID(uint sourceid)
 {
-    for (auto *setting : m_list)
+    for (auto *setting : qAsConst(m_list))
         removeChild(setting);
     m_list.clear();
 
@@ -220,12 +220,12 @@ TransportListEditor::TransportListEditor(uint sourceid) :
 
     auto *newTransport =
         new ButtonStandardSetting("(" + tr("New Transport") + ")");
-    connect(newTransport, SIGNAL(clicked()), SLOT(NewTransport(void)));
+    connect(newTransport, &ButtonStandardSetting::clicked, this, &TransportListEditor::NewTransport);
 
     addChild(newTransport);
 
-    connect(m_videosource, SIGNAL(valueChanged(const QString&)),
-            this, SLOT(SetSourceID(const QString&)));
+    connect(m_videosource, qOverload<const QString&>(&StandardSetting::valueChanged),
+            this, qOverload<const QString&>(&TransportListEditor::SetSourceID));
 
     SetSourceID(sourceid);
 }
@@ -303,8 +303,8 @@ void TransportListEditor::Load()
                 type = "(DVB-S2)";
 
             QString txt = QString("%1 %2 %3 %4 %5 %6 %7")
-                .arg(mod).arg(query.value(2).toString())
-                .arg(hz).arg(rate).arg(netid).arg(tid).arg(type);
+                .arg(mod, query.value(2).toString(),
+                     hz, rate, netid, tid, type);
 
             auto *transport = new TransportSetting(txt, query.value(0).toUInt(),
                                                    m_sourceid, m_cardtype);

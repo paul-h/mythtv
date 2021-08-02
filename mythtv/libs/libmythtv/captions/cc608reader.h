@@ -28,7 +28,7 @@ class CC608Text
 
 struct TextContainer
 {
-    int timecode;
+    std::chrono::milliseconds timecode;
     int len;
     unsigned char *buffer;
     char type;
@@ -48,7 +48,7 @@ class CC608Buffer
     }
 
     QMutex             m_lock;
-    vector<CC608Text*> m_buffers;
+    std::vector<CC608Text*> m_buffers;
 };
 
 class CC608StateTracker
@@ -74,6 +74,8 @@ class CC608StateTracker
 
 class MythPlayer;
 
+using CC608WriteFn = void (*) (void *, unsigned char *, int, std::chrono::milliseconds, int);
+
 class MTV_PUBLIC CC608Reader : public CC608Input
 {
   public:
@@ -88,14 +90,12 @@ class MTV_PUBLIC CC608Reader : public CC608Input
     void SetMode(int mode);
     void ClearBuffers(bool input, bool output, int outputStreamIdx = -1);
     void AddTextData(unsigned char *buf, int len,
-                     int64_t timecode, char type) override; // CC608Input
-    void TranscodeWriteText(void (*func)
-                           (void *, unsigned char *, int, int, int),
-                            void * ptr);
+                     std::chrono::milliseconds timecode, char type) override; // CC608Input
+    void TranscodeWriteText(CC608WriteFn func, void * ptr);
 
   private:
     int Update(unsigned char *inpos);
-    void Update608Text(vector<CC608Text*> *ccbuf,
+    void Update608Text(std::vector<CC608Text*> *ccbuf,
                          int replace = 0, int scroll = 0,
                          bool scroll_prsv = false,
                          int scroll_yoff = 0, int scroll_ymax = 15,
@@ -109,11 +109,11 @@ class MTV_PUBLIC CC608Reader : public CC608Input
     int               m_writePosition {0};
     QMutex            m_inputBufLock;
     int               m_maxTextSize   {0};
-    TextContainer     m_inputBuffers[MAXTBUFFER+1] {};
+    std::array<TextContainer,MAXTBUFFER+1> m_inputBuffers {};
     int               m_ccMode        {CC_CC1};
     int               m_ccPageNum     {0x888};
     // Output buffers
-    CC608StateTracker m_state[MAXOUTBUFFERS];
+    std::array<CC608StateTracker,MAXOUTBUFFERS> m_state;
 };
 
 #endif // CC608READER_H

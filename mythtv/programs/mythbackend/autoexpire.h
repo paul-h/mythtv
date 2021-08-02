@@ -3,7 +3,6 @@
 
 #include <cstdint>
 #include <vector>
-using namespace std;
 
 #include <QWaitCondition>
 #include <QDateTime>
@@ -22,8 +21,8 @@ class EncoderLink;
 class FileSystemInfo;
 class MainServer;
 
-using pginfolist_t  = vector<ProgramInfo*>;
-using enclinklist_t = vector<EncoderLink*>;
+using pginfolist_t  = std::vector<ProgramInfo*>;
+using enclinklist_t = std::vector<EncoderLink*>;
 
 enum ExpireMethodType {
     emOldestFirst           = 1,
@@ -101,7 +100,7 @@ class AutoExpire : public QObject
     void FillExpireList(pginfolist_t &expireList);
     void FillDBOrdered(pginfolist_t &expireList, int expMethod);
     static void SendDeleteMessages(pginfolist_t &deleteList);
-    void Sleep(int sleepTime /*ms*/);
+    void Sleep(std::chrono::milliseconds sleepTime);
 
     void UpdateDontExpireSet(void);
     bool IsInDontExpireSet(uint chanid, const QDateTime &recstartts) const;

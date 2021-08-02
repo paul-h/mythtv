@@ -20,7 +20,7 @@ struct GameData
 
 static void GameCallback(void *data, QString &selection)
 {
-    auto *ddata = (GameData *)data;
+    auto *ddata = static_cast<GameData *>(data);
     QString sel = selection.toLower();
 
     (void)ddata;
@@ -83,7 +83,7 @@ static int runMenu(const QString& which_menu)
     }
 
     LOG(VB_GENERAL, LOG_ERR, QString("Couldn't find menu %1 or theme %2")
-        .arg(which_menu).arg(themedir));
+        .arg(which_menu, themedir));
     delete menu;
     return -1;
 }

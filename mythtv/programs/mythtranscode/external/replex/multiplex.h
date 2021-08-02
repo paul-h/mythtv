@@ -26,12 +26,17 @@
 #ifndef MULTIPLEX_H
 #define MULTIPLEX_H
 
+#include <array>
+
 #include "mpg_common.h"
 #include "pes.h"
 #include "element.h"
 
 #define N_AUDIO 32
 #define N_AC3 8
+
+using ext_arr = std::array<extdata_t,N_AUDIO>;
+using aok_arr = std::array<bool,N_AUDIO>;
 
 struct multiplex_t {
 	int fd_out;
@@ -71,7 +76,7 @@ struct multiplex_t {
 
 	dummy_buffer vdbuf;
 
-	extdata_t ext[N_AUDIO];
+	ext_arr ext;
 	int extcnt;
 
 	ringbuffer *extrbuffer;
@@ -81,11 +86,12 @@ struct multiplex_t {
 
 	int (*fill_buffers)(void *p, int f);
 	void *priv;
+	int error; /* mythtv#244: added to catch full disk write failures */
 };
 
-void check_times( multiplex_t *mx, int *video_ok, int *ext_ok, int *start);
-void write_out_packs( multiplex_t *mx, int video_ok, int *ext_ok);
-void finish_mpg(multiplex_t *mx);
+void check_times( multiplex_t *mx, int *video_ok, aok_arr &ext_ok, int *start);
+int write_out_packs( multiplex_t *mx, int video_ok, aok_arr &ext_ok);
+int finish_mpg(multiplex_t *mx);
 void init_multiplex( multiplex_t *mx, sequence_t *seq_head,
 		     audio_frame_t *extframe, int *exttype, const int *exttypcnt,
 		     uint64_t video_delay, uint64_t audio_delay, int fd,

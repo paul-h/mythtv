@@ -18,15 +18,13 @@
 
 #define LOC      QString("NetContent: ")
 
-using namespace std;
-
 // ---------------------------------------------------
 
 GrabberScript::GrabberScript(const QString& title, const QString& image,
-              const ArticleType &type, const QString& author,
-              const bool& search, const bool& tree,
+              const ArticleType type, const QString& author,
+              const bool search, const bool tree,
               const QString& description, const QString& commandline,
-              const double& version) :
+              const double version) :
     MThread("GrabberScript")
 {
     m_title = title;
@@ -53,7 +51,7 @@ void GrabberScript::run()
     QString commandline = m_commandline;
     MythSystemLegacy getTree(commandline, QStringList("-T"),
                        kMSRunShell | kMSStdOut);
-    getTree.Run(900);
+    getTree.Run(15min);
     uint status = getTree.Wait();
 
     if( status == GENERIC_EXIT_CMD_NOT_FOUND )
@@ -101,7 +99,7 @@ void GrabberScript::run()
 
 void GrabberScript::parseDBTree(const QString &feedtitle, const QString &path,
                                 const QString &pathThumb, QDomElement& domElem,
-                                const ArticleType &type)
+                                const ArticleType type)
 {
     QMutexLocker locker(&m_lock);
 
@@ -112,7 +110,7 @@ void GrabberScript::parseDBTree(const QString &feedtitle, const QString &path,
     QDomElement fileitem = domElem.firstChildElement("item");
     while (!fileitem.isNull())
     {   // Fill the article list...
-        articles.append(parse.ParseItem(fileitem));
+        articles.append(Parse::ParseItem(fileitem));
         fileitem = fileitem.nextSiblingElement("item");
     }
 
@@ -135,7 +133,7 @@ void GrabberScript::parseDBTree(const QString &feedtitle, const QString &path,
         if (path.isEmpty())
             pathToUse = dirname;
         else
-            pathToUse = QString("%1/%2").arg(path).arg(dirname);
+            pathToUse = QString("%1/%2").arg(path, dirname);
 
         parseDBTree(feedtitle,
                     pathToUse,
@@ -148,11 +146,10 @@ void GrabberScript::parseDBTree(const QString &feedtitle, const QString &path,
 
 GrabberManager::GrabberManager()
 {
-    m_updateFreq = (gCoreContext->GetNumSetting(
-                       "netsite.updateFreq", 24) * 3600 * 1000);
+    m_updateFreq = gCoreContext->GetDurSetting<std::chrono::hours>("netsite.updateFreq", 24h);
     m_timer = new QTimer();
-    connect( m_timer, SIGNAL(timeout()),
-                      this, SLOT(timeout()));
+    connect( m_timer, &QTimer::timeout,
+                      this, &GrabberManager::timeout);
 }
 
 GrabberManager::~GrabberManager()
@@ -225,10 +222,10 @@ void GrabberDownloadThread::run()
     RunProlog();
 
     m_scripts = findAllDBTreeGrabbers();
-    uint updateFreq = gCoreContext->GetNumSetting(
-               "netsite.updateFreq", 24);
+    auto updateFreq = gCoreContext->GetDurSetting<std::chrono::hours>(
+               "netsite.updateFreq", 24h);
 
-    while (m_scripts.count())
+    while (!m_scripts.isEmpty())
     {
         GrabberScript *script = m_scripts.takeFirst();
         if (script && (needsUpdate(script, updateFreq) || m_refreshAll))
@@ -269,10 +266,10 @@ void Search::executeSearch(const QString &script, const QString &query,
     LOG(VB_GENERAL, LOG_DEBUG, "Search::executeSearch");
     m_searchProcess = new MythSystemLegacy();
 
-    connect(m_searchProcess, SIGNAL(finished()),
-            this, SLOT(slotProcessSearchExit()));
-    connect(m_searchProcess, SIGNAL(error(uint)),
-            this, SLOT(slotProcessSearchExit(uint)));
+    connect(m_searchProcess, &MythSystemLegacy::finished,
+            this, qOverload<>(&Search::slotProcessSearchExit));
+    connect(m_searchProcess, &MythSystemLegacy::error,
+            this, qOverload<uint>(&Search::slotProcessSearchExit));
 
     const QString& cmd = script;
 
@@ -289,11 +286,11 @@ void Search::executeSearch(const QString &script, const QString &query,
     args.append(MythSystemLegacy::ShellEscape(term));
 
     LOG(VB_GENERAL, LOG_INFO, LOC +
-        QString("Internet Search Query: %1 %2").arg(cmd).arg(args.join(" ")));
+        QString("Internet Search Query: %1 %2").arg(cmd, args.join(" ")));
 
     uint flags = kMSRunShell | kMSStdOut | kMSRunBackground;
     m_searchProcess->SetCommand(cmd, args, flags);
-    m_searchProcess->Run(40);
+    m_searchProcess->Run(40s);
 }
 
 void Search::resetSearch()
@@ -305,7 +302,7 @@ void Search::resetSearch()
 void Search::process()
 {
     Parse parse;
-    m_videoList = parse.parseRSS(m_document);
+    m_videoList = Parse::parseRSS(m_document);
 
     QDomNodeList entries = m_document.elementsByTagName("channel");
 
@@ -406,6 +403,11 @@ void Search::slotProcessSearchExit(uint exitcode)
     m_searchProcess->deleteLater();
     m_searchProcess = nullptr;
     emit finishedSearch(this);
+}
+
+void Search::slotProcessSearchExit(void)
+{
+    slotProcessSearchExit(GENERIC_EXIT_OK);
 }
 
 void Search::SetData(QByteArray data)

@@ -5,25 +5,24 @@
 #include <QCoreApplication>
 
 // MythTV
-#include "mythplayer.h"
+#include "mythplayerui.h"
 
-class MythBDPlayer : public MythPlayer
+class MythBDPlayer : public MythPlayerUI
 {
-    Q_DECLARE_TR_FUNCTIONS(MythBDPlayer)
+    Q_OBJECT
 
   public:
-    explicit MythBDPlayer(PlayerFlags Flags = kNoFlags);
+    MythBDPlayer(MythMainWindow* MainWindow, TV* Tv, PlayerContext* Context, PlayerFlags Flags = kNoFlags);
     bool     HasReachedEof     (void) const override;
-    bool     GoToMenu          (const QString& Menu) override;
     int      GetNumChapters    (void) override;
     int      GetCurrentChapter (void) override;
-    void     GetChapterTimes   (QList<long long> &ChapterTimes) override;
+    void     GetChapterTimes   (QList<std::chrono::seconds> &ChapterTimes) override;
     int64_t  GetChapter        (int Chapter) override;
     int      GetNumTitles      (void) const override;
     int      GetNumAngles      (void) const override;
     int      GetCurrentTitle   (void) const override;
     int      GetCurrentAngle   (void) const override;
-    int      GetTitleDuration  (int Title) const override;
+    std::chrono::seconds  GetTitleDuration  (int Title) const override;
     QString  GetTitleName      (int Title) const override;
     QString  GetAngleName      (int Angle) const override;
     bool     SwitchTitle       (int Title) override;
@@ -32,16 +31,11 @@ class MythBDPlayer : public MythPlayer
     bool     SwitchAngle       (int Angle) override;
     bool     PrevAngle         (void) override;
     bool     NextAngle         (void) override;
-    void     SetBookmark       (bool Clear) override;
     uint64_t GetBookmark       (void) override;
 
-    // Disable screen grabs for Bluray
-    char *GetScreenGrabAtFrame(uint64_t /*FrameNum*/, bool /*Absolute*/, int &/*BufferSize*/,
-                               int &/*FrameWidth*/, int &/*FrameHeight*/, float &/*AspectRatio*/) override
-        { return nullptr; }
-    char *GetScreenGrab(int /*SecondsIn*/, int &/*BufferSize*/, int &/*FrameWidth*/,
-                        int &/*FrameHeight*/, float &/*AspectRatio*/) override
-        { return nullptr; }
+  protected slots:
+    void     GoToMenu          (const QString& Menu);
+    void     SetBookmark       (bool Clear) override;
 
   protected:
     void     VideoStart        (void) override;
@@ -50,9 +44,7 @@ class MythBDPlayer : public MythPlayer
     void     DisplayPauseFrame (void) override;
     void     PreProcessNormalFrame(void) override;
     bool     JumpToFrame       (uint64_t Frame) override;
-    void     CreateDecoder     (char *TestBuffer, int TestReadSize) override;
-    void     SeekForScreenGrab (uint64_t &/*Number*/, uint64_t /*FrameNumber*/,
-                                bool /*Absolute*/) override {}
+    void     CreateDecoder     (TestBufferVec & TestBuffer) override;
 
   private:
     Q_DISABLE_COPY(MythBDPlayer)

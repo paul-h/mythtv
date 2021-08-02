@@ -35,7 +35,7 @@ int pgm_read(unsigned char *buf, int width, int height, const char *filename)
     if (fp == nullptr)
     {
         LOG(VB_COMMFLAG, LOG_ERR, QString("pgm_read fopen %1 failed: %2")
-                .arg(filename).arg(strerror(errno)));
+                .arg(filename, strerror(errno)));
         return -1;
     }
 
@@ -46,7 +46,7 @@ int pgm_read(unsigned char *buf, int width, int height, const char *filename)
     if (nn != 3)
     {
         LOG(VB_COMMFLAG, LOG_ERR, QString("pgm_read fscanf %1 failed: %2")
-                .arg(filename).arg(strerror(errno)));
+                .arg(filename, strerror(errno)));
         goto error;
     }
 
@@ -64,7 +64,7 @@ int pgm_read(unsigned char *buf, int width, int height, const char *filename)
         if (fread(buf + rr * width, 1, width, fp) != (size_t)width)
         {
             LOG(VB_COMMFLAG, LOG_ERR, QString("pgm_read fread %1 failed: %2")
-                    .arg(filename).arg(strerror(errno)));
+                    .arg(filename, strerror(errno)));
             goto error;
         }
     }
@@ -86,7 +86,7 @@ int pgm_write(const unsigned char *buf, int width, int height,
     if (fp == nullptr)
     {
         LOG(VB_COMMFLAG, LOG_ERR, QString("pgm_write fopen %1 failed: %2")
-                .arg(filename).arg(strerror(errno)));
+                .arg(filename, strerror(errno)));
         return -1;
     }
 
@@ -96,7 +96,7 @@ int pgm_write(const unsigned char *buf, int width, int height,
         if (fwrite(buf + rr * width, 1, width, fp) != (size_t)width)
         {
             LOG(VB_COMMFLAG, LOG_ERR, QString("pgm_write fwrite %1 failed: %2")
-                    .arg(filename).arg(strerror(errno)));
+                    .arg(filename, strerror(errno)));
             goto error;
         }
     }
@@ -201,10 +201,10 @@ int pgm_overlay(AVFrame *dst, const AVFrame *s1, int s1height,
 
     // av_image_copy is badly designed to require writeable
     // pointers to the read-only data, so copy the pointers here
-    const uint8_t *src_data[4]
-      =  {s1->data[0], s1->data[1], s1->data[2], s1->data[3]};
+    std::array<const uint8_t*,4> src_data
+        {s1->data[0], s1->data[1], s1->data[2], s1->data[3]};
 
-    av_image_copy(dst->data, dst->linesize, src_data, s1->linesize,
+    av_image_copy(dst->data, dst->linesize, src_data.data(), s1->linesize,
         AV_PIX_FMT_GRAY8, s1width, s1height);
 
     /* Overwrite overlay area of "dst" with "s2". */
@@ -247,12 +247,12 @@ int pgm_convolve_radial(AVFrame *dst, AVFrame *s1, AVFrame *s2,
 
     // av_image_copy is badly designed to require writeable
     // pointers to the read-only data, so copy the pointers here
-    const uint8_t *src_data[4]
-    =  {s1->data[0], s1->data[1], s1->data[2], s1->data[3]};
+    std::array<const uint8_t*,4> src_data
+        {s1->data[0], s1->data[1], s1->data[2], s1->data[3]};
 
-    av_image_copy(s2->data, s2->linesize, src_data, s1->linesize,
+    av_image_copy(s2->data, s2->linesize, src_data.data(), s1->linesize,
         AV_PIX_FMT_GRAY8, newwidth, newheight);
-    av_image_copy(dst->data, dst->linesize, src_data, s1->linesize,
+    av_image_copy(dst->data, dst->linesize, src_data.data(), s1->linesize,
         AV_PIX_FMT_GRAY8, newwidth, newheight);
 
     /* "s1" convolve with column vector => "s2" */

@@ -14,15 +14,14 @@ extern "C" MTV_PUBLIC void Java_org_mythtv_video_SurfaceTextureListener_frameAva
 class MythMediaCodecInterop : public MythOpenGLInterop
 {
   public:
-    static MythMediaCodecInterop* Create(MythRenderOpenGL *Context, QSize Size);
-
-    virtual vector<MythVideoTexture*> Acquire (MythRenderOpenGL *Context,
-                                               VideoColourSpace *ColourSpace,
-                                               VideoFrame *Frame, FrameScanType Scan) override;
-    void*   GetSurface(void);
+    static MythMediaCodecInterop* CreateMediaCodec(MythPlayerUI* Player, MythRenderOpenGL* Context, QSize Size);
+    virtual vector<MythVideoTextureOpenGL*> Acquire(MythRenderOpenGL *Context,
+                                                    MythVideoColourSpace *ColourSpace,
+                                                    MythVideoFrame *Frame, FrameScanType Scan) override;
+    void* GetSurface(void);
 
   protected:
-    MythMediaCodecInterop(MythRenderOpenGL *Context);
+    MythMediaCodecInterop(MythPlayerUI* Player, MythRenderOpenGL *Context);
    ~MythMediaCodecInterop() override;
     bool Initialise(QSize Size);
 

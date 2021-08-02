@@ -5,20 +5,20 @@
 #include <QObject>
 
 // MythTV
+#include "mythvideocolourspace.h"
 #include "opengl/mythrenderopengl.h"
-#include "videocolourspace.h"
-#include "mythvideotexture.h"
+#include "opengl/mythvideotextureopengl.h"
 
 class MythOpenGLTonemap : public QObject
 {
     Q_OBJECT
 
   public:
-    MythOpenGLTonemap(MythRenderOpenGL *Render, VideoColourSpace *ColourSpace);
+    MythOpenGLTonemap(MythRenderOpenGL* Render, MythVideoColourSpace* ColourSpace);
    ~MythOpenGLTonemap() override;
 
-    MythVideoTexture* Map(vector<MythVideoTexture*> &Inputs, QSize DisplaySize);
-    MythVideoTexture* GetTexture(void);
+    MythVideoTextureOpenGL* Map(std::vector<MythVideoTextureOpenGL*>& Inputs, QSize DisplaySize);
+    MythVideoTextureOpenGL* GetTexture();
 
   public slots:
     void UpdateColourSpace(bool PrimariesChanged);
@@ -31,14 +31,14 @@ class MythOpenGLTonemap : public QObject
 
     MythRenderOpenGL*      m_render       { nullptr  };
     QOpenGLExtraFunctions* m_extra        { nullptr  };
-    VideoColourSpace*      m_colourSpace  { nullptr  };
+    MythVideoColourSpace*  m_colourSpace  { nullptr  };
     QOpenGLShaderProgram*  m_shader       { nullptr  };
     GLuint                 m_storageBuffer{ 0        };
-    MythVideoTexture*      m_texture      { nullptr  };
+    MythVideoTextureOpenGL* m_texture     { nullptr  };
     size_t                 m_inputCount   { 0        };
     QSize                  m_inputSize    { 0, 0     };
     VideoFrameType         m_inputType    { FMT_NONE };
     QSize                  m_outputSize   { 0, 0     };
 };
 
-#endif // MYTHOPENGLTONEMAP_H
+#endif

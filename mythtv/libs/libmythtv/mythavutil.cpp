@@ -6,25 +6,26 @@
 //  Copyright (c) 2014 Bubblestuff Pty Ltd. All rights reserved.
 //
 
-#include "mythframe.h"
-#include "mythavutil.h"
-#include "mythcorecontext.h"
-#include "mythconfig.h"
-extern "C" {
-#include "libswscale/swscale.h"
-#include "libavfilter/avfilter.h"
-#include "libavcodec/avcodec.h"
-#include "libavfilter/buffersrc.h"
-#include "libavfilter/buffersink.h"
-#include "libavutil/imgutils.h"
-#include "libavformat/avformat.h"
-}
+// Qt
 #include <QMutexLocker>
 #include <QFile>
 
-AVPixelFormat FrameTypeToPixelFormat(VideoFrameType type)
+// MythTV
+#include "mythconfig.h"
+#include "mythlogging.h"
+#include "mythdeinterlacer.h"
+#include "mythavutil.h"
+
+// FFmpeg
+extern "C" {
+#include "libavcodec/avcodec.h"
+#include "libavutil/imgutils.h"
+#include "libavformat/avformat.h"
+}
+
+AVPixelFormat MythAVUtil::FrameTypeToPixelFormat(VideoFrameType Type)
 {
-    switch (type)
+    switch (Type)
     {
         case FMT_YV12:       return AV_PIX_FMT_YUV420P;
         case FMT_YUV420P9:   return AV_PIX_FMT_YUV420P9;
@@ -66,9 +67,9 @@ AVPixelFormat FrameTypeToPixelFormat(VideoFrameType type)
     return AV_PIX_FMT_NONE;
 }
 
-VideoFrameType PixelFormatToFrameType(AVPixelFormat fmt)
+VideoFrameType MythAVUtil::PixelFormatToFrameType(AVPixelFormat Fmt)
 {
-    switch (fmt)
+    switch (Fmt)
     {
         case AV_PIX_FMT_YUVJ420P:
         case AV_PIX_FMT_YUV420P:   return FMT_YV12;
@@ -112,197 +113,94 @@ VideoFrameType PixelFormatToFrameType(AVPixelFormat fmt)
     return FMT_NONE;
 }
 
-QString DeinterlacerName(MythDeintType Deint, bool DoubleRate, VideoFrameType Format)
+MythHDR::HDRType MythAVUtil::FFmpegTransferToHDRType(int Transfer)
 {
-    MythDeintType deint = GetDeinterlacer(Deint);
-    QString result = DoubleRate ? "2x " : "";
-    if (Deint & DEINT_CPU)
+    switch (Transfer)
     {
-        result += "CPU ";
-        switch (deint)
-        {
-            case DEINT_HIGH:   return result + "Yadif";
-            case DEINT_MEDIUM: return result + "Linearblend";
-            case DEINT_BASIC:  return result + "Onefield";
-            default: break;
-        }
+        case AVCOL_TRC_SMPTE2084: return MythHDR::HDR10;
+        case AVCOL_TRC_BT2020_10:
+        case AVCOL_TRC_ARIB_STD_B67: return MythHDR::HLG;
+        default: break;
     }
-    else if (Deint & DEINT_SHADER)
-    {
-        result += "GLSL ";
-        switch (deint)
-        {
-            case DEINT_HIGH:   return result + "Kernel";
-            case DEINT_MEDIUM: return result + "Linearblend";
-            case DEINT_BASIC:  return result + "Onefield";
-            default: break;
-        }
-    }
-    else if (Deint & DEINT_DRIVER)
-    {
-        switch (Format)
-        {
-            case FMT_MEDIACODEC: return "MediaCodec";
-            case FMT_DRMPRIME: return result + "EGL Onefield";
-            case FMT_VDPAU:
-                result += "VDPAU ";
-                switch (deint)
-                {
-                    case DEINT_HIGH:   return result + "Advanced";
-                    case DEINT_MEDIUM: return result + "Temporal";
-                    case DEINT_BASIC:  return result + "Basic";
-                    default: break;
-                }
-                break;
-            case FMT_NVDEC:
-                result += "NVDec ";
-                switch (deint)
-                {
-                    case DEINT_HIGH:
-                    case DEINT_MEDIUM: return result + "Adaptive";
-                    case DEINT_BASIC:  return result + "Basic";
-                    default: break;
-                }
-                break;
-            case FMT_VAAPI:
-                result += "VAAPI ";
-                switch (deint)
-                {
-                    case DEINT_HIGH:   return result + "Compensated";
-                    case DEINT_MEDIUM: return result + "Adaptive";
-                    case DEINT_BASIC:  return result + "Basic";
-                    default: break;
-                }
-                break;
-            default: break;
-        }
-    }
-    return "None";
+    return MythHDR::SDR;
 }
 
-QString DeinterlacerPref(MythDeintType Deint)
+/*! \brief Deinterlace an AVFrame
+ *
+ * This is only used by the mytharchive plugin and can be removed if MythArchive
+ * becomes obsolete.
+*/
+void MythAVUtil::DeinterlaceAVFrame(AVFrame *Frame)
 {
-    if (DEINT_NONE == Deint)
-        return QString("None");
-    QString result;
-    if (Deint & DEINT_BASIC)       result = "Basic";
-    else if (Deint & DEINT_MEDIUM) result = "Medium";
-    else if (Deint & DEINT_HIGH)   result = "High";
-    if (Deint & DEINT_CPU)         result += "|CPU";
-    if (Deint & DEINT_SHADER)      result += "|GLSL";
-    if (Deint & DEINT_DRIVER)      result += "|DRIVER";
-    return result;
-}
+    if (!Frame)
+        return;
 
-int AVPictureFill(AVFrame *pic, const VideoFrame *frame, AVPixelFormat fmt)
-{
-    if (fmt == AV_PIX_FMT_NONE)
+    // Create a wrapper frame and set it up
+    // (yes - this will end up being a wrapper around a wrapper!)
+    if (VideoFrameType type = PixelFormatToFrameType(static_cast<AVPixelFormat>(Frame->format));
+        MythVideoFrame::YUVFormat(type))
     {
-        fmt = FrameTypeToPixelFormat(frame->codec);
+        MythVideoFrame mythframe(type, Frame->data[0],
+                                 MythVideoFrame::GetBufferSize(type, Frame->width, Frame->height),
+                                 Frame->width, Frame->height);
+        mythframe.m_offsets[0] = 0;
+        mythframe.m_offsets[1] = static_cast<int>(Frame->data[1] - Frame->data[0]);
+        mythframe.m_offsets[2] = static_cast<int>(Frame->data[2] - Frame->data[0]);
+        mythframe.m_pitches[0] = Frame->linesize[0];
+        mythframe.m_pitches[1] = Frame->linesize[1];
+        mythframe.m_pitches[2] = Frame->linesize[2];
+
+        mythframe.m_deinterlaceSingle = DEINT_CPU | DEINT_MEDIUM;
+        mythframe.m_deinterlaceAllowed = DEINT_ALL;
+        MythDeinterlacer deinterlacer;
+        deinterlacer.Filter(&mythframe, kScan_Interlaced, nullptr, true);
+        // Must remove buffer before mythframe is deleted
+        mythframe.m_buffer = nullptr;
     }
 
-    av_image_fill_arrays(pic->data, pic->linesize, frame->buf,
-        fmt, frame->width, frame->height, IMAGE_ALIGN);
-    pic->data[1] = frame->buf + frame->offsets[1];
-    pic->data[2] = frame->buf + frame->offsets[2];
-    pic->linesize[0] = frame->pitches[0];
-    pic->linesize[1] = frame->pitches[1];
-    pic->linesize[2] = frame->pitches[2];
-    return static_cast<int>(GetBufferSize(frame->codec, frame->width, frame->height));
+
 }
 
-class MythAVCopyPrivate
+/// \brief Initialise AVFrame with content from MythVideoFrame
+int MythAVUtil::FillAVFrame(AVFrame *Frame, const MythVideoFrame *From, AVPixelFormat Fmt)
 {
-public:
-    explicit MythAVCopyPrivate(bool uswc)
-        : m_copyctx(new MythUSWCCopy(4096, !uswc)) {}
+    if (Fmt == AV_PIX_FMT_NONE)
+        Fmt = FrameTypeToPixelFormat(From->m_type);
 
-    ~MythAVCopyPrivate()
-    {
-        if (m_swsctx)
-        {
-            sws_freeContext(m_swsctx);
-        }
-        delete m_copyctx;
-    }
-
-    MythAVCopyPrivate(const MythAVCopyPrivate &) = delete;            // not copyable
-    MythAVCopyPrivate &operator=(const MythAVCopyPrivate &) = delete; // not copyable
-
-    int SizeData(int _width, int _height, AVPixelFormat _fmt)
-    {
-        if (_width == m_width && _height == m_height && _fmt == m_format)
-        {
-            return m_size;
-        }
-        m_size    = av_image_get_buffer_size(_fmt, _width, _height, IMAGE_ALIGN);
-        m_width   = _width;
-        m_height  = _height;
-        m_format  = _fmt;
-        return m_size;
-    }
-
-    SwsContext   *m_swsctx  {nullptr};
-    MythUSWCCopy *m_copyctx {nullptr};
-    int           m_width   {0};
-    int           m_height  {0};
-    int           m_size    {0};
-    AVPixelFormat m_format  {AV_PIX_FMT_NONE};
-};
-
-MythAVCopy::MythAVCopy(bool uswc) : d(new MythAVCopyPrivate(uswc))
-{
+    av_image_fill_arrays(Frame->data, Frame->linesize, From->m_buffer,
+        Fmt, From->m_width, From->m_height, IMAGE_ALIGN);
+    Frame->data[1] = From->m_buffer + From->m_offsets[1];
+    Frame->data[2] = From->m_buffer + From->m_offsets[2];
+    Frame->linesize[0] = From->m_pitches[0];
+    Frame->linesize[1] = From->m_pitches[1];
+    Frame->linesize[2] = From->m_pitches[2];
+    return static_cast<int>(MythVideoFrame::GetBufferSize(From->m_type, From->m_width, From->m_height));
 }
 
+/*! \class MythAVCopy
+ * Copy AVFrame<->frame, performing the required conversion if any
+ */
 MythAVCopy::~MythAVCopy()
 {
-    delete d;
+    sws_freeContext(m_swsctx);
 }
 
-void MythAVCopy::FillFrame(VideoFrame *frame, const AVFrame *pic, int pitch,
-                           int width, int height, AVPixelFormat pix_fmt)
+int MythAVCopy::SizeData(int Width, int Height, AVPixelFormat Fmt)
 {
-    int size = av_image_get_buffer_size(pix_fmt, width, height, IMAGE_ALIGN);
+    if (Width == m_width && Height == m_height && Fmt == m_format)
+        return m_size;
 
-    if (pix_fmt == AV_PIX_FMT_YUV420P)
-    {
-        int chroma_pitch  = pitch >> 1;
-        int chroma_height = height >> 1;
-        int offsets[3] =
-            { 0,
-              pitch * height,
-              pitch * height + chroma_pitch * chroma_height };
-        int pitches[3] = { pitch, chroma_pitch, chroma_pitch };
-
-        init(frame, FMT_YV12, pic->data[0], width, height, size, pitches, offsets);
-    }
-    else if (pix_fmt == AV_PIX_FMT_NV12)
-    {
-        int offsets[3] = { 0, pitch * height, 0 };
-        int pitches[3] = { pitch, pitch, 0 };
-
-        init(frame, FMT_NV12, pic->data[0], width, height, size, pitches, offsets);
-    }
+    m_size    = av_image_get_buffer_size(Fmt, Width, Height, IMAGE_ALIGN);
+    m_width   = Width;
+    m_height  = Height;
+    m_format  = Fmt;
+    return m_size;
 }
 
-int MythAVCopy::Copy(AVFrame *dst, AVPixelFormat dst_pix_fmt,
-                 const AVFrame *src, AVPixelFormat pix_fmt,
-                 int width, int height)
+int MythAVCopy::Copy(AVFrame* To, AVPixelFormat ToFmt, const AVFrame* From, AVPixelFormat FromFmt,
+                     int Width, int Height)
 {
-    if ((pix_fmt == AV_PIX_FMT_YUV420P || pix_fmt == AV_PIX_FMT_NV12) &&
-        (dst_pix_fmt == AV_PIX_FMT_YUV420P))
-    {
-        VideoFrame framein  {};
-        VideoFrame frameout {};
-
-        FillFrame(&framein, src, width, width, height, pix_fmt);
-        FillFrame(&frameout, dst, width, width, height, dst_pix_fmt);
-
-        d->m_copyctx->copy(&frameout, &framein);
-        return frameout.size;
-    }
-
-    int new_width = width;
+    int newwidth = Width;
 #if ARCH_ARM
     // The ARM build of FFMPEG has a bug that if sws_scale is
     // called with source and dest sizes the same, and
@@ -310,252 +208,97 @@ int MythAVCopy::Copy(AVFrame *dst, AVPixelFormat dst_pix_fmt,
     // application core dumps. To avoid this I make a -1
     // difference in the new width, causing it to bypass
     // the code optimization which is failing.
-    if (pix_fmt == AV_PIX_FMT_YUV420P
-      && dst_pix_fmt == AV_PIX_FMT_BGRA)
-        new_width = width - 1;
+    if (FromFmt == AV_PIX_FMT_YUV420P && ToFmt == AV_PIX_FMT_BGRA)
+        newwidth = Width - 1;
 #endif
-    d->m_swsctx = sws_getCachedContext(d->m_swsctx, width, height, pix_fmt,
-                                     new_width, height, dst_pix_fmt,
-                                     SWS_FAST_BILINEAR, nullptr, nullptr, nullptr);
-    if (d->m_swsctx == nullptr)
-    {
+    m_swsctx = sws_getCachedContext(m_swsctx, Width, Height, FromFmt,
+                                    newwidth, Height, ToFmt, SWS_FAST_BILINEAR,
+                                    nullptr, nullptr, nullptr);
+    if (m_swsctx == nullptr)
         return -1;
-    }
-
-    sws_scale(d->m_swsctx, src->data, src->linesize,
-              0, height, dst->data, dst->linesize);
-
-    return d->SizeData(width, height, dst_pix_fmt);
+    sws_scale(m_swsctx, From->data, From->linesize, 0, Height, To->data, To->linesize);
+    return SizeData(Width, Height, ToFmt);
 }
 
-int MythAVCopy::Copy(VideoFrame *dst, const VideoFrame *src)
+/*! \brief Initialise AVFrame and copy contents of VideoFrame frame into it, performing
+ * any required conversion.
+ *
+ * \returns Size of buffer allocated
+ * \note AVFrame buffers must be deleted manually by the caller (av_freep(pic->data[0]))
+ */
+int MythAVCopy::Copy(AVFrame* To, const MythVideoFrame* From,
+                     unsigned char* Buffer, AVPixelFormat Fmt)
 {
-    if ((src->codec == FMT_YV12 || src->codec == FMT_NV12) &&
-        (dst->codec == FMT_YV12))
-    {
-        d->m_copyctx->copy(dst, src);
-        return dst->size;
-    }
-
-    AVFrame srcpic;
-    AVFrame dstpic;
-
-    AVPictureFill(&srcpic, src);
-    AVPictureFill(&dstpic, dst);
-
-    return Copy(&dstpic, FrameTypeToPixelFormat(dst->codec),
-                &srcpic, FrameTypeToPixelFormat(src->codec),
-                src->width, src->height);
-}
-
-int MythAVCopy::Copy(AVFrame *pic, const VideoFrame *frame,
-                 unsigned char *buffer, AVPixelFormat fmt)
-{
-    VideoFrameType type = PixelFormatToFrameType(fmt);
-    unsigned char *sbuf = buffer ? buffer : CreateBuffer(type, frame->width, frame->height);
-
-    if (!sbuf)
-    {
+    if (!Buffer)
         return 0;
-    }
-
-    AVFrame pic_in;
-    AVPixelFormat fmt_in = FrameTypeToPixelFormat(frame->codec);
-
-    AVPictureFill(&pic_in, frame, fmt_in);
-    av_image_fill_arrays(pic->data, pic->linesize, sbuf, fmt, frame->width, frame->height, IMAGE_ALIGN);
-    return Copy(pic, fmt, &pic_in, fmt_in, frame->width, frame->height);
+    AVFrame frame;
+    AVPixelFormat fromfmt = MythAVUtil::FrameTypeToPixelFormat(From->m_type);
+    MythAVUtil::FillAVFrame(&frame, From, fromfmt);
+    av_image_fill_arrays(To->data, To->linesize, Buffer, Fmt, From->m_width, From->m_height, IMAGE_ALIGN);
+    return Copy(To, Fmt, &frame, fromfmt, From->m_width, From->m_height);
 }
 
-int MythAVCopy::Copy(VideoFrame *frame, const AVFrame *pic, AVPixelFormat fmt)
-{
-    if (fmt == AV_PIX_FMT_NV12 || fmt == AV_PIX_FMT_YUV420P)
-    {
-        VideoFrame framein {};
-        FillFrame(&framein, pic, frame->width, frame->width, frame->height, fmt);
-        return Copy(frame, &framein);
-    }
-
-    AVFrame frame_out;
-    AVPixelFormat fmt_out = FrameTypeToPixelFormat(frame->codec);
-
-    AVPictureFill(&frame_out, frame, fmt_out);
-    return Copy(&frame_out, fmt_out, pic, fmt, frame->width, frame->height);
-}
-
-MythPictureDeinterlacer::MythPictureDeinterlacer(AVPixelFormat pixfmt,
-                                                 int width, int height, float ar)
-    : m_pixfmt(pixfmt)
-    , m_width(width)
-    , m_height(height)
-    , m_ar(ar)
-{
-    if (Flush() < 0)
-    {
-        m_errored = true;
-    }
-}
-
-int MythPictureDeinterlacer::Deinterlace(AVFrame *dst, const AVFrame *src)
-{
-    if (m_errored)
-    {
-        return -1;
-    }
-    if (src)
-    {
-        memcpy(m_filterFrame->data, src->data, sizeof(src->data));
-        memcpy(m_filterFrame->linesize, src->linesize, sizeof(src->linesize));
-        m_filterFrame->width = m_width;
-        m_filterFrame->height = m_height;
-        m_filterFrame->format = m_pixfmt;
-    }
-    int res = av_buffersrc_add_frame(m_bufferSrcCtx, m_filterFrame);
-    if (res < 0)
-    {
-        return res;
-    }
-    res = av_buffersink_get_frame(m_bufferSinkCtx, m_filterFrame);
-    if (res < 0)
-    {
-        return res;
-    }
-
-    av_image_copy(dst->data, dst->linesize,
-        (const uint8_t **)((AVFrame*)m_filterFrame)->data,
-        (const int*)((AVFrame*)m_filterFrame)->linesize,
-        m_pixfmt, m_width, m_height);
-
-    av_frame_unref(m_filterFrame);
-
-    return 0;
-}
-
-int MythPictureDeinterlacer::DeinterlaceSingle(AVFrame *dst, const AVFrame *src)
-{
-    if (m_errored)
-    {
-        return -1;
-    }
-    if (!m_filterGraph && Flush() < 0)
-    {
-        return -1;
-    }
-    int res = Deinterlace(dst, src);
-    if (res == AVERROR(EAGAIN))
-    {
-        res = Deinterlace(dst, nullptr);
-        // We have drained the filter, we need to recreate it on the next run.
-        avfilter_graph_free(&m_filterGraph);
-    }
-    return res;
-}
-
-int MythPictureDeinterlacer::Flush()
-{
-    if (m_filterGraph)
-    {
-        avfilter_graph_free(&m_filterGraph);
-    }
-
-    m_filterGraph = avfilter_graph_alloc();
-    if (!m_filterGraph)
-    {
-        return -1;
-    }
-
-    AVFilterInOut *inputs = nullptr;
-    AVFilterInOut *outputs = nullptr;
-    AVRational ar = av_d2q(m_ar, 100000);
-    QString args = QString("buffer=video_size=%1x%2:pix_fmt=%3:time_base=1/1:pixel_aspect=%4/%5[in];"
-                           "[in]yadif[out];[out] buffersink")
-                       .arg(m_width).arg(m_height).arg(m_pixfmt).arg(ar.num).arg(ar.den);
-    int res = avfilter_graph_parse2(m_filterGraph, args.toLatin1().data(), &inputs, &outputs);
-    while (true)
-    {
-        if (res < 0 || inputs || outputs)
-        {
-            break;
-        }
-        res = avfilter_graph_config(m_filterGraph, nullptr);
-        if (res < 0)
-        {
-            break;
-        }
-        if (!(m_bufferSrcCtx = avfilter_graph_get_filter(m_filterGraph, "Parsed_buffer_0")))
-        {
-            break;
-        }
-        if (!(m_bufferSinkCtx = avfilter_graph_get_filter(m_filterGraph, "Parsed_buffersink_2")))
-        {
-            break;
-        }
-        return 0;
-    }
-    avfilter_inout_free(&inputs);
-    avfilter_inout_free(&outputs);
-    return -1;
-}
-
-MythPictureDeinterlacer::~MythPictureDeinterlacer()
-{
-    if (m_filterGraph)
-    {
-        avfilter_graph_free(&m_filterGraph);
-    }
-}
-
+/*! \class MythCodecMap
+ * Utility class that keeps pointers to an AVStream and its AVCodecContext. The
+ * codec member of AVStream was previously used for this but is now deprecated.
+*/
 MythCodecMap::~MythCodecMap()
 {
-    freeAllCodecContexts();
+    FreeAllContexts();
 }
 
-AVCodecContext *MythCodecMap::getCodecContext(const AVStream *stream,
-    const AVCodec *pCodec, bool nullCodec)
+AVCodecContext *MythCodecMap::GetCodecContext(const AVStream* Stream,
+                                              const AVCodec* Codec,
+                                              bool NullCodec)
 {
     QMutexLocker lock(&m_mapLock);
-    AVCodecContext *avctx = m_streamMap.value(stream, nullptr);
+    AVCodecContext* avctx = m_streamMap.value(Stream, nullptr);
     if (!avctx)
     {
-        if (stream == nullptr || stream->codecpar == nullptr)
+        if (Stream == nullptr || Stream->codecpar == nullptr)
             return nullptr;
-        if (nullCodec)
-            pCodec = nullptr;
+
+        if (NullCodec)
+        {
+            Codec = nullptr;
+        }
         else
         {
-            if (!pCodec)
-                pCodec = avcodec_find_decoder(stream->codecpar->codec_id);
-            if (!pCodec)
+            if (!Codec)
+                Codec = avcodec_find_decoder(Stream->codecpar->codec_id);
+
+            if (!Codec)
             {
-                LOG(VB_GENERAL, LOG_WARNING,
-                    QString("avcodec_find_decoder fail for %1").arg(stream->codecpar->codec_id));
+                LOG(VB_GENERAL, LOG_WARNING, QString("avcodec_find_decoder fail for %1")
+                    .arg(Stream->codecpar->codec_id));
                 return nullptr;
             }
         }
-        avctx = avcodec_alloc_context3(pCodec);
-        if (avcodec_parameters_to_context(avctx, stream->codecpar) < 0)
+        avctx = avcodec_alloc_context3(Codec);
+        if (avcodec_parameters_to_context(avctx, Stream->codecpar) < 0)
             avcodec_free_context(&avctx);
+
         if (avctx)
         {
-            avctx->pkt_timebase =  stream->time_base;
-            m_streamMap.insert(stream, avctx);
+            avctx->pkt_timebase = Stream->time_base;
+            m_streamMap.insert(Stream, avctx);
         }
     }
     return avctx;
 }
 
-AVCodecContext *MythCodecMap::hasCodecContext(const AVStream *stream)
+AVCodecContext *MythCodecMap::FindCodecContext(const AVStream* Stream)
 {
-    return m_streamMap.value(stream, nullptr);
+    return m_streamMap.value(Stream, nullptr);
 }
 
 /// \note This will not free a hardware or frames context that is in anyway referenced outside
 /// of the decoder. Probably need to force the VideoOutput class to discard buffers
 /// as well. Leaking hardware contexts is a very bad idea.
-void MythCodecMap::freeCodecContext(const AVStream *stream)
+void MythCodecMap::FreeCodecContext(const AVStream* Stream)
 {
     QMutexLocker lock(&m_mapLock);
-    AVCodecContext *avctx = m_streamMap.take(stream);
+    AVCodecContext* avctx = m_streamMap.take(Stream);
     if (avctx)
     {
         if (avctx->internal)
@@ -564,14 +307,15 @@ void MythCodecMap::freeCodecContext(const AVStream *stream)
     }
 }
 
-void MythCodecMap::freeAllCodecContexts()
+void MythCodecMap::FreeAllContexts()
 {
     QMutexLocker lock(&m_mapLock);
     QMap<const AVStream*, AVCodecContext*>::iterator i = m_streamMap.begin();
-    while (i != m_streamMap.end()) {
+    while (i != m_streamMap.end())
+    {
         const AVStream *stream = i.key();
         ++i;
-        freeCodecContext(stream);
+        FreeCodecContext(stream);
     }
 }
 

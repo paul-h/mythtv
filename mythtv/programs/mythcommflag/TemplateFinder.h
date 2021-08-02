@@ -34,7 +34,14 @@ public:
     TemplateFinder(std::shared_ptr<PGMConverter> pgmc,
                    std::shared_ptr<BorderDetector> bd,
                    std::shared_ptr<EdgeDetector> ed,
-            MythPlayer *player, int proglen, const QString& debugdir);
+                   MythPlayer *player, std::chrono::seconds proglen,
+                   const QString& debugdir);
+    TemplateFinder(std::shared_ptr<PGMConverter> pgmc,
+                   std::shared_ptr<BorderDetector> bd,
+                   std::shared_ptr<EdgeDetector> ed,
+                   MythPlayer *player, int proglen, const QString& debugdir) :
+        TemplateFinder(std::move(pgmc), std::move(bd), std::move(ed),
+                       player, std::chrono::seconds(proglen), debugdir) {};
     ~TemplateFinder(void) override;
 
     /* FrameAnalyzer interface. */
@@ -42,7 +49,7 @@ public:
         { return "TemplateFinder"; }
     enum analyzeFrameResult MythPlayerInited(MythPlayer *player,
             long long nframes) override; // FrameAnalyzer
-    enum analyzeFrameResult analyzeFrame(const VideoFrame *frame,
+    enum analyzeFrameResult analyzeFrame(const MythVideoFrame *frame,
             long long frameno, long long *pNextFrame) override; // FrameAnalyzer
     int finished(long long nframes, bool final) override; // FrameAnalyzer
     int reportTime(void) const override; // FrameAnalyzer
@@ -60,7 +67,7 @@ private:
     std::shared_ptr<BorderDetector> m_borderDetector   {nullptr};
     std::shared_ptr<EdgeDetector>   m_edgeDetector     {nullptr};
 
-    unsigned int    m_sampleTime       {20 * 60}; /* amount of time to analyze */
+    std::chrono::seconds m_sampleTime  {20min};   /* amount of time to analyze */
     int             m_frameInterval;              /* analyze every <Interval> frames */
     long long       m_endFrame         {0};       /* end of logo detection */
     long long       m_nextFrame        {0};       /* next desired frame */
@@ -94,7 +101,7 @@ private:
     bool            m_debugFrames      {false};
     bool            m_tmplValid        {false};
     bool            m_tmplDone         {false};
-    struct timeval  m_analyzeTime      {0,0};
+    std::chrono::microseconds  m_analyzeTime {0us};
 };
 
 #endif  /* !TEMPLATEFINDER_H */

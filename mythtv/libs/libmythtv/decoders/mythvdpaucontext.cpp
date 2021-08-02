@@ -4,6 +4,7 @@
 #include "mythvdpauinterop.h"
 #include "mythvdpauhelper.h"
 #include "mythvdpaucontext.h"
+#include "mythplayerui.h"
 
 // FFmpeg
 extern "C" {
@@ -31,40 +32,31 @@ int MythVDPAUContext::InitialiseContext(AVCodecContext* Context)
     if (!gCoreContext->IsUIThread() || !Context)
         return -1;
 
-    // We need a player to release the interop
-    MythPlayer *player = nullptr;
-    auto *decoder = reinterpret_cast<AvFormatDecoder*>(Context->opaque);
-    if (decoder)
-        player = decoder->GetPlayer();
+    // The interop must have a reference to the ui player so it can be deleted
+    // from the main thread.
+    auto * player = GetPlayerUI(Context);
     if (!player)
         return -1;
 
     // Retrieve OpenGL render context
-    MythRenderOpenGL* render = MythRenderOpenGL::GetOpenGLRender();
+    auto * render = dynamic_cast<MythRenderOpenGL*>(player->GetRender());
     if (!render)
         return -1;
     OpenGLLocker locker(render);
 
-    // Check interop support
-    if (MythOpenGLInterop::GetInteropType(FMT_VDPAU, player) == MythOpenGLInterop::Unsupported)
-        return -1;
-
     // Create interop
     auto vdpauid = static_cast<MythCodecID>(kCodec_MPEG1_VDPAU + (mpeg_version(Context->codec_id) - 1));
-    MythVDPAUInterop *interop = MythVDPAUInterop::Create(render, vdpauid);
+    auto * interop = MythVDPAUInterop::CreateVDPAU(player, render, vdpauid);
     if (!interop)
         return -1;
 
-    // Set player
-    interop->SetPlayer(player);
-
     // Allocate the device context
-    AVBufferRef* hwdeviceref = MythCodecContext::CreateDevice(AV_HWDEVICE_TYPE_VDPAU, interop);
+    auto * hwdeviceref = MythCodecContext::CreateDevice(AV_HWDEVICE_TYPE_VDPAU, interop);
     if (!hwdeviceref)
         return -1;
 
-    auto* hwdevicecontext = reinterpret_cast<AVHWDeviceContext*>(hwdeviceref->data);
-    if (!hwdevicecontext || (hwdevicecontext && !hwdevicecontext->hwctx))
+    auto * hwdevicecontext = reinterpret_cast<AVHWDeviceContext*>(hwdeviceref->data);
+    if (!hwdevicecontext || !hwdevicecontext->hwctx)
         return -1;
 
     // Initialise device context
@@ -87,7 +79,7 @@ int MythVDPAUContext::InitialiseContext(AVCodecContext* Context)
     }
 
     // Add our interop class and set the callback for its release
-    auto* hwframesctx = reinterpret_cast<AVHWFramesContext*>(Context->hw_frames_ctx->data);
+    auto * hwframesctx = reinterpret_cast<AVHWFramesContext*>(Context->hw_frames_ctx->data);
     hwframesctx->user_opaque = interop;
     hwframesctx->free = &MythCodecContext::FramesContextFinished;
 
@@ -105,7 +97,7 @@ int MythVDPAUContext::InitialiseContext(AVCodecContext* Context)
         return res;
     }
 
-    auto* vdpaudevicectx = static_cast<AVVDPAUDeviceContext*>(hwdevicecontext->hwctx);
+    auto * vdpaudevicectx = static_cast<AVVDPAUDeviceContext*>(hwdevicecontext->hwctx);
     if (av_vdpau_bind_context(Context, vdpaudevicectx->device,
                               vdpaudevicectx->get_proc_address, AV_HWACCEL_FLAG_IGNORE_LEVEL) != 0)
     {
@@ -132,32 +124,19 @@ MythCodecID MythVDPAUContext::GetSupportedCodec(AVCodecContext **Context,
     auto success = static_cast<MythCodecID>((decodeonly ? kCodec_MPEG1_VDPAU_DEC : kCodec_MPEG1_VDPAU) + (StreamType - 1));
     auto failure = static_cast<MythCodecID>(kCodec_MPEG1 + (StreamType - 1));
 
-    if (!Decoder.startsWith("vdpau") || getenv("NO_VDPAU") || IsUnsupportedProfile(*Context))
+    if (!Decoder.startsWith("vdpau") || qEnvironmentVariableIsSet("NO_VDPAU") || IsUnsupportedProfile(*Context))
         return failure;
 
     if (!decodeonly)
-    {
-        // If called from outside of the main thread, we need a MythPlayer instance to
-        // process the callback interop check callback - which may fail otherwise
-        MythPlayer* player = nullptr;
-        if (!gCoreContext->IsUIThread())
-        {
-            auto* decoder = reinterpret_cast<AvFormatDecoder*>((*Context)->opaque);
-            if (decoder)
-                player = decoder->GetPlayer();
-        }
-
-        // direct rendering needs interop support
-        if (MythOpenGLInterop::GetInteropType(FMT_VDPAU, player) == MythOpenGLInterop::Unsupported)
+        if (!FrameTypeIsSupported(*Context, FMT_VDPAU))
             return failure;
-    }
 
     QString codec   = ff_codec_id_string((*Context)->codec_id);
     QString profile = avcodec_profile_name((*Context)->codec_id, (*Context)->profile);
     QString pixfmt  = av_get_pix_fmt_name((*Context)->pix_fmt);
 
     // VDPAU only supports 8bit 420p:(
-    VideoFrameType type = PixelFormatToFrameType((*Context)->pix_fmt);
+    VideoFrameType type = MythAVUtil::PixelFormatToFrameType((*Context)->pix_fmt);
     bool vdpau = (type == FMT_YV12) && MythVDPAUHelper::HaveVDPAU() &&
                  (decodeonly ? codec_is_vdpau_dechw(success) : codec_is_vdpau_hw(success));
 
@@ -192,7 +171,7 @@ MythCodecID MythVDPAUContext::GetSupportedCodec(AVCodecContext **Context,
     }
 
     QString desc = QString("'%1 %2 %3 %4x%5'")
-        .arg(codec).arg(profile).arg(pixfmt).arg((*Context)->width).arg((*Context)->height);
+        .arg(codec, profile, pixfmt).arg((*Context)->width).arg((*Context)->height);
 
     if (!vdpau)
     {
@@ -240,7 +219,7 @@ enum AVPixelFormat MythVDPAUContext::GetFormat2(struct AVCodecContext* Context, 
     return AV_PIX_FMT_NONE;
 }
 
-bool MythVDPAUContext::RetrieveFrame(AVCodecContext* /*unused*/, VideoFrame *Frame, AVFrame *AvFrame)
+bool MythVDPAUContext::RetrieveFrame(AVCodecContext* /*unused*/, MythVideoFrame *Frame, AVFrame *AvFrame)
 {
     if (AvFrame->format != AV_PIX_FMT_VDPAU)
         return false;

@@ -63,13 +63,16 @@ int main(int argc, char **argv)
         return GENERIC_EXIT_OK;
     }
 
-    MythDisplay::ConfigureQtGUI(1, cmdline.toString("display"));
+    MythDisplay::ConfigureQtGUI(1, cmdline);
     QApplication a(argc, argv);
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHWELCOME);
 
     int retval = cmdline.ConfigureLogging();
     if (retval != GENERIC_EXIT_OK)
         return retval;
+
+    if (!cmdline.toString("geometry").isEmpty())
+        MythMainWindow::ParseGeometryOverride(cmdline.toString("geometry"));
 
     if (cmdline.toBool("setup"))
         bShowSettings = true;
@@ -113,15 +116,13 @@ int main(int argc, char **argv)
 
     MythTranslation::load("mythfrontend");
 
-    GetMythUI()->LoadQtConfig();
-
     MythMainWindow *mainWindow = GetMythMainWindow();
     mainWindow->Init();
     mainWindow->DisableIdleTimer();
 
     initKeys();
     // Provide systemd ready notification (for type=notify units)
-    mw_sd_notify("READY=1");
+    mw_sd_notify("READY=1")
 
     MythScreenStack *mainStack = mainWindow->GetMainStack();
 
@@ -149,7 +150,7 @@ int main(int argc, char **argv)
         block.exec();
     }
 
-    mw_sd_notify("STOPPING=1\nSTATUS=Exiting");
+    mw_sd_notify("STOPPING=1\nSTATUS=Exiting")
     DestroyMythMainWindow();
 
     delete gContext;

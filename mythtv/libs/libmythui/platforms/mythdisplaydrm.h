@@ -5,25 +5,39 @@
 #include <QObject>
 
 // MythTV
+#include "platforms/mythdrmdevice.h"
 #include "mythdisplay.h"
 
-class MythDRMDevice;
-
-class MythDisplayDRM : public MythDisplay
+class MUI_PUBLIC MythDisplayDRM : public MythDisplay
 {
     Q_OBJECT
 
   public:
-    MythDisplayDRM();
+    MythDisplayDRM(MythMainWindow* MainWindow);
    ~MythDisplayDRM() override;
 
-    void UpdateCurrentMode(void) override;
+  public slots:
+    void MainWindowReady();
+    static bool DirectRenderingAvailable();
+
+  public:
+    bool IsPlanar() override;
+    bool VideoModesAvailable() override;
+    bool UsingVideoModes() override;
+    void UpdateCurrentMode() override;
+    bool SwitchToVideoMode (QSize Size, double DesiredRate) override;
+    const MythDisplayModes& GetVideoModes() override;
+    MythDRMPtr GetDevice();
+
+  signals:
+    void screenChanged();
 
   public slots:
     void ScreenChanged(QScreen *qScreen) override;
 
   private:
-    MythDRMDevice* m_device;
+    MythDRMPtr m_device;
+    QMap<uint64_t, int> m_modeMap { };
 };
 
-#endif // MYTHDISPLAYDRM_H
+#endif

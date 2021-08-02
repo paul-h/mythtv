@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cstdint>                     // for uint64_t
 #include <deque>                        // for _Deque_iterator, operator!=, etc
-using namespace std;
 
 //qt
 #include <QCoreApplication>
@@ -63,7 +62,7 @@ QWaitCondition epgIsVisibleCond;
 
 const QString kUnknownTitle = "";
 //const QString kUnknownCategory = QObject::tr("Unknown");
-const unsigned long kUpdateMS = 60 * 1000UL; // Grid update interval (mS)
+static constexpr std::chrono::milliseconds kUpdateMS { 60s }; // Grid update interval
 static bool SelectionIsTunable(const ChannelInfoList &selection);
 
 JumpToChannel::JumpToChannel(
@@ -78,7 +77,7 @@ JumpToChannel::JumpToChannel(
 {
     if (parent && m_timer)
     {
-        connect(m_timer, SIGNAL(timeout()), SLOT(deleteLater()));
+        connect(m_timer, &QTimer::timeout, this, &JumpToChannel::deleteLater);
         m_timer->setSingleShot(true);
     }
     Update();
@@ -144,6 +143,7 @@ bool JumpToChannel::ProcessEntry(const QStringList &actions, const QKeyEvent *e)
 
     QString txt = e->text();
     bool isUInt = false;
+    // cppcheck-suppress ignoredReturnValue
     txt.toUInt(&isUInt);
     if (isUInt)
     {
@@ -319,8 +319,7 @@ private:
     QVector<ProgramList*> m_proglists;
     ProgInfoGuideArray m_programInfos {};
     int m_progPast {0};
-    //QVector<GuideUIElement> m_result;
-    QLinkedList<GuideUIElement> m_result;
+    std::list<GuideUIElement> m_result;
 };
 
 class GuideUpdateChannels : public GuideUpdaterBase
@@ -404,13 +403,13 @@ private:
     GuideGrid        *m_guide   {nullptr};
     GuideUpdaterBase *m_updater {nullptr};
 
-    static QMutex                s_lock;
-    static QWaitCondition        s_wait;
-    static QMap<GuideGrid*,uint> s_loading;
+    static QMutex                 s_lock;
+    static QWaitCondition         s_wait;
+    static QHash<GuideGrid*,uint> s_loading;
 };
-QMutex                GuideHelper::s_lock;
-QWaitCondition        GuideHelper::s_wait;
-QMap<GuideGrid*,uint> GuideHelper::s_loading;
+QMutex                 GuideHelper::s_lock;
+QWaitCondition         GuideHelper::s_wait;
+QHash<GuideGrid*,uint> GuideHelper::s_loading;
 
 void GuideGrid::RunProgramGuide(uint chanid, const QString &channum,
                                 const QDateTime &startTime,
@@ -443,15 +442,8 @@ void GuideGrid::RunProgramGuide(uint chanid, const QString &channum,
 
         if (!player)
             ShowOkPopup(message);
-        else
-        {
-            if (player && allowFinder)
-            {
-                message = QString("EPG_EXITING");
-                QCoreApplication::postEvent(player, new MythEvent(message));
-            }
-        }
-
+        else if (allowFinder)
+            emit player->RequestEmbedding(false);
         return;
     }
 
@@ -487,24 +479,21 @@ GuideGrid::GuideGrid(MythScreenStack *parent,
                      uint chanid, QString channum, const QDateTime &startTime,
                      TV *player, bool embedVideo,
                      bool allowFinder, int changrpid)
-         : ScheduleCommon(parent, "guidegrid"),
-           m_selectRecThreshold(gCoreContext->GetNumSetting("SelChangeRecThreshold", 16)),
-           m_allowFinder(allowFinder),
-           m_startChanID(chanid),
-           m_startChanNum(std::move(channum)),
-           m_sortReverse(gCoreContext->GetBoolSetting("EPGSortReverse", false)),
-           m_player(player),
-           m_embedVideo(embedVideo),
-           m_previewVideoRefreshTimer(new QTimer(this)),
-           m_channelOrdering(gCoreContext->GetSetting("ChannelOrdering", "channum")),
-           m_updateTimer(new QTimer(this)),
-           m_threadPool("GuideGridHelperPool"),
-           m_changrpid(changrpid),
-           m_changrplist(ChannelGroup::GetChannelGroups(false))
+  : ScheduleCommon(parent, "guidegrid"),
+    m_selectRecThreshold(gCoreContext->GetDurSetting<std::chrono::minutes>("SelChangeRecThreshold", 16min)),
+    m_allowFinder(allowFinder),
+    m_startChanID(chanid),
+    m_startChanNum(std::move(channum)),
+    m_sortReverse(gCoreContext->GetBoolSetting("EPGSortReverse", false)),
+    m_player(player),
+    m_embedVideo(embedVideo),
+    m_channelOrdering(gCoreContext->GetSetting("ChannelOrdering", "channum")),
+    m_updateTimer(new QTimer(this)),
+    m_threadPool("GuideGridHelperPool"),
+    m_changrpid(changrpid),
+    m_changrplist(ChannelGroup::GetChannelGroups(false))
 {
-    connect(m_previewVideoRefreshTimer, SIGNAL(timeout()),
-            this,                     SLOT(refreshVideo()));
-    connect(m_updateTimer, SIGNAL(timeout()), SLOT(updateTimeout()) );
+    connect(m_updateTimer, &QTimer::timeout, this, &GuideGrid::updateTimeout);
 
     for (uint i = 0; i < MAX_DISPLAY_CHANS; i++)
         m_programs.push_back(nullptr);
@@ -518,6 +507,25 @@ GuideGrid::GuideGrid(MythScreenStack *parent,
                         m_originalStartTime.time().second());
     m_currentStartTime = m_originalStartTime.addSecs(secsoffset);
     m_threadPool.setMaxThreadCount(1);
+
+    if (m_player)
+    {
+        m_player->IncrRef();
+        connect(m_player, &TV::PlaybackExiting, this, &GuideGrid::PlayerExiting);
+        connect(this, &GuideGrid::ChangeVolume, m_player, &TV::VolumeChange);
+        connect(this, &GuideGrid::ToggleMute,   m_player, &TV::ChangeMuteState);
+    }
+}
+
+void GuideGrid::PlayerExiting(TV* Player)
+{
+    if (Player && (Player == m_player))
+    {
+        emit m_player->RequestEmbedding(false);
+        HideTVWindow();
+        m_player->DecrRef();
+        m_player = nullptr;
+    }
 }
 
 bool GuideGrid::Create()
@@ -570,9 +578,9 @@ void GuideGrid::Load(void)
     LoadFromScheduler(m_recList);
     fillChannelInfos();
 
-    int maxchannel = max((int)GetChannelCount() - 1, 0);
+    int maxchannel = std::max((int)GetChannelCount() - 1, 0);
     setStartChannel((int)(m_currentStartChannel) - (m_channelCount / 2));
-    m_channelCount = min(m_channelCount, maxchannel + 1);
+    m_channelCount = std::min(m_channelCount, maxchannel + 1);
 
     for (int y = 0; y < m_channelCount; ++y)
     {
@@ -631,26 +639,20 @@ GuideGrid::~GuideGrid()
 
     m_channelInfos.clear();
 
-    if (m_previewVideoRefreshTimer)
-    {
-        m_previewVideoRefreshTimer->disconnect(this);
-        m_previewVideoRefreshTimer = nullptr;
-    }
-
     gCoreContext->SaveSetting("EPGSortReverse", m_sortReverse ? "1" : "0");
 
-    // if we have a player and we are returning to it we need
-    // to tell it to stop embedding and return to fullscreen
-    if (m_player && m_allowFinder)
-    {
-        QString message = QString("EPG_EXITING");
-        QCoreApplication::postEvent(m_player, new MythEvent(message));
-    }
-
-    // maybe the user selected a different channel group,
-    // tell the player to update its channel list just in case
     if (m_player)
+    {
+        // if we have a player and we are returning to it we need
+        // to tell it to stop embedding and return to fullscreen
+        if (m_allowFinder)
+            emit m_player->RequestEmbedding(false);
+
+        // maybe the user selected a different channel group,
+        // tell the player to update its channel list just in case
         m_player->UpdateChannelList(m_changrpid);
+        m_player->DecrRef();
+    }
 
     if (gCoreContext->GetBoolSetting("ChannelGroupRememberLast", false))
         gCoreContext->SaveSetting("ChannelGroupDefault", m_changrpid);
@@ -772,16 +774,15 @@ bool GuideGrid::keyPressEvent(QKeyEvent *event)
         {
             ProgramInfo *pginfo =
                 m_programInfos[m_currentRow][m_currentCol];
-            int secsTillStart =
-                (pginfo) ? MythDate::current().secsTo(
-                    pginfo->GetScheduledStartTime()) : 0;
-            if (m_player && (m_player->GetState(-1) == kState_WatchingLiveTV))
+            auto secsTillStart = (pginfo)
+                ? MythDate::secsInFuture(pginfo->GetScheduledStartTime()) : 0s;
+            if (m_player && (m_player->GetState() == kState_WatchingLiveTV))
             {
                 // See if this show is far enough into the future that it's
                 // probable that the user wanted to schedule it to record
                 // instead of changing the channel.
                 if (pginfo && (pginfo->GetTitle() != kUnknownTitle) &&
-                    ((secsTillStart / 60) >= m_selectRecThreshold))
+                    (secsTillStart >= m_selectRecThreshold))
                 {
                     EditRecording();
                 }
@@ -796,7 +797,7 @@ bool GuideGrid::keyPressEvent(QKeyEvent *event)
                 // is we selected a show that is current.
                 EditRecording(!m_player
                     && SelectionIsTunable(GetSelection())
-                    && (secsTillStart / 60) < m_selectRecThreshold);
+                    && (secsTillStart < m_selectRecThreshold));
             }
         }
         else if (action == "EDIT")
@@ -823,13 +824,13 @@ bool GuideGrid::keyPressEvent(QKeyEvent *event)
         else if (action == "CHANUPDATE")
             channelUpdate();
         else if (action == ACTION_VOLUMEUP)
-            volumeUpdate(true);
+            emit ChangeVolume(true);
         else if (action == ACTION_VOLUMEDOWN)
-            volumeUpdate(false);
+            emit ChangeVolume(false);
         else if (action == "CYCLEAUDIOCHAN")
-            toggleMute(true);
+            emit ToggleMute(true);
         else if (action == ACTION_MUTEAUDIO)
-            toggleMute();
+            emit ToggleMute(false);
         else if (action == ACTION_TOGGLEPGORDER)
         {
             m_sortReverse = !m_sortReverse;
@@ -857,8 +858,8 @@ bool GuideGrid::gestureEvent(MythGestureEvent *event)
     }
 
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Guide Gesture event %1")
-        .arg((QString)event->gesture()));
-    switch (event->gesture())
+        .arg(QString::number(event->GetGesture())));
+    switch (event->GetGesture())
     {
         case MythGestureEvent::Click:
             {
@@ -883,7 +884,7 @@ bool GuideGrid::gestureEvent(MythGestureEvent *event)
 
                     if (name.startsWith("channellist"))
                     {
-                        auto* channelList = dynamic_cast<MythUIButtonList*>(object);
+                        auto* channelList = qobject_cast<MythUIButtonList*>(object);
 
                         if (channelList)
                         {
@@ -893,7 +894,7 @@ bool GuideGrid::gestureEvent(MythGestureEvent *event)
                     }
                     else if (name.startsWith("guidegrid"))
                     {
-                        auto* guidegrid = dynamic_cast<MythUIGuideGrid*>(object);
+                        auto* guidegrid = qobject_cast<MythUIGuideGrid*>(object);
 
                         if (guidegrid)
                         {
@@ -911,18 +912,17 @@ bool GuideGrid::gestureEvent(MythGestureEvent *event)
                             {
                                 if ((rowCol.y() == m_currentRow) && (rowCol.x() == m_currentCol))
                                 {
-                                    if (m_player && (m_player->GetState(-1) == kState_WatchingLiveTV))
+                                    if (m_player && (m_player->GetState() == kState_WatchingLiveTV))
                                     {
                                         // See if this show is far enough into the future that it's
                                         // probable that the user wanted to schedule it to record
                                         // instead of changing the channel.
                                         ProgramInfo *pginfo =
                                             m_programInfos[m_currentRow][m_currentCol];
-                                        int secsTillStart =
-                                            (pginfo) ? MythDate::current().secsTo(
-                                                pginfo->GetScheduledStartTime()) : 0;
+                                        auto secsTillStart = (pginfo)
+                                            ? MythDate::secsInFuture(pginfo->GetScheduledStartTime()) : 0s;
                                         if (pginfo && (pginfo->GetTitle() != kUnknownTitle) &&
-                                            ((secsTillStart / 60) >= m_selectRecThreshold))
+                                            (secsTillStart >= m_selectRecThreshold))
                                         {
                                             //EditRecording();
                                             LOG(VB_GENERAL, LOG_INFO, LOC + QString("Guide Gesture Click gg EditRec"));
@@ -1049,12 +1049,8 @@ bool GuideGrid::gestureEvent(MythGestureEvent *event)
 
 static bool SelectionIsTunable(const ChannelInfoList &selection)
 {
-    for (const auto & chan : selection)
-    {
-        if (TV::IsTunable(chan.m_chanId))
-            return true;
-    }
-    return false;
+    return std::any_of(selection.cbegin(), selection.cend(),
+                       [selection](const auto & chan){ return TV::IsTunable(chan.m_chanId); } );
 }
 
 void GuideGrid::ShowMenu(void)
@@ -1068,7 +1064,7 @@ void GuideGrid::ShowMenu(void)
     {
         menuPopup->SetReturnEvent(this, "guidemenu");
 
-        if (m_player && (m_player->GetState(-1) == kState_WatchingLiveTV))
+        if (m_player && (m_player->GetState() == kState_WatchingLiveTV))
             menuPopup->AddButton(tr("Change to Channel"));
         else if (!m_player && SelectionIsTunable(GetSelection()))
             menuPopup->AddButton(tr("Watch This Channel"));
@@ -1194,8 +1190,9 @@ static ProgramList *CopyProglist(ProgramList *proglist)
     if (!proglist)
         return nullptr;
     auto *result = new ProgramList();
+    // AutoDeleteDeque doesn't work with std::back_inserter
     for (auto & pi : *proglist)
-        result->push_back(new ProgramInfo(*pi));
+        result->push_back(new ProgramInfo(*pi)); // cppcheck-suppress useStlAlgorithm
     return result;
 }
 
@@ -1205,7 +1202,8 @@ uint GuideGrid::GetAlternateChannelIndex(
     uint si = m_channelInfoIdx[chan_idx];
     const ChannelInfo *chinfo = GetChannelInfo(chan_idx, si);
 
-    PlayerContext *ctx = m_player->GetPlayerReadLock(-1, __FILE__, __LINE__);
+    m_player->GetPlayerReadLock();
+    PlayerContext* ctx = m_player->GetPlayerContext();
 
     const uint cnt = (ctx && chinfo) ? m_channelInfos[chan_idx].size() : 0;
     for (uint i = 0; i < cnt; ++i)
@@ -1222,7 +1220,7 @@ uint GuideGrid::GetAlternateChannelIndex(
         if (with_same_channum != same_channum)
             continue;
 
-        if (!TV::IsTunable(ctx, ciinfo->m_chanId))
+        if (!TV::IsTunable(ciinfo->m_chanId))
             continue;
 
         if (with_same_channum)
@@ -1251,7 +1249,7 @@ uint GuideGrid::GetAlternateChannelIndex(
         }
     }
 
-    m_player->ReturnPlayerLock(ctx);
+    m_player->ReturnPlayerLock();
 
     return si;
 }
@@ -1408,7 +1406,7 @@ void GuideGrid::fillChannelInfos(bool gotostartchannel)
     if (gotostartchannel)
     {
         int ch = FindChannel(m_startChanID, m_startChanNum, false);
-        m_currentStartChannel = (uint) max(0, ch);
+        m_currentStartChannel = (uint) std::max(0, ch);
     }
 
     if (m_channelInfos.empty())
@@ -1422,9 +1420,6 @@ void GuideGrid::fillChannelInfos(bool gotostartchannel)
 int GuideGrid::FindChannel(uint chanid, const QString &channum,
                            bool exact) const
 {
-    static QMutex s_chanSepRegExpLock;
-    static QRegExp s_chanSepRegExp(ChannelUtil::kATSCSeparators);
-
     // first check chanid
     uint i = (chanid) ? 0 : GetChannelCount();
     for (; i < GetChannelCount(); ++i)
@@ -1553,8 +1548,8 @@ void GuideGrid::fillProgramRowInfos(int firstRow, bool useExistingData)
     {
         firstRow = 0;
         allRows = true;
-        numRows = min((unsigned int)m_channelInfos.size(),
-                      (unsigned int)m_guideGrid->getChannelCount());
+        numRows = std::min((unsigned int)m_channelInfos.size(),
+                           (unsigned int)m_guideGrid->getChannelCount());
     }
     QVector<int> chanNums;
     QVector<ProgramList*> proglists;
@@ -1695,8 +1690,9 @@ void GuideUpdateProgramRow::fillProgramRowInfosWith(int row,
         ts = ts.addSecs(5 * 60);
     }
 
+    // AutoDeleteDeque doesn't work with std::back_inserter
     for (auto & pi : unknownlist)
-        proglist->push_back(pi);
+        proglist->push_back(pi); // cppcheck-suppress useStlAlgorithm
 
     MythRect programRect = m_ggProgramRect;
 
@@ -1832,10 +1828,10 @@ void GuideUpdateProgramRow::fillProgramRowInfosWith(int row,
             QString title = (pginfo->GetTitle() == kUnknownTitle) ?
                 GuideGrid::tr("Unknown", "Unknown program title") :
                                 pginfo->GetTitle();
-            m_result.push_back(GuideUIElement(
+            m_result.emplace_back(
                 row, cnt, tempRect, title,
                 pginfo->GetCategory(), arrow, recFlag,
-                recStat, isCurrent));
+                recStat, isCurrent);
 
             cnt++;
         }
@@ -1859,14 +1855,6 @@ void GuideGrid::customEvent(QEvent *event)
             GuideHelper::Wait(this);
             LoadFromScheduler(m_recList);
             fillProgramInfos();
-        }
-        else if (message == "STOP_VIDEO_REFRESH_TIMER")
-        {
-            m_previewVideoRefreshTimer->stop();
-        }
-        else if (message == "START_VIDEO_REFRESH_TIMER")
-        {
-            m_previewVideoRefreshTimer->start(66);
         }
     }
     else if (event->type() == DialogCompletionEvent::kEventType)
@@ -2032,7 +2020,7 @@ void GuideGrid::updateProgramsUI(unsigned int firstRow, unsigned int numRows,
                                  int progPast,
                                  const QVector<ProgramList*> &proglists,
                                  const ProgInfoGuideArray &programInfos,
-                                 const QLinkedList<GuideUIElement> &elements)
+                                 const std::list<GuideUIElement> &elements)
 {
     for (unsigned int i = 0; i < numRows; ++i)
     {
@@ -2045,7 +2033,7 @@ void GuideGrid::updateProgramsUI(unsigned int firstRow, unsigned int numRows,
         }
     }
     m_guideGrid->SetProgPast(progPast);
-    for (const auto & r : qAsConst(elements))
+    for (const auto & r : elements)
     {
         m_guideGrid->SetProgramInfo(r.m_row, r.m_col, r.m_area, r.m_title,
                                     r.m_category, r.m_arrow, r.m_recType,
@@ -2087,11 +2075,11 @@ void GuideGrid::updateChannelsNonUI(QVector<ChannelInfo *> &chinfos,
 
         if (m_player)
         {
-            const PlayerContext *ctx = m_player->GetPlayerReadLock(
-                -1, __FILE__, __LINE__);
+            m_player->GetPlayerReadLock();
+            const PlayerContext* ctx = m_player->GetPlayerContext();
             if (ctx && chinfo)
-                try_alt = !TV::IsTunable(ctx, chinfo->m_chanId);
-            m_player->ReturnPlayerLock(ctx);
+                try_alt = !TV::IsTunable(chinfo->m_chanId);
+            m_player->ReturnPlayerLock();
         }
 
         if (try_alt)
@@ -2240,8 +2228,8 @@ void GuideGrid::generateListings()
 
     int maxchannel = 0;
     fillChannelInfos();
-    maxchannel = max((int)GetChannelCount() - 1, 0);
-    m_channelCount = min(m_guideGrid->getChannelCount(), maxchannel + 1);
+    maxchannel = std::max((int)GetChannelCount() - 1, 0);
+    m_channelCount = std::min(m_guideGrid->getChannelCount(), maxchannel + 1);
 
     LoadFromScheduler(m_recList);
     fillProgramInfos();
@@ -2554,8 +2542,8 @@ void GuideGrid::deleteRule()
         return;
     }
 
-    QString message = tr("Delete '%1' %2 rule?").arg(record->m_title)
-        .arg(toString(pginfo->GetRecordingRuleType()));
+    QString message = tr("Delete '%1' %2 rule?")
+        .arg(record->m_title, toString(pginfo->GetRecordingRuleType()));
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
@@ -2579,29 +2567,9 @@ void GuideGrid::channelUpdate(void)
 
     if (!sel.empty())
     {
-        PlayerContext *ctx = m_player->GetPlayerReadLock(-1, __FILE__, __LINE__);
-        m_player->ChangeChannel(ctx, sel);
-        m_player->ReturnPlayerLock(ctx);
-    }
-}
-
-void GuideGrid::volumeUpdate(bool up)
-{
-    if (m_player)
-    {
-        PlayerContext *ctx = m_player->GetPlayerReadLock(-1, __FILE__, __LINE__);
-        m_player->ChangeVolume(ctx, up);
-        m_player->ReturnPlayerLock(ctx);
-    }
-}
-
-void GuideGrid::toggleMute(const bool muteIndividualChannels)
-{
-    if (m_player)
-    {
-        PlayerContext *ctx = m_player->GetPlayerReadLock(-1, __FILE__, __LINE__);
-        m_player->ToggleMute(ctx, muteIndividualChannels);
-        m_player->ReturnPlayerLock(ctx);
+        m_player->GetPlayerReadLock();
+        m_player->ChangeChannel(sel);
+        m_player->ReturnPlayerLock();
     }
 }
 
@@ -2651,29 +2619,10 @@ void GuideGrid::HideTVWindow(void)
 
 void GuideGrid::EmbedTVWindow(void)
 {
-    auto *me = new MythEvent("STOP_VIDEO_REFRESH_TIMER");
-    QCoreApplication::postEvent(this, me);
-
-    m_usingNullVideo = !m_player->StartEmbedding(m_videoRect);
-    if (!m_usingNullVideo)
-    {
-        QRegion r1 = QRegion(m_area);
-        QRegion r2 = QRegion(m_videoRect);
-        GetMythMainWindow()->GetPaintWindow()->setMask(r1.xored(r2));
-    }
-    else
-    {
-        me = new MythEvent("START_VIDEO_REFRESH_TIMER");
-        QCoreApplication::postEvent(this, me);
-    }
-}
-
-void GuideGrid::refreshVideo(void)
-{
-    if (m_player && m_usingNullVideo)
-    {
-        GetMythMainWindow()->GetPaintWindow()->update(m_videoRect);
-    }
+    emit m_player->RequestEmbedding(true, m_videoRect);
+    QRegion r1 = QRegion(m_area);
+    QRegion r2 = QRegion(m_videoRect);
+    GetMythMainWindow()->GetPaintWindow()->setMask(r1.xored(r2));
 }
 
 void GuideGrid::aboutToHide(void)

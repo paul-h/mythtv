@@ -25,6 +25,7 @@
 #include "datacontracts/input.h"
 #include "datacontracts/inputList.h"
 #include "datacontracts/cutList.h"
+#include "datacontracts/markupList.h"
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
@@ -45,8 +46,10 @@
 class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
 {
     Q_OBJECT
-    Q_CLASSINFO( "version"    , "6.7" )
+    Q_CLASSINFO( "version"    , "7.0" )
     Q_CLASSINFO( "RemoveRecorded_Method",                       "POST" )
+    Q_CLASSINFO( "AddRecordedCredits_Method",                   "POST" )
+    Q_CLASSINFO( "AddRecordedProgram_Method",                   "POST" )
     Q_CLASSINFO( "DeleteRecording_Method",                      "POST" )
     Q_CLASSINFO( "UnDeleteRecording",                           "POST" )
     Q_CLASSINFO( "UpdateRecordedWatchedStatus_Method",          "POST" )
@@ -58,6 +61,7 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
     Q_CLASSINFO( "EnableRecordSchedule_Method",                 "POST" )
     Q_CLASSINFO( "DisableRecordSchedule_Method",                "POST" )
     Q_CLASSINFO( "ManageJobQueue_Method",                       "POST" )
+    Q_CLASSINFO( "SetRecordedMarkup_Method",                    "POST" )
 
 
     public:
@@ -74,6 +78,7 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
             DTC::TitleInfoList::InitializeCustomTypes();
             DTC::RecRuleFilterList::InitializeCustomTypes();
             DTC::CutList::InitializeCustomTypes();
+            DTC::MarkupList::InitializeCustomTypes();
         }
 
     public slots:
@@ -88,7 +93,9 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
                                                            const QString   &RecGroup,
                                                            const QString   &StorageGroup,
                                                            const QString   &Category,
-                                                           const QString   &Sort) = 0;
+                                                           const QString   &Sort,
+                                                           bool             IgnoreLiveTV,
+                                                           bool             IgnoreDeleted ) = 0;
 
         virtual DTC::ProgramList* GetOldRecordedList     ( bool             Descending,
                                                            int              StartIndex,
@@ -103,6 +110,11 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
         virtual DTC::Program*      GetRecorded           ( int              RecordedId,
                                                            int              ChanId,
                                                            const QDateTime &StartTime  ) = 0;
+
+        virtual bool               AddRecordedCredits  ( int RecordedId,
+                                                         const QJsonObject & json) = 0;
+
+        virtual int                AddRecordedProgram    ( const QJsonObject & json ) = 0;
 
         virtual bool               RemoveRecorded        ( int              RecordedId,
                                                            int              ChanId,
@@ -159,6 +171,11 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
         virtual DTC::CutList*      GetRecordedSeek       ( int              RecordedId,
                                                            const QString   &OffsetType ) = 0;
 
+        virtual DTC::MarkupList*   GetRecordedMarkup     ( int              RecordedId ) = 0;
+
+        virtual bool               SetRecordedMarkup     ( int              RecordedId,
+                                                           const QJsonObject & json ) = 0;
+
         virtual DTC::ProgramList*  GetConflictList       ( int              StartIndex,
                                                            int              Count,
                                                            int              RecordId ) = 0;
@@ -193,8 +210,8 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
                                                            const QString&   Subtitle,
                                                            const QString&   Description,
                                                            const QString&   Category,
-                                                           QDateTime StartTime,
-                                                           QDateTime EndTime,
+                                                           const QDateTime& StartTime,
+                                                           const QDateTime& EndTime,
                                                            const QString&   SeriesId,
                                                            const QString&   ProgramId,
                                                            int       ChanId,
@@ -212,9 +229,10 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
                                                            uint      PreferredInput,
                                                            int       StartOffset,
                                                            int       EndOffset,
-                                                           QDateTime LastRecorded,
+                                                           const QDateTime& LastRecorded,
                                                            QString   DupMethod,
                                                            QString   DupIn,
+                                                           bool      NewEpisOnly,
                                                            uint      Filter,
                                                            QString   RecProfile,
                                                            QString   RecGroup,
@@ -233,16 +251,16 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
                                                            int       Transcoder        ) = 0;
 
         virtual bool               UpdateRecordSchedule  ( uint      RecordId,
-                                                           QString   Title,
-                                                           QString   Subtitle,
-                                                           QString   Description,
-                                                           QString   Category,
-                                                           QDateTime StartTime,
-                                                           QDateTime EndTime,
-                                                           QString   SeriesId,
-                                                           QString   ProgramId,
+                                                           const QString&   Title,
+                                                           const QString&   Subtitle,
+                                                           const QString&   Description,
+                                                           const QString&   Category,
+                                                           const QDateTime& StartTime,
+                                                           const QDateTime& EndTime,
+                                                           const QString&   SeriesId,
+                                                           const QString&   ProgramId,
                                                            int       ChanId,
-                                                           QString   Station,
+                                                           const QString&   Station,
                                                            int       FindDay,
                                                            QTime     FindTime,
                                                            bool      Inactive,
@@ -257,6 +275,7 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
                                                            int       EndOffset,
                                                            QString   DupMethod,
                                                            QString   DupIn,
+                                                           bool      NewEpisOnly,
                                                            uint      Filter,
                                                            QString   RecProfile,
                                                            QString   RecGroup,
@@ -286,10 +305,10 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
                                                            bool Descending  ) = 0;
 
         virtual DTC::RecRule*      GetRecordSchedule     ( uint             RecordId,
-                                                           QString          Template,
+                                                           const QString&   Template,
                                                            int              RecordedId,
                                                            int              ChanId,
-                                                           QDateTime        StartTime,
+                                                           const QDateTime& StartTime,
                                                            bool             MakeOverride ) = 0;
 
         virtual bool               EnableRecordSchedule  ( uint             RecordId   ) = 0;
@@ -309,17 +328,17 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
                                                            int              RecType,
                                                            const QDateTime &StartTime ) = 0;
 
-        virtual QString            RecTypeToString       ( QString          RecType   ) = 0;
+        virtual QString            RecTypeToString       ( const QString&   RecType   ) = 0;
 
-        virtual QString            RecTypeToDescription  ( QString          RecType   ) = 0;
+        virtual QString            RecTypeToDescription  ( const QString&   RecType   ) = 0;
 
-        virtual QString            DupMethodToString     ( QString          DupMethod ) = 0;
+        virtual QString            DupMethodToString     ( const QString&   DupMethod ) = 0;
 
-        virtual QString            DupMethodToDescription( QString          DupMethod ) = 0;
+        virtual QString            DupMethodToDescription( const QString&   DupMethod ) = 0;
 
-        virtual QString            DupInToString         ( QString          DupIn     ) = 0;
+        virtual QString            DupInToString         ( const QString&   DupIn     ) = 0;
 
-        virtual QString            DupInToDescription    ( QString          DupIn     ) = 0;
+        virtual QString            DupInToDescription    ( const QString&   DupIn     ) = 0;
 
         virtual int                ManageJobQueue        ( const QString   &Action,
                                                            const QString   &JobName,

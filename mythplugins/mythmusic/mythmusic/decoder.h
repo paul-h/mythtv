@@ -39,8 +39,6 @@ class DecoderEvent : public MythEvent
 
     const QString *errorMessage() const { return m_errorMsg; }
 
-    DecoderEvent &operator=(const DecoderEvent&) = delete;
-
     MythEvent *clone(void) const override // MythEvent
         { return new DecoderEvent(*this); }
 
@@ -57,6 +55,13 @@ class DecoderEvent : public MythEvent
             m_errorMsg = new QString(*o.m_errorMsg);
         }
     }
+
+  // No implicit copying.
+  protected:
+    DecoderEvent &operator=(const DecoderEvent &other) = default;
+  public:
+    DecoderEvent(DecoderEvent &&) = delete;
+    DecoderEvent &operator=(DecoderEvent &&) = delete;
 
   private:
     QString *m_errorMsg {nullptr};
@@ -77,8 +82,8 @@ class Decoder : public MThread, public MythObservable
     void setOutput(AudioOutput *o);
     void setURL(const QString &url) { m_url = url; }
 
-    virtual void lock(void) { return m_mtx.lock(); }
-    virtual void unlock(void) { return m_mtx.unlock(); }
+    virtual void lock(void) { m_mtx.lock(); }
+    virtual void unlock(void) { m_mtx.unlock(); }
     virtual bool tryLock(void) { return m_mtx.tryLock(); }
 
     QWaitCondition *cond() { return &m_cnd; }

@@ -30,7 +30,7 @@
 #include "upnputil.h"
 #include "serializers/serializer.h"
 
-#define SOAP_ENVELOPE_BEGIN  "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" " \
+#define SOAP_ENVELOPE_BEGIN  "<s:Envelope xmlns:s=\"htstp://schemas.xmlsoap.org/soap/envelope/\" " \
                              "s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"     \
                              "<s:Body>"
 #define SOAP_ENVELOPE_END    "</s:Body>\r\n</s:Envelope>";
@@ -66,7 +66,8 @@ enum HttpContentType
 {
     ContentType_Unknown    = 0,
     ContentType_Urlencoded = 1,
-    ContentType_XML        = 2
+    ContentType_XML        = 2,
+    ContentType_JSON       = 3,
 };
 
 enum HttpResponseType
@@ -127,7 +128,7 @@ class UPNP_PUBLIC HTTPRequest
         QString             m_sMethod;
 
         QStringMap          m_mapParams;
-        QStringMap          m_mapHeaders;
+        QStringMultiMap     m_mapHeaders;
         QStringMap          m_mapCookies;
 
         QString             m_sPayload;
@@ -162,7 +163,7 @@ class UPNP_PUBLIC HTTPRequest
     private:
 
         bool                m_bKeepAlive        {true};
-        uint                m_nKeepAliveTimeout {0};
+        std::chrono::seconds m_nKeepAliveTimeout {0s};
 
     protected:
 
@@ -230,7 +231,7 @@ class UPNP_PUBLIC HTTPRequest
                                     const QDateTime &expiryDate,
                                     bool secure );
 
-        QString         GetRequestHeader  ( const QString &sKey, QString sDefault );
+        QString         GetRequestHeader  ( const QString &sKey, const QString &sDefault );
 
         bool            GetKeepAlive () const { return m_bKeepAlive; }
 
@@ -242,6 +243,7 @@ class UPNP_PUBLIC HTTPRequest
         static QString         GetResponseProtocol () ;
 
         QString         GetRequestType () const;
+        QString         GetLastHeader( const QString &sType ) const;
 
         static QString  GetMimeType     ( const QString &sFileExtension );
         static QStringList GetSupportedMimeTypes ();
@@ -251,14 +253,14 @@ class UPNP_PUBLIC HTTPRequest
         static QString  Decode          ( const QString &sIn );
         static QString  GetETagHash     ( const QByteArray &data );
 
-        void            SetKeepAliveTimeout ( int nTimeout ) { m_nKeepAliveTimeout = nTimeout; }
+        void            SetKeepAliveTimeout ( std::chrono::seconds nTimeout ) { m_nKeepAliveTimeout = nTimeout; }
 
         static bool            IsUrlProtected      ( const QString &sBaseUrl );
 
         // ------------------------------------------------------------------
 
-        virtual QString ReadLine        ( int msecs ) = 0;
-        virtual qint64  ReadBlock       ( char *pData, qint64 nMaxLen, int msecs = 0 ) = 0;
+        virtual QString ReadLine        ( std::chrono::milliseconds msecs ) = 0;
+        virtual qint64  ReadBlock       ( char *pData, qint64 nMaxLen, std::chrono::milliseconds msecs = 0ms ) = 0;
         virtual qint64  WriteBlock      ( const char *pData,
                                           qint64 nLen    ) = 0;
         virtual QString  GetHostName     ();  // RFC 3875 - The name in the client request
@@ -284,8 +286,8 @@ class BufferedSocketDeviceRequest : public HTTPRequest
             : m_pSocket(pSocket) {}
         ~BufferedSocketDeviceRequest() override = default;
 
-        QString  ReadLine        ( int msecs ) override; // HTTPRequest
-        qint64   ReadBlock       ( char *pData, qint64 nMaxLen, int msecs = 0  ) override; // HTTPRequest
+        QString  ReadLine        ( std::chrono::milliseconds msecs ) override; // HTTPRequest
+        qint64   ReadBlock       ( char *pData, qint64 nMaxLen, std::chrono::milliseconds msecs = 0ms ) override; // HTTPRequest
         qint64   WriteBlock      ( const char *pData, qint64 nLen    ) override; // HTTPRequest
         QString  GetHostAddress  () override; // HTTPRequest
         quint16  GetHostPort     () override; // HTTPRequest

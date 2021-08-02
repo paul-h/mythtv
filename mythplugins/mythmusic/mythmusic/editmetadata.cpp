@@ -16,7 +16,6 @@
 #include <mythuibuttonlist.h>
 #include <mythuispinbox.h>
 #include <mythuiimage.h>
-#include <mythuiwebbrowser.h>
 #include <mythuifilebrowser.h>
 #include <musicutils.h>
 #include <mythprogressdialog.h>
@@ -77,7 +76,7 @@ bool EditMetadataCommon::CreateCommon(void)
 
     UIUtilE::Assign(this, m_doneButton, "donebutton", &err);
 
-    connect(m_doneButton, SIGNAL(Clicked()), SLOT(showSaveMenu()));
+    connect(m_doneButton, &MythUIButton::Clicked, this, &EditMetadataCommon::showSaveMenu);
 
     return err;
 }
@@ -175,11 +174,11 @@ void EditMetadataCommon::showSaveMenu()
     menu->SetReturnEvent(this, "savechangesmenu");
 
     if (s_metadataOnly)
-        menu->AddButton(tr("Save Changes"), SLOT(saveToMetadata()));
+        menu->AddButton(tr("Save Changes"), &EditMetadataCommon::saveToMetadata);
     else
-        menu->AddButton(tr("Save Changes"), SLOT(saveAll()));
+        menu->AddButton(tr("Save Changes"), &EditMetadataCommon::saveAll);
 
-    menu->AddButton(tr("Exit/Do Not Save"), SLOT(cleanupAndClose()));
+    menu->AddButton(tr("Exit/Do Not Save"), &EditMetadataCommon::cleanupAndClose);
 
     popupStack->AddScreen(menu);
 }
@@ -353,28 +352,28 @@ bool EditMetadataDialog::Create(void)
     if (m_ratingSpin)
     {
         m_ratingSpin->SetRange(0, 10, 1, 2);
-        connect(m_ratingSpin, SIGNAL(itemSelected(MythUIButtonListItem*)),
-                SLOT(ratingSpinChanged(MythUIButtonListItem*)));
+        connect(m_ratingSpin, &MythUIButtonList::itemSelected,
+                this, &EditMetadataDialog::ratingSpinChanged);
     }
 
-    connect(m_artistEdit, SIGNAL(LosingFocus()), SLOT(artistLostFocus()));
-    connect(m_albumEdit, SIGNAL(LosingFocus()), SLOT(albumLostFocus()));
-    connect(m_genreEdit, SIGNAL(LosingFocus()), SLOT(genreLostFocus()));
+    connect(m_artistEdit, &MythUIType::LosingFocus, this, &EditMetadataDialog::artistLostFocus);
+    connect(m_albumEdit, &MythUIType::LosingFocus, this, &EditMetadataDialog::albumLostFocus);
+    connect(m_genreEdit, &MythUIType::LosingFocus, this, &EditMetadataDialog::genreLostFocus);
 
-    connect(m_searchArtistButton, SIGNAL(Clicked()), SLOT(searchArtist()));
-    connect(m_searchCompArtistButton, SIGNAL(Clicked()), SLOT(searchCompilationArtist()));
-    connect(m_searchAlbumButton, SIGNAL(Clicked()), SLOT(searchAlbum()));
-    connect(m_searchGenreButton, SIGNAL(Clicked()), SLOT(searchGenre()));
+    connect(m_searchArtistButton, &MythUIButton::Clicked, this, &EditMetadataDialog::searchArtist);
+    connect(m_searchCompArtistButton, &MythUIButton::Clicked, this, &EditMetadataDialog::searchCompilationArtist);
+    connect(m_searchAlbumButton, &MythUIButton::Clicked, this, &EditMetadataDialog::searchAlbum);
+    connect(m_searchGenreButton, &MythUIButton::Clicked, this, &EditMetadataDialog::searchGenre);
 
     if (m_incRatingButton && m_decRatingButton)
     {
-        connect(m_incRatingButton, SIGNAL(Clicked()), SLOT(incRating()));
-        connect(m_decRatingButton, SIGNAL(Clicked()), SLOT(decRating()));
+        connect(m_incRatingButton, &MythUIButton::Clicked, this, &EditMetadataDialog::incRating);
+        connect(m_decRatingButton, &MythUIButton::Clicked, this, &EditMetadataDialog::decRating);
     }
 
-    connect(m_compilationCheck, SIGNAL(toggled(bool)), SLOT(checkClicked(bool)));
+    connect(m_compilationCheck, &MythUICheckBox::toggled, this, &EditMetadataDialog::checkClicked);
 
-    connect(m_albumartButton, SIGNAL(Clicked()), SLOT(switchToAlbumArt()));
+    connect(m_albumartButton, &MythUIButton::Clicked, this, &EditMetadataDialog::switchToAlbumArt);
 
     fillWidgets();
 
@@ -529,7 +528,7 @@ void EditMetadataDialog::checkClicked(bool state)
     }
 }
 
-void EditMetadataDialog::searchArtist()
+void EditMetadataDialog::searchArtist() const
 {
     QString msg = tr("Select an Artist");
     QStringList searchList = MusicMetadata::fillFieldList("artist");
@@ -544,7 +543,7 @@ void EditMetadataDialog::searchArtist()
         return;
     }
 
-    connect(searchDlg, SIGNAL(haveResult(QString)), SLOT(setArtist(QString)));
+    connect(searchDlg, &MythUISearchDialog::haveResult, this, &EditMetadataDialog::setArtist);
 
     popupStack->AddScreen(searchDlg);
 }
@@ -574,7 +573,7 @@ void EditMetadataDialog::updateArtistImage(void)
     }
 }
 
-void EditMetadataDialog::searchCompilationArtist()
+void EditMetadataDialog::searchCompilationArtist() const
 {
     QString msg = tr("Select a Compilation Artist");
     QStringList searchList = MusicMetadata::fillFieldList("compilation_artist");
@@ -589,7 +588,7 @@ void EditMetadataDialog::searchCompilationArtist()
         return;
     }
 
-    connect(searchDlg, SIGNAL(haveResult(QString)), SLOT(setCompArtist(QString)));
+    connect(searchDlg, &MythUISearchDialog::haveResult, this, &EditMetadataDialog::setCompArtist);
 
     popupStack->AddScreen(searchDlg);
 }
@@ -599,7 +598,7 @@ void EditMetadataDialog::setCompArtist(const QString& compArtist)
     m_compArtistEdit->SetText(compArtist);
 }
 
-void EditMetadataDialog::searchAlbum()
+void EditMetadataDialog::searchAlbum() const
 {
     QString msg = tr("Select an Album");
     QStringList searchList = MusicMetadata::fillFieldList("album");
@@ -614,7 +613,7 @@ void EditMetadataDialog::searchAlbum()
         return;
     }
 
-    connect(searchDlg, SIGNAL(haveResult(QString)), SLOT(setAlbum(QString)));
+    connect(searchDlg, &MythUISearchDialog::haveResult, this, &EditMetadataDialog::setAlbum);
 
     popupStack->AddScreen(searchDlg);
 }
@@ -642,15 +641,15 @@ void EditMetadataDialog::updateAlbumImage(void)
     }
 }
 
-void EditMetadataDialog::searchGenre()
+void EditMetadataDialog::searchGenre() const
 {
     QString msg = tr("Select a Genre");
     QStringList searchList = MusicMetadata::fillFieldList("genre");
     // load genre list
     /*
     searchList.clear();
-    for (int x = 0; x < genre_table_size; x++)
-        searchList.push_back(QString(genre_table[x]));
+    for (const auto &genre : genre_table)
+        searchList.push_back(QString::fromStdString(genre));
     searchList.sort();
     */
 
@@ -665,7 +664,7 @@ void EditMetadataDialog::searchGenre()
         return;
     }
 
-    connect(searchDlg, SIGNAL(haveResult(QString)), SLOT(setGenre(QString)));
+    connect(searchDlg, &MythUISearchDialog::haveResult, this, &EditMetadataDialog::setGenre);
 
     popupStack->AddScreen(searchDlg);
 }
@@ -807,14 +806,14 @@ void EditMetadataDialog::customEvent(QEvent *event)
                 if (m_searchType == "artist")
                 {
                     QString cleanName = fixFilename(s_metadata->Artist().toLower());
-                    QString file = QString("Icons/%1/%2.jpg").arg("artist").arg(cleanName);
+                    QString file = QString("Icons/%1/%2.jpg").arg("artist", cleanName);
                     newFilename = MythCoreContext::GenMythURL(gCoreContext->GetMasterHostName(),
                                                               0, file, "MusicArt");
                 }
                 else if (m_searchType == "genre")
                 {
                     QString cleanName = fixFilename(s_metadata->Genre().toLower());
-                    QString file = QString("Icons/%1/%2.jpg").arg("genre").arg(cleanName);
+                    QString file = QString("Icons/%1/%2.jpg").arg("genre", cleanName);
                     newFilename = MythCoreContext::GenMythURL(gCoreContext->GetMasterHostName(),
                                                               0, file, "MusicArt");
                 }
@@ -898,10 +897,10 @@ bool EditAlbumartDialog::Create(void)
 
     updateImageGrid();
 
-    connect(m_coverartList, SIGNAL(itemSelected(MythUIButtonListItem*)),
-            this, SLOT(gridItemChanged(MythUIButtonListItem*)));
+    connect(m_coverartList, &MythUIButtonList::itemSelected,
+            this, &EditAlbumartDialog::gridItemChanged);
 
-    connect(m_metadataButton, SIGNAL(Clicked()), SLOT(switchToMetadata()));
+    connect(m_metadataButton, &MythUIButton::Clicked, this, &EditAlbumartDialog::switchToMetadata);
 
     BuildFocusList();
 
@@ -1023,12 +1022,12 @@ void EditAlbumartDialog::showTypeMenu(bool changeType)
         imageType = AlbumArtImages::guessImageType(m_imageFilename);
     }
 
-    menu->AddButton(AlbumArtImages::getTypeName(IT_UNKNOWN),    QVariant::fromValue((int)IT_UNKNOWN),    false, (imageType == IT_UNKNOWN));
-    menu->AddButton(AlbumArtImages::getTypeName(IT_FRONTCOVER), QVariant::fromValue((int)IT_FRONTCOVER), false, (imageType == IT_FRONTCOVER));
-    menu->AddButton(AlbumArtImages::getTypeName(IT_BACKCOVER),  QVariant::fromValue((int)IT_BACKCOVER),  false, (imageType == IT_BACKCOVER));
-    menu->AddButton(AlbumArtImages::getTypeName(IT_CD),         QVariant::fromValue((int)IT_CD),         false, (imageType == IT_CD));
-    menu->AddButton(AlbumArtImages::getTypeName(IT_INLAY),      QVariant::fromValue((int)IT_INLAY),      false, (imageType == IT_INLAY));
-    menu->AddButton(AlbumArtImages::getTypeName(IT_ARTIST),     QVariant::fromValue((int)IT_ARTIST),     false, (imageType == IT_ARTIST));
+    menu->AddButtonV(AlbumArtImages::getTypeName(IT_UNKNOWN),    QVariant::fromValue((int)IT_UNKNOWN),    false, (imageType == IT_UNKNOWN));
+    menu->AddButtonV(AlbumArtImages::getTypeName(IT_FRONTCOVER), QVariant::fromValue((int)IT_FRONTCOVER), false, (imageType == IT_FRONTCOVER));
+    menu->AddButtonV(AlbumArtImages::getTypeName(IT_BACKCOVER),  QVariant::fromValue((int)IT_BACKCOVER),  false, (imageType == IT_BACKCOVER));
+    menu->AddButtonV(AlbumArtImages::getTypeName(IT_CD),         QVariant::fromValue((int)IT_CD),         false, (imageType == IT_CD));
+    menu->AddButtonV(AlbumArtImages::getTypeName(IT_INLAY),      QVariant::fromValue((int)IT_INLAY),      false, (imageType == IT_INLAY));
+    menu->AddButtonV(AlbumArtImages::getTypeName(IT_ARTIST),     QVariant::fromValue((int)IT_ARTIST),     false, (imageType == IT_ARTIST));
 
     popupStack->AddScreen(menu);
 }
@@ -1270,7 +1269,7 @@ void EditAlbumartDialog::removeSelectedImageFromTag(void)
         if (image)
         {
             QString msg = tr("Are you sure you want to permanently remove this image from the tag?");
-            ShowOkPopup(msg, this, SLOT(doRemoveImageFromTag(bool)), true);
+            ShowOkPopup(msg, this, &EditAlbumartDialog::doRemoveImageFromTag, true);
         }
     }
 }
@@ -1356,7 +1355,8 @@ void EditAlbumartDialog::doCopyImageToTag(const AlbumArtImage *image)
     while (copyThread->isRunning())
     {
         qApp->processEvents();
-        usleep(1000);
+        const struct timespec onems {0, 1000000};
+        nanosleep(&onems, nullptr);
     }
 
     strList = copyThread->getResult();

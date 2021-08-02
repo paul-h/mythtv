@@ -52,7 +52,7 @@ CetonStreamHandler *CetonStreamHandler::Get(const QString &devname,
 
         LOG(VB_RECORD, LOG_INFO,
             QString("CetonSH[%1]: Creating new stream handler %2 for %3")
-            .arg(inputid).arg(devkey).arg(devname));
+            .arg(QString::number(inputid), devkey, devname));
     }
     else
     {
@@ -60,8 +60,8 @@ CetonStreamHandler *CetonStreamHandler::Get(const QString &devname,
         uint rcount = s_handlersRefCnt[devkey];
         LOG(VB_RECORD, LOG_INFO,
             QString("CetonSH[%1]: Using existing stream handler %2 for %3")
-            .arg(inputid).arg(devkey)
-            .arg(devname) + QString(" (%1 in use)").arg(rcount));
+                .arg(QString::number(inputid), devkey, devname) +
+            QString(" (%1 in use)").arg(rcount));
     }
 
     return s_handlers[devkey];
@@ -160,7 +160,7 @@ CetonStreamHandler::CetonStreamHandler(const QString &device, int inputid)
         LOG(VB_RECORD, LOG_INFO, LOC +
             QString("Ceton device %1 initialized. SN: %2, "
                     "Firmware ver. %3, Hardware ver. %4")
-            .arg(m_ipAddress).arg(sernum).arg(firmware_ver).arg(hardware_ver));
+            .arg(m_ipAddress, sernum, firmware_ver, hardware_ver));
 
         if (m_usingCablecard)
         {
@@ -168,7 +168,7 @@ CetonStreamHandler::CetonStreamHandler(const QString &device, int inputid)
             QString auth = GetVar("cas", "CardAuthorization");
 
             LOG(VB_RECORD, LOG_INFO, LOC +
-                QString("Cable card installed (%1) - %2").arg(brand).arg(auth));
+                QString("Cable card installed (%1) - %2").arg(brand, auth));
         }
         else
         {
@@ -437,7 +437,7 @@ void CetonStreamHandler::ClearProgramNumber(void)
     {
         if (GetVar("mux", "ProgramNumber") == "0")
             return;
-        usleep(20000);
+        usleep(20ms);
     };
 
     LOG(VB_GENERAL, LOG_ERR, LOC + "Program number failed to clear");
@@ -456,7 +456,7 @@ uint CetonStreamHandler::GetProgramNumber(void) const
         if (prognum != 0)
             return prognum;
 
-        usleep(100000);
+        usleep(100ms);
     };
 
     LOG(VB_GENERAL, LOG_ERR, LOC +
@@ -485,15 +485,16 @@ QString CetonStreamHandler::GetVar(
         return QString();
     }
 
-    QRegExp regex("^\\{ \"?result\"?: \"(.*)\" \\}$");
-    if (regex.indexIn(response) == -1)
+    static const QRegularExpression regex { "^\\{ \"?result\"?: \"(.*)\" \\}$"};
+    auto match = regex.match(response);
+    if (!match.hasMatch())
     {
         LOG(VB_GENERAL, LOG_ERR, loc +
             QString("unexpected http response: -->%1<--").arg(response));
         return QString();
     }
 
-    QString result = regex.cap(1);
+    QString result = match.captured(1);
     LOG(VB_RECORD, LOG_DEBUG, loc + QString("got: -->%1<--").arg(result));
     return result;
 }
@@ -515,10 +516,11 @@ QStringList CetonStreamHandler::GetProgramList()
         return QStringList();
     }
 
-    QRegExp regex(
+    static const QRegularExpression regex(
         R"(^\{ "?length"?: \d+(, "?results"?: \[ (.*) \])? \}$)");
 
-    if (regex.indexIn(response) == -1)
+    auto match = regex.match(response);
+    if (!match.hasMatch())
     {
         LOG(VB_GENERAL, LOG_ERR,
             loc + QString("returned unexpected output: -->%1<--")
@@ -526,8 +528,9 @@ QStringList CetonStreamHandler::GetProgramList()
         return QStringList();
     }
 
-    LOG(VB_RECORD, LOG_DEBUG, loc + QString("got: -->%1<--").arg(regex.cap(2)));
-    return regex.cap(2).split(", ");
+    LOG(VB_RECORD, LOG_DEBUG, loc + QString("got: -->%1<--")
+        .arg(match.captured(2)));
+    return match.captured(2).split(", ");
 }
 
 bool CetonStreamHandler::HttpRequest(

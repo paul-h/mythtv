@@ -75,11 +75,11 @@ bool GameUI::Create()
         return false;
     }
 
-    connect(m_gameUITree, SIGNAL(itemClicked(MythUIButtonListItem*)),
-            this, SLOT(itemClicked(MythUIButtonListItem*)));
+    connect(m_gameUITree, &MythUIButtonTree::itemClicked,
+            this, &GameUI::itemClicked);
 
-    connect(m_gameUITree, SIGNAL(nodeChanged(MythGenericTree*)),
-            this, SLOT(nodeChanged(MythGenericTree*)));
+    connect(m_gameUITree, &MythUIButtonTree::nodeChanged,
+            this, &GameUI::nodeChanged);
 
     m_gameShowFileName = gCoreContext->GetBoolSetting("GameShowFileNames");
 
@@ -130,14 +130,14 @@ void GameUI::BuildTree()
     //  approach with multiple roots if/when someone has the time to create
     //  the relevant dialog screens
 
-    QString levels = gCoreContext->GetSetting("GameFavTreeLevels");
+    QString levels = gCoreContext->GetSetting("GameFavTreeLevels", "gamename");
 
     auto *new_node = new MythGenericTree(tr("Favorites"), 1, true);
     new_node->SetData(QVariant::fromValue(
                 new GameTreeInfo(levels, systemFilter + " and favorite=1")));
     m_favouriteNode = m_gameTree->addNode(new_node);
 
-    levels = gCoreContext->GetSetting("GameAllTreeLevels");
+    levels = gCoreContext->GetSetting("GameAllTreeLevels", "system gamename");
 
     if (m_showHashed)
     {
@@ -470,8 +470,8 @@ void GameUI::searchStart(void)
 
         if (searchDialog->Create())
         {
-            connect(searchDialog, SIGNAL(haveResult(QString)),
-                    SLOT(searchComplete(QString)));
+            connect(searchDialog, &MythUISearchDialog::haveResult,
+                    this, &GameUI::searchComplete);
 
             popupStack->AddScreen(searchDialog);
         }
@@ -578,8 +578,8 @@ void GameUI::customEvent(QEvent *event)
             auto *resultsdialog =
                   new MetadataResultsDialog(m_popupStack, lul);
 
-            connect(resultsdialog, SIGNAL(haveResult(RefCountHandler<MetadataLookup>)),
-                    SLOT(OnGameSearchListSelection(RefCountHandler<MetadataLookup>)),
+            connect(resultsdialog, &MetadataResultsDialog::haveResult,
+                    this, &GameUI::OnGameSearchListSelection,
                     Qt::QueuedConnection);
 
             if (resultsdialog->Create())
@@ -643,6 +643,9 @@ QString GameUI::getFillSql(MythGenericTree *node) const
     QString filter = getFilter(node);
     bool childIsLeaf = childDepth == getLevelsOnThisBranch(node) + 1;
     auto *romInfo = node->GetData().value<RomInfo *>();
+
+    if (childLevel.isEmpty())
+        childLevel = "gamename";
 
     QString columns;
     QString conj = "where ";
@@ -790,7 +793,7 @@ bool GameUI::isLeaf(MythGenericTree *node)
 
 void GameUI::fillNode(MythGenericTree *node)
 {
-    QString layername = node->GetText();
+//  QString layername = node->GetText();
     auto *romInfo = node->GetData().value<RomInfo *>();
 
     MSqlQuery query(MSqlQuery::InitCon());
@@ -979,23 +982,14 @@ void GameUI::OnGameSearchDone(MetadataLookup *lookup)
 
     // Imagery
     ArtworkList coverartlist = lookup->GetArtwork(kArtworkCoverart);
-    for (ArtworkList::const_iterator p = coverartlist.begin();
-        p != coverartlist.end(); ++p)
-    {
-        coverart.prepend((*p).url);
-    }
+    for (const auto & art : qAsConst(coverartlist))
+        coverart.prepend(art.url);
     ArtworkList fanartlist = lookup->GetArtwork(kArtworkFanart);
-    for (ArtworkList::const_iterator p = fanartlist.begin();
-        p != fanartlist.end(); ++p)
-    {
-        fanart.prepend((*p).url);
-    }
+    for (const auto & art : qAsConst(fanartlist))
+        fanart.prepend(art.url);
     ArtworkList screenshotlist = lookup->GetArtwork(kArtworkScreenshot);
-    for (ArtworkList::const_iterator p = screenshotlist.begin();
-        p != screenshotlist.end(); ++p)
-    {
-        screenshot.prepend((*p).url);
-    }
+    for (const auto & art : qAsConst(screenshotlist))
+        screenshot.prepend(art.url);
 
     StartGameImageSet(node, coverart, fanart, screenshot);
 
@@ -1013,11 +1007,7 @@ void GameUI::StartGameImageSet(MythGenericTree *node, QStringList coverart,
     if (!metadata)
         return;
 
-    ArtworkMap map;
-
-    QString inetref = metadata->Inetref();
-    QString system = metadata->System();
-    QString title = metadata->Gamename();
+    DownloadMap map;
 
     if (metadata->Boxart().isEmpty() && !coverart.empty())
     {
@@ -1092,7 +1082,7 @@ void GameUI::doScan()
 {
     if (!m_scanner)
         m_scanner = new GameScanner();
-    connect(m_scanner, SIGNAL(finished(bool)), SLOT(reloadAllData(bool)));
+    connect(m_scanner, &GameScanner::finished, this, &GameUI::reloadAllData);
     m_scanner->doScanAll();
 }
 

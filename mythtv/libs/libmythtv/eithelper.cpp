@@ -2,7 +2,6 @@
 
 // Std C++ headers
 #include <algorithm>
-using namespace std;
 
 // MythTV includes
 #include "eithelper.h"
@@ -14,14 +13,16 @@ using namespace std;
 #include "premieretables.h"
 #include "dishdescriptors.h"
 #include "premieredescriptors.h"
-#include "channelutil.h"        // for ChannelUtil
+#include "channelutil.h"
 #include "mythdate.h"
 #include "programdata.h"
-#include "programinfo.h" // for subtitle types and audio and video properties
+#include "programinfo.h"        // for subtitle types and audio and video properties
 #include "scheduledrecording.h" // for ScheduledRecording
-#include "compat.h" // for gmtime_r on windows.
+#include "compat.h"             // for gmtime_r on windows.
 
-const uint EITHelper::kChunkSize = 20;
+const uint EITHelper::kChunkSize =   20;
+const uint EITHelper::kMaxSize   = 1000;
+
 EITCache *EITHelper::s_eitCache = new EITCache();
 
 static uint get_chan_id_from_db_atsc(uint sourceid,
@@ -33,9 +34,10 @@ static uint get_chan_id_from_db_dtv(uint sourceid,
 static void init_fixup(FixupMap &fix);
 
 #define LOC QString("EITHelper: ")
+#define LOC_ID QString("EITHelper[%1]: ").arg(m_cardnum)
 
-EITHelper::EITHelper() :
-    m_eitFixup(new EITFixUp())
+EITHelper::EITHelper(uint cardnum) :
+    m_cardnum(cardnum)
 {
     init_fixup(m_fixup);
 }
@@ -45,8 +47,6 @@ EITHelper::~EITHelper()
     QMutexLocker locker(&m_eitListLock);
     while (!m_dbEvents.empty())
         delete m_dbEvents.dequeue();
-
-    delete m_eitFixup;
 }
 
 uint EITHelper::GetListSize(void) const
@@ -55,8 +55,18 @@ uint EITHelper::GetListSize(void) const
     return m_dbEvents.size();
 }
 
+bool EITHelper::EventQueueFull(void) const
+{
+    uint listsize = GetListSize();
+    bool full = listsize > kMaxSize;
+    return full;
+}
+
 /** \fn EITHelper::ProcessEvents(void)
- *  \brief Inserts events in EIT list.
+ *  \brief Get events from queue and insert into DB after processing.
+ *
+ * Process a maximum of kChunkSize events at a time
+ * to avoid clogging the machine.
  *
  *  \return Returns number of events inserted into DB.
  */
@@ -74,10 +84,10 @@ uint EITHelper::ProcessEvents(void)
         DBEventEIT *event = m_dbEvents.dequeue();
         m_eitListLock.unlock();
 
-        m_eitFixup->Fix(*event);
+        EITFixUp::Fix(*event);
 
         insertCount += event->UpdateDB(query, 1000);
-        m_maxStarttime = max (m_maxStarttime, event->m_starttime);
+        m_maxStarttime = std::max (m_maxStarttime, event->m_starttime);
 
         delete event;
         m_eitListLock.lock();
@@ -88,15 +98,15 @@ uint EITHelper::ProcessEvents(void)
 
     if (!m_incompleteEvents.empty())
     {
-        LOG(VB_EIT, LOG_INFO,
-            LOC + QString("Added %1 events -- complete: %2 incomplete: %3")
+        LOG(VB_EIT, LOG_INFO, LOC_ID +
+            QString("Added %1 events -- complete: %2 incomplete: %3")
                 .arg(insertCount).arg(m_dbEvents.size())
                 .arg(m_incompleteEvents.size()));
     }
     else
     {
-        LOG(VB_EIT, LOG_INFO,
-            LOC + QString("Added %1 events").arg(insertCount));
+        LOG(VB_EIT, LOG_INFO, LOC_ID +
+            QString("Added %1 events").arg(insertCount));
     }
 
     return insertCount;
@@ -126,16 +136,16 @@ void EITHelper::SetLanguagePreferences(const QStringList &langPref)
     }
 }
 
-void EITHelper::SetSourceID(uint _sourceid)
+void EITHelper::SetSourceID(uint sourceid)
 {
     QMutexLocker locker(&m_eitListLock);
-    m_sourceid = _sourceid;
+    m_sourceid = sourceid;
 }
 
-void EITHelper::SetChannelID(uint _channelid)
+void EITHelper::SetChannelID(uint channelid)
 {
     QMutexLocker locker(&m_eitListLock);
-    m_channelid = _channelid;
+    m_channelid = channelid;
 }
 
 void EITHelper::AddEIT(uint atsc_major, uint atsc_minor,
@@ -206,27 +216,26 @@ void EITHelper::AddETT(uint atsc_major, uint atsc_minor,
 static void parse_dvb_event_descriptors(const desc_list_t& list, FixupValue fix,
                                         QMap<uint,uint> languagePreferences,
                                         QString &title, QString &subtitle,
-                                        QString &description, QMap<QString,QString> &items)
+                                        QString &description, QMultiMap<QString,QString> &items)
 {
     const unsigned char *bestShortEvent =
         MPEGDescriptor::FindBestMatch(
             list, DescriptorID::short_event, languagePreferences);
 
     // from EN 300 468, Appendix A.2 - Selection of character table
-    unsigned char enc_1[3]  = { 0x10, 0x00, 0x01 };
-    unsigned char enc_2[3]  = { 0x10, 0x00, 0x02 };
-    unsigned char enc_7[3]  = { 0x10, 0x00, 0x07 }; // Latin/Greek Alphabet
-    unsigned char enc_9[3]  = { 0x10, 0x00, 0x09 }; // could use { 0x05 } instead
-    unsigned char enc_15[3] = { 0x10, 0x00, 0x0f }; // could use { 0x0B } instead
-    int enc_len = 0;
-    const unsigned char *enc = nullptr;
+    const enc_override enc_1  { 0x10, 0x00, 0x01 };
+    const enc_override enc_2  { 0x10, 0x00, 0x02 };
+    const enc_override enc_7  { 0x10, 0x00, 0x07 }; // Latin/Greek Alphabet
+    const enc_override enc_9  { 0x10, 0x00, 0x09 }; // could use { 0x05 } instead
+    const enc_override enc_15 { 0x10, 0x00, 0x0f }; // could use { 0x0B } instead
+    const enc_override enc_none {};
+    enc_override enc = enc_none;
 
     // Is this BellExpressVU EIT (Canada) ?
     // Use an encoding override of ISO 8859-1 (Latin1)
     if (fix & EITFixUp::kEFixForceISO8859_1)
     {
         enc = enc_1;
-        enc_len = sizeof(enc_1);
     }
 
     // Is this broken DVB provider in Central Europe?
@@ -234,7 +243,6 @@ static void parse_dvb_event_descriptors(const desc_list_t& list, FixupValue fix,
     if (fix & EITFixUp::kEFixForceISO8859_2)
     {
         enc = enc_2;
-        enc_len = sizeof(enc_2);
     }
 
     // Is this broken DVB provider in Western Europe?
@@ -242,7 +250,6 @@ static void parse_dvb_event_descriptors(const desc_list_t& list, FixupValue fix,
     if (fix & EITFixUp::kEFixForceISO8859_9)
     {
         enc = enc_9;
-        enc_len = sizeof(enc_9);
     }
 
     // Is this broken DVB provider in Western Europe?
@@ -250,7 +257,6 @@ static void parse_dvb_event_descriptors(const desc_list_t& list, FixupValue fix,
     if (fix & EITFixUp::kEFixForceISO8859_15)
     {
         enc = enc_15;
-        enc_len = sizeof(enc_15);
     }
 
     // Is this broken DVB provider in Greece?
@@ -258,7 +264,6 @@ static void parse_dvb_event_descriptors(const desc_list_t& list, FixupValue fix,
     if (fix & EITFixUp::kEFixForceISO8859_7)
     {
         enc = enc_7;
-        enc_len = sizeof(enc_7);
     }
 
     if (bestShortEvent)
@@ -266,20 +271,12 @@ static void parse_dvb_event_descriptors(const desc_list_t& list, FixupValue fix,
         ShortEventDescriptor sed(bestShortEvent);
         if (sed.IsValid())
         {
-            if (enc)
-            {
-                title    = sed.EventName(enc, enc_len);
-                subtitle = sed.Text(enc, enc_len);
-            }
-            else
-            {
-                title    = sed.EventName();
-                subtitle = sed.Text();
-            }
+            title    = sed.EventName(enc);
+            subtitle = sed.Text(enc);
         }
     }
 
-    vector<const unsigned char*> bestExtendedEvents =
+    std::vector<const unsigned char*> bestExtendedEvents =
         MPEGDescriptor::FindBestMatches(
             list, DescriptorID::extended_event, languagePreferences);
 
@@ -295,10 +292,7 @@ static void parse_dvb_event_descriptors(const desc_list_t& list, FixupValue fix,
         ExtendedEventDescriptor eed(best_event);
         if (eed.IsValid())
         {
-            if (enc)
-                description += eed.Text(enc, enc_len);
-            else
-                description += eed.Text();
+            description += eed.Text(enc);
         }
         // add items from the descriptor to the items
         items.unite (eed.Items());
@@ -325,6 +319,10 @@ static inline void parse_dvb_component_descriptors(const desc_list_t& list,
 
 void EITHelper::AddEIT(const DVBEventInformationTable *eit)
 {
+    // Discard event if incoming event queue full
+    if (EventQueueFull())
+        return;
+
     uint chanid = 0;
     if ((eit->TableID() == TableID::PF_EIT) ||
         ((eit->TableID() >= TableID::SC_EITbeg) && (eit->TableID() <= TableID::SC_EITend)))
@@ -378,7 +376,7 @@ void EITHelper::AddEIT(const DVBEventInformationTable *eit)
         uint season = 0;
         uint episode = 0;
         uint totalepisodes = 0;
-        QMap<QString,QString> items;
+        QMultiMap<QString,QString> items;
 
         // Parse descriptors
         desc_list_t list = MPEGDescriptor::Parse(
@@ -637,6 +635,10 @@ void EITHelper::AddEIT(const DVBEventInformationTable *eit)
 // for the option channels Premiere Sport and Premiere Direkt
 void EITHelper::AddEIT(const PremiereContentInformationTable *cit)
 {
+    // Discard event if incoming event queue full
+    if (EventQueueFull())
+        return;
+
     // set fixup for Premiere
     FixupValue fix = m_fixup.value(133 << 16);
     fix |= EITFixUp::kFixGenericDVB;
@@ -652,7 +654,7 @@ void EITHelper::AddEIT(const PremiereContentInformationTable *cit)
     uint season = 0;
     uint episode = 0;
     uint totalepisodes = 0;
-    QMap<QString,QString> items;
+    QMultiMap<QString,QString> items;
 
     // Parse descriptors
     desc_list_t list = MPEGDescriptor::Parse(
@@ -712,7 +714,7 @@ void EITHelper::AddEIT(const PremiereContentInformationTable *cit)
 
         if (!chanid)
         {
-            LOG(VB_EIT, LOG_INFO, LOC +
+            LOG(VB_EIT, LOG_INFO, LOC_ID +
                 QString("Premiere EIT for NIT %1, TID %2, SID %3, "
                         "count %4, title: %5. Channel not found!")
                     .arg(networkid).arg(tsid).arg(serviceid)
@@ -770,6 +772,10 @@ void EITHelper::CompleteEvent(uint atsc_major, uint atsc_minor,
                               const ATSCEvent &event,
                               const QString   &ett)
 {
+    // Discard event if incoming event queue full
+    if (EventQueueFull())
+        return;
+
     uint chanid = GetChanID(atsc_major, atsc_minor);
     if (!chanid)
         return;
@@ -795,22 +801,26 @@ void EITHelper::CompleteEvent(uint atsc_major, uint atsc_minor,
     QString title = event.m_title;
     const QString& subtitle = ett;
     m_dbEvents.enqueue(new DBEventEIT(chanid, title, subtitle,
-                                     starttime, endtime,
-                                     m_fixup.value(atsc_key), subtitle_type,
-                                     audio_properties, video_properties));
+                                      starttime, endtime,
+                                      m_fixup.value(atsc_key), subtitle_type,
+                                      audio_properties, video_properties));
 }
 
 uint EITHelper::GetChanID(uint atsc_major, uint atsc_minor)
 {
-    uint64_t key  = ((uint64_t) m_sourceid);
+    uint sourceid = m_sourceid;
+    if (sourceid == 0)
+        return 0;
+
+    uint64_t key  = sourceid;
     key |= ((uint64_t) atsc_minor) << 16;
     key |= ((uint64_t) atsc_major) << 32;
 
-    ServiceToChanID::const_iterator it = m_srvToChanid.find(key);
-    if (it != m_srvToChanid.end())
+    ServiceToChanID::const_iterator it = m_srvToChanid.constFind(key);
+    if (it != m_srvToChanid.constEnd())
         return *it;
 
-    uint chanid = get_chan_id_from_db_atsc(m_sourceid, atsc_major, atsc_minor);
+    uint chanid = get_chan_id_from_db_atsc(sourceid, atsc_major, atsc_minor);
     m_srvToChanid[key] = chanid;
 
     return chanid;
@@ -818,16 +828,20 @@ uint EITHelper::GetChanID(uint atsc_major, uint atsc_minor)
 
 uint EITHelper::GetChanID(uint serviceid, uint networkid, uint tsid)
 {
-    uint64_t key  = ((uint64_t) m_sourceid);
+    uint sourceid = m_sourceid;
+    if (sourceid == 0)
+        return 0;
+
+    uint64_t key  = sourceid;
     key |= ((uint64_t) serviceid) << 16;
     key |= ((uint64_t) networkid) << 32;
     key |= ((uint64_t) tsid)      << 48;
 
-    ServiceToChanID::const_iterator it = m_srvToChanid.find(key);
-    if (it != m_srvToChanid.end())
+    ServiceToChanID::const_iterator it = m_srvToChanid.constFind(key);
+    if (it != m_srvToChanid.constEnd())
         return *it;
 
-    uint chanid = get_chan_id_from_db_dvb(m_sourceid, serviceid, networkid, tsid);
+    uint chanid = get_chan_id_from_db_dvb(sourceid, serviceid, networkid, tsid);
     m_srvToChanid[key] = chanid;
 
     return chanid;
@@ -835,22 +849,26 @@ uint EITHelper::GetChanID(uint serviceid, uint networkid, uint tsid)
 
 uint EITHelper::GetChanID(uint program_number)
 {
-    uint64_t key  = ((uint64_t) m_sourceid);
+    uint sourceid = m_sourceid;
+    if (sourceid == 0)
+        return 0;
+
+    uint64_t key  = sourceid;
     key |= ((uint64_t) program_number) << 16;
     key |= ((uint64_t) m_channelid)    << 32;
 
-    ServiceToChanID::const_iterator it = m_srvToChanid.find(key);
-    if (it != m_srvToChanid.end())
+    ServiceToChanID::const_iterator it = m_srvToChanid.constFind(key);
+    if (it != m_srvToChanid.constEnd())
         return *it;
 
-    uint chanid = get_chan_id_from_db_dtv(m_sourceid, program_number, m_channelid);
+    uint chanid = get_chan_id_from_db_dtv(sourceid, program_number, m_channelid);
     m_srvToChanid[key] = chanid;
 
     return chanid;
 }
 
 static uint get_chan_id_from_db_atsc(uint sourceid,
-                                uint atsc_major, uint atsc_minor)
+                                     uint atsc_major, uint atsc_minor)
 {
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
@@ -877,68 +895,57 @@ static uint get_chan_id_from_db_atsc(uint sourceid,
 
 // Figure out the chanid for this channel
 static uint get_chan_id_from_db_dvb(uint sourceid, uint serviceid,
-                                uint networkid, uint transportid)
+                                    uint networkid, uint transportid)
 {
-    uint chanid = 0;
-    bool useOnAirGuide = false;
     MSqlQuery query(MSqlQuery::InitCon());
 
     // DVB Link to chanid
     QString qstr =
-        "SELECT chanid, useonairguide, channel.sourceid "
+        "SELECT chanid, useonairguide "
         "FROM channel, dtv_multiplex "
         "WHERE deleted          IS NULL        AND "
         "      serviceid        = :SERVICEID   AND "
         "      networkid        = :NETWORKID   AND "
         "      transportid      = :TRANSPORTID AND "
+        "      channel.sourceid = :SOURCEID    AND "
         "      channel.mplexid  = dtv_multiplex.mplexid";
 
     query.prepare(qstr);
     query.bindValue(":SERVICEID",   serviceid);
     query.bindValue(":NETWORKID",   networkid);
     query.bindValue(":TRANSPORTID", transportid);
+    query.bindValue(":SOURCEID",    sourceid);
 
     if (!query.exec() || !query.isActive())
-        MythDB::DBError("Looking up chanID", query);
-
-    if (query.size() == 0) {
-        // Attempt fuzzy matching, by skipping the tsid
-        // DVB Link to chanid
-        qstr =
-            "SELECT chanid, useonairguide, channel.sourceid "
-            "FROM channel, dtv_multiplex "
-            "WHERE deleted          IS NULL        AND "
-            "      serviceid        = :SERVICEID   AND "
-            "      networkid        = :NETWORKID   AND "
-            "      channel.mplexid  = dtv_multiplex.mplexid";
-
-        query.prepare(qstr);
-        query.bindValue(":SERVICEID",   serviceid);
-        query.bindValue(":NETWORKID",   networkid);
-        if (!query.exec() || !query.isActive())
-            MythDB::DBError("Looking up chanID in fuzzy mode", query);
-    }
-
-    while (query.next())
     {
-        // Check to see if we are interested in this channel
-        chanid        = query.value(0).toUInt();
-        useOnAirGuide = query.value(1).toBool();
-        if (sourceid == query.value(2).toUInt())
-            return useOnAirGuide ? chanid : 0;
+        MythDB::DBError("Looking up chanID", query);
+        return 0;
     }
 
     if (query.size() > 1)
     {
-        LOG(VB_EIT, LOG_INFO,
-            LOC + QString("found %1 channels for networkid %2, "
-                          "transportid %3, serviceid %4 but none "
-                          "for current sourceid %5.")
-                .arg(query.size()).arg(networkid).arg(transportid)
-                .arg(serviceid).arg(sourceid));
+        LOG(VB_EIT, LOG_ERR, LOC +
+            QString("Found %1 channels for sourceid %1 networkid %2 "
+                    "transportid %3 serviceid %4 but only one expected")
+                .arg(query.size())
+                .arg(sourceid).arg(networkid).arg(transportid).arg(serviceid));
     }
 
-    return useOnAirGuide ? chanid : 0;
+    while (query.next())
+    {
+        uint chanid        = query.value(0).toUInt();
+        bool useOnAirGuide = query.value(1).toBool();
+        return useOnAirGuide ? chanid : 0;
+    }
+
+    // EIT information for channels that are not present such as encrypted
+    // channels when only FTA channels are selected etc.
+    LOG(VB_EIT, LOG_DEBUG, LOC +
+        QString("No channel found for sourceid %1 networkid %2 "
+                "transportid %3 serviceid %4")
+            .arg(sourceid).arg(networkid).arg(transportid).arg(serviceid));
+
+    return 0;
 }
 
 /* Figure out the chanid for this channel from the sourceid,
@@ -948,10 +955,9 @@ static uint get_chan_id_from_db_dvb(uint sourceid, uint serviceid,
  * in dtv_multiplex
  */
 static uint get_chan_id_from_db_dtv(uint sourceid, uint serviceid,
-                                uint tunedchanid)
+                                    uint tunedchanid)
 {
-    uint chanid = 0;
-    bool useOnAirGuide = false;
+    uint db_sourceid = 0;
     MSqlQuery query(MSqlQuery::InitCon());
 
     // DVB Link to chanid
@@ -969,28 +975,32 @@ static uint get_chan_id_from_db_dtv(uint sourceid, uint serviceid,
     query.bindValue(":CHANID", tunedchanid);
 
     if (!query.exec() || !query.isActive())
+    {
         MythDB::DBError("Looking up chanID", query);
+        return 0;
+    }
 
     while (query.next())
     {
         // Check to see if we are interested in this channel
-        chanid        = query.value(0).toUInt();
-        useOnAirGuide = query.value(1).toBool();
-        if (sourceid == query.value(2).toUInt())
+        uint chanid        = query.value(0).toUInt();
+        bool useOnAirGuide = query.value(1).toBool();
+        db_sourceid        = query.value(2).toUInt();
+        if (sourceid == db_sourceid)
             return useOnAirGuide ? chanid : 0;
     }
 
-    if (query.size() > 1)
+    if (query.size() > 0)
     {
-        LOG(VB_EIT, LOG_INFO,
-            LOC + QString("found %1 channels for multiplex of chanid %2, "
-                          "serviceid %3 but none "
-                          "for current sourceid %4.")
+        LOG(VB_EIT, LOG_DEBUG,
+            LOC + QString("Found %1 channels for multiplex of chanid %2, "
+                          "serviceid %3, sourceid %4 in database but none "
+                          "for current sourceid %5.")
                 .arg(query.size()).arg(tunedchanid)
-                .arg(serviceid).arg(sourceid));
+                .arg(serviceid).arg(db_sourceid).arg(sourceid));
     }
 
-    return useOnAirGuide ? chanid : 0;
+    return 0;
 }
 
 static void init_fixup(FixupMap &fix)
@@ -1080,7 +1090,6 @@ static void init_fixup(FixupMap &fix)
     fix[40999U << 16 | 1069] = EITFixUp::kFixSubtitle;
 
     // Australia
-    fix[ 4096U  << 16] = EITFixUp::kFixAUStar;
     fix[ 4096U  << 16] = EITFixUp::kFixAUStar;
     fix[ 4112U << 16]  = EITFixUp::kFixAUDescription | EITFixUp::kFixAUFreeview; // ABC Brisbane
     fix[ 4114U << 16]  = EITFixUp::kFixAUDescription | EITFixUp::kFixAUFreeview | EITFixUp::kFixAUNine;; // Nine Brisbane

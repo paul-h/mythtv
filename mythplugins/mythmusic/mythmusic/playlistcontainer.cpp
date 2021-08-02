@@ -10,13 +10,12 @@
 #include "playlist.h"
 #include "playlistcontainer.h"
 
-
 void PlaylistLoadingThread::run()
 {
     RunProlog();
     while (!m_allMusic->doneLoading())
     {
-        msleep(250);
+        usleep(250ms); // cppcheck-suppress usleepCalled
     }
     m_parent->load();
     RunEpilog();
@@ -141,11 +140,11 @@ Playlist *PlaylistContainer::getPlaylist(int id)
         return m_activePlaylist;
     }
 
-    for (const auto & playlist : qAsConst(*m_allPlaylists))
-    {
-        if (playlist->getID() == id)
-            return playlist;
-    }
+    auto idmatch = [id](const auto & playlist)
+        { return playlist->getID() == id; };
+    auto it = std::find_if(m_allPlaylists->cbegin(), m_allPlaylists->cend(), idmatch);
+    if (it != m_allPlaylists->cend())
+        return *it;
 
     LOG(VB_GENERAL, LOG_ERR,
         "getPlaylistName() called with unknown index number");
@@ -156,12 +155,11 @@ Playlist *PlaylistContainer::getPlaylist(const QString &name)
 {
     //  return a pointer to a playlist
     //  by name;
-
-    for (const auto & playlist : qAsConst(*m_allPlaylists))
-    {
-        if (playlist->getName() == name)
-            return playlist;
-    }
+    auto namematch = [name](const auto & playlist)
+        { return playlist->getName() == name; };
+    auto it = std::find_if(m_allPlaylists->cbegin(), m_allPlaylists->cend(), namematch);
+    if (it != m_allPlaylists->cend())
+        return *it;
 
     LOG(VB_GENERAL, LOG_ERR, QString("getPlaylistName() called with unknown name: %1").arg(name));
     return nullptr;
@@ -259,11 +257,11 @@ QString PlaylistContainer::getPlaylistName(int index, bool &reference)
             return m_activePlaylist->getName();
         }
 
-        for (const auto & playlist : qAsConst(*m_allPlaylists))
-        {
-            if (playlist->getID() == index)
-                return playlist->getName();
-        }
+        auto indexmatch = [index](const auto & playlist)
+            { return playlist->getID() == index; };
+        auto it = std::find_if(m_allPlaylists->cbegin(), m_allPlaylists->cend(), indexmatch);
+        if (it != m_allPlaylists->cend())
+            return (*it)->getName();
     }
 
     LOG(VB_GENERAL, LOG_ERR, LOC +
@@ -278,13 +276,10 @@ bool PlaylistContainer::nameIsUnique(const QString& a_name, int which_id)
     if (a_name == DEFAULT_PLAYLIST_NAME)
         return false;
 
-    for (const auto & playlist : qAsConst(*m_allPlaylists))
-    {
-        if (playlist->getName() == a_name && playlist->getID() != which_id)
-            return false;
-    }
-
-    return true;
+    auto itemfound = [a_name,which_id](const auto & playlist)
+        { return playlist->getName() == a_name &&
+                 playlist->getID() != which_id; };
+    return std::none_of(m_allPlaylists->cbegin(), m_allPlaylists->cend(), itemfound);
 }
 
 QStringList PlaylistContainer::getPlaylistNames(void)
