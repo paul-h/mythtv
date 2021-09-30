@@ -12,7 +12,7 @@ MythHTTPThreadPool::MythHTTPThreadPool()
 
     // Don't allow more connections than we can process, it causes browsers
     // to open lots of new connections instead of reusing existing ones
-    setMaxPendingConnections(static_cast<int>(m_maxThreads));
+    setMaxPendingConnections(static_cast<int>(m_maxThreads * 4));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Using maximum %1 threads").arg(m_maxThreads));
 }
 
