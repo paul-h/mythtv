@@ -8,11 +8,11 @@
 MythHTTPThreadPool::MythHTTPThreadPool()
 {
     // Number of connections processed concurrently
-    m_maxThreads = static_cast<size_t>(std::max(QThread::idealThreadCount() * 2, 4));
+    m_maxThreads = static_cast<size_t>(std::max(QThread::idealThreadCount() * 2, 4) * 4);
 
     // Don't allow more connections than we can process, it causes browsers
     // to open lots of new connections instead of reusing existing ones
-    setMaxPendingConnections(static_cast<int>(m_maxThreads * 4));
+    setMaxPendingConnections(static_cast<int>(m_maxThreads));
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Using maximum %1 threads").arg(m_maxThreads));
 }
 
