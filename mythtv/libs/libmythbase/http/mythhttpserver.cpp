@@ -253,7 +253,8 @@ void MythHTTPServer::ProcessTCPQueue()
         auto Socket = m_connectionQueue.dequeue();
         auto * server = qobject_cast<PrivTcpServer*>(QObject::sender());
         auto ssl = server ? server->GetServerType() == kSSLServer : false;
-        auto name = QString("HTTP%1%2").arg(ssl ? "S" : "").arg(ThreadCount());
+        m_threadNum = m_threadNum % MaxThreads();
+        auto name = QString("HTTP%1%2").arg(ssl ? "S" : "").arg(m_threadNum++);
         auto * newthread = new MythHTTPThread(this, m_config, name, Socket, ssl);
         AddThread(newthread);
         connect(newthread->qthread(), &QThread::finished, this, &MythHTTPThreadPool::ThreadFinished);
@@ -261,9 +262,6 @@ void MythHTTPServer::ProcessTCPQueue()
         newthread->start();
         return;
     }
-    LOG(VB_GENERAL, LOG_ERR, LOC + QString("No HTTP threads available (Have: %1 Max: %2)")
-        .arg(AvailableThreads()).arg(MaxThreads()));
-    LOG(VB_GENERAL, LOG_ERR, LOC + QString("  Queue empty? (%1)").arg(m_connectionQueue.empty()));
 }
 
 void MythHTTPServer::newTcpConnection(qintptr Socket)
