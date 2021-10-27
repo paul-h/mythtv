@@ -35,13 +35,22 @@ void MythXMLPListSerialiser::AddObject(const QString& Name, const QVariant& Valu
 
 void MythXMLPListSerialiser::AddValue(const QString& Name, const QVariant& Value, bool NeedKey)
 {
-    if (Value.value<QObject*>())
+    QObject* object = Value.value<QObject*>();
+    if (object)
     {
-        AddQObject(Name, Value.value<QObject*>());
+        QVariant isNull = object->property("isNull");
+        if (isNull.value<bool>())
+            return;
+        AddQObject(Name, object);
         return;
     }
 
-    switch (Value.type())
+    // The QT documentation states that Value.type() returns
+    // a QVariant::Type which should be treated as a QMetaType::Type.
+    // There is no QVariant::Float only a QMetaType::Float so we
+    // need to cast it here so we can use QMetaType::Float without
+    // warning messages.
+    switch (static_cast<QMetaType::Type>(Value.type()))
     {
         case QVariant::StringList: AddStringList(Name, Value); break;
         case QVariant::List:       AddList(Name, Value.toList()); break;
@@ -62,6 +71,13 @@ void MythXMLPListSerialiser::AddValue(const QString& Name, const QVariant& Value
             if (NeedKey)
                 m_writer.writeTextElement("key", Name);
             m_writer.writeTextElement("real", QString("%1").arg(Value.toDouble(), 0, 'f', 6));
+            break;
+        }
+        case QMetaType::Float:
+        {
+            if (NeedKey)
+                m_writer.writeTextElement("key", Name);
+            m_writer.writeTextElement("real", QString("%1").arg(Value.toFloat(), 0, 'f', 6));
             break;
         }
         case QVariant::ByteArray:
@@ -194,6 +210,8 @@ QString MythXMLPListSerialiser::GetItemName(const QString& Name)
 {
     QString name = Name.startsWith("Q") ? Name.mid(1) : Name;
     name.remove("DTC::");
+    if (name.startsWith("V2"))
+        name.remove(0,2);
     name.remove(QChar('*'));
     return name;
 }
