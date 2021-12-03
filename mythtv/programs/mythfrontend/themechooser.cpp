@@ -189,6 +189,9 @@ void ThemeChooser::Load(void)
     if (match.hasMatch())
         MythVersion = "trunk";
 
+    if (MythVersion.contains("mythqml"))
+        MythVersion = "trunk";
+
     if (MythVersion == "trunk")
     {
         LoadVersion(MythVersion, themesSeen, true);
