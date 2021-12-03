@@ -384,8 +384,6 @@ void * PlaybackBox::RunPlaybackBox(void * player, bool showTV)
 PlaybackBox::PlaybackBox(MythScreenStack *parent, const QString& name,
                          TV *player, bool /*showTV*/)
     : ScheduleCommon(parent, name),
-      // Artwork Variables
-      m_artHostOverride(),
       // Recording Group settings
       m_groupDisplayName(ProgramInfo::i18n("All Programs")),
       m_recGroup("All Programs"),
@@ -3677,7 +3675,7 @@ void PlaybackBox::stopPlaylistJobQueueJob(int jobType)
                 jobType, tmpItem->GetChanID(),
                 tmpItem->GetRecordingStartTime(), JOB_STOP);
 
-            if ((jobType & JOB_COMMFLAG) && (tmpItem))
+            if (jobType & JOB_COMMFLAG)
             {
                 tmpItem->SetEditing(false);
                 tmpItem->SetFlagging(false);
