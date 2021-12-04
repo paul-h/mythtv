@@ -80,6 +80,7 @@ class Scheduler : public MThread, public MythScheduler
     bool GetAllPending(ProgramList &retList, int recRuleId = 0) const;
     void GetAllPending(QStringList &strList) const override; // MythScheduler
     QMap<QString,ProgramInfo*> GetRecording(void) const override; // MythScheduler
+    RecordingInfo* GetRecording(uint recordedid) const;
 
     enum SchedSortColumn { kSortTitle, kSortLastRecorded, kSortNextRecording,
                            kSortPriority, kSortType };
@@ -114,7 +115,7 @@ class Scheduler : public MThread, public MythScheduler
 
     int GetError(void) const { return m_error; }
 
-    void AddChildInput(uint parentid, uint inputid);
+    void AddChildInput(uint parentid, uint childid);
     void DelayShutdown();
 
   protected:
