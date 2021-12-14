@@ -22,12 +22,11 @@ HTTPData MythHTTPData::Create(const QByteArray& Other)
 }
 
 MythHTTPData::MythHTTPData()
-  : QByteArray(),
-    MythHTTPContent("")
+  : MythHTTPContent("")
 {
 }
 
-MythHTTPData::MythHTTPData(QString FileName, const char * Buffer)
+MythHTTPData::MythHTTPData(const QString& FileName, const char * Buffer)
   : QByteArray(Buffer),
     MythHTTPContent(FileName)
 {

@@ -88,7 +88,7 @@ MythHTTPSocket::MythHTTPSocket(qintptr Socket, bool SSL, const MythHTTPConfig& C
     // service would appear again as /services/services/
     auto service = MythHTTPService::Create<MythHTTPServices>();
     m_activeServices.emplace_back(service);
-    auto services = dynamic_cast<MythHTTPServices*>(service.get());
+    auto * services = dynamic_cast<MythHTTPServices*>(service.get());
     connect(this, &MythHTTPSocket::UpdateServices, services, &MythHTTPServices::UpdateServices);
     services->UpdateServices(m_config.m_services);
 }
@@ -109,17 +109,17 @@ MythHTTPSocket::~MythHTTPSocket()
 */
 void MythHTTPSocket::PathsChanged(const QStringList& Paths)
 {
-    m_config.m_filePaths = std::move(Paths);
+    m_config.m_filePaths = Paths;
 }
 
 void MythHTTPSocket::HandlersChanged(const HTTPHandlers& Handlers)
 {
-    m_config.m_handlers = std::move(Handlers);
+    m_config.m_handlers = Handlers;
 }
 
 void MythHTTPSocket::ServicesChanged(const HTTPServices& Services)
 {
-    m_config.m_services = std::move(Services);
+    m_config.m_services = Services;
     emit UpdateServices(m_config.m_services);
 }
 
@@ -255,7 +255,7 @@ void MythHTTPSocket::Read()
     if (response == nullptr)
     {
         LOG(VB_HTTP, LOG_INFO, LOC + QString("Processing: path '%1' file '%2'")
-            .arg(rpath).arg(request->m_fileName));
+            .arg(rpath, request->m_fileName));
 
         for (auto & service : m_activeServices)
         {
@@ -349,7 +349,7 @@ void MythHTTPSocket::Respond(HTTPResponse Response)
     Response->Finalise(m_config);
 
     // Queue headers
-    for (auto & header : qAsConst(Response->m_responseHeaders))
+    for (const auto & header : qAsConst(Response->m_responseHeaders))
     {
         LOG(VB_HTTP, LOG_DEBUG, header->trimmed().constData());
         m_queue.push_back(header);
@@ -364,14 +364,14 @@ void MythHTTPSocket::Respond(HTTPResponse Response)
     // Sum the expected number of bytes to be written. This is the size of the
     // data or file OR the total size of the range request. For multipart range
     // requests, add the total size of the additional headers.
-    for (auto & content : qAsConst(m_queue))
+    for (const auto & content : qAsConst(m_queue))
     {
-        if (auto data = std::get_if<HTTPData>(&content))
+        if (const auto * data = std::get_if<HTTPData>(&content))
         {
             m_totalToSend += (*data)->m_partialSize > 0 ? (*data)->m_partialSize : (*data)->size();
             m_totalToSend += (*data)->m_multipartHeaderSize;
         }
-        else if (auto file = std::get_if<HTTPFile>(&content))
+        else if (const auto * file = std::get_if<HTTPFile>(&content))
         {
             m_totalToSend += (*file)->m_partialSize > 0 ? (*file)->m_partialSize : (*file)->size();
             m_totalToSend += (*file)->m_multipartHeaderSize;
@@ -395,9 +395,9 @@ void MythHTTPSocket::RespondDirect(qintptr Socket, HTTPResponse Response, const 
         return;
 
     Response->Finalise(Config);
-    QTcpSocket* socket = new QTcpSocket();
+    auto * socket = new QTcpSocket();
     socket->setSocketDescriptor(Socket);
-    for (auto & header : qAsConst(Response->m_responseHeaders))
+    for (const auto & header : qAsConst(Response->m_responseHeaders))
         socket->write(*header);
     socket->flush();
     socket->disconnectFromHost();
@@ -448,7 +448,7 @@ void MythHTTPSocket::Write(int64_t Written)
     if (m_totalSent >= m_totalToSend)
     {
         auto seconds = static_cast<double>(m_writeTime.nsecsElapsed()) / 1000000000.0;
-        uint64_t rate = static_cast<uint64_t>(static_cast<double>(m_totalSent) / seconds);
+        auto rate = static_cast<uint64_t>(static_cast<double>(m_totalSent) / seconds);
         LOG(VB_HTTP, LOG_INFO, LOC + QString("Wrote %1bytes in %2seconds (%3)")
             .arg(m_totalSent).arg(seconds, 8, 'f', 6, '0')
             .arg(MythHTTPWS::BitrateToString(rate)));
@@ -461,13 +461,10 @@ void MythHTTPSocket::Write(int64_t Written)
                 SetupWebSocket();
             return;
         }
-        else
-        {
-            // This is going to be unrecoverable
-            LOG(VB_GENERAL, LOG_ERR, LOC + "Write complete but queue not empty");
-            Stop();
-            return;
-        }
+        // This is going to be unrecoverable
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Write complete but queue not empty");
+        Stop();
+        return;
     }
 
     // Fill them buffers
@@ -480,8 +477,8 @@ void MythHTTPSocket::Write(int64_t Written)
         int64_t itemsize = 0;
         int64_t towrite  = 0;
         bool chunk = false;
-        auto data = std::get_if<HTTPData>(&m_queue.front());
-        auto file = std::get_if<HTTPFile>(&m_queue.front());
+        auto * data = std::get_if<HTTPData>(&m_queue.front());
+        auto * file = std::get_if<HTTPFile>(&m_queue.front());
 
         if (data)
         {

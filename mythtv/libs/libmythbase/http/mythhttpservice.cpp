@@ -19,11 +19,6 @@ MythHTTPService::MythHTTPService(MythHTTPMetaService *MetaService)
 {
 }
 
-MythHTTPService::~MythHTTPService()
-{
-    // TODO Signal to clients that the service is closing?
-}
-
 /*! \brief Respond to a valid HTTPRequest
  *
  * \todo Error message always send an HTML version of the error message. This
@@ -71,7 +66,7 @@ HTTPResponse MythHTTPService::HTTPRequest(HTTPRequest2 Request)
     }
 
     // Sanity check type count (handler should have the return type at least)
-    if (handler->m_types.size() < 1)
+    if (handler->m_types.empty())
         return nullptr;
 
     // Handle options
@@ -116,9 +111,9 @@ HTTPResponse MythHTTPService::HTTPRequest(HTTPRequest2 Request)
         }
 
 #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
-        auto newparam = QMetaType::create(type);
+        auto * newparam = QMetaType::create(type);
 #else
-        auto newparam = QMetaType(type).create();
+        auto * newparam = QMetaType(type).create();
 #endif
         param[count] = handler->CreateParameter(newparam, type, value);
         count++;
@@ -156,7 +151,7 @@ HTTPResponse MythHTTPService::HTTPRequest(HTTPRequest2 Request)
         {
             if (!result)
             {
-                QFileInfo info = returnvalue.value<QFileInfo>();
+                auto info = returnvalue.value<QFileInfo>();
                 QString file = info.absoluteFilePath();
                 if (file.size() == 0)
                 {
@@ -204,6 +199,7 @@ HTTPResponse MythHTTPService::HTTPRequest(HTTPRequest2 Request)
 
     // Cleanup
     for (size_t i = 0; i < typecount; ++i)
+    {
         if ((param[i] != nullptr) && (types[i] != 0))
         {
 #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
@@ -212,6 +208,7 @@ HTTPResponse MythHTTPService::HTTPRequest(HTTPRequest2 Request)
             QMetaType(types[i]).destroy(param[i]);
 #endif
         }
+    }
 
     // Return the previous error
     if (count != typecount)

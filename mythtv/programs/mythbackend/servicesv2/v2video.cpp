@@ -23,7 +23,7 @@
 
 // This will be initialised in a thread safe manner on first use
 Q_GLOBAL_STATIC_WITH_ARGS(MythHTTPMetaService, s_service,
-    (VIDEO_HANDLE, V2Video::staticMetaObject, std::bind(&V2Video::RegisterCustomTypes)))
+    (VIDEO_HANDLE, V2Video::staticMetaObject, &V2Video::RegisterCustomTypes))
 
 void V2Video::RegisterCustomTypes()
 {
@@ -431,7 +431,7 @@ bool V2Video::UpdateVideoMetadata ( int           nId,
                                   int           nCollectionRef,
                                   const QString &sHomePage,
                                   int           nYear,
-                                  const QDate   &sReleasedate,
+                                  QDate         sReleasedate,
                                   float         fUserRating,
                                   int           nLength,
                                   int           nPlayCount,
@@ -452,7 +452,7 @@ bool V2Video::UpdateVideoMetadata ( int           nId,
                                   const QString &sScreenshot,
                                   const QString &sBanner,
                                   const QString &sFanart,
-                                  const QDate   &sInsertDate,
+                                  QDate         sInsertDate,
                                   const QString &sContentType,
                                   const QString &sGenres,
                                   const QString &sCast,

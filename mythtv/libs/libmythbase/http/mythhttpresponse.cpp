@@ -16,7 +16,7 @@
 #define LOC QString("HTTPResp: ")
 
 #define HEADER(KEY,VAL) { \
-    QByteArray val = QString("%1: %2\r\n").arg(KEY).arg(VAL).toUtf8(); \
+    QByteArray val = QString("%1: %2\r\n").arg(KEY, VAL).toUtf8(); \
     m_responseHeaders.emplace_back(MythHTTPData::Create(val)); \
 }
 
@@ -39,8 +39,8 @@ MythHTTPResponse::MythHTTPResponse(const HTTPRequest2 Request)
 void MythHTTPResponse::Finalise(const MythHTTPConfig& Config)
 {
     // Remaining entity headers
-    auto data = std::get_if<HTTPData>(&m_response);
-    auto file = std::get_if<HTTPFile>(&m_response);
+    auto * data = std::get_if<HTTPData>(&m_response);
+    auto * file = std::get_if<HTTPFile>(&m_response);
     if ((data || file) && m_requestHeaders)
     {
         // Language
@@ -192,8 +192,8 @@ HTTPResponse MythHTTPResponse::HandleOptions(HTTPRequest2 Request)
     if ((Request->m_type & Request->m_allowed) != Request->m_type)
     {
         LOG(VB_GENERAL, LOG_WARNING, LOC + QString("'%1' is not allowed for '%2' (Allowed: %3)")
-            .arg(MythHTTP::RequestToString(Request->m_type)).arg(Request->m_fileName)
-            .arg(MythHTTP::AllowedRequestsToString(Request->m_allowed)));
+            .arg(MythHTTP::RequestToString(Request->m_type), Request->m_fileName,
+                 MythHTTP::AllowedRequestsToString(Request->m_allowed)));
         Request->m_status = HTTPMethodNotAllowed;
         return MythHTTPResponse::ErrorResponse(Request);
     }
@@ -288,8 +288,8 @@ void MythHTTPResponse::AddDefaultHeaders()
     if (!range.isEmpty())
         MythHTTPRanges::HandleRangeRequest(this, range);
 
-    QByteArray def = QString("%1 %2\r\n").arg(MythHTTP::VersionToString(m_version))
-                                         .arg(MythHTTP::StatusToString(m_status)).toUtf8();
+    QByteArray def = QString("%1 %2\r\n").arg(MythHTTP::VersionToString(m_version),
+                                              MythHTTP::StatusToString(m_status)).toUtf8();
     m_responseHeaders.emplace_back(MythHTTPData::Create(def));
     HEADER("Date", MythDate::toString(MythDate::current(), MythDate::kRFC822)) // RFC 822
     HEADER("Server", m_serverName)
@@ -307,8 +307,8 @@ void MythHTTPResponse::AddDefaultHeaders()
 void MythHTTPResponse::AddContentHeaders()
 {
     // Check content type and size first
-    auto data = std::get_if<HTTPData>(&m_response);
-    auto file = std::get_if<HTTPFile>(&m_response);
+    auto * data = std::get_if<HTTPData>(&m_response);
+    auto * file = std::get_if<HTTPFile>(&m_response);
     int64_t size = data ? (*data)->size() : file ? (*file)->size() : 0;
 
     // Always add a zero length content header to keep some clients happy

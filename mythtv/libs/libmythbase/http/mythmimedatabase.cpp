@@ -44,7 +44,6 @@ class MythMimeDatabasePriv
 
     MythMimeType MimeTypeForName(const QString& Name) const
     {
-        auto name = Name.trimmed();
         auto found = std::find_if(m_mimes.cbegin(), m_mimes.cend(),
             [&Name](const auto & Mime) { return Name.compare(Mime.Name(), Qt::CaseInsensitive) == 0; });
         if (found != m_mimes.cend())
@@ -71,17 +70,17 @@ class MythMimeDatabasePriv
         return ".";
     }
 
-    MythMimeType MagicSearch(const MythMimeTypes& Types, const QByteArray& Data)
+    static MythMimeType MagicSearch(const MythMimeTypes& Types, const QByteArray& Data)
     {
         MythMimeType result;
         for (const auto & mime : Types)
         {
-            if (auto bytes = std::get_if<QByteArray>(&mime.m_magic); bytes)
+            if (const auto * bytes = std::get_if<QByteArray>(&mime.m_magic); bytes)
             {
                 if (Data.contains(*bytes) && (mime.m_weight > result.m_weight))
                     result = mime;
             }
-            else if (auto string = std::get_if<QString>(&mime.m_magic); string)
+            else if (const auto * string = std::get_if<QString>(&mime.m_magic); string)
             {
                 if (QString(Data.constData()).contains(*string, Qt::CaseInsensitive) && (mime.m_weight > result.m_weight))
                     result = mime;
@@ -90,7 +89,7 @@ class MythMimeDatabasePriv
         return result;
     }
 
-    MythMimeType MimeTypeForFileNameAndData(const QString& FileName, QIODevice* Device)
+    MythMimeType MimeTypeForFileNameAndData(const QString& FileName, QIODevice* Device) const
     {
         // Try and match by extension
         auto filtered = MimeTypesForFileName(FileName);
@@ -129,6 +128,7 @@ class MythMimeDatabasePriv
     MythMimeTypes m_mimes;
 };
 
+//NOLINTNEXTLINE(readability-redundant-member-init)
 Q_GLOBAL_STATIC(MythMimeDatabasePriv, s_mimeDB)
 
 /*! \class MythMimeDatabase
@@ -151,7 +151,7 @@ MythMimeDatabase::MythMimeDatabase()
 
 /*! \brief Return a vector containing all of the known types (both Qt and MythTV)
 */
-MythMimeTypes MythMimeDatabase::AllTypes() const
+MythMimeTypes MythMimeDatabase::AllTypes()
 {
     auto all = MythMimeDatabasePriv::ToMythMimeTypes(QMimeDatabase().allMimeTypes());
     const auto & mythtv = s_mimeDB->AllTypes();
@@ -161,7 +161,7 @@ MythMimeTypes MythMimeDatabase::AllTypes() const
 
 /*! \brief Return a vector of mime types that match the given filename.
 */
-MythMimeTypes MythMimeDatabase::MimeTypesForFileName(const QString &FileName) const
+MythMimeTypes MythMimeDatabase::MimeTypesForFileName(const QString &FileName)
 {
     auto result = MythMimeDatabasePriv::ToMythMimeTypes(QMimeDatabase().mimeTypesForFileName(FileName));
     const auto mythtv = s_mimeDB->MimeTypesForFileName(FileName);
@@ -173,7 +173,7 @@ MythMimeTypes MythMimeDatabase::MimeTypesForFileName(const QString &FileName) co
  *
  * \note The suffix does not include any 'dots' and is always lower case.
 */
-QString MythMimeDatabase::SuffixForFileName(const QString &FileName) const
+QString MythMimeDatabase::SuffixForFileName(const QString &FileName)
 {
     if (auto result = QMimeDatabase().suffixForFileName(FileName); !result.isEmpty())
         return result;
@@ -187,7 +187,7 @@ QString MythMimeDatabase::SuffixForFileName(const QString &FileName) const
  * know their type).
  * \note If a suitable mime type is not found, an invalid type is returned.
 */
-MythMimeType MythMimeDatabase::MimeTypeForName(const QString &Name) const
+MythMimeType MythMimeDatabase::MimeTypeForName(const QString &Name)
 {
     if (auto result = s_mimeDB->MimeTypeForName(Name); result.IsValid())
         return result;

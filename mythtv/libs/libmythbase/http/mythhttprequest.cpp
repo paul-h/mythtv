@@ -24,7 +24,7 @@
 MythHTTPRequest::MythHTTPRequest(const MythHTTPConfig& Config, const QString &Method,
                                  HTTPHeaders Headers, HTTPData Content, QTcpSocket* Socket /*=nullptr*/)
   : m_serverName(Config.m_serverName),
-    m_method(std::move(Method)),
+    m_method(Method),
     m_headers(Headers),
     m_content(Content),
     m_root(Config.m_rootDir),
@@ -139,7 +139,7 @@ MythHTTPRequest::MythHTTPRequest(const MythHTTPConfig& Config, const QString &Me
         m_connection = HTTPConnectionClose;
 
     // Parse the content type if present - and pull out any form data
-    if (m_content.get() && m_content->size() && ((m_type == HTTPPut) || (m_type == HTTPPost)))
+    if (m_content.get() && !m_content->isEmpty() && ((m_type == HTTPPut) || (m_type == HTTPPost)))
         MythHTTPEncoding::GetContentType(this);
 
     // Only parse queries if we do not have form data

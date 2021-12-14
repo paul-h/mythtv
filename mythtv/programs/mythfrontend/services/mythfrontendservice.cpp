@@ -64,7 +64,7 @@ class FrontendActions
         m_actions.sort();
 
         // Build actions that have an implicit value (e.g. SELECTSUBTITLE_0)
-        for (const auto & action : m_actions)
+        for (const auto & action : qAsConst(m_actions))
             if (action.startsWith("select", Qt::CaseInsensitive) && action.contains("_"))
                 m_selectActions.append(action);
 
@@ -84,11 +84,12 @@ class FrontendActions
     QHash<QString,QStringList> m_actionDescriptions;
 };
 
+//NOLINTNEXTLINE(readability-redundant-member-init)
 Q_GLOBAL_STATIC(FrontendActions, s_actions)
 
 // This will be initialised in a thread safe manner on first use
 Q_GLOBAL_STATIC_WITH_ARGS(MythHTTPMetaService, s_service,
-    (FRONTEND_HANDLE, MythFrontendService::staticMetaObject, std::bind(&MythFrontendService::RegisterCustomTypes)))
+    (FRONTEND_HANDLE, MythFrontendService::staticMetaObject, &MythFrontendService::RegisterCustomTypes))
 
 void MythFrontendService::RegisterCustomTypes()
 {
@@ -105,7 +106,7 @@ FrontendStatus* MythFrontendService::GetStatus()
 {
     QVariantMap state;
     MythUIStateTracker::GetFreshState(state);
-    FrontendStatus* result = new FrontendStatus(gCoreContext->GetHostName(), GetMythSourceVersion(), state);
+    auto* result = new FrontendStatus(gCoreContext->GetHostName(), GetMythSourceVersion(), state);
     return result;
 }
 
@@ -144,10 +145,10 @@ bool MythFrontendService::SendKey(const QString& Key)
     }
 
     MythMainWindow::ResetScreensaver();
-    auto mainwindow = GetMythMainWindow();
-    auto event1 = new QKeyEvent(QEvent::KeyPress, keycode, Qt::NoModifier, "");
+    auto * mainwindow = GetMythMainWindow();
+    auto * event1 = new QKeyEvent(QEvent::KeyPress, keycode, Qt::NoModifier, "");
     QCoreApplication::postEvent(mainwindow, event1);
-    auto event2 = new QKeyEvent(QEvent::KeyRelease, keycode, Qt::NoModifier, "");
+    auto * event2 = new QKeyEvent(QEvent::KeyRelease, keycode, Qt::NoModifier, "");
     QCoreApplication::postEvent(mainwindow, event2);
     LOG(VB_HTTP, LOG_INFO, LOC + QString("Sent key: '%1'").arg(Key));
     return true;
@@ -304,7 +305,7 @@ bool MythFrontendService::PlayRecording(int RecordedId, int ChanId, const QDateT
             .arg(ChanId).arg(starttime.toString(Qt::ISODate)));
 
         QString message = QString("NETWORK_CONTROL PLAY PROGRAM %1 %2 %3")
-            .arg(ChanId).arg(starttime.toString("yyyyMMddhhmmss")).arg("12345");
+            .arg(ChanId).arg(starttime.toString("yyyyMMddhhmmss"), "12345");
 
         MythEvent me(message);
         gCoreContext->dispatch(me);
@@ -363,48 +364,48 @@ bool MythFrontendService::PlayVideo(const QString& Id, bool UseBookmark)
 }
 
 FrontendStatus::FrontendStatus(const QString& Name, const QString& Version, const QVariantMap& State)
-  : m_name(Name),
-    m_version(Version),
-    m_state(State)
+  : m_Name(Name),
+    m_Version(Version),
+    m_State(State)
 {
-    if (m_state.contains("chaptertimes") &&
+    if (m_State.contains("chaptertimes") &&
 #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
-        m_state["chaptertimes"].type() == QVariant::List
+        m_State["chaptertimes"].type() == QVariant::List
 #else
-        m_state["chaptertimes"].typeId() == QMetaType::QVariantList
+        m_State["chaptertimes"].typeId() == QMetaType::QVariantList
 #endif
         )
     {
-        m_chapterTimes = m_state["chaptertimes"].toList();
-        m_state.remove("chaptertimes");
+        m_ChapterTimes = m_State["chaptertimes"].toList();
+        m_State.remove("chaptertimes");
     }
 
-    if (m_state.contains("subtitletracks") &&
+    if (m_State.contains("subtitletracks") &&
 #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
-        m_state["subtitletracks"].type() == QVariant::Map
+        m_State["subtitletracks"].type() == QVariant::Map
 #else
-        m_state["subtitletracks"].typeId() == QMetaType::QVariantMap
+        m_State["subtitletracks"].typeId() == QMetaType::QVariantMap
 #endif
         )
     {
-        m_subtitleTracks = m_state["subtitletracks"].toMap();
-        m_state.remove("subtitletracks");
+        m_SubtitleTracks = m_State["subtitletracks"].toMap();
+        m_State.remove("subtitletracks");
     }
 
-    if (m_state.contains("audiotracks") &&
+    if (m_State.contains("audiotracks") &&
 #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
-        m_state["audiotracks"].type() == QVariant::Map
+        m_State["audiotracks"].type() == QVariant::Map
 #else
-        m_state["audiotracks"].typeId() == QMetaType::QVariantMap
+        m_State["audiotracks"].typeId() == QMetaType::QVariantMap
 #endif
         )
     {
-        m_audioTracks = m_state["audiotracks"].toMap();
-        m_state.remove("audiotracks");
+        m_AudioTracks = m_State["audiotracks"].toMap();
+        m_State.remove("audiotracks");
     }
 }
 
 FrontendActionList::FrontendActionList(const QVariantMap& List)
-  : m_actionList(List)
+  : m_ActionList(List)
 {
 }

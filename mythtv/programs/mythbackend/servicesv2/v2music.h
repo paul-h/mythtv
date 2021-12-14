@@ -25,17 +25,17 @@ class V2Music : public MythHTTPService
 
   public:
     V2Music();
-   ~V2Music()  = default;
+   ~V2Music() override  = default;
     static void RegisterCustomTypes();
 
   public slots:
 
     /* V2Music Metadata Methods */
 
-    V2MusicMetadataInfoList*  GetTrackList    ( int      StartIndex,
+    static V2MusicMetadataInfoList*  GetTrackList ( int      StartIndex,
                                                     int      Count      );
 
-    V2MusicMetadataInfo*      GetTrack        ( int      Id               );
+    static V2MusicMetadataInfo*      GetTrack     ( int      Id         );
 
   private:
     Q_DISABLE_COPY(V2Music)

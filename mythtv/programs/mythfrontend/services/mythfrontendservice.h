@@ -15,12 +15,12 @@ class FrontendStatus : public QObject
     Q_CLASSINFO("ChapterTimes",   "type=QString;name=Chapter")
     Q_CLASSINFO("SubtitleTracks", "type=QString;name=Track")
     Q_CLASSINFO("AudioTracks",    "type=QString;name=Track")
-    SERVICE_PROPERTY(QString,      Name,           name)
-    SERVICE_PROPERTY(QString,      Version,        version)
-    SERVICE_PROPERTY(QVariantMap,  State,          state)
-    SERVICE_PROPERTY(QVariantList, ChapterTimes,   chapterTimes)
-    SERVICE_PROPERTY(QVariantMap,  SubtitleTracks, subtitleTracks)
-    SERVICE_PROPERTY(QVariantMap,  AudioTracks,    audioTracks)
+    SERVICE_PROPERTY2(QString,      Name)
+    SERVICE_PROPERTY2(QString,      Version)
+    SERVICE_PROPERTY2(QVariantMap,  State)
+    SERVICE_PROPERTY2(QVariantList, ChapterTimes)
+    SERVICE_PROPERTY2(QVariantMap,  SubtitleTracks)
+    SERVICE_PROPERTY2(QVariantMap,  AudioTracks)
 
   public:
     Q_INVOKABLE FrontendStatus(QObject *parent = nullptr)
@@ -35,7 +35,7 @@ class FrontendActionList : public QObject
     Q_OBJECT
     Q_CLASSINFO("Version",    "1.0")
     Q_CLASSINFO("ActionList", "type=QString;name=Action")
-    SERVICE_PROPERTY(QVariantMap, ActionList, actionList)
+    SERVICE_PROPERTY2(QVariantMap, ActionList)
 
   public:
     Q_INVOKABLE FrontendActionList(QObject *parent = nullptr)
@@ -48,7 +48,7 @@ Q_DECLARE_METATYPE(FrontendActionList*)
 class MythFrontendService : public MythHTTPService
 {
     Q_OBJECT
-    Q_CLASSINFO("Version",          "1.0")
+    Q_CLASSINFO("Version",          "2.1")
     Q_CLASSINFO("SendAction",       "methods=POST")
     Q_CLASSINFO("SendKey",          "methods=POST")
     Q_CLASSINFO("PlayVideo",        "methods=POST")
@@ -58,15 +58,15 @@ class MythFrontendService : public MythHTTPService
     Q_CLASSINFO("GetContextList",   "name=StringList") // Consistency with old code
 
   public slots:
-    bool        SendAction      (const QString& Action, const QString& Value, uint Width, uint Height);
-    bool        SendKey         (const QString& Key);
-    FrontendActionList* GetActionList(const QString& Context);
-    QStringList GetContextList  ();
-    FrontendStatus* GetStatus   ();
-    bool        PlayVideo       (const QString& Id, bool UseBookmark);
-    bool        PlayRecording   (int RecordedId, int ChanId, const QDateTime& StartTime);
-    bool        SendMessage     (const QString& Message, uint Timeout);
-    bool        SendNotification(bool  Error,                const QString& Type,
+    static bool SendAction      (const QString& Action, const QString& Value, uint Width, uint Height);
+    static bool SendKey         (const QString& Key);
+    static FrontendActionList* GetActionList(const QString& Context);
+    static QStringList GetContextList  ();
+    static FrontendStatus* GetStatus ();
+    static bool PlayVideo       (const QString& Id, bool UseBookmark);
+    static bool PlayRecording   (int RecordedId, int ChanId, const QDateTime& StartTime);
+    static bool SendMessage     (const QString& Message, uint Timeout);
+    static bool SendNotification(bool  Error,                const QString& Type,
                                  const QString& Message,     const QString& Origin,
                                  const QString& Description, const QString& Image,
                                  const QString& Extra,       const QString& ProgressText,

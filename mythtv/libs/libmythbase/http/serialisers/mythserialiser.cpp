@@ -38,9 +38,9 @@ HTTPData MythSerialiser::Serialise(const QString &Name, const QVariant& Value, c
         LOG(VB_GENERAL, LOG_INFO, name);
     */
 
-    static const MythMimeType s_xmlType = MythMimeDatabase().MimeTypeForName("application/xml");
-    static const MythMimeType s_xmlPList = MythMimeDatabase().MimeTypeForName("text/x-apple-plist+xml");
-    static const MythMimeType s_cbor = MythMimeDatabase().MimeTypeForName("application/cbor");
+    static const MythMimeType s_xmlType = MythMimeDatabase::MimeTypeForName("application/xml");
+    static const MythMimeType s_xmlPList = MythMimeDatabase::MimeTypeForName("text/x-apple-plist+xml");
+    static const MythMimeType s_cbor = MythMimeDatabase::MimeTypeForName("application/cbor");
 
     auto WrapData = [](HTTPData Data, const MythMimeType& Mime, const QString& Alias)
     {
@@ -52,20 +52,20 @@ HTTPData MythSerialiser::Serialise(const QString &Name, const QVariant& Value, c
 
     static const std::array<MythMimeType,2> s_jsonTypes =
     {
-        MythMimeDatabase().MimeTypeForName("application/json"),
-        MythMimeDatabase().MimeTypeForName("text/javascript")
+        MythMimeDatabase::MimeTypeForName("application/json"),
+        MythMimeDatabase::MimeTypeForName("text/javascript")
     };
 
     static const std::array<MythMimeType,2> s_binaryPlists =
     {
-        MythMimeDatabase().MimeTypeForName("application/x-plist"),
-        MythMimeDatabase().MimeTypeForName("application/x-apple-binary-plist")
+        MythMimeDatabase::MimeTypeForName("application/x-plist"),
+        MythMimeDatabase::MimeTypeForName("application/x-apple-binary-plist")
     };
 
     // Check for preformatted xml or html
     if (Value.value<QObject*>())
     {
-        QObject* Object = Value.value<QObject*>();
+        auto * Object = Value.value<QObject*>();
         const auto * meta = Object->metaObject();
         int index = meta->indexOfClassInfo("preformat");
         if (index >= 0
@@ -102,7 +102,7 @@ HTTPData MythSerialiser::Serialise(const QString &Name, const QVariant& Value, c
                     }
                 }
             }
-            MythMimeType reqType = MythMimeDatabase().MimeTypeForName(mimetype);
+            MythMimeType reqType = MythMimeDatabase::MimeTypeForName(mimetype);
             auto alias = reqType.Aliases().indexOf(mimetype);
             return WrapData(result, reqType, reqType.Aliases().at(alias));
         }
@@ -112,9 +112,11 @@ HTTPData MythSerialiser::Serialise(const QString &Name, const QVariant& Value, c
     {
         LOG(VB_HTTP, LOG_DEBUG, QString("Looking for serialiser for '%1'").arg(mime));
         for (const auto & jsontype : s_jsonTypes)
+        {
             if (const auto & alias = jsontype.Aliases().indexOf(mime); alias >= 0)
                 if (MythJSONSerialiser json(Name, Value); json.Result() != nullptr)
                     return WrapData(json.Result(), jsontype, jsontype.Aliases().at(alias));
+        }
 
         if (const auto & alias = s_xmlType.Aliases().indexOf(mime); alias >= 0)
             if (MythXMLSerialiser xml(Name, Value); xml.Result() != nullptr)

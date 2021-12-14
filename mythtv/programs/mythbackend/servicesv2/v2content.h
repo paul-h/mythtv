@@ -37,7 +37,7 @@
 class V2Content : public MythHTTPService
 {
     Q_OBJECT
-    Q_CLASSINFO("Version",      "1.0")
+    Q_CLASSINFO("Version",      "2.0")
     Q_CLASSINFO("DownloadFile",           "methods=POST;name=bool")
     Q_CLASSINFO("AddLiveStream",          "methods=GET,POST,HEAD")
     Q_CLASSINFO("AddRecordingLiveStream", "methods=GET,POST,HEAD")
@@ -50,42 +50,42 @@ class V2Content : public MythHTTPService
     public:
 
         V2Content();
-        ~V2Content()  = default;
+        ~V2Content() override  = default;
         static void RegisterCustomTypes();
 
     public slots:
 
-        QFileInfo           GetFile             ( const QString   &StorageGroup,
+        static QFileInfo    GetFile             ( const QString   &StorageGroup,
                                                   const QString   &FileName );
 
-        QFileInfo           GetImageFile        ( const QString   &StorageGroup,
+        static QFileInfo    GetImageFile        ( const QString   &StorageGroup,
                                                   const QString   &FileName,
                                                   int Width, int Height );
 
-        QStringList         GetFileList         ( const QString   &StorageGroup );
+        static QStringList  GetFileList         ( const QString   &StorageGroup );
 
-        QStringList         GetDirList          ( const QString   &StorageGroup );
+        static QStringList  GetDirList          ( const QString   &StorageGroup );
 
-        QFileInfo           GetRecordingArtwork ( const QString   &Type,
+        static QFileInfo    GetRecordingArtwork ( const QString   &Type,
                                                   const QString   &Inetref,
                                                   int Season, int Width,
                                                   int Height);
 
-        V2ArtworkInfoList*
+        static V2ArtworkInfoList*
                             GetRecordingArtworkList( int              RecordedId,
                                                      int              ChanId,
                                                      const QDateTime &StartTime  );
 
-        V2ArtworkInfoList*
+        static V2ArtworkInfoList*
                             GetProgramArtworkList( const QString &Inetref,
                                                    int            Season  );
 
-        QFileInfo           GetVideoArtwork     ( const QString   &Type,
+        static QFileInfo    GetVideoArtwork     ( const QString   &Type,
                                                   int Id, int Width, int Height );
 
-        QFileInfo           GetAlbumArt         ( int Id, int Width, int Height );
+        static QFileInfo    GetAlbumArt         ( int Id, int Width, int Height );
 
-        QFileInfo           GetPreviewImage     ( int              RecordedId,
+        static QFileInfo    GetPreviewImage     ( int              RecordedId,
                                                   int              ChanId,
                                                   const QDateTime &StartTime,
                                                   int              Width,
@@ -93,17 +93,17 @@ class V2Content : public MythHTTPService
                                                   int              SecsIn,
                                                   const QString   &Format);
 
-        QFileInfo           GetRecording        ( int              RecordedId,
+        static QFileInfo    GetRecording        ( int              RecordedId,
                                                   int              ChanId,
                                                   const QDateTime &StartTime );
 
-        QFileInfo           GetMusic            ( int Id );
-        QFileInfo           GetVideo            ( int Id );
+        static QFileInfo    GetMusic            ( int Id );
+        static QFileInfo    GetVideo            ( int Id );
 
-        QString             GetHash             ( const QString   &StorageGroup,
+        static QString      GetHash             ( const QString   &StorageGroup,
                                                   const QString   &FileName );
 
-        bool                DownloadFile        ( const QString   &URL,
+        static bool         DownloadFile        ( const QString   &URL,
                                                   const QString   &StorageGroup );
 
         // // HTTP Live Streaming

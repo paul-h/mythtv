@@ -7,7 +7,7 @@
 
 #define LOC QString("HTTPRange: ")
 
-auto sumrange = [](uint64_t Cum, const HTTPRange& Range) { return ((Range.second + 1) - Range.first) + Cum; };
+auto sumrange = [](uint64_t Cum, HTTPRange Range) { return ((Range.second + 1) - Range.first) + Cum; };
 
 void MythHTTPRanges::HandleRangeRequest(MythHTTPResponse* Response, const QString& Request)
 {
@@ -15,8 +15,8 @@ void MythHTTPRanges::HandleRangeRequest(MythHTTPResponse* Response, const QStrin
         return;
 
     // Check content type and size first
-    auto data = std::get_if<HTTPData>(&(Response->m_response));
-    auto file = std::get_if<HTTPFile>(&(Response->m_response));
+    auto * data = std::get_if<HTTPData>(&(Response->m_response));
+    auto * file = std::get_if<HTTPFile>(&(Response->m_response));
     int64_t size = data ? (*data)->size() : file ? (*file)->size() : 0;
     if (size < 1)
         return;
@@ -34,8 +34,8 @@ void MythHTTPRanges::BuildMultipartHeaders(MythHTTPResponse* Response)
     if (!Response || (Response->m_status != HTTPPartialContent))
         return;
 
-    auto data = std::get_if<HTTPData>(&(Response->m_response));
-    auto file = std::get_if<HTTPFile>(&(Response->m_response));
+    auto * data = std::get_if<HTTPData>(&(Response->m_response));
+    auto * file = std::get_if<HTTPFile>(&(Response->m_response));
     int64_t size = data ? (*data)->size() : file ? (*file)->size() : 0;
     if (size < 1)
         return;
@@ -49,8 +49,8 @@ void MythHTTPRanges::BuildMultipartHeaders(MythHTTPResponse* Response)
     for (auto & range : ranges)
     {
         auto header = QString("\r\n--%1\r\nContent-Type: %2\r\nContent-Range: %3\r\n\r\n")
-            .arg(s_multipartBoundary).arg(MythHTTP::GetContentType(mime))
-            .arg(MythHTTPRanges::GetRangeHeader(range, size));
+            .arg(s_multipartBoundary, MythHTTP::GetContentType(mime),
+                 MythHTTPRanges::GetRangeHeader(range, size));
         headers.emplace_back(MythHTTPData::Create(qPrintable(header)));
 
     }
@@ -89,20 +89,20 @@ QString MythHTTPRanges::GetRangeHeader(HTTPRanges& Ranges, int64_t Size)
 HTTPMulti MythHTTPRanges::HandleRangeWrite(HTTPVariant Data, int64_t Available, int64_t &ToWrite, int64_t &Offset)
 {
     HTTPMulti result { nullptr, nullptr };
-    auto data = std::get_if<HTTPData>(&Data);
-    auto file = std::get_if<HTTPFile>(&Data);
+    auto * data = std::get_if<HTTPData>(&Data);
+    auto * file = std::get_if<HTTPFile>(&Data);
     if (!(data || file))
         return result;
 
     int64_t partialsize   = data ? (*data)->m_partialSize : (*file)->m_partialSize;
-    uint64_t   written    = static_cast<uint64_t>(data ? (*data)->m_written : (*file)->m_written);
+    auto written          = static_cast<uint64_t>(data ? (*data)->m_written : (*file)->m_written);
     HTTPRanges& ranges    = data ? (*data)->m_ranges : (*file)->m_ranges;
     HTTPContents& headers = data ? (*data)->m_multipartHeaders : (*file)->m_multipartHeaders;
 
     uint64_t    oldsum = 0;
-    for (size_t i = 0; i < ranges.size(); ++i)
+    for (auto range : ranges)
     {
-        uint64_t newsum = sumrange(oldsum, ranges[i]);
+        uint64_t newsum = sumrange(oldsum, range);
         if (oldsum <= written && written < newsum)
         {
             // This is the start of a multipart range. Add the start headers.
@@ -116,7 +116,7 @@ HTTPMulti MythHTTPRanges::HandleRangeWrite(HTTPVariant Data, int64_t Available, 
             ToWrite = std::min(Available, static_cast<int64_t>(newsum - written));
 
             // We need to ensure we send from the correct offset in the data
-            Offset = static_cast<int64_t>(ranges[i].first - oldsum);
+            Offset = static_cast<int64_t>(range.first - oldsum);
             if (file)
                 Offset += written;
 
@@ -242,9 +242,9 @@ MythHTTPStatus MythHTTPRanges::ParseRanges(const QString& Request, int64_t Total
     static const int s_overhead = 90; // rough worst case overhead per part for multipart requests
     if (ranges.size() > 1)
     {
-        auto equals = [](const HTTPRange& First, const HTTPRange& Second)
+        auto equals = [](HTTPRange First, HTTPRange Second)
             { return (First.first == Second.first) && (First.second == Second.second); };
-        auto lessthan = [](const HTTPRange& First, const HTTPRange& Second)
+        auto lessthan = [](HTTPRange First, HTTPRange Second)
             { return First.first < Second.first; };
 
         // we MUST sort first

@@ -107,7 +107,7 @@ void MythWebSocket::Read()
             m_currentFrame = MythWebSocketFrame::CreateFrame(m_socket->read(2));
             auto code = m_currentFrame->m_opCode;
             bool control = (code & 0x8) != 0;
-            bool fragmented = (m_dataFragments.size() > 0) || (m_string.get() != nullptr);
+            bool fragmented = (!m_dataFragments.empty()) || (m_string.get() != nullptr);
             bool final = m_currentFrame->m_final;
 
             // Invalid use of reserved bits
@@ -414,7 +414,7 @@ void MythWebSocket::Write(int64_t Written)
             if (m_writeTotal > 100)
             {
                 auto seconds = static_cast<double>(m_writeTime.nsecsElapsed()) / 1000000000.0;
-                uint64_t rate = static_cast<uint64_t>(static_cast<double>(m_writeTotal) / seconds);
+                auto rate = static_cast<uint64_t>(static_cast<double>(m_writeTotal) / seconds);
                 LOG(VB_HTTP, LOG_INFO, LOC + QString("Wrote %1bytes in %2seconds (%3)")
                     .arg(m_writeTotal).arg(seconds, 8, 'f', 6, '0').arg(MythHTTPWS::BitrateToString(rate)));
             }
@@ -502,7 +502,6 @@ void MythWebSocket::CloseReceived(DataPayload Payload)
 {
     m_closeReceived = true;
 
-    auto reply = Payload;
     WSErrorCode close = WSCloseNormal;
 
     // Incoming payload must be empty or be at least 2 bytes in size
@@ -615,7 +614,7 @@ void MythWebSocket::SendFrame(WSOpCode Code, const DataPayloads& Payloads)
     // Queue mask
     if (mask.get())
         m_writeQueue.emplace_back(mask);
-    for (auto & payload: Payloads)
+    for (const auto & payload: Payloads)
         m_writeQueue.emplace_back(payload);
 
     LOG(VB_HTTP, LOG_DEBUG, LOC + QString("Queued %1 frame: payload size %2 (queue length: %3)")

@@ -51,7 +51,7 @@
 
 // This will be initialised in a thread safe manner on first use
 Q_GLOBAL_STATIC_WITH_ARGS(MythHTTPMetaService, s_service,
-    (STATUS_HANDLE, V2Status::staticMetaObject, std::bind(&V2Status::RegisterCustomTypes)))
+    (STATUS_HANDLE, V2Status::staticMetaObject, &V2Status::RegisterCustomTypes))
 
 void V2Status::RegisterCustomTypes()
 {
@@ -162,7 +162,7 @@ V2BackendStatus*  V2Status::GetBackendStatus()
     FillFrontendList(pStatus->GetFrontends(), pStatus,
                                         false);  // OnLine)
     // Backends
-    V2Backend *backend;
+    V2Backend *backend {nullptr};
 
     // Add this host
     backend = pStatus->AddNewBackend();
@@ -175,7 +175,7 @@ V2BackendStatus*  V2Status::GetBackendStatus()
         backend->setType("Master");
         QStringList backends;
         m_pMainServer->GetActiveBackends(backends);
-        for (const QString& hostname : backends)
+        for (const QString& hostname : qAsConst(backends))
         {
             if (hostname != thisHost)
             {

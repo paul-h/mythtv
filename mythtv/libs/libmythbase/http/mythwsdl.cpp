@@ -284,7 +284,7 @@ HTTPResponse MythWSDL::GetWSDL(HTTPRequest2 Request)
 
     // Create the XML result
     auto data = MythHTTPData::Create(toByteArray());
-    data->m_mimeType = MythMimeDatabase().MimeTypeForName("application/xml");
+    data->m_mimeType = MythMimeDatabase::MimeTypeForName("application/xml");
     data->m_cacheType = HTTPETag | HTTPShortLife;
     return MythHTTPResponse::DataResponse(Request, data);
 }
@@ -440,7 +440,6 @@ QDomElement MythWSDL::CreateMethodType( HTTPMethodPtr handler,
         // Parameters
         // Iterate over the method's parameters
         size_t count = 1;
-        QString error;
         QList<QByteArray> paramNames;
         QList<QByteArray> paramTypes;
         for (count=1; count < typecount; count++)
