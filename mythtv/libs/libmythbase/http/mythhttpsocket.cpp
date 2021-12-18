@@ -33,16 +33,15 @@ MythHTTPSocket::MythHTTPSocket(qintptr Socket, bool SSL, const MythHTTPConfig& C
     connect(this, &MythHTTPSocket::Finish, this, &MythHTTPSocket::Stop);
 
     // Create socket
-#ifndef QT_NO_OPENSSL
     QSslSocket* sslsocket = nullptr;
     if (SSL)
     {
+#ifndef QT_NO_OPENSSL
         sslsocket = new QSslSocket(this);
         m_socket = sslsocket;
+#endif
     }
     else
-#endif
-    if (!SSL)
     {
         m_socket = new QTcpSocket(this);
     }
@@ -494,7 +493,7 @@ void MythHTTPSocket::Write(int64_t Written)
                 chunkheader(QStringLiteral("%1\r\n").arg(towrite, 0, 16).toLatin1().constData());
             if (multipart.first)
                 wrote += m_socket->write(multipart.first->constData());
-            wrote = m_socket->write((*data)->constData() + written + offset, towrite);
+            wrote += m_socket->write((*data)->constData() + written + offset, towrite);
             if (multipart.second)
                 wrote += m_socket->write(multipart.second->constData());
             if (chunk)
@@ -526,7 +525,7 @@ void MythHTTPSocket::Write(int64_t Written)
                     chunkheader(QStringLiteral("%1\r\n").arg(read, 0, 16).toLatin1().constData());
                 if (multipart.first)
                     wrote += m_socket->write(multipart.first->constData());
-                wrote = m_socket->write(m_writeBuffer->data(), read);
+                wrote += m_socket->write(m_writeBuffer->data(), read);
                 if (multipart.second)
                     wrote += m_socket->write(multipart.second->constData());
                 if (chunk)
