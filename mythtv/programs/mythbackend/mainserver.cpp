@@ -44,6 +44,7 @@
 
 #include "previewgeneratorqueue.h"
 #include "mythmiscutil.h"
+#include "mythrandom.h"
 #include "mythsystemlegacy.h"
 #include "mythcontext.h"
 #include "mythversion.h"
@@ -1587,7 +1588,7 @@ void MainServer::customEvent(QEvent *e)
     if (!broadcast.empty())
     {
         // Make a local copy of the list, upping the refcount as we go..
-        vector<PlaybackSock *> localPBSList;
+        std::vector<PlaybackSock *> localPBSList;
         m_sockListLock.lockForRead();
         for (auto & pbs : m_playbackList)
         {
@@ -1611,7 +1612,7 @@ void MainServer::customEvent(QEvent *e)
         bool isSystemEvent = broadcast[1].startsWith("SYSTEM_EVENT ");
         QStringList sentSetSystemEvent(gCoreContext->GetHostName());
 
-        vector<PlaybackSock*>::const_iterator iter;
+        std::vector<PlaybackSock*>::const_iterator iter;
         for (iter = localPBSList.begin(); iter != localPBSList.end(); ++iter)
         {
             PlaybackSock *pbs = *iter;
@@ -2387,8 +2388,12 @@ void MainServer::DoDeleteThread(DeleteStruct *ds)
 {
     // sleep a little to let frontends reload the recordings list
     // after deleting a recording, then we can hammer the DB and filesystem
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
     std::this_thread::sleep_for(3s);
     std::this_thread::sleep_for(std::chrono::milliseconds(MythRandom()%2));
+#else
+    std::this_thread::sleep_for(3s + std::chrono::microseconds(MythRandom(0, 2000)));
+#endif
 
     m_deletelock.lock();
 
@@ -4403,8 +4408,8 @@ void MainServer::HandleGetFreeInputInfo(PlaybackSock *pbs,
         .arg(excluded_input));
 
     MythSocket *pbssock = pbs->getSocket();
-    vector<InputInfo> busyinputs;
-    vector<InputInfo> freeinputs;
+    std::vector<InputInfo> busyinputs;
+    std::vector<InputInfo> freeinputs;
     QMap<uint, QSet<uint> > groupids;
 
     // Lopp over each encoder and divide the inputs into busy and free
@@ -4423,7 +4428,7 @@ void MainServer::HandleGetFreeInputInfo(PlaybackSock *pbs,
             continue;
         }
 
-        vector<uint> infogroups;
+        std::vector<uint> infogroups;
         CardUtil::GetInputInfo(info, &infogroups);
         for (uint group : infogroups)
             groupids[info.m_inputId].insert(group);
@@ -8342,7 +8347,7 @@ void MainServer::DeleteChain(LiveTVChain *chain)
     if (!chain)
         return;
 
-    vector<LiveTVChain*> newChains;
+    std::vector<LiveTVChain*> newChains;
 
     for (auto & entry : m_liveTVChains)
     {
