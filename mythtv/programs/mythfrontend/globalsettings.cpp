@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 
 // Qt headers
+#include <QtGlobal>
 #include <QApplication>
 #include <QCursor>
 #include <QDialog>
@@ -3823,7 +3824,7 @@ static HostCheckBoxSetting *LCDEnable()
 }
 
 
-#if CONFIG_DARWIN
+#ifdef Q_OS_DARWIN
 static HostCheckBoxSetting *MacGammaCorrect()
 {
     HostCheckBoxSetting *gc = new HostCheckBoxSetting("MacGammaCorrect");
@@ -4468,7 +4469,7 @@ void PlaybackSettings::Load(void)
 
     addChild(comms);
 
-#if CONFIG_DARWIN
+#ifdef Q_OS_DARWIN
     GroupSetting* mac = new GroupSetting();
     mac->setLabel(tr("Mac OS X Video Settings"));
     mac->addChild(MacGammaCorrect());
@@ -4516,7 +4517,7 @@ OSDSettings::OSDSettings()
     //cc->addChild(DecodeVBIFormat());
     //addChild(cc);
 
-#if defined(Q_OS_MACX)
+#ifdef Q_OS_MACOS
     // Any Mac OS-specific OSD stuff would go here.
 #endif
 }
