@@ -41,9 +41,9 @@ static std::size_t replace_all(std::string& inout, std::string_view what, std::s
 {
     std::size_t count{};
     for (std::string::size_type pos{};
-         std::string::npos != (pos = inout.find(what.data(), pos, what.length()));
+         std::string::npos != (pos = inout.find(what, pos));
          pos += with.length(), ++count) {
-        inout.replace(pos, what.length(), with.data(), with.length());
+        inout.replace(pos, what.length(), with);
     }
     return count;
 }
@@ -51,7 +51,12 @@ static std::size_t replace_all(std::string& inout, std::string_view what, std::s
 static void convertToSqlite (DBUpdates& updates)
 {
     for (std::string& s : updates)
+    {
       replace_all(s, R"(\\)", R"(\)");
+      replace_all(s, "ENGINE=MyISAM DEFAULT CHARSET=utf8", "");
+      replace_all(s, "UNIQUE(provider,key1(25),key2(50))",
+                     "UNIQUE(provider,key1,key2)");
+    }
 }
 
 static bool enableSqliteRegex (void)
@@ -375,6 +380,63 @@ void TestRecordingExtender::test_nameCleanup_data(void)
     QTest::newRow("soccer13") << "Soccer" << 1 << "soccer"
                               << "Central Córdoba (SE)"
                               << "Central Cordoba";
+    QTest::newRow("basketball1") << "Basketball" << 1 << "basketball"
+                                 << "Alabama-Birmingham"
+                                 << "UAB";
+    QTest::newRow("basketball2") << "Basketball" << 1 << "basketball"
+                                 << "Connecticut"
+                                 << "UConn";
+    QTest::newRow("basketball3") << "Basketball" << 1 << "basketball"
+                                 << "Cal State Bakersfield"
+                                 << "CSU Bakersfield";
+    QTest::newRow("basketball4") << "Basketball" << 1 << "basketball"
+                                 << "Cal State Fullerton"
+                                 << "CSU Fullerton";
+    QTest::newRow("basketball5") << "Basketball" << 1 << "basketball"
+                                 << "UT-Chattanooga"
+                                 << "Chattanooga";
+    QTest::newRow("basketball6") << "Basketball" << 1 << "basketball"
+                                 << "Hawaii"
+                                 << "Hawai'i";
+    QTest::newRow("basketball7") << "Basketball" << 1 << "basketball"
+                                 << "LIU"
+                                 << "Long Island University";
+    QTest::newRow("basketball8") << "Basketball" << 1 << "basketball"
+                                 << "Loyola-Chicago"
+                                 << "Loyola Chicago";
+    QTest::newRow("basketball9") << "Basketball" << 1 << "basketball"
+                                 << "Loyola (Md.)"
+                                 << "Loyola (MD)";
+    QTest::newRow("basketball10") << "Basketball" << 1 << "basketball"
+                                  << "Miami (Ohio)"
+                                  << "Miami (OH)";
+    QTest::newRow("basketball11") << "Basketball" << 1 << "basketball"
+                                  << "Texas-Arlington"
+                                  << "UT Arlington";
+    QTest::newRow("basketball12") << "Basketball" << 1 << "basketball"
+                                  << "Texas-El Paso"
+                                  << "UTEP";
+    QTest::newRow("basketball13") << "Basketball" << 1 << "basketball"
+                                  << "Texas-Rio Grande Valley"
+                                  << "UT Rio Grande Valley";
+    QTest::newRow("basketball14") << "Basketball" << 1 << "basketball"
+                                  << "Massachusetts"
+                                  << "UMass";
+    QTest::newRow("basketball15") << "Basketball" << 1 << "basketball"
+                                  << "UNC-Asheville"
+                                  << "UNC Asheville";
+    QTest::newRow("basketball16") << "Basketball" << 1 << "basketball"
+                                  << "UNC-Wilmington"
+                                  << "UNC Wilmington";
+    QTest::newRow("basketball17") << "Basketball" << 1 << "basketball"
+                                  << "UT-Martin"
+                                  << "UT Martin";
+    QTest::newRow("basketball18") << "Basketball" << 1 << "basketball"
+                                  << "Grambling State"
+                                  << "Grambling";
+    QTest::newRow("basketball19") << "Basketball" << 1 << "basketball"
+                                  << "McNeese State"
+                                  << "McNeese";
 }
 
 void TestRecordingExtender::test_nameCleanup(void)

@@ -336,8 +336,7 @@ class MTV_PUBLIC MythPlayer : public QObject
     void  SetDecoder(DecoderBase *dec);
     /// Returns the stream decoder currently in use.
     const DecoderBase *GetDecoder(void) const { return m_decoder; }
-    virtual bool DecoderGetFrameFFREW(void);
-    virtual bool DecoderGetFrameREW(void);
+    virtual void DoFFRewSkip(void);
     bool         DecoderGetFrame(DecodeType decodetype, bool unsafe = false);
     bool         DoGetFrame(DecodeType DecodeType);
 
@@ -352,7 +351,6 @@ class MTV_PUBLIC MythPlayer : public QObject
     // Private seeking stuff
     void WaitForSeek(uint64_t frame, uint64_t seeksnap_wanted);
     void ClearAfterSeek(bool clearvideobuffers = true);
-    void ClearBeforeSeek(uint64_t Frames);
 
     // Private chapter stuff
     virtual bool DoJumpChapter(int chapter);
@@ -395,6 +393,7 @@ class MTV_PUBLIC MythPlayer : public QObject
     bool           m_unpauseDecoder         {false};
     bool volatile  m_killDecoder            {false};
     bool           m_decodeOneFrame         {false};
+    bool           m_renderOneFrame         {false};
     bool           m_needNewPauseFrame      {false};
     bool           m_bufferPaused           {false};
     bool           m_videoPaused            {false};
@@ -497,6 +496,7 @@ class MTV_PUBLIC MythPlayer : public QObject
         {microsecondsFromFloat(1000000.0F / 30)};///< always adjusted for play_speed
     int        m_fpsMultiplier            {1}; ///< used to detect changes
     int        m_ffrewSkip                {1};
+    int        m_ffrewUseRenderOne        {false}; // mediacode work around
     int        m_ffrewAdjust              {0}; ///< offset after last skip
     float      m_ffrewScale               {1.0F}; ///< scale skip for large gops
     bool       m_fileChanged              {false};

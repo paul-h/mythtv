@@ -3600,6 +3600,7 @@ static bool doUpgradeTVDatabaseSchema(void)
         query.prepare("SELECT profileid, value, data FROM displayprofiles "
                       "ORDER BY profileid");
 
+        // coverity[unreachable] False positive.
         for (;;)
         {
             if (!query.exec())
@@ -3897,6 +3898,17 @@ static bool doUpgradeTVDatabaseSchema(void)
                                  updates, "1374", dbver))
             return false;
     }
+
+    if (dbver == "1374")
+    {
+        // Add new tv listing name ->api name mappings for college
+        // basketball.
+        DBUpdates updates = getRecordingExtenderDbInfo(2);
+        if (!performActualUpdate("MythTV", "DBSchemaVer",
+                                 updates, "1375", dbver))
+            return false;
+    }
+
     return true;
 }
 
@@ -5262,10 +5274,10 @@ DBUpdates getRecordingExtenderDbInfo (int version)
               id INT UNSIGNED PRIMARY KEY,
               provider TINYINT UNSIGNED DEFAULT 0,
               name VARCHAR(128) NOT NULL,
-              key1 VARCHAR(256) NOT NULL,
-              key2 VARCHAR(256) NOT NULL,
-              UNIQUE(provider,key1,key2)
-              );)",
+              key1 VARCHAR(64) NOT NULL,
+              key2 VARCHAR(64) NOT NULL,
+              UNIQUE(provider,key1(25),key2(50))
+              ) ENGINE=MyISAM DEFAULT CHARSET=utf8;)",
             R"(INSERT INTO sportsapi
             VALUES
               (   1,1,"Major League Baseball","baseball","mlb"),
@@ -5574,9 +5586,8 @@ DBUpdates getRecordingExtenderDbInfo (int version)
             R"(CREATE TABLE sportslisting (
               id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
               api INT UNSIGNED NOT NULL,
-              title VARCHAR(128) NOT NULL,
-              FOREIGN KEY(api) REFERENCES sportsapi(id)
-            );)",
+              title VARCHAR(128) NOT NULL
+            ) ENGINE=MyISAM DEFAULT CHARSET=utf8;)",
 
             R"(INSERT INTO sportslisting (api,title)
             VALUES
@@ -5694,7 +5705,7 @@ DBUpdates getRecordingExtenderDbInfo (int version)
               pattern VARCHAR(256) NOT NULL,
               nth TINYINT UNSIGNED NOT NULL,
               replacement VARCHAR(128) NOT NULL
-            );)",
+            ) ENGINE=MyISAM DEFAULT CHARSET=utf8;)",
 
             // Sigh. It would be nice if these patterns could use the
             // '\b' boundary matching sequence in the first part of
@@ -5729,6 +5740,31 @@ DBUpdates getRecordingExtenderDbInfo (int version)
               (1,1000,"soccer", "VFB etc.", "\\AV\\.?F\\.?[BL]\\.?|\\bV\\.?F\\.?[BL]\\.?\\Z", 0, ""),
               (1,2000,"all",    "",         "Inglaterra", 0, "England"),
               (1,2000,"all",    "",         "Munchen", 0, "Munich");
+              )A",
+        };
+      case 2:
+        return {
+            // More TV listing name to API name mappings for college
+            // basketball.  Using a weight of 1000 for specific
+            // changes and 1100 for general changes.
+            R"A(INSERT INTO sportscleanup (provider,weight,key1,name,pattern,nth,replacement)
+            VALUES
+              (1,1100,"basketball", "Cal State",    "Cal State", 0, "CSU"),
+              (1,1000,"basketball", "Grambling",    "Grambling State", 0, "Grambling"),
+              (1,1000,"basketball", "Hawaii",       "Hawaii", 0, "Hawai'i"),
+              (1,1000,"basketball", "LIU",          "LIU", 0, "Long Island University"),
+              (1,1100,"basketball", "Loyola",       "Loyola-", 0, "Loyola "),
+              (1,1000,"basketball", "Loyola (Md.)", "Loyola \(Md.\)", 0, "Loyola (MD)"),
+              (1,1000,"basketball", "McNeese",      "McNeese State", 0, "McNeese"),
+              (1,1000,"basketball", "Miami (OH)",   "Miami \(Ohio\)", 0, "Miami (OH)"),
+              (1,1000,"basketball", "UAB",          "Alabama-Birmingham", 0, "UAB"),
+              (1,1000,"basketball", "UConn",        "Connecticut", 0, "UConn"),
+              (1,1000,"basketball", "UMass",        "Massachusetts", 0, "UMass"),
+              (1,1100,"basketball", "UNC",          "UNC-", 0, "UNC "),
+              (1,1000,"basketball", "UTEP",         "Texas-El Paso", 0, "UTEP"),
+              (1,1100,"basketball", "Texas",        "Texas-", 0, "UT "),
+              (1,1000,"basketball", "Chattanooga",  "UT-Chattanooga", 0, "Chattanooga"),
+              (1,1100,"basketball", "UT",           "UT-", 0, "UT ");
               )A",
         };
 

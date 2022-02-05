@@ -361,6 +361,11 @@ void MythPlayer::SetVideoParams(int width, int height, double fps,
         paramsChanged = true;
     }
 
+    // Mediacodec/Surface has an issue rendering frames after seeks.
+    // Enable the FF/Rew work around when using it.
+    m_ffrewUseRenderOne =
+        m_decoder && codec_is_mediacodec(m_decoder->GetVideoCodecID());
+
     if (!paramsChanged)
         return;
 
@@ -376,7 +381,10 @@ void MythPlayer::SetFrameRate(double fps)
 {
     m_videoFrameRate = fps;
     float temp_speed = (m_playSpeed == 0.0F) ? m_audio.GetStretchFactor() : m_playSpeed;
-    SetFrameInterval(kScan_Progressive, 1.0 / (m_videoFrameRate * static_cast<double>(temp_speed)));
+    if (abs(m_ffrewSkip) > 1)
+        UpdateFFRewSkip();
+    else
+        SetFrameInterval(kScan_Progressive, 1.0 / (m_videoFrameRate * static_cast<double>(temp_speed)));
 }
 
 void MythPlayer::SetFileLength(std::chrono::seconds total, int frames)
@@ -599,8 +607,19 @@ void MythPlayer::ReleaseNextVideoFrame(MythVideoFrame *buffer,
     buffer->m_timecode = timecode;
     m_latestVideoTimecode = timecode;
 
+    if (m_decodeOneFrame)
+        LOG(VB_PLAYBACK, LOG_DEBUG, LOC + "Clearing decode one");
+    m_decodeOneFrame = false;
+
     if (m_videoOutput)
+    {
+        if (abs(m_ffrewSkip) > 1 && m_ffrewUseRenderOne)
+        {
+            LOG(VB_PLAYBACK, LOG_DEBUG, LOC + "Setting render one");
+            m_renderOneFrame = true;
+        }
         m_videoOutput->ReleaseFrame(buffer);
+    }
 
     // FIXME need to handle this in the correct place in the main thread (DVD stills?)
     //if (m_allPaused)
@@ -632,7 +651,12 @@ void MythPlayer::DiscardVideoFrame(MythVideoFrame *buffer)
 void MythPlayer::DiscardVideoFrames(bool KeyFrame, bool Flushed)
 {
     if (m_videoOutput)
+    {
         m_videoOutput->DiscardFrames(KeyFrame, Flushed);
+        if (m_renderOneFrame)
+            LOG(VB_PLAYBACK, LOG_DEBUG, LOC + "Clearing render one");
+        m_renderOneFrame = false;
+    }
 }
 
 bool MythPlayer::HasReachedEof(void) const
@@ -701,7 +725,7 @@ static bool preBufferDebug = qEnvironmentVariableIsSet("PREBUFFERDEBUG");
 
 bool MythPlayer::PrebufferEnoughFrames(int min_buffers)
 {
-    if (!m_videoOutput)
+    if (!m_videoOutput || !m_videoOutput->ValidVideoFrames())
         return false;
 
     if (!(min_buffers
@@ -1135,7 +1159,6 @@ void MythPlayer::DecoderLoop(bool pause)
             kDecodeAV : kDecodeVideo;
 
         DecoderGetFrame(dt);
-        m_decodeOneFrame = false;
     }
 
     // Clear any wait conditions
@@ -1148,10 +1171,10 @@ static float ffrewSkipThresh = 0.60F;
 static float ffrewScaleLowest = 1.00F;
 static float ffrewScaleHighest = 2.50F;
 
-bool MythPlayer::DecoderGetFrameFFREW(void)
+void MythPlayer::DoFFRewSkip(void)
 {
     if (!m_decoder)
-        return false;
+        return;
 
     if (m_ffrewSkip > 0)
     {
@@ -1159,7 +1182,7 @@ bool MythPlayer::DecoderGetFrameFFREW(void)
         long long real_skip = CalcMaxFFTime(m_ffrewSkip - m_ffrewAdjust + delta) - delta;
         long long target_frame = m_decoder->GetFramesRead() + real_skip;
         if (real_skip >= 0)
-            m_decoder->DoFastForward(target_frame, false);
+            m_decoder->DoFastForward(target_frame, m_ffrewUseRenderOne);
 
         long long seek_frame = m_decoder->GetFramesRead();
         m_ffrewAdjust = seek_frame - target_frame;
@@ -1179,35 +1202,31 @@ bool MythPlayer::DecoderGetFrameFFREW(void)
     }
     else if (CalcRWTime(-m_ffrewSkip) >= 0)
     {
-        DecoderGetFrameREW();
+        long long cur_frame    = m_decoder->GetFramesPlayed();
+        bool      toBegin      = -cur_frame > m_ffrewSkip + m_ffrewAdjust;
+        long long real_skip    = (toBegin) ? -cur_frame : m_ffrewSkip + m_ffrewAdjust;
+        long long target_frame = cur_frame + real_skip;
+        m_decoder->DoRewind(target_frame, m_ffrewUseRenderOne);
+
+        long long seek_frame  = m_decoder->GetFramesPlayed();
+        m_ffrewAdjust = target_frame - seek_frame;
+        float adjustRatio = float(m_ffrewAdjust) / m_ffrewSkip;
+        LOG(VB_PLAYBACK, LOG_INFO, LOC +
+            QString("skip %1, adjust, %2, ratio %3")
+            .arg(m_ffrewSkip).arg(m_ffrewAdjust).arg(adjustRatio));
+
+        // If the needed adjustment is too large either way, adjust the
+        // scale factor up or down accordingly.
+        if (adjustRatio < -ffrewSkipThresh
+            && m_ffrewScale < (ffrewScaleHighest - 0.01F))
+            UpdateFFRewSkip(m_ffrewScale + ffrewScaleAdjust);
+        else if (adjustRatio  > ffrewSkipThresh
+                 && m_ffrewScale > (ffrewScaleLowest + 0.01F))
+            UpdateFFRewSkip(m_ffrewScale - ffrewScaleAdjust);
     }
-    return DoGetFrame(m_deleteMap.IsEditing() ? kDecodeAV : kDecodeVideo);
-}
 
-bool MythPlayer::DecoderGetFrameREW(void)
-{
-    long long cur_frame    = m_decoder->GetFramesPlayed();
-    bool      toBegin      = -cur_frame > m_ffrewSkip + m_ffrewAdjust;
-    long long real_skip    = (toBegin) ? -cur_frame : m_ffrewSkip + m_ffrewAdjust;
-    long long target_frame = cur_frame + real_skip;
-    bool ret = m_decoder->DoRewind(target_frame, false);
-
-    long long seek_frame  = m_decoder->GetFramesPlayed();
-    m_ffrewAdjust = target_frame - seek_frame;
-    float adjustRatio = float(m_ffrewAdjust) / m_ffrewSkip;
-    LOG(VB_PLAYBACK, LOG_INFO, LOC +
-        QString("skip %1, adjust, %2, ratio %3")
-        .arg(m_ffrewSkip).arg(m_ffrewAdjust).arg(adjustRatio));
-
-    // If the needed adjustment is too large either way, adjust the
-    // scale factor up or down accordingly.
-    if (adjustRatio < -ffrewSkipThresh
-        && m_ffrewScale < (ffrewScaleHighest - 0.01F))
-        UpdateFFRewSkip(m_ffrewScale + ffrewScaleAdjust);
-    else if (adjustRatio  > ffrewSkipThresh
-             && m_ffrewScale > (ffrewScaleLowest + 0.01F))
-        UpdateFFRewSkip(m_ffrewScale - ffrewScaleAdjust);
-    return ret;
+    LOG(VB_PLAYBACK, LOG_DEBUG, "Setting decode one");
+    m_decodeOneFrame = true;
 }
 
 bool MythPlayer::DecoderGetFrame(DecodeType decodetype, bool unsafe)
@@ -1247,10 +1266,12 @@ bool MythPlayer::DecoderGetFrame(DecodeType decodetype, bool unsafe)
         return false;
     }
 
-    if (m_ffrewSkip == 1 || m_decodeOneFrame)
+    if (abs(m_ffrewSkip) > 1 && !m_decodeOneFrame && !m_renderOneFrame)
+        DoFFRewSkip();
+
+    if ((abs(m_ffrewSkip) > 0 || m_decodeOneFrame) && !m_renderOneFrame)
         ret = DoGetFrame(decodetype);
-    else if (m_ffrewSkip != 0)
-        ret = DecoderGetFrameFFREW();
+
     m_decoderChangeLock.unlock();
     return ret;
 }
@@ -1258,8 +1279,9 @@ bool MythPlayer::DecoderGetFrame(DecodeType decodetype, bool unsafe)
 /*! \brief Get one frame from the decoder.
  *
  * Certain decoders operate asynchronously and will return EAGAIN if a
- * video frame is not yet ready. We handle the retries here in MythPlayer
- * so that we can abort retries if we need to pause or stop the decoder.
+ * video frame is not yet ready. We handle the retries in the
+ * following DecoderLoop passes.  This lets us abort retries if we
+ * need to pause or stop the decoder.
  *
  * This is most relevant for MediaCodec decoding when using direct rendering
  * as there are a limited number of decoder output buffers that are retained by
@@ -1270,25 +1292,16 @@ bool MythPlayer::DecoderGetFrame(DecodeType decodetype, bool unsafe)
  */
 bool MythPlayer::DoGetFrame(DecodeType Type)
 {
-    bool ret = false;
-    QElapsedTimer timeout;
-    timeout.start();
-    bool retry = true;
-    // retry for a maximum of 5 seconds
-    while (retry && !m_pauseDecoder && !m_killDecoder && !timeout.hasExpired(5000))
+    bool retry = false;
+    bool ret = m_decoder->GetFrame(Type, retry);
+    if (retry)
     {
-        retry = false;
-        ret = m_decoder->GetFrame(Type, retry);
-        if (retry)
-        {
-            m_decoderChangeLock.unlock();
-            QThread::usleep(10000);
-            m_decoderChangeLock.lock();
-        }
-    }
-
-    if (timeout.hasExpired(5000))
+        // Delay here so we don't spin too fast.
+        m_decoderChangeLock.unlock();
+        std::this_thread::sleep_for(1ms);
+        m_decoderChangeLock.lock();
         return false;
+    }
     return ret;
 }
 
@@ -1335,6 +1348,7 @@ bool MythPlayer::UpdateFFRewSkip(float ffrewScale)
         m_frameInterval = microsecondsFromFloat((1000000.0 / m_videoFrameRate / static_cast<double>(temp_speed))
            / m_fpsMultiplier);
         m_ffrewSkip = static_cast<int>(m_playSpeed != 0.0F);
+        LOG(VB_PLAYBACK, LOG_DEBUG, LOC + "Clearing render one");
     }
     else
     {
@@ -1406,7 +1420,6 @@ bool MythPlayer::DoRewind(uint64_t frames, double inaccuracy)
     uint64_t seeksnap_wanted = UINT64_MAX;
     if (inaccuracy != kInaccuracyFull)
         seeksnap_wanted = frames * inaccuracy;
-    ClearBeforeSeek(frames);
     WaitForSeek(desiredFrame, seeksnap_wanted);
     m_rewindTime = 0;
     ClearAfterSeek();
@@ -1596,7 +1609,6 @@ bool MythPlayer::DoFastForward(uint64_t frames, double inaccuracy)
     uint64_t seeksnap_wanted = UINT64_MAX;
     if (inaccuracy != kInaccuracyFull)
         seeksnap_wanted = frames * inaccuracy;
-    ClearBeforeSeek(frames);
     WaitForSeek(desiredFrame, seeksnap_wanted);
     m_ffTime = 0;
     ClearAfterSeek(false);
@@ -1693,33 +1705,6 @@ void MythPlayer::ClearAfterSeek(bool clearvideobuffers)
     m_needNewPauseFrame = true;
 
     m_avSync.InitAVSync();
-}
-
-/*! \brief Discard video frames prior to seeking
- * \note This is only used for MediaCodec surface rendering where the decoder will stall
- * waiting for buffers if we do not free those buffers first. This is currently
- * only an issue for recordings and livetv as the decoder is not paused before seeking when
- * using a position map.
- * \note m_watchingRecording does not appear to be accurate - so is currently ignored.
-*/
-// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-void MythPlayer::ClearBeforeSeek(uint64_t Frames)
-{
-#ifdef USING_MEDIACODEC
-    LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("ClearBeforeSeek: decoder %1 frames %2 recording %3 livetv %4")
-       .arg(m_codecName).arg(Frames).arg(m_watchingRecording).arg(m_liveTV));
-
-    if ((Frames < 2) || !m_videoOutput /*|| !(m_liveTV || m_watchingRecording)*/)
-        return;
-
-    m_decoderChangeLock.lock();
-    MythCodecID codec = m_decoder ? m_decoder->GetVideoCodecID() : kCodec_NONE;
-    m_decoderChangeLock.unlock();
-    if (codec_is_mediacodec(codec))
-        m_videoOutput->DiscardFrames(true, true);
-#else
-    Q_UNUSED(Frames);
-#endif
 }
 
 bool MythPlayer::IsInDelete(uint64_t frame)
