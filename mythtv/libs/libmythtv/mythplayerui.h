@@ -45,7 +45,7 @@ class MTV_PUBLIC MythPlayerUI : public MythPlayerEditorUI, public MythVideoScanT
   protected:
     void InitFrameInterval() override;
     virtual void DisplayPauseFrame();
-    virtual void DisplayNormalFrame(bool CheckPrebuffer = true);
+    virtual bool DisplayNormalFrame(bool CheckPrebuffer = true);
 
     void FileChanged();
     void RefreshPauseFrame();
@@ -55,6 +55,7 @@ class MTV_PUBLIC MythPlayerUI : public MythPlayerEditorUI, public MythVideoScanT
     void EnableBitrateMonitor(bool Enable = false);
 
     Jitterometer    m_outputJmeter { "Player" };
+    std::chrono::microseconds m_refreshInterval { 0us };
 
   private:
     Q_DISABLE_COPY(MythPlayerUI)

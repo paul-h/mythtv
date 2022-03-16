@@ -1,8 +1,6 @@
-#include "mythconfig.h"
-
 #include "goom/zoom_filters.h"
 
-#if defined(MMX) && !defined(ARCH_X86_64)
+#if defined(MMX) && !(defined(__x86_64) || defined(__x86_64__) || defined(__amd64) || defined(_M_X64))
 /* a definir pour avoir exactement le meme resultat que la fonction C
  * (un chouillat plus lent)
  */
@@ -31,9 +29,9 @@ int zoom_filter_xmmx_supported () {
 }
 
 void zoom_filter_xmmx (int prevX, int prevY,
-											 unsigned int *expix1, unsigned int *expix2,
-											 int *lbruS, int *lbruD, int buffratio,
-											 int precalCoef[16][16])
+                       unsigned int *expix1, unsigned int *expix2,
+                       const int *lbruS, const int *lbruD, int buffratio,
+                       GoomCoefficients& precalCoef)
 {
   int bufsize = prevX * prevY; /* taille du buffer */
   volatile int loop;                    /* variable de boucle */
@@ -254,7 +252,7 @@ int zoom_filter_xmmx_supported () {
 	return 0;
 }
 void zoom_filter_xmmx (int prevX, int prevY,
-                       const unsigned int *expix1, const unsigned int *expix2,
+                       unsigned int *expix1, unsigned int *expix2,//NOLINT(readability-non-const-parameter)
                        const int *brutS, const int *brutD, int buffratio,
                        GoomCoefficients& precalCoef)
 {

@@ -107,6 +107,7 @@ bool TVRec::CreateChannel(const QString &startchannel,
         this, m_genOpt, m_dvbOpt, m_fwOpt,
         startchannel, enter_power_save_mode, m_rbFileExt, setchan);
 
+#ifdef USING_VBOX
     if (m_genOpt.m_inputType == "VBOX")
     {
         if (!CardUtil::IsVBoxPresent(m_inputId))
@@ -119,7 +120,9 @@ bool TVRec::CreateChannel(const QString &startchannel,
             m_channel = nullptr;
         }
     }
+#endif
 
+#ifdef USING_SATIP
     if (m_genOpt.m_inputType == "SATIP")
     {
         if (!CardUtil::IsSatIPPresent(m_inputId))
@@ -132,6 +135,7 @@ bool TVRec::CreateChannel(const QString &startchannel,
             m_channel = nullptr;
         }
     }
+#endif
 
     if (!m_channel)
     {
@@ -1034,6 +1038,8 @@ void TVRec::HandleStateChange(void)
     // to avoid race condition with it's tuning requests.
     if (m_scanner && HasFlags(kFlagEITScannerRunning))
     {
+        LOG(VB_EIT, LOG_INFO, LOC + QString("Stop EIT scan on input %1").arg(GetInputId()));
+
         m_scanner->StopActiveScan();
         ClearFlags(kFlagEITScannerRunning, __FILE__, __LINE__);
         auto secs = m_eitCrawlIdleStart + eit_start_rand(m_inputId, m_eitTransportTimeout);
@@ -3519,7 +3525,7 @@ void TVRec::TuningShutdowns(const TuningRequest &request)
     }
 
     if (m_scanner && !request.IsOnSameMultiplex())
-        m_scanner->StopPassiveScan();
+        m_scanner->StopEITEventProcessing();
 
     if (HasFlags(kFlagSignalMonitorRunning))
     {
@@ -3991,7 +3997,7 @@ MPEGStreamData *TVRec::TuningSignalCheck(void)
                 "EIT scanning disabled for all sources on this input.");
         }
         else if (m_scanner)
-            m_scanner->StartPassiveScan(m_channel, streamData);
+            m_scanner->StartEITEventProcessing(m_channel, streamData);
     }
 
     return streamData;

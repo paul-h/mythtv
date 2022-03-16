@@ -5,10 +5,7 @@
 #include "videovisualspectrum.h"
 
 // FFmpeg
-#define FFTW_N 512
-extern "C" {
-#include "libavutil/mem.h"
-}
+static constexpr int FFTW_N { 512 };
 
 // Std
 #include <algorithm>
@@ -16,23 +13,17 @@ extern "C" {
 VideoVisualSpectrum::VideoVisualSpectrum(AudioPlayer* Audio, MythRender* Render)
   : VideoVisual(Audio, Render)
 {
-    m_lin  = static_cast<myth_fftw_float*>(av_malloc(sizeof(myth_fftw_float)*FFTW_N));
-    m_rin  = static_cast<myth_fftw_float*>(av_malloc(sizeof(myth_fftw_float)*FFTW_N));
-    m_lout = static_cast<myth_fftw_complex*>(av_malloc(sizeof(myth_fftw_complex)*(FFTW_N/2+1)));
-    m_rout = static_cast<myth_fftw_complex*>(av_malloc(sizeof(myth_fftw_complex)*(FFTW_N/2+1)));
+    m_dftL = static_cast<FFTComplex*>(av_malloc(sizeof(FFTComplex) * FFTW_N));
+    m_dftR = static_cast<FFTComplex*>(av_malloc(sizeof(FFTComplex) * FFTW_N));
 
-    m_lplan = fftw_plan_dft_r2c_1d(FFTW_N, m_lin, reinterpret_cast<myth_fftw_complex_cast*>(m_lout), FFTW_MEASURE);
-    m_rplan = fftw_plan_dft_r2c_1d(FFTW_N, m_rin, reinterpret_cast<myth_fftw_complex_cast*>(m_rout), FFTW_MEASURE);
+    m_fftContextForward = av_fft_init(std::log2(FFTW_N), 0);
 }
 
 VideoVisualSpectrum::~VideoVisualSpectrum()
 {
-    av_freep(&m_lin);
-    av_freep(&m_rin);
-    av_freep(&m_lout);
-    av_freep(&m_rout);
-    fftw_destroy_plan(m_lplan);
-    fftw_destroy_plan(m_rplan);
+    av_freep(&m_dftL);
+    av_freep(&m_dftR);
+    av_fft_end(m_fftContextForward);
 }
 
 template<typename T> T sq(T a) { return a*a; };
@@ -55,15 +46,25 @@ void VideoVisualSpectrum::Draw(const QRect Area, MythPainter* Painter, QPaintDev
         if (node)
         {
             i = static_cast<uint>(node->m_length);
-            fast_real_set_from_short(m_lin, node->m_left, node->m_length);
-            if (node->m_right)
-                fast_real_set_from_short(m_rin, node->m_right, node->m_length);
+            for (auto k = 0; k < node->m_length; k++)
+            {
+                m_dftL[k] = (FFTComplex){ .re = (FFTSample)node->m_left[k], .im = 0 };
+                if (node->m_right)
+                    m_dftR[k] = (FFTComplex){ .re = (FFTSample)node->m_right[k], .im = 0 };
+            }
         }
     }
 
-    fast_reals_set(m_lin + i, m_rin + i, 0, FFTW_N - i);
-    fftw_execute(m_lplan);
-    fftw_execute(m_rplan);
+    for (auto k = i; k < FFTW_N; k++)
+    {
+        m_dftL[k] = (FFTComplex){ .re = 0, .im = 0 };
+        m_dftL[k] = (FFTComplex){ .re = 0, .im = 0 };
+    }
+    av_fft_permute(m_fftContextForward, m_dftL);
+    av_fft_calc(m_fftContextForward, m_dftL);
+
+    av_fft_permute(m_fftContextForward, m_dftR);
+    av_fft_calc(m_fftContextForward, m_dftR);
 
     double falloff = std::clamp(((static_cast<double>(SetLastUpdate().count())) / 40.0) * m_falloff, 0.0, 2048.0);
     for (int l = 0, r = m_scale.range(); l < m_scale.range(); l++, r++)
@@ -73,12 +74,11 @@ void VideoVisualSpectrum::Draw(const QRect Area, MythPainter* Painter, QPaintDev
         // The 1D output is Hermitian symmetric (Yk = Yn-k) so Yn = Y0 etc.
         // The dft_r2c_1d plan doesn't output these redundant values
         // and furthermore they're not allocated in the ctor
-        double tmp = 2 * sq(real(m_lout[index]));
+        double tmp = 2 * sq(m_dftL[index].re);
         double magL = (tmp > 1.) ? (log(tmp) - 22.0) * m_scaleFactor : 0.;
 
-        tmp = 2 * sq(real(m_rout[index]));
+        tmp = 2 * sq(m_dftR[index].re);
         double magR = (tmp > 1.) ? (log(tmp) - 22.0) * m_scaleFactor : 0.;
-
         if (magL > m_range)
             magL = 1.0;
 

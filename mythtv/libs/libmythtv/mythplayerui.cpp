@@ -48,6 +48,10 @@ MythPlayerUI::MythPlayerUI(MythMainWindow* MainWindow, TV* Tv,
     connect(m_tv, &TV::UpdateBookmark, this, &MythPlayerUI::SetBookmark);
     connect(m_tv, &TV::UpdateLastPlayPosition, this, &MythPlayerUI::SetLastPlayPosition);
     connect(m_tv, &TV::InitialisePlayerState, this, &MythPlayerUI::InitialiseState);
+
+    // Setup refresh interval.
+    m_refreshInterval = m_display->GetRefreshInterval(16667us);
+    m_avSync.SetRefreshInterval(m_refreshInterval);
 }
 
 void MythPlayerUI::InitialiseState()
@@ -239,13 +243,23 @@ void MythPlayerUI::EventLoop()
             return;
         }
 
-        bool videoDrained =
-            m_videoOutput && m_videoOutput->ValidVideoFrames() < 1;
-        bool audioDrained =
-            !m_audio.GetAudioOutput() ||
-            m_audio.IsPaused() ||
-            m_audio.GetAudioOutput()->GetAudioBufferedTime() < 100ms;
-        if (eof != kEofStateDelayed || (videoDrained && audioDrained))
+        bool drained = false;
+        if (FlagIsSet(kVideoIsNull) || FlagIsSet(kMusicChoice))
+        {
+            // We have audio only or mostly audio content.  Exit when
+            // the audio is drained.
+            drained =
+                !m_audio.GetAudioOutput() ||
+                m_audio.IsPaused() ||
+                m_audio.GetAudioOutput()->GetAudioBufferedTime() < 100ms;
+        }
+        else
+        {
+            // We have normal or video only content.  Exit when the
+            // video is drained.
+            drained = m_videoOutput && !m_videoOutput->ValidVideoFrames();
+        }
+        if (eof != kEofStateDelayed || drained)
         {
             if (eof == kEofStateDelayed)
             {
@@ -477,15 +491,17 @@ bool MythPlayerUI::VideoLoop()
 
     if (m_videoPaused || m_isDummy)
         DisplayPauseFrame();
-    else
-        DisplayNormalFrame();
-
-    if (FlagIsSet(kVideoIsNull) && m_decoder)
-        m_decoder->UpdateFramesPlayed();
-    else if (m_decoder && m_decoder->GetEof() != kEofStateNone)
-        ++m_framesPlayed;
-    else
-        m_framesPlayed = static_cast<uint64_t>(m_videoOutput->GetFramesPlayed());
+    else if (DisplayNormalFrame())
+    {
+        if (FlagIsSet(kVideoIsNull) && m_decoder)
+            m_decoder->UpdateFramesPlayed();
+        else if (m_decoder && m_decoder->GetEof() != kEofStateNone)
+            ++m_framesPlayed;
+        else
+            m_framesPlayed = static_cast<uint64_t>(
+                m_videoOutput->GetFramesPlayed());
+    }
+    
     return !IsErrored();
 }
 
@@ -494,7 +510,7 @@ void MythPlayerUI::InitFrameInterval()
     SetFrameInterval(GetScanType(), 1.0 / (m_videoFrameRate * static_cast<double>(m_playSpeed)));
     MythPlayer::InitFrameInterval();
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Display Refresh Rate: %1 Video Frame Rate: %2")
-        .arg(1000000.0 / m_display->GetRefreshInterval(m_frameInterval).count(), 0, 'f', 3)
+        .arg(1000000.0 / m_refreshInterval.count(), 0, 'f', 3)
         .arg(1000000.0 / m_frameInterval.count(), 0, 'f', 3));
 }
 
@@ -641,13 +657,13 @@ void MythPlayerUI::DisplayPauseFrame()
     RenderVideoFrame(nullptr, scan, true, 0ms);
 }
 
-void MythPlayerUI::DisplayNormalFrame(bool CheckPrebuffer)
+bool MythPlayerUI::DisplayNormalFrame(bool CheckPrebuffer)
 {
     if (m_allPaused)
-        return;
+        return false;
 
     if (CheckPrebuffer && !PrebufferEnoughFrames())
-        return;
+        return false;
 
     // clear the buffering state
     SetBuffering(false);
@@ -688,6 +704,8 @@ void MythPlayerUI::DisplayNormalFrame(bool CheckPrebuffer)
     DoDisplayVideoFrame(frame, due);
     m_videoOutput->DoneDisplayingFrame(frame);
     m_outputJmeter.RecordCycleTime();
+
+    return true;
 }
 
 void MythPlayerUI::SetVideoParams(int Width, int Height, double FrameRate, float Aspect,
@@ -779,10 +797,6 @@ void MythPlayerUI::SetLastPlayPosition(uint64_t frame)
 
 bool MythPlayerUI::CanSupportDoubleRate()
 {
-    std::chrono::microseconds refreshinterval = 1us;
-    if (m_display)
-        refreshinterval = m_display->GetRefreshInterval(m_frameInterval);
-
     // At this point we may not have the correct frame rate.
     // Since interlaced is always at 25 or 30 fps, if the interval
     // is less than 30000 (33fps) it must be representing one
@@ -790,7 +804,7 @@ bool MythPlayerUI::CanSupportDoubleRate()
     std::chrono::microseconds realfi = m_frameInterval;
     if (m_frameInterval < 30ms)
         realfi = m_frameInterval * 2;
-    return (duration_cast<floatusecs>(realfi) / 2.0) > (duration_cast<floatusecs>(refreshinterval) * 0.995);
+    return (duration_cast<floatusecs>(realfi) / 2.0) > (duration_cast<floatusecs>(m_refreshInterval) * 0.995);
 }
 
 void MythPlayerUI::GetPlaybackData(InfoMap& Map)

@@ -1,29 +1,27 @@
 // MythTV
-#include "config.h"
+#include "mythconfig.h"
 #include "mythlogging.h"
 #include "mythavutil.h"
 #include "mythvideoprofile.h"
 #include "mythdeinterlacer.h"
 
+#include <algorithm>
+#include <thread>
+
 extern "C" {
 #include "libavfilter/buffersrc.h"
 #include "libavfilter/buffersink.h"
+#include "libavutil/cpu.h"
 }
 
-#if (HAVE_SSE2 && ARCH_X86_64)
-#include "libavutil/x86/cpu.h"
-#include <emmintrin.h>
-bool MythDeinterlacer::s_haveSIMD = av_get_cpu_flags() & AV_CPU_FLAG_SSE2;
+#include <QtGlobal>
+
+#ifdef Q_PROCESSOR_X86_64
+#   include <emmintrin.h>
+static const bool s_haveSIMD = true;
 #elif HAVE_INTRINSICS_NEON
-#if ARCH_AARCH64
-#include "libavutil/aarch64/cpu.h"
-#elif ARCH_ARM
-#include "libavutil/arm/cpu.h"
-#endif
-#include <arm_neon.h>
-bool MythDeinterlacer::s_haveSIMD = have_neon(av_get_cpu_flags());
-#else
-bool MythDeinterlacer::s_haveSIMD = false;
+#   include <arm_neon.h>
+static const bool s_haveSIMD = av_get_cpu_flags() & AV_CPU_FLAG_NEON;
 #endif
 
 #define LOC QString("MythDeint: ")
@@ -344,9 +342,7 @@ bool MythDeinterlacer::Initialise(MythVideoFrame *Frame, MythDeintType Deinterla
     uint threads = 1;
     if (Profile)
     {
-        threads = Profile->GetMaxCPUs();
-        if (threads < 1 || threads > 8)
-            threads = 1;
+        threads = std::clamp(Profile->GetMaxCPUs(), 1U, std::max(8U, std::thread::hardware_concurrency()));
     }
 
     AVFilterInOut* inputs = nullptr;
@@ -514,7 +510,7 @@ static inline void BlendC4x4(unsigned char *Src, int Width, int FirstRow, int La
     }
 }
 
-#if (HAVE_SSE2 && ARCH_X86_64) || HAVE_INTRINSICS_NEON
+#if defined(Q_PROCESSOR_X86_64) || HAVE_INTRINSICS_NEON
 // SIMD optimised version with 16x4 alignment
 static inline void BlendSIMD16x4(unsigned char *Src, int Width, int FirstRow, int LastRow, int Pitch,
                                  unsigned char *Dst, int DstPitch, bool Second)
@@ -547,7 +543,7 @@ static inline void BlendSIMD16x4(unsigned char *Src, int Width, int FirstRow, in
         }
         for (int col = 0; col < Width; col += 16)
         {
-#if (HAVE_SSE2 && ARCH_X86_64)
+#if defined(Q_PROCESSOR_X86_64)
             __m128i mid = *reinterpret_cast<__m128i*>(&middle[col]);
             *reinterpret_cast<__m128i*>(&dest1[col]) =
                     _mm_avg_epu8(*reinterpret_cast<__m128i*>(&above[col]), mid);
@@ -602,7 +598,7 @@ static inline void BlendSIMD8x4(unsigned char *Src, int Width, int FirstRow, int
         }
         for (int col = 0; col < Width; col += 16)
         {
-#if (HAVE_SSE2 && ARCH_X86_64)
+#if defined(Q_PROCESSOR_X86_64)
             __m128i mid = *reinterpret_cast<__m128i*>(&middle[col]);
             *reinterpret_cast<__m128i*>(&dest1[col]) =
                     _mm_avg_epu16(*reinterpret_cast<__m128i*>(&above[col]), mid);
@@ -657,7 +653,7 @@ void MythDeinterlacer::Blend(MythVideoFrame *Frame, FrameScanType Scan)
         bool width4  = (src->m_pitches[plane] % 4) == 0;
         // N.B. all frames allocated by MythTV should have 16 byte alignment
         // for all planes
-#if (HAVE_SSE2 && ARCH_X86_64) || HAVE_INTRINSICS_NEON
+#if defined(Q_PROCESSOR_X86_64) || HAVE_INTRINSICS_NEON
         bool width16 = (src->m_pitches[plane] % 16) == 0;
         // profiling SSE2 suggests it is usually 4x faster - as expected
         if (s_haveSIMD && height4 && width16)

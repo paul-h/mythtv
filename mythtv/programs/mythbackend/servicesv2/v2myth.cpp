@@ -8,7 +8,6 @@
 #include <QHostAddress>
 #include <QUdpSocket>
 
-#include "config.h"
 #include "version.h"
 #include "mythversion.h"
 #include "mythcorecontext.h"
@@ -748,12 +747,17 @@ V2SettingList* V2Myth::GetSettingList(const QString &sHostName)
 /////////////////////////////////////////////////////////////////////////////
 
 bool V2Myth::PutSetting( const QString &sHostName,
-                       const QString &sKey,
-                       const QString &sValue )
+                         const QString &sKey,
+                         const QString &sValue )
 {
+    QString hostName = sHostName;
+
+    if (hostName == "_GLOBAL_")
+        hostName = "";
+
     if (!sKey.isEmpty())
     {
-        return gCoreContext->SaveSettingOnHost( sKey, sValue, sHostName );
+        return gCoreContext->SaveSettingOnHost( sKey, sValue, hostName );
     }
 
     throw ( QString( "Key Required" ));
