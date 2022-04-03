@@ -20,16 +20,14 @@
  *   along with this program; if not, write to the Free Software
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
-
-#include <cinttypes>
-#include <cmath>
-#include <sys/types.h>
-
-#include "mythconfig.h"
-#include "mythlogging.h"
-#include "mythaverror.h"
 #include "audioconvert.h"
 
+#include <cstdint>
+#include <cmath>
+
+#include <algorithm>
+
+// FFmpeg
 extern "C" {
 #include "libavcodec/avcodec.h"
 #include "libswresample/swresample.h"
@@ -37,17 +35,19 @@ extern "C" {
 
 #include <QtGlobal>
 
+#include "mythlogging.h"
+#include "mythaverror.h"
 
 #define LOC QString("AudioConvert: ")
 
-#define ISALIGN(x) (((unsigned long)(x) & 0xf) == 0)
-
 #ifdef Q_PROCESSOR_X86
-static int has_sse2 = -1;
-
 // Check cpuid for SSE2 support on x86 / x86_64
-static inline bool sse_check()
+static inline bool sse2_check()
 {
+#ifdef Q_PROCESSOR_X86_64
+    return true;
+#endif
+    static int has_sse2 = -1;
     if (has_sse2 != -1)
         return (bool)has_sse2;
     __asm__(
@@ -73,31 +73,22 @@ static inline bool sse_check()
 }
 #endif //Q_PROCESSOR_X86
 
-#if !HAVE_LRINTF
-static av_always_inline av_const long int lrintf(float x)
-{
-    return (int)(rint(x));
-}
-#endif /* HAVE_LRINTF */
-
 static inline float clipcheck(float f)
 {
-    if (f > 1.0F) f = 1.0F;
-    else if (f < -1.0F) f = -1.0F;
-    return f;
+    return std::clamp(f, -1.0F, 1.0F);
 }
 
 /*
  The SSE code processes 16 bytes at a time and leaves any remainder for the C
  */
 
-static int toFloat8(float* out, const uchar* in, int len)
+static int toFloat8(float* out, const uint8_t* in, int len)
 {
     int i = 0;
     float f = 1.0F / ((1<<7));
 
 #ifdef Q_PROCESSOR_X86
-    if (sse_check() && len >= 16)
+    if (sse2_check() && len >= 16)
     {
         int loops = len >> 4;
         i = loops << 4;
@@ -159,20 +150,20 @@ static int toFloat8(float* out, const uchar* in, int len)
  The SSE code processes 16 bytes at a time and leaves any remainder for the C
  - there is no remainder in practice */
 
-static inline uchar clip_uchar(int a)
+static inline uint8_t clip_uint8(int a)
 {
     if (a&(~0xFF))
         return (-a)>>31;
     return a;
 }
 
-static int fromFloat8(uchar* out, const float* in, int len)
+static int fromFloat8(uint8_t* out, const float* in, int len)
 {
     int i = 0;
     float f = (1<<7);
 
 #ifdef Q_PROCESSOR_X86
-    if (sse_check() && len >= 16)
+    if (sse2_check() && len >= 16)
     {
         int loops = len >> 4;
         i = loops << 4;
@@ -214,7 +205,7 @@ static int fromFloat8(uchar* out, const float* in, int len)
     }
 #endif //Q_PROCESSOR_X86
     for (;i < len; i++)
-        *out++ = clip_uchar(lrintf(*in++ * f) + 0x80);
+        *out++ = clip_uint8(lrintf(*in++ * f) + 0x80);
     return len;
 }
 
@@ -224,7 +215,7 @@ static int toFloat16(float* out, const short* in, int len)
     float f = 1.0F / ((1<<15));
 
 #ifdef Q_PROCESSOR_X86
-    if (sse_check() && len >= 16)
+    if (sse2_check() && len >= 16)
     {
         int loops = len >> 4;
         i = loops << 4;
@@ -286,7 +277,7 @@ static int fromFloat16(short* out, const float* in, int len)
     float f = (1<<15);
 
 #ifdef Q_PROCESSOR_X86
-    if (sse_check() && len >= 16)
+    if (sse2_check() && len >= 16)
     {
         int loops = len >> 4;
         i = loops << 4;
@@ -338,7 +329,7 @@ static int toFloat32(AudioFormat format, float* out, const int* in, int len)
         shift = 0;
 
 #ifdef Q_PROCESSOR_X86
-    if (sse_check() && len >= 16)
+    if (sse2_check() && len >= 16)
     {
         int loops = len >> 4;
         i = loops << 4;
@@ -395,7 +386,7 @@ static int fromFloat32(AudioFormat format, int* out, const float* in, int len)
         shift = 0;
 
 #ifdef Q_PROCESSOR_X86
-    if (sse_check() && len >= 16)
+    if (sse2_check() && len >= 16)
     {
         float o = 0.99999995;
         float mo = -1;
@@ -477,7 +468,7 @@ static int fromFloatFLT(float* out, const float* in, int len)
     int i = 0;
 
 #ifdef Q_PROCESSOR_X86
-    if (sse_check() && len >= 16)
+    if (sse2_check() && len >= 16)
     {
         int loops = len >> 4;
         float o = 1;
@@ -537,7 +528,7 @@ int AudioConvert::toFloat(AudioFormat format, void* out, const void* in,
     switch (format)
     {
         case FORMAT_U8:
-            return toFloat8((float*)out,  (uchar*)in, bytes);
+            return toFloat8((float*)out,  (uint8_t*)in, bytes);
         case FORMAT_S16:
             return toFloat16((float*)out, (short*)in, bytes >> 1);
         case FORMAT_S24:
@@ -567,7 +558,7 @@ int AudioConvert::fromFloat(AudioFormat format, void* out, const void* in,
     switch (format)
     {
         case FORMAT_U8:
-            return fromFloat8((uchar*)out, (float*)in, bytes >> 2);
+            return fromFloat8((uint8_t*)out, (float*)in, bytes >> 2);
         case FORMAT_S16:
             return fromFloat16((short*)out, (float*)in, bytes >> 2);
         case FORMAT_S24:

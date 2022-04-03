@@ -15,7 +15,6 @@
 #include "mythcontext.h"
 #include "mythdbcon.h"
 #include "dbutil.h"
-#include "loggingserver.h"
 #include "mythlogging.h"
 #include "mythversion.h"
 #include "langsettings.h"
@@ -298,14 +297,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHTV_SETUP);
 
 #ifndef _WIN32
-    QList<int> signallist;
-    signallist << SIGINT << SIGTERM << SIGSEGV << SIGABRT << SIGBUS << SIGFPE
-               << SIGILL;
-#ifndef Q_OS_DARWIN
-    signallist << SIGRTMIN;
-#endif
-    SignalHandler::Init(signallist);
-    SignalHandler::SetHandler(SIGHUP, logSigHup);
+    SignalHandler::Init();
 #endif
 
     if (cmdline.toBool("geometry"))

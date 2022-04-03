@@ -27,7 +27,6 @@
 #include "videosource.h" // for is_grabber..
 #include "dbcheck.h"
 #include "mythsystemevent.h"
-#include "loggingserver.h"
 #include "mythlogging.h"
 #include "signalhandling.h"
 #include "cleanupguard.h"
@@ -250,14 +249,7 @@ int main(int argc, char *argv[])
     CleanupGuard callCleanup(cleanup);
 
 #ifndef _WIN32
-    QList<int> signallist;
-    signallist << SIGINT << SIGTERM << SIGSEGV << SIGABRT << SIGBUS << SIGFPE
-               << SIGILL;
-#ifndef Q_OS_DARWIN
-    signallist << SIGRTMIN;
-#endif
-    SignalHandler::Init(signallist);
-    SignalHandler::SetHandler(SIGHUP, logSigHup);
+    SignalHandler::Init();
 #endif
 
     gContext = new MythContext(MYTH_BINARY_VERSION);

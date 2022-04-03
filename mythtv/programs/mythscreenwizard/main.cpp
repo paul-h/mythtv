@@ -127,14 +127,7 @@ int main(int argc, char **argv)
     CleanupGuard callCleanup(cleanup);
 
 #ifndef _WIN32
-    QList<int> signallist;
-    signallist << SIGINT << SIGTERM << SIGSEGV << SIGABRT << SIGBUS << SIGFPE
-               << SIGILL;
-#ifndef Q_OS_DARWIN
-    signallist << SIGRTMIN;
-#endif
-    SignalHandler::Init(signallist);
-    signal(SIGHUP, SIG_IGN);
+    SignalHandler::Init();
 #endif
 
 

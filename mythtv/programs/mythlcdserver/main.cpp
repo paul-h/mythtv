@@ -17,7 +17,6 @@
 #include "exitcodes.h"
 #include "mythcontext.h"
 #include "mythdbcon.h"
-#include "loggingserver.h"
 #include "mythlogging.h"
 #include "mythversion.h"
 #include "tv_play.h"
@@ -99,14 +98,7 @@ int main(int argc, char **argv)
     }
 
 #ifndef _WIN32
-    QList<int> signallist;
-    signallist << SIGINT << SIGTERM << SIGSEGV << SIGABRT << SIGBUS << SIGFPE
-               << SIGILL;
-#ifndef Q_OS_DARWIN
-    signallist << SIGRTMIN;
-#endif
-    SignalHandler::Init(signallist);
-    SignalHandler::SetHandler(SIGHUP, logSigHup);
+    SignalHandler::Init();
 #endif
 
     //  Get the MythTV context and db hooks

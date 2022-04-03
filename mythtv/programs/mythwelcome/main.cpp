@@ -10,7 +10,6 @@
 #include "compat.h"
 #include "lcddevice.h"
 #include "commandlineparser.h"
-#include "loggingserver.h"
 #include "mythlogging.h"
 #include "signalhandling.h"
 #include "mythdisplay.h"
@@ -79,14 +78,7 @@ int main(int argc, char **argv)
         bShowSettings = true;
 
 #ifndef _WIN32
-    QList<int> signallist;
-    signallist << SIGINT << SIGTERM << SIGSEGV << SIGABRT << SIGBUS << SIGFPE
-               << SIGILL;
-#ifndef Q_OS_DARWIN
-    signallist << SIGRTMIN;
-#endif
-    SignalHandler::Init(signallist);
-    SignalHandler::SetHandler(SIGHUP, logSigHup);
+    SignalHandler::Init();
 #endif
 
     gContext = new MythContext(MYTH_BINARY_VERSION, true);

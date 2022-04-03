@@ -4,18 +4,13 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include "mythconfig.h"
-#if HAVE_SYS_SOUNDCARD_H
-    #include <sys/soundcard.h>
-#elif HAVE_SOUNDCARD_H
-    #include <soundcard.h>
-#endif
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <cerrno>
 #include <cmath>
 
 #include <QStringList>
+#include <QtEndian>
 
 #include <iostream>
 
@@ -2558,7 +2553,7 @@ void NuppelVideoRecorder::WriteAudio(unsigned char *buf, int fnum, std::chrono::
 #if (Q_BYTE_ORDER == Q_BIG_ENDIAN)
         auto buf16 = reinterpret_cast<uint16_t *>(buf);
         for (int i = 0; i < m_audioChannels * sample_cnt; i++)
-            buf16[i] = qToLittleEndian<uint16_t>(buf16[i]);
+            buf16[i] = qToLittleEndian<quint16>(buf16[i]);
 #endif
         if (m_audioChannels == 2)
         {

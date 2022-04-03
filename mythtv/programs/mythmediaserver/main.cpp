@@ -17,7 +17,6 @@
 #include "exitcodes.h"
 #include "dbcheck.h"
 #include "mythdbcon.h"
-#include "loggingserver.h"
 #include "mythlogging.h"
 #include "mythversion.h"
 #include "mythsystemevent.h"
@@ -94,14 +93,7 @@ int main(int argc, char *argv[])
     CleanupGuard callCleanup(cleanup);
 
 #ifndef _WIN32
-    QList<int> signallist;
-    signallist << SIGINT << SIGTERM << SIGSEGV << SIGABRT << SIGBUS << SIGFPE
-               << SIGILL;
-#ifndef Q_OS_DARWIN
-    signallist << SIGRTMIN;
-#endif
-    SignalHandler::Init(signallist);
-    SignalHandler::SetHandler(SIGHUP, logSigHup);
+    SignalHandler::Init();
 #endif
 
     ms_sd_notify("STATUS=Connecting to database.");

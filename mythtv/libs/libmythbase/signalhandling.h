@@ -28,7 +28,7 @@ class MBASE_PUBLIC SignalHandler: public QObject
     Q_OBJECT
 
   public:
-    static void Init(QList<int> &signallist, QObject *parent = nullptr);
+    static void Init(QObject *parent = nullptr);
     static void Done(void);
 
     static void SetHandler(int signum, SigHandlerFunc handler);
@@ -44,7 +44,7 @@ class MBASE_PUBLIC SignalHandler: public QObject
     void handleSignal(void);
 
   private:
-    SignalHandler(QList<int> &signallist, QObject *parent);
+    explicit SignalHandler(QObject *parent);
     ~SignalHandler() override;
     void SetHandlerPrivate(int signum, SigHandlerFunc handler);
 
@@ -55,7 +55,6 @@ class MBASE_PUBLIC SignalHandler: public QObject
 
     QMutex m_sigMapLock;
     QMap<int, SigHandlerFunc> m_sigMap;
-    static QList<int> s_defaultHandlerList;
 
     static QMutex s_singletonLock;
     static SignalHandler *s_singleton;

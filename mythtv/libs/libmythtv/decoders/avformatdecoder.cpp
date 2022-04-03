@@ -4133,7 +4133,9 @@ QString AvFormatDecoder::GetTrackDesc(uint type, uint TrackNo)
     QString forcedString = forced ? QObject::tr(" (forced)") : "";
 
     int av_index = m_tracks[type][TrackNo].m_av_stream_index;
-    AVStream *stream = m_ic->streams[av_index];
+    AVStream *stream { nullptr };
+    if (av_index >= 0 && av_index < m_ic->nb_streams)
+        stream = m_ic->streams[av_index];
     AVDictionaryEntry *entry =
         stream ? av_dict_get(stream->metadata, "title", NULL, 0) : nullptr;
     QString user_title = entry ? QString(R"( "%1")").arg(entry->value) : "";
@@ -5240,8 +5242,8 @@ void AvFormatDecoder::ForceSetupAudioStream(void)
 inline bool AvFormatDecoder::DecoderWillDownmix(const AVCodecContext *ctx)
 {
     // Until ffmpeg properly implements dialnorm
-    // use Myth internal downmixer if machines has FPU/SSE
-    if (m_audio->CanDownmix() && AudioOutputUtil::has_hardware_fpu())
+    // use Myth internal downmixer if machine has SSE2
+    if (m_audio->CanDownmix() && AudioOutputUtil::has_optimized_SIMD())
         return false;
     if (!m_audio->CanDownmix())
         return true;

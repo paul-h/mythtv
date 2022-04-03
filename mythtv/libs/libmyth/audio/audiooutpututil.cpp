@@ -1,8 +1,6 @@
 #include "audiooutpututil.h"
 
 #include <cstdint>
-#include <cmath>
-#include <sys/types.h>
 
 #include <QtGlobal>
 #include <QtEndian>
@@ -18,14 +16,14 @@ extern "C" {
 
 #define LOC QString("AOUtil: ")
 
-#define ISALIGN(x) (((unsigned long)(x) & 0xf) == 0)
-
 #ifdef Q_PROCESSOR_X86
-static int has_sse2 = -1;
-
 // Check cpuid for SSE2 support on x86 / x86_64
-static inline bool sse_check()
+static inline bool sse2_check()
 {
+#ifdef Q_PROCESSOR_X86_64
+    return true;
+#endif
+    static int has_sse2 = -1;
     if (has_sse2 != -1)
         return (bool)has_sse2;
     __asm__(
@@ -52,13 +50,13 @@ static inline bool sse_check()
 #endif //Q_PROCESSOR_X86
 
 /**
- * Returns true if platform has an FPU.
- * for the time being, this test is limited to testing if SSE2 is supported
+ * Returns true if the processor supports MythTV's optimized SIMD for AudioOutputUtil/AudioConvert.
+ * Currently, only SSE2 is implemented.
  */
-bool AudioOutputUtil::has_hardware_fpu()
+bool AudioOutputUtil::has_optimized_SIMD()
 {
 #ifdef Q_PROCESSOR_X86
-    return sse_check();
+    return sse2_check();
 #else
     return false;
 #endif
@@ -123,7 +121,7 @@ void AudioOutputUtil::AdjustVolume(void *buf, int len, int volume,
         return;
 
 #ifdef Q_PROCESSOR_X86
-    if (sse_check() && samples >= 16)
+    if (sse2_check() && samples >= 16)
     {
         int loops = samples >> 4;
         i = loops << 4;
@@ -184,7 +182,7 @@ void AudioOutputUtil::MuteChannel(int obits, int channels, int ch,
     int frames = bytes / ((obits >> 3) * channels);
 
     if (obits == 8)
-        tMuteChannel((uchar *)buffer, channels, ch, frames);
+        tMuteChannel((uint8_t *)buffer, channels, ch, frames);
     else if (obits == 16)
         tMuteChannel((short *)buffer, channels, ch, frames);
     else
@@ -212,9 +210,9 @@ char *AudioOutputUtil::GeneratePinkFrames(char *frames, int channels,
                     static_cast<float>(0x03fffffff);
                 int32_t ires = res;
                 if (bits == 16)
-                    *samp16++ = qToLittleEndian<int16_t>(ires >> 16);
+                    *samp16++ = qToLittleEndian<qint16>(ires >> 16);
                 else
-                    *samp32++ = qToLittleEndian<int32_t>(ires);
+                    *samp32++ = qToLittleEndian<qint32>(ires);
             }
             else
             {

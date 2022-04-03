@@ -150,11 +150,13 @@ void MythDRMDevice::SetupDRM(const MythCommandLineParser& CmdLine)
     // Note: Not sure which takes precedent in Qt or what happens if they are different.
     auto platform = CmdLine.toString("platform");
     if (platform.isEmpty())
+    {
 #if QT_VERSION < QT_VERSION_CHECK(5,10,0)
         platform = QString(qgetenv("QT_QPA_PLATFORM"));
 #else
         platform = qEnvironmentVariable("QT_QPA_PLATFORM");
 #endif
+    }
     if (!platform.contains("eglfs", Qt::CaseInsensitive))
     {
         // Log something just in case it reminds someone to enable eglfs
@@ -284,7 +286,7 @@ void MythDRMDevice::SetupDRM(const MythCommandLineParser& CmdLine)
         "}\n";
 
     // Note: mode is not sanitised
-    auto wrote = qPrintable(s_json.arg(drmGetDeviceNameFromFd2(device->GetFD()))
+    const auto *wrote = qPrintable(s_json.arg(drmGetDeviceNameFromFd2(device->GetFD()))
         .arg(device->m_connector->m_name).arg(MythDRMPlane::FormatToString(format).toLower())
         .arg(s_mythDRMVideoMode.isEmpty() ? "current" : s_mythDRMVideoMode));
 
@@ -306,7 +308,7 @@ void MythDRMDevice::SetupDRM(const MythCommandLineParser& CmdLine)
     // Set the zpos if supported
     if (auto zposp = MythDRMProperty::GetProperty("zpos", guiplane->m_properties); zposp.get())
     {
-        if (auto range = dynamic_cast<MythDRMRangeProperty*>(zposp.get()); range)
+        if (auto *range = dynamic_cast<MythDRMRangeProperty*>(zposp.get()); range)
         {
             auto val = QString::number(std::min(range->m_min + 1, range->m_max));
             LOG(VB_GENERAL, LOG_INFO, QString("Exporting '%1=%2'").arg(s_kmsPlaneZpos).arg(val));
@@ -326,19 +328,21 @@ void MythDRMDevice::SetupDRM(const MythCommandLineParser& CmdLine)
 MythDRMPtr MythDRMDevice::Create(QScreen *qScreen, const QString &Device, bool NeedPlanes)
 {
 #ifdef USING_QTPRIVATEHEADERS
-    if (qScreen && qGuiApp && qGuiApp->platformName().contains("eglfs", Qt::CaseInsensitive))
+    auto * app = dynamic_cast<QGuiApplication *>(QCoreApplication::instance());
+    if (qScreen && app && QGuiApplication::platformName().contains("eglfs", Qt::CaseInsensitive))
     {
         int fd = 0;
         uint32_t crtc = 0;
         uint32_t connector = 0;
         bool useatomic = false;
-        if (auto * drifd = qGuiApp->platformNativeInterface()->nativeResourceForIntegration("dri_fd"); drifd)
+        auto * pni = QGuiApplication::platformNativeInterface();
+        if (auto * drifd = pni->nativeResourceForIntegration("dri_fd"); drifd)
             fd = static_cast<int>(reinterpret_cast<qintptr>(drifd));
-        if (auto * crtcid = qGuiApp->platformNativeInterface()->nativeResourceForScreen("dri_crtcid", qScreen); crtcid)
+        if (auto * crtcid = pni->nativeResourceForScreen("dri_crtcid", qScreen); crtcid)
             crtc = static_cast<uint32_t>(reinterpret_cast<qintptr>(crtcid));
-        if (auto * connid = qGuiApp->platformNativeInterface()->nativeResourceForScreen("dri_connectorid", qScreen); connid)
+        if (auto * connid = pni->nativeResourceForScreen("dri_connectorid", qScreen); connid)
             connector = static_cast<uint32_t>(reinterpret_cast<qintptr>(connid));
-        if (auto * atomic = qGuiApp->platformNativeInterface()->nativeResourceForIntegration("dri_atomic_request"); atomic)
+        if (auto * atomic = pni->nativeResourceForIntegration("dri_atomic_request"); atomic)
             if (auto * request = reinterpret_cast<drmModeAtomicReq*>(atomic); request != nullptr)
                 useatomic = true;
 
@@ -462,7 +466,7 @@ MythDRMDevice::MythDRMDevice(int Fd, uint32_t CrtcId, uint32_t ConnectorId, bool
                                static_cast<int>(m_connector->m_mmHeight));
         // Get EDID
         auto prop = MythDRMProperty::GetProperty("EDID", m_connector->m_properties);
-        if (auto blob = dynamic_cast<MythDRMBlobProperty*>(prop.get()); blob)
+        if (auto *blob = dynamic_cast<MythDRMBlobProperty*>(prop.get()); blob)
         {
             MythEDID edid(blob->m_blob);
             if (edid.Valid())
@@ -498,10 +502,9 @@ MythDRMDevice::MythDRMDevice(int Fd, uint32_t CrtcId, uint32_t ConnectorId, bool
  * other DRM clients running (i.e. no X or Wayland), finds a connected connector
  * and analyses planes. If any steps fail, the device is deemed invalid.
 */
-MythDRMDevice::MythDRMDevice(const QString& Device, bool NeedPlanes)
-  : m_deviceName(Device),
-    m_atomic(true), // Just squashes some logging
-    m_verbose(LOG_INFO)
+MythDRMDevice::MythDRMDevice(QString Device, bool NeedPlanes)
+  : m_deviceName(std::move(Device)),
+    m_atomic(true) // Just squashes some logging
 {
     if (!Open())
         return;
@@ -919,12 +922,14 @@ void MythDRMDevice::MainWindowReady()
     */
 }
 
-bool MythDRMDevice::QueueAtomics(const MythAtomics& Atomics)
+bool MythDRMDevice::QueueAtomics(const MythAtomics& Atomics) const
 {
-    if (!(m_atomic && m_authenticated && qGuiApp))
+    auto * app = dynamic_cast<QGuiApplication *>(QCoreApplication::instance());
+    if (!(m_atomic && m_authenticated && app))
         return false;
 
-    if (auto * dri = qGuiApp->platformNativeInterface()->nativeResourceForIntegration("dri_atomic_request"); dri)
+    auto * pni = QGuiApplication::platformNativeInterface();
+    if (auto * dri = pni->nativeResourceForIntegration("dri_atomic_request"); dri)
     {
         if (auto * request = reinterpret_cast<drmModeAtomicReq*>(dri); request != nullptr)
         {

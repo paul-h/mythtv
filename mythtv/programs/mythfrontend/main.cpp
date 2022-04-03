@@ -52,7 +52,6 @@
 #include "mythsystemevent.h"
 #include "hardwareprofile.h"
 #include "signalhandling.h"
-#include "loggingserver.h"
 
 #include "compat.h"  // For SIG* on MinGW
 #include "exitcodes.h"
@@ -1888,16 +1887,9 @@ int main(int argc, char **argv)
 #endif
 
 #ifndef _WIN32
-    QList<int> signallist;
-    signallist << SIGINT << SIGTERM << SIGSEGV << SIGABRT << SIGBUS << SIGFPE
-               << SIGILL;
-#ifndef Q_OS_DARWIN
-    signallist << SIGRTMIN;
-#endif
-    SignalHandler::Init(signallist);
+    SignalHandler::Init();
     SignalHandler::SetHandler(SIGUSR1, handleSIGUSR1);
     SignalHandler::SetHandler(SIGUSR2, handleSIGUSR2);
-    SignalHandler::SetHandler(SIGHUP, logSigHup);
 #endif
 
     int retval = cmdline.ConfigureLogging();

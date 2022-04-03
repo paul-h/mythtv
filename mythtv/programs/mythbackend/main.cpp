@@ -33,7 +33,6 @@
 #include "mythmiscutil.h"
 #include "storagegroup.h"
 #include "mediaserver.h"
-#include "loggingserver.h"
 #include "mythlogging.h"
 #include "mythversion.h"
 #include "programinfo.h"
@@ -120,14 +119,7 @@ int main(int argc, char **argv)
     CleanupGuard callCleanup(cleanup);
 
 #ifndef _WIN32
-    QList<int> signallist;
-    signallist << SIGINT << SIGTERM << SIGSEGV << SIGABRT << SIGBUS << SIGFPE
-               << SIGILL;
-#ifndef Q_OS_DARWIN
-    signallist << SIGRTMIN;
-#endif
-    SignalHandler::Init(signallist);
-    SignalHandler::SetHandler(SIGHUP, logSigHup);
+    SignalHandler::Init();
 #endif
 
 #if CONFIG_SYSTEMD_NOTIFY
