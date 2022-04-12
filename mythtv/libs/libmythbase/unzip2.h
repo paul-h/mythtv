@@ -28,26 +28,23 @@
 #include <QString>
 #include <QFileInfo>
 
-class zipEntry;
 class UnZip
 {
     // NOLINTNEXTLINE(readability-uppercase-literal-suffix)
     static constexpr uint64_t kSTATS_REQUIRED {ZIP_STAT_NAME|ZIP_STAT_INDEX|ZIP_STAT_SIZE|ZIP_STAT_MTIME|ZIP_STAT_ENCRYPTION_METHOD};
 
-    #define ZIP_ATTR_FILE_TYPE_MASK      0xFE000000
-    #define   ZIP_ATTR_FILE_TYPE_SYMLINK 0xA0000000
-    #define   ZIP_ATTR_FILE_TYPE_NORMAL  0x80000000
-    #define ZIP_ATTR_USER_PERM_MASK      0x01C00000
-    #define ZIP_ATTR_GROUP_PERM_MASK     0x03800000
-    #define ZIP_ATTR_OTHER_PERM_MASK     0x00700000
-    #define ZIP_ATTR_USER_PERM_SHIFT     22
-    #define ZIP_ATTR_GROUP_PERM_SHIFT    19
-    #define ZIP_ATTR_OTHER_PERM_SHIFT    16
+    struct zipEntry
+    {
+        int           m_index      {0};
+        zip_stat_t    m_stats      {};
+        zip_uint32_t  m_attributes {0};
+        QFileInfo     m_fi;
+    };
 
   public:
-    UnZip(QString &zipFile);
+    explicit UnZip(QString zipFile);
     ~UnZip();
-    bool extractFile(const QString &outDir);
+    bool extractFile(QString outDir);
 
   private:
     bool isValid() { return m_zip != nullptr; };
@@ -66,13 +63,4 @@ class UnZip
     QString      m_zipFileName;
     zip_t       *m_zip           {nullptr};
     zip_int64_t  m_zipFileCount  {-1};
-};
-
-class zipEntry
-{
-    friend class UnZip;
-    int           m_index      {0};
-    zip_stat_t    m_stats      {};
-    zip_uint32_t  m_attributes {0};
-    QFileInfo     m_fi;
 };

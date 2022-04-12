@@ -22,9 +22,6 @@ MBASE_PUBLIC bool getMemStats(
 using loadArray = std::array<double,3>;
 MBASE_PUBLIC loadArray getLoadAvgs(void);
 
-MBASE_PUBLIC bool hasUtf8(const char *str);
-#define M_QSTRING_UNICODE(str) hasUtf8(str) ? QString::fromUtf8(str) : str
-
 MBASE_PUBLIC bool ping(const QString &host, std::chrono::milliseconds timeout);
 MBASE_PUBLIC bool telnet(const QString &host, int port);
 
@@ -42,13 +39,6 @@ MBASE_PUBLIC int     intResponse(const QString &query, int def);
 MBASE_PUBLIC QString getSymlinkTarget(const QString &start_file,
                                       QStringList   *intermediaries = nullptr,
                                       unsigned       maxLinks       = 255);
-
-static inline QString xml_bool_to_string(bool val)
-{
-    return (val) ? "true" : "false";
-}
-
-MBASE_PUBLIC QString xml_indent(uint level);
 
 MBASE_PUBLIC bool IsMACAddress(const QString& MAC);
 MBASE_PUBLIC bool WakeOnLAN(const QString& MAC);
@@ -68,9 +58,6 @@ MBASE_PUBLIC bool myth_ioprio(int val);
 MBASE_PUBLIC bool MythRemoveDirectory(QDir &aDir);
 
 MBASE_PUBLIC void setHttpProxy(void);
-
-MBASE_PUBLIC int naturalCompare(const QString &_a, const QString &_b,
-                                Qt::CaseSensitivity caseSensitivity = Qt::CaseSensitive);
 
 // CPU Tick timing function
 #ifdef MMX

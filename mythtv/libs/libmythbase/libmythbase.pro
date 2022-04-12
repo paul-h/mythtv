@@ -32,14 +32,16 @@ HEADERS += mythplugin.h mythpluginapi.h housekeeper.h
 HEADERS += mythpluginexport.h
 HEADERS += ffmpeg-mmx.h
 HEADERS += mythrandom.h
+HEADERS += stringutil.h
 HEADERS += mythsystemlegacy.h mythtypes.h
-HEADERS += threadedfilewriter.h mythsingledownload.h codecutil.h
+HEADERS += threadedfilewriter.h mythsingledownload.h
 HEADERS += mythsession.h
 HEADERS += ../../external/qjsonwrapper/qjsonwrapper/Json.h
 HEADERS += cleanupguard.h portchecker.h
 HEADERS += mythsorthelper.h mythdbcheck.h
 HEADERS += mythpower.h
 HEADERS += configuration.h
+HEADERS += unziputil.h
 
 SOURCES += mthread.cpp mthreadpool.cpp
 SOURCES += mythsocket.cpp
@@ -58,7 +60,8 @@ SOURCES += mythbinaryplist.cpp signalhandling.cpp mythtimezone.cpp mythdate.cpp
 SOURCES += mythplugin.cpp housekeeper.cpp
 SOURCES += mythsystemlegacy.cpp mythtypes.cpp
 SOURCES += mythrandom.cpp
-SOURCES += threadedfilewriter.cpp mythsingledownload.cpp codecutil.cpp
+SOURCES += stringutil.cpp
+SOURCES += threadedfilewriter.cpp mythsingledownload.cpp
 SOURCES += mythsession.cpp
 SOURCES += ../../external/qjsonwrapper/qjsonwrapper/Json.cpp
 SOURCES += cleanupguard.cpp portchecker.cpp
@@ -66,6 +69,7 @@ SOURCES += mythsorthelper.cpp dbcheckcommon.cpp
 SOURCES += mythpower.cpp
 SOURCES += configuration.cpp
 SOURCES += mythversion.cpp
+SOURCES += unziputil.cpp
 
 HEADERS += http/mythhttpcommon.h
 HEADERS += http/mythhttptypes.h
@@ -174,6 +178,8 @@ inc.files += remotefile.h mythsystemlegacy.h mythtypes.h
 inc.files += threadedfilewriter.h mythsingledownload.h mythsession.h
 inc.files += mythsorthelper.h mythdbcheck.h
 inc.files += mythrandom.h
+inc.files += stringutil.h
+inc.files += unziputil.h
 
 # Allow both #include <blah.h> and #include <libmythbase/blah.h>
 inc2.path  = $${PREFIX}/include/mythtv/libmythbase
