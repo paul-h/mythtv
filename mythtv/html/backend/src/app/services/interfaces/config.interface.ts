@@ -16,29 +16,6 @@ export interface MythDatabaseStatus {
     }
 }
 
-export interface Language {
-        Code: string;
-        Language: string;
-        NativeLanguage?: string;
-        Image?: string;
+export interface IPAddressList {
+    IPAddresses: string[];
 }
-
-export interface MythLanguageList {
-    LanguageList: {
-        Languages: Language[]
-    }
-}
-
-export interface Country {
-    Code: string;
-    Country: string;
-    NativeCountry?: string;
-    Image?: string;
-}
-
-export interface MythCountryList {
-    CountryList: {
-        Countries: Country[]
-    }
-}
-

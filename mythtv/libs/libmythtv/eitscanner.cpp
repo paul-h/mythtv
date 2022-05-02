@@ -34,6 +34,7 @@
 EITScanner::EITScanner(uint cardnum)
     : m_eitHelper(new EITHelper(cardnum)),
       m_eventThread(new MThread("EIT", this)),
+      m_activeScanNextChanIndex(MythRandom()),
       m_cardnum(cardnum)
 {
     QStringList langPref = iso639_get_language_list();
@@ -288,11 +289,7 @@ void EITScanner::StartActiveScan(TVRec *rec, std::chrono::seconds max_seconds_pe
         m_activeScanTrigTime = max_seconds_per_source;
         // Add a little randomness to trigger time so multiple
         // cards will have a staggered channel changing time.
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-        m_activeScanTrigTime += std::chrono::seconds(MythRandom() % 29);
-#else
         m_activeScanTrigTime += std::chrono::seconds(MythRandom(0, 28));
-#endif
 
         m_activeScanStopped = false;
         m_activeScan = true;

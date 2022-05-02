@@ -1,6 +1,7 @@
 import { AfterContentInit, AfterViewInit, Component, ContentChild, ElementRef, Input, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { Router } from '@angular/router';
-import { MythCountryList, MythLanguageList, Country, Language } from '../../../services/interfaces/config.interface';
+import { MythCountryList, Country } from '../../../services/interfaces/country.interface';
+import { MythLanguageList, Language } from "../../../services/interfaces/language.interface";
 import { ConfigService } from '../../../services/config.service';
 import { WizardData } from '../../../services/interfaces/wizarddata.interface';
 import { SetupWizardService } from 'src/app/services/setupwizard.service';

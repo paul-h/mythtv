@@ -62,6 +62,41 @@ export interface PutSettingRequest {
     Value:      string;
 }
 
-export interface PutSettingResponse {
+export interface GetStorageGroupDirsRequest {
+    GroupName?: string;
+    HostName?:  string;
+}
+
+export interface GetStorageGroupDirsResponse {
+    StorageGroupDirList:  StorageGroupDirList;
+}
+
+export interface AddStorageGroupDirRequest {
+    GroupName:  string;
+    DirName:    string;
+    HostName:   string;
+}
+
+export interface BoolResponse {
     bool:       boolean;
+}
+
+export interface StorageGroupRequest {
+    GroupName:   string;
+    DirName:     string;
+    HostName:    string;
+}
+
+export interface StorageGroupDir {
+    Id:          number;
+    GroupName:   string;
+    HostName:    string;
+    DirName:     string;
+    DirRead:     boolean;
+    DirWrite:    boolean;
+    KiBFree:     number;
+}
+
+export interface StorageGroupDirList {
+    StorageGroupDirs: StorageGroupDir[];
 }
