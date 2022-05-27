@@ -1,10 +1,10 @@
 
 // myth
-#include <mythcontext.h>
-#include <mythuitext.h>
-#include <mythuibutton.h>
-#include <mythuitextedit.h>
-#include <mythuispinbox.h>
+#include <libmyth/mythcontext.h>
+#include <libmythui/mythuitext.h>
+#include <libmythui/mythuibutton.h>
+#include <libmythui/mythuitextedit.h>
+#include <libmythui/mythuispinbox.h>
 
 // mytharchive
 #include "importeditmetadata.h"

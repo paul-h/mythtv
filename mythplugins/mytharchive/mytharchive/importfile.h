@@ -9,8 +9,8 @@
 #include <QStringList>
 
 // mythtv
-#include <mythscreentype.h>
-#include <mythdate.h>
+#include <libmythui/mythscreentype.h>
+#include <libmythbase/mythdate.h>
 
 // mytharchive
 #include "archiveutil.h"

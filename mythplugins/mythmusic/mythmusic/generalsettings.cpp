@@ -3,9 +3,9 @@
 #include <QDir>
 
 // MythTV
-#include <mythcorecontext.h>
-#include <mythdialogbox.h>
-#include <mythuifilebrowser.h>
+#include <libmythbase/mythcorecontext.h>
+#include <libmythui/mythdialogbox.h>
+#include <libmythui/mythuifilebrowser.h>
 
 // MythMusic
 #include "musicplayer.h"
