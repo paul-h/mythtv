@@ -1,7 +1,8 @@
+#include <array>
+
 #include <QtGlobal>
 #include <QCoreApplication>
 #include <QRegularExpression>
-#include <array>
 
 #include "mythcorecontext.h"
 #include "mythdate.h"
@@ -68,7 +69,7 @@ MBASE_PUBLIC QDateTime fromString(const QString &str, const QString &format)
  *                  at Jan 1 1970 at 00:00:00.
  *  \return A QDateTime.
  */
-MBASE_PUBLIC QDateTime fromSecsSinceEpoch(uint seconds)
+MBASE_PUBLIC QDateTime fromSecsSinceEpoch(int64_t seconds)
 {
     QDateTime dt = QDateTime::fromSecsSinceEpoch(seconds);
     return dt.toUTC();

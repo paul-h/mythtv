@@ -18,8 +18,9 @@
 #include <QUrl>
 
 // MythTV includes
-#include "mythchrono.h"
-#include "packetbuffer.h"
+#include "libmythbase/mythchrono.h"
+
+#include "recorders/rtp/packetbuffer.h"
 
 class SatIPRTSP;
 class SatIPStreamHandler;

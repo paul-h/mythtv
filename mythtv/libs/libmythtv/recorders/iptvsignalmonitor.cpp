@@ -1,10 +1,11 @@
 // -*- Mode: c++ -*-
 
 // MythTV headers
-#include "iptvsignalmonitor.h"
-#include "mpegstreamdata.h"
+#include "libmythbase/mythlogging.h"
+
 #include "iptvchannel.h"
-#include "mythlogging.h"
+#include "iptvsignalmonitor.h"
+#include "mpeg/mpegstreamdata.h"
 
 #define LOC QString("IPTVSigMon[%1](%2): ") \
             .arg(m_inputid).arg(m_channel->GetDevice())

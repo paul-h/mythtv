@@ -1,8 +1,8 @@
 // MythTV
-#include "mythlogging.h"
-#include "mythmainwindow.h"
+#include "libmythbase/mythlogging.h"
+#include "libmythui/mythmainwindow.h"
 #ifdef USING_OPENGL
-#include "opengl/mythrenderopengl.h"
+#include "libmythui/opengl/mythrenderopengl.h"
 #endif
 #include "videovisualgoom.h"
 
@@ -12,8 +12,6 @@
 
 VideoVisualGoom::VideoVisualGoom(AudioPlayer* Audio, MythRender* Render, bool HD)
   : VideoVisual(Audio, Render),
-    m_buffer(nullptr),
-    m_glSurface(nullptr),
     m_hd(HD)
 {
     int max_width  = m_hd ? 1200 : 600;

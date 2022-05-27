@@ -22,14 +22,15 @@
 
 extern "C" {
 #include <cinttypes>
-#include "vbitext/vt.h"
+#include "recorders/vbitext/vt.h"
 }
 
-#include "osd.h"
+#include "libmythbase/mythlogging.h"
+
 #include "captions/teletextdecoder.h"
 #include "captions/teletextreader.h"
+#include "osd.h"
 #include "vbilut.h"
-#include "mythlogging.h"
 
 /** \fn TeletextDecoder::Decode(const unsigned char*, int)
  *  \brief Decodes teletext data

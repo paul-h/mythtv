@@ -13,9 +13,6 @@ CONFIG += thread dll
 target.path = $${LIBDIR}
 INSTALLS = target
 
-DEPENDPATH  += ./opengl ./platforms ./platforms/drm ./devices ./vulkan
-INCLUDEPATH += $$DEPENDPATH
-INCLUDEPATH += ../libmythbase
 INCLUDEPATH += ../.. ../
 
 LIBS += -L../libmythbase -lmythbase-$$LIBVERSION

@@ -16,6 +16,11 @@
 #include <QCoreApplication>
 
 // MythTV headers
+#include "libmythbase/compat.h"
+#include "libmythbase/exitcodes.h"
+#include "libmythbase/mythcorecontext.h"
+#include "libmythbase/mythlogging.h"
+
 #ifdef USING_OSX_FIREWIRE
 #include "darwinfirewiredevice.h"
 #endif
@@ -23,7 +28,6 @@
 #include "linuxfirewiredevice.h"
 #endif
 #include "firewirechannel.h"
-#include "mythcorecontext.h"
 #include "cetonchannel.h"
 #include "dummychannel.h"
 #include "tvremoteutil.h"
@@ -32,20 +36,25 @@
 #include "frequencies.h"
 #include "hdhrchannel.h"
 #include "iptvchannel.h"
-#include "mythlogging.h"
 #include "asichannel.h"
 #include "dtvchannel.h"
 #include "dvbchannel.h"
 #include "v4lchannel.h"
 #include "ExternalChannel.h"
 #include "sourceutil.h"
-#include "exitcodes.h"
 #include "cardutil.h"
-#include "compat.h"
 #include "inputinfo.h"
 #include "satipchannel.h"
 
 #define LOC QString("ChannelBase[%1]: ").arg(m_inputId)
+
+ChannelBase::ChannelBase(TVRec *parent) : m_pParent(parent)
+{
+    if (m_pParent)
+    {
+        m_inputId = m_pParent->GetInputId();
+    }
+}
 
 ChannelBase::~ChannelBase(void)
 {
@@ -736,14 +745,9 @@ ChannelBase *ChannelBase::CreateChannel(
         channel = new DummyChannel(tvrec);
         rbFileExt = "mpg";
     }
-#ifdef USING_IPTV
-    else if (genOpt.m_inputType == "FREEBOX") // IPTV
-    {   // NOLINTNEXTLINE(bugprone-branch-clone)
-        channel = new IPTVChannel(tvrec, genOpt.m_videoDev);
-    }
-#endif
-#ifdef USING_VBOX
-    else if (genOpt.m_inputType == "VBOX")
+#if defined(USING_IPTV) || defined(USING_VBOX)
+    else if ((genOpt.m_inputType == "FREEBOX") || // IPTV
+             (genOpt.m_inputType == "VBOX"))
     {
         channel = new IPTVChannel(tvrec, genOpt.m_videoDev);
     }

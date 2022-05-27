@@ -16,15 +16,16 @@
 #include <QHostInfo>
 
 // MythTV headers
-#include "iptvstreamhandler.h"
-#include "rtppacketbuffer.h"
-#include "udppacketbuffer.h"
-#include "rtptsdatapacket.h"
-#include "rtpdatapacket.h"
-#include "rtpfecpacket.h"
-#include "rtcpdatapacket.h"
-#include "mythlogging.h"
+#include "libmythbase/mythlogging.h"
+
 #include "cetonrtsp.h"
+#include "iptvstreamhandler.h"
+#include "rtp/rtcpdatapacket.h"
+#include "rtp/rtpdatapacket.h"
+#include "rtp/rtpfecpacket.h"
+#include "rtp/rtppacketbuffer.h"
+#include "rtp/rtptsdatapacket.h"
+#include "rtp/udppacketbuffer.h"
 
 #define LOC QString("IPTVSH[%1](%2): ").arg(m_inputId).arg(m_device)
 

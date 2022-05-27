@@ -9,12 +9,12 @@
 #include <QWindow>
 
 // MythTV
-#include "mythlogging.h"
-#include "compat.h"
-#include "mythcorecontext.h"
+#include "libmythbase/compat.h"
+#include "libmythbase/mythcorecontext.h"
+#include "libmythbase/mythlogging.h"
 #include "mythuihelper.h"
 #include "mythdisplay.h"
-#include "mythegl.h"
+#include "opengl/mythegl.h"
 #include "mythmainwindow.h"
 
 #ifdef USING_DBUS

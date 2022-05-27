@@ -62,37 +62,36 @@ extern "C" {
 #endif
 
 // MythTV headers
+#include "libmyth/audio/audiooutput.h"
+#include "libmyth/audio/audiooutpututil.h"
+#include "libmythbase/iso639.h"
+#include "libmythbase/lcddevice.h"
+#include "libmythbase/mythchrono.h"
+#include "libmythbase/mythconfig.h"
+#include "libmythbase/mythcorecontext.h"
+#include "libmythbase/mythdate.h"
+#include "libmythbase/mythdbcon.h"
+#include "libmythbase/stringutil.h"
+#include "libmythui/mythuihelper.h"
+
 #include "mythtvexp.h"
-#include "mythconfig.h"
-#include "audiooutput.h"
-#include "audiooutpututil.h"
-#include "io/mythmediabuffer.h"
-#include "mythframe.h"
-#include "mythchrono.h"
-#include "stringutil.h"
-#include "mythdate.h"
-#include "remoteencoder.h"
-#include "mythcorecontext.h"
-#include "mythdbcon.h"
-#include "iso639.h"
-#include "mpegtables.h"
-#include "atscdescriptors.h"
-#include "dvbdescriptors.h"
+
+#include "Bluray/mythbdbuffer.h"
+#include "DVD/mythdvdbuffer.h"
 #include "captions/cc608decoder.h"
 #include "captions/cc708decoder.h"
-#include "captions/teletextdecoder.h"
 #include "captions/subtitlereader.h"
-#include "interactivetv.h"
-#include "mythvideoprofile.h"
-#include "mythuihelper.h"
-#include "DVD/mythdvdbuffer.h"
-#include "Bluray/mythbdbuffer.h"
+#include "captions/teletextdecoder.h"
+#include "io/mythmediabuffer.h"
+#include "mheg/interactivetv.h"
+#include "mpeg/atscdescriptors.h"
+#include "mpeg/dvbdescriptors.h"
+#include "mpeg/mpegtables.h"
 #include "mythavutil.h"
+#include "mythframe.h"
 #include "mythhdrvideometadata.h"
-
-#include "lcddevice.h"
-
-#include "audiooutput.h"
+#include "mythvideoprofile.h"
+#include "remoteencoder.h"
 
 #ifdef _MSC_VER
 // MSVC isn't C99 compliant...
@@ -373,8 +372,7 @@ AvFormatDecoder::~AvFormatDecoder()
     while (!m_storedPackets.isEmpty())
     {
         AVPacket *pkt = m_storedPackets.takeFirst();
-        av_packet_unref(pkt);
-        delete pkt;
+        av_packet_free(&pkt);
     }
 
     CloseContext();
@@ -759,8 +757,7 @@ void AvFormatDecoder::SeekReset(long long newKey, uint skipFrames,
         while (!m_storedPackets.isEmpty())
         {
             AVPacket *pkt = m_storedPackets.takeFirst();
-            av_packet_unref(pkt);
-            delete pkt;
+            av_packet_free(&pkt);
         }
 
         m_prevGopPos = 0;
@@ -4133,7 +4130,7 @@ QString AvFormatDecoder::GetTrackDesc(uint type, uint TrackNo)
 
     int av_index = m_tracks[type][TrackNo].m_av_stream_index;
     AVStream *stream { nullptr };
-    if (av_index >= 0 && av_index < m_ic->nb_streams)
+    if (av_index >= 0 && av_index < (int)m_ic->nb_streams)
         stream = m_ic->streams[av_index];
     AVDictionaryEntry *entry =
         stream ? av_dict_get(stream->metadata, "title", NULL, 0) : nullptr;

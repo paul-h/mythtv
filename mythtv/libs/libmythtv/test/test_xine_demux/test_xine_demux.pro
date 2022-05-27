@@ -5,8 +5,7 @@ QT += xml sql network testlib widgets
 
 TEMPLATE = app
 TARGET = test_xine_demux
-DEPENDPATH += . ../..
-INCLUDEPATH += . ../.. ../../../libmyth ../../../libmythbase
+INCLUDEPATH += ../../..
 INCLUDEPATH += ../../../../external/FFmpeg
 POST_TARGETDEPS = ../../$(OBJECTS_DIR)xine_demux_sputext.o
 
@@ -42,6 +41,8 @@ QMAKE_LFLAGS += -Wl,$$_RPATH_$(PWD)/../../../libmythui
 QMAKE_LFLAGS += -Wl,$$_RPATH_$(PWD)/../../../libmythupnp
 QMAKE_LFLAGS += -Wl,$$_RPATH_$(PWD)/../../../libmythservicecontracts
 QMAKE_LFLAGS += -Wl,$$_RPATH_$(PWD)/../../../libmythfreemheg
+
+DEFINES += TEST_SOURCE_DIR='\'"$${PWD}"'\'
 
 # Input
 HEADERS += test_xine_demux.h

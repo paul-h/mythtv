@@ -1,24 +1,26 @@
+// Sys
+#include <sys/ioctl.h>
+
 // Qt
 #include <QDir>
 
 // MythTV
-#include "mythlogging.h"
-#include "v4l2util.h"
-#include "fourcc.h"
+#include "libmythbase/mythlogging.h"
+#include "libmythui/opengl/mythrenderopengl.h"
+
 #include "avformatdecoder.h"
+#include "fourcc.h"
 #include "mythplayerui.h"
-#include "opengl/mythrenderopengl.h"
+#include "v4l2util.h"
+
 #ifdef USING_EGL
 #include "opengl/mythdrmprimeinterop.h"
 #endif
-#include "mythv4l2m2mcontext.h"
+#include "decoders/mythv4l2m2mcontext.h"
 
 #ifdef USING_MMAL
-#include "mythmmalcontext.h"
+#include "decoders/mythmmalcontext.h"
 #endif
-
-// Sys
-#include <sys/ioctl.h>
 
 // FFmpeg
 extern "C" {

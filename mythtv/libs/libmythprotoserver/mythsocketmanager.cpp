@@ -11,16 +11,17 @@
 #include <QRunnable>
 
 // MythTV
+#include "libmythbase/mthread.h"
+#include "libmythbase/mythconfig.h"
+#include "libmythbase/mythcorecontext.h"
+#include "libmythbase/mythlogging.h"
+#include "libmythbase/mythversion.h"
+#include "libmythbase/referencecounter.h"
+#include "libmythbase/serverpool.h"
+
 #include "mythsocketmanager.h"
-#include "socketrequesthandler.h"
 #include "sockethandler.h"
-#include "referencecounter.h"
-#include "mythcorecontext.h"
-#include "mythconfig.h"
-#include "mythversion.h"
-#include "mythlogging.h"
-#include "mthread.h"
-#include "serverpool.h"
+#include "socketrequesthandler.h"
 
 #define LOC      QString("MythSocketManager: ")
 
@@ -332,7 +333,7 @@ void MythSocketManager::HandleVersion(MythSocket *socket,
                                       const QStringList &slist)
 {
     QStringList retlist;
-    QString version = slist[1];
+    const QString& version = slist[1];
     if (version != MYTH_PROTO_VERSION)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC +
@@ -354,7 +355,7 @@ void MythSocketManager::HandleVersion(MythSocket *socket,
         return;
     }
 
-    QString token = slist[2];
+    const QString& token = slist[2];
     if (token != QString::fromUtf8(MYTH_PROTO_TOKEN))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC +

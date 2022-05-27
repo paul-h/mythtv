@@ -9,8 +9,8 @@
 #include <QMutex>
 
 // MythTV headers
+#include "libmythbase/mythsystemlegacy.h"
 #include "channelinfo.h"
-#include "mythsystemlegacy.h"
 #include "tv.h"
 #include "videoouttypes.h" // for PictureAttribute
 
@@ -33,7 +33,7 @@ class ChannelBase
     friend class SignalMonitor;
 
   public:
-    explicit ChannelBase(TVRec *parent) : m_pParent(parent) {}
+    explicit ChannelBase(TVRec *parent);
     virtual ~ChannelBase(void);
 
     virtual bool Init(QString &startchannel, bool setchan);

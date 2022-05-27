@@ -21,11 +21,12 @@
 #include <QUrlQuery>
 
 // MythTV headers
-#include "compat.h"
+#include "libmythbase/compat.h"
+#include "libmythbase/mythtypes.h"
+#include "libmythbase/referencecounter.h"
+
 #include "upnpexp.h"
 #include "upnputil.h"
-#include "mythtypes.h"
-#include "referencecounter.h"
 
 class UPnpDeviceDesc;
 class UPnpDevice;
@@ -226,7 +227,7 @@ class UPNP_PUBLIC DeviceLocation : public ReferenceCounter
             delete m_pDeviceDesc;
         }
 
-        UPnpDeviceDesc *m_pDeviceDesc;  // We take ownership of this pointer.
+        UPnpDeviceDesc *m_pDeviceDesc { nullptr };  // We take ownership of this pointer.
 
     public:
 
@@ -245,7 +246,6 @@ class UPNP_PUBLIC DeviceLocation : public ReferenceCounter
                         QString sLocation,
                         TaskTime       ttExpires ) : ReferenceCounter(
                                                          "DeviceLocation"     ),
-                                                     m_pDeviceDesc( nullptr   ),
                                                      m_sURI       (std::move( sURI      )),
                                                      m_sUSN       (std::move( sUSN      )),
                                                      m_sLocation  (std::move( sLocation )),

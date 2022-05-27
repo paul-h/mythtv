@@ -1,19 +1,17 @@
-
-// MythWeather headers
-#include "weatherScreen.h"
-#include "weatherSource.h"
-#include "sourceManager.h"
-#include "weatherSetup.h"
-
-// MythTV headers
-//#include <mythdbcon.h>
-#include <mythdb.h>
-#include <mythprogressdialog.h>
-
 // QT headers
 #include <QApplication>
 #include <QSqlError>
 #include <QVariant>
+
+// MythTV headers
+#include <libmythbase/mythdb.h>
+#include <libmythui/mythprogressdialog.h>
+
+// MythWeather headers
+#include "sourceManager.h"
+#include "weatherScreen.h"
+#include "weatherSetup.h"
+#include "weatherSource.h"
 
 #define GLBL_SCREEN 0
 #define SCREEN_SETUP_SCREEN 1
@@ -76,9 +74,7 @@ ScreenSetup::ScreenSetup(MythScreenStack *parent, const QString &name,
                          SourceManager *srcman)
     : MythScreenType(parent, name),
       m_sourceManager(srcman ? srcman : new SourceManager()),
-      m_createdSrcMan(srcman == nullptr),
-      m_helpText(nullptr),     m_activeList(nullptr),
-      m_inactiveList(nullptr), m_finishButton(nullptr)
+      m_createdSrcMan(srcman == nullptr)
 {
     m_sourceManager->clearSources();
     m_sourceManager->findScripts();
@@ -670,15 +666,6 @@ void ScreenSetup::customEvent(QEvent *event)
 
 ///////////////////////////////////////////////////////////////////////
 
-SourceSetup::SourceSetup(MythScreenStack *parent, const QString &name)
-    : MythScreenType(parent, name)
-{
-    m_sourceList = nullptr;
-    m_updateSpinbox = m_retrieveSpinbox = nullptr;
-    m_finishButton = nullptr;
-    m_sourceText = nullptr;
-}
-
 SourceSetup::~SourceSetup()
 {
     for (int i=0; i < m_sourceList->GetCount(); i++)
@@ -855,9 +842,7 @@ LocationDialog::LocationDialog(MythScreenStack *parent, const QString &name,
                                SourceManager *srcman)
     : MythScreenType(parent, name),
       m_screenListInfo(new ScreenListInfo(*si)),   m_sourceManager(srcman),
-      m_retScreen(retScreen), m_locationList(nullptr),
-      m_locationEdit(nullptr),m_searchButton(nullptr),
-      m_resultsText(nullptr), m_sourceText(nullptr)
+      m_retScreen(retScreen)
 {
     for (const auto & type : qAsConst(si->m_types))
         m_types << type.m_name;

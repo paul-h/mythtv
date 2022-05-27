@@ -1,10 +1,11 @@
 #ifndef GOOMCORE_H
 #define GOOMCORE_H
 
-#include "goomconfig.h"
-#include "mythtvexp.h"
-
 #include <array>
+
+#include "libmythtv/mythtvexp.h"
+
+#include "goomconfig.h"
 
 #define NB_FX 10
 

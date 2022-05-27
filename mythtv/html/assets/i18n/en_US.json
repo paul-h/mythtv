@@ -3,7 +3,10 @@
         "back": "Back",
         "help": "Help",
         "loading": "Loading",
-        "next": "Next"
+        "next": "Next",
+        "save": "Save",
+        "savesuccess": "Saved Successfully",
+        "networkfail": "ERROR: Backend Network Failure"
     },
     "dashboard": {
         "warning": "Please note this is a work in progress and some features are not fully working!"
@@ -150,5 +153,133 @@
     "testbed": {
         "title": "This is a testbed area",
         "welcome": "Welcome to MythTV Backend running on host"
+    },
+    "settings": {
+        "misc": {
+            "title": "Miscellaneous Settings",
+            "subtitle": "General Backend Settings",
+            "mbo_label": "Master Backend Override",
+            "mbo_desc": "If enabled, the master backend will stream and delete files if it finds them in a storage directory. Useful if you are using a central storage location, like a NFS share, and your slave backend isn't running.",
+            "follow_label": "Follow Symbolic Links When Deleting Files",
+            "follow_desc": "If enabled, MythTV will follow symlinks when recordings and related files are deleted, instead of deleting the symlink and leaving the actual file.",
+            "slowly_label": "Delete Files Slowly",
+            "slowly_desc": "Some filesystems use a lot of resources when deleting large files. If enabled, this option makes MythTV delete files slowly on this backend to lessen the impact.",
+            "ringbuf_label": "HD Ringbuffer Size (kB)",
+            "ringbuf_desc": "The HD device ringbuffer allows the backend to weather moments of stress. The larger the ringbuffer (in kilobytes), the longer the moments of stress can be. However, setting the size too large can cause swapping, which is detrimental.",
+            "sg_label": "Storage Group Disk Scheduler",
+            "sg_desc": "This setting controls how the Storage Group scheduling code will balance new recordings across directories. 'Balanced Free Space' is the recommended method for most users.",
+            "upnp_label": "Video content to show a WMP client",
+            "upnp_desc": "Which tree to show a Windows Media Player client when it requests a list of videos.",
+            "statapp_label": "Miscellaneous Status Application",
+            "statapp_desc": "External application or script that outputs extra information for inclusion in the backend status page. See <a href=\"http://www.mythtv.org/wiki/Miscellaneous_Status_Information\">Miscellaneous Status Information</a> in the wiki.",
+            "disback_label": "Disable automatic database backup",
+            "disback_desc": "If enabled, MythTV will not backup the database before upgrades. You should therefore have your own database backup strategy in place.",
+            "disfwr_label": "Disable FireWire reset",
+            "disfwr_desc": "By default, MythTV resets the FireWire bus when a FireWire recorder stops responding to commands. If this causes problems, you can disable this behavior here.",
+            "savesuccess": "Saved successfully.",
+            "panel_filemgmt": "File Management",
+            "panel_upnp": "UPnP Server",
+            "sg_balfree": "Balanced free space",
+            "sg_balpercent": "Balanced percent free space",
+            "bal_io": "Balanced disk I/O",
+            "sg_combination": "Combination",
+            "upnp_recs": "Recordings",
+            "upnp_videos": "Videos"
+        },
+        "networkfail": "ERROR: Backend Network Failure",
+        "eit": {
+            "title": "EIT Scanner Options",
+            "timeout_label": "EIT transport timeout (mins)",
+            "timeout_desc": "Maximum time to spend waiting (in minutes) for listings data on one digital TV channel before checking for new listings data on the next channel.",
+            "crawl_label": "Backend idle before EIT crawl (secs)",
+            "crawl_desc": "The minimum number of seconds after a recorder becomes idle to wait before MythTV begins collecting EIT listings data.",
+            "subtitle": "If you are using listings transmitted by the station, these options define how MythTV searches for them."
+        },
+        "shutwake": {
+            "title": "Shutdown/Wakeup Options",
+            "subtitle": "If you want to allow MythTV to shut down the backend when it is idle, these settings define parameters to enable that.",
+            "startcmd_label": "Startup command",
+            "startcmd_desc": "This command is executed right after starting the BE. As a parameter '$status' is replaced by either 'auto' if the machine was started automatically or 'user' if a user switched it on.",
+            "block_label": "Block shutdown before client connected",
+            "block_desc": "If enabled, the automatic shutdown routine will be disabled until a client connects.",
+            "idletime_label": "Idle shutdown timeout (secs)",
+            "idletime_desc": "The number of seconds the master backend idles before it shuts down all other backends. Set to 0 to disable automatic shutdown.",
+            "maxwait_label": "Maximum wait for recording (mins)",
+            "maxwait_desc": "The number of minutes the master backend waits for a recording. If the backend is idle but a recording starts within this time period, it won't shut down.",
+            "startbefore_label": "Startup before recording (secs)",
+            "startbefore_desc": "The number of seconds the master backend will be woken up before a recording starts.",
+            "timeformat_label": "Wakeup time format",
+            "timeformat_desc": "The format of the time string passed to the Command to set wakeup time as $time. See QT::QDateTime.toString() for details. Set to time_t for seconds since epoch.",
+            "timecmd_label": "Command to set wakeup time",
+            "timecmd_desc": "The command used to set the wakeup time (passed as $time) for the Master Backend",
+            "serverhalt_label": "Server halt command",
+            "serverhalt_desc": "The command used to halt the backends.",
+            "preshut_label": "Pre-shutdown-check command",
+            "preshut_desc": "A command executed before the backend would shutdown. The return value determines if the backend can shutdown. 0 - yes, 1 - restart idling, 2 - reset the backend to wait for a frontend."
+        },
+        "backendwake": {
+            "title": "Backend Wakeup Settings",
+            "subtitle": "These control wakeup of the master backend by the frontend and wakeup of slave backends by the master backend",
+            "master": {
+                "title": "Master Backend",
+                "delay_label": "Delay between wake attempts (secs)",
+                "delay_desc": "Length of time the frontend waits between tries to wake up the master backend. This should be the time your master backend needs to startup. Set to 0 to disable.",
+                "attempts_label": "Wake attempts",
+                "attempts_desc": "Number of times the frontend will try to wake up the master backend.",
+                "cmd_label": "Wake command",
+                "cmd_desc": "The command used to wake up your master backend server (e.g. wakeonlan 00:00:00:00:00:00)."
+            },
+            "slave": {
+                "title": "Slave Backends",
+                "sleep_label": "Sleep Command",
+                "sleep_desc": "The command used to put this slave to sleep. If set, the master backend will use this command to put this slave to sleep when it is not needed for recording.",
+                "wake_label": "Wake Command",
+                "wake_desc": "The command used to wake up this slave from sleep. This setting is not used on the master backend."
+            }
+        },
+        "backendctrl": {
+            "title": "Backend Control",
+            "subtitle": "Commands to Start and Stop the Master Backend",
+            "stop_label": "Backend Stop Command",
+            "stop_desc": "The command used to stop the backend when running on the master backend server (e.g. sudo /etc/init.d/mythtv-backend stop)",
+            "start_label": "Backend Start Command",
+            "start_desc": "The command used to start the backend when running on the master backend server (e.g. sudo /etc/init.d/mythtv-backend start)."
+        },
+        "jobqbackend": {
+            "title": "Job Queue (Backend-Specific)",
+            "subtitle": "Job Queue Controls Specific to This Backend",
+            "maxjobs_label": "Maximum Simultaneous Jobs on this Backend",
+            "maxjobs_desc": "The Job Queue will be limited to running this many simultaneous jobs on this backend.",
+            "freq_label": "Job Queue Check Frequency (secs)",
+            "freq_desc": "When looking for new jobs to process, the Job Queue will wait this many seconds between checks.",
+            "start_label": "Job Queue Start Time",
+            "start_desc": "This setting controls the start of the Job Queue time window, which determines when new jobs will be started.",
+            "end_label": "Job Queue End Time",
+            "end_desc": "This setting controls the end of the Job Queue time window, which determines when new jobs will be started.",
+            "cpu_label": "CPU Usage",
+            "cpu_desc": "This setting controls approximately how much CPU jobs in the queue may consume. On 'High', all available CPU time may be used, which could cause problems on slower systems.",
+            "meta_label": "Allow Metadata Lookup Jobs",
+            "allow_desc": "If enabled, allow jobs of this type to run on this backend.",
+            "comm_label": "Allow Commercial Detection Jobs",
+            "preview_label": "Allow Preview Jobs",
+            "cpu_low": "Low",
+            "cpu_med": "Medium",
+            "cpu_high": "High"
+        },
+        "jobqglobal": {
+            "title": "Job Queue (Global)",
+            "runonrechost_label": "Run Jobs Only on Original Recording Backend",
+            "runonrechost_desc": "If enabled, jobs in the queue will be required to run on the backend that made the original recording.",
+            "startcomm_label": "Start Auto Commercial Detection Jobs when the Recording Starts",
+            "startcomm_desc": "If enabled, and Auto Commercial Detection is ON for a recording, the flagging job will be started as soon as the recording starts. NOT recommended on underpowered systems.",
+            "commcmd_label": "Commercial Detection Command",
+            "commcmd_desc": "The program used to detect commercials in a recording. The default is 'mythcommflag' if this setting is empty.",
+            "transcmd_label": "Transcoder Command",
+            "transcmd_desc": "The program used to transcode recordings. The default is 'mythtranscode' if this setting is empty.",
+            "transfirst_label": "Run Transcode Jobs Before Auto Commercial Detection",
+            "transfirst_desc": "If enabled, and if both auto-transcode and commercial detection are turned ON for a recording, transcoding will run first; otherwise, commercial detection runs first.",
+            "transsave_label": "Save Original Files After Transcoding (Globally)",
+            "transsave_desc": "If enabled and the transcoder is active, the original files will be renamed to .old once the transcoding is complete."
+        }
     }
 }

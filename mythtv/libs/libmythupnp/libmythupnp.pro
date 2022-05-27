@@ -64,10 +64,8 @@ using_qtscript: {
     SOURCES += serverSideScripting.cpp
 }
 
-INCLUDEPATH += ../libmythbase ../libmythservicecontracts ..
-INCLUDEPATH += ./serializers
+INCLUDEPATH += ..
 
-DEPENDPATH  += ../libmythbase ..
 LIBS      += -L../libmythbase -lmythbase-$$LIBVERSION
 LIBS      += -L../libmythservicecontracts -lmythservicecontracts-$$LIBVERSION
 
@@ -81,7 +79,7 @@ mingw | win32-msvc* {
 win32-msvc*:LIBS += -lzlib
 
 
-inc.path = $${PREFIX}/include/mythtv/upnp/
+inc.path = $${PREFIX}/include/mythtv/libmythupnp/
 
 inc.files  = httprequest.h upnp.h ssdp.h taskqueue.h bufferedsocketdevice.h
 inc.files += upnpdevice.h upnptasknotify.h upnptasksearch.h upnputil.h
@@ -95,10 +93,11 @@ inc.files += xsd.h upnphelpers.h
 # inc.files += services/rtti.h
 # inc.files += serviceHosts/rttiServiceHost.h
 
-inc.files += serializers/serializer.h     serializers/xmlSerializer.h 
-inc.files += serializers/jsonSerializer.h serializers/soapSerializer.h
+inc2.path = $${PREFIX}/include/mythtv/libmythupnp/serializers
+inc2.files += serializers/serializer.h     serializers/xmlSerializer.h
+inc2.files += serializers/jsonSerializer.h serializers/soapSerializer.h
 
-INSTALLS += inc
+INSTALLS += inc inc2
 
 macx {
 

@@ -6,20 +6,9 @@
 
 #include "mythuiwebbrowser.h"
 
-// myth
-#include "mythpainter.h"
-#include "mythimage.h"
-#include "mythmainwindow.h"
-#include "mythfontproperties.h"
-#include "mythlogging.h"
-#include "mythdb.h"
-#include "mythdirs.h"
-#include "mythuihelper.h"
-#include "mythcorecontext.h"
-#include "mythdownloadmanager.h"
-#include "mythdialogbox.h"
-#include "mythprogressdialog.h"
-#include "mythuiscrollbar.h"
+// c++
+#include <chrono> // for milliseconds
+#include <thread> // for sleep_for
 
 // qt
 #include <QApplication>
@@ -34,8 +23,22 @@
 #include <QNetworkCookieJar>
 #include <QNetworkConfiguration>
 
-#include <chrono> // for milliseconds
-#include <thread> // for sleep_for
+// libmythbase
+#include "libmythbase/mythcorecontext.h"
+#include "libmythbase/mythdb.h"
+#include "libmythbase/mythdirs.h"
+#include "libmythbase/mythdownloadmanager.h"
+#include "libmythbase/mythlogging.h"
+
+//libmythui
+#include "mythpainter.h"
+#include "mythimage.h"
+#include "mythmainwindow.h"
+#include "mythfontproperties.h"
+#include "mythuihelper.h"
+#include "mythdialogbox.h"
+#include "mythprogressdialog.h"
+#include "mythuiscrollbar.h"
 
 struct MimeType
 {
@@ -119,8 +122,7 @@ static QNetworkAccessManager *GetNetworkAccessManager(void)
  * \note allows the browser to control the music player
  */
 BrowserApi::BrowserApi(QObject *parent)
-           : QObject(parent),
-            m_frame(nullptr), m_gotAnswer(false)
+           : QObject(parent)
 {
     gCoreContext->addListener(this);
 }
@@ -828,17 +830,10 @@ QWebView *MythWebView::createWindow(QWebPage::WebWindowType /* type */)
  */
 MythUIWebBrowser::MythUIWebBrowser(MythUIType *parent, const QString &name)
                  : MythUIType(parent, name),
-      m_parentScreen(nullptr),
-      m_browser(nullptr),    m_image(nullptr),
-      m_active(false),       m_wasActive(false),
-      m_initialized(false),
-      m_updateInterval(0),   m_zoom(1.0),
       m_bgColor("White"),    m_userCssFile(""),
       m_defaultSaveDir(GetConfDir() + "/MythBrowser/"),
       m_defaultSaveFilename(""),
-      m_inputToggled(false), m_lastMouseAction(""),
-      m_mouseKeyCount(0),
-      m_horizontalScrollbar(nullptr), m_verticalScrollbar(nullptr)
+      m_lastMouseAction("")
 {
     SetCanTakeFocus(true);
     m_scrollAnimation.setDuration(0);

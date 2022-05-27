@@ -37,18 +37,10 @@ SOURCES += metaiowavpack.cpp metaioid3.cpp metaiooggvorbis.cpp
 SOURCES += imagemetadata.cpp imagethumbs.cpp imagescanner.cpp imagemanager.cpp
 SOURCES += musicfilescanner.cpp metadatagrabber.cpp lyricsdata.cpp
 
-INCLUDEPATH += ../libmythbase ../libmythtv
-INCLUDEPATH += ../.. ../ ./ ../libmythui
-INCLUDEPATH += ../.. ../../external/FFmpeg
-INCLUDEPATH += ../libmyth
-INCLUDEPATH += ../libmythservicecontracts
+INCLUDEPATH += .. ../../external/FFmpeg
 
 # for TagLib
 INCLUDEPATH += $${CONFIG_TAGLIB_INCLUDES}
-
-DEPENDPATH += ../ ../libmythui ../libmythbase
-DEPENDPATH += ../libmythtv ../libmyth
-DEPENDPATH += ../libmythservicecontracts
 
 LIBS += -L../libmythbase           -lmythbase-$${LIBVERSION}
 LIBS += -L../libmythui           -lmythui-$${LIBVERSION}
@@ -101,7 +93,7 @@ win32-msvc* {
     INCLUDEPATH += $$SRC_PATH_BARE/../platform/win32/msvc/external/taglib/include/taglib
 }
 
-inc.path = $${PREFIX}/include/mythtv/metadata/
+inc.path = $${PREFIX}/include/mythtv/libmythmetadata/
 
 inc.files = cleanup.h  dbaccess.h  dirscan.h  globals.h  parentalcontrols.h
 inc.files += videoscan.h  videoutils.h  videometadata.h  videometadatalistmanager.h

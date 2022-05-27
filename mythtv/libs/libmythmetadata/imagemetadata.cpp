@@ -1,10 +1,8 @@
 #include "imagemetadata.h"
 
-#include "mythlogging.h"
-#include "mythcorecontext.h"  // for avcodeclock
-#include "mythdirs.h"         // for ffprobe
-#include "mythsystemlegacy.h" // for ffprobe
-#include "exitcodes.h"        // for ffprobe
+#include "libmythbase/mythcorecontext.h"
+#include "libmythbase/mythdirs.h"         // for GetAppBinDir
+#include "libmythbase/mythsystemlegacy.h" // for ffprobe
 
 // libexiv2 for Exif metadata
 #include <exiv2/exiv2.hpp>
@@ -497,9 +495,9 @@ public:
 protected:
     QString GetTag(const QString &key, bool *exists = nullptr);
 
-    AVFormatContext *m_context;
+    AVFormatContext *m_context { nullptr };
     //! FFmpeg tag dictionary
-    AVDictionary    *m_dict;
+    AVDictionary    *m_dict    { nullptr };
 };
 
 
@@ -508,7 +506,7 @@ protected:
    \param filePath Absolute video path
  */
 VideoMetaData::VideoMetaData(const QString &filePath)
-    : ImageMetaData(filePath), m_context(nullptr), m_dict(nullptr)
+    : ImageMetaData(filePath)
 {
     AVInputFormat* p_inputformat = nullptr;
 

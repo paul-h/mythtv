@@ -1,14 +1,20 @@
+// C++ headers
+#include <utility>
+
+// Qt headers
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QFileInfo>
-#include <utility>
 
+// MythTV
+#include "libmyth/programinfo.h"
+#include "libmythbase/mythdate.h"
+#include "libmythbase/mythlogging.h"
+#include "libmythbase/mythsocket.h"
+#include "libmythtv/io/mythmediabuffer.h"
+
+// MythBackend
 #include "filetransfer.h"
-#include "io/mythmediabuffer.h"
-#include "mythdate.h"
-#include "mythsocket.h"
-#include "programinfo.h"
-#include "mythlogging.h"
 
 FileTransfer::FileTransfer(QString &filename, MythSocket *remote,
                            bool usereadahead, std::chrono::milliseconds timeout) :
@@ -132,7 +138,7 @@ int FileTransfer::RequestBlock(int size)
         m_readsUnlockedCond.wait(&m_lock, 100 /*ms*/);
 
     m_requestBuffer.resize(std::max((size_t)std::max(size,0) + 128, m_requestBuffer.size()));
-    char *buf = &m_requestBuffer[0];
+    char *buf = (m_requestBuffer).data();
     while (tot < size && !m_rbuffer->GetStopReads() && m_readthreadlive)
     {
         int request = size - tot;
@@ -170,7 +176,7 @@ int FileTransfer::WriteBlock(int size)
     QMutexLocker locker(&m_lock);
 
     m_requestBuffer.resize(std::max((size_t)std::max(size,0) + 128, m_requestBuffer.size()));
-    char *buf = &m_requestBuffer[0];
+    char *buf = (m_requestBuffer).data();
     int attempts = 0;
 
     while (tot < size)

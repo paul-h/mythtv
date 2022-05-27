@@ -1,3 +1,4 @@
+import { StorageGroupDirList } from "./storagegroup.interface";
 export interface MythHostName {
     String: string;  // That's what the service returns as the key
 }
@@ -77,26 +78,44 @@ export interface AddStorageGroupDirRequest {
     HostName:   string;
 }
 
-export interface BoolResponse {
-    bool:       boolean;
+export interface CheckDatabaseRequest {
+    Repair:         boolean;
 }
 
-export interface StorageGroupRequest {
-    GroupName:   string;
-    DirName:     string;
-    HostName:    string;
+export interface MapOfString {
+    [key: string]:  string;
 }
 
-export interface StorageGroupDir {
-    Id:          number;
-    GroupName:   string;
-    HostName:    string;
-    DirName:     string;
-    DirRead:     boolean;
-    DirWrite:    boolean;
-    KiBFree:     number;
+export interface SettingList {
+    SettingList: {
+        HostName:       string;
+        Settings:       MapOfString;
+    }
 }
 
-export interface StorageGroupDirList {
-    StorageGroupDirs: StorageGroupDir[];
+export interface ManageDigestUserRequest {
+    Action:         string; // Must be: Add, Remove, or ChangePassword
+    UserName:       string;
+    Password:       string;
+    NewPassword?:   string; // Required on ChangePassword
+    AdminPassword?: string; // Required on Add
+}
+
+export interface ManageUrlProtectionRequest {
+    Services:       string;
+    AdminPassword:  string;
+}
+
+export interface RemoveStorageGroupRequest {
+    GroupName:      string;
+    DirName:        string;
+    HostName:       string;
+}
+
+export interface TestDBSettingsRequest {
+    HostName:       string;
+    UserName:       string;
+    Password:       string;
+    DBName:         string;
+    dbPort:         number;
 }

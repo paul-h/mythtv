@@ -5,11 +5,12 @@
  */
 
 // MythTV includes
-#include "firewirerecorder.h"
+#include "libmythbase/mythlogging.h"
+
 #include "firewirechannel.h"
-#include "mythlogging.h"
-#include "mpegtables.h"
-#include "mpegstreamdata.h"
+#include "firewirerecorder.h"
+#include "mpeg/mpegstreamdata.h"
+#include "mpeg/mpegtables.h"
 #include "tv_rec.h"
 
 #define LOC QString("FireRecBase[%1](%2): ") \
@@ -133,7 +134,7 @@ void FirewireRecorder::AddData(const unsigned char *data, uint len)
     while (sync_at + TSPacket::kSize < bufsz)
     {
         ProcessTSPacket(*(reinterpret_cast<const TSPacket*>(
-                              &m_buffer[0] + sync_at)));
+                              (m_buffer).data() + sync_at)));
 
         sync_at += TSPacket::kSize;
     }

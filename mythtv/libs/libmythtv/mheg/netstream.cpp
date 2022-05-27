@@ -38,9 +38,9 @@
 #endif
 
 // Myth
-#include "mythlogging.h"
-#include "mythcorecontext.h"
-#include "mythdirs.h"
+#include "libmythbase/mythcorecontext.h"
+#include "libmythbase/mythdirs.h"
+#include "libmythbase/mythlogging.h"
 
 #if QT_VERSION < QT_VERSION_CHECK(5,10,0)
 #define qEnvironmentVariable std::getenv
@@ -72,13 +72,12 @@ public:
     NetStreamRequest(int id, const QNetworkRequest &req) :
         QEvent(kType),
         m_id(id),
-        m_req(req),
-        m_bCancelled(false)
+        m_req(req)
     { }
 
     const int m_id;
     const QNetworkRequest m_req;
-    volatile bool m_bCancelled;
+    volatile bool m_bCancelled { false };
 };
 
 class NetStreamAbort : public QEvent

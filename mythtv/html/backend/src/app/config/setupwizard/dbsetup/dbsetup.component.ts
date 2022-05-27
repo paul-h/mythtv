@@ -19,17 +19,6 @@ export class DbsetupComponent implements OnInit {
 
     m_wizardData!: WizardData;
     m_showHelp: boolean = false;
-    
-
-    //databaseSettings: any;
-
-    // databaseSettings = this.formBuilder.group({
-    //     ipaddress: [this.m_wizardData.DatabaseStatus.DatabaseStatus.Host, Validators.required],
-    //     port: [this.m_wizardData.DatabaseStatus.DatabaseStatus.Port, [Validators.required, Validators.min(0), Validators.max(65536)]],
-    //     user: [this.m_wizardData.DatabaseStatus.DatabaseStatus.UserName, Validators.required],
-    //     password: [this.m_wizardData.DatabaseStatus.DatabaseStatus.Password, Validators.required],
-    //     dbname: [this.m_wizardData.DatabaseStatus.DatabaseStatus.Name, Validators.required]
-    // });  
 
     constructor(private router: Router,
         private configService: ConfigService,
@@ -37,31 +26,19 @@ export class DbsetupComponent implements OnInit {
         private wizardService: SetupWizardService,
         private formBuilder: FormBuilder,
         private messageService: MessageService) { }
-        
-    ngOnInit(): void {
-        //this.wizardService.initDatabaseStatus();
-        this.m_wizardData = this.wizardService.getWizardData();
-        //
 
-        // this.databaseSettings = this.formBuilder.group({
-        //     ipaddress: [this.m_wizardData.DatabaseStatus.DatabaseStatus.Host, Validators.required],
-        //     port: [this.m_wizardData.DatabaseStatus.DatabaseStatus.Port, [Validators.required, Validators.min(0), Validators.max(65536)]],
-        //     user: [this.m_wizardData.DatabaseStatus.DatabaseStatus.UserName, Validators.required],
-        //     password: [this.m_wizardData.DatabaseStatus.DatabaseStatus.Password, Validators.required],
-        //     dbname: [this.m_wizardData.DatabaseStatus.DatabaseStatus.Name, Validators.required]
-        // });  
+    ngOnInit(): void {
+        this.wizardService.initDatabaseStatus();
+        this.m_wizardData = this.wizardService.getWizardData();
     }
 
     previousPage() {
         this.router.navigate(['settings/selectlanguage']);
-
         return;
     }
 
-
     nextPage() {
         this.router.navigate(['settings/backendnetwork']);
-
         return;
     }
 
@@ -71,7 +48,7 @@ export class DbsetupComponent implements OnInit {
 
     saveForm() {
         console.log("save form clicked");
-    }   
+    }
 
     testConnection() {
         console.log(this.m_wizardData.Database);
@@ -85,10 +62,10 @@ export class DbsetupComponent implements OnInit {
             (err: HttpErrorResponse) => {
                 // we got an error return code
                 console.log("Failed to set creditals", err.statusText);
-                
+
                 this.m_wizardData.DatabaseStatus.DatabaseStatus.Connected = false;
                 this.m_wizardData.DatabaseStatus.DatabaseStatus.HaveDatabase = false;
-                this.m_wizardData.DatabaseStatus.DatabaseStatus.SchemaVersion = 0;    
+                this.m_wizardData.DatabaseStatus.DatabaseStatus.SchemaVersion = 0;
                 this.messageService.add({severity:'error', life: 5000, summary:'Test Database Connection', detail:'Connection to database failed'});
             }
         );

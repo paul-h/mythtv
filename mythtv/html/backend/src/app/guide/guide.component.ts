@@ -4,6 +4,7 @@ import { tap } from 'rxjs/operators';
 import { GuideService } from 'src/app/services/guide.service';
 import { Channel } from '../services/interfaces/channel.interface';
 import { ProgramGuide } from 'src/app/services/interfaces/programguide.interface';
+import { TranslateService, TranslationChangeEvent } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-guide',
@@ -14,34 +15,49 @@ export class GuideComponent implements OnInit {
   m_guideData$!:  Observable<ProgramGuide>;
   m_startDate:    Date = new Date();
   m_endDate:      Date = new Date();
-  // TODO: dateFormat should come from i18n
-  //m_dateFormat:   string = primeng.dateFormat;
-  m_dateFormat:   string = "dd/mm/yy";
+  m_dateFormat:   string = ''
   m_channelData:  Channel[] = [];
   m_channelTotal: number = 10;
   m_rows:         number = 10;
 
-  constructor(private guideService : GuideService) { }
+  constructor(private guideService : GuideService,
+              private translate : TranslateService) {
+
+    this.setDateFormat();
+
+    this.translate.onLangChange.subscribe((event : TranslationChangeEvent) => {
+      console.log("Event: language change, new language (" + event.lang + ")");
+      this.switchLanguage(event.lang);
+      this.fetchData();
+    })
+  }
 
   ngOnInit(): void {
     this.fetchData();
   }
 
-  fetchData(reqDate?: Date) : void {
-    this.m_guideData$ = this.guideService.GetProgramGuide(reqDate).pipe(
-      tap(data => console.log(data)),
-      tap(data => this.m_startDate = new Date(data.ProgramGuide.StartTime)),
-      tap(data => console.log(this.m_startDate)),
-      tap(data => this.m_endDate = new Date(data.ProgramGuide.EndTime)),
-      tap(data => console.log(this.m_endDate)),
-      tap(data => this.m_channelData = data.ProgramGuide.Channels),
-      tap(data => this.m_channelTotal = data.ProgramGuide.TotalAvailable),
-    )
+  setDateFormat() : void {
+    this.translate.get("primeng.dateFormat").subscribe(data => this.m_dateFormat = data);
+    console.log("Date format is (" + this.m_dateFormat + ")");
   }
 
-  loadData(event: any): void {
-    console.log(event);
-    this.fetchData();
+  switchLanguage(language : string) : void {
+    this.translate.use(language);
+    this.setDateFormat();
+  }
+
+  fetchData(reqDate?: Date) : void {
+    this.m_guideData$ = this.guideService.GetProgramGuide(reqDate).pipe(
+      tap(data =>
+        {
+          console.log(data);
+          this.m_startDate = new Date(data.ProgramGuide.StartTime);
+          this.m_endDate = new Date(data.ProgramGuide.EndTime);
+          this.m_channelData = data.ProgramGuide.Channels;
+          this.m_channelTotal = data.ProgramGuide.TotalAvailable;
+        }
+      )
+    )
   }
 
   inDisplayWindow(startTime : string, endTime : string) : boolean {

@@ -18,19 +18,19 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#include "atscstreamdata.h"
-#include "mpegstreamdata.h"
-#include "dvbstreamdata.h"
-#include "dtvrecorder.h"
-#include "programinfo.h"
-#include "mythlogging.h"
-#include "mpegtables.h"
-#include "io/mythmediabuffer.h"
-#include "tv_rec.h"
-#include "mythsystemevent.h"
+#include "libmyth/programinfo.h"
+#include "libmythbase/mythlogging.h"
 
-#include "AVCParser.h"
-#include "HEVCParser.h"
+#include "dtvrecorder.h"
+#include "io/mythmediabuffer.h"
+#include "mpeg/AVCParser.h"
+#include "mpeg/HEVCParser.h"
+#include "mpeg/atscstreamdata.h"
+#include "mpeg/dvbstreamdata.h"
+#include "mpeg/mpegstreamdata.h"
+#include "mpeg/mpegtables.h"
+#include "mythsystemevent.h"
+#include "tv_rec.h"
 
 #define LOC ((m_tvrec) ? \
     QString("DTVRec[%1]: ").arg(m_tvrec->GetInputId()) : \
@@ -311,7 +311,7 @@ void DTVRecorder::BufferedWrite(const TSPacket &tspacket, bool insert)
         if (!m_payloadBuffer.empty())
         {
             if (m_ringBuffer)
-                m_ringBuffer->Write(&m_payloadBuffer[0], m_payloadBuffer.size());
+                m_ringBuffer->Write((m_payloadBuffer).data(), m_payloadBuffer.size());
             m_payloadBuffer.clear();
         }
     }
@@ -1222,7 +1222,7 @@ void DTVRecorder::FindPSKeyFrames(const uint8_t *buffer, uint len)
                 if (m_ringBuffer)
                 {
                     m_ringBuffer->Write(
-                        &m_payloadBuffer[0], m_payloadBuffer.size());
+                        (m_payloadBuffer).data(), m_payloadBuffer.size());
                 }
                 m_payloadBuffer.clear();
             }
@@ -1571,7 +1571,7 @@ bool DTVRecorder::ProcessVideoTSPacket(const TSPacket &tspacket)
         {
             // Flush the buffer
             if (m_ringBuffer)
-                m_ringBuffer->Write(&m_payloadBuffer[0], m_payloadBuffer.size());
+                m_ringBuffer->Write((m_payloadBuffer).data(), m_payloadBuffer.size());
             m_payloadBuffer.clear();
         }
 
@@ -1603,7 +1603,7 @@ bool DTVRecorder::ProcessAudioTSPacket(const TSPacket &tspacket)
         {
             // Flush the buffer
             if (m_ringBuffer)
-                m_ringBuffer->Write(&m_payloadBuffer[0], m_payloadBuffer.size());
+                m_ringBuffer->Write((m_payloadBuffer).data(), m_payloadBuffer.size());
             m_payloadBuffer.clear();
         }
 

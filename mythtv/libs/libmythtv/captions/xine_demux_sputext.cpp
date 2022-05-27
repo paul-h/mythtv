@@ -39,13 +39,13 @@
 #include <cstring>
 #include <iostream>
 #include <fcntl.h>
-#include <cctype>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "captions/xine_demux_sputext.h"
 
-#include "mythlogging.h"
+#include "libmythbase/mythlogging.h"
+
+#include "captions/xine_demux_sputext.h"
 
 #define LOG_MODULE "demux_sputext"
 #define LOG_VERBOSE

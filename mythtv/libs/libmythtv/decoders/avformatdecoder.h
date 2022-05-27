@@ -9,21 +9,22 @@ extern "C" {
 #include "libavformat/avformat.h"
 }
 
-#include <QString>
-#include <QMap>
 #include <QList>
+#include <QMap>
+#include <QString>
 
-#include "programinfo.h"
-#include "format.h"
+#include "libmyth/audio/audiooutputsettings.h"
+#include "libmyth/audio/audiooutpututil.h"
+#include "libmyth/audio/spdifencoder.h"
+#include "libmyth/programinfo.h"
+
+#include "captions/vbilut.h"
 #include "decoderbase.h"
-#include "audiooutputsettings.h"
-#include "audiooutpututil.h"
-#include "spdifencoder.h"
-#include "vbilut.h"
-#include "AVCParser.h"
+#include "format.h"
+#include "io/mythavformatbuffer.h"
+#include "mpeg/AVCParser.h"
 #include "mythcodeccontext.h"
 #include "mythplayer.h"
-#include "io/mythavformatbuffer.h"
 
 class TeletextDecoder;
 class CC608Decoder;

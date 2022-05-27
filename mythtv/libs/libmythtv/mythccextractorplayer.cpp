@@ -26,11 +26,12 @@
 #include <QFileInfo>
 #include <QPainter>
 
-#include "captions/teletextextractorreader.h"
-#include "avformatdecoder.h"
-#include "captions/subtitlescreen.h"
+#include "libmythbase/iso639.h"
+
 #include "captions/srtwriter.h"
-#include "iso639.h"
+#include "captions/subtitlescreen.h"
+#include "captions/teletextextractorreader.h"
+#include "decoders/avformatdecoder.h"
 #include "mythccextractorplayer.h"
 
 SRTStuff::~SRTStuff()
@@ -50,8 +51,6 @@ MythCCExtractorPlayer::MythCCExtractorPlayer(PlayerContext *Context, PlayerFlags
                                              QString fileName,
                                              const QString &destdir) :
     MythPlayer(Context, flags),
-    m_curTime(0ms),
-    m_myFramesPlayed(0),
     m_showProgress(showProgress),
     m_fileName(std::move(fileName))
 {

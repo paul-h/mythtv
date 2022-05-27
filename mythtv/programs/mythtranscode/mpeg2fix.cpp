@@ -10,26 +10,31 @@
 #include <getopt.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <utility>
 
-#include "mpeg2fix.h"
-
+// Qt headers
 #include <QFileInfo>
 #include <QList>
 #include <QMap>
 #include <QQueue>
-#include <utility>
 
-#include "mythlogging.h"
-#include "mythdate.h"
-#include "mthread.h"
+// MythTV headers
+#include "libmythbase/mythconfig.h"
+
+#include "libmythbase/mthread.h"
+#include "libmythbase/mythdate.h"
+#include "libmythbase/mythlogging.h"
 
 extern "C" {
 #include "libavutil/cpu.h"
 #include "libavcodec/mathops.h"
-#include "mpeg2.h"          // for mpeg2_decoder_t, mpeg2_fbuf_t, et c
-#include "attributes.h"     // for ATTR_ALIGN()
-#include "mpeg2_internal.h"
+#include "libmythmpeg2/attributes.h"     // for ATTR_ALIGN()
+#include "libmythmpeg2/mpeg2.h"          // for mpeg2_decoder_t, mpeg2_fbuf_t, et c
+#include "libmythmpeg2/mpeg2_internal.h"
 }
+
+// MythTranscode
+#include "mpeg2fix.h"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -1941,7 +1946,7 @@ void MPEG2fixup::AddRangeList(const QStringList& rangelist, int type)
 
         std::array<bool,2> ok { false, false };
 
-        long long start = tmp[0].toLongLong(&ok[0]);
+        long long start = tmp[0].toLongLong(ok.data());
         long long end   = tmp[1].toLongLong(&ok[1]);
     
         if (ok[0] && ok[1])

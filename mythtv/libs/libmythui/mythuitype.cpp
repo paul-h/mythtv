@@ -10,15 +10,17 @@
 #include <QEvent>
 #include <QKeyEvent>
 #include <QInputMethodEvent>
-#include <QDomDocument>
 
 // XML headers
 #include "xmlparsebase.h"
 
 // Mythbase headers
-#include "mythlogging.h"
-#include "mythrandom.h"
-#include "mythmedia.h"
+#include "libmythbase/mythlogging.h"
+#include "libmythbase/mythmedia.h"
+#include "libmythbase/mythrandom.h"
+#ifdef _MSC_VER
+#  include "libmythbase/compat.h"   // random
+#endif
 
 // MythUI headers
 #include "mythgesture.h"
@@ -35,11 +37,6 @@
 #include "mythuiprogressbar.h"
 #include "mythuispinbox.h"
 #include "mythuigroup.h"
-#include "mythgesture.h"
-
-#ifdef _MSC_VER
-#  include "compat.h"   // random
-#endif
 
 #define LOC      QString("MythUIType: ")
 

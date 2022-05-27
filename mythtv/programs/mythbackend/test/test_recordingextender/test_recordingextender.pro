@@ -7,12 +7,7 @@ TEMPLATE = app
 TARGET = test_recordingextender
 DEPENDPATH += . ../..
 INCLUDEPATH += . ../..
-INCLUDEPATH += ../../../../libs/libmythbase
-INCLUDEPATH += ../../../../libs/libmythui
-INCLUDEPATH += ../../../../libs/libmyth
-INCLUDEPATH += ../../../../libs/libmythtv
-INCLUDEPATH += ../../../../libs/libmythmetadata
-INCLUDEPATH += ../../../../libs/libmythservicecontracts
+INCLUDEPATH += ../../../../libs
 
 LIBS += ../../obj/recordingextender.o
 LIBS += ../../obj/moc_recordingextender.o
@@ -58,6 +53,8 @@ QMAKE_LFLAGS += -Wl,$$_RPATH_$(PWD)/../../
     freebsd: LIBS += -lprocstat -liconv
     darwin: LIBS += -liconv -lz
 }
+
+DEFINES += TEST_SOURCE_DIR='\'"$${PWD}"'\'
 
 # Input
 HEADERS += test_recordingextender.h

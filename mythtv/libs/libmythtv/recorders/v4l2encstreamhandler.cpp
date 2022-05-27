@@ -1,7 +1,5 @@
 // -*- Mode: c++ -*-
 
-#include <iostream>
-
 // POSIX headers
 #include <fcntl.h>
 #include <unistd.h>
@@ -10,21 +8,24 @@
 //#include <sys/select.h>
 #include <sys/ioctl.h>
 #endif
+
 #include <chrono> // for milliseconds
+#include <iostream>
 #include <thread> // for sleep_for
 
 // Qt headers
-#include <QString>
 #include <QFile>
+#include <QString>
 
 // MythTV headers
-#include "v4l2encstreamhandler.h"
-#include "v4lchannel.h"
-#include "dtvsignalmonitor.h"
-#include "streamlisteners.h"
-#include "mpegstreamdata.h"
+#include "libmythbase/exitcodes.h"
+
 #include "cardutil.h"
-#include "exitcodes.h"
+#include "dtvsignalmonitor.h"
+#include "mpeg/mpegstreamdata.h"
+#include "mpeg/streamlisteners.h"
+#include "recorders/v4l2encstreamhandler.h"
+#include "recorders/v4lchannel.h"
 
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
   #define loadRelaxed load

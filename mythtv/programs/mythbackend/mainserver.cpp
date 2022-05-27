@@ -1,3 +1,4 @@
+// C++
 #include <algorithm>
 #include <cerrno>
 #include <chrono> // for milliseconds
@@ -9,7 +10,7 @@
 #include <memory>
 #include <thread> // for sleep_for
 
-#include "mythconfig.h"
+#include "libmythbase/mythconfig.h"
 
 #ifndef _WIN32
 #include <sys/ioctl.h>
@@ -28,6 +29,7 @@
 #  endif // _WIN32
 #endif // !__linux__
 
+// Qt
 #include <QtGlobal>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -43,47 +45,48 @@
 #include <QNetworkProxy>
 #include <QHostAddress>
 
-#include "previewgeneratorqueue.h"
-#include "mythmiscutil.h"
-#include "mythrandom.h"
-#include "mythsystemlegacy.h"
-#include "mythcontext.h"
-#include "mythversion.h"
-#include "mythdb.h"
-#include "mainserver.h"
-#include "serverpool.h"
-#include "mthread.h"
-#include "scheduler.h"
-#include "requesthandler/fileserverutil.h"
-#include "programinfo.h"
-#include "mythtimezone.h"
-#include "recordinginfo.h"
-#include "recordingrule.h"
-#include "scheduledrecording.h"
-#include "jobqueue.h"
-#include "autoexpire.h"
-#include "storagegroup.h"
-#include "compat.h"
-#include "io/mythmediabuffer.h"
-#include "remotefile.h"
-#include "mythsystemevent.h"
-#include "tv.h"
-#include "mythcorecontext.h"
-#include "mythcoreutil.h"
-#include "mythdirs.h"
-#include "mythdownloadmanager.h"
-#include "metadatafactory.h"
-#include "videoutils.h"
-#include "mythlogging.h"
-#include "filesysteminfo.h"
-#include "metaio.h"
-#include "musicmetadata.h"
-#include "imagemanager.h"
-#include "cardutil.h"
-#include "tv_rec.h"
+// MythTV
+#include "libmyth/mythcontext.h"
+#include "libmyth/programinfo.h"
+#include "libmythbase/compat.h"
+#include "libmythbase/filesysteminfo.h"
+#include "libmythbase/mthread.h"
+#include "libmythbase/mythcorecontext.h"
+#include "libmythbase/mythcoreutil.h"
+#include "libmythbase/mythdb.h"
+#include "libmythbase/mythdirs.h"
+#include "libmythbase/mythdownloadmanager.h"
+#include "libmythbase/mythlogging.h"
+#include "libmythbase/mythmiscutil.h"
+#include "libmythbase/mythrandom.h"
+#include "libmythbase/mythsystemlegacy.h"
+#include "libmythbase/mythtimezone.h"
+#include "libmythbase/mythversion.h"
+#include "libmythbase/remotefile.h"
+#include "libmythbase/serverpool.h"
+#include "libmythbase/storagegroup.h"
+#include "libmythmetadata/imagemanager.h"
+#include "libmythmetadata/metadatafactory.h"
+#include "libmythmetadata/metaio.h"
+#include "libmythmetadata/musicmetadata.h"
+#include "libmythmetadata/videoutils.h"
+#include "libmythprotoserver/requesthandler/fileserverutil.h"
+#include "libmythtv/cardutil.h"
+#include "libmythtv/io/mythmediabuffer.h"
+#include "libmythtv/jobqueue.h"
+#include "libmythtv/mythsystemevent.h"
+#include "libmythtv/previewgeneratorqueue.h"
+#include "libmythtv/recordinginfo.h"
+#include "libmythtv/recordingrule.h"
+#include "libmythtv/scheduledrecording.h"
+#include "libmythtv/tv.h"
+#include "libmythtv/tv_rec.h"
 
 // mythbackend headers
+#include "autoexpire.h"
 #include "backendcontext.h"
+#include "mainserver.h"
+#include "scheduler.h"
 
 /** Milliseconds to wait for an existing thread from
  *  process request thread pool.
@@ -172,7 +175,7 @@ class FreeSpaceUpdater : public QRunnable
 {
   public:
     explicit FreeSpaceUpdater(MainServer &parent) :
-        m_parent(parent), m_dorun(true), m_running(true)
+        m_parent(parent)
     {
         m_lastRequest.start();
     }
@@ -227,8 +230,8 @@ class FreeSpaceUpdater : public QRunnable
 
     MainServer &m_parent;
     QMutex m_lock;
-    bool m_dorun;
-    bool m_running;
+    bool m_dorun   { true };
+    bool m_running { true };
     MythTimer m_lastRequest;
     QWaitCondition m_wait;
     static constexpr std::chrono::milliseconds kRequeryTimeout { 15s };
@@ -1691,7 +1694,7 @@ void MainServer::customEvent(QEvent *e)
 void MainServer::HandleVersion(MythSocket *socket, const QStringList &slist)
 {
     QStringList retlist;
-    QString version = slist[1];
+    const QString& version = slist[1];
     if (version != MYTH_PROTO_VERSION)
     {
         LOG(VB_GENERAL, LOG_CRIT, LOC +
@@ -1714,7 +1717,7 @@ void MainServer::HandleVersion(MythSocket *socket, const QStringList &slist)
         return;
     }
 
-    QString token = slist[2];
+    const QString& token = slist[2];
     if (token != QString::fromUtf8(MYTH_PROTO_TOKEN))
     {
         LOG(VB_GENERAL, LOG_CRIT, LOC +
@@ -5102,7 +5105,7 @@ void MainServer::HandleIsActiveBackendQuery(const QStringList &slist,
                                             PlaybackSock *pbs)
 {
     QStringList retlist;
-    QString queryhostname = slist[1];
+    const QString& queryhostname = slist[1];
 
     if (gCoreContext->GetHostName() != queryhostname)
     {
@@ -5776,8 +5779,8 @@ void MainServer::HandleSettingQuery(const QStringList &tokens, PlaybackSock *pbs
     if (pbs)
         pbssock = pbs->getSocket();
 
-    QString hostname = tokens[1];
-    QString setting = tokens[2];
+    const QString& hostname = tokens[1];
+    const QString& setting = tokens[2];
     QStringList retlist;
 
     QString retvalue = gCoreContext->GetSettingOnHost(setting, hostname, "-1");
@@ -5791,8 +5794,8 @@ void MainServer::HandleDownloadFile(const QStringList &command,
                                     PlaybackSock *pbs)
 {
     bool synchronous = (command[0] == "DOWNLOAD_FILE_NOW");
-    QString srcURL = command[1];
-    QString storageGroup = command[2];
+    const QString& srcURL = command[1];
+    const QString& storageGroup = command[2];
     QString filename = command[3];
     StorageGroup sgroup(storageGroup, gCoreContext->GetHostName(), false);
     QString outDir = sgroup.FindNextDirMostFree();
@@ -6141,9 +6144,9 @@ void MainServer::HandleSetSetting(const QStringList &tokens,
     if (pbs)
         pbssock = pbs->getSocket();
 
-    QString hostname = tokens[1];
-    QString setting = tokens[2];
-    QString svalue = tokens[3];
+    const QString& hostname = tokens[1];
+    const QString& setting = tokens[2];
+    const QString& svalue = tokens[3];
     QStringList retlist;
 
     if (gCoreContext->SaveSettingOnHost(setting, svalue, hostname))
@@ -6252,7 +6255,7 @@ void MainServer::HandleMusicTagUpdateVolatile(const QStringList &slist, Playback
 
     MythSocket *pbssock = pbs->getSocket();
 
-    QString hostname = slist[1];
+    const QString& hostname = slist[1];
 
     if (m_ismaster && !gCoreContext->IsThisHost(hostname))
     {
@@ -6312,7 +6315,7 @@ void MainServer::HandleMusicCalcTrackLen(const QStringList &slist, PlaybackSock 
 
     MythSocket *pbssock = pbs->getSocket();
 
-    QString hostname = slist[1];
+    const QString& hostname = slist[1];
 
     if (m_ismaster && !gCoreContext->IsThisHost(hostname))
     {
@@ -6370,7 +6373,7 @@ void MainServer::HandleMusicTagUpdateMetadata(const QStringList &slist, Playback
 
     MythSocket *pbssock = pbs->getSocket();
 
-    QString hostname = slist[1];
+    const QString& hostname = slist[1];
 
     if (m_ismaster && !gCoreContext->IsThisHost(hostname))
     {
@@ -6456,7 +6459,7 @@ void MainServer::HandleMusicFindAlbumArt(const QStringList &slist, PlaybackSock 
 
     MythSocket *pbssock = pbs->getSocket();
 
-    QString hostname = slist[1];
+    const QString& hostname = slist[1];
 
     if (m_ismaster && !gCoreContext->IsThisHost(hostname))
     {
@@ -6608,9 +6611,9 @@ void MainServer::HandleMusicTagGetImage(const QStringList &slist, PlaybackSock *
 
     MythSocket *pbssock = pbs->getSocket();
 
-    QString hostname = slist[1];
-    QString songid = slist[2];
-    QString imagetype = slist[3];
+    const QString& hostname = slist[1];
+    const QString& songid = slist[2];
+    const QString& imagetype = slist[3];
 
     if (m_ismaster && !gCoreContext->IsThisHost(hostname))
     {
@@ -6662,7 +6665,7 @@ void MainServer::HandleMusicTagChangeImage(const QStringList &slist, PlaybackSoc
 
     MythSocket *pbssock = pbs->getSocket();
 
-    QString hostname = slist[1];
+    const QString& hostname = slist[1];
 
     if (m_ismaster && !gCoreContext->IsThisHost(hostname))
     {
@@ -6829,7 +6832,7 @@ void MainServer::HandleMusicTagAddImage(const QStringList& slist, PlaybackSock* 
 
     MythSocket *pbssock = pbs->getSocket();
 
-    QString hostname = slist[1];
+    const QString& hostname = slist[1];
 
     if (m_ismaster && !gCoreContext->IsThisHost(hostname))
     {
@@ -6863,7 +6866,7 @@ void MainServer::HandleMusicTagAddImage(const QStringList& slist, PlaybackSock* 
 
     // load the metadata from the database
     int songID = slist[2].toInt();
-    QString filename = slist[3];
+    const QString& filename = slist[3];
     auto imageType = (ImageType) slist[4].toInt();
 
     MusicMetadata *mdata = MusicMetadata::createFromID(songID);
@@ -6984,7 +6987,7 @@ void MainServer::HandleMusicTagRemoveImage(const QStringList& slist, PlaybackSoc
 
     MythSocket *pbssock = pbs->getSocket();
 
-    QString hostname = slist[1];
+    const QString& hostname = slist[1];
 
     if (m_ismaster && !gCoreContext->IsThisHost(hostname))
     {
@@ -7111,9 +7114,9 @@ void MainServer::HandleMusicFindLyrics(const QStringList &slist, PlaybackSock *p
 
     MythSocket *pbssock = pbs->getSocket();
 
-    QString hostname = slist[1];
-    QString songid = slist[2];
-    QString grabberName = slist[3];
+    const QString& hostname = slist[1];
+    const QString& songid = slist[2];
+    const QString& grabberName = slist[3];
     QString artist = "";
     QString album = "";
     QString title = "";
@@ -7285,7 +7288,7 @@ void MainServer::HandleMusicSaveLyrics(const QStringList& slist, PlaybackSock* p
 
     MythSocket *pbssock = pbs->getSocket();
 
-    QString hostname = slist[1];
+    const QString& hostname = slist[1];
     int songID = slist[2].toInt();
 
     if (m_ismaster && !gCoreContext->IsThisHost(hostname))
@@ -7563,7 +7566,7 @@ void MainServer::HandleSetVerbose(const QStringList &slist, PlaybackSock *pbs)
     MythSocket *pbssock = pbs->getSocket();
     QStringList retlist;
 
-    QString newverbose = slist[1];
+    const QString& newverbose = slist[1];
     int len = newverbose.length();
     if (len > 12)
     {
@@ -7589,7 +7592,7 @@ void MainServer::HandleSetLogLevel(const QStringList &slist, PlaybackSock *pbs)
 {
     MythSocket *pbssock = pbs->getSocket();
     QStringList retlist;
-    QString newstring = slist[1];
+    const QString& newstring = slist[1];
     LogLevel_t newlevel = LOG_UNKNOWN;
 
     int len = newstring.length();

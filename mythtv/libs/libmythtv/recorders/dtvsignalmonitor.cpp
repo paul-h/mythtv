@@ -1,14 +1,14 @@
+#include <algorithm> // for lower_bound
 #include <unistd.h>
 
-#include <algorithm> // for lower_bound
+#include "libmythbase/compat.h"
 
 #include "dtvchannel.h"
 #include "dtvsignalmonitor.h"
-#include "scanstreamdata.h"
-#include "mpegtables.h"
-#include "atsctables.h"
-#include "dvbtables.h"
-#include "compat.h"
+#include "mpeg/atsctables.h"
+#include "mpeg/dvbtables.h"
+#include "mpeg/mpegtables.h"
+#include "mpeg/scanstreamdata.h"
 
 #undef DBG_SM
 #define DBG_SM(FUNC, MSG) LOG(VB_CHANNEL, LOG_INFO, \
@@ -373,6 +373,10 @@ void DTVSignalMonitor::HandlePMT(uint /*program_num*/, const ProgramMapTable *pm
         }
         return; // Not the PMT we are looking for...
     }
+
+    LOG(VB_CHANNEL, LOG_DEBUG, LOC +
+        QString("Found PMT; pmt->ProgramNumber(%1)")
+        .arg(pmt->ProgramNumber()));
 
     if (pmt->IsEncrypted(GetDTVChannel()->GetSIStandard())) {
         LOG(VB_GENERAL, LOG_NOTICE, LOC +

@@ -22,14 +22,15 @@
  */
 
 // MythTV includes
-#include "dvbstreamhandler.h"
-#include "mpegstreamdata.h"
-#include "tsstreamdata.h"
-#include "dvbrecorder.h"
+#include "libmythbase/mythlogging.h"
+
 #include "dvbchannel.h"
+#include "dvbrecorder.h"
+#include "dvbstreamhandler.h"
 #include "io/mythmediabuffer.h"
+#include "mpeg/mpegstreamdata.h"
+#include "mpeg/tsstreamdata.h"
 #include "tv_rec.h"
-#include "mythlogging.h"
 
 #define LOC QString("DVBRec[%1](%2): ") \
             .arg(m_tvrec ? m_tvrec->GetInputId() : -1).arg(m_videodevice)

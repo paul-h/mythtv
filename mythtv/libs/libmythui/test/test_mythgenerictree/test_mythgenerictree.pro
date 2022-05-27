@@ -5,8 +5,7 @@ QT += widgets testlib
 
 TEMPLATE = app
 TARGET = test_mythgenerictree
-DEPENDPATH += . ../..
-INCLUDEPATH += . ../.. ../../../libmythbase
+INCLUDEPATH += ../../..
 
 # Add all the necessary libraries
 LIBS += -L../../../libmythbase -lmythbase-$$LIBVERSION

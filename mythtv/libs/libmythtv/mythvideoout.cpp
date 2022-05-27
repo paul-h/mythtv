@@ -1,22 +1,23 @@
-// MythTV
-#include "osd.h"
-#include "mythplayer.h"
-#include "mythvideoprofile.h"
-#include "decoderbase.h"
-#include "mythcorecontext.h"
-#include "mythlogging.h"
-#include "mythmainwindow.h"
-#include "mythuihelper.h"
-#include "mythavutil.h"
-#include "mthreadpool.h"
-#include "mythcodeccontext.h"
-#include "mythvideooutnull.h"
-#include "mythvideooutgpu.h"
-#include "mythvideoout.h"
-
 // std
 #include <cmath>
 #include <cstdlib>
+
+// MythTV
+#include "libmythbase/mthreadpool.h"
+#include "libmythbase/mythcorecontext.h"
+#include "libmythbase/mythlogging.h"
+#include "libmythui/mythmainwindow.h"
+#include "libmythui/mythuihelper.h"
+
+#include "decoders/decoderbase.h"
+#include "decoders/mythcodeccontext.h"
+#include "mythavutil.h"
+#include "mythplayer.h"
+#include "mythvideoout.h"
+#include "mythvideooutgpu.h"
+#include "mythvideooutnull.h"
+#include "mythvideoprofile.h"
+#include "osd.h"
 
 #define LOC QString("VideoOutput: ")
 

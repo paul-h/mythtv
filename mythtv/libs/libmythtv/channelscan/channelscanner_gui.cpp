@@ -34,16 +34,16 @@
 #include <algorithm>
 
 // MythTV headers
-#include "mythdialogbox.h"
+#include "libmythui/mythdialogbox.h"
+
 #include "channelscanner_gui.h"
 #include "channelscanner_gui_scan_pane.h"
 #include "channelimporter.h"
 #include "channelscan_sm.h"
-
-#include "channelbase.h"
-#include "dtvsignalmonitor.h"
-#include "dvbsignalmonitor.h"
-#include "mpegstreamdata.h"
+#include "mpeg/mpegstreamdata.h"
+#include "recorders/channelbase.h"
+#include "recorders/dtvsignalmonitor.h"
+#include "recorders/dvbsignalmonitor.h"
 
 #define LOC QString("ChScanGUI: ")
 

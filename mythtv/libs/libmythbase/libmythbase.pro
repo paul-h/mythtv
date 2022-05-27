@@ -158,9 +158,9 @@ mingw | win32-msvc* {
 }
 
 # Install headers to same location as libmyth to make things easier
-inc.path = $${PREFIX}/include/mythtv/
+inc.path = $${PREFIX}/include/mythtv/libmythbase
 inc.files += mythdbcon.h mythdbparams.h mythbaseexp.h mythdb.h
-inc.files += compat.h mythversion.h mythconfig.h mythconfig.mak version.h
+inc.files += compat.h mythversion.h version.h
 inc.files += mythobservable.h mythevent.h verbosedefs.h
 inc.files += mythtimer.h lcddevice.h exitcodes.h mythdirs.h mythstorage.h
 inc.files += mythsocket.h mythsocket_cb.h mythlogging.h
@@ -181,15 +181,13 @@ inc.files += mythrandom.h
 inc.files += stringutil.h
 inc.files += unziputil.h
 
-# Allow both #include <blah.h> and #include <libmythbase/blah.h>
-inc2.path  = $${PREFIX}/include/mythtv/libmythbase
-inc2.files = $${inc.files}
+inc2.path = $${PREFIX}/include/mythtv
+inc2.files += mythconfig.h mythconfig.mak
 
 INSTALLS += inc inc2
 
-INCLUDEPATH += ../../external/qjsonwrapper/ ./platforms
-INCLUDEPATH += ./http ./http/serialisers
-DEPENDPATH  +=  ../../external/libudfread ./http ./http/serialisers
+INCLUDEPATH += ../../external/qjsonwrapper/ ..
+DEPENDPATH  +=  ../../external/libudfread
 
 DEFINES += RUNPREFIX=\\\"$${RUNPREFIX}\\\"
 DEFINES += LIBDIRNAME=\\\"$${LIBDIRNAME}\\\"

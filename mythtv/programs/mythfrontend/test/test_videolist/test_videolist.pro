@@ -7,11 +7,7 @@ TEMPLATE = app
 TARGET = test_videolist
 DEPENDPATH += . ../..
 INCLUDEPATH += . ../..
-INCLUDEPATH += ../../../../libs/libmythbase
-INCLUDEPATH += ../../../../libs/libmythui
-INCLUDEPATH += ../../../../libs/libmyth
-INCLUDEPATH += ../../../../libs/libmythtv
-INCLUDEPATH += ../../../../libs/libmythmetadata
+INCLUDEPATH += ../../../../libs
 
 LIBS += ../../obj/videolist.o
 LIBS += ../../obj/videofilter.o ../../obj/moc_videofilter.o

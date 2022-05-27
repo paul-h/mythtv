@@ -1,6 +1,6 @@
 // MythTV
-#include "mythconfig.h"
-#include "mythcorecontext.h"
+#include "libmythbase/mythconfig.h"
+#include "libmythbase/mythcorecontext.h"
 #include "mythvideocolourspace.h"
 #include "opengl/mythnvdecinterop.h"
 
@@ -21,8 +21,7 @@
 }
 
 MythNVDECInterop::MythNVDECInterop(MythPlayerUI* Player, MythRenderOpenGL* Context)
-  : MythOpenGLInterop(Context, GL_NVDEC, Player),
-    m_cudaContext()
+  : MythOpenGLInterop(Context, GL_NVDEC, Player)
 {
     InitialiseCuda();
 }

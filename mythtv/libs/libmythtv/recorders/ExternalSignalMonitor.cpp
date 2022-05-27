@@ -9,16 +9,16 @@
 #include <sys/select.h>
 #endif
 
-#include "mythlogging.h"
-#include "mythdbcon.h"
-#include "ExternalSignalMonitor.h"
-#include "atscstreamdata.h"
-#include "mpegtables.h"
-#include "atsctables.h"
+#include "libmythbase/mythdbcon.h"
+#include "libmythbase/mythlogging.h"
 
 #include "ExternalChannel.h"
 #include "ExternalRecorder.h"
+#include "ExternalSignalMonitor.h"
 #include "ExternalStreamHandler.h"
+#include "mpeg/atscstreamdata.h"
+#include "mpeg/atsctables.h"
+#include "mpeg/mpegtables.h"
 
 #define LOC QString("ExternSigMon[%1](%2): ").arg(m_inputid).arg(m_loc)
 

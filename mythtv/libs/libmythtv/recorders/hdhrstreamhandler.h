@@ -12,11 +12,12 @@
 #include <QRecursiveMutex>
 #endif
 
-#include "mythdate.h"
+#include "libmythbase/mythdate.h"
+
 #include "DeviceReadBuffer.h"
-#include "mpegstreamdata.h"
-#include "streamhandler.h"
 #include "dtvconfparserhelpers.h"
+#include "mpeg/mpegstreamdata.h"
+#include "recorders/streamhandler.h"
 
 class HDHRStreamHandler;
 class DTVSignalMonitor;

@@ -10,14 +10,15 @@
 #include <QGuiApplication>
 
 // MythTV
-#include "mythcorecontext.h"
+#include "libmythbase/mythcorecontext.h"
+#include "libmythbase/mythlogging.h"
+
 #include "mythmainwindow.h"
 #include "mythrenderopengl.h"
 #include "mythrenderopenglshaders.h"
-#include "mythlogging.h"
 #include "mythuitype.h"
 #ifdef USING_X11
-#include "mythxdisplay.h"
+#include "platforms/mythxdisplay.h"
 #endif
 
 #define LOC QString("OpenGL: ")

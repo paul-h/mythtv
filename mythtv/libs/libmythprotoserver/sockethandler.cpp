@@ -1,14 +1,13 @@
 #include <QStringList>
 #include <utility>
 
+#include "libmythbase/mythlogging.h"
 #include "sockethandler.h"
-#include "mythlogging.h"
 
 SocketHandler::SocketHandler(MythSocket *sock, MythSocketManager *parent,
                   QString hostname) :
         ReferenceCounter("SocketHandler"),
-        m_blockShutdown(false), m_standardEvents(false),
-        m_systemEvents(false), m_socket(sock), m_parent(parent),
+        m_socket(sock), m_parent(parent),
         m_hostname(std::move(hostname))
 {
     if (m_socket)

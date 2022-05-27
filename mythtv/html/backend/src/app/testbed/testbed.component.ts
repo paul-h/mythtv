@@ -8,12 +8,16 @@ import { ConfigService } from '../services/config.service';
 import { DvrService } from '../services/dvr.service';
 import { ContentService } from '../services/content.service';
 
-import { MythHostName, MythTimeZone, MythConnectionInfo, GetSettingResponse, GetStorageGroupDirsResponse, StorageGroupDir } from '../services/interfaces/myth.interface';
+import { MythHostName, MythTimeZone, MythConnectionInfo, GetSettingResponse, GetStorageGroupDirsResponse, SettingList } from '../services/interfaces/myth.interface';
 import { MythDatabaseStatus } from '../services/interfaces/config.interface';
 import { GetRecStorageGroupListResponse } from '../services/interfaces/dvr.interface';
 import { BoolResponse } from '../services/interfaces/common.interface';
 import { IconlookupService } from '../services/external/iconlookup.service';
 import { CallsignLookupResponse } from '../services/interfaces/iconlookup.interface';
+import { StorageGroupDir } from '../services/interfaces/storagegroup.interface';
+import { GetHashResponse } from '../services/interfaces/content.interface';
+import { GetCategoryListResponse } from '../services/interfaces/guide.interface';
+import { GuideService } from '../services/guide.service';
 
 @Component({
     selector: 'app-testbed',
@@ -32,6 +36,9 @@ export class TestbedComponent implements OnInit {
     m_downloadTest$!: Observable<BoolResponse>;
     m_addStorageGroupDir$!: Observable<BoolResponse>;
     m_iconUrl$!: Observable<CallsignLookupResponse>;
+    m_settingsList$! : Observable<SettingList>;
+    m_hashTest$! : Observable<GetHashResponse>;
+    m_categoryList$! : Observable<GetCategoryListResponse>;
 
     m_hostName: string = "";
     m_securityPin: string = "";
@@ -44,11 +51,17 @@ export class TestbedComponent implements OnInit {
                 private configService: ConfigService,
                 private contentService: ContentService,
                 private dvrService: DvrService,
-                private lookupService: IconlookupService) { }
+                private lookupService: IconlookupService,
+                private guideService: GuideService) { }
 
     ngOnInit(): void {
         this.m_hostname$ = this.mythService.GetHostName().pipe(
-            tap(data => { console.log(data); this.m_hostName = data.String;})
+            tap(data => { console.log(data); this.m_hostName = data.String;}),
+            tap(data => {
+                this.m_settingsList$ = this.mythService.GetSettingList(this.m_hostName).pipe(
+                    tap(data => console.log(data)),
+                );
+            })
         )
 
         this.m_timezone$ = this.mythService.GetTimeZone().pipe(
@@ -82,6 +95,14 @@ export class TestbedComponent implements OnInit {
 
         this.m_iconUrl$ = this.lookupService.lookupByCallsign('BBC One').pipe(
             tap(data => { console.log("Found URL for BBC One Icon = " + data.urls)})
+        )
+
+        this.m_hashTest$ = this.contentService.GetHash({StorageGroup: "Default", FileName: "readme.txt"}).pipe(
+            tap(data => console.log("File Hash: " + data))
+        )
+
+        this.m_categoryList$ = this.guideService.GetCategoryList().pipe(
+            tap(data => console.log(data))
         )
     }
 

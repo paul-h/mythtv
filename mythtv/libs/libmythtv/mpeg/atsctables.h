@@ -3,16 +3,17 @@
 #ifndef ATSC_TABLES_H
 #define ATSC_TABLES_H
 
-#include "mythconfig.h"
+#include "libmythbase/mythconfig.h"
 
 #include <cstdint>  // uint32_t
 #include <QString>
 #include <QtEndian>
 
-#include "atscdescriptors.h"
-#include "mpegtables.h"
-#include "mythtvexp.h"
-#include "mythdate.h"
+#include "libmythbase/mythdate.h"
+#include "libmythbase/mythmiscutil.h" // for xml_indent
+#include "libmythtv/mpeg/atscdescriptors.h"
+#include "libmythtv/mpeg/mpegtables.h"
+#include "libmythtv/mythtvexp.h"
 
 // Some sample code is in pcHDTV's dtvscan.c,
 // accum_sect/dequeue_buf/atsc_tables.  We should stuff

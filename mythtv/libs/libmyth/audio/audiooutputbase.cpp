@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <SoundTouch.h>
 
 // POSIX headers
 #include <unistd.h>
@@ -12,16 +13,16 @@
 #include <QMutexLocker>
 
 // MythTV headers
-#include "compat.h"
+#include "libmythbase/compat.h"
+#include "libmythbase/mythconfig.h"
+#include "libmythbase/mythlogging.h"
+#include "libmythfreesurround/freesurround.h"
+
 #include "audiooutputbase.h"
 #include "audiooutputdigitalencoder.h"
-#include "audiooutpututil.h"
 #include "audiooutputdownmix.h"
-#include "SoundTouch.h"
-#include "freesurround.h"
+#include "audiooutpututil.h"
 #include "spdifencoder.h"
-#include "mythlogging.h"
-#include "mythconfig.h"
 
 // AC3 encode currently disabled for Android
 #if defined(Q_OS_ANDROID)
@@ -35,7 +36,7 @@
 // checking with c++17 arrays.
 #define WPOS (&m_audioBuffer[org_waud])
 #define RPOS (&m_audioBuffer[m_raud])
-#define ABUF (&m_audioBuffer[0])
+#define ABUF (m_audioBuffer.data())
 #define STST soundtouch::SAMPLETYPE
 #define AOALIGN(x) (((long)&(x) + 15) & ~0xf);
 

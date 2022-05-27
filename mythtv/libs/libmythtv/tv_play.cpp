@@ -1,3 +1,12 @@
+// Std
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstdarg>
+#include <cstdint>
+#include <cstdlib>
+#include <thread>
+
 // Qt
 #include <QApplication>
 #include <QDomDocument>
@@ -11,70 +20,61 @@
 #include <QTimerEvent>
 #include <utility>
 
-#include "mythconfig.h"
+#include "libmythbase/mythconfig.h"
 
 // libmythbase
-#include "mthreadpool.h"
-#include "signalhandling.h"
-#include "mythdb.h"
-#include "mythcorecontext.h"
-#include "mythlogging.h"
-#include "lcddevice.h"
-#include "compat.h"
-#include "mythdirs.h"
-#include "mythmedia.h"
-#include "mythdate.h"
-#include "mconcurrent.h"
+#include "libmythbase/compat.h"
+#include "libmythbase/lcddevice.h"
+#include "libmythbase/mconcurrent.h"
+#include "libmythbase/mthreadpool.h"
+#include "libmythbase/mythcorecontext.h"
+#include "libmythbase/mythdate.h"
+#include "libmythbase/mythdb.h"
+#include "libmythbase/mythdirs.h"
+#include "libmythbase/mythlogging.h"
+#include "libmythbase/mythmedia.h"
+#include "libmythbase/mythmiscutil.h"
+#include "libmythbase/signalhandling.h"
 
 // libmyth
-#include "programinfo.h"
-#include "remoteutil.h"
+#include "libmyth/programinfo.h"
+#include "libmyth/programtypes.h"
+#include "libmyth/remoteutil.h"
 
 // libmythui
-#include "mythuistatetracker.h"
-#include "mythuihelper.h"
-#include "mythdialogbox.h"
-#include "mythmainwindow.h"
-#include "mythmiscutil.h"
-#include "mythscreenstack.h"
-#include "mythscreentype.h"
-#include "mythuiactions.h"
+#include "libmythui/mythdialogbox.h"
+#include "libmythui/mythmainwindow.h"
+#include "libmythui/mythscreenstack.h"
+#include "libmythui/mythscreentype.h"
+#include "libmythui/mythuiactions.h"
+#include "libmythui/mythuihelper.h"
+#include "libmythui/mythuistatetracker.h"
 
 // libmythtv
-#include "DVD/mythdvdplayer.h"
+#include "Bluray/mythbdbuffer.h"
 #include "Bluray/mythbdplayer.h"
 #include "DVD/mythdvdbuffer.h"
-#include "Bluray/mythbdbuffer.h"
-#include "remoteencoder.h"
-#include "tvremoteutil.h"
-#include "mythplayerui.h"
-#include "jobqueue.h"
-#include "livetvchain.h"
-#include "playgroup.h"
-#include "sourceutil.h"
+#include "DVD/mythdvdplayer.h"
 #include "cardutil.h"
 #include "channelutil.h"
-#include "tv_play_win.h"
-#include "recordinginfo.h"
-#include "signalmonitorvalue.h"
-#include "recordingrule.h"
-#include "mythsystemevent.h"
-#include "videometadatautil.h"
-#include "playercontext.h"
-#include "programtypes.h"
+#include "decoders/mythcodeccontext.h"
 #include "io/mythmediabuffer.h"
+#include "jobqueue.h"
+#include "livetvchain.h"
+#include "mythplayerui.h"
+#include "mythsystemevent.h"
 #include "mythtvactionutils.h"
-#include "mythcodeccontext.h"
+#include "playercontext.h"
+#include "playgroup.h"
+#include "recordinginfo.h"
+#include "recordingrule.h"
+#include "remoteencoder.h"
+#include "signalmonitorvalue.h"
+#include "sourceutil.h"
 #include "tv_play.h"
-
-// Std
-#include <algorithm>
-#include <chrono>
-#include <cmath>
-#include <cstdarg>
-#include <cstdint>
-#include <cstdlib>
-#include <thread>
+#include "tv_play_win.h"
+#include "tvremoteutil.h"
+#include "videometadatautil.h"
 
 #define DEBUG_CHANNEL_PREFIX 0 /**< set to 1 to debug channel prefixing */
 #define DEBUG_ACTIONS        0 /**< set to 1 to debug actions           */
@@ -2905,11 +2905,12 @@ void TV::HandleSpeedChangeTimerEvent()
 /// 2021, this filter is only used to redirect some events from the
 /// MythMainWindow object to the TV object.
 ///
-/// \warning If an event will be received by both the MythMainWindow object
-/// and the TV object, block it instead of redirecting it. Redirecting it
-/// just causes the event to be handled twice, once in the direct call from
-/// Qt to TV::event and once in the call from Qt to this function to
-/// TV::event.
+/// \warning Be careful if an event is broadcast to all objects
+/// instead of being set directly to a specific object.  For a
+/// broadcast event, Qt will: 1) call TV::customEvent, and 2) call
+/// this function to find out whether it should call
+/// MythMainWindow::customEvent. If this function calls
+/// TV::customEvent, then the same event gets processed twice.
 ///
 /// \param  Object The QObject whose events are being filtered.
 /// \param  Event  The QEvent that is about to be passed to Object->event().
@@ -2944,8 +2945,7 @@ bool TV::eventFilter(QObject* Object, QEvent* Event)
         Event->type() == MythEvent::kUpdateTvProgressEventType ||
         Event->type() == MythMediaEvent::kEventType)
     {
-        // DO NOT call TV::customEvent here!
-        // customEvent(Event);
+        customEvent(Event);
         return true;
     }
 
@@ -3966,7 +3966,7 @@ bool TV::FFRewHandleAction(const QStringList &Actions)
     {
         for (int i = 0; i < Actions.size() && !handled; i++)
         {
-            QString action = Actions[i];
+            const QString& action = Actions[i];
             bool ok = false;
             int val = action.toInt(&ok);
 
@@ -4316,7 +4316,7 @@ void TV::ProcessNetworkControlCommand(const QString &Command)
                     if (m_playerContext.m_ffRewState)
                         SetFFRew(static_cast<int>(index));
                 }
-                else if (0.48F <= tmpSpeed && tmpSpeed <= 2.0F)
+                else if (0.125F <= tmpSpeed && tmpSpeed <= 2.0F)
                 {
                     StopFFRew();
                     m_playerContext.m_tsNormal = tmpSpeed;   // alter speed before display
@@ -6913,7 +6913,7 @@ void TV::ToggleTimeStretch()
 
 void TV::ChangeTimeStretch(int Dir, bool AllowEdit)
 {
-    const float kTimeStretchMin = 0.5;
+    const float kTimeStretchMin = 0.125;
     const float kTimeStretchMax = 2.0;
     const float kTimeStretchStep = 0.05F;
     float new_ts_normal = m_playerContext.m_tsNormal + (kTimeStretchStep * Dir);

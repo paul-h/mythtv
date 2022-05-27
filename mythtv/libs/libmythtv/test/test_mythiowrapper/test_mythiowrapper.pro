@@ -6,9 +6,7 @@ using_opengl: QT += opengl
 
 TEMPLATE = app
 TARGET = test_mythiowrapper
-DEPENDPATH += . ../..
-INCLUDEPATH += . ../.. ../../mpeg ../../../libmythui ../../../libmyth ../../../libmythbase
-INCLUDEPATH += ../../../libmythservicecontracts
+INCLUDEPATH += ../../..
 
 LIBS += -L../../../libmythbase -lmythbase-$$LIBVERSION
 LIBS += -L../../../libmythui -lmythui-$$LIBVERSION
@@ -38,6 +36,8 @@ QMAKE_LFLAGS += -Wl,$$_RPATH_$(PWD)/../../../libmythui
 QMAKE_LFLAGS += -Wl,$$_RPATH_$(PWD)/../../../libmythupnp
 QMAKE_LFLAGS += -Wl,$$_RPATH_$(PWD)/../../../libmythservicecontracts
 QMAKE_LFLAGS += -Wl,$$_RPATH_$(PWD)/../../../libmythfreemheg
+
+DEFINES += TEST_SOURCE_DIR='\'"$${PWD}"'\'
 
 # Input
 HEADERS += test_mythiowrapper.h

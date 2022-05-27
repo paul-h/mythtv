@@ -12,6 +12,7 @@ import { MythService } from './myth.service';
 })
 export class SetupWizardService implements OnInit {
 
+    m_initialized: boolean = false;
     m_wizardData: WizardData = {
         Country: {
             Code: '', Country:'', NativeCountry: '', Image: ''
@@ -33,24 +34,18 @@ export class SetupWizardService implements OnInit {
         }
     };
 
-    m_hostName: string;
+    m_hostName: string = '';
 
-    m_languageSetting: string;
-    m_languages: Language[];
+    m_languageSetting: string = '';
+    m_languages: Language[] = [];
 
-    m_countrySetting: string;
-    m_countries: Country[];
+    m_countrySetting: string = '';
+    m_countries: Country[] = [];
 
     constructor(private configService: ConfigService,
                 private mythService: MythService) {
 
         console.log("**** SetupWizard ctor called ****");
-
-        this.m_hostName = '';
-        this.m_languages = [];
-        this.m_languageSetting = '';
-        this.m_countries = [];
-        this.m_countrySetting = '';
 
         this.mythService.GetHostName().subscribe((value: MythHostName) => {
             this.m_hostName = value.String;
@@ -58,26 +53,23 @@ export class SetupWizardService implements OnInit {
             console.log('hostname is: ', this.m_hostName);
             // now  we can get any settings that require an hostname
          });
-
-        this.initDatabaseStatus();
-
-        this.configService.GetCountries().subscribe((data: MythCountryList) => {
-            this.m_countries = data.CountryList.Countries;
-            this.initCountry();
-        });
-
-        this.configService.GetLanguages().subscribe((data: MythLanguageList) => {
-            this.m_languages = data.LanguageList.Languages;
-            this.initLanguage();
-        });
     }
 
     ngOnInit(): void {
         console.log("**** SetupWizard ngOnInit called ****");
+        this.Init();
+    }
 
+    Init() : void {
+        this.initDatabaseStatus();
+        this.initLanguages();
+        this.m_initialized = true;
     }
 
     getWizardData() {
+        if (!this.m_initialized) {
+            this.Init();
+        }
         return this.m_wizardData;
     }
 
@@ -103,6 +95,18 @@ export class SetupWizardService implements OnInit {
             },
             (err: HttpErrorResponse) => {console.log("Failed to get database status", err.statusText); }
         );
+    }
+
+    initLanguages() {
+        this.configService.GetCountries().subscribe((data: MythCountryList) => {
+            this.m_countries = data.CountryList.Countries;
+            this.initCountry();
+        });
+
+        this.configService.GetLanguages().subscribe((data: MythLanguageList) => {
+            this.m_languages = data.LanguageList.Languages;
+            this.initLanguage();
+        });
     }
 
     initCountry() {

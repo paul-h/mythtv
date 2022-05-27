@@ -1,18 +1,22 @@
 #include "mythgoom.h"
 
+// C++
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
 
+// Qt
 #include <QCoreApplication>
 #include <QPainter>
 
-#include <compat.h>
-#include <mythcontext.h>
-#include <mythlogging.h>
+// MythTV
+#include <libmyth/mythcontext.h>
+#include <libmythbase/compat.h>
+#include <libmythbase/mythlogging.h>
 
-#include "goom_tools.h"
-#include "goom_core.h"
+// Goom
+#include "libmythtv/visualisations/goom/goom_tools.h"
+#include "libmythtv/visualisations/goom/goom_core.h"
 
 Goom::Goom()
 {

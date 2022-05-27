@@ -7,10 +7,10 @@
 #include <utility>
 
 // MythTV headers
-#include "mpegdescriptors.h"
-#include "pespacket.h"
-#include "mythtvexp.h"
-#include "stringutil.h"
+#include "libmythbase/stringutil.h" // for xml_indent
+#include "libmythtv/mpeg/mpegdescriptors.h"
+#include "libmythtv/mpeg/pespacket.h"
+#include "libmythtv/mythtvexp.h"
 
 /** \file mpegtables.h
  *  \code

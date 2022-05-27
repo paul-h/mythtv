@@ -3,13 +3,14 @@
 #include <QAndroidJniEnvironment>
 
 // MythTV
-#include "mythlogging.h"
-#include "mythcorecontext.h"
-#include "mythmainwindow.h"
+#include "libmythbase/mythcorecontext.h"
+#include "libmythbase/mythlogging.h"
+#include "libmythui/mythmainwindow.h"
+
 #include "avformatdecoder.h"
-#include "mythmediacodecinterop.h"
-#include "mythplayerui.h"
 #include "mythmediacodeccontext.h"
+#include "mythplayerui.h"
+#include "opengl/mythmediacodecinterop.h"
 
 // FFmpeg
 extern "C" {

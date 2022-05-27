@@ -1,32 +1,33 @@
+#include <cerrno>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <fcntl.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <cerrno>
-#include <cmath>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <QStringList>
 #include <QtEndian>
 
-#include <iostream>
+#include "libmyth/mythcontext.h"
+#include "libmyth/programinfo.h"
+#include "libmythbase/mythlogging.h"
+#include "libmythbase/mythmiscutil.h"
 
-#include "mythmiscutil.h"
-#include "mythcontext.h"
 #include "NuppelVideoRecorder.h"
-#include "channelbase.h"
-#include "recordingprofile.h"
-#include "tv_rec.h"
-#include "tv_play.h"
 #include "audioinput.h"
-#include "mythlogging.h"
-#include "vbitext/cc.h"
-#include "vbitext/vbi.h"
-#include "mythavutil.h"
+#include "channelbase.h"
 #include "fourcc.h"
+#include "mythavutil.h"
+#include "mythsystemevent.h"
+#include "recorders/vbitext/cc.h"
+#include "recorders/vbitext/vbi.h"
+#include "recordingprofile.h"
+#include "tv_play.h"
+#include "tv_rec.h"
 
 #if HAVE_BIGENDIAN
 extern "C" {
@@ -75,9 +76,6 @@ extern "C" {
 
 #include "io/mythmediabuffer.h"
 #include "RTjpegN.h"
-
-#include "programinfo.h"
-#include "mythsystemevent.h"
 
 #define LOC QString("NVR(%1): ").arg(m_videodevice)
 
