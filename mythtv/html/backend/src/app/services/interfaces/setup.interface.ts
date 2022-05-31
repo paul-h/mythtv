@@ -2,6 +2,9 @@ import { Observable } from "rxjs";
 import { GetSettingResponse } from "./myth.interface";
 
 export interface HostAddress {
+    successCount:          number;
+    errorCount:            number;
+    thisHostName:          string;
     BackendServerPort:     number;
     BackendStatusPort:     number;
     SecurityPin:           string;
@@ -11,11 +14,15 @@ export interface HostAddress {
     BackendServerIP6:      string;
     AllowLinkLocal:        boolean; 
     BackendServerAddr:     string;
+    // Note : IsMasterBackend is not stored on the DB
+    // It is used internally to derive MasterServerName
     IsMasterBackend:       boolean;
     MasterServerName:      string;
 }
 
 export interface Locale {
+    successCount:   number;
+    errorCount:     number;
     TVFormat:       string;
     VbiFormat:      string;
     FreqTable:      string;
@@ -79,9 +86,9 @@ export interface JobQBackend {
     JobQueueMaxSimultaneousJobs:    number;
     JobQueueCheckFrequency:         number;
     JobQueueWindowStart:            Date;
-    JobQueueWindowStartObs:         Observable<GetSettingResponse>;
+    JobQueueWindowStart$:           Observable<GetSettingResponse>;
     JobQueueWindowEnd:              Date;
-    JobQueueWindowEndObs:           Observable<GetSettingResponse>;
+    JobQueueWindowEnd$:             Observable<GetSettingResponse>;
     JobQueueCPU:                    string;
     JobAllowMetadata:               boolean;
     JobAllowCommFlag:               boolean;
@@ -96,10 +103,8 @@ export interface JobQBackend {
 export interface JobQCommands {
     successCount:                   number;
     errorCount:                     number;
-    UserJobDesc1:                   string;
-    UserJobDesc2:                   string;
-    UserJobDesc3:                   string;
-    UserJobDesc4:                   string;
+    UserJobDesc:                    string [];
+    UserJob:                        string [];
 }
 
 export interface JobQGlobal {
@@ -111,6 +116,12 @@ export interface JobQGlobal {
     JobQueueTranscodeCommand:       string;
     AutoTranscodeBeforeAutoCommflag:boolean;
     SaveTranscoding:                boolean;
+}
+
+export interface EpgDownload {
+    successCount:                   number;
+    errorCount:                     number;
+    MythFillEnabled:                boolean;
 }
 
 

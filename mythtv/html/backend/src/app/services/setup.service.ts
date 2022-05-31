@@ -1,10 +1,13 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
+import {TranslateService} from '@ngx-translate/core';
+
 import { GetSettingResponse } from './interfaces/myth.interface';
-import { Setup, Miscellaneous, EITScanner, ShutWake, BackendWake, BackendControl,
-    JobQBackend, JobQCommands, JobQGlobal }
+import {  HostAddress, Locale,  Setup, Miscellaneous, EITScanner, ShutWake, BackendWake, BackendControl,
+    JobQBackend, JobQCommands, JobQGlobal, EpgDownload }
     from './interfaces/setup.interface';
 import { MythService } from './myth.service';
+import { throwIfEmpty } from 'rxjs/operators';
 
 @Injectable({
     providedIn: 'root'
@@ -14,87 +17,221 @@ export class SetupService {
     m_hostName: string = ""; // hostname of the backend server
     m_initialized: boolean = false;
 
-    m_setupData: Setup = {
-        General: {
-            HostAddress: {
-                BackendServerPort: 4543,
-                BackendStatusPort: 4544,
-                SecurityPin: '0000',
-                AllowConnFromAll: false,
-                ListenOnAllIps: true,
-                BackendServerIP: '127.0.0.1',
-                BackendServerIP6: '::1',
-                AllowLinkLocal: true,
-                BackendServerAddr: '',
-                IsMasterBackend: true,
-                MasterServerName: '',
-            },
-            Locale: {
-                TVFormat: 'PAL',
-                VbiFormat: 'None',
-                FreqTable: 'us-bcast'
-            },
-        }
-    }
-
-    constructor(private mythService: MythService) {
+    constructor(private mythService: MythService, private translate: TranslateService) {
         this.mythService.GetHostName().subscribe(data => {
             this.m_hostName = data.String;
         });
     }
 
     Init(): void {
-        this.loadSettings();
         this.m_initialized = true;
     }
 
-    loadSettings() {
-        // host address
-        console.log("Setup service loading settings")
-        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "BackendServerPort" }).subscribe(data => this.m_setupData.General.HostAddress.BackendServerPort = Number(data.String));
-        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "BackendStatusPort" }).subscribe(data => this.m_setupData.General.HostAddress.BackendStatusPort = Number(data.String));
-        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "SecurityPin" }).subscribe(data => this.m_setupData.General.HostAddress.SecurityPin = data.String);
-        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "AllowConnFromAll" }).subscribe(data => this.m_setupData.General.HostAddress.AllowConnFromAll = (data.String == "1"));
-        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "ListenOnAllIps" }).subscribe(data => this.m_setupData.General.HostAddress.ListenOnAllIps = (data.String == "1"));
-        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "BackendServerIP" }).subscribe(data => this.m_setupData.General.HostAddress.BackendServerIP = data.String);
-        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "BackendServerIP6" }).subscribe(data => this.m_setupData.General.HostAddress.BackendServerIP6 = data.String);
-        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "UseLinkLocal" }).subscribe(data => this.m_setupData.General.HostAddress.AllowLinkLocal = (data.String == "1"));
-        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "BackendServerAddr" }).subscribe(data => this.m_setupData.General.HostAddress.BackendServerAddr = data.String);
-        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "IsMasterBackend" }).subscribe(data => this.m_setupData.General.HostAddress.IsMasterBackend = (data.String == "1"));
-        this.mythService.GetSetting({ HostName: '_GLOBAL_'     , Key: "MasterServerName" }).subscribe(data => this.m_setupData.General.HostAddress.MasterServerName = data.String);
-        // locale
-        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "TVFormat" }).subscribe(data => this.m_setupData.General.Locale.TVFormat = data.String);
-        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "VbiFormat" }).subscribe(data => this.m_setupData.General.Locale.VbiFormat = data.String);
-        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "FreqTable" }).subscribe(data => this.m_setupData.General.Locale.FreqTable = data.String);
+    m_HostAddressData!: HostAddress;
+
+    getHostAddressData(): HostAddress {
+        this.m_HostAddressData = {
+            successCount:           0,
+            errorCount:             0,
+            thisHostName:   this.m_hostName,
+            BackendServerPort: 4543,
+            BackendStatusPort: 4544,
+            SecurityPin: '0000',
+            AllowConnFromAll: false,
+            ListenOnAllIps: true,
+            BackendServerIP: '127.0.0.1',
+            BackendServerIP6: '::1',
+            AllowLinkLocal: true,
+            BackendServerAddr: '',
+            IsMasterBackend: true,
+            MasterServerName: this.m_hostName,
+        };
+        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "BackendServerPort" })
+            .subscribe({
+                next: data => this.m_HostAddressData.BackendServerPort = Number(data.String),
+                error: () => this.m_HostAddressData.errorCount++
+            });
+        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "BackendStatusPort" })
+            .subscribe({
+                next: data => this.m_HostAddressData.BackendStatusPort = Number(data.String),
+                error: () => this.m_HostAddressData.errorCount++
+            });
+        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "SecurityPin" })
+            .subscribe({
+                next: data => this.m_HostAddressData.SecurityPin = data.String,
+                error: () => this.m_HostAddressData.errorCount++
+            });
+        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "AllowConnFromAll" })
+            .subscribe({
+                next: data => this.m_HostAddressData.AllowConnFromAll = (data.String == "1"),
+                error: () => this.m_HostAddressData.errorCount++
+            });
+        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "ListenOnAllIps" })
+            .subscribe({
+                next: data => this.m_HostAddressData.ListenOnAllIps = (data.String == "1"),
+                error: () => this.m_HostAddressData.errorCount++
+            });
+        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "BackendServerIP" })
+            .subscribe({
+                next: data => this.m_HostAddressData.BackendServerIP = data.String,
+                error: () => this.m_HostAddressData.errorCount++
+            });
+        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "BackendServerIP6" })
+            .subscribe({
+                next: data => this.m_HostAddressData.BackendServerIP6 = data.String,
+                error: () => this.m_HostAddressData.errorCount++
+            });
+        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "UseLinkLocal" })
+            .subscribe({
+                next: data => this.m_HostAddressData.AllowLinkLocal = (data.String == "1"),
+                error: () => this.m_HostAddressData.errorCount++
+            });
+        this.mythService.GetSetting({ HostName: this.m_hostName, Key: "BackendServerAddr" })
+            .subscribe({
+                next: data => this.m_HostAddressData.BackendServerAddr = data.String,
+                error: () => this.m_HostAddressData.errorCount++
+            });
+        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "MasterServerName" })
+            .subscribe({
+                next: data => {
+                    this.m_HostAddressData.MasterServerName = data.String;
+                    this.m_HostAddressData.IsMasterBackend = (this.m_HostAddressData.MasterServerName == this.m_hostName);
+                },
+                error: () => this.m_HostAddressData.errorCount++
+            });
+
+        return this.m_HostAddressData;
     }
+
+    HostAddressObs = {
+        next: (x: any) => {
+            if (x.bool)
+                this.m_HostAddressData.successCount ++;
+            else
+                this.m_HostAddressData.errorCount;
+        },
+        error: (err: any) => {
+            console.error(err);
+            this.m_HostAddressData.errorCount ++
+        }
+    };
+
+    saveHostAddressData() {
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "BackendServerPort",
+            Value: String(this.m_HostAddressData.BackendServerPort)
+        }).subscribe(this.HostAddressObs);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "BackendStatusPort",
+            Value: String(this.m_HostAddressData.BackendStatusPort)
+        }).subscribe(this.HostAddressObs);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "SecurityPin",
+            Value: this.m_HostAddressData.SecurityPin
+        }).subscribe(this.HostAddressObs);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "AllowConnFromAll",
+            Value: this.m_HostAddressData.AllowConnFromAll ? "1" : "0"
+        }).subscribe(this.HostAddressObs);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "ListenOnAllIps",
+            Value: this.m_HostAddressData.ListenOnAllIps ? "1" : "0"
+        }).subscribe(this.HostAddressObs);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "BackendServerIP",
+            Value: this.m_HostAddressData.BackendServerIP
+        }).subscribe(this.HostAddressObs);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "BackendServerIP6",
+            Value: this.m_HostAddressData.BackendServerIP6
+        }).subscribe(this.HostAddressObs);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "AllowLinkLocal",
+            Value: this.m_HostAddressData.AllowLinkLocal ? "1" : "0"
+        }).subscribe(this.HostAddressObs);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "BackendServerAddr",
+            Value: this.m_HostAddressData.BackendServerAddr
+        }).subscribe(this.HostAddressObs);
+        this.mythService.PutSetting({
+            HostName: "_GLOBAL_", Key: "MasterServerName",
+            Value: this.m_HostAddressData.MasterServerName
+        }).subscribe(this.HostAddressObs);
+
+    }
+
+    m_LocaleData!: Locale;
+
+    getLocaleData(): Locale {
+        this.m_LocaleData = {
+            successCount:   0,
+            errorCount:     0,
+            TVFormat:       'PAL',
+            VbiFormat:      'None',
+            FreqTable:      'us-bcast'
+        }
+        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "TVFormat" })
+            .subscribe({
+                next: data => this.m_LocaleData.TVFormat = data.String,
+                error: () => this.m_LocaleData.errorCount++
+            });
+        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "VbiFormat" })
+            .subscribe({
+                next: data => this.m_LocaleData.VbiFormat = data.String,
+                error: () => this.m_LocaleData.errorCount++
+            });
+        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "FreqTable" })
+            .subscribe({
+                next: data => this.m_LocaleData.FreqTable = data.String,
+                error: () => this.m_LocaleData.errorCount++
+            });
+        return this.m_LocaleData;
+    }
+
+    LocaleObs = {
+        next: (x: any) => {
+            if (x.bool)
+                this.m_LocaleData.successCount ++;
+            else
+                this.m_LocaleData.errorCount;
+        },
+        error: (err: any) => {
+            console.error(err);
+            this.m_LocaleData.errorCount ++
+        }
+    };
+
+
+    saveLocaleData() {
+        this.mythService.PutSetting({
+            HostName: "_GLOBAL_", Key: "TVFormat",
+            Value: this.m_LocaleData.TVFormat
+        }).subscribe(this.LocaleObs);
+        this.mythService.PutSetting({
+            HostName: "_GLOBAL_", Key: "VbiFormat",
+            Value: this.m_LocaleData.VbiFormat
+        }).subscribe(this.LocaleObs);
+        this.mythService.PutSetting({
+            HostName: "_GLOBAL_", Key: "FreqTable",
+            Value: this.m_LocaleData.FreqTable
+        }).subscribe(this.LocaleObs);
+    }
+
+
+    // Setup combines the first two sets, HostAddress and Locale
+
+    m_setupData!: Setup;
 
     getSetupData(): Setup {
-        if (!this.m_initialized) {
-            this.Init();
+        this.getHostAddressData();
+        this.getLocaleData();
+        this.m_setupData = {
+            General : {
+                HostAddress : this.m_HostAddressData,
+                Locale : this.m_LocaleData
+            }
         }
         return this.m_setupData;
-    }
-
-
-    saveHostAddressSettings() {
-        this.mythService.PutSetting({ HostName: "this.m_hostName", Key: "BackendServerPort", Value: String(this.m_setupData.General.HostAddress.BackendServerPort) }).subscribe(result => { console.log("BackendServerPort: ", result.bool); });
-        this.mythService.PutSetting({ HostName: "this.m_hostName", Key: "BackendStatusPort", Value: String(this.m_setupData.General.HostAddress.BackendStatusPort) }).subscribe(result => { console.log("BackendStatusPort: ", result.bool); });
-        this.mythService.PutSetting({ HostName: "this.m_hostName", Key: "SecurityPin",       Value: this.m_setupData.General.HostAddress.SecurityPin }).subscribe(result => { console.log("SecurityPin: ", result.bool); });
-        this.mythService.PutSetting({ HostName: "this.m_hostName", Key: "AllowConnFromAll",  Value: this.m_setupData.General.HostAddress.AllowConnFromAll ? "1" : "0" }).subscribe(result => { console.log("AllowConnFromAll: ", result.bool); });
-        this.mythService.PutSetting({ HostName: "this.m_hostName", Key: "ListenOnAllIps",    Value: String(this.m_setupData.General.HostAddress.ListenOnAllIps) }).subscribe(result => { console.log("ListenOnAllIps: ", result.bool); });
-        this.mythService.PutSetting({ HostName: "this.m_hostName", Key: "BackendServerIP",   Value: this.m_setupData.General.HostAddress.BackendServerIP }).subscribe(result => { console.log("LocalServerIP: ", result.bool); });
-        this.mythService.PutSetting({ HostName: "this.m_hostName", Key: "BackendServerIP6",  Value: this.m_setupData.General.HostAddress.BackendServerIP6 }).subscribe(result => { console.log("LocalServerIP6: ", result.bool); });
-        this.mythService.PutSetting({ HostName: "this.m_hostName", Key: "AllowLinkLocal",    Value: this.m_setupData.General.HostAddress.AllowLinkLocal ? "1" : "0" }).subscribe(result => { console.log("UseLinkLocal: ", result.bool); });
-        this.mythService.PutSetting({ HostName: "this.m_hostName", Key: "BackendServerAddr", Value: this.m_setupData.General.HostAddress.BackendServerAddr }).subscribe(result => { console.log("BackendServerAddr: ", result.bool); });
-        this.mythService.PutSetting({ HostName: "this.m_hostName", Key: "IsMasterBackend",   Value: this.m_setupData.General.HostAddress.IsMasterBackend ? "1" : "0" }).subscribe(result => { console.log("IsMasterBackend: ", result.bool); });
-        this.mythService.PutSetting({ HostName: "_GLOBAL_", Key: "MasterServerName", Value: this.m_setupData.General.HostAddress.MasterServerName }).subscribe(result => { console.log("MasterServerName: ", result.bool); });
-
-    }
-
-    saveLocaleSettings() {
-        this.mythService.PutSetting({ HostName: "_GLOBAL_", Key: "TVFormat", Value: this.m_setupData.General.Locale.TVFormat }).subscribe(result => { console.log("TVFormat: ", result.bool); });
-        this.mythService.PutSetting({ HostName: "_GLOBAL_", Key: "VbiFormat", Value: this.m_setupData.General.Locale.VbiFormat }).subscribe(result => { console.log("VBIFormat: ", result.bool); });
-        this.mythService.PutSetting({ HostName: "_GLOBAL_", Key: "FreqTable", Value: this.m_setupData.General.Locale.FreqTable }).subscribe(result => { console.log("FreqTable: ", result.bool); });
     }
 
     m_miscellaneousData!: Miscellaneous;
@@ -481,9 +618,9 @@ export class SetupService {
             JobQueueMaxSimultaneousJobs:    1,
             JobQueueCheckFrequency:         60,
             JobQueueWindowStart:            new Date(0),
-            JobQueueWindowStartObs:         new Observable<GetSettingResponse>(),
+            JobQueueWindowStart$:           new Observable<GetSettingResponse>(),
             JobQueueWindowEnd:              new Date(0),
-            JobQueueWindowEndObs:           new Observable<GetSettingResponse>(),
+            JobQueueWindowEnd$:             new Observable<GetSettingResponse>(),
             JobQueueCPU:                    "0",
             JobAllowMetadata:               true,
             JobAllowCommFlag:               true,
@@ -507,16 +644,16 @@ export class SetupService {
                 next: data => this.m_JobQBackend.JobQueueCheckFrequency = Number(data.String),
                 error: () => this.m_JobQBackend.errorCount++
             });
-        this.m_JobQBackend.JobQueueWindowStartObs = this.mythService.GetSetting({
+        this.m_JobQBackend.JobQueueWindowStart$ = this.mythService.GetSetting({
              HostName: this.m_hostName, Key: "JobQueueWindowStart", Default: "00:00" });
-        this.m_JobQBackend.JobQueueWindowStartObs
+        this.m_JobQBackend.JobQueueWindowStart$
             .subscribe({
                 next: data => this.parseTime(this.m_JobQBackend.JobQueueWindowStart, data.String),
                 error: () => this.m_JobQBackend.errorCount++
             });
-        this.m_JobQBackend.JobQueueWindowEndObs = this.mythService.GetSetting({
+        this.m_JobQBackend.JobQueueWindowEnd$ = this.mythService.GetSetting({
             HostName: this.m_hostName, Key: "JobQueueWindowEnd", Default: "23:59" });
-        this.m_JobQBackend.JobQueueWindowEndObs
+        this.m_JobQBackend.JobQueueWindowEnd$
             .subscribe({
                 next: data => this.parseTime(this.m_JobQBackend.JobQueueWindowEnd, data.String),
                 error: () => this.m_JobQBackend.errorCount++
@@ -617,36 +754,61 @@ export class SetupService {
     m_JobQCommands!: JobQCommands;
 
     getJobQCommands(): JobQCommands {
+        // if already loaded, simply retrun the existing object.
+        // This is different from others since it is used by more than one tab
+        // and must not be reloaded for the other tab, as that may overwrite
+        // unsaved changes.
+        if ( typeof this.m_JobQCommands == 'object')
+            return this.m_JobQCommands;
+
         this.m_JobQCommands = {
             successCount: 0,
             errorCount: 0,
-            UserJobDesc1:                   "User Job #1",
-            UserJobDesc2:                   "User Job #2",
-            UserJobDesc3:                   "User Job #3",
-            UserJobDesc4:                   "User Job #4"
+            UserJobDesc:    [],
+            UserJob:        []
         }
-
-        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "UserJobDesc1", Default: "User Job #1" })
-            .subscribe({
-                next: data => this.m_JobQCommands.UserJobDesc1 =  data.String,
-                error: () => this.m_JobQBackend.errorCount++
-            });
-        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "UserJobDesc2", Default: "User Job #2" })
-            .subscribe({
-                next: data => this.m_JobQCommands.UserJobDesc2 =  data.String,
-                error: () => this.m_JobQCommands.errorCount++
-            });
-        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "UserJobDesc3", Default: "User Job #3" })
-            .subscribe({
-                next: data => this.m_JobQCommands.UserJobDesc3 =  data.String,
-                error: () => this.m_JobQCommands.errorCount++
-            });
-        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "UserJobDesc4", Default: "User Job #4" })
-            .subscribe({
-                next: data => this.m_JobQCommands.UserJobDesc4 =  data.String,
-                error: () => this.m_JobQCommands.errorCount++
-            });
+        for (let ix = 0; ix < 4; ix++) {
+            let num=ix+1;
+            let defaultName;
+            this.translate.get('settings.services.job_default',{num:num})
+                .subscribe(data => this.m_JobQCommands.UserJobDesc[ix] = data);
+            this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "UserJobDesc"+num, Default: defaultName})
+                .subscribe({
+                    next: data => this.m_JobQCommands.UserJobDesc[ix] =  data.String,
+                    error: () => this.m_JobQBackend.errorCount++
+                });
+            this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "UserJob"+num, Default: ""})
+                .subscribe({
+                    next: data => this.m_JobQCommands.UserJob[ix] =  data.String,
+                    error: () => this.m_JobQBackend.errorCount++
+                });
+        }
         return this.m_JobQCommands;
+    }
+
+    JobQCommandsObs = {
+        next: (x: any) => {
+            if (x.bool)
+                this.m_JobQCommands.successCount++;
+            else
+                this.m_JobQCommands.errorCount;
+        },
+        error: (err: any) => {
+            console.error(err);
+            this.m_JobQCommands.errorCount++
+        },
+    };
+
+    saveJobQCommands() {
+        this.m_JobQCommands.successCount = 0;
+        this.m_JobQCommands.errorCount = 0;
+        for (let ix = 0; ix < 4; ix++) {
+            let num=ix+1;
+            this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "UserJobDesc"+num,
+                Value: this.m_JobQCommands.UserJobDesc[ix]}).subscribe(this.JobQCommandsObs);
+            this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "UserJob"+num,
+                Value: this.m_JobQCommands.UserJob[ix]}).subscribe(this.JobQCommandsObs);
+        }
     }
 
     m_JobQGlobal!: JobQGlobal;
@@ -697,7 +859,7 @@ export class SetupService {
     }
 
 
-    JobQGlobal$ = {
+    JobQGlobalObs = {
         next: (x: any) => {
             if (x.bool)
                 this.m_JobQGlobal.successCount++;
@@ -714,17 +876,52 @@ export class SetupService {
         this.m_JobQGlobal.successCount = 0;
         this.m_JobQGlobal.errorCount = 0;
         this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "JobsRunOnRecordHost",
-            Value: this.m_JobQGlobal.JobsRunOnRecordHost ? "1" : "0"}).subscribe(this.JobQGlobal$);
+            Value: this.m_JobQGlobal.JobsRunOnRecordHost ? "1" : "0"}).subscribe(this.JobQGlobalObs);
         this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "AutoCommflagWhileRecording",
-            Value: this.m_JobQGlobal.AutoCommflagWhileRecording ? "1" : "0"}).subscribe(this.JobQGlobal$);
+            Value: this.m_JobQGlobal.AutoCommflagWhileRecording ? "1" : "0"}).subscribe(this.JobQGlobalObs);
         this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "JobQueueCommFlagCommand",
-            Value: this.m_JobQGlobal.JobQueueCommFlagCommand}).subscribe(this.JobQGlobal$);
+            Value: this.m_JobQGlobal.JobQueueCommFlagCommand}).subscribe(this.JobQGlobalObs);
         this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "JobQueueTranscodeCommand",
-            Value: this.m_JobQGlobal.JobQueueTranscodeCommand}).subscribe(this.JobQGlobal$);
+            Value: this.m_JobQGlobal.JobQueueTranscodeCommand}).subscribe(this.JobQGlobalObs);
         this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "AutoTranscodeBeforeAutoCommflag",
-            Value: this.m_JobQGlobal.AutoTranscodeBeforeAutoCommflag ? "1" : "0"}).subscribe(this.JobQGlobal$);
+            Value: this.m_JobQGlobal.AutoTranscodeBeforeAutoCommflag ? "1" : "0"}).subscribe(this.JobQGlobalObs);
         this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "SaveTranscoding",
-            Value: this.m_JobQGlobal.SaveTranscoding ? "1" : "0"}).subscribe(this.JobQGlobal$);
+            Value: this.m_JobQGlobal.SaveTranscoding ? "1" : "0"}).subscribe(this.JobQGlobalObs);
     }
 
+    m_EpgDownload!: EpgDownload;
+
+    getEpgDownload(): EpgDownload {
+        this.m_EpgDownload = {
+            successCount: 0,
+            errorCount: 0,
+            MythFillEnabled: true
+        }
+        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "MythFillEnabled", Default: "1" })
+            .subscribe({
+                next: data => this.m_EpgDownload.MythFillEnabled =  (data.String == '1'),
+                error: () => this.m_EpgDownload.errorCount++
+            });
+        return this.m_EpgDownload;
+    }
+
+    EpgDownloadObs = {
+        next: (x: any) => {
+            if (x.bool)
+                this.m_EpgDownload.successCount++;
+            else
+                this.m_EpgDownload.errorCount;
+        },
+        error: (err: any) => {
+            console.error(err);
+            this.m_EpgDownload.errorCount++
+        },
+    };
+
+    saveEpgDownload() {
+        this.m_EpgDownload.successCount = 0;
+        this.m_EpgDownload.errorCount = 0;
+        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "MythFillEnabled",
+            Value: this.m_EpgDownload.MythFillEnabled ? "1" : "0"}).subscribe(this.EpgDownloadObs);
+    }
 }

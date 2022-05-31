@@ -27,8 +27,7 @@
 
 extern "C" {
 #include "libavutil/cpu.h"
-#include "libavcodec/mathops.h"
-#include "libmythmpeg2/attributes.h"     // for ATTR_ALIGN()
+#include "libmythmpeg2/attributes.h"     // for ATTR_ALIGN() in mpeg2_internal.h
 #include "libmythmpeg2/mpeg2.h"          // for mpeg2_decoder_t, mpeg2_fbuf_t, et c
 #include "libmythmpeg2/mpeg2_internal.h"
 }
@@ -1153,7 +1152,7 @@ void MPEG2fixup::WriteData(const QString& filename, uint8_t *data, int size)
 
 bool MPEG2fixup::BuildFrame(AVPacket *pkt, const QString& fname)
 {
-    std::array<uint16_t,64> intra_matrix {} ATTR_ALIGN(16);
+    alignas(16) std::array<uint16_t,64> intra_matrix {};
     int64_t savedPts = pkt->pts; // save the original pts
 
     const mpeg2_info_t *info = mpeg2_info(m_imgDecoder);
@@ -1194,17 +1193,39 @@ bool MPEG2fixup::BuildFrame(AVPacket *pkt, const QString& fname)
 
     m_picture->opaque = info->display_fbuf->id;
 
-    //copy_quant_matrix(m_imgDecoder, intra_matrix);
-    if (!m_zigzagInit)
-    {
-        for (int i = 0; i < 64; i++)
-        {
-            m_invZigzagDirect16[ff_zigzag_direct[i]] = i + 1;
-        }
-    }
+#if 0 //RUN_ONCE
+    static constexpr std::array<uint8_t, 64> k_zigzag_scan = {
+        0,   1,  8, 16,  9,  2,  3, 10,
+        17, 24, 32, 25, 18, 11,  4,  5,
+        12, 19, 26, 33, 40, 48, 41, 34,
+        27, 20, 13,  6,  7, 14, 21, 28,
+        35, 42, 49, 56, 57, 50, 43, 36,
+        29, 22, 15, 23, 30, 37, 44, 51,
+        58, 59, 52, 45, 38, 31, 39, 46,
+        53, 60, 61, 54, 47, 55, 62, 63
+    };
+
+    static std::array<uint16_t, 64> k_invZigzagDirect16 = {};
     for (int i = 0; i < 64; i++)
     {
-        intra_matrix[m_invZigzagDirect16[i] - 1] = m_imgDecoder->quantizer_matrix[0][i];
+        k_invZigzagDirect16[k_zigzag_scan[i]] = i;
+    }
+#endif
+    static constexpr std::array<uint16_t, 64> k_invZigzagDirect16 = {
+          0,  1,  5,  6, 14, 15, 27, 28,
+          2,  4,  7, 13, 16, 26, 29, 42,
+          3,  8, 12, 17, 25, 30, 41, 43,
+          9, 11, 18, 24, 31, 40, 44, 53,
+         10, 19, 23, 32, 39, 45, 52, 54,
+         20, 22, 33, 38, 46, 51, 55, 60,
+         21, 34, 37, 47, 50, 56, 59, 61,
+         35, 36, 48, 49, 57, 58, 62, 63,
+    };
+
+    //copy_quant_matrix(m_imgDecoder, intra_matrix);
+    for (int i = 0; i < 64; i++)
+    {
+        intra_matrix[k_invZigzagDirect16[i]] = m_imgDecoder->quantizer_matrix[0][i];
     }
 
     if (info->display_picture->nb_fields % 2)

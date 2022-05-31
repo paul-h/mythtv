@@ -51,8 +51,6 @@ HEADERS += mythterminal.h
 HEADERS += remoteutil.h
 HEADERS += rawsettingseditor.h
 HEADERS += programinfo.h          programinfoupdater.h
-HEADERS += programtypes.h         recordingtypes.h
-HEADERS += programtypeflags.h
 HEADERS += rssparse.h
 HEADERS += guistartup.h
 
@@ -78,7 +76,6 @@ SOURCES += mythterminal.cpp
 SOURCES += remoteutil.cpp
 SOURCES += rawsettingseditor.cpp
 SOURCES += programinfo.cpp        programinfoupdater.cpp
-SOURCES += programtypes.cpp       recordingtypes.cpp
 SOURCES += rssparse.cpp
 SOURCES += guistartup.cpp
 
@@ -126,8 +123,6 @@ inc.files += visual.h output.h langsettings.h
 inc.files += mythexp.h storagegroupeditor.h
 inc.files += mythterminal.h       remoteutil.h
 inc.files += programinfo.h
-inc.files += programtypes.h       recordingtypes.h
-inc.files += programtypeflags.h
 inc.files += rssparse.h
 inc.files += standardsettings.h
 inc.files += mythrssmanager.h     netutils.h
@@ -222,10 +217,6 @@ using_jack {
     DEFINES += USING_JACK
     HEADERS += audio/audiooutputjack.h
     SOURCES += audio/audiooutputjack.cpp
-}
-
-contains( HAVE_MMX, yes ) {
-    HEADERS += ../../external/FFmpeg/libavutil/cpu.h
 }
 
 use_hidesyms {

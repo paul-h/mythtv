@@ -13,13 +13,13 @@
 
 // MythTV headers
 #include "libmyth/mythexp.h"
-#include "libmyth/programtypes.h"
-#include "libmyth/recordingtypes.h"
 #include "libmythbase/autodeletedeque.h"
 #include "libmythbase/mythdate.h"
 #include "libmythbase/mythdbcon.h"
 #include "libmythbase/mythtypes.h"
-#include "libmythservicecontracts/enums/recStatus.h"
+#include "libmythbase/programtypes.h"
+#include "libmythbase/recordingstatus.h"
+#include "libmythbase/recordingtypes.h"
 
 /* If NUMPROGRAMLINES gets updated, then MYTH_PROTO_VERSION and MYTH_PROTO_TOKEN
    in mythversion.h need to be bumped, and also follow the instructions in
@@ -805,7 +805,8 @@ class MPUBLIC ProgramInfo
     float           m_stars             {0.0F}; ///< Rating, range [0..1]
     QDate           m_originalAirDate;
     QDateTime       m_lastModified      {m_startTs};
-    QDateTime       m_lastInUseTime     {m_startTs.addSecs(-4 * 60 * 60)};
+    static constexpr int64_t kLastInUseOffset {4LL * 60 * 60};
+    QDateTime       m_lastInUseTime     {m_startTs.addSecs(-kLastInUseOffset)};
 
     int32_t         m_recPriority2      {0};
 

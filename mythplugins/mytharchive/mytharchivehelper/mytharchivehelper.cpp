@@ -1078,7 +1078,7 @@ bool NativeArchive::importIPEncoderFile(const ImportItem &importItem)
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting recording"));
 
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Duration is %1, Expected end is: %2")
-        .arg(formatTime(importItem.actualDuration)).arg(QDateTime::currentDateTime().addSecs(importItem.actualDuration).toString()));
+        .arg(MythDate::formatTime(std::chrono::seconds(importItem.actualDuration), "HH:mm:ss")).arg(QDateTime::currentDateTime().addSecs(importItem.actualDuration).toString()));
 
     QString recCommand = gCoreContext->GetSetting("MythArchiveRecordFileCommand");
     recCommand.replace("%INFILE%", STREAMURL);
@@ -1239,7 +1239,7 @@ bool NativeArchive::importIntensityProFile(const ImportItem &importItem)
 
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting recording").arg(title));
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Duration is %1, Expected end is: %2")
-        .arg(formatTime(importItem.actualDuration)).arg(QDateTime::currentDateTime().addSecs(importItem.actualDuration).toString()));
+        .arg(MythDate::formatTime(std::chrono::seconds(importItem.actualDuration), "HH:mm:ss")).arg(QDateTime::currentDateTime().addSecs(importItem.actualDuration).toString()));
 
     //FIXME the frames per second should be a setting?
     uint frames = importItem.actualDuration * FPS;
@@ -1398,7 +1398,7 @@ bool NativeArchive::importMagewellFile(const ImportItem &importItem)
 
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Starting recording").arg(title));
     LOG(VB_JOBQUEUE, LOG_INFO, QString("Duration is %1, Expected end is: %2")
-        .arg(formatTime(importItem.actualDuration)).arg(QDateTime::currentDateTime().addSecs(importItem.actualDuration).toString()));
+        .arg(MythDate::formatTime(std::chrono::seconds(importItem.actualDuration), "HH:mm:ss")).arg(QDateTime::currentDateTime().addSecs(importItem.actualDuration).toString()));
 
     //FIXME the frames per second should be a setting?
     QString time = QDateTime::fromSecsSinceEpoch(importItem.actualDuration).toUTC().toString("hh:mm:ss");

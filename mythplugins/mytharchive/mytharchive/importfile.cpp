@@ -29,6 +29,7 @@
 #include <libmythui/mythdialogbox.h>
 #include <libmythbase/mythlogging.h>
 #include <libmythbase/mythdate.h>
+#include <libmythbase/stringutil.h>
 #include <libmythbase/mythsystem.h>
 #include <libmythbase/mythdirs.h>
 #include <libmythbase/exitcodes.h>
@@ -310,7 +311,7 @@ void ImportFile::titleChanged(MythUIButtonListItem *item)
     if (m_filesizeText)
     {
         if (i->size > 0)
-            m_filesizeText->SetText(formatSize(i->size / 1024));
+            m_filesizeText->SetText(StringUtil::formatKBytes(i->size / 1024));
         else
             m_filesizeText->SetText(tr("N/A"));
     }
@@ -318,7 +319,7 @@ void ImportFile::titleChanged(MythUIButtonListItem *item)
     if (m_durationText)
     {
         if (i->actualDuration > 0)
-            m_durationText->SetText(formatTime(i->actualDuration));
+            m_durationText->SetText(MythDate::formatTime(std::chrono::seconds(i->actualDuration), "HH:mm:ss"));
         else
             m_durationText->SetText(tr("N/A"));
     }
