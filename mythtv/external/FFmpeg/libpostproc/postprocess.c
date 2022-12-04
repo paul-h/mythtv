@@ -76,6 +76,7 @@ try to unroll inner for(x=0 ... loop to avoid these damn if(x ... checks
 #include "config.h"
 #include "libavutil/avutil.h"
 #include "libavutil/avassert.h"
+#include "libavutil/cpu.h"
 #include "libavutil/intreadwrite.h"
 #include <inttypes.h>
 #include <stdio.h>
@@ -90,28 +91,6 @@ try to unroll inner for(x=0 ... loop to avoid these damn if(x ... checks
 #include "postprocess_internal.h"
 #include "libavutil/avstring.h"
 #include "libavutil/ppc/util_altivec.h"
-
-#include "libavutil/cpu.h"
-
-#include "libavutil/ffversion.h"
-const char postproc_ffversion[] = "FFmpeg version " FFMPEG_VERSION;
-
-unsigned postproc_version(void)
-{
-    av_assert0(LIBPOSTPROC_VERSION_MICRO >= 100);
-    return LIBPOSTPROC_VERSION_INT;
-}
-
-const char *postproc_configuration(void)
-{
-    return FFMPEG_CONFIGURATION;
-}
-
-const char *postproc_license(void)
-{
-#define LICENSE_PREFIX "libpostproc license: "
-    return &LICENSE_PREFIX FFMPEG_LICENSE[sizeof(LICENSE_PREFIX) - 1];
-}
 
 #define GET_MODE_BUFFER_SIZE 500
 #define OPTIONS_ARRAY_SIZE 10
@@ -882,25 +861,9 @@ av_cold pp_context *pp_get_context(int width, int height, int cpuCaps){
     PPContext *c= av_mallocz(sizeof(PPContext));
     int stride= FFALIGN(width, 16);  //assumed / will realloc if needed
     int qpStride= (width+15)/16 + 2; //assumed / will realloc if needed
-    int cpuflags;
 
     if (!c)
         return NULL;
-
-    if (CONFIG_RUNTIME_CPUDETECT &&
-        !(cpuCaps & (PP_CPU_CAPS_MMX   | PP_CPU_CAPS_MMX2    |
-                     PP_CPU_CAPS_3DNOW | PP_CPU_CAPS_ALTIVEC ))) {
-        cpuflags = av_get_cpu_flags();
-
-        if (HAVE_MMX && cpuflags & AV_CPU_FLAG_MMX)
-            cpuCaps |= PP_CPU_CAPS_MMX;
-        if (HAVE_MMX2 && cpuflags & AV_CPU_FLAG_MMX2)
-            cpuCaps |= PP_CPU_CAPS_MMX2;
-        if (HAVE_AMD3DNOW && cpuflags & AV_CPU_FLAG_3DNOW)
-            cpuCaps |= PP_CPU_CAPS_3DNOW;
-        if (HAVE_ALTIVEC && cpuflags & AV_CPU_FLAG_ALTIVEC)
-            cpuCaps |= PP_CPU_CAPS_ALTIVEC;
-    }
 
     c->av_class = &av_codec_context_class;
     if(cpuCaps&PP_FORMAT){

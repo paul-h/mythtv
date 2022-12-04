@@ -42,7 +42,7 @@
 class V2Dvr : public MythHTTPService
 {
     Q_OBJECT
-    Q_CLASSINFO("Version",      "7.0")
+    Q_CLASSINFO("Version",      "7.1")
     Q_CLASSINFO("AddRecordedCredits",  "methods=POST;name=bool")
     Q_CLASSINFO("AddRecordedProgram",  "methods=POST;name=int")
     Q_CLASSINFO("RemoveRecorded",      "methods=POST;name=bool")
@@ -75,6 +75,7 @@ class V2Dvr : public MythHTTPService
     Q_CLASSINFO("DupInToString",        "methods=GET,POST,HEAD;name=String")
     Q_CLASSINFO("DupInToDescription",   "methods=GET,POST,HEAD;name=String")
     Q_CLASSINFO("ManageJobQueue",       "methods=POST;name=int")
+    Q_CLASSINFO("UpdateRecordedMetadata", "methods=POST")
 
   public:
     V2Dvr();
@@ -117,9 +118,9 @@ class V2Dvr : public MythHTTPService
                                             const QDateTime &StartTime  );
 
     static bool       AddRecordedCredits  ( int RecordedId,
-                                            const QJsonObject & json);
+                                            const QString & Cast);
 
-    static int        AddRecordedProgram  ( const QJsonObject & json);
+    static int        AddRecordedProgram  ( const QString & Program);
 
     static bool       RemoveRecorded      ( int              RecordedId,
                                             int              ChanId,
@@ -192,7 +193,7 @@ class V2Dvr : public MythHTTPService
     static V2MarkupList* GetRecordedMarkup( int              RecordedId );
 
     static bool    SetRecordedMarkup      ( int              RecordedId,
-                                            const QJsonObject & json );
+                                            const QString   &MarkupList);
 
     static V2ProgramList* GetConflictList ( int              StartIndex,
                                             int              Count,
@@ -364,7 +365,21 @@ class V2Dvr : public MythHTTPService
                                              QString          RemoteHost,
                                              QString          JobArgs   );
 
-
+    bool              UpdateRecordedMetadata ( uint             RecordedId,
+                                               bool             AutoExpire,
+                                               long             BookmarkOffset,
+                                               const QString   &BookmarkOffsetType,
+                                               bool             Damaged,
+                                               const QString   &Description,
+                                               uint             Episode,
+                                               const QString   &Inetref,
+                                                     QDate      OriginalAirDate,
+                                               bool             Preserve,
+                                               uint             Season,
+                                               uint             Stars,
+                                               const QString   &SubTitle,
+                                               const QString   &Title,
+                                               bool             Watched );
 
   private:
     Q_DISABLE_COPY(V2Dvr)

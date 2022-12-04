@@ -13,10 +13,10 @@
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythdirs.h"
 #include "libmythbase/mythlogging.h"
+#include "libmythbase/remoteutil.h"
 
 // libmyth
 #include "libmyth/mythcontext.h"
-#include "libmyth/remoteutil.h"
 
 // libmythtv
 #include "previewgenerator.h"
@@ -442,7 +442,7 @@ QString PreviewGeneratorQueue::GeneratePreviewImage(
     {
         SendEvent(pginfo, "PREVIEW_FAILED", key, token,
                   "Pending Delete", QDateTime());
-        return QString();
+        return {};
     }
 
     // keep in sync with default filename in PreviewGenerator::RunReal

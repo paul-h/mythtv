@@ -34,12 +34,10 @@
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythmedia.h"
 #include "libmythbase/mythmiscutil.h"
+#include "libmythbase/programinfo.h"
 #include "libmythbase/programtypes.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythbase/signalhandling.h"
-
-// libmyth
-#include "libmyth/programinfo.h"
-#include "libmyth/remoteutil.h"
 
 // libmythui
 #include "libmythui/mythdialogbox.h"
@@ -80,12 +78,6 @@
 #define DEBUG_ACTIONS        0 /**< set to 1 to debug actions           */
 
 #define LOC      QString("TV::%1(): ").arg(__func__)
-
-#define HideOSDWindow(WINDOW) { \
-    OSD *osd = GetOSDL(); \
-    if (osd) \
-        osd->HideWindow(WINDOW); \
-    ReturnOSDLock(); }
 
 /**
  * \brief If any cards are configured, return the number.
@@ -1915,10 +1907,12 @@ bool TV::StateIsLiveTV(TVState State)
     return (State == kState_WatchingLiveTV);
 }
 
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define TRANSITION(ASTATE,BSTATE) ((ctxState == (ASTATE)) && (desiredNextState == (BSTATE)))
 
 #define SET_NEXT() do { nextState = desiredNextState; changed = true; } while(false)
 #define SET_LAST() do { nextState = ctxState; changed = true; } while(false)
+// NOLINTEND(cppcoreguidelines-macro-usage)
 
 static QString tv_i18n(const QString &msg)
 {
@@ -2717,12 +2711,18 @@ void TV::PrepToSwitchToRecordedProgram(const ProgramInfo &ProgInfo)
 void TV::PrepareToExitPlayer(int Line)
 {
     m_playerContext.LockDeletePlayer(__FILE__, Line);
-    if (m_savePosOnExit && m_player && m_playerContext.m_playingInfo)
+    if ((m_savePosOnExit || m_clearPosOnExit) && m_player && m_playerContext.m_playingInfo)
     {
         // Clear last play position when we're at the end of a recording.
         // unless the recording is in-progress.
         bool at_end = !StateIsRecording(m_playerContext.GetState()) &&
                 (GetEndOfRecording() || m_playerContext.m_player->IsNearEnd());
+
+        // Clear last play position on exit when the user requested this
+        if (m_clearPosOnExit)
+        {
+            at_end = true;
+        }
 
         // Clear/Save play position without notification
         // The change must be broadcast when file is no longer in use
@@ -2769,8 +2769,8 @@ void TV::HandleEndOfPlaybackTimerEvent()
         }
         // If the end of playback is destined to pop up the end of
         // recording delete prompt, then don't exit the player here.
-        else if (!(GetState() == kState_WatchingPreRecorded &&
-                 m_dbEndOfRecExitPrompt && !m_inPlaylist && !m_underNetworkControl))
+        else if (GetState() != kState_WatchingPreRecorded ||
+                 !m_dbEndOfRecExitPrompt || m_inPlaylist || m_underNetworkControl)
         {
             ForceNextStateNone();
             m_endOfRecording = true;
@@ -3899,6 +3899,10 @@ bool TV::ActiveHandleAction(const QStringList &Actions,
                 ShowOSDStopWatchingRecording();
                 return handled;
             }
+            if (16 & m_dbPlaybackExitPrompt)
+            {
+                m_clearPosOnExit = true;
+            }
             PrepareToExitPlayer(__LINE__);
             m_requestDelete = false;
             exit = true;
@@ -4220,11 +4224,12 @@ void TV::ProcessNetworkControlCommand(const QString &Command)
     {
         if (StateIsLiveTV(GetState()))
         {
+            static const QRegularExpression kChannelNumRE { R"(^[-\.\d_#]+$)" };
             if (tokens[2] == "UP")
                 ChangeChannel(CHANNEL_DIRECTION_UP);
             else if (tokens[2] == "DOWN")
                 ChangeChannel(CHANNEL_DIRECTION_DOWN);
-            else if (tokens[2].contains(QRegularExpression(R"(^[-\.\d_#]+$)")))
+            else if (tokens[2].contains(kChannelNumRE))
                 ChangeChannel(0, tokens[2]);
         }
     }
@@ -4249,17 +4254,18 @@ void TV::ProcessNetworkControlCommand(const QString &Command)
         }
         else
         {
+            static const QRegularExpression kSpeedRE { R"(^\-*(\d*\.)?\d+x$)" };
             float tmpSpeed = 1.0F;
             bool ok = false;
 
-            if (tokens[2].contains(QRegularExpression(R"(^\-*(\d*\.)?\d+x$)")))
+            if (tokens[2].contains(kSpeedRE))
             {
                 QString speed = tokens[2].left(tokens[2].length()-1);
                 tmpSpeed = speed.toFloat(&ok);
             }
             else
             {
-                QRegularExpression re { R"(^(\-*\d+)\/(\d+)x$)" };
+                static const QRegularExpression re { R"(^(\-*\d+)\/(\d+)x$)" };
                 auto match = re.match(tokens[2]);
                 if (match.hasMatch())
                 {
@@ -4343,6 +4349,7 @@ void TV::ProcessNetworkControlCommand(const QString &Command)
     }
     else if (tokens.size() >= 3 && tokens[1] == "SEEK" && m_playerContext.HasPlayer())
     {
+        static const QRegularExpression kDigitsRE { "^\\d+$" };
         if (m_playerContext.m_buffer && m_playerContext.m_buffer->IsInDiscMenuOrStillFrame())
             return;
 
@@ -4361,7 +4368,7 @@ void TV::ProcessNetworkControlCommand(const QString &Command)
         else if ((tokens[2] == "POSITION" ||
                   tokens[2] == "POSITIONWITHCUTLIST") &&
                  (tokens.size() == 4) &&
-                 (tokens[3].contains(QRegularExpression("^\\d+$"))))
+                 (tokens[3].contains(kDigitsRE)))
         {
             DoSeekAbsolute(tokens[3].toInt(), tokens[2] == "POSITIONWITHCUTLIST");
         }
@@ -4444,7 +4451,7 @@ void TV::ProcessNetworkControlCommand(const QString &Command)
     }
     else if (tokens.size() >= 3 && tokens[1] == "VOLUME")
     {
-        QRegularExpression re { "(\\d+)%?" };
+        static const QRegularExpression re { "(\\d+)%?" };
         auto match = re.match(tokens[2]);
         if (match.hasMatch())
         {
@@ -4478,7 +4485,7 @@ void TV::ProcessNetworkControlCommand(const QString &Command)
             }
             else
             {
-                QRegularExpression re { "Play (.*)x" };
+                static const QRegularExpression re { "Play (.*)x" };
                 auto match = re.match(m_playerContext.GetPlayMessage());
                 if (match.hasMatch())
                 {
@@ -5690,7 +5697,7 @@ QString TV::GetQueuedChanNum() const
 void TV::ClearInputQueues(bool Hideosd)
 {
     if (Hideosd)
-        HideOSDWindow(OSD_WIN_INPUT)
+        HideOSDWindow(OSD_WIN_INPUT);
 
     m_queuedInput   = "";
     m_queuedChanNum = "";
@@ -5856,7 +5863,7 @@ bool TV::CommitQueuedInput()
             if (chanid)
                 BrowseChannel(channum);
 
-            HideOSDWindow(OSD_WIN_INPUT)
+            HideOSDWindow(OSD_WIN_INPUT);
         }
         else if (GetQueuedChanID() || !channum.isEmpty())
         {
@@ -5911,7 +5918,7 @@ void TV::ChangeChannel(ChannelChangeDirection Direction)
 
     if (ContextIsPaused(__FILE__, __LINE__))
     {
-        HideOSDWindow(OSD_WIN_STATUS)
+        HideOSDWindow(OSD_WIN_STATUS);
         MythMainWindow::DisableScreensaver();
     }
 
@@ -5946,19 +5953,20 @@ static uint get_chanid(const PlayerContext *ctx,
 {
     uint chanid = 0;
     uint cur_sourceid = 0;
+
     // try to find channel on current input
     if (ctx && ctx->m_playingInfo && ctx->m_playingInfo->GetSourceID())
     {
         cur_sourceid = ctx->m_playingInfo->GetSourceID();
-        chanid = std::max(static_cast<uint>(ChannelUtil::GetChanID(cur_sourceid, channum)), 0U);
+        chanid = std::max(ChannelUtil::GetChanID(cur_sourceid, channum), 0);
         if (chanid)
             return chanid;
     }
-    // try to find channel on specified input
 
+    // try to find channel on specified input
     uint sourceid = CardUtil::GetSourceID(cardid);
     if (cur_sourceid != sourceid && sourceid)
-        chanid = std::max(static_cast<uint>(ChannelUtil::GetChanID(sourceid, channum)), 0U);
+        chanid = std::max(ChannelUtil::GetChanID(sourceid, channum), 0);
     return chanid;
 }
 
@@ -6074,7 +6082,7 @@ void TV::ChangeChannel(uint Chanid, const QString &Channum)
 
     if (ContextIsPaused(__FILE__, __LINE__))
     {
-        HideOSDWindow(OSD_WIN_STATUS)
+        HideOSDWindow(OSD_WIN_STATUS);
         MythMainWindow::DisableScreensaver();
     }
 
@@ -6113,7 +6121,7 @@ void TV::ChangeChannel(const ChannelInfoList &Options)
         if (chanid && !channum.isEmpty() && IsTunablePriv(chanid))
         {
             // hide the channel number, activated by certain signal monitors
-            HideOSDWindow(OSD_WIN_INPUT)
+            HideOSDWindow(OSD_WIN_INPUT);
             m_queuedInput   = channum;
             m_queuedChanNum = channum;
             m_queuedChanID  = chanid;
@@ -6160,7 +6168,7 @@ void TV::PopPreviousChannel(bool ImmediateChange)
     if (ImmediateChange)
     {
         // Turn off OSD Channel Num so the channel changes right away
-        HideOSDWindow(OSD_WIN_INPUT)
+        HideOSDWindow(OSD_WIN_INPUT);
     }
 }
 
@@ -6539,6 +6547,14 @@ bool TV::CalcPlayerSliderPosition(osdInfo &info, bool paddedFields) const
     }
     ReturnPlayerLock();
     return result;
+}
+
+void TV::HideOSDWindow(const char *window)
+{
+    OSD *osd = GetOSDL();
+    if (osd)
+        osd->HideWindow(window);
+    ReturnOSDLock();
 }
 
 void TV::UpdateLCD()
@@ -8171,7 +8187,7 @@ void TV::OSDDialogEvent(int Result, const QString& Text, QString Action)
 
                 // Turn off OSD Channel Num so the channel
                 // changes right away
-                HideOSDWindow(OSD_WIN_INPUT)
+                HideOSDWindow(OSD_WIN_INPUT);
             }
         }
     }
@@ -8317,12 +8333,14 @@ void TV::HandleOSDInfo(const QString& Action)
         m_lockTimerOn = false;
 }
 
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define BUTTON(action, text) \
     result = Context.AddButton(Menu, active, (action), (text), "", false, "")
 #define BUTTON2(action, textActive, textInactive) \
     result = Context.AddButton(Menu, active, (action), (textActive), (textInactive), false, "")
 #define BUTTON3(action, textActive, textInactive, isMenu) \
     result = Context.AddButton(Menu, active, (action), (textActive), (textInactive), (isMenu), "")
+// NOLINTEND(cppcoreguidelines-macro-usage)
 
 bool TV::MenuItemDisplay(const MythTVMenuItemContext& Context, MythOSDDialogData *Menu)
 {
@@ -8365,7 +8383,7 @@ bool TV::MenuItemDisplayCutlist(const MythTVMenuItemContext& Context, MythOSDDia
                 (m_editorState.m_frameInDelete && !m_editorState.m_isTempMark) ||
                 (!m_editorState.m_isTempMark && m_editorState.m_previousCut > 0))
             {
-                active = !(m_editorState.m_frameInDelete && !m_editorState.m_isTempMark);
+                active = !m_editorState.m_frameInDelete || m_editorState.m_isTempMark;
                 BUTTON2(actionName, tr("Move Previous Cut End Here"), tr("Move Start of Cut Here"));
             }
         }
@@ -8376,7 +8394,7 @@ bool TV::MenuItemDisplayCutlist(const MythTVMenuItemContext& Context, MythOSDDia
                 (m_editorState.m_frameInDelete && !m_editorState.m_isTempMark) ||
                 (!m_editorState.m_isTempMark && m_editorState.m_nextCut != m_editorState.m_totalFrames))
             {
-                active = !(m_editorState.m_frameInDelete && !m_editorState.m_isTempMark);
+                active = !m_editorState.m_frameInDelete || m_editorState.m_isTempMark;
                 BUTTON2(actionName, tr("Move Next Cut Start Here"), tr("Move End of Cut Here"));
             }
         }
@@ -9811,6 +9829,8 @@ void TV::ShowOSDStopWatchingRecording()
 
     dialog.m_buttons.push_back({tr("Exit %1").arg(videotype), ACTION_STOP});
 
+    dialog.m_buttons.push_back({tr("Exit Without Saving"), "DIALOG_VIDEOEXIT_CLEARLASTPLAYEDPOSITION_0"});
+
     if (IsDeleteAllowed())
         dialog.m_buttons.push_back({tr("Delete this recording"), "DIALOG_VIDEOEXIT_CONFIRMDELETE_0"});
 
@@ -9957,6 +9977,12 @@ bool TV::HandleOSDVideoExit(const QString& Action)
     else if (Action == "KEEPWATCHING" && !near_end)
     {
         DoTogglePause(true);
+    }
+    else if (Action == "CLEARLASTPLAYEDPOSITION")
+    {
+        m_clearPosOnExit = true;
+        PrepareToExitPlayer(__LINE__);
+        SetExitPlayer(true, true);
     }
 
     return hide;

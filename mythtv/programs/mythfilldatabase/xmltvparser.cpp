@@ -12,10 +12,10 @@
 #include <QUrl>
 
 // MythTV headers
-#include "libmyth/programinfo.h"
 #include "libmythbase/exitcodes.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythdate.h"
+#include "libmythbase/programinfo.h"
 #include "libmythmetadata/metadatadownload.h"
 #include "libmythtv/channelinfo.h"
 #include "libmythtv/mpeg/dvbdescriptors.h"
@@ -174,7 +174,7 @@ static void fromXMLTVDate(QString &timestr, QDateTime &dt)
     timestr = MythDate::toString(dt, MythDate::kFilename);
 }
 
-static int readNextWithErrorCheck(QXmlStreamReader &xml)
+static bool readNextWithErrorCheck(QXmlStreamReader &xml)
 {
     xml.readNext();
     if (xml.hasError())

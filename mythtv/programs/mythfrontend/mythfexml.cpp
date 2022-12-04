@@ -34,8 +34,7 @@ MythFEXML::MythFEXML( UPnpDevice *pDevice , const QString &sSharePath)
   : Eventing( "MythFEXML", "MYTHTV_Event", sSharePath)
 {
 
-    QString sUPnpDescPath =
-        MythCoreContext::GetConfiguration()->GetValue( "UPnP/DescXmlPath", m_sSharePath );
+    QString sUPnpDescPath = XmlConfiguration().GetValue("UPnP/DescXmlPath", m_sSharePath);
 
     m_sServiceDescFileName = sUPnpDescPath + "MFEXML_scpd.xml";
     m_sControlUrl          = "/MythFE";
@@ -199,8 +198,10 @@ void MythFEXML::GetActionListTest(HTTPRequest *pRequest)
 
 }
 
-#define BUTTON(action,desc) \
-  QString("      <input class=\"bigb\" type=\"button\" value=\"%1\" onClick=\"postaction('%2');\"></input>\r\n").arg(action, desc)
+static inline QString BUTTON(const char *action, const char *desc)
+{
+    return QString("      <input class=\"bigb\" type=\"button\" value=\"%1\" onClick=\"postaction('%2');\"></input>\r\n").arg(action, desc);
+};
 
 void MythFEXML::GetRemote(HTTPRequest *pRequest)
 {

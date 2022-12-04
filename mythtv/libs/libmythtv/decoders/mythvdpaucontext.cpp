@@ -118,7 +118,7 @@ int MythVDPAUContext::InitialiseContext(AVCodecContext* Context)
 }
 
 MythCodecID MythVDPAUContext::GetSupportedCodec(AVCodecContext **Context,
-                                                AVCodec ** /*Codec*/,
+                                                const AVCodec ** /*Codec*/,
                                                 const QString &Decoder,
                                                 uint StreamType)
 {
@@ -133,7 +133,7 @@ MythCodecID MythVDPAUContext::GetSupportedCodec(AVCodecContext **Context,
         if (!FrameTypeIsSupported(*Context, FMT_VDPAU))
             return failure;
 
-    QString codec   = ff_codec_id_string((*Context)->codec_id);
+    QString codec   = avcodec_get_name((*Context)->codec_id);
     QString profile = avcodec_profile_name((*Context)->codec_id, (*Context)->profile);
     QString pixfmt  = av_get_pix_fmt_name((*Context)->pix_fmt);
 
@@ -148,7 +148,7 @@ MythCodecID MythVDPAUContext::GetSupportedCodec(AVCodecContext **Context,
                 MythCodecContext::FFmpegToMythProfile((*Context)->codec_id, (*Context)->profile);
         const VDPAUProfiles& profiles = MythVDPAUHelper::GetProfiles();
         vdpau = false;
-        for (auto vdpauprofile : profiles)
+        for (const auto& vdpauprofile : profiles)
         {
             bool match = vdpauprofile.first == mythprofile;
             if (match)

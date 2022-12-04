@@ -138,7 +138,7 @@ void MythPlayerEditorUI::HandleArbSeek(bool Direction)
     }
 }
 
-bool MythPlayerEditorUI::HandleProgramEditorActions(QStringList& Actions)
+bool MythPlayerEditorUI::HandleProgramEditorActions(const QStringList& Actions)
 {
     bool handled = false;
     bool refresh = true;
@@ -146,7 +146,8 @@ bool MythPlayerEditorUI::HandleProgramEditorActions(QStringList& Actions)
 
     for (int i = 0; i < Actions.size() && !handled; i++)
     {
-        QString action = Actions[i];
+        static constexpr float FFREW_MULTICOUNT { 10.0F };
+        const QString& action = Actions[i];
         handled = true;
         float seekamount = m_deleteMap.GetSeekAmount();
         bool  seekzero   = qFuzzyCompare(seekamount + 1.0F, 1.0F);
@@ -207,7 +208,6 @@ bool MythPlayerEditorUI::HandleProgramEditorActions(QStringList& Actions)
             HandleArbSeek(true);
             m_deleteMap.SetSeekAmount(old_seekamount);
         }
-#define FFREW_MULTICOUNT 10.0F
         else if (action == ACTION_BIGJUMPREW)
         {
             if (seekzero)

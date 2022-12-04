@@ -40,6 +40,14 @@
 #include "scheduler.h"
 #include "guide.h"
 
+// Qt6 has made the QFileInfo::QFileInfo(QString) constructor
+// explicit, which means that it is no longer possible to use an
+// initializer list to construct a QFileInfo. Disable that clang-tidy
+// check for this file so it can still be run on the rest of the file
+// in the project.
+//
+// NOLINTBEGIN(modernize-return-braced-init-list)
+
 /////////////////////////////////////////////////////////////////////////////
 //
 /////////////////////////////////////////////////////////////////////////////
@@ -387,7 +395,7 @@ QFileInfo Guide::GetChannelIcon( int nChanId,
         LOG(VB_UPNP, LOG_ERR,
             QString("GetImageFile - ChanId %1 doesn't exist or isn't visible")
                     .arg(nChanId));
-        return QFileInfo();
+        return {};
     }
 
     // ------------------------------------------------------------------
@@ -395,14 +403,14 @@ QFileInfo Guide::GetChannelIcon( int nChanId,
     // ------------------------------------------------------------------
 
     StorageGroup storage( "ChannelIcons" );
-    QString sFullFileName = storage.FindFile( sFileName );
+    const QString sFullFileName = storage.FindFile( sFileName );
 
     if (sFullFileName.isEmpty())
     {
         LOG(VB_UPNP, LOG_ERR,
             QString("GetImageFile - Unable to find %1.").arg(sFileName));
 
-        return QFileInfo();
+        return {};
     }
 
     // ----------------------------------------------------------------------
@@ -419,7 +427,7 @@ QFileInfo Guide::GetChannelIcon( int nChanId,
         LOG(VB_UPNP, LOG_ERR,
             QString("GetImageFile - File Does not exist %1.").arg(sFullFileName));
 
-        return QFileInfo();
+        return {};
     }
     // -------------------------------------------------------------------
 
@@ -445,7 +453,7 @@ QFileInfo Guide::GetChannelIcon( int nChanId,
     {
         LOG(VB_UPNP, LOG_ERR, QString("GetImageFile - no write access to: %1")
             .arg( sChannelsDirectory ));
-        return QFileInfo();
+        return {};
     }
 
     auto *pImage = new QImage( sFullFileName );
@@ -454,7 +462,7 @@ QFileInfo Guide::GetChannelIcon( int nChanId,
     {
         LOG(VB_UPNP, LOG_ERR, QString("GetImageFile - can't create image: %1")
             .arg( sFullFileName ));
-        return QFileInfo();
+        return {};
     }
 
     float fAspect = (float)(pImage->width()) / pImage->height();
@@ -462,7 +470,7 @@ QFileInfo Guide::GetChannelIcon( int nChanId,
     {
         LOG(VB_UPNP, LOG_ERR, QString("GetImageFile - zero aspect"));
         delete pImage;
-        return QFileInfo();
+        return {};
     }
 
     if ( nWidth == 0 )
@@ -479,7 +487,7 @@ QFileInfo Guide::GetChannelIcon( int nChanId,
         LOG(VB_UPNP, LOG_ERR, QString("SaveImageFile - unable to scale. "
             "See if %1 is really an image.").arg( sFullFileName ));
         delete pImage;
-        return QFileInfo();
+        return {};
     }
 
     if (!img.save( sNewFileName, "PNG" ))
@@ -487,7 +495,7 @@ QFileInfo Guide::GetChannelIcon( int nChanId,
         LOG(VB_UPNP, LOG_ERR, QString("SaveImageFile - failed, %1")
             .arg( sNewFileName ));
         delete pImage;
-        return QFileInfo();
+        return {};
     }
 
     delete pImage;
@@ -603,3 +611,5 @@ bool Guide::RemoveFromChannelGroup ( int nChannelGroupId,
 
     return bResult;
 }
+
+// NOLINTEND(modernize-return-braced-init-list)

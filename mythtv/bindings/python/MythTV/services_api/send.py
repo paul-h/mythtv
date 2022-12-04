@@ -4,6 +4,7 @@
 
 from os import fdopen
 
+from lxml import html
 from xml.etree import ElementTree
 import re
 import sys
@@ -238,11 +239,9 @@ class Send(object):
         ##############################################################
 
         try:
-            if self.postdata:
+            if self.postdata is not None or self.jsondata is not None:
                 response = self.session.post(url, data=self.postdata,
-                                             timeout=self.opts['timeout'])
-            elif self.jsondata:
-                response = self.session.post(url, json=self.jsondata,
+                                             json=self.jsondata,
                                              timeout=self.opts['timeout'])
             else:
                 response = self.session.get(url, timeout=self.opts['timeout'])
@@ -260,7 +259,11 @@ class Send(object):
                 reason = (ElementTree.fromstring(response.text)
                           .find('errorDescription').text)
             except ElementTree.ParseError:
-                reason = 'N/A'
+                try:
+                    doc = html.fromstring(response.text)
+                    reason = doc.text_content()
+                except:
+                    reason = 'N/A'
             raise RuntimeError('Unexpected status returned: {}: Reason: "{}" '
                                'URL was: {}'
                                .format(response.status_code,

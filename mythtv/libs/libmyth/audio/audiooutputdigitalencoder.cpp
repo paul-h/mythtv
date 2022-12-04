@@ -67,7 +67,7 @@ void AudioOutputDigitalEncoder::Reset(void)
 }
 
 void *AudioOutputDigitalEncoder::realloc(void *ptr,
-                                         int old_size, int new_size)
+                                         size_t old_size, size_t new_size)
 {
     if (!ptr)
         return ptr;
@@ -87,16 +87,16 @@ void *AudioOutputDigitalEncoder::realloc(void *ptr,
 // Encode can use either ac3 (floating point) or ac3_fixed (fixed point)
 // To use ac3_fixed define AC3_FIXED 1
 
-#define AC3_FIXED 0
+#define AC3_FIXED 0 // NOLINT(cppcoreguidelines-macro-usage)
 #if AC3_FIXED
-#define CODECNAME "ac3_fixed"
-#define FFMPEG_SAMPLE_FORMAT AV_SAMPLE_FMT_S32P
-#define MYTH_SAMPLE_FORMAT FORMAT_S32
+static constexpr const char* CODECNAME { "ac3_fixed" };
+static constexpr AVSampleFormat FFMPEG_SAMPLE_FORMAT { AV_SAMPLE_FMT_S32P };
+static constexpr AudioFormat MYTH_SAMPLE_FORMAT { FORMAT_S32 };
 #else
-#define CODECNAME "ac3"
-#define FFMPEG_SAMPLE_FORMAT AV_SAMPLE_FMT_FLTP
-#define MYTH_SAMPLE_FORMAT FORMAT_FLT
-#define MYTH_USE_FLOAT 1
+static constexpr const char* CODECNAME { "ac3" };
+static constexpr AVSampleFormat FFMPEG_SAMPLE_FORMAT { AV_SAMPLE_FMT_FLTP };
+static constexpr AudioFormat MYTH_SAMPLE_FORMAT { FORMAT_FLT };
+#define MYTH_USE_FLOAT 1 // NOLINT(cppcoreguidelines-macro-usage)
 #endif
 
 bool AudioOutputDigitalEncoder::Init(
@@ -104,7 +104,7 @@ bool AudioOutputDigitalEncoder::Init(
 {
     LOG(VB_AUDIO, LOG_INFO, LOC +
         QString("Init codecid=%1, br=%2, sr=%3, ch=%4")
-            .arg(ff_codec_id_string(codec_id)) .arg(bitrate)
+            .arg(avcodec_get_name(codec_id)) .arg(bitrate)
             .arg(samplerate) .arg(channels));
 
     if (!(m_inbuf || m_framebuf || m_outbuf))
@@ -117,7 +117,7 @@ bool AudioOutputDigitalEncoder::Init(
     Reset();
 
     LOG(VB_GENERAL, LOG_INFO, LOC + QString("Using codec %1 to encode audio").arg(CODECNAME));
-    AVCodec *codec = avcodec_find_encoder_by_name(CODECNAME);
+    const AVCodec *codec = avcodec_find_encoder_by_name(CODECNAME);
     if (!codec)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Could not find codec");
@@ -128,8 +128,7 @@ bool AudioOutputDigitalEncoder::Init(
 
     m_avContext->bit_rate       = bitrate;
     m_avContext->sample_rate    = samplerate;
-    m_avContext->channels       = channels;
-    m_avContext->channel_layout = av_get_default_channel_layout(channels);
+    av_channel_layout_default(&(m_avContext->ch_layout), channels);
     m_avContext->sample_fmt     = FFMPEG_SAMPLE_FORMAT;
 
     // open it
@@ -149,7 +148,7 @@ bool AudioOutputDigitalEncoder::Init(
         return false;
     }
 
-    m_samplesPerFrame  = m_avContext->frame_size * m_avContext->channels;
+    m_samplesPerFrame  = m_avContext->frame_size * m_avContext->ch_layout.nb_channels;
 
     LOG(VB_AUDIO, LOG_INFO, QString("DigitalEncoder::Init fs=%1, spf=%2")
             .arg(m_avContext->frame_size) .arg(m_samplesPerFrame));
@@ -174,7 +173,7 @@ int AudioOutputDigitalEncoder::Encode(void *input, int len, AudioFormat format)
     }
 
     // Check if there is enough space in incoming buffer
-    int required_len = m_inlen +
+    ssize_t required_len = m_inlen +
         len * AudioOutputSettings::SampleSize(MYTH_SAMPLE_FORMAT) / sampleSize;
 
     if (required_len > m_inSize)
@@ -220,7 +219,7 @@ int AudioOutputDigitalEncoder::Encode(void *input, int len, AudioFormat format)
 
     int frames           = m_inlen / AudioOutputSettings::SampleSize(MYTH_SAMPLE_FORMAT) / m_samplesPerFrame;
     int i                = 0;
-    int channels         = m_avContext->channels;
+    int channels         = m_avContext->ch_layout.nb_channels;
     int size_channel     = m_avContext->frame_size *
         AudioOutputSettings::SampleSize(MYTH_SAMPLE_FORMAT);
     if (!m_frame)
@@ -241,9 +240,8 @@ int AudioOutputDigitalEncoder::Encode(void *input, int len, AudioFormat format)
     m_frame->nb_samples = m_avContext->frame_size;
     m_frame->pts        = AV_NOPTS_VALUE;
     m_frame->format         = m_avContext->sample_fmt;
-    m_frame->channel_layout = m_avContext->channel_layout;
+    av_channel_layout_copy(&(m_frame->ch_layout), &(m_avContext->ch_layout));
     m_frame->sample_rate = m_avContext->sample_rate;
-    m_frame->channels = m_avContext->channels;
 
     if (frames > 0)
     {
@@ -267,7 +265,7 @@ int AudioOutputDigitalEncoder::Encode(void *input, int len, AudioFormat format)
         AudioOutputUtil::DeinterleaveSamples(
             MYTH_SAMPLE_FORMAT, channels,
             m_framebuf,
-            m_inbuf + i * size_channel * channels,
+            m_inbuf + static_cast<ptrdiff_t>(i) * size_channel * channels,
             size_channel * channels);
 
         //  SUGGESTION
@@ -336,7 +334,7 @@ int AudioOutputDigitalEncoder::Encode(void *input, int len, AudioFormat format)
         m_inlen  -= m_samplesPerFrame * AudioOutputSettings::SampleSize(MYTH_SAMPLE_FORMAT);
     }
 
-    memmove(m_inbuf, m_inbuf + i * m_samplesPerFrame* AudioOutputSettings::SampleSize(MYTH_SAMPLE_FORMAT), m_inlen);
+    memmove(m_inbuf, m_inbuf + static_cast<ptrdiff_t>(i) * m_samplesPerFrame * AudioOutputSettings::SampleSize(MYTH_SAMPLE_FORMAT), m_inlen);
     return m_outlen;
 }
 

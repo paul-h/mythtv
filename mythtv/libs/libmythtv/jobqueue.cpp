@@ -12,7 +12,6 @@
 #include <QEvent>
 #include <QCoreApplication>
 
-#include "libmyth/programinfo.h"
 #include "libmythbase/compat.h"
 #include "libmythbase/exitcodes.h"
 #include "libmythbase/mthread.h"
@@ -24,23 +23,12 @@
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythmiscutil.h"
 #include "libmythbase/mythsystemlegacy.h"
+#include "libmythbase/programinfo.h"
 
 #include "jobqueue.h"
 #include "previewgenerator.h"
 #include "recordinginfo.h"
 #include "recordingprofile.h"
-
-#ifndef O_STREAMING
-#define O_STREAMING 0
-#endif
-
-#ifndef O_LARGEFILE
-#define O_LARGEFILE 0
-#endif
-
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-#define qEnvironmentVariable getenv
-#endif
 
 #define LOC     QString("JobQueue: ")
 
@@ -1139,11 +1127,13 @@ QString JobQueue::JobText(int jobType)
     return tr("Unknown Job");
 }
 
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define JOBSTATUS_STATUSTEXT(A,B,C) case A: return C;
+
 QString JobQueue::StatusText(int status)
 {
     switch (status)
     {
-#define JOBSTATUS_STATUSTEXT(A,B,C) case A: return C;
         JOBSTATUS_MAP(JOBSTATUS_STATUSTEXT)
         default: break;
     }
@@ -1503,7 +1493,7 @@ QString JobQueue::GetJobArgs(int jobID)
         MythDB::DBError("Error in JobQueue::GetJobArgs()", query);
     }
 
-    return QString("");
+    return {""};
 }
 
 enum JobFlags JobQueue::GetJobFlags(int jobID)

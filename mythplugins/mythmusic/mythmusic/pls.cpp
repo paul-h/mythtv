@@ -97,8 +97,8 @@ int PlayListFile::parsePLS(PlayListFile *pls, const QString &filename)
     return pls->size();
 }
 
-#define M3U_HEADER  "#EXTM3U"
-#define M3U_INFO    "#EXTINF"
+static constexpr const char* M3U_HEADER { "#EXTM3U" };
+static constexpr const char* M3U_INFO   { "#EXTINF" };
 
 int PlayListFile::parseM3U(PlayListFile *pls, const QString &filename)
 {
@@ -108,7 +108,8 @@ int PlayListFile::parseM3U(PlayListFile *pls, const QString &filename)
 
     QTextStream stream(&f);
     QString data = stream.readAll();
-    QStringList lines = data.split(QRegularExpression("\\R")); // Any unicode newline
+    static const QRegularExpression kNewlineRE { "\\R" }; // Any unicode newline
+    QStringList lines = data.split(kNewlineRE);
 
     QStringList::iterator it;
     for (it = lines.begin(); it != lines.end(); ++it)

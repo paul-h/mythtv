@@ -49,17 +49,16 @@
 #ifdef USING_LIBCRYPTO
 // encryption related stuff
 #include <openssl/aes.h>
-#define AES_BLOCK_SIZE 16       // HLS only support AES-128
 using aesiv_array = std::array<uint8_t,AES_BLOCK_SIZE>;
 #endif
 
 #define LOC QString("HLSBuffer: ")
 
 // Constants
-#define PLAYBACK_MINBUFFER 2    // number of segments to prefetch before playback starts
-#define PLAYBACK_READAHEAD 6    // number of segments download queue ahead of playback
-#define PLAYLIST_FAILURE   6    // number of consecutive failures after which
-                                // playback will abort
+static constexpr int    PLAYBACK_MINBUFFER { 2 }; // number of segments to prefetch before playback starts
+static constexpr int8_t PLAYBACK_READAHEAD { 6 }; // number of segments download queue ahead of playback
+static constexpr int8_t PLAYLIST_FAILURE   { 6 }; // number of consecutive failures after which
+                                                  // playback will abort
 enum
 {
     RET_ERROR = -1,
@@ -688,7 +687,7 @@ class HLSStream
         segment->Unlock();
 
         downloadduration = std::max(1us, downloadduration);
-        bandwidth = segment->Size() * 8 * 1000000ULL / downloadduration.count(); /* bits / s */
+        bandwidth = segment->Size() * 8ULL * 1000000ULL / downloadduration.count(); /* bits / s */
         LOG(VB_PLAYBACK, LOG_DEBUG, LOC +
             QString("downloaded segment %1 [id:%2] took %3ms for %4 bytes: bandwidth:%5kiB/s")
             .arg(segnum)
@@ -1747,7 +1746,7 @@ QString HLSRingBuffer::ParseAttributes(const QString &line, const char *attr)
 {
     int p = line.indexOf(QLatin1String(":"));
     if (p < 0)
-        return QString();
+        return {};
 
     QStringList list = line.mid(p+1).split(',');
     for (const auto& it : qAsConst(list))
@@ -1761,7 +1760,7 @@ QString HLSRingBuffer::ParseAttributes(const QString &line, const char *attr)
             return arg.mid(pos+1);
         }
     }
-    return QString();
+    return {};
 }
 
 /**
@@ -2747,7 +2746,7 @@ int HLSRingBuffer::SafeRead(void *data, uint sz)
         i_read  -= len;
         segment->Unlock();
     }
-    while (i_read > 0 && !m_interrupted);
+    while (i_read > 0 && !m_interrupted); // cppcheck-suppress knownConditionTrueFalse
 
     if (m_interrupted)
         LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("interrupted"));

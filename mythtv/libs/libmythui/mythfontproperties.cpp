@@ -20,7 +20,7 @@
 
 #define LOC      QString("MythFontProperties: ")
 
-#define KEEP_OLD_NAMES 1
+#define KEEP_OLD_NAMES 1 // NOLINT(cppcoreguidelines-macro-usage)
 
 QMutex MythFontProperties::s_zoomLock;
 uint MythFontProperties::s_zoomPercent = 0;
@@ -447,9 +447,10 @@ MythFontProperties *MythFontProperties::ParseFromXml(
 
     newFont->Unfreeze();
 
+    static const QRegularExpression re { "\\[.*]" };
     QFontInfo fi(newFont->m_face);
     QString fi_family =
-        fi.family().remove(QRegularExpression("\\[.*]")).trimmed();
+        fi.family().remove(re).trimmed();
     if (newFont->m_face.family() != fi_family)
     {
         VERBOSE_XML(VB_GENERAL, LOG_ERR, filename, element,

@@ -156,7 +156,7 @@ QString HTTPRequest::GetLastHeader( const QString &sType ) const
     QStringList values = m_mapHeaders.values( sType );
     if (!values.isEmpty())
         return values.last();
-    return QString();
+    return {};
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -593,7 +593,7 @@ qint64 HTTPRequest::SendResponseFile( const QString& sFileName )
 //
 /////////////////////////////////////////////////////////////////////////////
 
-#define SENDFILE_BUFFER_SIZE 65536
+static constexpr size_t SENDFILE_BUFFER_SIZE { 65536 };
 
 qint64 HTTPRequest::SendData( QIODevice *pDevice, qint64 llStart, qint64 llBytes )
 {
@@ -863,7 +863,7 @@ QString HTTPRequest::GetResponseProtocol()
 //     else if (m_nMajor == 2)
 //         QString("HTTP/2.0");
 
-    return QString("HTTP/1.1");
+    return {"HTTP/1.1"};
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1564,7 +1564,7 @@ void HTTPRequest::ExtractMethodFromURL()
     // Strip out leading http://192.168.1.1:6544/ -> /
     // Should fix #8678
     // FIXME what about https?
-    QRegularExpression re {"^http[s]?://.*?/"};
+    static const QRegularExpression re {"^http[s]?://.*?/"};
     m_sBaseUrl.replace(re, "/");
 
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
@@ -1788,7 +1788,7 @@ QString HTTPRequest::GetETagHash(const QByteArray &data)
 
 bool HTTPRequest::IsUrlProtected( const QString &sBaseUrl )
 {
-    QString sProtected = MythCoreContext::GetConfiguration()->GetValue( "HTTP/Protected/Urls", "/setup;/Config" );
+    QString sProtected = XmlConfiguration().GetValue("HTTP/Protected/Urls", "/setup;/Config");
 
     QStringList oList = sProtected.split( ';' );
 

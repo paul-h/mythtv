@@ -7,6 +7,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 
 import { PrimeNGModule } from './primeng.module';
+import { MenuModule } from 'primeng/menu';
 
 import { AppRoutingModule } from './app-routing.module';
 
@@ -33,7 +34,7 @@ import { GuideComponent } from './guide/guide.component';
 import { ChannelIconComponent } from './guide/components/channelicon/channelicon.component';
 import { ProgramEntryComponent } from './guide/components/programentry/programentry.component';
 import { TimebarComponent } from './guide/components/timebar/timebar.component';
-import { SettingsComponent } from './config/settings/settings.component';
+import { SettingsComponent } from './config/settings/general/general-settings.component';
 import { HostAddressComponent } from './config/settings/general/host-address/host-address.component';
 import { LocaleComponent } from './config/settings/general/locale/locale.component';
 import { MiscSettingsComponent } from './config/settings/general/misc-settings/misc-settings.component';
@@ -45,6 +46,24 @@ import { JobqueueBackendComponent } from './config/settings/general/jobqueue-bac
 import { JobqueueGlobalComponent } from './config/settings/general/jobqueue-global/jobqueue-global.component';
 import { JobqueueCommandsComponent } from './config/settings/general/jobqueue-commands/jobqueue-commands.component';
 import { EpgDownloadingComponent } from './config/settings/general/epg-downloading/epg-downloading.component';
+import { CaptureCardsComponent } from './config/settings/capture-cards/capture-cards.component';
+import { CetonComponent } from './config/settings/capture-cards/ceton/ceton.component';
+import { DvbComponent } from './config/settings/capture-cards/dvb/dvb.component';
+import { LnbComponent } from './config/settings/capture-cards/dvb/lnb/lnb.component';
+import { SwitchComponent } from './config/settings/capture-cards/dvb/switch/switch.component';
+import { RotorComponent } from './config/settings/capture-cards/dvb/rotor/rotor.component';
+import { UnicableComponent } from './config/settings/capture-cards/dvb/unicable/unicable.component';
+import { ExternalComponent } from './config/settings/capture-cards/external/external.component';
+import { HdhomerunComponent } from './config/settings/capture-cards/hdhomerun/hdhomerun.component';
+import { IptvComponent } from './config/settings/capture-cards/iptv/iptv.component';
+import { ImportComponent } from './config/settings/capture-cards/import/import.component';
+import { DemoComponent } from './config/settings/capture-cards/demo/demo.component';
+import { VideoSourcesComponent } from './config/settings/video-sources/video-sources.component';
+import { VsourceComponent } from './config/settings/video-sources/vsource/vsource.component';
+import { InputConnectionsComponent } from './config/settings/input-connections/input-connections.component';
+import { IconnectionComponent } from './config/settings/input-connections/iconnection/iconnection.component';
+import { StorageGroupsComponent } from './config/settings/storage-groups/storage-groups.component';
+import { SgroupComponent } from './config/settings/storage-groups/sgroup/sgroup.component';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -87,6 +106,24 @@ export function HttpLoaderFactory(http: HttpClient) {
     JobqueueGlobalComponent,
     JobqueueCommandsComponent,
     EpgDownloadingComponent,
+    CaptureCardsComponent,
+    CetonComponent,
+    DvbComponent,
+    LnbComponent,
+    SwitchComponent,
+    RotorComponent,
+    UnicableComponent,
+    ExternalComponent,
+    HdhomerunComponent,
+    IptvComponent,
+    ImportComponent,
+    DemoComponent,
+    VideoSourcesComponent,
+    VsourceComponent,
+    InputConnectionsComponent,
+    IconnectionComponent,
+    StorageGroupsComponent,
+    SgroupComponent,
   ],
   imports: [
     BrowserModule,
@@ -95,6 +132,7 @@ export function HttpLoaderFactory(http: HttpClient) {
     BrowserAnimationsModule,
     FormsModule,
     ReactiveFormsModule,
+    MenuModule,
     TranslateModule.forRoot({
       defaultLanguage: 'en_US',
       loader: {

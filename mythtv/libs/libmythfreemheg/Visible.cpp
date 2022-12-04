@@ -198,9 +198,9 @@ QRegion MHVisible::GetVisibleArea()
 {
     if (! m_fRunning)
     {
-        return QRegion();    // Not visible at all.
+        return {};    // Not visible at all.
     }
-    return QRegion(QRect(m_nPosX, m_nPosY, m_nBoxWidth, m_nBoxHeight));
+    return {QRect(m_nPosX, m_nPosY, m_nBoxWidth, m_nBoxHeight)};
 }
 
 // MHEG actions.
@@ -431,7 +431,7 @@ QRegion MHRectangle::GetOpaqueArea()
 {
     if (! m_fRunning)
     {
-        return QRegion();
+        return {};
     }
 
     MHRgba lineColour = GetColour(m_lineColour);
@@ -441,20 +441,20 @@ QRegion MHRectangle::GetOpaqueArea()
     // ignore the special case where the surrounding box is opaque.
     if (fillColour.alpha() != 255)
     {
-        return QRegion();
+        return {};
     }
 
     if (lineColour.alpha() == 255 || m_nLineWidth == 0)
     {
-        return QRegion(QRect(m_nPosX, m_nPosY, m_nBoxWidth, m_nBoxHeight));
+        return {QRect(m_nPosX, m_nPosY, m_nBoxWidth, m_nBoxHeight)};
     }
 
     if (m_nBoxWidth <= 2 * m_nLineWidth || m_nBoxHeight <= 2 * m_nLineWidth)
     {
-        return QRegion();
+        return {};
     }
-    return QRegion(QRect(m_nPosX + m_nLineWidth, m_nPosY + m_nLineWidth,
-                         m_nBoxWidth - m_nLineWidth * 2, m_nBoxHeight - m_nLineWidth * 2));
+    return {QRect(m_nPosX + m_nLineWidth, m_nPosY + m_nLineWidth,
+                  m_nBoxWidth - m_nLineWidth * 2, m_nBoxHeight - m_nLineWidth * 2)};
 }
 
 void MHRectangle::Display(MHEngine *engine)

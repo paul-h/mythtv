@@ -42,7 +42,7 @@ QString MythVideoProfileItem::Get(const QString &Value) const
     QMap<QString,QString>::const_iterator it = m_pref.find(Value);
     if (it != m_pref.end())
         return *it;
-    return QString();
+    return {};
 }
 
 uint MythVideoProfileItem::GetPriority() const
@@ -86,7 +86,7 @@ bool MythVideoProfileItem::CheckRange(const QString& Key,
             }
             if (IValue > 0)
             {
-                QRegularExpression regex("^([0-9.]*)([^0-9.]*)([0-9.]*)$");
+                static const QRegularExpression regex("^([0-9.]*)([^0-9.]*)([0-9.]*)$");
                 QRegularExpressionMatch rmatch = regex.match(expr);
 
                 int value1 = 0;
@@ -410,11 +410,11 @@ QString MythVideoProfile::GetPreference(const QString &Key) const
     QMutexLocker locker(&m_lock);
 
     if (Key.isEmpty())
-        return QString();
+        return {};
 
     QMap<QString,QString>::const_iterator it = m_currentPreferences.find(Key);
     if (it == m_currentPreferences.end())
-        return QString();
+        return {};
 
     return *it;
 }

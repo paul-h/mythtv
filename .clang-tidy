@@ -47,6 +47,8 @@ Checks: '-*,
        -bugprone-easily-swappable-parameters,
         # New in clang13. 979 warnings. ,
        -bugprone-implicit-widening-of-multiplication-result,
+        # New in clang15. 168 warnings. ,
+       -bugprone-assignment-in-if-condition
 
     cert-*,
 
@@ -58,7 +60,7 @@ Checks: '-*,
 
         # Calls to standard library functions where the return value
         # isnt checked. These should all be fixed. ,
-        -cert-err33-c,
+       -cert-err33-c,
 
         # string-to-number conversion functions that do not verify the
         # validity of the conversion. Needs work. ,
@@ -92,10 +94,6 @@ Checks: '-*,
 
         # About 20,000 of warnings. ,
        -cppcoreguidelines-avoid-non-const-global-variables,
-
-        # Tons of warnings.  Most complaining that #define should
-        # become a constexpr. ,
-       -cppcoreguidelines-macro-usage,
 
         # Bunch of warnings.... ,
        -cppcoreguidelines-narrowing-conversions,
@@ -135,7 +133,7 @@ Checks: '-*,
 
     misc-*,
 
-        # Cases exist. Need to add getters/setters to classes. ,
+        # Complains about every public or protected variable in a class. ,
        -misc-non-private-member-variables-in-classes,
 
         # The Q_DECLARE_METATYPE macro triggers a warning from
@@ -143,6 +141,9 @@ Checks: '-*,
         # MythTV uses recursion on purpose. These should be checked to
         # ensure there are no problems. ,
        -misc-no-recursion,
+
+        # New in clang15. 18707 warnings. ,
+       -misc-const-correctness
 
     modernize-*,
 
@@ -155,14 +156,14 @@ Checks: '-*,
         # Disable newer C++14/17 tests for now. ,
        -modernize-use-nodiscard,
 
-        # New in clang13. 2571 warnings. ,
-       -modernize-return-braced-init-list,
+        # New in clang15. 4085 warnings. ,
+       -modernize-macro-to-enum
 
     performance-*,
 
         # The Q_DECLARE_METATYPE macro triggers a warning from this
         # new clang12 checker. ,
-        -performance-no-int-to-ptr,
+       -performance-no-int-to-ptr,
 
     readability-*,
 

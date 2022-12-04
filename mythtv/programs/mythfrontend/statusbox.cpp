@@ -3,7 +3,6 @@
 #include <QNetworkInterface>
 
 // MythTV
-#include "libmyth/remoteutil.h"
 #include "libmythbase/filesysteminfo.h"
 #include "libmythbase/mythchrono.h"
 #include "libmythbase/mythcorecontext.h"
@@ -12,6 +11,7 @@
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythmiscutil.h"
 #include "libmythbase/mythversion.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythbase/stringutil.h"
 #include "libmythtv/cardutil.h"
 #include "libmythtv/decoders/mythcodeccontext.h"
@@ -687,6 +687,7 @@ void StatusBox::doScheduleStatus()
         }
     }
 
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define ADD_STATUS_LOG_LINE(rtype, fstate)                      \
     do {                                                        \
         if (statusMatch[rtype] > 0)                             \
@@ -1209,12 +1210,8 @@ void StatusBox::doMachineStatus()
         if ((f & QNetworkInterface::IsLoopBack) != 0U)
             continue;
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
         QNetworkInterface::InterfaceType type = iface.type();
         QString name = type == QNetworkInterface::Wifi ? tr("WiFi") : tr("Ethernet");
-#else
-        QString name = tr("Network");
-#endif
         AddLogLine("   " + name + QString(" (%1): ").arg(iface.humanReadableName()));
         AddLogLine("        " + tr("MAC Address") + ": " + iface.hardwareAddress());
         QList addresses = iface.addressEntries();

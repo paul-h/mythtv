@@ -11,7 +11,6 @@
 
 // MythTV headers
 #include "libmyth/mythcontext.h"
-#include "libmyth/remoteutil.h"
 #include "libmythbase/cleanupguard.h"
 #include "libmythbase/exitcodes.h"
 #include "libmythbase/mythconfig.h"
@@ -21,6 +20,7 @@
 #include "libmythbase/mythmiscutil.h"
 #include "libmythbase/mythtranslation.h"
 #include "libmythbase/mythversion.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythbase/signalhandling.h"
 #include "libmythtv/dbcheck.h"
 #include "libmythtv/mythsystemevent.h"
@@ -646,15 +646,18 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    LOG(VB_GENERAL, LOG_INFO, "\n"
+    if (!cmdline.toBool("noresched"))
+    {
+        LOG(VB_GENERAL, LOG_INFO, "\n"
             "===============================================================\n"
             "| Attempting to contact the master backend for rescheduling.  |\n"
             "| If the master is not running, rescheduling will happen when |\n"
             "| the master backend is restarted.                            |\n"
             "===============================================================");
 
-    ScheduledRecording::RescheduleMatch(0, 0, 0, QDateTime(),
-                                        "MythFillDatabase");
+        ScheduledRecording::RescheduleMatch(0, 0, 0, QDateTime(),
+                                            "MythFillDatabase");
+    }
 
     gCoreContext->SendMessage("CLEAR_SETTINGS_CACHE");
 

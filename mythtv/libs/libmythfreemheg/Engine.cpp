@@ -523,7 +523,7 @@ void MHEngine::SetInputRegister(int nReg)
 QString MHEngine::GetPathName(const MHOctetString &str)
 {
     if (str.Size() == 0)
-        return QString();
+        return {};
 
     QString csPath = QString::fromUtf8((const char *)str.Bytes(), str.Size());
     switch (PathProtocol(csPath))
@@ -1191,7 +1191,8 @@ bool MHEngine::LoadStorePersistent(bool fIsLoad, const MHOctetString &fileName, 
 bool MHEngine::GetEngineSupport(const MHOctetString &feature)
 {
     QString csFeat = QString::fromUtf8((const char *)feature.Bytes(), feature.Size());
-    QStringList strings = csFeat.split(QRegularExpression(R"([\(\,\)])"));
+    static const QRegularExpression kSeparatorRE { R"([\(\,\)])" };
+    QStringList strings = csFeat.split(kSeparatorRE);
 
     MHLOG(MHLogNotifications, "NOTE GetEngineSupport " + csFeat);
 

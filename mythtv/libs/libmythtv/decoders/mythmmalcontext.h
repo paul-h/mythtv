@@ -13,14 +13,14 @@ class MythMMALContext : public MythCodecContext
     MythMMALContext(DecoderBase *Parent, MythCodecID Codec);
    ~MythMMALContext() override;
     static MythCodecID GetSupportedCodec(AVCodecContext **Context,
-                                         AVCodec **Codec,
+                                         const AVCodec **Codec,
                                          const QString &Decoder,
                                          AVStream *Stream,
                                          uint StreamType);
     void        InitVideoCodec          (AVCodecContext *Context, bool SelectedStream, bool &DirectRendering) override;
     bool        RetrieveFrame           (AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame) override;
     int         HwDecoderInit           (AVCodecContext *Context) override;
-    void        SetDecoderOptions       (AVCodecContext *Context, AVCodec *Codec) override;
+    void        SetDecoderOptions       (AVCodecContext *Context, const AVCodec *Codec) override;
     static bool GetBuffer               (AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame, int);
     bool        GetBuffer2              (AVCodecContext *Context, MythVideoFrame *Frame, AVFrame *AvFrame, int);
     static enum AVPixelFormat GetFormat (AVCodecContext*, const AVPixelFormat *PixFmt);

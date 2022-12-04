@@ -8,11 +8,11 @@
 #include <QMap>
 
 // MythTV headers
-#include "libmyth/programinfoupdater.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythdate.h"
 #include "libmythbase/mythdb.h"
 #include "libmythbase/mythlogging.h"
+#include "libmythbase/programinfoupdater.h"
 
 #include "jobqueue.h"
 #include "recordinginfo.h"
@@ -584,6 +584,55 @@ void RecordingInfo::ApplyRecordStateChange(RecordingType newstate, bool save)
         else
             m_record->Save();
     }
+}
+
+/** \fn RecordingInfo::ApplyStarsChange(float stars)
+ *  \brief Sets the stars value in the database.
+ *  \param newstarsvalue.
+ */
+void RecordingInfo::ApplyStarsChange(float newstarsvalue)
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare("UPDATE recorded"
+                  " SET stars = :STARS"
+                  " WHERE chanid = :CHANID"
+                  " AND starttime = :START ;");
+    query.bindValue(":STARS", newstarsvalue);
+    query.bindValue(":START", m_recStartTs);
+    query.bindValue(":CHANID", m_chanId);
+
+    if (!query.exec())
+        MythDB::DBError("Stars update", query);
+
+    m_stars = newstarsvalue;
+
+    SendUpdateEvent();
+}
+
+/** \fn RecordingInfo::ApplyOriginalAirDateCharge(QDate originalairdate)
+ *  \brief Sets the originalairdate value in the database.
+ *  \param originalairdate.
+ */
+
+void RecordingInfo::ApplyOriginalAirDateChange(QDate originalairdate)
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare("UPDATE recorded"
+                  " SET originalairdate = :ORIGINALAIRDATE"
+                  " WHERE chanid = :CHANID"
+                  " AND starttime = :START ;");
+    query.bindValue(":ORIGINALAIRDATE", originalairdate);
+    query.bindValue(":CHANID", m_chanId);
+    query.bindValue(":START", m_recStartTs);
+
+    if (!query.exec())
+        MythDB::DBError("OriginalAirDate update", query);
+
+    m_originalAirDate = originalairdate;
+
+    SendUpdateEvent();
 }
 
 /** \fn RecordingInfo::ApplyRecordRecPriorityChange(int)
@@ -1664,7 +1713,7 @@ QString RecordingInfo::GetRecgroupString(uint recGroupID)
     if (!query.exec() || !query.next())
     {
         MythDB::DBError("GetRecgroupString()", query);
-        return QString();
+        return {};
     }
     return query.value(0).toString();
 }

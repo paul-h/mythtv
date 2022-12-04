@@ -5,10 +5,10 @@
 #include <QStringList>
 
 // MythTV
-#include "libmyth/programinfo.h"
 #include "libmythbase/compat.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythdate.h"
+#include "libmythbase/programinfo.h"
 #include "libmythbase/referencecounter.h"
 #include "libmythtv/inputinfo.h"
 
@@ -328,7 +328,7 @@ QDateTime PlaybackSock::PixmapLastModified(const ProgramInfo *pginfo)
         return MythDate::fromSecsSinceEpoch(strlist[0].toLongLong());
     }
 
-    return QDateTime();
+    return {};
 }
 
 bool PlaybackSock::CheckFile(ProgramInfo *pginfo)
@@ -540,7 +540,7 @@ QStringList PlaybackSock::ForwardRequest(const QStringList &slist)
     if (SendReceiveStringList(strlist))
         return strlist;
 
-    return QStringList();
+    return {};
 }
 
 /** \brief Tells a slave to add a child input.

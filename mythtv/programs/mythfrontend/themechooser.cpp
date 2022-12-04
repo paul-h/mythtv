@@ -9,13 +9,13 @@
 // MythTV headers
 #include "libmythbase/mthreadpool.h"
 #include "libmythbase/mythcorecontext.h"
-#include "libmythbase/mythcoreutil.h"
 #include "libmythbase/mythdate.h"
 #include "libmythbase/mythdownloadmanager.h"
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythversion.h"
 #include "libmythbase/programtypes.h"
 #include "libmythbase/remotefile.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythbase/storagegroup.h"
 #include "libmythbase/unziputil.h" // for extractZIP
 #include "libmythtv/mythsystemevent.h"
@@ -40,6 +40,8 @@
 #define LOC      QString("ThemeChooser: ")
 #define LOC_WARN QString("ThemeChooser, Warning: ")
 #define LOC_ERR  QString("ThemeChooser, Error: ")
+
+static const QRegularExpression kVersionDateRE { "\\.[0-9]{8,}.*" };
 
 /*!
 * \class RemoteFileDownloadThread
@@ -197,10 +199,9 @@ void ThemeChooser::Load(void)
     }
     else
     {
-
         MythVersion = MYTH_BINARY_VERSION; // Example: 29.20161017-1
         // Remove the date part and the rest, eg 29.20161017-1 -> 29
-        MythVersion.remove(QRegularExpression("\\.[0-9]{8,}.*"));
+        MythVersion.remove(kVersionDateRE);
         LOG(VB_GUI, LOG_INFO, QString("Loading themes for %1").arg(MythVersion));
         LoadVersion(MythVersion, themesSeen, true);
 
@@ -1022,7 +1023,7 @@ ThemeUpdateChecker::ThemeUpdateChecker(void) :
     else
     {
         version = MYTH_BINARY_VERSION; // Example: 0.25.20101017-1
-        version.remove(QRegularExpression("\\.[0-9]{8,}.*"));
+        version.remove(kVersionDateRE);
 
         // If a version of the theme for this tag exists, use it...
         static const QRegularExpression subexp

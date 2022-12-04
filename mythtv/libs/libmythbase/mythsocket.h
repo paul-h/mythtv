@@ -70,6 +70,14 @@ class MBASE_PUBLIC MythSocket : public QObject, public ReferenceCounter
     static constexpr std::chrono::milliseconds kShortTimeout { kMythSocketShortTimeout };
     static constexpr std::chrono::milliseconds kLongTimeout  { kMythSocketLongTimeout };
 
+  private:
+    inline QString LOC()
+    {
+        return QString("MythSocket(%1:%2): ")
+            .arg((intptr_t)(this), 0, 16).arg(GetSocketDescriptor());
+    }
+
+
   signals:
     void CallReadyRead(void);
 
@@ -103,7 +111,7 @@ class MBASE_PUBLIC MythSocket : public QObject, public ReferenceCounter
     int             m_peerPort         {-1};      // protected by m_lock
     MythSocketCBs  *m_callback         {nullptr}; // only set in ctor
     bool            m_useSharedThread;            // only set in ctor
-    QAtomicInt      m_disableReadyReadCallback {false};
+    QAtomicInt      m_disableReadyReadCallback {0};
     bool            m_connected        {false};   // protected by m_lock
     /// This is used internally as a hint that there might be
     /// data available for reading.

@@ -79,6 +79,7 @@ HEADERS += servicesv2/v2databaseStatus.h
 HEADERS += servicesv2/v2dvr.h servicesv2/v2recording.h
 HEADERS += servicesv2/v2programAndChannel.h servicesv2/v2programList.h
 HEADERS += servicesv2/v2channelGroup.h servicesv2/v2channelGroupList.h
+HEADERS += servicesv2/v2grabber.h servicesv2/v2freqtable.h
 HEADERS += servicesv2/v2recRule.h
 HEADERS += servicesv2/v2cutting.h servicesv2/v2cutList.h
 HEADERS += servicesv2/v2markup.h servicesv2/v2markupList.h
@@ -115,7 +116,17 @@ SOURCES += servicesv2/v2config.cpp
 
 using_oss:DEFINES += USING_OSS
 
-using_dvb:DEFINES += USING_DVB
+DEFINES +=    USING_IPTV
+
+using_dvb        : DEFINES +=    USING_DVB
+using_v4l2       : DEFINES +=    USING_V4L2
+using_hdhomerun  : DEFINES +=    USING_HDHOMERUN
+using_satip      : DEFINES +=    USING_SATIP
+using_vbox       : DEFINES +=    USING_VBOX
+using_firewire   : DEFINES +=    USING_FIREWIRE
+using_ceton      : DEFINES +=    USING_CETON
+using_v4l2       : DEFINES +=    USING_V4L2
+using_asi        : DEFINES +=    USING_ASI
 
 using_valgrind:DEFINES += USING_VALGRIND
 

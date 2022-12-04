@@ -1,10 +1,9 @@
 #include "libmythbase/mythconfig.h"
 #if CONFIG_SYSTEMD_NOTIFY
-    #include <systemd/sd-daemon.h>
-    #define be_sd_notify(x) \
-        (void)sd_notify(0, x);
+#include <systemd/sd-daemon.h>
+static inline void be_sd_notify(const char *str) { sd_notify(0, str); };
 #else
-    #define be_sd_notify(x)
+static inline void be_sd_notify(const char */*str*/) {};
 #endif
 
 // C++ headers
@@ -26,8 +25,6 @@
 
 // MythTV
 #include "libmyth/mythcontext.h"
-#include "libmyth/programinfo.h"
-#include "libmyth/remoteutil.h"
 #include "libmythbase/compat.h"
 #include "libmythbase/dbutil.h"
 #include "libmythbase/exitcodes.h"
@@ -37,6 +34,8 @@
 #include "libmythbase/mythtimezone.h"
 #include "libmythbase/mythtranslation.h"
 #include "libmythbase/mythversion.h"
+#include "libmythbase/programinfo.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythbase/signalhandling.h"
 #include "libmythbase/storagegroup.h"
 #include "libmythtv/dbcheck.h"

@@ -33,6 +33,7 @@
 #include "libmythbase/mythsorthelper.h"
 #include "libmythbase/mythtranslation.h"
 #include "libmythtv/cardutil.h"
+#include "libmythtv/channelgroup.h"
 #include "libmythtv/decoders/mythcodeccontext.h"
 #include "libmythtv/playgroup.h" //Used for playBackGroup, to be remove at one point
 #include "libmythtv/recordingprofile.h"
@@ -1305,7 +1306,7 @@ void PlaybackProfileConfig::AddNewEntry(void)
 {
     for (PlaybackProfileItemConfig *profile : qAsConst(m_profiles))
         profile->Save();
-    m_items.emplace_back(MythVideoProfileItem {});
+    m_items.emplace_back();
     ReloadSettings();
 }
 
@@ -1763,6 +1764,7 @@ static HostComboBoxSetting *PlaybackExitPrompt()
     gc->setLabel(PlaybackSettings::tr("Action on playback exit"));
 
     gc->addSelection(PlaybackSettings::tr("Just exit"), "0");
+    gc->addSelection(PlaybackSettings::tr("Clear last played position and exit"), "16");
     gc->addSelection(PlaybackSettings::tr("Always prompt (excluding Live TV)"),
                      "1");
     gc->addSelection(PlaybackSettings::tr("Always prompt (including Live TV)"),
@@ -4738,6 +4740,26 @@ AppearanceSettings::AppearanceSettings()
 *                                Channel Groups                                *
 *******************************************************************************/
 
+static HostComboBoxSetting *AutomaticChannelGroupSelection()
+{
+    auto *gc = new HostComboBoxSetting("Select from Channel Group");
+    gc->setLabel(AppearanceSettings::tr("Select from Channel Group"));
+    gc->addSelection("All Channels");
+
+    // All automatic channel groups that have at least one channel
+    auto list = ChannelGroup::GetAutomaticChannelGroups(false);
+    for (const auto &chgrp : list)
+    {
+        gc->addSelection(chgrp.m_name);
+    }
+    gc->setHelpText(AppearanceSettings::tr(
+            "Select the channel group to select channels from. "
+            "\"All Channels\" lets you choose from all channels of all video sources. "
+            "\"Priority\" lets you choose from all channels that have recording priority. "
+            "The other values let you select a video source to choose channels from."));
+    return gc;
+}
+
 class ChannelCheckBoxSetting : public TransMythUICheckBoxSetting
 {
   public:
@@ -4761,7 +4783,7 @@ ChannelGroupSetting::ChannelGroupSetting(const QString &groupName,
                                          int groupId = -1)
     : m_groupId(groupId)
 {
-    setLabel(groupName);//TODO this should be the translated name if Favorite
+    setLabel(groupName == "Favorites" ? tr("Favorites") : groupName);
     setValue(groupName);
     m_groupName = new TransTextEditSetting();
     m_groupName->setLabel(groupName);
@@ -4783,7 +4805,7 @@ void ChannelGroupSetting::Save()
             query.bindValue(":NEWNAME", newname);
 
             if (!query.exec())
-                MythDB::DBError("ChannelGroupSetting::Close", query);
+                MythDB::DBError("ChannelGroupSetting::Save 1", query);
             else
             {
                 //update m_groupId
@@ -4792,7 +4814,7 @@ void ChannelGroupSetting::Save()
                 query.prepare(qstr2);
                 query.bindValue(":NEWNAME", newname);
                 if (!query.exec())
-                    MythDB::DBError("ChannelGroupSetting::Close", query);
+                    MythDB::DBError("ChannelGroupSetting::Save 2", query);
                 else
                     if (query.next())
                         m_groupId = query.value(0).toUInt();
@@ -4808,7 +4830,7 @@ void ChannelGroupSetting::Save()
             query.bindValue(":OLDNAME", getValue());
 
             if (!query.exec())
-                MythDB::DBError("ChannelGroupSetting::Close", query);
+                MythDB::DBError("ChannelGroupSetting::Save 3", query);
             else
                 if (query.next())
                     m_groupId = query.value(0).toUInt();
@@ -4848,73 +4870,137 @@ void ChannelGroupSetting::Save()
     }
 }
 
-void ChannelGroupSetting::Load()
+void ChannelGroupSetting::LoadChannelGroup()
 {
-    clearSettings();
-    //We can not rename the Favorite group
-    //if (m_groupId!=1)
-    //{
-        m_groupName = new TransTextEditSetting();
-        m_groupName->setLabel(tr("Group name"));
-//        if (m_groupId > -1)
-        m_groupName->setValue(getLabel());
-        m_groupName->setEnabled(m_groupId != 1);
-        addChild(m_groupName);
-    //}
+    if (VERBOSE_LEVEL_CHECK(VB_GENERAL, LOG_DEBUG))
+    {
+        QString group = m_groupSelection->getValue();
+        int groupId = ChannelGroup::GetChannelGroupId(group);
+        LOG(VB_GENERAL, LOG_INFO,
+            QString("ChannelGroupSetting::LoadChannelGroup group:%1 groupId:%2")
+                .arg(group).arg(groupId));
+    }
+
+    // Set the old checkboxes from the previously selected channel group invisible
+    for (const auto &it : m_boxMap)
+    {
+        it.second->setVisible(false);
+    }
+
+    // And load the new collection
+    LoadChannelGroupChannels();
+
+    // Using m_groupSelection instead of nullptr keeps the focus in the "Select from Channel Group" box
+    emit settingsChanged(m_groupSelection);
+}
+
+void ChannelGroupSetting::LoadChannelGroupChannels()
+{
+    QString fromGroup = m_groupSelection->getValue();
+    int fromGroupId = ChannelGroup::GetChannelGroupId(fromGroup);
 
     MSqlQuery query(MSqlQuery::InitCon());
 
-    QString qstr =
-        "SELECT channel.chanid, channum, name, grpid FROM channel "
-        "LEFT JOIN channelgroup "
-        "ON (channel.chanid = channelgroup.chanid AND grpid = :GRPID) "
-        "WHERE deleted IS NULL "
-        "ORDER BY channum+0; "; //to order by numeric value of channel number
-
-    query.prepare(qstr);
-
-    query.bindValue(":GRPID",  m_groupId);
+    if (fromGroupId == -1)      // All Channels
+    {
+        query.prepare(
+            "SELECT channel.chanid, channum, name, grpid FROM channel "
+            "LEFT JOIN channelgroup "
+            "ON (channel.chanid = channelgroup.chanid AND grpid = :GRPID) "
+            "WHERE deleted IS NULL "
+            "AND visible > 0 "
+            "ORDER BY channum+0; ");    // Order by numeric value of channel number
+        query.bindValue(":GRPID",  m_groupId);
+    }
+    else
+    {
+        query.prepare(
+            "SELECT channel.chanid, channum, name, cg2.grpid FROM channel "
+            "RIGHT JOIN channelgroup AS cg1 "
+            "ON (channel.chanid = cg1.chanid AND cg1.grpid = :FROMGRPID) "
+            "LEFT JOIN channelgroup AS cg2 "
+            "ON (channel.chanid = cg2.chanid AND cg2.grpid = :GRPID) "
+            "WHERE deleted IS NULL "
+            "AND visible > 0 "
+            "ORDER BY channum+0; ");    // Order by numeric value of channel number
+        query.bindValue(":GRPID",  m_groupId);
+        query.bindValue(":FROMGRPID",  fromGroupId);
+    }
 
     if (!query.exec() || !query.isActive())
-        MythDB::DBError("ChannelGroupSetting::Load", query);
+        MythDB::DBError("ChannelGroupSetting::LoadChannelGroupChannels", query);
     else
     {
         while (query.next())
         {
-            auto *channelCheckBox =
-                    new ChannelCheckBoxSetting(query.value(0).toUInt(),
-                                               query.value(1).toString(),
-                                               query.value(2).toString());
-            channelCheckBox->setValue(!query.value(3).isNull());
-            addChild(channelCheckBox);
+            auto chanid  = query.value(0).toUInt();
+            auto channum = query.value(1).toString();
+            auto name    = query.value(2).toString();
+            auto checked = !query.value(3).isNull();
+            auto pair    = std::make_pair(m_groupId, chanid);
+
+            TransMythUICheckBoxSetting *checkBox = nullptr;
+            auto it = m_boxMap.find(pair);
+            if (it != m_boxMap.end())
+            {
+                checkBox = it->second;
+                checkBox->setVisible(true);
+            }
+            else
+            {
+                checkBox = new ChannelCheckBoxSetting(chanid, channum, name);
+                checkBox->setValue(checked);
+                m_boxMap[pair] = checkBox;
+                addChild(checkBox);
+            }
         }
     }
+}
+
+void ChannelGroupSetting::Load()
+{
+    clearSettings();
+
+    // We cannot rename the Favorites group, make it readonly
+    m_groupName = new TransTextEditSetting();
+    m_groupName->setLabel(tr("Group name"));
+    m_groupName->setValue(getLabel());
+    m_groupName->setReadOnly(m_groupId == 1);
+    addChild(m_groupName);
+
+    // Add channel group selection
+    m_groupSelection = AutomaticChannelGroupSelection();
+    connect(m_groupSelection, qOverload<StandardSetting *>(&StandardSetting::valueChanged),
+            this, &ChannelGroupSetting::LoadChannelGroup);
+    addChild(m_groupSelection);
+
+    LoadChannelGroupChannels();
 
     GroupSetting::Load();
 }
 
 bool ChannelGroupSetting::canDelete(void)
 {
-    //can not delete new group or Favorite
+    // Cannot delete new group or Favorites
     return (m_groupId > 1);
 }
 
 void ChannelGroupSetting::deleteEntry(void)
 {
     MSqlQuery query(MSqlQuery::InitCon());
+
     // Delete channels from this group
     query.prepare("DELETE FROM channelgroup WHERE grpid = :GRPID;");
     query.bindValue(":GRPID", m_groupId);
     if (!query.exec())
-        MythDB::DBError("ChannelGroupSetting::deleteEntry", query);
+        MythDB::DBError("ChannelGroupSetting::deleteEntry 1", query);
 
     // Now delete the group from channelgroupnames
     query.prepare("DELETE FROM channelgroupnames WHERE grpid = :GRPID;");
     query.bindValue(":GRPID", m_groupId);
     if (!query.exec())
-        MythDB::DBError("ChannelGroupSetting::Close", query);
+        MythDB::DBError("ChannelGroupSetting::deleteEntry 2", query);
 }
-
 
 ChannelGroupsSetting::ChannelGroupsSetting()
 {
@@ -4929,33 +5015,19 @@ void ChannelGroupsSetting::Load()
             this, &ChannelGroupsSetting::ShowNewGroupDialog);
     addChild(newGroup);
 
-    addChild(new ChannelGroupSetting(tr("Favorites"), 1));
-
-    MSqlQuery query(MSqlQuery::InitCon());
-
-    QString qstr = "SELECT grpid, name FROM channelgroupnames "
-                        " WHERE grpid <> 1 "
-                        " ORDER BY name ; ";
-
-    query.prepare(qstr);
-
-    if (!query.exec() || !query.isActive())
-        MythDB::DBError("ChannelGroupsSetting::Load", query);
-    else
+    ChannelGroupList list = ChannelGroup::GetManualChannelGroups();
+    for (auto it = list.begin(); it < list.end(); ++it)
     {
-        while(query.next())
-        {
-            addChild(new ChannelGroupSetting(query.value(1).toString(),
-                                             query.value(0).toUInt()));
-        }
+        QString name = (it->m_name == "Favorites") ? tr("Favorites") : it->m_name;
+        addChild(new ChannelGroupSetting(name, it->m_grpId));
     }
 
-    //Load all the groups
+    // Load all the groups
     GroupSetting::Load();
-    //TODO select the new one or the edited one
+
+    // TODO select the new one or the edited one
     emit settingsChanged(nullptr);
 }
-
 
 void ChannelGroupsSetting::ShowNewGroupDialog() const
 {
@@ -4977,12 +5049,11 @@ void ChannelGroupsSetting::ShowNewGroupDialog() const
 
 void ChannelGroupsSetting::CreateNewGroup(const QString& name)
 {
-    auto *button = new ChannelGroupSetting(name,-1);
+    auto *button = new ChannelGroupSetting(name, -1);
     button->setLabel(name);
     button->Load();
     addChild(button);
     emit settingsChanged(this);
 }
-
 
 // vim:set sw=4 ts=4 expandtab:

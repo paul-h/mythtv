@@ -13,6 +13,7 @@
 VdpStatus status; \
 bool ok = true;
 
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define CHECK_ST \
 ok &= (status == VDP_STATUS_OK); \
 if (!ok) \
@@ -24,6 +25,7 @@ if (!ok) \
 
 #define GET_PROC(FUNC_ID, PROC) \
 status = m_vdpGetProcAddress(m_device, FUNC_ID, reinterpret_cast<void **>(&(PROC))); CHECK_ST
+// NOLINTEND(cppcoreguidelines-macro-usage)
 
 VDPAUCodec::VDPAUCodec(MythCodecContext::CodecProfile Profile, QSize Size, uint32_t Macroblocks, uint32_t Level)
   : m_maxSize(Size),
@@ -70,7 +72,7 @@ bool MythVDPAUHelper::HaveVDPAU(bool Reinit /*=false*/)
     {
         LOG(VB_GENERAL, LOG_INFO, LOC + "Supported/available VDPAU decoders:");
         const VDPAUProfiles& profiles = MythVDPAUHelper::GetProfiles();
-        for (auto profile : qAsConst(profiles))
+        for (const auto& profile : qAsConst(profiles))
             LOG(VB_GENERAL, LOG_INFO, LOC +
                 MythCodecContext::GetProfileDescription(profile.first, profile.second.m_maxSize));
     }
@@ -220,7 +222,7 @@ void MythVDPAUHelper::GetDecoderList(QStringList &Decoders)
         return;
 
     Decoders.append("VDPAU:");
-    for (auto profile : qAsConst(profiles))
+    for (const auto& profile : qAsConst(profiles))
         if (profile.first != MythCodecContext::MJPEG)
             Decoders.append(MythCodecContext::GetProfileDescription(profile.first, profile.second.m_maxSize));
 }
@@ -264,9 +266,11 @@ MythVDPAUHelper::MythVDPAUHelper(void)
 
     INIT_ST
     m_vdpGetErrorString = &DummyGetError;
-    XLOCK(m_display, status = vdp_device_create_x11(m_display->GetDisplay(),
-                                                    m_display->GetScreen(),
-                                                    &m_device, &m_vdpGetProcAddress));
+    m_display->Lock();
+    status = vdp_device_create_x11(m_display->GetDisplay(),
+                                   m_display->GetScreen(),
+                                   &m_device, &m_vdpGetProcAddress);
+    m_display->Unlock();
     CHECK_ST
     if (!ok)
     {
@@ -351,8 +355,8 @@ bool MythVDPAUHelper::CheckH264Decode(AVCodecContext *Context)
         return false;
 
     int mbs = static_cast<int>(ceil(static_cast<double>(Context->width) / 16.0));
-    if (!(mbs == 49  || mbs == 54  || mbs == 59 || mbs == 64 ||
-          mbs == 113 || mbs == 118 ||mbs == 123 || mbs == 128))
+    if (mbs != 49  && mbs != 54  && mbs != 59 && mbs != 64 &&
+        mbs != 113 && mbs != 118 &&mbs != 123 && mbs != 128)
     {
         return true;
     }

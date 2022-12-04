@@ -10,10 +10,9 @@
 #include "dbsettings.h"
 #include "mythcontext.h"
 
-DatabaseSettings::DatabaseSettings(const QString &DBhostOverride)
+DatabaseSettings::DatabaseSettings(QString DBhostOverride) :
+    m_dbHostOverride(std::move(DBhostOverride))
 {
-    m_dbHostOverride = DBhostOverride;
-
     setLabel(DatabaseSettings::tr("Database Configuration"));
 
     MSqlQuery query(MSqlQuery::InitCon());
@@ -139,7 +138,7 @@ DatabaseSettings::DatabaseSettings(const QString &DBhostOverride)
 
 void DatabaseSettings::Load(void)
 {
-    DatabaseParams params = gContext->GetDatabaseParams();
+    DatabaseParams params = GetMythDB()->GetDatabaseParams();
 
     if (params.m_dbHostName.isEmpty() ||
         params.m_dbUserName.isEmpty() ||
@@ -186,7 +185,7 @@ void DatabaseSettings::Load(void)
 }
 void DatabaseSettings::Save(void)
 {
-    DatabaseParams params = gContext->GetDatabaseParams();
+    DatabaseParams params = GetMythDB()->GetDatabaseParams();
 
     params.m_dbHostName = m_dbHostName->getValue();
     params.m_dbHostPing = m_dbHostPing->boolValue();

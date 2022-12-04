@@ -34,15 +34,15 @@
 #include "lcdprocclient.h"
 #include "lcdserver.h"
 
-#define LCD_START_COL 3
+static constexpr uint8_t LCD_START_COL { 3 };
 
-#define LCD_VERSION_4 1
-#define LCD_VERSION_5 2
+static constexpr uint8_t LCD_VERSION_4 { 1 };
+static constexpr uint8_t LCD_VERSION_5 { 2 };
 
 static constexpr std::chrono::milliseconds LCD_TIME_TIME       { 3s };
 static constexpr std::chrono::milliseconds LCD_SCROLLLIST_TIME { 2s };
 
-int lcdStartCol = LCD_START_COL;
+uint8_t lcdStartCol = LCD_START_COL;
 
 LCDProcClient::LCDProcClient(LCDServer *lparent)
               : QObject(nullptr),
@@ -1891,7 +1891,7 @@ void LCDProcClient::dostdclock()
         aString += time + "\"";
         if ( m_timeFlash )
         {
-            aString = aString.remove(":");
+            aString = aString.replace(':', ' ');
             m_timeFlash = false;
         }
         else
@@ -2053,7 +2053,7 @@ QStringList LCDProcClient::formatScrollerText(const QString &text) const
     int lastSplit = 0;
     QString line = "";
 
-    for (auto x : qAsConst(text))
+    for (const auto& x : qAsConst(text))
     {
         if (separators.contains(x))
             lastSplit = line.length();

@@ -5,22 +5,21 @@ AVPROGS-$(CONFIG_FFPROBE)  += ffprobe
 AVPROGS     := $(AVPROGS-yes:%=%$(PROGSSUF)$(EXESUF))
 PROGS       += $(AVPROGS)
 MYTHPROGS   = $(addprefix myth, ${PROGS})
-MYTHFFLIBS  = -lmythavfilter -lmythavformat -lmythavcodec -lmythavresample \
+MYTHFFLIBS  = -lmythavfilter -lmythavformat -lmythavcodec \
 -lmythpostproc -lmythswresample -lmythswscale
 
 AVBASENAMES  = ffmpeg ffplay ffprobe
 ALLAVPROGS   = $(AVBASENAMES:%=%$(PROGSSUF)$(EXESUF))
 ALLAVPROGS_G = $(AVBASENAMES:%=%$(PROGSSUF)_g$(EXESUF))
 
-OBJS-ffmpeg                        += fftools/ffmpeg_opt.o fftools/ffmpeg_filter.o fftools/ffmpeg_hw.o
-OBJS-ffmpeg-$(CONFIG_LIBMFX)       += fftools/ffmpeg_qsv.o
-ifndef CONFIG_VIDEOTOOLBOX
-OBJS-ffmpeg-$(CONFIG_VDA)          += fftools/ffmpeg_videotoolbox.o
-endif
-OBJS-ffmpeg-$(CONFIG_VIDEOTOOLBOX) += fftools/ffmpeg_videotoolbox.o
+OBJS-ffmpeg +=                  \
+    fftools/ffmpeg_filter.o     \
+    fftools/ffmpeg_hw.o         \
+    fftools/ffmpeg_mux.o        \
+    fftools/ffmpeg_opt.o        \
 
 define DOFFTOOL
-OBJS-$(1) += fftools/cmdutils.o fftools/$(1).o $(OBJS-$(1)-yes)
+OBJS-$(1) += fftools/cmdutils.o fftools/opt_common.o fftools/$(1).o $(OBJS-$(1)-yes)
 $(1)$(PROGSSUF)_g$(EXESUF): $$(OBJS-$(1))
 $$(OBJS-$(1)): | fftools
 $$(OBJS-$(1)): CFLAGS  += $(CFLAGS-$(1))
@@ -37,16 +36,16 @@ fftools/ffprobe.o fftools/cmdutils.o: libavutil/ffversion.h | fftools
 OUTDIRS += fftools
 
 # ${MYTHPROGS}:
-mythffmpeg:
+mythffmpeg:	ffmpeg_g
 	cp ffmpeg_g mythffmpeg
 
-mythffprobe:
+mythffprobe: ffprobe_g
 	cp ffprobe_g mythffprobe
 
-mythffserver:
+mythffserver: ffserver_g
 	cp ffserver_g mythffserver
 
-mythffplay:
+mythffplay: ffplay_g
 	cp ffplay_g mythffplay
 
 ifdef AVPROGS

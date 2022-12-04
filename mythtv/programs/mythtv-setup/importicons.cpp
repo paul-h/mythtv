@@ -413,7 +413,7 @@ bool ImportIconsWizard::initialLoad(const QString& name)
         if (!m_missingEntries.empty())
         {
             message.append("\n");
-            message.append(tr("Could not find %n icon(s).", "", 
+            message.append(tr("Could not find %n icon(s).", "",
                               m_missingEntries.size()));
         }
 
@@ -487,7 +487,7 @@ bool ImportIconsWizard::doLoad()
 
 QString ImportIconsWizard::escape_csv(const QString& str)
 {
-    QRegularExpression rxDblForEscape("\"");
+    static const QRegularExpression rxDblForEscape("\"");
     QString str2 = str;
     str2.replace(rxDblForEscape,"\\\"");
     return "\""+str2+"\"";
@@ -500,7 +500,7 @@ QStringList ImportIconsWizard::extract_csv(const QString &line)
     bool in_comment = false;
     bool in_escape = false;
     int comma_count = 0;
-    for (auto cur : qAsConst(line))
+    for (const auto& cur : qAsConst(line))
     {
         if (in_escape)
         {
@@ -550,10 +550,10 @@ QString ImportIconsWizard::wget(QUrl& url, const QString& strParam )
     if (GetMythDownloadManager()->post(req, &data))
     {
         LOG(VB_CHANNEL, LOG_DEBUG, QString("ImportIconsWizard: result: %1").arg(QString(data)));
-        return QString(data);
+        return {data};
     }
 
-    return QString();
+    return {};
 }
 
 #include <QTemporaryFile>
@@ -762,7 +762,7 @@ bool ImportIconsWizard::findmissing(const QString& strParam)
 #else
     QStringList strSplit = str.split("\n", Qt::SkipEmptyParts);
 #endif
-    for (auto line : qAsConst(strSplit))
+    for (const auto& line : qAsConst(strSplit))
     {
         if (line[0] == QChar('#'))
             continue;
@@ -817,7 +817,7 @@ bool ImportIconsWizard::submit()
     unsigned callsign = 0;
     unsigned tv = 0;
     unsigned xmltvid = 0;
-    for (auto line : qAsConst(strSplit))
+    for (const auto& line : qAsConst(strSplit))
     {
         if (line[0] == QChar('#'))
             continue;

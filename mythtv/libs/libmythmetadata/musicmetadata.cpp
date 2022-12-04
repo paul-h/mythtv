@@ -648,18 +648,18 @@ int MusicMetadata::getGenreId()
     return m_genreId;
 }
 
-void MusicMetadata::setUrl(const QString& url, uint index)
+void MusicMetadata::setUrl(const QString& url, size_t index)
 {
     if (index < STREAMURLCOUNT)
         m_urls[index] = url;
 }
 
-QString MusicMetadata::Url(uint index)
+QString MusicMetadata::Url(size_t index)
 {
     if (index < STREAMURLCOUNT)
         return m_urls[index];
 
-    return QString();
+    return {};
 }
 
 void MusicMetadata::dumpToDatabase()
@@ -1291,7 +1291,7 @@ QString MusicMetadata::getAlbumArtFile(void)
                 if (!GetMythDownloadManager()->download(res, albumart_image->m_filename))
                 {
                     m_albumArt->getImageList()->removeAll(albumart_image);
-                    return QString("");
+                    return {""};
                 }
             }
 
@@ -1304,7 +1304,7 @@ QString MusicMetadata::getAlbumArtFile(void)
 
             if (url.path().isEmpty() || url.host().isEmpty() || url.userName().isEmpty())
             {
-                return QString("");
+                return {""};
             }
 
             if (!RemoteFile::Exists(res))
@@ -1341,7 +1341,7 @@ QString MusicMetadata::getAlbumArtFile(void)
         return res;
     }
 
-    return QString("");
+    return {""};
 }
 
 QString MusicMetadata::getAlbumArtFile(ImageType type)
@@ -1353,7 +1353,7 @@ QString MusicMetadata::getAlbumArtFile(ImageType type)
     if (albumart_image)
         return albumart_image->m_filename;
 
-    return QString("");
+    return {""};
 }
 
 AlbumArtImages *MusicMetadata::getAlbumArtImages(void)
@@ -1767,7 +1767,7 @@ void AllStream::loadStreams(void)
         while (query.next())
         {
             UrlList urls;
-            for (int x = 0; x < STREAMURLCOUNT; x++)
+            for (size_t x = 0; x < STREAMURLCOUNT; x++)
                 urls[x] = query.value(4 + x).toString();
 
             auto *mdata = new MusicMetadata(

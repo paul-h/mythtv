@@ -15,6 +15,7 @@
 #include <libmythbase/compat.h>
 #include <libmythbase/mythlogging.h>
 #include <libmythbase/mythrandom.h>
+#include <libmythbase/sizetliteral.h>
 
 // Mythmusic Headers
 #include "bumpscope.h"
@@ -67,15 +68,15 @@ void BumpScope::resize(const QSize &newsize)
     m_x = m_width / 2;
     m_y = m_height;
 
-    m_phongDat.resize(m_phongRad * 2);
+    m_phongDat.resize(m_phongRad * 2_UZ);
     for (auto & dat : m_phongDat)
-        dat.resize(m_phongRad * 2);
+        dat.resize(m_phongRad * 2_UZ);
 
     generate_phongdat();
     generate_cmap(m_color);
 }
 
-void BumpScope::blur_8(unsigned char *ptr, int w, int h, int bpl)
+void BumpScope::blur_8(unsigned char *ptr, int w, int h, ptrdiff_t bpl)
 {
     (void)w;
 
@@ -242,10 +243,8 @@ inline void BumpScope::draw_vert_line(unsigned char *buffer, int x, int y1,
 
 void BumpScope::render_light(int lx, int ly)
 {
-    int dx = 0;
     int dy = 0;
     unsigned int PHONGRES = m_phongRad * 2;
-    unsigned int i = 0;
     unsigned int j = 0;
 
     int prev_y = m_bpl + 1;
@@ -255,6 +254,8 @@ void BumpScope::render_light(int lx, int ly)
     for (dy = (-ly) + (PHONGRES / 2), j = 0; j < m_height; j++, dy++,
          prev_y += m_bpl - m_width)
     {
+        int dx = 0;
+        unsigned int i = 0;
         for (dx = (-lx) + (PHONGRES / 2), i = 0; i < m_width; i++, dx++,
              prev_y++, out_y++)
         {

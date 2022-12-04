@@ -108,6 +108,8 @@ HEADERS += mythframe.h
 
 # Misc. needed by backend/frontend
 HEADERS += mythtvexp.h
+HEADERS += bitreader.h
+HEADERS += bytereader.h
 HEADERS += recordinginfo.h
 HEADERS += dbcheck.h
 HEADERS += videodbcheck.h
@@ -147,6 +149,7 @@ HEADERS += driveroption.h
 HEADERS += mythhdrvideometadata.h
 HEADERS += mythhdrtracker.h
 
+SOURCES += bytereader.cpp
 SOURCES += recordinginfo.cpp
 SOURCES += dbcheck.cpp
 SOURCES += videodbcheck.cpp

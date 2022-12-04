@@ -15,13 +15,15 @@
 
 #define LOC QString("VBox: ")
 
-#define QUERY_BOARDINFO "http://{URL}/cgi-bin/HttpControl/HttpControlApp?OPTION=1&Method=QueryBoardInfo"
-#define QUERY_CHANNELS  "http://{URL}/cgi-bin/HttpControl/HttpControlApp?OPTION=1&Method=GetXmltvChannelsList"\
-                        "&FromChIndex=FirstChannel&ToChIndex=LastChannel&FilterBy=All"
+static constexpr const char* QUERY_BOARDINFO
+{ "http://{URL}/cgi-bin/HttpControl/HttpControlApp?OPTION=1&Method=QueryBoardInfo" };
+static constexpr const char* QUERY_CHANNELS
+{ "http://{URL}/cgi-bin/HttpControl/HttpControlApp?OPTION=1&Method=GetXmltvChannelsList" \
+  "&FromChIndex=FirstChannel&ToChIndex=LastChannel&FilterBy=All" };
 
 static constexpr std::chrono::milliseconds SEARCH_TIME { 3s };
-#define VBOX_URI "urn:schemas-upnp-org:device:MediaServer:1"
-#define VBOX_UDN "uuid:b7531642-0123-3210"
+static constexpr const char* VBOX_URI { "urn:schemas-upnp-org:device:MediaServer:1" };
+static constexpr const char* VBOX_UDN { "uuid:b7531642-0123-3210" };
 
 // static method
 QStringList VBox::probeDevices(void)
@@ -70,7 +72,7 @@ QStringList VBox::doUPNPSearch(void)
     if (!vboxes)
     {
         LOG(VB_GENERAL, LOG_DEBUG, LOC + "No UPnP VBoxes found");
-        return QStringList();
+        return {};
     }
 
     int count = vboxes->Count();
@@ -154,13 +156,13 @@ QString VBox::getIPFromVideoDevice(const QString& dev)
     if (devItems.size() != 3)
     {
         LOG(VB_GENERAL, LOG_INFO, LOC + QString("Got malformed videodev %1").arg(dev));
-        return QString();
+        return {};
     }
 
     QString id = devItems.at(0).trimmed();
 
     // if we already have an ip address use that
-    QRegularExpression ipRE { R"(^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$)" };
+    static const QRegularExpression ipRE { R"(^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$)" };
     auto match = ipRE.match(id);
     if (match.hasMatch())
         return id;
@@ -185,7 +187,7 @@ QString VBox::getIPFromVideoDevice(const QString& dev)
     }
 
     // if we get here we didn't find it
-    return QString();
+    return {};
 }
 
 QDomDocument *VBox::getBoardInfo(void)
@@ -411,7 +413,7 @@ QString VBox::getStrValue(const QDomElement &element, const QString &name, int i
         return getFirstText(e);
     }
 
-    return QString();
+    return {};
 }
 
 int VBox::getIntValue(const QDomElement &element, const QString &name, int index)
@@ -430,5 +432,5 @@ QString VBox::getFirstText(QDomElement &element)
         if (!t.isNull())
             return t.data();
     }
-    return QString();
+    return {};
 }

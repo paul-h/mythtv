@@ -9,8 +9,6 @@
 
 // MythTV headers
 
-#include "libmyth/programinfo.h"
-#include "libmyth/remoteutil.h"
 #include "libmythbase/compat.h"
 #include "libmythbase/mythconfig.h"
 #include "libmythbase/mythcorecontext.h"
@@ -18,6 +16,8 @@
 #include "libmythbase/mythdb.h"
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythrandom.h"
+#include "libmythbase/programinfo.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythbase/storagegroup.h"
 
 #include "cardutil.h"
@@ -157,7 +157,11 @@ bool TVRec::Init(void)
     QMutexLocker lock(&m_stateChangeLock);
 
     if (!GetDevices(m_inputId, m_parentId, m_genOpt, m_dvbOpt, m_fwOpt))
+    {
+        LOG(VB_CHANNEL, LOG_ERR, QString("[%1] Failed to GetDevices")
+            .arg(m_inputId));
         return false;
+    }
 
     SetRecordingStatus(RecStatus::Unknown, __LINE__);
 
@@ -166,7 +170,13 @@ bool TVRec::Init(void)
     if (startchannel.isEmpty())
         return false;
     if (!CreateChannel(startchannel, true))
+    {
+        LOG(VB_CHANNEL, LOG_ERR, QString("[%1] Failed to create channel "
+                                         "instance for %2")
+            .arg(m_inputId)
+            .arg(startchannel));
         return false;
+    }
 
     m_transcodeFirst    =
         gCoreContext->GetBoolSetting("AutoTranscodeBeforeAutoCommflag", false);
@@ -869,7 +879,7 @@ void TVRec::FinishedRecording(RecordingInfo *curRec, RecordingQuality *recq)
     {
         QMutexLocker locker(&s_finRecLock);
         QDateTime now = MythDate::current();
-        QDateTime expired = now.addSecs(-60*5);
+        QDateTime expired = now.addSecs(-5LL * 60);
         QHash<QString,QDateTime>::iterator it = s_finRecMap.begin();
         while (it != s_finRecMap.end())
         {
@@ -1006,10 +1016,12 @@ void TVRec::FinishedRecording(RecordingInfo *curRec, RecordingQuality *recq)
     m_autoRunJobs.erase(autoJob);
 }
 
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define TRANSITION(ASTATE,BSTATE) \
    ((m_internalState == (ASTATE)) && (m_desiredNextState == (BSTATE)))
 #define SET_NEXT() do { nextState = m_desiredNextState; changed = true; } while(false)
 #define SET_LAST() do { nextState = m_internalState; changed = true; } while(false)
+// NOLINTEND(cppcoreguidelines-macro-usage)
 
 /** \fn TVRec::HandleStateChange(void)
  *  \brief Changes the internalState to the desiredNextState if possible.
@@ -1766,7 +1778,7 @@ static bool ApplyCachedPids(DTVSignalMonitor *dtvMon, const DTVChannel* channel)
     pid_cache_t pid_cache;
     channel->GetCachedPids(pid_cache);
     bool vctpid_cached = false;
-    for (auto pid : pid_cache)
+    for (const auto& pid : pid_cache)
     {
         if ((pid.GetTableID() == TableID::TVCT) ||
             (pid.GetTableID() == TableID::CVCT))
@@ -2978,7 +2990,7 @@ QString TVRec::GetInput(void) const
 {
     if (m_channel)
         return m_channel->GetInputName();
-    return QString();
+    return {};
 }
 
 /** \fn TVRec::GetSourceID(void) const
@@ -3008,7 +3020,7 @@ QString TVRec::SetInput(QString input)
     if (!m_channel)
     {
         LOG(VB_RECORD, LOG_INFO, LOC + "SetInput() -- end  no channel class");
-        return QString();
+        return {};
     }
 
     LOG(VB_RECORD, LOG_INFO, LOC + "SetInput(" + origIn + ":" + input +

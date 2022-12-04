@@ -31,7 +31,7 @@ MythNVDECContext::~MythNVDECContext()
  * to another decoder as soon as possible if necessary.
 */
 MythCodecID MythNVDECContext::GetSupportedCodec(AVCodecContext **Context,
-                                                AVCodec       **Codec,
+                                                const AVCodec **Codec,
                                                 const QString  &Decoder,
                                                 AVStream       *Stream,
                                                 uint            StreamType)
@@ -48,7 +48,7 @@ MythCodecID MythNVDECContext::GetSupportedCodec(AVCodecContext **Context,
         if (!FrameTypeIsSupported(*Context, FMT_NVDEC))
             return failure;
 
-    QString codecstr = ff_codec_id_string((*Context)->codec_id);
+    QString codecstr = avcodec_get_name((*Context)->codec_id);
     QString profile  = avcodec_profile_name((*Context)->codec_id, (*Context)->profile);
     QString pixfmt   = av_get_pix_fmt_name((*Context)->pix_fmt);
 
@@ -114,7 +114,7 @@ MythCodecID MythNVDECContext::GetSupportedCodec(AVCodecContext **Context,
         if ((config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) &&
             (config->device_type == AV_HWDEVICE_TYPE_CUDA))
         {
-            AVCodec *codec = avcodec_find_decoder_by_name(name.toLocal8Bit());
+            const AVCodec *codec = avcodec_find_decoder_by_name(name.toLocal8Bit());
             if (codec)
             {
                 LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("NVDEC supports decoding %1").arg(desc));
@@ -533,7 +533,7 @@ bool MythNVDECContext::HaveNVDEC(bool Reinit /*=false*/)
             {
                 s_available = true;
                 LOG(VB_GENERAL, LOG_INFO, LOC + "Supported/available NVDEC decoders:");
-                for (auto profile : profiles)
+                for (const auto& profile : profiles)
                 {
                     QString desc = MythCodecContext::GetProfileDescription(profile.m_profile,profile.m_maximum,
                                                                            profile.m_type, profile.m_depth + 8);
@@ -557,7 +557,7 @@ void MythNVDECContext::GetDecoderList(QStringList &Decoders)
     if (profiles.empty())
         return;
     Decoders.append("NVDEC:");
-    for (auto profile : profiles)
+    for (const auto& profile : profiles)
     {
         if (!(profile.m_depth % 2)) // Ignore 9/11bit etc
             Decoders.append(MythCodecContext::GetProfileDescription(profile.m_profile, profile.m_maximum,
@@ -616,17 +616,17 @@ const std::vector<MythNVDECContext::MythNVDECCaps> &MythNVDECContext::GetProfile
                             caps.bIsSupported)
                         {
                             s_profiles.emplace_back(
-                                    MythNVDECCaps(cudacodec, depth, cudaformat,
+                                    cudacodec, depth, cudaformat,
                                         QSize(caps.nMinWidth, caps.nMinHeight),
                                         QSize(static_cast<int>(caps.nMaxWidth), static_cast<int>(caps.nMaxHeight)),
-                                        caps.nMaxMBCount));
+                                        caps.nMaxMBCount);
                         }
                         else if (!cuvid->cuvidGetDecoderCaps)
                         {
                             // dummy - just support everything:)
-                            s_profiles.emplace_back(MythNVDECCaps(cudacodec, depth, cudaformat,
+                            s_profiles.emplace_back(cudacodec, depth, cudaformat,
                                                                   QSize(32, 32), QSize(8192, 8192),
-                                                                  (8192 * 8192) / 256));
+                                                                  (8192 * 8192) / 256);
                         }
                     }
                 }

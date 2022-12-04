@@ -30,8 +30,8 @@
 #define USE_ASM
 #endif
 
-#define EFFECT_DISTORS 4
-#define EFFECT_DISTORS_SL 2
+static constexpr int8_t EFFECT_DISTORS    { 4 };
+static constexpr int8_t EFFECT_DISTORS_SL { 2 };
 
 extern volatile guint32 resolx;
 extern volatile guint32 c_resoly;
@@ -125,21 +125,21 @@ static int middleX, middleY;
 //static int buffratio = 0;
 int     buffratio = 0;
 
-#define BUFFPOINTNB 16
-#define BUFFPOINTMASK 0xffff
-#define BUFFINCR 0xff
+static   constexpr uint8_t BUFFPOINTNB   { 16     };
+static   constexpr int32_t BUFFPOINTMASK { 0xffff };
+//static constexpr uint8_t BUFFINCR      { 0xff   };
 
-#define sqrtperte 16
+static constexpr int8_t sqrtperte { 16 };
 // faire : a % sqrtperte <=> a & pertemask
-#define PERTEMASK 0xf
+static constexpr int8_t PERTEMASK { 0xf };
 // faire : a / sqrtperte <=> a >> PERTEDEC
-#define PERTEDEC 4
+static constexpr uint8_t PERTEDEC { 4 };
 
 static int *firedec = nullptr;
 
 
 // retourne x>>s , en testant le signe de x
-#define ShiftRight(_x,_s) (((_x)<0) ? -(-(_x)>>(_s)) : ((_x)>>(_s)))
+static inline int ShiftRight(int x,int s) {return (x<0) ? -((-x)>>s) : (x>>s); }
 
 /** modif d'optim by Jeko : precalcul des 4 coefs résultant des 2 pos */
 GoomCoefficients precalCoef = {};
@@ -248,8 +248,7 @@ calculatePXandPY (int x, int y, int *px, int *py)
 		if (waveEffect) {
 			fvitesse *=
 				1024 +
-				ShiftRight (sintable
-										[(unsigned short) (dist * 0xffff + EFFECT_DISTORS)], 6);
+				ShiftRight (sintable[(unsigned short) (dist * 0xffff + EFFECT_DISTORS)], 6);
 			fvitesse /= 1024;
 		}
 
@@ -266,8 +265,7 @@ calculatePXandPY (int x, int y, int *px, int *py)
 		case WAVE_MODE:
 			fvitesse *=
 				1024 +
-				ShiftRight (sintable
-										[(unsigned short) (dist * 0xffff * EFFECT_DISTORS)], 6);
+				ShiftRight (sintable[(unsigned short) (dist * 0xffff * EFFECT_DISTORS)], 6);
 			fvitesse>>=10;///=1024;
 			break;
 		case CRYSTAL_BALL_MODE:
@@ -497,9 +495,9 @@ zoomFilterFastRGB (Uint * pix1, Uint * pix2, ZoomFilterData * zf, Uint resx, Uin
 	static unsigned char s_pertedec = 8;
 	static char s_firstTime = 1;
 
-#define INTERLACE_INCR 16
-#define INTERLACE_ADD 9
-#define INTERLACE_AND 0xf
+        static constexpr int8_t INTERLACE_INCR   {  16 };
+        //static constexpr int8_t INTERLACE_ADD  {   9 };
+        //static constexpr int8_t INTERLACE_AND  { 0xf };
 	static int s_interlaceStart = -2;
 
 	expix1 = pix1;

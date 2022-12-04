@@ -26,20 +26,20 @@
 #include "libmythui/mythmainwindow.h"
 
 #define LOC QString("RAOP Conn: ")
-#define MAX_PACKET_SIZE  2048
+static constexpr size_t MAX_PACKET_SIZE { 2048 };
 
 RSA *MythRAOPConnection::g_rsa = nullptr;
 QString MythRAOPConnection::g_rsaLastError;
 
 // RAOP RTP packet type
-#define TIMING_REQUEST   0x52
-#define TIMING_RESPONSE  0x53
-#define SYNC             0x54
-#define FIRSTSYNC        (0x54 | 0x80)
-#define RANGE_RESEND     0x55
-#define AUDIO_RESEND     0x56
-#define AUDIO_DATA       0x60
-#define FIRSTAUDIO_DATA  (0x60 | 0x80)
+static constexpr uint8_t TIMING_REQUEST   { 0x52 };
+static constexpr uint8_t TIMING_RESPONSE  { 0x53 };
+static constexpr uint8_t SYNC             { 0x54 };
+static constexpr uint8_t FIRSTSYNC        { 0x54 | 0x80 };
+static constexpr uint8_t RANGE_RESEND     { 0x55 };
+static constexpr uint8_t AUDIO_RESEND     { 0x56 };
+static constexpr uint8_t AUDIO_DATA       { 0x60 };
+static constexpr uint8_t FIRSTAUDIO_DATA  { 0x60 | 0x80 };
 
 // Size (in ms) of audio buffered in audio card
 static constexpr std::chrono::milliseconds AUDIOCARD_BUFFER { 500ms };
@@ -672,7 +672,7 @@ uint32_t MythRAOPConnection::decodeAudioPacket(uint8_t type,
         if (data_size)
         {
             int num_samples = data_size /
-                (ctx->channels * av_get_bytes_per_sample(ctx->sample_fmt));
+                (ctx->ch_layout.nb_channels * av_get_bytes_per_sample(ctx->sample_fmt));
 
             frames_added += num_samples;
             AudioData block {samples, data_size, num_samples};
@@ -1650,7 +1650,7 @@ bool MythRAOPConnection::CreateDecoder(void)
         }
         m_codecContext->extradata = extradata;
         m_codecContext->extradata_size = 36;
-        m_codecContext->channels = m_channels;
+        m_codecContext->ch_layout.nb_channels = m_channels;
         if (avcodec_open2(m_codecContext, m_codec, nullptr) < 0)
         {
             LOG(VB_PLAYBACK, LOG_ERR, LOC +

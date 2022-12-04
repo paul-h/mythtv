@@ -77,7 +77,7 @@ void ChannelScannerCLI::HandleEvent(const ScannerEvent *scanEvent)
         m_statusLock = scanEvent->boolValue();
     else if (scanEvent->type() == ScannerEvent::SetStatusSignalToNoise)
         m_statusSnr = scanEvent->intValue() / 65535.0;
-#if THESE_ARE_CURRENTLY_IGNORED
+#if 0 // THESE_ARE_CURRENTLY_IGNORED
     else if (scanEvent->type() == ScannerEvent::SetStatusTitleText)
         ;
     else if (scanEvent->type() == ScannerEvent::SetStatusRotorPosition)
@@ -88,7 +88,7 @@ void ChannelScannerCLI::HandleEvent(const ScannerEvent *scanEvent)
 
     //cout<<"HERE<"<<verboseMask<<">"<<endl;
     QString msg;
-    if (VERBOSE_LEVEL_NONE || VERBOSE_LEVEL_CHECK(VB_CHANSCAN, LOG_INFO))
+    if (VERBOSE_LEVEL_NONE() || VERBOSE_LEVEL_CHECK(VB_CHANSCAN, LOG_INFO))
     {
         msg = QString("%1% S/N %2 %3 : %4 (%5) %6")
             .arg(m_statusComplete, 3)
@@ -109,7 +109,7 @@ void ChannelScannerCLI::HandleEvent(const ScannerEvent *scanEvent)
             s_oldMsg = msg;
         }
     }
-    else if (VERBOSE_LEVEL_NONE)
+    else if (VERBOSE_LEVEL_NONE())
     {
         if (msg.length() > 80)
             msg = msg.left(77) + "...";
@@ -120,7 +120,7 @@ void ChannelScannerCLI::HandleEvent(const ScannerEvent *scanEvent)
 
 void ChannelScannerCLI::InformUser(const QString &error)
 {
-    if (VERBOSE_LEVEL_NONE)
+    if (VERBOSE_LEVEL_NONE())
     {
         std::cerr<<"ERROR: "<<error.toLatin1().constData()<<std::endl;
     }
@@ -145,6 +145,6 @@ void ChannelScannerCLI::Process(const ScanDTVTransportList &_transports)
 void ChannelScannerCLI::MonitorProgress(
     bool /*lock*/, bool /*strength*/, bool /*snr*/, bool /*rotor*/)
 {
-    if (VERBOSE_LEVEL_NONE)
+    if (VERBOSE_LEVEL_NONE())
         std::cout<<"\r0%"<<std::flush;
 }

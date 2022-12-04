@@ -45,9 +45,9 @@ extern "C" {
 static bool       ft_loaded = false;
 static FT_Library ft_library;
 
-#define FONT_WIDTHRES   54
-#define FONT_HEIGHTRES  72 // 1 pixel per point
-#define FONT_TO_USE "FreeSans.ttf" // Tiresias Screenfont.ttf is mandated
+static constexpr uint8_t FONT_WIDTHRES   { 54 };
+static constexpr uint8_t FONT_HEIGHTRES  { 72 }; // 1 pixel per point
+static constexpr const char * FONT_TO_USE { "FreeSans.ttf" }; // Tiresias Screenfont.ttf is mandated
 
 
 // LifecycleExtension tuneinfo:
@@ -1884,7 +1884,7 @@ void MHIBitmap::CreateFromMPEG(const unsigned char *data, int length)
     m_image = QImage();
 
     // Find the mpeg2 video decoder.
-    AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_MPEG2VIDEO);
+    const AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_MPEG2VIDEO);
     if (!codec)
         return;
     if (!picture)

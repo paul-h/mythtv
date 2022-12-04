@@ -18,11 +18,14 @@
 #include <sys/wait.h>
 #include <sys/param.h>
 
+#include "libmythbase/mythconfig.h"
+
 // Qt headers
 #include <QtGlobal>
 #if CONFIG_QTDBUS
 #include <QtDBus>
 #include <QDBusConnection>
+#include <QXmlStreamReader>
 #endif
 #include <QList>
 #include <QTextStream>
@@ -32,7 +35,6 @@
 // MythTV headers
 #include "libmythbase/exitcodes.h"
 #include "libmythbase/mythcdrom.h"
-#include "libmythbase/mythconfig.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythhdd.h"
 #include "libmythbase/mythlogging.h"
@@ -48,42 +50,41 @@ extern "C" {
 #endif
 
 
+#ifndef Q_OS_ANDROID
 #ifndef MNTTYPE_ISO9660
 #   ifdef __linux__
-#       define MNTTYPE_ISO9660 "iso9660"
+    static constexpr const char* MNTTYPE_ISO9660 { "iso9660" };
 #   elif defined(__FreeBSD__) || defined(Q_OS_DARWIN) || defined(__OpenBSD__)
-#       define MNTTYPE_ISO9660 "cd9660"
+    static constexpr const char* MNTTYPE_ISO9660 { "cd9660" };
 #   endif
 #endif
 
 #ifndef MNTTYPE_UDF
-#define MNTTYPE_UDF "udf"
+static constexpr const char* MNTTYPE_UDF { "udf" };
 #endif
 
 #ifndef MNTTYPE_AUTO
-#define MNTTYPE_AUTO "auto"
+static constexpr const char* MNTTYPE_AUTO { "auto" };
 #endif
 
 #ifndef MNTTYPE_SUPERMOUNT
-#define MNTTYPE_SUPERMOUNT "supermount"
+static constexpr const char* MNTTYPE_SUPERMOUNT { "supermount" };
 #endif
 static const std::string kSuperOptDev { "dev=" };
+#endif // !Q_OS_ANDROID
 
 #if CONFIG_QTDBUS
-// DBus UDisk service - http://hal.freedesktop.org/docs/udisks/
-#define UDISKS_SVC      "org.freedesktop.UDisks"
-#define UDISKS_PATH     "/org/freedesktop/UDisks"
-#define UDISKS_IFACE    "org.freedesktop.UDisks"
-#define UDISKS_DEVADD   "DeviceAdded"
-#define UDISKS_DEVRMV   "DeviceRemoved"
-#define UDISKS_DEVSIG   "o" // OBJECT_PATH
 // DBus UDisks2 service - https://udisks.freedesktop.org/
-#define UDISKS2_SVC     "org.freedesktop.UDisks2"
-#define UDISKS2_PATH    "/org/freedesktop/UDisks2"
-#define UDISKS2_IFACE   "org.freedesktop.UDisks2.Drive"
+static constexpr const char* UDISKS2_SVC                { "org.freedesktop.UDisks2" };
+static constexpr const char* UDISKS2_SVC_DRIVE          { "org.freedesktop.UDisks2.Drive" };
+static constexpr const char* UDISKS2_SVC_BLOCK          { "org.freedesktop.UDisks2.Block" };
+static constexpr const char* UDISKS2_SVC_FILESYSTEM     { "org.freedesktop.UDisks2.Filesystem" };
+static constexpr const char* UDISKS2_SVC_MANAGER        { "org.freedesktop.UDisks2.Manager" };
+static constexpr const char* UDISKS2_PATH               { "/org/freedesktop/UDisks2" };
+static constexpr const char* UDISKS2_PATH_MANAGER       { "/org/freedesktop/UDisks2/Manager" };
+static constexpr const char* UDISKS2_PATH_BLOCK_DEVICES { "/org/freedesktop/UDisks2/block_devices" };
+static constexpr const char* UDISKS2_MIN_VERSION        { "2.7.3" };
 #endif
-
-const char * MediaMonitorUnix::kUDEV_FIFO = "/tmp/mythtv_media";
 
 
 // Some helpers for debugging:
@@ -124,7 +125,7 @@ MediaMonitorUnix::MediaMonitorUnix(QObject* par,
         CheckMountable();
     }
 
-    LOG(VB_MEDIA, LOG_INFO, "Initial device list...\n" + listDevices());
+    LOG(VB_MEDIA, LOG_INFO, LOC +"Initial device list...\n" + listDevices());
 }
 
 
@@ -169,18 +170,91 @@ bool MediaMonitorUnix::CheckFileSystemTable(void)
 
 #if CONFIG_QTDBUS
 // Get a device property by name
-static QVariant DeviceProperty(const QDBusObjectPath& o, const std::string& kszProperty)
+static QVariant DriveProperty(const QDBusObjectPath& o, const std::string& kszProperty)
 {
     QVariant v;
-
-    QDBusInterface iface(UDISKS_SVC, o.path(), UDISKS_IFACE".Device",
-        QDBusConnection::systemBus() );
+    QDBusInterface iface(UDISKS2_SVC, o.path(), UDISKS2_SVC_DRIVE,
+                         QDBusConnection::systemBus() );
     if (iface.isValid())
+    {
         v = iface.property(kszProperty.c_str());
-
+        LOG(VB_MEDIA, LOG_DEBUG, LOC +
+            "Udisks2:Drive:" + kszProperty.c_str() + " : " + v.toString() );
+    }
     return v;
 }
+
+// Uses a QDBusObjectPath for a block device as input parameter
+static bool DetectDevice(const QDBusObjectPath& entry, MythUdisksDevice& device,
+                         QString& desc, QString& dev)
+{
+    QDBusInterface block(UDISKS2_SVC, entry.path(), UDISKS2_SVC_BLOCK,
+                         QDBusConnection::systemBus() );
+#if 0
+    QString devraw = block.property("Device").toString();
+    LOG(VB_MEDIA, LOG_DEBUG, LOC +
+        "CheckMountable: Raw Device found: " + devraw);
 #endif
+    if (!block.property("HintSystem").toBool() &&
+        !block.property("HintIgnore").toBool())
+    {
+        dev = block.property("Device").toString();
+        LOG(VB_MEDIA, LOG_DEBUG, LOC +
+            "CheckMountable: Device found: " + dev);
+
+        bool readonly = block.property("ReadOnly").toBool();
+        LOG(VB_MEDIA, LOG_DEBUG, LOC +
+            QString("CheckMountable: Device:ReadOnly '%1'").arg(readonly));
+
+        // ignore floppies, too slow
+        if (dev.startsWith("/dev/fd"))
+            return false;
+
+        // Check if device has partitions
+        QDBusInterface properties(UDISKS2_SVC, entry.path(),
+            "org.freedesktop.DBus.Properties", QDBusConnection::systemBus());
+
+        auto mountpointscall = properties.call("Get", UDISKS2_SVC_FILESYSTEM,
+                                               "MountPoints");
+        bool isfsmountable = (properties.lastError().type() == QDBusError::NoError);
+
+        LOG(VB_MEDIA, LOG_DEBUG, LOC +
+            QString("     CheckMountable:Entry:isfsmountable : %1").arg(isfsmountable));
+
+        // Get properties of the corresponding drive
+        // Note: the properties 'Optical' and 'OpticalBlank' needs a medium inserted
+        auto drivePath = block.property("Drive").value<QDBusObjectPath>();
+        desc = DriveProperty(drivePath, "Vendor").toString();
+        if (!desc.isEmpty())
+            desc += " ";
+        desc += DriveProperty(drivePath, "Model").toString();
+        LOG(VB_MEDIA, LOG_DEBUG, LOC +
+            QString("CheckMountable: Found drive '%1'").arg(desc));
+#if 0
+        LOG(VB_MEDIA, LOG_DEBUG, LOC + QString("CheckMountable:Drive:Optical : %1")
+                .arg(DriveProperty(drivePath, "Optical").toString()));
+        LOG(VB_MEDIA, LOG_DEBUG, LOC + QString("CheckMountable:Drive:OpticalBlank : %1")
+                .arg(DriveProperty(drivePath, "OpticalBlank").toString()));
+#endif
+
+        if (DriveProperty(drivePath, "Removable").toBool())
+        {
+            if (readonly && !isfsmountable)
+            {
+                device = UDisks2DVD;
+                return true;
+            }
+            if (isfsmountable)
+            {
+                device = UDisks2HDD;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+#endif  // CONFIG_QTDBUS
+
 
 /**
  *  \brief Search /sys/block for valid removable media devices.
@@ -198,66 +272,96 @@ bool MediaMonitorUnix::CheckMountable(void)
 #if CONFIG_QTDBUS
     for (int i = 0; i < 10; ++i, usleep(500000))
     {
-        // Connect to UDisks.  This can sometimes fail if mythfrontend
+        // Connect to UDisks2.  This can sometimes fail if mythfrontend
         // is started during system init
-        QDBusInterface iface(UDISKS_SVC, UDISKS_PATH, UDISKS_IFACE,
-            QDBusConnection::systemBus() );
-        if (!iface.isValid())
+        QDBusInterface ifacem(UDISKS2_SVC, UDISKS2_PATH_MANAGER,
+                              UDISKS2_SVC_MANAGER, QDBusConnection::systemBus() );
+
+        if (ifacem.isValid())
         {
-            LOG(VB_GENERAL, LOG_ALERT, LOC +
-                "CheckMountable: DBus interface error: " +
-                     iface.lastError().message() );
-            QDBusInterface iface2(UDISKS2_SVC, UDISKS2_PATH, UDISKS2_IFACE,
-                QDBusConnection::systemBus() );
-            if (iface2.isValid()) {
-                // We have udisks2 service on this system, give up quickly
-                // TODO: Implement device monitoring via udisks2 service
-                LOG(VB_GENERAL, LOG_WARNING, LOC +
-                    "UDisks2 service found. Media Monitor does not support this yet!");
-                return false;
+            if (!ifacem.property("Version").toString().isEmpty())
+            {
+                // Minimal supported UDisk2 version: UDISKS2_MIN_VERSION
+                QString mversion = ifacem.property("Version").toString();
+                QVersionNumber this_version = QVersionNumber::fromString(mversion);
+                QVersionNumber min_version = QVersionNumber::fromString(UDISKS2_MIN_VERSION);
+                LOG(VB_MEDIA, LOG_DEBUG, LOC + "Using UDisk2 version " + mversion);
+
+                if (QVersionNumber::compare(this_version, min_version) < 0)
+                {
+                    LOG(VB_GENERAL, LOG_ERR, LOC +
+                        "CheckMountable: UDisks2 version too old: " + mversion);
+                    return false;
+                }
             }
+            else
+            {
+                LOG(VB_GENERAL, LOG_ERR, LOC +
+                    "Cannot retrieve UDisks2 version, stopping device discovery");
+                    return false;
+            }
+        }
+        else
+        {
+            LOG(VB_GENERAL, LOG_WARNING, LOC +
+                "Cannot interface to UDisks2, will retry");
             continue;
         }
 
-        // Enumerate devices
+        // Get device paths
         using QDBusObjectPathList = QList<QDBusObjectPath>;
-        QDBusReply<QDBusObjectPathList> reply = iface.call("EnumerateDevices");
+        QDBusPendingReply<QDBusObjectPathList> reply = ifacem.call("GetBlockDevices",
+                                                                   QVariantMap{});
+        reply.waitForFinished();
         if (!reply.isValid())
         {
             LOG(VB_GENERAL, LOG_ALERT, LOC +
-                "CheckMountable DBus EnumerateDevices error: " +
+                "CheckMountable DBus GetBlockDevices error: " +
                      reply.error().message() );
             continue;
         }
 
+        LOG(VB_MEDIA, LOG_DEBUG, LOC +
+            "CheckMountable: Start listening on UDisks2 DBus");
+
         // Listen on DBus for UDisk add/remove device messages
-        (void)QDBusConnection::systemBus().connect(
-            UDISKS_SVC, UDISKS_PATH, UDISKS_IFACE, UDISKS_DEVADD, UDISKS_DEVSIG,
-            this, SLOT(deviceAdded(QDBusObjectPath)) );
-        (void)QDBusConnection::systemBus().connect(
-            UDISKS_SVC, UDISKS_PATH, UDISKS_IFACE, UDISKS_DEVRMV, UDISKS_DEVSIG,
-            this, SLOT(deviceRemoved(QDBusObjectPath)) );
+        (void)QDBusConnection::systemBus().connect(UDISKS2_SVC, UDISKS2_PATH,
+            "org.freedesktop.DBus.ObjectManager", "InterfacesAdded",
+            this, SLOT(deviceAdded(QDBusObjectPath,QMap<QString,QVariant>)) );
+        (void)QDBusConnection::systemBus().connect(UDISKS2_SVC, UDISKS2_PATH,
+            "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved",
+            this, SLOT(deviceRemoved(QDBusObjectPath,QStringList)) );
 
         // Parse the returned device array
         const QDBusObjectPathList& list(reply.value());
         for (const auto& entry : qAsConst(list))
         {
-            if (!DeviceProperty(entry, "DeviceIsSystemInternal").toBool() &&
-                !DeviceProperty(entry, "DeviceIsPartitionTable").toBool() )
+            // Create the MythMediaDevice
+            MythMediaDevice* pDevice = nullptr;
+            MythUdisksDevice mythdevice = UDisks2INVALID;
+            QString description;
+            QString path;
+
+            if (DetectDevice(entry, mythdevice, description, path))
             {
-                QString dev = DeviceProperty(entry, "DeviceFile").toString();
-
-                // ignore floppies, too slow
-                if (dev.startsWith("/dev/fd"))
-                    continue;
-
-                MythMediaDevice* pDevice = nullptr;
-                if (DeviceProperty(entry, "DeviceIsRemovable").toBool())
-                    pDevice = MythCDROM::get(this, dev.toLatin1(), false, m_allowEject);
-                else
-                    pDevice = MythHDD::Get(this, dev.toLatin1(), false, false);
-
-                if (pDevice && !MediaMonitorUnix::AddDevice(pDevice))
+                if (mythdevice == UDisks2DVD)
+                {
+                    pDevice = MythCDROM::get(this, path.toLatin1(), false, m_allowEject);
+                    LOG(VB_MEDIA, LOG_DEBUG, LOC +
+                        "deviceAdded: Added MythCDROM: " + path);
+                }
+                else if (mythdevice == UDisks2HDD)
+                {
+                    pDevice = MythHDD::Get(this, path.toLatin1(), false, false);
+                    LOG(VB_MEDIA, LOG_DEBUG, LOC +
+                        "deviceAdded: Added MythHDD: " + path);
+                }
+            }
+            if (pDevice)
+            {
+                // Set the device model and try to add the device
+                pDevice -> setDeviceModel(description.toLatin1().constData());
+                if (!MediaMonitorUnix::AddDevice(pDevice))
                     pDevice->deleteLater();
             }
         }
@@ -431,24 +535,45 @@ QStringList MediaMonitorUnix::GetCDROMBlockDevices(void)
     QStringList l;
 
 #if CONFIG_QTDBUS
-    QDBusInterface iface(UDISKS_SVC, UDISKS_PATH, UDISKS_IFACE,
-        QDBusConnection::systemBus() );
-    if (iface.isValid())
+    QDBusInterface blocks(UDISKS2_SVC, UDISKS2_PATH_BLOCK_DEVICES,
+            "org.freedesktop.DBus.Introspectable", QDBusConnection::systemBus());
+
+    QDBusReply<QString> reply = blocks.call("Introspect");
+    QXmlStreamReader xml_parser(reply.value());
+
+    while (!xml_parser.atEnd())
     {
-        // Enumerate devices
-        using QDBusObjectPathList = QList<QDBusObjectPath>;
-        QDBusReply<QDBusObjectPathList> reply = iface.call("EnumerateDevices");
-        if (reply.isValid())
+        xml_parser.readNext();
+
+        if (xml_parser.tokenType() == QXmlStreamReader::StartElement
+                && xml_parser.name().toString() == "node")
         {
-            const QDBusObjectPathList& list(reply.value());
-            for (const auto& entry : qAsConst(list))
+            const QString &name = xml_parser.attributes().value("name").toString();
+#if 0
+            LOG(VB_MEDIA, LOG_DEBUG, LOC + "GetCDROMBlockDevices: name: " + name);
+#endif
+            if (!name.isEmpty())
             {
-                if (DeviceProperty(entry, "DeviceIsRemovable").toBool())
+                QString sbdevices = QString::fromUtf8(UDISKS2_PATH_BLOCK_DEVICES);
+                QDBusObjectPath entry {sbdevices + "/" + name};
+                MythUdisksDevice mythdevice = UDisks2INVALID;
+                QString description;
+                QString dev;
+
+                LOG(VB_MEDIA, LOG_DEBUG, LOC +
+                        "GetCDROMBlockDevices: path: " + entry.path());
+
+                if (DetectDevice(entry, mythdevice, description, dev))
                 {
-                    QString dev = DeviceProperty(entry, "DeviceFile").toString();
-                    if (dev.startsWith("/dev/"))
-                        dev.remove(0,5);
-                    l.push_back(dev);
+                    if (mythdevice == UDisks2DVD)
+                    {
+                        LOG(VB_MEDIA, LOG_DEBUG, LOC +
+                            "GetCDROMBlockDevices: Added: " + dev);
+
+                        if (dev.startsWith("/dev/"))
+                            dev.remove(0,5);
+                        l.push_back(dev);
+                    }
                 }
             }
         }
@@ -484,28 +609,12 @@ QStringList MediaMonitorUnix::GetCDROMBlockDevices(void)
     return l;
 }
 
+#if !CONFIG_QTDBUS
 static void LookupModel(MythMediaDevice* device)
 {
     QString   desc;
 
-#if CONFIG_QTDBUS
-    QDBusInterface iface(UDISKS_SVC, UDISKS_PATH, UDISKS_IFACE,
-        QDBusConnection::systemBus() );
-    if (iface.isValid())
-    {
-        QDBusReply<QDBusObjectPath> reply = iface.call(
-            "FindDeviceByDeviceFile", device->getRealDevice());
-        if (reply.isValid())
-        {
-            desc = DeviceProperty(reply, "DriveVendor").toString();
-            if (!desc.isEmpty())
-                desc += " ";
-            desc += DeviceProperty(reply, "DriveModel").toString();
-        }
-    }
-
-#elif defined(__linux__)
-
+#if defined(__linux__)
     // Given something like /dev/hda1, extract hda1
     QString devname = device->getRealDevice().mid(5,5);
 
@@ -556,6 +665,8 @@ static void LookupModel(MythMediaDevice* device)
              .arg(device->getRealDevice(), desc) );
     device->setDeviceModel(desc.toLatin1().constData());
 }
+#endif  //!CONFIG_QTDBUS
+
 
 /**
  * Given a media device, add it to our collection
@@ -609,9 +720,10 @@ bool MediaMonitorUnix::AddDevice(MythMediaDevice* pDevice)
             return false;
         }
     }
-
+#if !CONFIG_QTDBUS
+    // Device vendor and name already fetched by UDisks2
     LookupModel(pDevice);
-
+#endif
     QMutexLocker locker(&m_devicesLock);
 
     connect(pDevice, &MythMediaDevice::statusChanged,
@@ -686,12 +798,11 @@ bool MediaMonitorUnix::AddDevice(struct fstab * mep)
         if (pos == -1)
             return false;
         dev = dev.mid(pos+kSuperOptDev.size());
+        static const QRegularExpression kSeparatorRE { "[, ]" };
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
-        QStringList parts = dev.split(QRegularExpression("[, ]"),
-                                      QString::SkipEmptyParts);
+        QStringList parts = dev.split(kSeparatorRE, QString::SkipEmptyParts);
 #else
-        QStringList parts = dev.split(QRegularExpression("[, ]"),
-                                      Qt::SkipEmptyParts);
+        QStringList parts = dev.split(kSeparatorRE, Qt::SkipEmptyParts);
 #endif
         if (parts[0].isEmpty())
             return false;
@@ -717,22 +828,40 @@ bool MediaMonitorUnix::AddDevice(struct fstab * mep)
 /*
  * DBus UDisk AddDevice handler
  */
-void MediaMonitorUnix::deviceAdded( const QDBusObjectPath& o)
+
+void MediaMonitorUnix::deviceAdded( const QDBusObjectPath& o,
+                                    const QMap<QString, QVariant> &interfaces)
 {
-    LOG(VB_MEDIA, LOG_INFO, LOC + ":deviceAdded " + o.path());
+    if (!interfaces.contains(QStringLiteral("org.freedesktop.UDisks2.Block")))
+        return;
 
-    // Don't add devices with partition tables, just the partitions
-    if (!DeviceProperty(o, "DeviceIsPartitionTable").toBool())
+    LOG(VB_MEDIA, LOG_DEBUG, LOC + ":deviceAdded " + o.path());
+
+    // Create the MythMediaDevice
+    MythMediaDevice* pDevice = nullptr;
+    MythUdisksDevice mythdevice = UDisks2INVALID;
+    QString description;
+    QString path;
+
+    if (DetectDevice(o, mythdevice, description, path))
     {
-        QString dev = DeviceProperty(o, "DeviceFile").toString();
-
-        MythMediaDevice* pDevice = nullptr;
-        if (DeviceProperty(o, "DeviceIsRemovable").toBool())
-            pDevice = MythCDROM::get(this, dev.toLatin1(), false, m_allowEject);
-        else
-            pDevice = MythHDD::Get(this, dev.toLatin1(), false, false);
-
-        if (pDevice && !AddDevice(pDevice))
+        if (mythdevice == UDisks2DVD)
+        {
+            pDevice = MythCDROM::get(this, path.toLatin1(), false, m_allowEject);
+            LOG(VB_MEDIA, LOG_DEBUG, LOC +
+                "deviceAdded: Added MythCDROM: " + path);
+        }
+        else if (mythdevice == UDisks2HDD)
+        {
+            pDevice = MythHDD::Get(this, path.toLatin1(), false, false);
+            LOG(VB_MEDIA, LOG_DEBUG, LOC +
+                "deviceAdded: Added MythHDD: " + path);
+        }
+    }
+    if (pDevice)
+    {
+        pDevice -> setDeviceModel(description.toLatin1().constData());
+        if (!MediaMonitorUnix::AddDevice(pDevice))
             pDevice->deleteLater();
     }
 }
@@ -740,18 +869,16 @@ void MediaMonitorUnix::deviceAdded( const QDBusObjectPath& o)
 /*
  * DBus UDisk RemoveDevice handler
  */
-void MediaMonitorUnix::deviceRemoved( const QDBusObjectPath& o)
+void MediaMonitorUnix::deviceRemoved(const QDBusObjectPath& o, const QStringList &interfaces)
 {
+    if (!interfaces.contains(QStringLiteral("org.freedesktop.UDisks2.Block")))
+        return;
+
     LOG(VB_MEDIA, LOG_INFO, LOC + "deviceRemoved " + o.path());
-#if 0 // This fails because the DeviceFile has just been deleted
-    QString dev = DeviceProperty(o, "DeviceFile");
-    if (!dev.isEmpty())
-        RemoveDevice(dev);
-#else
+
     QString dev = QFileInfo(o.path()).baseName();
     dev.prepend("/dev/");
     RemoveDevice(dev);
-#endif
 }
 
 #else //CONFIG_QTDBUS

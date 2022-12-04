@@ -48,16 +48,10 @@
 #include "mythplugin.h"
 #include "mythmiscutil.h"
 #include "mythpower.h"
-#include "configuration.h"
 
 #define LOC      QString("MythCoreContext::%1(): ").arg(__func__)
 
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-#define qEnvironmentVariable getenv
-#endif
-
 MythCoreContext *gCoreContext = nullptr;
-Configuration *MythCoreContext::g_pConfig {nullptr};
 
 class MythCoreContextPrivate : public QObject
 {
@@ -1248,7 +1242,7 @@ QString MythCoreContext::resolveAddress(const QString &host, ResolveType type,
     }
     else if (host.isEmpty())
     {
-        return QString();
+        return {};
     }
 
     if (!keepscope)
@@ -1810,23 +1804,6 @@ void MythCoreContext::ResetSockets(void)
     dispatch(MythEvent("BACKEND_SOCKETS_CLOSED"));
 }
 
-void MythCoreContext::SetConfiguration( Configuration *pConfig )
-{
-    delete g_pConfig;
-    g_pConfig = pConfig;
-}
-
-Configuration *MythCoreContext::GetConfiguration()
-{
-    // If someone is asking for a config and it's nullptr, create a
-    // new XmlConfiguration since we don't have database info yet.
-
-    if (g_pConfig == nullptr)
-        g_pConfig = new XmlConfiguration( "config.xml" );
-
-    return g_pConfig;
-}
-
 void MythCoreContext::InitPower(bool Create)
 {
     if (Create && !d->m_power)
@@ -1910,7 +1887,7 @@ void MythCoreContext::WaitUntilSignals(std::vector<CoreWaitInfo> & sigs) const
         return;
 
     QEventLoop eventLoop;
-    for (auto s : sigs)
+    for (const auto& s : sigs)
     {
         LOG(VB_GENERAL, LOG_DEBUG, LOC +
             QString("Waiting for signal %1")

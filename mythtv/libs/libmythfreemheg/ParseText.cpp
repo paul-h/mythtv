@@ -25,6 +25,9 @@ This is very basic and is only there to enable some test programs to be run.
 */
 
 #include "ParseText.h"
+
+#include <cstdlib> // malloc etc.
+
 #include "ParseNode.h"
 #include "BaseClasses.h"
 #include "ASN1Codes.h"
@@ -62,7 +65,11 @@ void MHParseText::GetNextChar()
 }
 
 // Maximum length of a tag (i.e. a symbol beginning with a colon). Actually  the longest is around 22 chars.
-#define MAX_TAG_LENGTH  30
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+static constexpr int MAX_TAG_LENGTH { 30 };
+#else
+static constexpr size_t MAX_TAG_LENGTH { 30 };
+#endif
 
 const std::array<const QString,253> rchTagNames
 {
@@ -363,7 +370,11 @@ static int FindTag(const QString& str)
 
 
 // Ditto for the enumerated types
-#define MAX_ENUM        30
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+static constexpr int    MAX_ENUM { 30 };
+#else
+static constexpr size_t MAX_ENUM { 30 };
+#endif
 
 void MHParseText::Error(const char *str) const
 {
@@ -514,7 +525,7 @@ void MHParseText::NextSym()
                             // White space.  Remove everything up to the newline.
                             while (m_ch != '\n')
                             {
-                                if (!(m_ch == ' ' || m_ch == '\t' || m_ch == '\r'))
+                                if (m_ch != ' ' && m_ch != '\t' && m_ch != '\r')
                                 {
                                     Error("Malformed quoted printable string");
                                 }

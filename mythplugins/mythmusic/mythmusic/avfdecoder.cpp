@@ -172,7 +172,7 @@ ShoutCastMetaMap ShoutCastMetaParser::parseMeta(const QString &mdata)
 
 static void myth_av_log(void *ptr, int level, const char* fmt, va_list vl)
 {
-    if (VERBOSE_LEVEL_NONE)
+    if (VERBOSE_LEVEL_NONE())
         return;
 
     static QString   s_fullLine("");
@@ -217,7 +217,7 @@ static void myth_av_log(void *ptr, int level, const char* fmt, va_list vl)
             .arg(reinterpret_cast<size_t>(avc),QT_POINTER_SIZE,8,QChar('0'));
     }
 
-    s_fullLine += QString::asprintf(fmt, vl);
+    s_fullLine += QString::vasprintf(fmt, vl);
     if (s_fullLine.endsWith("\n"))
     {
         LOG(verbose_mask, verbose_level, s_fullLine.trimmed());
@@ -330,7 +330,7 @@ bool avfDecoder::initialize()
 
     // let FFmpeg finds the best audio stream (should only be one), also catter
     // should the file/stream not be an audio one
-    AVCodec *codec = nullptr;
+    const AVCodec *codec = nullptr;
     int selTrack = av_find_best_stream(m_inputContext->getContext(), AVMEDIA_TYPE_AUDIO,
                                        -1, -1, &codec, 0);
 

@@ -20,7 +20,7 @@
 // that changes the schema layout of the rendered XML.
 // --------------------------------------------------------------------------
 
-#define XML_SERIALIZER_VERSION "1.1"
+static constexpr const char* XML_SERIALIZER_VERSION { "1.1" };
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -374,5 +374,5 @@ QString XmlSerializer::FindOptionValue( const QStringList &sOptions, const QStri
     if (it != sOptions.cend())
         return (*it).mid( sKey.length() );
 
-    return QString();
+    return {};
 }

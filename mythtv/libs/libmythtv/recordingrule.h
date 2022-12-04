@@ -9,7 +9,7 @@
 #include <QCoreApplication>
 
 // MythTV
-#include "libmyth/programinfo.h"
+#include "libmythbase/programinfo.h"
 #include "libmythbase/programtypes.h"
 #include "libmythbase/recordingtypes.h"
 #include "libmythtv/mythtvexp.h"
@@ -40,7 +40,9 @@ class MTV_PUBLIC RecordingRule
     bool LoadByProgram(const ProgramInfo* proginfo);
     bool LoadBySearch(RecSearchType lsearch, const QString& textname, const QString& forwhat,
                       QString joininfo = "", ProgramInfo *pginfo = nullptr);
-    bool LoadTemplate(const QString& category, const QString& categoryType = "Default");
+    bool LoadTemplate(const QString& title,
+                      const QString& category = "Default",
+                      const QString& categoryType = "Default");
 
     bool ModifyPowerSearchByID(int rid, const QString& textname, QString forwhat,
                                QString joininfo = "");

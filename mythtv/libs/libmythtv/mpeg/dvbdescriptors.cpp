@@ -12,7 +12,7 @@
 #include "iso6937tables.h"
 #include "freesat_huffman.h"
 #include "libmythbase/mythlogging.h"
-#include "libmyth/programinfo.h"
+#include "libmythbase/programinfo.h"
 
 
 static QString decode_iso6937(const unsigned char *buf, uint length)
@@ -663,6 +663,25 @@ QString TerrestrialDeliverySystemDescriptor::toString() const
              GuardIntervalString(),
              TransmissionModeString()));
 
+    return str;
+}
+
+// 0x79
+QString S2SatelliteDeliverySystemDescriptor::toString() const
+{
+    QString str = QString("S2SatelliteDeliverySystemDescriptor ");
+    str += QString("tag(0x%1) ").arg(DescriptorTag(),2,16,QChar('0'));
+    str += QString("length(%1) ").arg(DescriptorLength());
+
+    str.append(QString("\n      ScramblingSequenceSelector(%1)").arg(ScramblingSequenceSelector()));
+    str.append(QString(" MultipleInputStreamFlag(%1)").arg(MultipleInputStreamFlag()));
+    str.append(QString("\n      NotTimesliceFlag(%1)").arg(NotTimesliceFlag()));
+    str.append(QString(" TSGSMode(%1)").arg(TSGSMode()));
+    //
+    // TBD
+    //
+    str.append(" Dumping\n");
+    str.append(hexdump());
     return str;
 }
 

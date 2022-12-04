@@ -14,10 +14,11 @@
 #define DBLOC QString("ImageDb(%1): ").arg(m_table)
 
 // Must be empty as it's prepended to path
-#define STORAGE_GROUP_MOUNT  ""
+static constexpr const char* STORAGE_GROUP_MOUNT { "" };
 
-#define DB_TABLE "gallery_files"
+static constexpr const char* DB_TABLE { "gallery_files" };
 
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define RESULT_ERR(ERR, MESG) \
 {   LOG(VB_GENERAL, LOG_ERR, LOC + (MESG)); \
     return QStringList("ERROR") << (ERR); }
@@ -25,8 +26,9 @@
 #define RESULT_OK(MESG) \
 {   LOG(VB_FILE, LOG_DEBUG, LOC + (MESG)); \
     return QStringList("OK"); }
+// NOLINTEND(cppcoreguidelines-macro-usage)
 
-#define IMPORTDIR "Import"
+static constexpr const char* IMPORTDIR { "Import" };
 
 
 //! A device containing images (ie. USB stick, CD, storage group etc)
@@ -95,7 +97,8 @@ public:
     void RemoveThumbs(void) const
     {
         // Remove thumbnails
-        QString dir = QString("%1/" TEMP_SUBDIR "/%2").arg(GetConfDir(), m_thumbs);
+        QString dirFmt = QString("%1/") % TEMP_SUBDIR % "/%2";
+        QString dir = dirFmt.arg(GetConfDir(), m_thumbs);
         LOG(VB_FILE, LOG_INFO, LOC + QString("Removing thumbnails in %1").arg(dir));
         RemoveDirContents(dir);
         QDir::root().rmpath(dir);
@@ -250,14 +253,7 @@ int DeviceManager::LocateMount(const QString &mount) const
 StringMap DeviceManager::GetDeviceDirs() const
 {
     StringMap paths;
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-    for (int id : m_devices.keys())
-    {
-        Device *dev = m_devices.value(id);
-        if (dev)
-            paths.insert(id, dev->m_mount);
-    }
-#elif QT_VERSION < QT_VERSION_CHECK(5,15,0)
+#if QT_VERSION < QT_VERSION_CHECK(5,15,0)
     for (auto it = m_devices.constKeyValueBegin();
          it != m_devices.constKeyValueEnd(); ++it)
     {
@@ -280,14 +276,7 @@ StringMap DeviceManager::GetDeviceDirs() const
 QList<int> DeviceManager::GetAbsentees()
 {
     QList<int> absent;
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-    for (int id : m_devices.keys())
-    {
-        Device *dev = m_devices.value(id);
-        if (dev && !dev->isPresent())
-            absent << id;
-    }
-#elif QT_VERSION < QT_VERSION_CHECK(5,15,0)
+#if QT_VERSION < QT_VERSION_CHECK(5,15,0)
     for (auto it = m_devices.constKeyValueBegin();
          it != m_devices.constKeyValueEnd(); it++)
     {
@@ -526,12 +515,12 @@ QString ImageAdapterSg::GetAbsFilePath(const ImagePtrK &im) const
 
 
 // Database fields used by several image queries
-#define DB_COLUMNS \
-"file_id, filename, name, dir_id, type, modtime, size, " \
+static constexpr const char* kDBColumns {
+"file_id, filename, name, dir_id, type, modtime, size, "
 "extension, date, hidden, orientation, angle, path, zoom"
 // Id, filepath, basename, parentId, type, modtime, size,
 // extension, image date, hidden, orientation, cover id, comment, device id
-
+};
 
 /*!
 \brief Create image from Db query data
@@ -543,7 +532,7 @@ ImageItem *ImageDb<FS>::CreateImage(const MSqlQuery &query) const
 {
     auto *im = new ImageItem(FS::ImageId(query.value(0).toInt()));
 
-    // Ordered as per DB_COLUMNS
+    // Ordered as per kDBColumns
     im->m_filePath      = query.value(1).toString();
     im->m_baseName      = query.value(2).toString();
     im->m_parentId      = FS::ImageId(query.value(3).toInt());
@@ -625,9 +614,9 @@ int ImageDb<FS>::GetDirectory(int id, ImagePtr &parent,
                               const QString &refine) const
 {
     MSqlQuery query(MSqlQuery::InitCon());
-    query.prepare(QString("SELECT " DB_COLUMNS " FROM %1 "
+    query.prepare(QString("SELECT %1 FROM %2 "
                           "WHERE (dir_id = :ID1 OR file_id = :ID2) "
-                          "%2;").arg(m_table, refine));
+                          "%3;").arg(kDBColumns, m_table, refine));
 
     // Qt < 5.4 won't bind multiple occurrences
     int dbId = FS::DbId(id);
@@ -673,11 +662,11 @@ bool ImageDb<FS>::GetDescendants(const QString &ids,
 
     MSqlQuery query(MSqlQuery::InitCon());
     QString sql =
-            QString("SELECT " DB_COLUMNS
+            QString("SELECT %1"
                     ", LENGTH(filename) - LENGTH(REPLACE(filename, '/', ''))"
                     " AS depth "
-                    "FROM %1 WHERE filename LIKE :PREFIX "
-                    "ORDER BY depth;").arg(m_table);
+                    "FROM %2 WHERE filename LIKE :PREFIX "
+                    "ORDER BY depth;").arg(kDBColumns,m_table);
 
     for (const auto& im1 : qAsConst(dirs))
     {
@@ -734,7 +723,7 @@ template <class FS>
 bool ImageDb<FS>::ReadAllImages(ImageHash &files, ImageHash &dirs) const
 {
     MSqlQuery query(MSqlQuery::InitCon());
-    query.prepare(QString("SELECT " DB_COLUMNS " FROM %1").arg(m_table));
+    query.prepare(QString("SELECT %1 FROM %2").arg(kDBColumns, m_table));
 
     if (!query.exec())
     {
@@ -823,22 +812,22 @@ int ImageDb<FS>::InsertDbImage(ImageItemK &im, bool checkForDuplicate) const
         }
     }
 
-    query.prepare(QString("INSERT INTO %1 (" DB_COLUMNS ") VALUES (0, "
+    query.prepare(QString("INSERT INTO %1 (%2) VALUES (0, "
                           ":FILEPATH, :NAME,      :PARENT, :TYPE,   :MODTIME, "
                           ":SIZE,     :EXTENSION, :DATE,   :HIDDEN, :ORIENT, "
-                          ":COVER,    :COMMENT,   :FS);").arg(m_table));
+                          ":COVER,    :COMMENT,   :FS);").arg(m_table, kDBColumns));
 
-    query.bindValue(":FILEPATH",  im.m_filePath);
-    query.bindValue(":NAME",      FS::BaseNameOf(im.m_filePath));
+    query.bindValueNoNull(":FILEPATH",  im.m_filePath);
+    query.bindValueNoNull(":NAME",      FS::BaseNameOf(im.m_filePath));
     query.bindValue(":FS",        im.m_device);
     query.bindValue(":PARENT",    FS::DbId(im.m_parentId));
     query.bindValue(":TYPE",      im.m_type);
     query.bindValue(":MODTIME",   static_cast<qint64>(im.m_modTime.count()));
     query.bindValue(":SIZE",      im.m_size);
-    query.bindValue(":EXTENSION", im.m_extension);
+    query.bindValueNoNull(":EXTENSION", im.m_extension);
     query.bindValue(":DATE",      static_cast<qint64>(im.m_date.count()));
     query.bindValue(":ORIENT",    im.m_orientation);
-    query.bindValueNoNull(":COMMENT", im.m_comment);
+    query.bindValueNoNull(":COMMENT",   im.m_comment);
     query.bindValue(":HIDDEN",    im.m_isHidden);
     query.bindValue(":COVER",     FS::DbId(im.m_userThumbnail));
 
@@ -915,7 +904,7 @@ QStringList ImageDb<FS>::RemoveFromDB(const ImageList &imList) const
         if (!query.exec())
         {
             MythDB::DBError(DBLOC, query);
-            return QStringList();
+            return {};
         }
     }
     return ids;
@@ -1009,8 +998,8 @@ int ImageDb<FS>::ReadImages(ImageList &dirs, ImageList &files,
                             const QString &selector) const
 {
     MSqlQuery query(MSqlQuery::InitCon());
-    query.prepare(QString("SELECT " DB_COLUMNS " FROM %1 WHERE %2")
-                  .arg(m_table, selector));
+    query.prepare(QString("SELECT %1 FROM %2 WHERE %3")
+                  .arg(kDBColumns, m_table, selector));
     if (!query.exec())
     {
         MythDB::DBError(DBLOC, query);
@@ -1124,7 +1113,7 @@ bool ImageDbLocal::CreateTable()
     MSqlQuery query(MSqlQuery::InitCon());
 
     // Create temporary table
-    query.prepare(QString("CREATE TABLE %1 LIKE " DB_TABLE ";").arg(m_table));
+    query.prepare(QString("CREATE TABLE %1 LIKE %2;").arg(m_table, DB_TABLE));
     if (query.exec())
     {
         // Store it in memory only
@@ -2531,7 +2520,7 @@ void ImageManagerFe::DeviceEvent(MythMediaEvent *event)
 
 QString ImageManagerFe::CreateImport()
 {
-    auto *tmp = new QTemporaryDir(QDir::tempPath() % "/" IMPORTDIR "-XXXXXX");
+    auto *tmp = new QTemporaryDir(QDir::tempPath() % "/" % IMPORTDIR % "-XXXXXX");
     if (!tmp->isValid())
     {
         delete tmp;

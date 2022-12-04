@@ -25,7 +25,6 @@
 
 // MythTV
 #include "libmyth/mythcontext.h"
-#include "libmyth/programinfo.h"
 #include "libmythbase/cleanupguard.h"
 #include "libmythbase/compat.h"
 #include "libmythbase/exitcodes.h"
@@ -33,6 +32,7 @@
 #include "libmythbase/mythdb.h"
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythversion.h"
+#include "libmythbase/programinfo.h"
 #include "libmythbase/signalhandling.h"
 #include "libmythbase/storagegroup.h"
 #include "libmythtv/dbcheck.h"
@@ -47,10 +47,10 @@
 #define LOC_ERR  QString("MythPreviewGen, Error: ")
 
 #ifdef Q_OS_MACOS
-    // 10.6 uses some file handles for its new Grand Central Dispatch thingy
-    #define UNUSED_FILENO 5
+// 10.6 uses some file handles for its new Grand Central Dispatch thingy
+static constexpr long UNUSED_FILENO { 5 };
 #else
-    #define UNUSED_FILENO 3
+static constexpr long UNUSED_FILENO { 3 };
 #endif
 
 namespace

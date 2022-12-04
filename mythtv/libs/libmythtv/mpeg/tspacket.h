@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <chrono>
 #include <cstdlib>
 
@@ -13,16 +14,30 @@
 
 // n.b. these PID relationships are only a recommendation from ATSC,
 // but seem to be universal
-#define VIDEO_PID(bp) ((bp)+1)
-#define AUDIO_PID(bp) ((bp)+4)
-#define SYNC_BYTE     0x0047
+//static constexpr uint16_t VIDEO_PID(uint16_t bp) { return bp+1; };
+//static constexpr uint16_t AUDIO_PID(uint16_t bp) { return bp+4; };
+static constexpr uint8_t SYNC_BYTE { 0x47 };
 
 using TSHeaderArray = std::array<uint8_t,4>;
+
+// NOLINTBEGIN(cppcoreguidelines-pro-type-member-init)
 
 /** \class TSHeader
  *  \brief Used to access header of a TSPacket.
  *
  *  This class is also used to determine which PID a PESPacket arrived on.
+ *
+ *  \warning Be very, very careful when modifying this data structure.
+ *  This class is used in the core of the received video data path, and
+ *  for performance reasons overlaid on the buffer of bytes received
+ *  from the network. It therefore can only contain (per-instance)
+ *  variables that directly correspond to the data bytes received from
+ *  the broadcaster.  There may be static variables in this class, but
+ *  absolutely no per-instance variables that are not part of the
+ *  overlaid byte stream.  There also must not be any virtual
+ *  functions in this class, as the vtable is implemented as a
+ *  per-instance variable in the class structure, and would mess up
+ *  the overlaying of this structure on the received byte stream.
  *
  *  \sa TSPacket, PESPacket, HDTVRecorder
  */
@@ -66,12 +81,12 @@ class MTV_PUBLIC TSHeader
     bool HasSync(void) const { return SYNC_BYTE == m_tsData[0]; }
     //1.0  1 bit transport_packet_error (if set discard immediately:
     //       modem error)
-    bool TransportError(void) const { return bool(m_tsData[1]&0x80); }
+    bool TransportError(void) const { return ( m_tsData[1] & 0x80 ) != 0; }
     //1.1  1 bit payload_unit_start_indicator
     //  (if set this packet starts a section, and has pointerField)
-    bool PayloadStart(void) const { return bool(m_tsData[1]&0x40); }
+    bool PayloadStart(void) const { return ( m_tsData[1] & 0x40 ) != 0; }
        //1.2  1 bit transport_priority (ignore)
-    bool Priority(void) const { return bool(m_tsData[1]&0x20); }
+    bool Priority(void) const { return ( m_tsData[1] & 0x20 ) != 0; }
     //1.3  13 bit PID (packet ID, which transport stream)
     inline unsigned int PID(void) const {
         return ((m_tsData[1] << 8) + m_tsData[2]) & 0x1fff;
@@ -92,17 +107,17 @@ class MTV_PUBLIC TSHeader
     unsigned int ContinuityCounter(void) const { return m_tsData[3] & 0xf; }
 
     // shortcuts
-    bool Scrambled(void) const { return bool(m_tsData[3]&0x80); }
-    bool HasAdaptationField(void) const { return bool(m_tsData[3] & 0x20); }
+    bool Scrambled(void) const { return ( m_tsData[3] & 0x80 ) != 0; }
+    bool HasAdaptationField(void) const { return ( m_tsData[3] & 0x20 ) != 0; }
     size_t AdaptationFieldSize(void) const
-    { return (HasAdaptationField() ? static_cast<size_t>(m_tsData[4]) : 0); }
-    bool HasPayload(void) const { return bool(m_tsData[3] & 0x10); }
+    { return (HasAdaptationField() ? static_cast<size_t>(data()[4]) : 0); }
+    bool HasPayload(void) const { return ( m_tsData[3] & 0x10 ) != 0; }
 
     bool GetDiscontinuityIndicator(void) const
-    { return AdaptationFieldSize() > 0 && bool(data()[5] & 0x80); }
+    { return (AdaptationFieldSize() > 0) && ((data()[5] & 0x80 ) != 0); }
 
-    bool HasPCR(void) const { return AdaptationFieldSize() > 0 &&
-                              bool(data()[5] & 0x10); }
+    bool HasPCR(void) const { return (AdaptationFieldSize() > 0) &&
+                              ((data()[5] & 0x10 ) != 0); }
 
     /*
       The PCR field is a 42 bit field in the adaptation field of the
@@ -160,11 +175,30 @@ class MTV_PUBLIC TSHeader
     static constexpr unsigned int kHeaderSize {4};
     static const TSHeaderArray kPayloadOnlyHeader;
   private:
-    TSHeaderArray m_tsData {};
+    TSHeaderArray m_tsData;         // Intentionally no initialization
 };
+
+static_assert(sizeof(TSHeader) == 4,
+              "The TSHeader class must be 4 bytes in size.  It must "
+              "have only one non-static variable (m_tsData) of 4 "
+              "bytes, and it must not have any virtual functions.");
+
+
 
 /** \class TSPacket
  *  \brief Used to access the data of a Transport Stream packet.
+ *
+ *  \warning Be very, very careful when modifying this data structure.
+ *  This class is used in the core of the received video data path, and
+ *  for performance reasons overlaid on the buffer of bytes received
+ *  from the network. It therefore can only contain (per-instance)
+ *  variables that directly correspond to the data bytes received from
+ *  the broadcaster.  There may be static variables in this class, but
+ *  absolutely no per-instance variables that are not part of the
+ *  overlaid byte stream.  There also must not be any virtual
+ *  functions in this class, as the vtable is implemented as a
+ *  per-instance variable in the class structure, and would mess up
+ *  the overlaying of this structure on the received byte stream.
  *
  *  \sa TSHeader, PESPacket, HDTVRecorder
  */
@@ -229,8 +263,15 @@ class MTV_PUBLIC TSPacket : public TSHeader
     static constexpr unsigned int k8VSBEmissionSize {208};
     static const TSPacket    *kNullPacket;
   private:
-    std::array<uint8_t,184> m_tsPayload {};
+    std::array<uint8_t,184> m_tsPayload;    // Intentionally no initialization
 };
+
+static_assert(sizeof(TSPacket) == 188,
+              "The TSPacket class must be 188 bytes in size.  It must "
+              "have only one non-static variable (m_tsPayload) of 184 "
+              "bytes, and it must not have any virtual functions.");
+
+// NOLINTEND(cppcoreguidelines-pro-type-member-init)
 
 #if 0 /* not used yet */
 /** \class TSDVBEmissionPacket

@@ -23,7 +23,7 @@ class QOpenGLBuffer;
 class QOpenGLFramebufferObject;
 class QOpenGLShaderProgram;
 
-#define MAX_BUFFER_POOL 70
+static constexpr size_t MAX_BUFFER_POOL { 70 };
 
 class MUI_PUBLIC MythOpenGLPainter : public MythPainterGPU
 {
@@ -35,7 +35,7 @@ class MUI_PUBLIC MythOpenGLPainter : public MythPainterGPU
 
     void DeleteTextures(void);
 
-    QString GetName(void) override { return QString("OpenGL"); }
+    QString GetName(void) override { return {"OpenGL"}; }
     bool SupportsAnimation(void) override { return true; }
     bool SupportsAlpha(void) override { return true; }
     bool SupportsClipping(void) override { return false; }

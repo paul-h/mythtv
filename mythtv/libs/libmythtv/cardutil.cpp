@@ -910,7 +910,7 @@ DTVModulationSystem CardUtil::ProbeCurrentDeliverySystem(int fd_frontend)
             QString("FE_GET_PROPERTY ioctl failed (fd_frontend:%1)")
                 .arg(fd_frontend) + ENO);
         return delsys;
-	}
+        }
 
     delsys = prop.u.data;
 
@@ -1123,7 +1123,7 @@ int CardUtil::SetDeliverySystem(uint inputid, DTVModulationSystem delsys)
     int fd_frontend = OpenVideoDevice(device);
     if (fd_frontend < 0)
     {
-        LOG(VB_GENERAL, LOG_ERR, 
+        LOG(VB_GENERAL, LOG_ERR,
             QString("CardUtil[%1]: ").arg(inputid) +
             QString("open failed (%1)").arg(device) + ENO);
         return ret;
@@ -1183,7 +1183,7 @@ int CardUtil::SetDeliverySystem(uint inputid, DTVModulationSystem delsys, int fd
             QString("[%1] FE_SET_PROPERTY ioctl failed")
                 .arg(inputid) + ENO);
         return ret;
-	}
+        }
 #else
     Q_UNUSED(inputid);
     Q_UNUSED(delsys);
@@ -1230,7 +1230,7 @@ QString get_on_input(const QString &to_get, uint inputid)
     else if (query.next())
         return query.value(0).toString();
 
-    return QString();
+    return {};
 }
 
 bool set_on_input(const QString &to_set, uint inputid, const QString &value)
@@ -1518,6 +1518,43 @@ uint CardUtil::CloneCard(uint src_inputid, uint orig_dst_inputid)
     return dst_inputid;
 }
 
+
+bool CardUtil::InputSetMaxRecordings(uint parentid, uint max_recordings)
+{
+    if (max_recordings < 1)
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            "InputSetMaxRecording: max must be greater than zero.");
+        return false;
+    }
+
+    std::vector<uint> cardids = CardUtil::GetChildInputIDs(parentid);
+
+    // Delete old clone cards as required.
+    for (size_t i = cardids.size() + 1;
+         (i > max_recordings) && !cardids.empty(); --i)
+    {
+        CardUtil::DeleteInput(cardids.back());
+        cardids.pop_back();
+    }
+
+    // Clone this config to existing clone cards.
+    for (uint id : cardids)
+        CardUtil::CloneCard(parentid, id);
+
+    // Create new clone cards as required.
+    for (size_t i = cardids.size() + 1; i < max_recordings; ++i)
+    {
+        CardUtil::CloneCard(parentid, 0);
+    }
+
+    // Delete any unused input groups
+    CardUtil::UnlinkInputGroup(0,0);
+
+    return true;
+}
+
+
 uint CardUtil::AddChildInput(uint parentid)
 {
     uint inputid = CloneCard(parentid, 0);
@@ -1749,7 +1786,7 @@ QString CardUtil::GetStartChannel(uint inputid)
         }
         else if (!query.next())
         {
-            LOG(VB_GENERAL, LOG_DEBUG,
+            LOG(VB_GENERAL, LOG_WARNING,
                 QString("CardUtil[%1]: ").arg(inputid) +
                 QString("Channel %1 on inputid %2 is invalid").arg(startchan).arg(inputid));
             startchan.clear();
@@ -1781,7 +1818,7 @@ QString CardUtil::GetStartChannel(uint inputid)
 
     if (startchan.isEmpty())
     {
-        LOG(VB_GENERAL, LOG_DEBUG,
+        LOG(VB_GENERAL, LOG_WARNING,
             QString("CardUtil[%1]: ").arg(inputid) +
             QString("No start channel found on inputid %1").arg(inputid));
     }
@@ -1798,7 +1835,7 @@ QString CardUtil::GetStartChannel(uint inputid)
 QString CardUtil::GetDisplayName(uint inputid)
 {
     if (!inputid)
-        return QString();
+        return {};
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare("SELECT displayname "
@@ -1814,7 +1851,7 @@ QString CardUtil::GetDisplayName(uint inputid)
         return result;
     }
 
-    return QString();
+    return {};
 }
 
 bool CardUtil::IsUniqueDisplayName(const QString &name, uint exclude_inputid)
@@ -1822,13 +1859,25 @@ bool CardUtil::IsUniqueDisplayName(const QString &name, uint exclude_inputid)
     if (name.isEmpty())
         return false;
 
+    qsizetype idx { 0 };
+    QString   matching;
+    bool      two { false };
+    if ((idx = name.indexOf('/')) >= 0)
+    {
+        matching = name.right(name.size() - idx -1);
+        two = false;
+    }
+    else
+    {
+        matching = name.right(2);
+        two = true;
+    }
+
     MSqlQuery query(MSqlQuery::InitCon());
-    query.prepare("SELECT cardid "
+    query.prepare("SELECT cardid, displayname "
                   "FROM capturecard "
                   "WHERE parentid = 0 "
-                  "      AND cardid <> :INPUTID "
-                  "      AND right(displayname, 2) = :NAME");
-    query.bindValue(":NAME", name.right(2));
+                  "      AND cardid <> :INPUTID ");
     query.bindValue(":INPUTID", exclude_inputid);
 
     if (!query.exec())
@@ -1837,8 +1886,19 @@ bool CardUtil::IsUniqueDisplayName(const QString &name, uint exclude_inputid)
         return false;
     }
 
-    // Any result means it's not unique.
-    return !query.next();
+    while (query.next())
+    {
+        QString dn = query.value(1).toString();
+        if (!two && (idx = dn.indexOf('/')) >= 0)
+        {
+            if (dn.right(dn.size() - idx - 1) == matching)
+                return false;
+        }
+        else if (dn.right(2) == matching.right(2))
+            return false;
+    }
+
+    return true;
 }
 
 uint CardUtil::GetSourceID(uint inputid)
@@ -2012,14 +2072,22 @@ bool CardUtil::LinkInputGroup(uint inputid, uint inputgroupid)
 
     if (!query.exec())
     {
-        MythDB::DBError("CardUtil::CreateInputGroup() 1", query);
+        MythDB::DBError("CardUtil::LinkInputGroup() 1", query);
         return false;
     }
 
-    if (!query.next())
-        return false;
+    QString name;
+    while (query.next()) {
+        name = query.value(2).toString();
+        uint cardid = query.value(0).toUInt();
+        // Already linked
+        if (cardid == inputid)
+            return true;
+    }
 
-    const QString name = query.value(2).toString();
+    // Invalid group id
+    if (name.isEmpty())
+        return false;
 
     query.prepare(
         "INSERT INTO inputgroup "
@@ -2032,9 +2100,12 @@ bool CardUtil::LinkInputGroup(uint inputid, uint inputgroupid)
 
     if (!query.exec())
     {
-        MythDB::DBError("CardUtil::CreateInputGroup() 2", query);
+        MythDB::DBError("CardUtil::LinkInputGroup() 2", query);
         return false;
     }
+
+    // Now that there is a proper linkage, unlink temporary cardid 0
+    UnlinkInputGroup(0, inputgroupid);
 
     return true;
 }
@@ -2260,8 +2331,9 @@ bool CardUtil::GetV4LInfo(
     }
 #endif // USING_V4L2
 
+    static const QRegularExpression kBracketedDigitRE { R"(\[[0-9]\]$)" };
     if (!driver.isEmpty())
-        driver.remove( QRegularExpression(R"(\[[0-9]\]$)") );
+        driver.remove( kBracketedDigitRE );
 
     return !input.isEmpty();
 }
@@ -2605,10 +2677,37 @@ int CardUtil::CreateCaptureCard(const QString &videodevice,
         ":HUE, :DISEQCID, :DVBEITSCAN ) ");
 
     query.bindValue(":VIDEODEVICE", videodevice);
-    query.bindValue(":AUDIODEVICE", audiodevice);
-    query.bindValue(":VBIDEVICE", vbidevice);
+    if (audiodevice.length() == 0) // Empty string is set to null
+    {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        query.bindValue(":AUDIODEVICE", QVariant(QVariant::String));
+#else
+        query.bindValue(":AUDIODEVICE", QVariant(QMetaType(QMetaType::QString)));
+#endif
+    }
+    else
+        query.bindValue(":AUDIODEVICE", audiodevice);
+    if (vbidevice.length() == 0) // Empty string is set to null
+    {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        query.bindValue(":VBIDEVICE", QVariant(QVariant::String));
+#else
+        query.bindValue(":VBIDEVICE", QVariant(QMetaType(QMetaType::QString)));
+#endif
+    }
+    else
+        query.bindValue(":VBIDEVICE", vbidevice);
     query.bindValue(":INPUTTYPE", inputtype);
-    query.bindValue(":AUDIORATELIMIT", audioratelimit);
+    if (audioratelimit == 0) // Value 0 is set to null
+    {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        query.bindValue(":AUDIORATELIMIT", QVariant(QVariant::UInt));
+#else
+        query.bindValue(":AUDIORATELIMIT", QVariant(QMetaType(QMetaType::UInt)));
+#endif
+    }
+    else
+        query.bindValue(":AUDIORATELIMIT", audioratelimit);
     query.bindValue(":HOSTNAME", hostname);
     query.bindValue(":DVBSWFILTER", dvb_swfilter);
     query.bindValue(":DVBSATTYPE", dvb_sat_type);
@@ -2617,7 +2716,16 @@ int CardUtil::CreateCaptureCard(const QString &videodevice,
     query.bindValue(":DVBONDEMAND", dvb_on_demand);
     query.bindValue(":DVBDISEQCTYPE", dvb_diseqc_type);
     query.bindValue(":FIREWIRESPEED", firewire_speed);
-    query.bindValue(":FIREWIREMODEL", firewire_model);
+    if (firewire_model.length() == 0) // Empty string is set to null
+    {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        query.bindValue(":FIREWIREMODEL", QVariant(QVariant::String));
+#else
+        query.bindValue(":FIREWIREMODEL", QVariant(QMetaType(QMetaType::QString)));
+#endif
+    }
+    else
+        query.bindValue(":FIREWIREMODEL", firewire_model);
     query.bindValue(":FIREWIRECONNECTION", firewire_connection);
     query.bindValue(":SIGNALTIMEOUT", static_cast<qint64>(signal_timeout.count()));
     query.bindValue(":CHANNELTIMEOUT", static_cast<qint64>(channel_timeout.count()));
@@ -2626,7 +2734,16 @@ int CardUtil::CreateCaptureCard(const QString &videodevice,
     query.bindValue(":BRIGHTNESS", brightness);
     query.bindValue(":COLOUR", colour);
     query.bindValue(":HUE", hue);
-    query.bindValue(":DISEQCID", diseqcid);
+    if (diseqcid == 0) // Value 0 is set to null
+    {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        query.bindValue(":DISEQCID", QVariant(QVariant::UInt));
+#else
+        query.bindValue(":DISEQCID", QVariant(QMetaType(QMetaType::UInt)));
+#endif
+    }
+    else
+        query.bindValue(":DISEQCID", diseqcid);
     query.bindValue(":DVBEITSCAN", dvb_eitscan);
 
     if (!query.exec())

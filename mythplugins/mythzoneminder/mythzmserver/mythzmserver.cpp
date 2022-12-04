@@ -32,23 +32,25 @@
 #include "zmserver.h"
 
 // default port to listen on
-#define PORT 6548
+static constexpr uint16_t PORT { 6548 };
 
 // default location of zoneminders default config file
-#define ZM_CONFIG "/etc/zm/zm.conf"
+static constexpr const char* ZM_CONFIG { "/etc/zm/zm.conf" };
 
 // default location of zoneminders override config file
-#define ZM_OVERRIDECONFIG "/etc/zm/conf.d/01-system-paths.conf"
+static constexpr const char* ZM_OVERRIDECONFIG { "/etc/zm/conf.d/01-system-paths.conf" };
 
 // Care should be taken to keep these in sync with the exit codes in
 // libmythbase/exitcodes.h (which is not included here to keep this code
 // separate from mythtv libraries).
-#define EXIT_OK                      0
-#define EXIT_INVALID_CMDLINE         132
-#define EXIT_OPENING_LOGFILE_ERROR   136  // mapped to _PERMISSIONS_ERROR
-#define EXIT_DAEMONIZING_ERROR       145
-#define EXIT_SOCKET_ERROR            135
-#define EXIT_VERSION_ERROR           136
+enum EXIT_CODES {
+    EXIT_OK                        =   0,
+    EXIT_INVALID_CMDLINE           = 132,
+    EXIT_OPENING_LOGFILE_ERROR     = 136, // mapped to _PERMISSIONS_ERROR
+    EXIT_DAEMONIZING_ERROR         = 145,
+    EXIT_SOCKET_ERROR              = 135,
+    EXIT_VERSION_ERROR             = 136,
+};
 
 int main(int argc, char **argv)
 {

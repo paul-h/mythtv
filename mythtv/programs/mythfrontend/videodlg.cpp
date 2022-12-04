@@ -16,11 +16,11 @@
 
 // MythTV
 #include "libmyth/mythcontext.h"
-#include "libmyth/remoteutil.h"
 #include "libmythbase/mythdirs.h"
 #include "libmythbase/mythrandom.h"
 #include "libmythbase/mythsystemlegacy.h"
 #include "libmythbase/remotefile.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythbase/storagegroup.h"
 #include "libmythmetadata/dbaccess.h"
 #include "libmythmetadata/dirscan.h"
@@ -674,15 +674,10 @@ class VideoDialogPrivate
   private:
     using parental_level_map = std::list<std::pair<QString, ParentalLevel::Level> >;
 
-    struct rating_to_pl_less :
-        public std::binary_function<parental_level_map::value_type,
-                                    parental_level_map::value_type, bool>
+    static bool rating_to_pl_greater(const parental_level_map::value_type &lhs,
+                                     const parental_level_map::value_type &rhs)
     {
-        bool operator()(const parental_level_map::value_type &lhs,
-                    const parental_level_map::value_type &rhs) const
-        {
-            return lhs.first.length() < rhs.first.length();
-        }
+        return lhs.first.length() >= rhs.first.length();
     };
 
     using VideoListPtr = VideoDialog::VideoListPtr;
@@ -712,7 +707,7 @@ class VideoDialogPrivate
                 std::transform(ratings.cbegin(), ratings.cend(),
                                std::back_inserter(m_ratingToPl), to_pl);
             }
-            m_ratingToPl.sort(std::binary_negate(rating_to_pl_less()));
+            m_ratingToPl.sort(rating_to_pl_greater);
         }
 
         m_rememberPosition =
@@ -1413,7 +1408,7 @@ QString VideoDialog::RemoteImageCheck(const QString& host, const QString& filena
 QString VideoDialog::GetCoverImage(MythGenericTree *node)
 {
     if (!node)
-        return QString();
+        return {};
 
     int nodeInt = node->getInt();
 
@@ -1448,6 +1443,7 @@ QString VideoDialog::GetCoverImage(MythGenericTree *node)
         test_files.append(filename + ".jpeg");
         test_files.append(filename + ".gif");
 
+        // coverity[auto_causes_copy]
         for (auto imagePath : qAsConst(test_files))
         {
 #if 0
@@ -1509,18 +1505,7 @@ QString VideoDialog::GetCoverImage(MythGenericTree *node)
                         {
                             for (const auto & pattern : qAsConst(imageTypes))
                             {
-#if QT_VERSION < QT_VERSION_CHECK(5,12,0)
-                                // Quick and dirt replacement. This
-                                // only handles the '*' character.
-                                QString rePattern = "\\A" + pattern + "\\z";
-#ifdef Q_OS_WIN
-                                rePattern.replace("*","[^/\\\\]*");
-#else
-                                rePattern.replace("*","[^/]*");
-#endif
-#else
                                 auto rePattern = QRegularExpression::wildcardToRegularExpression(pattern);
-#endif
                                 QRegularExpression rx {
                                     rePattern.mid(2,rePattern.size()-4), // Remove anchors
                                     QRegularExpression::CaseInsensitiveOption };
@@ -1654,7 +1639,7 @@ QString VideoDialog::GetFirstImage(MythGenericTree *node, const QString& type,
                                    const QString& gpnode, int levels)
 {
     if (!node || type.isEmpty())
-        return QString();
+        return {};
 
     QString icon_file;
 
@@ -1820,7 +1805,7 @@ QString VideoDialog::GetBanner(MythGenericTree *node)
     const int nodeInt = node->getInt();
 
     if (nodeInt == kSubFolder || nodeInt == kUpFolder)
-        return QString();
+        return {};
 
     QString icon_file;
     const VideoMetadata *metadata = GetMetadataPtrFromNode(node);
@@ -1855,7 +1840,7 @@ QString VideoDialog::GetFanart(MythGenericTree *node)
     const int nodeInt = node->getInt();
 
     if (nodeInt  == kSubFolder || nodeInt == kUpFolder)  // subdirectory
-        return QString();
+        return {};
 
     QString icon_file;
     const VideoMetadata *metadata = GetMetadataPtrFromNode(node);

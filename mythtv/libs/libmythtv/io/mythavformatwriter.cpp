@@ -61,7 +61,7 @@ MythAVFormatWriter::~MythAVFormatWriter()
 
 bool MythAVFormatWriter::Init(void)
 {
-    AVOutputFormat *fmt = av_guess_format(m_container.toLatin1().constData(), nullptr, nullptr);
+    const AVOutputFormat *fmt = av_guess_format(m_container.toLatin1().constData(), nullptr, nullptr);
     if (!fmt)
     {
         LOG(VB_RECORD, LOG_ERR, LOC + QString("Init(): Unable to guess AVOutputFormat from container %1")
@@ -217,18 +217,34 @@ int MythAVFormatWriter::WriteVideoFrame(MythVideoFrame *Frame)
         return AVERROR(ENOMEM);
     }
 
-    int got_pkt = 0;
     AVCodecContext *avctx = m_codecMap.GetCodecContext(m_videoStream);
-    int ret = avcodec_encode_video2(avctx, pkt, m_picture, &got_pkt);
+
+    //  SUGGESTION
+    //  Now that avcodec_encode_video2 is removed and replaced
+    //  by 2 calls, this could be optimized
+    //  into separate routines or separate threads.
+    bool got_packet = false;
+    int ret = avcodec_receive_packet(avctx, pkt);
+    if (ret == 0)
+        got_packet = true;
+    if (ret == AVERROR(EAGAIN))
+        ret = 0;
+    if (ret == 0)
+        ret = avcodec_send_frame(avctx, m_picture);
+    // if ret from avcodec_send_frame is AVERROR(EAGAIN) then
+    // there are 2 packets to be received while only 1 frame to be
+    // sent. The code does not cater for this. Hopefully it will not happen.
 
     if (ret < 0)
     {
-        LOG(VB_RECORD, LOG_ERR, "avcodec_encode_video2() failed");
+        std::string error;
+        LOG(VB_GENERAL, LOG_ERR, LOC + QString("video encode error: %1 (%2)")
+            .arg(av_make_error_stdstring(error, ret)).arg(got_packet));
         av_packet_free(&pkt);
         return ret;
     }
 
-    if (!got_pkt)
+    if (!got_packet)
     {
         av_packet_free(&pkt);
         return ret;
@@ -300,7 +316,7 @@ int MythAVFormatWriter::WriteAudioFrame(unsigned char *Buffer, int /*FrameNumber
 
         // init AVFrame for planar data (input is interleaved)
         for (int j = 0, jj = 0; j < m_audioChannels; j++, jj += m_audioFrameSize)
-            m_audPicture->data[j] = m_audioInPBuf + jj * sampleSizeOut;
+            m_audPicture->data[j] = m_audioInPBuf + static_cast<ptrdiff_t>(jj) * sampleSizeOut;
     }
     else
     {
@@ -411,7 +427,7 @@ AVStream* MythAVFormatWriter::AddVideoStream(void)
     stream->r_frame_rate.num = 0;
     stream->r_frame_rate.den = 0;
 
-    AVCodec *codec = avcodec_find_encoder(m_ctx->oformat->video_codec);
+    const AVCodec *codec = avcodec_find_encoder(m_ctx->oformat->video_codec);
     if (!codec)
     {
         LOG(VB_RECORD, LOG_ERR, LOC + "AddVideoStream(): avcodec_find_encoder() failed");
@@ -472,8 +488,6 @@ AVStream* MythAVFormatWriter::AddVideoStream(void)
         }
 
         // AVCodecContext AVOptions:
-        // c->coder_type            = 0;
-        av_opt_set_int(context, "coder", FF_CODER_TYPE_VLC, 0);
         context->max_b_frames          = 0;
         context->slices                = 8;
         context->flags                |= AV_CODEC_FLAG_LOOP_FILTER;
@@ -561,8 +575,7 @@ AVStream* MythAVFormatWriter::AddAudioStream(void)
     context->codec_type   = AVMEDIA_TYPE_AUDIO;
     context->bit_rate     = m_audioBitrate;
     context->sample_rate  = m_audioFrameRate;
-    context->channels     = m_audioChannels;
-    context->channel_layout = static_cast<uint64_t>(av_get_default_channel_layout(m_audioChannels));
+    av_channel_layout_default(&(context->ch_layout), m_audioChannels);
 
     // c->flags |= CODEC_FLAG_QSCALE; // VBR
     // c->global_quality = blah;
@@ -580,7 +593,7 @@ AVStream* MythAVFormatWriter::AddAudioStream(void)
     return stream;
 }
 
-bool MythAVFormatWriter::FindAudioFormat(AVCodecContext *Ctx, AVCodec *Codec, AVSampleFormat Format)
+bool MythAVFormatWriter::FindAudioFormat(AVCodecContext *Ctx, const AVCodec *Codec, AVSampleFormat Format)
 {
     if (Codec->sample_fmts)
     {
@@ -601,7 +614,7 @@ bool MythAVFormatWriter::OpenAudio(void)
     AVCodecContext *context = m_codecMap.GetCodecContext(m_audioStream);
     context->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
 
-    AVCodec *codec = avcodec_find_encoder(context->codec_id);
+    const AVCodec *codec = avcodec_find_encoder(context->codec_id);
     if (!codec)
     {
         LOG(VB_RECORD, LOG_ERR, LOC + "OpenAudio(): avcodec_find_encoder() failed");

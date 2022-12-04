@@ -96,9 +96,9 @@ void MythVideoOutput::GetRenderOptions(RenderOptions& Options, MythRender* Rende
  * \brief This constructor for VideoOutput must be followed by an
  *        Init(int,int,float,WId,int,int,int,int,WId) call.
  */
-MythVideoOutput::MythVideoOutput()
+MythVideoOutput::MythVideoOutput() :
+    m_dbLetterboxColour(static_cast<LetterBoxColour>(gCoreContext->GetNumSetting("LetterboxColour", 0)))
 {
-    m_dbLetterboxColour = static_cast<LetterBoxColour>(gCoreContext->GetNumSetting("LetterboxColour", 0));
     m_clearColor = m_dbLetterboxColour == kLetterBoxColour_Gray25 ? 64 : 0;
 }
 
@@ -191,7 +191,7 @@ bool MythVideoOutput::InputChanged(const QSize VideoDim, const QSize VideoDispDi
     SourceChanged(VideoDim, VideoDispDim, VideoAspect);
     m_maxReferenceFrames = ReferenceFrames;
     AVCodecID avCodecId = myth2av_codecid(CodecID);
-    AVCodec* codec = avcodec_find_decoder(avCodecId);
+    const AVCodec* codec = avcodec_find_decoder(avCodecId);
     QString codecName;
     if (codec)
         codecName = codec->name;

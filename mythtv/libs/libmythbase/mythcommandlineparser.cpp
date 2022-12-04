@@ -2138,10 +2138,12 @@ QMap<QString,QString> MythCommandLineParser::GetSettingsOverride(void)
 #endif
                         if (tokens.size() == 2)
                         {
-                            tokens[0].remove(QRegularExpression("^[\"']"));
-                            tokens[0].remove(QRegularExpression("[\"']$"));
-                            tokens[1].remove(QRegularExpression("^[\"']"));
-                            tokens[1].remove(QRegularExpression("[\"']$"));
+                            static const QRegularExpression kQuoteStartRE { "^[\"']" };
+                            static const QRegularExpression kQuoteEndRE   { "[\"']$" };
+                            tokens[0].remove(kQuoteStartRE);
+                            tokens[0].remove(kQuoteEndRE);
+                            tokens[1].remove(kQuoteStartRE);
+                            tokens[1].remove(kQuoteEndRE);
                             if (!tokens[0].isEmpty())
                                 smap[tokens[0]] = tokens[1];
                         }
@@ -2778,7 +2780,7 @@ QString MythCommandLineParser::GetLogFilePath(void)
         LOG(VB_GENERAL, LOG_ERR,
             QString("%1 is not a directory, disabling logfiles")
             .arg(logfile));
-        return QString();
+        return {};
     }
 
     QString logdir  = finfo.filePath();

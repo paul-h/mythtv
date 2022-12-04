@@ -18,7 +18,6 @@
 // MythTV
 #include "libmythbase/compat.h"
 #include "libmythbase/configuration.h"
-#include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythdate.h"
 #include "libmythbase/mythversion.h"
 #include "libmythupnp/htmlserver.h"
@@ -48,17 +47,7 @@ MediaRenderer::MediaRenderer()
 {
     LOG(VB_UPNP, LOG_INFO, "MediaRenderer(): Begin");
 
-    // ----------------------------------------------------------------------
-    // Initialize Configuration class (XML file for frontend)
-    // ----------------------------------------------------------------------
-
-    MythCoreContext::SetConfiguration( new XmlConfiguration( "config.xml" ));
-
-    // ----------------------------------------------------------------------
-    // Create mini HTTP Server
-    // ----------------------------------------------------------------------
-
-    int nPort = MythCoreContext::GetConfiguration()->GetValue( "UPnP/MythFrontend/ServicePort", 6547 );
+    int nPort = XmlConfiguration().GetValue("UPnP/MythFrontend/ServicePort", 6547);
 
     auto *pHttpServer = new HttpServer();
 

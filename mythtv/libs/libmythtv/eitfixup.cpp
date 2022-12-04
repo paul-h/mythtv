@@ -3,8 +3,8 @@
 #include <array>
 
 // MythTV headers
-#include "libmyth/programinfo.h" // for CategoryType, subtitle types and audio and video properties
 #include "libmythbase/mythlogging.h"
+#include "libmythbase/programinfo.h" // for CategoryType, subtitle types and audio and video properties
 
 #include "channelutil.h" // for GetDefaultAuthority()
 #include "eitfixup.h"
@@ -16,6 +16,7 @@
 
 static const QRegularExpression kStereo { R"(\b\(?[sS]tereo\)?\b)" };
 static const QRegularExpression kUKSpaceColonStart { R"(^[ |:]*)" };
+static const QRegularExpression kDotAtEnd { "\\.$" };
 
 #if QT_VERSION < QT_VERSION_CHECK(5,15,2)
 #define capturedView capturedRef
@@ -39,11 +40,7 @@ int EITFixUp::parseRoman (QString roman)
         int v2 = r2v[roman.at(i+1)];
         result += (v1 >= v2) ? v1 : -v1;
     }
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-    return result + r2v[roman.at(roman.size() - 1)];
-#else
     return result + r2v[roman.back()];
-#endif
 }
 
 
@@ -2460,7 +2457,7 @@ void EITFixUp::FixDK(DBEventEIT &event)
         for (const auto & director : qAsConst(directors))
         {
             tmpDirectorsString = director.split(":").last().trimmed().
-                remove(QRegularExpression("\\.$"));
+                remove(kDotAtEnd);
             if (tmpDirectorsString != "")
                 event.AddPerson(DBPerson::kDirector, tmpDirectorsString);
         }
@@ -2481,8 +2478,7 @@ void EITFixUp::FixDK(DBEventEIT &event)
 #endif
         for (const auto & actor : qAsConst(actors))
         {
-            tmpActorsString = actor.split(":").last().trimmed().
-                    remove(QRegularExpression("\\.$"));
+            tmpActorsString = actor.split(":").last().trimmed().remove(kDotAtEnd);
             if (!tmpActorsString.isEmpty() && !directors.contains(tmpActorsString))
                 event.AddPerson(DBPerson::kActor, tmpActorsString);
         }
@@ -2624,8 +2620,7 @@ void EITFixUp::FixGreekEIT(DBEventEIT &event)
 #endif
         for (const auto & actor : qAsConst(actors))
         {
-            tmpActorsString = actor.split(":").last().trimmed().
-                    remove(QRegularExpression("\\.$"));
+            tmpActorsString = actor.split(":").last().trimmed().remove(kDotAtEnd);
             if (tmpActorsString != "")
                 event.AddPerson(DBPerson::kActor, tmpActorsString);
         }
@@ -2648,7 +2643,7 @@ void EITFixUp::FixGreekEIT(DBEventEIT &event)
         for (const auto & director : qAsConst(directors))
         {
             tmpDirectorsString = director.split(":").last().trimmed().
-                    remove(QRegularExpression("\\.$"));
+                remove(kDotAtEnd);
             if (tmpDirectorsString != "")
             {
                 event.AddPerson(DBPerson::kDirector, tmpDirectorsString);
@@ -2674,7 +2669,7 @@ void EITFixUp::FixGreekEIT(DBEventEIT &event)
         for (const auto & presenter : qAsConst(presenters))
         {
             tmpPresentersString = presenter.split(":").last().trimmed().
-                    remove(QRegularExpression("\\.$"));
+                remove(kDotAtEnd);
             if (tmpPresentersString != "")
             {
                 event.AddPerson(DBPerson::kPresenter, tmpPresentersString);

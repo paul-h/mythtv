@@ -35,13 +35,23 @@
 class V2Capture : public MythHTTPService
 {
     Q_OBJECT
-    Q_CLASSINFO("Version",      "1.4")
+    Q_CLASSINFO("Version",      "1.6")
+    Q_CLASSINFO("RemoveAllCaptureCards", "methods=POST;name=bool")
     Q_CLASSINFO("RemoveCaptureCard",  "methods=POST;name=bool")
     Q_CLASSINFO("AddCaptureCard",     "methods=POST;name=int")
     Q_CLASSINFO("UpdateCaptureCard",  "methods=POST;name=bool")
     Q_CLASSINFO("RemoveCardInput",    "methods=POST;name=bool")
     Q_CLASSINFO("AddCardInput",       "methods=POST;name=int")
     Q_CLASSINFO("UpdateCardInput",    "methods=POST;name=bool")
+    Q_CLASSINFO("AddUserInputGroup",  "methods=POST;name=int")
+    Q_CLASSINFO("LinkInputGroup",     "methods=POST;name=bool")
+    Q_CLASSINFO("UnlinkInputGroup",   "methods=POST;name=bool")
+    Q_CLASSINFO("SetInputMaxRecordings", "methods=POST;name=bool")
+    Q_CLASSINFO("AddDiseqcTree",      "methods=POST")
+    Q_CLASSINFO("UpdateDiseqcTree",   "methods=POST")
+    Q_CLASSINFO("RemoveDiseqcTree",   "methods=POST")
+    Q_CLASSINFO("AddDiseqcConfig",    "methods=POST")
+    Q_CLASSINFO("RemoveDiseqcConfig", "methods=POST")
 
   public:
     V2Capture();
@@ -53,6 +63,8 @@ class V2Capture : public MythHTTPService
                                                         const QString    &CardType  );
 
     static V2CaptureCard*       GetCaptureCard     ( int              CardId     );
+
+    static bool                 RemoveAllCaptureCards ( void );
 
     static bool                 RemoveCaptureCard  ( int              CardId     );
 
@@ -108,6 +120,75 @@ class V2Capture : public MythHTTPService
     static bool                 UpdateCardInput    ( int              CardInputId,
                                                         const QString    &Setting,
                                                         const QString    &Value );
+
+    static V2InputGroupList*    GetUserInputGroupList ( void );
+
+    static int                  AddUserInputGroup  ( const QString & Name );
+
+    static bool                 LinkInputGroup     ( uint InputId,
+                                                     uint InputGroupId );
+
+    static bool                 UnlinkInputGroup   ( uint InputId,
+                                                     uint InputGroupId );
+
+    static bool                 SetInputMaxRecordings ( uint InputId,
+                                                        uint Max );
+
+    static V2CardTypeList*      GetCardTypeList     ( void );
+
+    static V2CaptureDeviceList* GetCaptureDeviceList  ( const QString  &CardType );
+
+    static V2DiseqcTreeList*    GetDiseqcTreeList  ( void );
+
+    static int                  AddDiseqcTree     ( uint           ParentId,
+                                                    uint           Ordinal,
+                                                    const QString& Type,
+                                                    const QString& SubType,
+                                                    const QString& Description,
+                                                    uint           SwitchPorts,
+                                                    float          RotorHiSpeed,
+                                                    float          RotorLoSpeed,
+                                                    const QString& RotorPositions,
+                                                    int            LnbLofSwitch,
+                                                    int            LnbLofHi,
+                                                    int            LnbLofLo,
+                                                    int            CmdRepeat,
+                                                    bool           LnbPolInv,
+                                                    int            Address,
+                                                    uint           ScrUserband,
+                                                    uint           ScrFrequency,
+                                                    int            ScrPin);
+
+    static bool                 UpdateDiseqcTree  ( uint           DiSEqCId,
+                                                    uint           ParentId,
+                                                    uint           Ordinal,
+                                                    const QString& Type,
+                                                    const QString& SubType,
+                                                    const QString& Description,
+                                                    uint           SwitchPorts,
+                                                    float          RotorHiSpeed,
+                                                    float          RotorLoSpeed,
+                                                    const QString& RotorPositions,
+                                                    int            LnbLofSwitch,
+                                                    int            LnbLofHi,
+                                                    int            LnbLofLo,
+                                                    int            CmdRepeat,
+                                                    bool           LnbPolInv,
+                                                    int            Address,
+                                                    uint           ScrUserband,
+                                                    uint           ScrFrequency,
+                                                    int            ScrPin);
+
+  static bool                 RemoveDiseqcTree  ( uint           DiSEqCId) ;
+
+  static V2DiseqcConfigList*  GetDiseqcConfigList  ( void );
+
+  static bool                 AddDiseqcConfig     ( uint           CardId,
+                                                    uint           DiSEqCId,
+                                                    const QString& Value);
+
+  static bool                 RemoveDiseqcConfig  ( uint           CardId);
+
   private:
     Q_DISABLE_COPY(V2Capture)
 

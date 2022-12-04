@@ -4,6 +4,7 @@
 #include "libmythbase/mthread.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythlogging.h"
+#include "libmythbase/sizetliteral.h"
 
 #include "DeviceReadBuffer.h"
 #include "mpeg/tspacket.h"
@@ -13,7 +14,7 @@
 #endif
 
 /// Set this to 1 to report on statistics
-#define REPORT_RING_STATS 0
+#define REPORT_RING_STATS 0  // NOLINT(cppcoreguidelines-macro-usage)
 
 #define LOC QString("DevRdB(%1): ").arg(m_videoDevice)
 
@@ -66,7 +67,7 @@ bool DeviceReadBuffer::Setup(const QString &streamName, int streamfd,
     m_readQuanta   = (readQuanta) ? readQuanta : m_readQuanta;
     m_devBufferCount = deviceBufferCount;
     m_size          = gCoreContext->GetNumSetting(
-        "HDRingbufferSize", static_cast<int>(50 * m_readQuanta)) * 1024;
+        "HDRingbufferSize", static_cast<int>(50 * m_readQuanta)) * 1024_UZ;
     m_used          = 0;
     m_devReadSize = m_readQuanta * (m_usingPoll ? 256 : 48);
     m_devReadSize = (deviceBufferSize) ?

@@ -11,10 +11,6 @@
 // MythTV headers
 #include <mythconfig.h>
 #include <libmyth/mythcontext.h>
-#include <libmyth/mythrssmanager.h>
-#include <libmyth/netgrabbermanager.h>
-#include <libmyth/netutils.h>
-#include <libmyth/remoteutil.h>
 #include <libmythbase/exitcodes.h>
 #include <libmythbase/mythcommandlineparser.h>
 #include <libmythbase/mythdb.h>
@@ -23,6 +19,10 @@
 #include <libmythbase/mythpluginexport.h>
 #include <libmythbase/mythtranslation.h>
 #include <libmythbase/mythversion.h>
+#include <libmythbase/netgrabbermanager.h>
+#include <libmythbase/netutils.h>
+#include <libmythbase/remoteutil.h>
+#include <libmythbase/rssmanager.h>
 
 GrabberDownloadThread *gdt = nullptr;
 RSSManager *rssMan = nullptr;

@@ -5,7 +5,7 @@
 #include <QRegularExpression>
 #include <QString>
 
-#include "libmyth/programinfo.h"
+#include "libmythbase/programinfo.h"
 #include "libmythbase/recordingstatus.h"
 #include "libmythtv/mythtvexp.h"
 #include "libmythtv/recordingfile.h"
@@ -270,6 +270,8 @@ class MTV_PUBLIC RecordingInfo : public ProgramInfo
     void ApplyTranscoderProfileChange(const QString &profile) const;//pi
     void ApplyTranscoderProfileChangeById(int id);
     void ApplyNeverRecord(void);
+    void ApplyStarsChange(float newstarsvalue);
+    void ApplyOriginalAirDateChange(QDate originalairdate);
 
     // Temporary while we transition from string to integer
     static QString GetRecgroupString(uint recGroupID);

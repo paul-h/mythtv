@@ -7,11 +7,11 @@
 #include <QMap>                         // for QMap
 
 // MythTV headers
-#include "libmyth/programinfo.h"          // for ProgramInfo
 #include "libmythbase/compat.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythdate.h"
 #include "libmythbase/mythlogging.h"      // for LOG
+#include "libmythbase/programinfo.h"      // for ProgramInfo
 #include "libmythbase/referencecounter.h"
 #include "libmythprotoserver/requesthandler/fileserverutil.h"
 #include "libmythtv/inputinfo.h"          // for InputInfo
@@ -780,7 +780,7 @@ QString EncoderLink::GetInput(void) const
         return m_tv->GetInput();
 
     LOG(VB_GENERAL, LOG_ERR, "Should be local only query: GetInput");
-    return QString();
+    return {};
 }
 
 /** \fn EncoderLink::SetInput(QString)
@@ -799,7 +799,7 @@ QString EncoderLink::SetInput(QString input)
         return m_tv->SetInput(std::move(input));
 
     LOG(VB_GENERAL, LOG_ERR, "Should be local only query: SetInput");
-    return QString();
+    return {};
 }
 
 /**

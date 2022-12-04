@@ -1,6 +1,6 @@
 // MythTV
-#include "libmyth/programinfo.h"
 #include "libmythbase/mythscheduler.h"
+#include "libmythbase/programinfo.h"
 #include "libmythbase/recordingtypes.h"
 #include "libmythmetadata/videoutils.h"
 #include "libmythtv/cardutil.h"
@@ -574,7 +574,7 @@ void V2FillCastMemberList(V2CastMemberList* pCastMemberList,
 }
 
 
-void V2FillCutList(V2CutList* pCutList, RecordingInfo* rInfo, int marktype)
+void V2FillCutList(V2CutList* pCutList, ProgramInfo* rInfo, int marktype)
 {
     frm_dir_map_t markMap;
     frm_dir_map_t::const_iterator it;
@@ -616,12 +616,12 @@ void V2FillCutList(V2CutList* pCutList, RecordingInfo* rInfo, int marktype)
     }
 }
 
-void V2FillCommBreak(V2CutList* pCutList, RecordingInfo* rInfo, int marktype)
+void V2FillCommBreak(V2CutList* pCutList, ProgramInfo* rInfo, int marktype)
 {
     frm_dir_map_t markMap;
     frm_dir_map_t::const_iterator it;
 
-    if (rInfo && rInfo->GetChanID())
+    if (rInfo)
     {
         rInfo->QueryCommBreakList(markMap);
 
@@ -868,8 +868,7 @@ DBCredits * V2jsonCastToCredits(const QJsonObject &cast)
         QString     character = actor.value("CharacterName").toString("");
         QString     role      = actor.value("Role").toString("");
 
-        credits->push_back(DBPerson(role, name, priority, character));
-        ++priority;
+        credits->push_back(DBPerson(role, name, priority++, character));
     }
 
     return credits;

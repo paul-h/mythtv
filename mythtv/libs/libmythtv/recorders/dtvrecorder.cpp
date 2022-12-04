@@ -18,9 +18,11 @@
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
-#include "libmyth/programinfo.h"
 #include "libmythbase/mythlogging.h"
+#include "libmythbase/programinfo.h"
+#include "libmythbase/sizetliteral.h"
 
+#include "bytereader.h"
 #include "dtvrecorder.h"
 #include "io/mythmediabuffer.h"
 #include "mpeg/AVCParser.h"
@@ -51,7 +53,7 @@ DTVRecorder::DTVRecorder(TVRec *rec) :
     m_h2645Parser(reinterpret_cast<H2645Parser *>(new AVCParser))
 {
     SetPositionMapType(MARK_GOP_BYFRAME);
-    m_payloadBuffer.reserve(TSPacket::kSize * (50 + 1));
+    m_payloadBuffer.reserve(TSPacket::kSize * (50_UZ + 1));
 
     DTVRecorder::ResetForNewFile();
 
@@ -437,15 +439,21 @@ bool DTVRecorder::FindMPEG2Keyframes(const TSPacket* tspacket)
 
     while (bufptr < bufend)
     {
-        bufptr = avpriv_find_start_code(bufptr, bufend, &m_startCode);
+        bufptr = ByteReader::find_start_code_truncated(bufptr, bufend, &m_startCode);
         int bytes_left = bufend - bufptr;
-        if ((m_startCode & 0xffffff00) == 0x00000100)
+        if (ByteReader::start_code_is_valid(m_startCode))
         {
             // At this point we have seen the start code 0 0 1
             // the next byte will be the PES packet stream id.
             const int stream_id = m_startCode & 0x000000ff;
             if (PESStreamID::PictureStartCode == stream_id)
-                hasFrame = true;
+            {
+                if (m_progressiveSequence)
+                {
+                    hasFrame = true;
+                }
+                // else deterimine hasFrame from the following picture_coding_extension()
+            }
             else if (PESStreamID::GOPStartCode == stream_id)
             {
                 m_lastGopSeen   = m_framesSeenCount;
@@ -481,10 +489,47 @@ bool DTVRecorder::FindMPEG2Keyframes(const TSPacket* tspacket)
                     case 0x8: /* picture coding extension */
                         if (bytes_left >= 5)
                         {
-                            //int picture_structure = bufptr[2]&3;
+                            int picture_structure  = bufptr[2] & 3;
                             int top_field_first = bufptr[3] & (1 << 7);
                             int repeat_first_field = bufptr[3] & (1 << 1);
                             int progressive_frame = bufptr[4] & (1 << 7);
+#if 0
+                            LOG(VB_RECORD, LOG_DEBUG, LOC +
+                                QString("picture_coding_extension(): (m_progressiveSequence: %1) picture_structure: %2 top_field_first: %3 repeat_first_field: %4 progressive_frame: %5")
+                                    .arg(QString::number(m_progressiveSequence , 2),
+                                         QString::number(picture_structure , 2),
+                                         QString::number(top_field_first , 2),
+                                         QString::number(repeat_first_field , 2),
+                                         QString::number(progressive_frame , 2)
+                                        )
+                               );
+#endif
+                            if (!m_progressiveSequence)
+                            {
+                                if (picture_structure == 0b00)
+                                {
+                                    ; // reserved
+                                }
+                                else if (picture_structure == 0b11)
+                                {
+                                    // frame picture (either interleaved interlaced or progressive)
+                                    hasFrame = true;
+                                }
+                                else if (picture_structure < 0b11)
+                                {
+                                    // field picture
+                                    // Only add a frame for the first presented field.
+                                    // Do not add a frame for each field picture.
+                                    if (top_field_first != 0)
+                                    {
+                                        hasFrame = (picture_structure == 0b01); // Top Field
+                                    }
+                                    else // top_field_first == 0
+                                    {
+                                        hasFrame = (picture_structure == 0b10); // Bottom Field
+                                    }
+                                }
+                            }
 
                             /* check if we must repeat the frame */
                             m_repeatPict = 1;
@@ -522,7 +567,7 @@ bool DTVRecorder::FindMPEG2Keyframes(const TSPacket* tspacket)
                 HandleTimestamps(stream_id, pts, dts);
                 // Detect music choice program (very slow frame rate and audio)
                 if (m_firstKeyframe < 0
-                    &&  m_tsLast[stream_id] - m_tsFirst[stream_id] > 3*90000)
+                    &&  m_tsLast[stream_id] - m_tsFirst[stream_id] > 3*90000LL)
                 {
                     hasKeyFrame = true;
                     m_musicChoice = true;
@@ -623,18 +668,18 @@ void DTVRecorder::HandleTimestamps(int stream_id, int64_t pts, int64_t dts)
     if (m_usePts)
     {
         ts = dts;
-        gap_threshold = 2*90000; // two seconds, compensate for GOP ordering
+        gap_threshold = 2*90000LL; // two seconds, compensate for GOP ordering
     }
 
     if (m_musicChoice)
-        gap_threshold = 8*90000; // music choice uses frames every 6 seconds
+        gap_threshold = 8*90000LL; // music choice uses frames every 6 seconds
 
     if (m_tsLast[stream_id] >= 0)
     {
         int64_t diff = ts - m_tsLast[stream_id];
 
         // time jumped back more then 10 seconds, handle it as 33bit overflow
-        if (diff < (10 * -90000))
+        if (diff < (10 * -90000LL))
             // MAX_PTS is 33bits all 1
             diff += 0x1ffffffffLL;
 
@@ -1090,14 +1135,13 @@ void DTVRecorder::FindPSKeyFrames(const uint8_t *buffer, uint len)
         bool hasKeyFrame  = false;
 
         const uint8_t *tmp = bufptr;
-        bufptr =
-            avpriv_find_start_code(bufptr + skip, bufend, &m_startCode);
+        bufptr = ByteReader::find_start_code_truncated(bufptr + skip, bufend, &m_startCode);
         m_audioBytesRemaining = 0;
         m_otherBytesRemaining = 0;
         m_videoBytesRemaining -= std::min(
             (uint)(bufptr - tmp), m_videoBytesRemaining);
 
-        if ((m_startCode & 0xffffff00) != 0x00000100)
+        if (!ByteReader::start_code_is_valid(m_startCode))
             continue;
 
         // NOTE: Length may be zero for packets that only contain bytes from

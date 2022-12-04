@@ -2,9 +2,9 @@
 #include <QMutexLocker>
 #include <utility>
 
-#include "libmyth/programinfo.h"
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythsocket.h"
+#include "libmythbase/programinfo.h"
 #include "libmythtv/io/mythmediabuffer.h"
 
 #include "filetransfer.h"
@@ -255,7 +255,7 @@ uint64_t FileTransfer::GetFileSize(void)
 QString FileTransfer::GetFileName(void)
 {
     if (!m_rbuffer)
-        return QString();
+        return {};
 
     return m_rbuffer->GetFilename();
 }

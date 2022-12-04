@@ -2195,7 +2195,7 @@ const std::array<const huff2_parts,2> huff2_tables
 
 
 /* returns the root for character input from table Table[] */
-static inline int huffman1_get_root(uint input, const atsc_table_vec &table)
+static inline int huffman1_get_root(size_t input, const atsc_table_vec &table)
 {
     if (input > 127)
         return -1;
@@ -2214,7 +2214,7 @@ QString atsc_huffman1_to_string(const unsigned char *compressed,
     QString retval = "";
 
     if (table_index < 1 || table_index > 2)
-        return QString("");
+        return {""};
     table_index -= 1;
 
     const atsc_table_vec &table = atsc_tables[table_index];
@@ -2261,7 +2261,7 @@ QString atsc_huffman1_to_string(const unsigned char *compressed,
         bit++;
     }
     /* If you get here something went wrong so just return a blank string */
-    return QString("");
+    return {""};
 }
 
 static inline int huffman2_get_bit(unsigned char &bitpos,

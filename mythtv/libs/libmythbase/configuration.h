@@ -13,39 +13,17 @@
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 
+#include <utility>
+
 #include <QDomDocument>
+#include <QDomNode>
+#include <QString>
 #include <QStringList>
+#include <QVariant>
+
 #include "libmythbase/mythbaseexp.h"
 #include "libmythbase/mythchrono.h"
-
-class MBASE_PUBLIC Configuration
-{
-    public:
-
-        virtual ~Configuration() = default;
-
-        virtual bool    Load    ( void ) = 0;
-        virtual bool    Save    ( void ) = 0;
-
-        virtual int     GetValue( const QString &sSetting, int     Default ) = 0; 
-        virtual QString GetValue( const QString &sSetting, const QString &Default ) = 0;
-        virtual bool    GetBoolValue( const QString &sSetting, bool Default ) = 0;
-
-        virtual void    SetValue( const QString &sSetting, int     value   ) = 0; 
-        virtual void    SetValue( const QString &sSetting, const QString &value ) = 0;
-        virtual void    ClearValue( const QString &sSetting )                = 0;
-        virtual void    SetBoolValue( const QString &sSetting, bool value   ) = 0;
-
-        template <typename T>
-            typename std::enable_if<std::chrono::__is_duration<T>::value, T>::type
-            GetDuration(const QString &sSetting, T defaultval = T::zero())
-        { return T(GetValue(sSetting, static_cast<int>(defaultval.count()))); }
-        template <typename T>
-            typename std::enable_if<std::chrono::__is_duration<T>::value, void>::type
-            SetDuration(const QString &sSetting, T value)
-        { SetValue(sSetting, static_cast<int>(value.count())); }
-};
-
+#include "libmythbase/mythdirs.h"
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -57,65 +35,91 @@ class MBASE_PUBLIC Configuration
 //
 //////////////////////////////////////////////////////////////////////////////
 
-class MBASE_PUBLIC XmlConfiguration : public Configuration
+class MBASE_PUBLIC XmlConfiguration
 {
-    protected:
+  protected:
 
-        QString      m_sPath;
-        QString      m_sFileName;
+    QString      m_path     {GetConfDir()};
+    QString      m_fileName {kDefaultFilename};
 
-        QDomDocument m_config;
-        QDomNode     m_rootNode;
+    QDomDocument m_config;
+    QDomNode     m_rootNode;
 
-        QDomNode FindNode( const QString &sName, bool bCreate = false );
-        QDomNode FindNode( QStringList &sParts, QDomNode &curNode, bool bCreate = false );
+    QDomNode FindNode(const QString &setting, bool create);
+    QDomNode FindNode(QStringList &path, QDomNode &current, bool create);
 
-    public:
+    QString GetValue(const QString &setting);
 
-        explicit XmlConfiguration( const QString &sFileName );
+  public:
 
-        ~XmlConfiguration() override = default;
+    static constexpr auto kDefaultFilename = "config.xml";
 
-        bool    Load    ( void ) override; // Configuration
-        bool    Save    ( void ) override; // Configuration
+    XmlConfiguration() { Load(); }
+    explicit XmlConfiguration(QString fileName)
+        : m_fileName(std::move(fileName))
+    {
+        Load();
+    }
 
-        int     GetValue( const QString &sSetting, int     Default ) override; // Configuration
-        QString GetValue( const QString &sSetting, const QString &Default ) override; // Configuration
-        bool    GetBoolValue( const QString &sSetting, bool Default ) override // Configuration
-            {return static_cast<bool>(GetValue(sSetting, static_cast<int>(Default))); }
+    bool Load();
+    bool Save();
 
-        void    SetValue( const QString &sSetting, int     value   ) override; // Configuration
-        void    SetValue( const QString &sSetting, const QString &value   ) override; // Configuration
-        void    ClearValue( const QString &sSetting ) override; // Configuration
-        void    SetBoolValue( const QString &sSetting, bool value ) override // Configuration
-            {SetValue(sSetting, static_cast<int>(value)); }
-};
+    bool GetValue(const QString &setting, const bool defaultValue)
+    {
+        QString value = GetValue(setting);
+        return (!value.isNull()) ? QVariant(value).toBool() : defaultValue;
+    }
+    int  GetValue(const QString &setting, const int defaultValue)
+    {
+        QString value = GetValue(setting);
+        return (!value.isNull()) ? QVariant(value).toInt()  : defaultValue;
+    }
+    QString GetValue(const QString &setting, const QString &defaultValue)
+    {
+        QString value = GetValue(setting);
+        return (!value.isNull()) ? value : defaultValue;
+    }
+    /** @brief get the string value stored as setting with a default C string.
+    This fixes overload resolution, making it choose this instead of the bool one.
+    */
+    QString GetValue(const QString &setting, const char* defaultValue)
+    {
+        QString value = GetValue(setting);
+        return (!value.isNull()) ? value : QString(defaultValue);
+    }
 
-//////////////////////////////////////////////////////////////////////////////
-//
-//////////////////////////////////////////////////////////////////////////////
+    void SetValue(const QString &setting, bool value)
+    {
+        SetValue(setting, QVariant(value).toString());
+    }
+    void SetValue(const QString &setting, int  value)
+    {
+        SetValue(setting, QVariant(value).toString());
+    }
+    /** @brief set value to a C string; just in case, for overload resolution
+    @note: This should probably never be used since the C string should have already
+           been converted to a QString.
+    */
+    void SetValue(const QString &setting, const char* value)
+    {
+        SetValue(setting, QString(value));
+    }
+    void    SetValue(const QString &setting, const QString &value);
+    void    ClearValue(const QString &setting);
 
-class MBASE_PUBLIC DBConfiguration : public Configuration
-{
-    public:
+    template <typename T>
+    typename std::enable_if_t<std::chrono::__is_duration<T>::value, T>
+    GetDuration(const QString &setting, T defaultValue = T::zero())
+    {
+        return T(GetValue(setting, static_cast<int>(defaultValue.count())));
+    }
 
-        DBConfiguration() = default;
-
-        ~DBConfiguration() override = default;
-
-        bool    Load    ( void ) override; // Configuration
-        bool    Save    ( void ) override; // Configuration
-
-        int     GetValue( const QString &sSetting, int     Default ) override; // Configuration
-        QString GetValue( const QString &sSetting, const QString &Default ) override; // Configuration
-        bool    GetBoolValue( const QString &sSetting, bool Default ) override // Configuration
-        {return static_cast<bool>(GetValue(sSetting, static_cast<int>(Default))); }
-
-        void    SetValue( const QString &sSetting, int     value   ) override; // Configuration
-        void    SetValue( const QString &sSetting, const QString &value   ) override; // Configuration
-        void    ClearValue( const QString &sSetting ) override; // Configuration
-        void    SetBoolValue( const QString &sSetting, bool value ) override // Configuration
-            {SetValue(sSetting, static_cast<int>(value)); }
+    template <typename T>
+    typename std::enable_if_t<std::chrono::__is_duration<T>::value>
+    SetDuration(const QString &setting, T value)
+    {
+        SetValue(setting, static_cast<int>(value.count()));
+    }
 };
 
 #endif // CONFIGURATION_H

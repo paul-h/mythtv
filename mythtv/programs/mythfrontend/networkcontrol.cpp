@@ -16,14 +16,14 @@
 #include <QTextStream>
 
 // MythTV
-#include "libmyth/programinfo.h"
-#include "libmyth/remoteutil.h"
 #include "libmythbase/compat.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythdirs.h"
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythmiscutil.h"
 #include "libmythbase/mythversion.h"
+#include "libmythbase/programinfo.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythtv/mythsystemevent.h"
 #include "libmythtv/previewgenerator.h"
 #include "libmythui/mythmainwindow.h"
@@ -53,13 +53,17 @@
 #define LOC QString("NetworkControl: ")
 #define LOC_ERR QString("NetworkControl Error: ")
 
-#define FE_SHORT_TO 2000
-#define FE_LONG_TO  10000
+static constexpr qint64 FE_SHORT_TO {  2000 }; //  2 seconds
+static constexpr qint64 FE_LONG_TO  { 10000 }; // 10 seconds
 
 static QEvent::Type kNetworkControlDataReadyEvent =
     (QEvent::Type) QEvent::registerEventType();
 QEvent::Type NetworkControlCloseEvent::kEventType =
     (QEvent::Type) QEvent::registerEventType();
+
+static const QRegularExpression kChanID1RE { "^\\d+$" };
+static const QRegularExpression kStartTimeRE
+    { R"(^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\dZ?$)" };
 
 /** Is @p test an abbreviation of @p command ?
  * The @p test substring must be at least @p minchars long.
@@ -279,8 +283,10 @@ void NetworkControl::run(void)
     QMutexLocker locker(&m_ncLock);
     while (!m_stopCommandThread)
     {
+        // cppcheck-suppress knownConditionTrueFalse
         while (m_networkControlCommands.empty() && !m_stopCommandThread)
             m_ncCond.wait(&m_ncLock);
+        // cppcheck-suppress knownConditionTrueFalse
         if (!m_stopCommandThread)
         {
             NetworkCommand *nc = m_networkControlCommands.front();
@@ -490,7 +496,7 @@ QString NetworkControl::processKey(NetworkCommand *nc)
     if (GetMythMainWindow())
         keyDest = GetMythMainWindow();
     else
-        return QString("ERROR: Application has no main window!\n");
+        return {"ERROR: Application has no main window!\n"};
 
     int curToken = 1;
     while (curToken < nc->getArgCount())
@@ -612,13 +618,12 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
             qApp->postEvent(GetMythMainWindow(), me);
         }
         else
-            return QString("Unable to change to main menu to start playback!");
+            return {"Unable to change to main menu to start playback!"};
     }
     else if ((nc->getArgCount() >= 4) &&
              (is_abbrev("program", nc->getArg(1))) &&
-             (nc->getArg(2).contains(QRegularExpression("^\\d+$"))) &&
-             (nc->getArg(3).contains(QRegularExpression(
-                         R"(^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\dZ?$)"))))
+             (nc->getArg(2).contains(kChanID1RE)) &&
+             (nc->getArg(3).contains(kStartTimeRE)))
     {
         if (GetMythUI()->GetCurrentLocation().toLower() == "playback")
         {
@@ -765,7 +770,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
                 return "unknown";
             }
             else
-                return QString("ERROR: Invalid 'play music' command");
+                return {"ERROR: Invalid 'play music' command"};
         }
         else if (nc->getArgCount() > 3)
         {
@@ -791,11 +796,11 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
             }
             else
             {
-                return QString("ERROR: Invalid 'play music' command");
+                return {"ERROR: Invalid 'play music' command"};
             }
         }
         else
-            return QString("ERROR: Invalid 'play music' command");
+            return {"ERROR: Invalid 'play music' command"};
     }
     // Everything below here requires us to be in playback mode so check to
     // see if we are
@@ -807,7 +812,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
     }
     else if (is_abbrev("chanid", nc->getArg(1), 5))
     {
-        if (nc->getArg(2).contains(QRegularExpression("^\\d+$")))
+        if (nc->getArg(2).contains(kChanID1RE))
             message = QString("NETWORK_CONTROL CHANID %1").arg(nc->getArg(2));
         else
             return QString("ERROR: See 'help %1' for usage information")
@@ -815,6 +820,8 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
     }
     else if (is_abbrev("channel", nc->getArg(1), 5))
     {
+        static const QRegularExpression kChanID2RE { "^[-\\.\\d_#]+$" };
+
         if (nc->getArgCount() < 3)
             return "ERROR: See 'help play' for usage information";
 
@@ -822,7 +829,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
             message = "NETWORK_CONTROL CHANNEL UP";
         else if (is_abbrev("down", nc->getArg(2)))
             message = "NETWORK_CONTROL CHANNEL DOWN";
-        else if (nc->getArg(2).contains(QRegularExpression("^[-\\.\\d_#]+$")))
+        else if (nc->getArg(2).contains(kChanID2RE))
             message = QString("NETWORK_CONTROL CHANNEL %1").arg(nc->getArg(2));
         else
             return QString("ERROR: See 'help %1' for usage information")
@@ -830,6 +837,8 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
     }
     else if (is_abbrev("seek", nc->getArg(1), 2))
     {
+        static const QRegularExpression kSeekTimeRE { R"(^\d\d:\d\d:\d\d$)" };
+
         if (nc->getArgCount() < 3)
             return QString("ERROR: See 'help %1' for usage information")
                            .arg(nc->getArg(0));
@@ -841,7 +850,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
         else if (is_abbrev("rewind",   nc->getArg(2)) ||
                  is_abbrev("backward", nc->getArg(2)))
             message = "NETWORK_CONTROL SEEK BACKWARD";
-        else if (nc->getArg(2).contains(QRegularExpression(R"(^\d\d:\d\d:\d\d$)")))
+        else if (nc->getArg(2).contains(kSeekTimeRE))
         {
             int hours   = nc->getArg(2).mid(0, 2).toInt();
             int minutes = nc->getArg(2).mid(3, 2).toInt();
@@ -855,14 +864,18 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
     }
     else if (is_abbrev("speed", nc->getArg(1), 2))
     {
+        static const QRegularExpression kSpeed1RE { R"(^\-*\d+x$)" };
+        static const QRegularExpression kSpeed2RE { R"(^\-*\d+\/\d+x$)" };
+        static const QRegularExpression kSpeed3RE { R"(^\-*\d*\.\d+x$)" };
+
         if (nc->getArgCount() < 3)
             return QString("ERROR: See 'help %1' for usage information")
                            .arg(nc->getArg(0));
 
         QString token2 = nc->getArg(2).toLower();
-        if ((token2.contains(QRegularExpression(R"(^\-*\d+x$)"))) ||
-            (token2.contains(QRegularExpression(R"(^\-*\d+\/\d+x$)"))) ||
-            (token2.contains(QRegularExpression(R"(^\-*\d*\.\d+x$)"))))
+        if ((token2.contains(kSpeed1RE)) ||
+            (token2.contains(kSpeed2RE)) ||
+            (token2.contains(kSpeed3RE)))
             message = QString("NETWORK_CONTROL SPEED %1").arg(token2);
         else if (is_abbrev("normal", token2))
             message = QString("NETWORK_CONTROL SPEED normal");
@@ -881,8 +894,10 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
         message = QString("NETWORK_CONTROL STOP");
     else if (is_abbrev("volume", nc->getArg(1), 2))
     {
+        static const QRegularExpression kVolumeRE { "^\\d+%?$" };
+
         if ((nc->getArgCount() < 3) ||
-            (!nc->getArg(2).toLower().contains(QRegularExpression("^\\d+%?$"))))
+            (!nc->getArg(2).toLower().contains(kVolumeRE)))
         {
             return QString("ERROR: See 'help %1' for usage information")
                            .arg(nc->getArg(0));
@@ -893,9 +908,10 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
     }
     else if (is_abbrev("subtitles", nc->getArg(1), 2))
     {
+        static const QRegularExpression kNumberRE { "^\\d+$" };
         if (nc->getArgCount() < 3)
             message = QString("NETWORK_CONTROL SUBTITLES 0");
-        else if (!nc->getArg(2).toLower().contains(QRegularExpression("^\\d+$")))
+        else if (!nc->getArg(2).toLower().contains(kNumberRE))
         {
             return QString("ERROR: See 'help %1' for usage information")
                 .arg(nc->getArg(0));
@@ -1062,9 +1078,8 @@ QString NetworkControl::processQuery(NetworkCommand *nc)
     }
     else if ((nc->getArgCount() == 4) &&
              is_abbrev("recording", nc->getArg(1)) &&
-             (nc->getArg(2).contains(QRegularExpression("^\\d+$"))) &&
-             (nc->getArg(3).contains(QRegularExpression(
-                         R"(^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\dZ?$)"))))
+             (nc->getArg(2).contains(kChanID1RE)) &&
+             (nc->getArg(3).contains(kStartTimeRE)))
         return listRecordings(nc->getArg(2), nc->getArg(3).toUpper());
     else if (is_abbrev("recordings", nc->getArg(1)))
         return listRecordings();
@@ -1094,7 +1109,7 @@ QString NetworkControl::processSet(NetworkCommand *nc)
     if (nc->getArg(1) == "verbose")
     {
         if (nc->getArgCount() < 3)
-            return QString("ERROR: Missing filter name.");
+            return {"ERROR: Missing filter name."};
 
         if (nc->getArgCount() > 3)
         {
@@ -1217,7 +1232,7 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
         }
 
         if (!topScreen)
-            return QString("ERROR: no top screen found!");
+            return {"ERROR: no top screen found!"};
 
         MythUIType *currType = topScreen;
 
@@ -1245,7 +1260,7 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
     if (nc->getArg(1) == "getarea")
     {
         if (nc->getArgCount() < 3)
-            return QString("ERROR: Missing widget name.");
+            return {"ERROR: Missing widget name."};
 
         QString widgetName = nc->getArg(2);
         QStringList path = widgetName.split('/');
@@ -1260,7 +1275,7 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
         }
 
         if (!topScreen)
-            return QString("ERROR: no top screen found!");
+            return {"ERROR: no top screen found!"};
 
         MythUIType *currType = topScreen;
 
@@ -1286,10 +1301,10 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
     if (nc->getArg(1) == "setarea")
     {
         if (nc->getArgCount() < 3)
-            return QString("ERROR: Missing widget name.");
+            return {"ERROR: Missing widget name."};
 
         if (nc->getArgCount() < 7)
-            return QString("ERROR: Missing X, Y, Width or Height.");
+            return {"ERROR: Missing X, Y, Width or Height."};
 
         QString widgetName = nc->getArg(2);
         QStringList path = widgetName.split('/');
@@ -1309,7 +1324,7 @@ QString NetworkControl::processTheme( NetworkCommand* nc)
 
         MythUIType *currType = topScreen;
         if (!topScreen)
-            return QString("ERROR: no top screen found!");
+            return {"ERROR: no top screen found!"};
 
         while (path.count() > 1)
         {
@@ -1528,7 +1543,7 @@ QString NetworkControl::processMessage(NetworkCommand *nc)
     MythMainWindow *window = GetMythMainWindow();
     auto* me = new MythEvent(MythEvent::MythUserMessage, message);
     qApp->postEvent(window, me);
-    return QString("OK");
+    return {"OK"};
 }
 
 QString NetworkControl::processNotification(NetworkCommand *nc)
@@ -1540,7 +1555,7 @@ QString NetworkControl::processNotification(NetworkCommand *nc)
     QString message = nc->getCommand().remove(0, 12).trimmed();
     MythNotification n(message, tr("Network Control"));
     GetNotificationCenter()->Queue(n);
-    return QString("OK");
+    return {"OK"};
 }
 
 void NetworkControl::notifyDataAvailable(void)
@@ -1559,8 +1574,8 @@ void NetworkControl::sendReplyToClient(NetworkControlClient *ncc,
         return;
     }
 
-    QRegularExpression crlfRegEx("\r\n$");
-    QRegularExpression crlfcrlfRegEx("\r\n.*\r\n");
+    static const QRegularExpression crlfRegEx("\r\n$");
+    static const QRegularExpression crlfcrlfRegEx("\r\n.*\r\n");
 
     QTcpSocket  *client = ncc->getSocket();
     QTextStream *clientStream = ncc->getTextStream();

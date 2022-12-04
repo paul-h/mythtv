@@ -4,10 +4,10 @@
 #include <algorithm>
 
 // MythTV includes
-#include "libmyth/programinfo.h" // for subtitle types and audio and video properties
 #include "libmythbase/compat.h"  // for gmtime_r on windows.
 #include "libmythbase/mythdate.h"
 #include "libmythbase/mythdb.h"
+#include "libmythbase/programinfo.h" // for subtitle types and audio and video properties
 
 #include "channelutil.h"
 #include "eitcache.h"
@@ -1399,6 +1399,9 @@ static void init_fixup(FixupMap &fix)
     fix[ 57LL << 32 | 1LL << 16 ] = EITFixUp::kEFixForceISO8859_1;
     fix[ 58LL << 32 | 1LL << 16 ] = EITFixUp::kEFixForceISO8859_1;
     fix[ 59LL << 32 | 1LL << 16 ] = EITFixUp::kEFixForceISO8859_1;
+
+    // Eutelsat Satellite System at 7°E
+    fix[ 126U << 16 ] = EITFixUp::kEFixForceISO8859_9;
 }
 
 /** \fn EITHelper::RescheduleRecordings(void)

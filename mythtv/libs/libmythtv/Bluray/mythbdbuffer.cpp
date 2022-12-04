@@ -16,6 +16,7 @@
 #include "libmythbase/mythlocale.h"
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/stringutil.h"
+#include "libmythbase/sizetliteral.h"
 #include "libmythui/mythmainwindow.h"
 #include "libmythui/mythuiactions.h"
 
@@ -609,7 +610,7 @@ std::chrono::seconds MythBDBuffer::GetTitleDuration(int Title)
 {
     QMutexLocker locker(&m_infoLock);
     auto numTitles = GetNumTitles();
-    if (!(numTitles > 0 && Title >= 0 && Title < static_cast<int>(numTitles)))
+    if (numTitles <= 0 || Title < 0 || Title >= static_cast<int>(numTitles))
         return 0s;
 
     BLURAY_TITLE_INFO *info = GetTitleInfo(static_cast<uint32_t>(Title));
@@ -1483,7 +1484,7 @@ void MythBDBuffer::SubmitARGBOverlay(const bd_argb_overlay_s * const Overlay)
                 int32_t dstOffset = (Overlay->y * osd->m_image.bytesPerLine()) + (Overlay->x * 4);
                 for (uint16_t y = 0; y < Overlay->h; y++)
                 {
-                    memcpy(&data[dstOffset], &Overlay->argb[srcOffset], Overlay->w * 4);
+                    memcpy(&data[dstOffset], &Overlay->argb[srcOffset], Overlay->w * 4_UZ);
                     dstOffset += osd->m_image.bytesPerLine();
                     srcOffset += Overlay->stride;
                 }

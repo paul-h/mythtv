@@ -60,15 +60,15 @@
 
 
 // Builtin storage groups as per storagegroup.cpp
-#define IMAGE_STORAGE_GROUP         "Photographs"
-#define THUMBNAIL_STORAGE_GROUP     "Temp"
+static constexpr const char* IMAGE_STORAGE_GROUP      { "Photographs" };
+static constexpr const char* THUMBNAIL_STORAGE_GROUP  { "Temp" };
 
 // Filesystem dir within config dir used by TEMP SG
-#define TEMP_SUBDIR                 "tmp"
+static constexpr const char* TEMP_SUBDIR              { "tmp" };
 // Filesystem dir within tmp config dir where thumbnails reside
-#define THUMBNAIL_SUBDIR            "Images"
+static constexpr const char* THUMBNAIL_SUBDIR         { "Images" };
 
-#define DEVICE_INVALID (-1)
+static constexpr int DEVICE_INVALID { -1 };
 
 class MythMediaDevice;
 class MythMediaEvent;
@@ -146,7 +146,10 @@ public:
 
     //! Get absolute filepath for thumbnail of an image
     static QString GetAbsThumbPath(const QString &devPath, const QString &path)
-    { return QString("%1/" TEMP_SUBDIR "/%2/%3").arg(GetConfDir(), devPath, path); }
+    {
+        QString dirFmt = QString("%1/") % TEMP_SUBDIR % "/%2/%3";
+        return dirFmt.arg(GetConfDir(), devPath, path);
+    }
 
     //! Thumbnails of videos are a JPEG snapshot with jpg suffix appended
     static QString ThumbPath(const ImageItem &im)

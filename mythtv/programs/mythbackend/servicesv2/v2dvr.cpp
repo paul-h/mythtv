@@ -24,11 +24,11 @@
 //////////////////////////////////////////////////////////////////////////////
 
 // MythTV
-#include "libmyth/programinfo.h"
 #include "libmythbase/http/mythhttpmetaservice.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythscheduler.h"
 #include "libmythbase/mythversion.h"
+#include "libmythbase/programinfo.h"
 #include "libmythbase/storagegroup.h"
 #include "libmythtv/cardutil.h"
 #include "libmythtv/channelutil.h"
@@ -366,7 +366,7 @@ V2ProgramList* V2Dvr::GetOldRecordedList( bool             bDescending,
 /////////////////////////////////////////////////////////////////////////////
 
 V2Program* V2Dvr::GetRecorded(int RecordedId,
-                               int chanid, const QDateTime &StartTime)
+                              int chanid, const QDateTime &StartTime)
 {
     if ((RecordedId <= 0) &&
         (chanid <= 0 || !StartTime.isValid()))
@@ -389,15 +389,16 @@ V2Program* V2Dvr::GetRecorded(int RecordedId,
 //
 /////////////////////////////////////////////////////////////////////////////
 
-bool V2Dvr::AddRecordedCredits(int RecordedId, const QJsonObject &jsonObj)
+bool V2Dvr::AddRecordedCredits(int RecordedId, const QString & Cast)
 {
+    QJsonDocument jsonDoc = QJsonDocument::fromJson(Cast.toUtf8());
     // Verify the corresponding recording exists
     RecordingInfo ri(RecordedId);
     if (!ri.HasPathname())
         throw QString("AddRecordedCredits: recordedid %1 does "
                       "not exist.").arg(RecordedId);
 
-    DBCredits* credits = V2jsonCastToCredits(jsonObj);
+    DBCredits* credits = V2jsonCastToCredits(jsonDoc.object());
     if (credits == nullptr)
         throw QString("AddRecordedCredits: Failed to parse cast from json.");
 
@@ -417,16 +418,17 @@ bool V2Dvr::AddRecordedCredits(int RecordedId, const QJsonObject &jsonObj)
 //
 /////////////////////////////////////////////////////////////////////////////
 
-int V2Dvr::AddRecordedProgram(const QJsonObject &jsonObj)
+int V2Dvr::AddRecordedProgram(const QString &Program)
 {
-    QJsonObject root      = jsonObj;
-    QJsonObject program   = root["Program"].toObject();
+    QJsonDocument doc     = QJsonDocument::fromJson(Program.toUtf8());
+    QJsonObject program   = doc.object();
     QJsonObject channel   = program["Channel"].toObject();
     QJsonObject recording = program["Recording"].toObject();
     QJsonObject cast      = program["Cast"].toObject();
 
     auto     *pi = new ProgInfo();
-    int       chanid = channel.value("ChanId").toString("0").toUInt();
+    int       chanid = channel.value("ChanId").toVariant().toString().toUInt();
+
     QString   hostname = program["HostName"].toString("");
 
     if (ChannelUtil::GetChanNum(chanid).isEmpty())
@@ -453,7 +455,7 @@ int V2Dvr::AddRecordedProgram(const QJsonObject &jsonObj)
                           (program.value("AudioPropNames").toString(""));
     pi->m_videoProps    = ProgramInfo::VideoPropertiesFromNames
                           (program.value("VideoPropNames").toString(""));
-    pi->m_stars         = program.value("Stars").toString("0.0").toFloat();
+    pi->m_stars         = program.value("Stars").toVariant().toString().toFloat();
     pi->m_categoryType  = string_to_myth_category_type(program.value("CatType").toString(""));
     pi->m_seriesId      = program.value("SeriesId").toString("");
     pi->m_programId     = program.value("ProgramId").toString("");
@@ -462,9 +464,12 @@ int V2Dvr::AddRecordedProgram(const QJsonObject &jsonObj)
     pi->m_listingsource = 0;
 //    pi->m_ratings =
 //    pi->m_genres =
-    pi->m_season        = program.value("Season").toString("0").toUInt();
-    pi->m_episode       = program.value("Episode").toString("0").toUInt();
-    pi->m_totalepisodes = program.value("TotalEpisodes").toString("0").toUInt();
+    pi->m_season        = program.value("Season").toVariant()
+                                 .toString().toUInt();
+    pi->m_episode       = program.value("Episode").toVariant()
+                                 .toString().toUInt();
+    pi->m_totalepisodes = program.value("TotalEpisodes").toVariant()
+                          .toString().toUInt();
 
     pi->m_channel        = channel.value("ChannelName").toString("");
 
@@ -521,17 +526,17 @@ int V2Dvr::AddRecordedProgram(const QJsonObject &jsonObj)
                      pi->m_stars,
                      pi->m_originalairdate,
                      program.value("Repeat").toString("false").toLower() == "true",
-                     static_cast<RecStatus::Type>(recording.value("Status").toString("-3").toInt()),
+                     static_cast<RecStatus::Type>(recording.value("Status").toInt()),
                      false, // reactivate
                      recording.value("RecordedId").toString("0").toInt(),
                      0, // parentid
-                     static_cast<RecordingType>(recording.value("RecType").toString("0").toInt()),
-                     static_cast<RecordingDupInType>(recording.value("DupInType").toString("0").toInt()),
-                     static_cast<RecordingDupMethodType>(recording.value("DupMethod").toString("0").toInt()),
-                     channel.value("SourceId").toString("0").toUInt(),
-                     channel.value("InputId").toString("0").toUInt(),
+                     static_cast<RecordingType>(recording.value("RecType").toInt()),
+                     static_cast<RecordingDupInType>(recording.value("DupInType").toInt()),
+                     static_cast<RecordingDupMethodType>(recording.value("DupMethod").toInt()),
+                     channel.value("SourceId").toVariant().toString().toUInt(),
+                     channel.value("InputId").toVariant().toString().toUInt(),
                      0, // findid
-                     channel.value("CommFree").toString("false").toLower() == "true",
+                     channel.value("CommFree").toBool(),
                      pi->m_subtitleType,
                      pi->m_videoProps,
                      pi->m_audioProps,
@@ -735,6 +740,8 @@ bool V2Dvr::UpdateRecordedWatchedStatus ( int RecordedId,
                                         const QDateTime &StartTime,
                                         bool  watched)
 {
+    LOG(VB_GENERAL, LOG_WARNING, "Deprecated, use Dvr/UpdateRecordedMetadata.");
+
     if ((RecordedId <= 0) &&
         (chanid <= 0 || !StartTime.isValid()))
         throw QString("Recorded ID or Channel ID and StartTime appears invalid.");
@@ -849,6 +856,8 @@ bool V2Dvr::SetSavedBookmark( int RecordedId,
                             const QString &offsettype,
                             long Offset )
 {
+    LOG(VB_GENERAL, LOG_WARNING, "Deprecated, use Dvr/UpdateRecordedMetadata.");
+
     if ((RecordedId <= 0) &&
         (chanid <= 0 || !StartTime.isValid()))
         throw QString("Recorded ID or Channel ID and StartTime appears invalid.");
@@ -1026,7 +1035,7 @@ V2MarkupList* V2Dvr::GetRecordedMarkup ( int RecordedId )
     ri.QueryMarkup(mapMark, mapSeek);
 
     auto* pMarkupList = new V2MarkupList();
-    for (auto entry : qAsConst(mapMark))
+    for (const auto& entry : qAsConst(mapMark))
     {
         V2Markup *pMarkup = pMarkupList->AddNewMarkup();
         QString typestr = toString(static_cast<MarkTypes>(entry.type));
@@ -1057,7 +1066,7 @@ V2MarkupList* V2Dvr::GetRecordedMarkup ( int RecordedId )
 //
 /////////////////////////////////////////////////////////////////////////////
 
-bool V2Dvr::SetRecordedMarkup (int RecordedId, const QJsonObject &jsonObj)
+bool V2Dvr::SetRecordedMarkup(int RecordedId, const QString &MarkupList)
 {
     RecordingInfo ri;
     ri = RecordingInfo(RecordedId);
@@ -1068,7 +1077,8 @@ bool V2Dvr::SetRecordedMarkup (int RecordedId, const QJsonObject &jsonObj)
     QVector<ProgramInfo::MarkupEntry> mapMark;
     QVector<ProgramInfo::MarkupEntry> mapSeek;
 
-    QJsonObject markuplist = jsonObj["MarkupList"].toObject();
+    QJsonDocument doc        = QJsonDocument::fromJson(MarkupList.toUtf8());
+    QJsonObject   markuplist = doc.object();
 
     QJsonArray  marks = markuplist["Mark"].toArray();
     for (const auto & m : marks)
@@ -1078,7 +1088,8 @@ bool V2Dvr::SetRecordedMarkup (int RecordedId, const QJsonObject &jsonObj)
 
         QString typestr = markup.value("Type").toString("");
         entry.type  = markTypeFromString(typestr);
-        entry.frame = markup.value("Frame").toString("-1").toLongLong();
+        entry.frame = markup.value("Frame").toVariant()
+                            .toString().toLongLong();
         QString data  = markup.value("Data").toString("NULL");
         entry.isDataNull = (data == "NULL");
         if (!entry.isDataNull)
@@ -1095,7 +1106,7 @@ bool V2Dvr::SetRecordedMarkup (int RecordedId, const QJsonObject &jsonObj)
 
         QString typestr = markup.value("Type").toString("");
         entry.type  = markTypeFromString(typestr);
-        entry.frame = markup.value("Frame").toString("-1").toLongLong();
+        entry.frame = markup.value("Frame").toVariant().toString().toLongLong();
         QString data  = markup.value("Data").toString("NULL");
         entry.isDataNull = (data == "NULL");
         if (!entry.isDataNull)
@@ -2058,4 +2069,142 @@ int V2Dvr::ManageJobQueue( const QString   &sAction,
 
     return JobQueue::GetJobID(jobType, ri.GetChanID(),
                               ri.GetRecordingStartTime());
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+bool V2Dvr::UpdateRecordedMetadata ( uint             RecordedId,
+                                     bool             AutoExpire,
+                                     long             BookmarkOffset,
+                                     const QString   &BookmarkOffsetType,
+                                     bool             Damaged,
+                                     const QString   &Description,
+                                     uint             Episode,
+                                     const QString   &Inetref,
+                                           QDate      OriginalAirDate,
+                                     bool             Preserve,
+                                     uint             Season,
+                                     uint             Stars,
+                                     const QString   &SubTitle,
+                                     const QString   &Title,
+                                     bool             Watched )
+
+{
+    if (m_request->m_queries.size() < 2 || !HAS_PARAMv2("RecordedId"))
+    {
+        LOG(VB_GENERAL, LOG_ERR, "No RecordedId, or no parameters to change.");
+        return false;
+    }
+
+    auto pi = ProgramInfo(RecordedId);
+    auto ri = RecordingInfo(RecordedId);
+
+    if (!ri.GetChanID())
+        return false;
+
+    if (HAS_PARAMv2("AutoExpire"))
+        pi.SaveAutoExpire(AutoExpire ? kNormalAutoExpire :
+                                        kDisableAutoExpire, false);
+
+    if (HAS_PARAMv2("BookmarkOffset"))
+    {
+        uint64_t position =0;
+
+        if (BookmarkOffsetType.toLower() == "position")
+        {
+            if (!ri.QueryPositionKeyFrame(&position, BookmarkOffset, true))
+                return false;
+        }
+        else if (BookmarkOffsetType.toLower() == "duration")
+        {
+            if (!ri.QueryDurationKeyFrame(&position, BookmarkOffset, true))
+                return false;
+        }
+        else
+            position = BookmarkOffset;
+
+        ri.SaveBookmark(position);
+    }
+
+    if (HAS_PARAMv2("Damaged"))
+        pi.SaveVideoProperties(VID_DAMAGED, Damaged ?  VID_DAMAGED : 0);
+
+    if (HAS_PARAMv2("Description") ||
+        HAS_PARAMv2("SubTitle")    ||
+        HAS_PARAMv2("Title"))
+    {
+
+        QString tmp_description;
+        QString tmp_subtitle;
+        QString tmp_title;
+
+        if (HAS_PARAMv2("Description"))
+            tmp_description = Description;
+        else
+            tmp_description = ri.GetDescription();
+
+        if (HAS_PARAMv2("SubTitle"))
+            tmp_subtitle = SubTitle;
+        else
+            tmp_subtitle = ri.GetSubtitle();
+
+        if (HAS_PARAMv2("Title"))
+            tmp_title = Title;
+        else
+            tmp_title = ri.GetTitle();
+
+        ri.ApplyRecordRecTitleChange(tmp_title, tmp_subtitle, tmp_description);
+    }
+
+    if (HAS_PARAMv2("Episode") ||
+        HAS_PARAMv2("Season"))
+    {
+        int tmp_episode = 0;
+        int tmp_season = 0;
+
+        if (HAS_PARAMv2("Episode"))
+            tmp_episode = Episode;
+        else
+            tmp_episode = ri.GetEpisode();
+
+        if (HAS_PARAMv2("Season"))
+            tmp_season = Season;
+        else
+            tmp_season = ri.GetSeason();
+
+        pi.SaveSeasonEpisode(tmp_season, tmp_episode);
+    }
+
+    if (HAS_PARAMv2("Inetref"))
+        pi.SaveInetRef(Inetref);
+
+    if (HAS_PARAMv2("OriginalAirDate"))
+    {
+        if (!OriginalAirDate.isValid())
+        {
+            LOG(VB_GENERAL, LOG_ERR, "Need valid OriginalAirDate yyyy-mm-dd.");
+            return false;
+        }
+        ri.ApplyOriginalAirDateChange(OriginalAirDate);
+    }
+
+    if (HAS_PARAMv2("Preserve"))
+        pi.SavePreserve(Preserve);
+
+    if (HAS_PARAMv2("Stars"))
+    {
+        if (Stars > 10)
+        {
+            LOG(VB_GENERAL, LOG_ERR, "Recording stars can be 0 to 10.");
+            return false;
+        }
+        ri.ApplyStarsChange(Stars * 0.1);
+    }
+
+    if (HAS_PARAMv2("Watched"))
+        pi.SaveWatched(Watched);
+
+    return true;
 }

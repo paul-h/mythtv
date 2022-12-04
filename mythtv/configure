@@ -1434,7 +1434,6 @@ LIBRARY_LIST="
     avdevice
     avfilter
     avformat
-    avresample
     avutil
     postproc
     swresample
@@ -1668,7 +1667,6 @@ HEADERS_LIST="
     mach_mach_time_h
     machine_ioctl_bt848_h
     machine_ioctl_meteor_h
-    malloc_h
     mntent_h
     opencv2_core_core_c_h
     OpenGL_gl3_h
@@ -1739,7 +1737,6 @@ MATH_FUNCS="
 
 SYSTEM_FUNCS="
     access
-    aligned_malloc
     arc4random
     clock_gettime
     closesocket
@@ -1772,13 +1769,11 @@ SYSTEM_FUNCS="
     lzo1x_999_compress
     mach_absolute_time
     MapViewOfFile
-    memalign
     mkstemp
     mmap
     mprotect
     nanosleep
     PeekNamedPipe
-    posix_memalign
     pthread_cancel
     sched_getaffinity
     SetConsoleTextAttribute
@@ -2535,7 +2530,6 @@ pp_filter_deps="gpl postproc"
 pullup_filter_deps="gpl"
 removelogo_filter_deps="avcodec avformat swscale"
 repeatfields_filter_deps="gpl"
-resample_filter_deps="avresample"
 sab_filter_deps="gpl swscale"
 scale2ref_filter_deps="swscale"
 scale_filter_deps="swscale"
@@ -2596,7 +2590,6 @@ avdevice_deps="avformat avcodec avutil"
 avfilter_deps="avutil"
 avformat_deps="avcodec avutil"
 avformat_suggest="network"
-avresample_deps="avutil"
 postproc_deps="avutil gpl"
 swresample_deps="avutil"
 swscale_deps="avutil"
@@ -2727,7 +2720,7 @@ intrinsics="none"
 
 # configurable options
 enable $PROGRAM_LIST
-enable $(filter_out avresample $LIBRARY_LIST)
+enable $LIBRARY_LIST
 enable stripping
 
 enable asm
@@ -4799,7 +4792,6 @@ case $target_os in
         disable dv1394
         disable dvb
         disable ceton
-        enable  memalign_hack
         disable mythtranscode
         disable network
         enable opengl
@@ -5210,7 +5202,7 @@ version2num(){
 }
 
 # Minimum supported Qt version
-QT5_MIN_VERSION_STR="5.9"
+QT5_MIN_VERSION_STR="5.12"
 QT6_MIN_VERSION_STR="6.0"
 
 # qmake-qt5 /usr/lib64/qt5/bin/qmake /usr/lib/x86_64-linux-gnu/qt5/bin/qmake
@@ -5675,10 +5667,6 @@ case "$custom_allocator" in
         malloc_prefix=tc_
     ;;
 esac
-
-check_func_headers malloc.h _aligned_malloc     && enable aligned_malloc
-check_func  ${malloc_prefix}memalign            && enable memalign
-check_func  ${malloc_prefix}posix_memalign      && enable posix_memalign
 
 check_func  access
 check_func_headers stdlib.h arc4random
@@ -6290,13 +6278,14 @@ EOF
 check_cxxflags -Wall
 check_cxxflags -Wextra
 check_cxxflags -Wpointer-arith
+check_cxxflags -Wundef
 if disabled deprecation_warnings; then
     check_cxxflags -Wno-deprecated-declarations
 fi
 
 # add some linker flags
 check_ldflags -Wl,--warn-common
-check_ldflags '-Wl,-rpath-link,\$\${SRC_PATH_BARE}/external/FFmpeg/libpostproc:\$\${SRC_PATH_BARE}/external/FFmpeg/libswresample:\$\${SRC_PATH_BARE}/external/FFmpeg/libswscale:\$\${SRC_PATH_BARE}/external/FFmpeg/libavfilter:\$\${SRC_PATH_BARE}/external/FFmpeg/libavdevice:\$\${SRC_PATH_BARE}/external/FFmpeg/libavformat:\$\${SRC_PATH_BARE}/external/FFmpeg/libavcodec:\$\${SRC_PATH_BARE}/external/FFmpeg/libavutil:\$\${SRC_PATH_BARE}/external/FFmpeg/libavresample'
+check_ldflags '-Wl,-rpath-link,\$\${SRC_PATH_BARE}/external/FFmpeg/libpostproc:\$\${SRC_PATH_BARE}/external/FFmpeg/libswresample:\$\${SRC_PATH_BARE}/external/FFmpeg/libswscale:\$\${SRC_PATH_BARE}/external/FFmpeg/libavfilter:\$\${SRC_PATH_BARE}/external/FFmpeg/libavdevice:\$\${SRC_PATH_BARE}/external/FFmpeg/libavformat:\$\${SRC_PATH_BARE}/external/FFmpeg/libavcodec:\$\${SRC_PATH_BARE}/external/FFmpeg/libavutil'
 enabled rpath && add_ldexeflags -Wl,-rpath,$libdir
 enabled rpath && add_ldlibflags -Wl,-rpath,$libdir
 test_ldflags -Wl,-Bsymbolic && append SHFLAGS -Wl,-Bsymbolic
@@ -6316,8 +6305,7 @@ enabled neon_clobber_test &&
                   -Wl,--wrap,avcodec_receive_packet     \
                   -Wl,--wrap,avcodec_send_frame         \
                   -Wl,--wrap,avcodec_receive_frame      \
-                  -Wl,--wrap,swr_convert                \
-                  -Wl,--wrap,avresample_convert ||
+                  -Wl,--wrap,swr_convert        ||
     disable neon_clobber_test
 
 enabled xmm_clobber_test &&
@@ -6333,7 +6321,6 @@ enabled xmm_clobber_test &&
                   -Wl,--wrap,avcodec_send_frame         \
                   -Wl,--wrap,avcodec_receive_frame      \
                   -Wl,--wrap,swr_convert                \
-                  -Wl,--wrap,avresample_convert         \
                   -Wl,--wrap,sws_scale ||
     disable xmm_clobber_test
 
@@ -7098,12 +7085,6 @@ check_deps $CONFIG_LIST       \
 
 enabled threads && ! enabled pthreads && ! enabled atomics_native && die "non pthread threading without atomics not supported, try adding --enable-pthreads or --cpu=i486 or higher if you are on x86"
 
-
-if test $target_os = "haiku"; then
-    disable memalign
-    disable posix_memalign
-fi
-
 # add_dep lib dep
 # -> enable ${lib}_deps_${dep}
 # -> add $dep to ${lib}_deps only once
@@ -7181,7 +7162,6 @@ enabled movie_filter    && prepend avfilter_deps "avformat avcodec"
 enabled pan_filter          && prepend avfilter_deps "swresample"
 enabled pp_filter           && prepend avfilter_deps "postproc"
 enabled removelogo_filter   && prepend avfilter_deps "avformat avcodec swscale"
-enabled resample_filter && prepend avfilter_deps "avresample"
 enabled sab_filter          && prepend avfilter_deps "swscale"
 enabled scale_filter    && prepend avfilter_deps "swscale"
 enabled scale2ref_filter    && prepend avfilter_deps "swscale"
@@ -7761,11 +7741,19 @@ JAVA_ARCH=$java_arch
 JAVA_CODE_VERSION=$java_code_version
 EOF
 
+# Parse the FFmpeg version headers for linking to the correct shared object file
 get_version(){
     lcname=lib${1}
     name=$(toupper $lcname)
+    # FFmpeg split its version.h into version_major.h and version.h.
+    # Of note, libavutil's version_major.h is empty, so we need to parse both
+    # version.h AND version_major.h regardless of whether or not we only need
+    # the major version number.
+    # So, to keep the prior behavior of parsing the entire version number,
+    # pass both files to awk, which will test each file line by line.
     file=$source_path/external/FFmpeg/$lcname/version.h
-    eval $(awk "/#define ${name}_VERSION_M/ { print \$2 \"=\" \$3 }" "$file")
+    file_major=$source_path/external/FFmpeg/$lcname/version_major.h
+    eval $(awk "/#define ${name}_VERSION_M/ { print \$2 \"=\" \$3 }" "$file_major" "$file")
     enabled raise_major && eval ${name}_VERSION_MAJOR=$((${name}_VERSION_MAJOR+100))
     eval ${name}_VERSION=\$${name}_VERSION_MAJOR.\$${name}_VERSION_MINOR.\$${name}_VERSION_MICRO
     eval echo "${lcname}_VERSION=\$${name}_VERSION" >> $TMPMAK
@@ -7817,6 +7805,9 @@ cat > $TMPH <<EOF
 /* Automatically generated by configure - do not modify! */
 #ifndef MYTHTV_CONFIG_H
 #define MYTHTV_CONFIG_H
+
+/* NOLINTBEGIN(cppcoreguidelines-macro-usage) */
+
 #define QT_MIN_VERSION_STR "$QT_MIN_VERSION_STR"
 #define QT_MIN_VERSION_HEX $QT_MIN_VERSION_HEX
 #define QT_MIN_VERSION $QT_MIN_VERSION
@@ -7984,7 +7975,12 @@ if test x"$CONFIG_INCLUDEPATH" != x"" ; then
   echo "CONFIG_INCLUDEPATH=$CONFIG_INCLUDEPATH" >> $TMPMAK
 fi
 
-echo "#endif /* MYTHTV_CONFIG_H */" >> $TMPH
+cat >> $TMPH <<EOF
+
+/* NOLINTEND(cppcoreguidelines-macro-usage) */
+
+#endif /* MYTHTV_CONFIG_H */
+EOF
 
 enabled hdhomerun && cat >> $TMPMAK <<EOF
 HDHOMERUN_PREFIX=$HDHOMERUN_PREFIX

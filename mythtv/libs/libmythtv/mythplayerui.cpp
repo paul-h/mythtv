@@ -357,7 +357,7 @@ void MythPlayerUI::EventLoop()
     {
         if (jumpto == m_totalFrames)
         {
-            if (!(m_endExitPrompt == 1 && m_playerCtx->GetState() == kState_WatchingPreRecorded))
+            if (m_endExitPrompt != 1 || m_playerCtx->GetState() != kState_WatchingPreRecorded)
                 SetEof(kEofStateDelayed);
         }
         else
@@ -838,7 +838,7 @@ void MythPlayerUI::GetPlaybackData(InfoMap& Map)
 
 void MythPlayerUI::GetCodecDescription(InfoMap& Map)
 {
-    Map["audiocodec"]    = ff_codec_id_string(m_audio.GetCodec());
+    Map["audiocodec"]    = avcodec_get_name(m_audio.GetCodec());
     Map["audiochannels"] = QString::number(m_audio.GetOrigChannels());
 
     int width  = m_videoDispDim.width();

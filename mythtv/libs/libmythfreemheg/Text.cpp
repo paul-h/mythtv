@@ -519,7 +519,7 @@ MHTextLine::~MHTextLine()
 // Tabs are set every 56 pixels
 // = (FONT_WIDTHRES * 56)/ 72 points - see libmythtv/mhi.cpp
 // = (54 * 56)/72 = 42
-#define TABSTOP 42 // pts
+static constexpr int8_t TABSTOP { 42 }; // pts
 static inline int Tabs(int nXpos, int nTabCount)
 {
     int nNextTab = nXpos;
@@ -881,9 +881,9 @@ QRegion MHText::GetOpaqueArea()
 {
     if (! m_fRunning || (GetColour(m_bgColour)).alpha() != 255)
     {
-        return QRegion();
+        return {};
     }
-    return QRegion(QRect(m_nPosX, m_nPosY, m_nBoxWidth, m_nBoxHeight));
+    return {QRect(m_nPosX, m_nPosY, m_nBoxWidth, m_nBoxHeight)};
 }
 
 

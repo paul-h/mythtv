@@ -49,10 +49,6 @@
 #include "scheduler.h"
 #include "serviceUtil.h"
 
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-#define qEnvironmentVariable getenv
-#endif
-
 /////////////////////////////////////////////////////////////////////////////
 //
 /////////////////////////////////////////////////////////////////////////////
@@ -69,7 +65,7 @@ DTC::ConnectionInfo* Myth::GetConnectionInfo( const QString  &sPin )
         throw( QString( "Not Authorized" ));
         //SB: UPnPResult_ActionNotAuthorized );
 
-    DatabaseParams params = gCoreContext->GetDatabaseParams();
+    DatabaseParams params = GetMythDB()->GetDatabaseParams();
 
     // ----------------------------------------------------------------------
     // Check for DBHostName of "localhost" and change to public name or IP

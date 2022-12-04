@@ -4,6 +4,7 @@
 
 // Qt
 #include <QCoreApplication>
+#include <QtEndian>
 
 // MythTV
 #include "libmyth/mythcontext.h"
@@ -12,6 +13,7 @@
 #include "libmythbase/iso639.h"
 #include "libmythbase/mythconfig.h"
 #include "libmythbase/mythlogging.h"
+#include "libmythbase/sizetliteral.h"
 #include "libmythui/mythmainwindow.h"
 #include "libmythui/mythuiactions.h"
 
@@ -22,7 +24,7 @@
 #define LOC QString("DVDRB: ")
 
 #define IncrementButtonVersion if (++m_buttonVersion > 1024) m_buttonVersion = 1;
-#define DVD_DRIVE_SPEED 1
+static constexpr int8_t DVD_DRIVE_SPEED { 1 };
 
 static const std::array<const std::string,8> DVDMenuTable
 {
@@ -501,6 +503,7 @@ void MythDVDBuffer::WaitForPlayer(void)
         LOG(VB_PLAYBACK, LOG_INFO, LOC + "Waiting for player's buffers to drain");
         m_playerWait = true;
         int count = 0;
+        // cppcheck-suppress knownConditionTrueFalse
         while (m_playerWait && count++ < 200)
         {
             m_rwLock.unlock();
@@ -508,6 +511,7 @@ void MythDVDBuffer::WaitForPlayer(void)
             m_rwLock.lockForWrite();
         }
 
+        // cppcheck-suppress knownConditionTrueFalse
         if (m_playerWait)
         {
             LOG(VB_GENERAL, LOG_ERR, LOC + "Player wait state was not cleared");
@@ -523,7 +527,6 @@ int MythDVDBuffer::SafeRead(void *Buffer, uint Size)
     int   needed       = static_cast<int>(Size);
     char* dest         = static_cast<char*>(Buffer);
     int   offset       = 0;
-    bool  reprocessing { false };
     bool  waiting      = false;
 
     if (m_gotStop)
@@ -538,6 +541,7 @@ int MythDVDBuffer::SafeRead(void *Buffer, uint Size)
 
     while ((m_processState != PROCESS_WAIT) && needed)
     {
+        bool  reprocessing { false };
         blockBuf = m_dvdBlockWriteBuf.data();
 
         if (m_processState == PROCESS_REPROCESS)
@@ -644,7 +648,8 @@ int MythDVDBuffer::SafeRead(void *Buffer, uint Size)
                     // wait unless it is a transition from one normal video cell to
                     // another or the same menu id
                     if ((m_title != m_lastTitle) &&
-                        !((m_title == 0 && m_lastTitle == 0) && (m_part == m_lastPart)))
+                        // cppcheck-suppress knownConditionTrueFalse
+                        (m_title != 0 || m_lastTitle != 0 || (m_part != m_lastPart)))
                     {
                         WaitForPlayer();
                     }
@@ -1453,8 +1458,6 @@ QRect MythDVDBuffer::GetButtonCoords(void)
 bool MythDVDBuffer::DecodeSubtitles(AVSubtitle *Subtitle, int *GotSubtitles,
                                     const uint8_t *SpuPkt, int BufSize, uint32_t StartTime)
 {
-    #define GETBE16(p) (((p)[0] << 8) | (p)[1])
-
     AlphaArray   alpha   {0, 0, 0, 0};
     PaletteArray palette {0, 0, 0, 0};
 
@@ -1470,13 +1473,13 @@ bool MythDVDBuffer::DecodeSubtitles(AVSubtitle *Subtitle, int *GotSubtitles,
     Subtitle->start_display_time = StartTime;
     Subtitle->end_display_time = StartTime;
 
-    int cmd_pos = GETBE16(SpuPkt + 2);
+    int cmd_pos = qFromBigEndian<qint16>(SpuPkt + 2);
     while ((cmd_pos + 4) < BufSize)
     {
         int offset1 = -1;
         int offset2 = -1;
-        int date = GETBE16(SpuPkt + cmd_pos);
-        int next_cmd_pos = GETBE16(SpuPkt + cmd_pos + 2);
+        int date = qFromBigEndian<qint16>(SpuPkt + cmd_pos);
+        int next_cmd_pos = qFromBigEndian<qint16>(SpuPkt + cmd_pos + 2);
         int pos = cmd_pos + 4;
         int x1 = 0;
         int x2 = 0;
@@ -1534,8 +1537,8 @@ bool MythDVDBuffer::DecodeSubtitles(AVSubtitle *Subtitle, int *GotSubtitles,
                     {
                         if ((BufSize - pos) < 4)
                             goto fail;
-                        offset1 = GETBE16(SpuPkt + pos);
-                        offset2 = GETBE16(SpuPkt + pos + 2);
+                        offset1 = qFromBigEndian<qint16>(SpuPkt + pos);
+                        offset2 = qFromBigEndian<qint16>(SpuPkt + pos + 2);
                         pos +=4;
                     }
                     break;
@@ -1544,7 +1547,7 @@ bool MythDVDBuffer::DecodeSubtitles(AVSubtitle *Subtitle, int *GotSubtitles,
                         if ((BufSize - pos) < 2)
                             goto fail;
 
-                        pos += GETBE16(SpuPkt + pos);
+                        pos += qFromBigEndian<qint16>(SpuPkt + pos);
                     }
                     break;
                 case 0xff:
@@ -1580,7 +1583,7 @@ bool MythDVDBuffer::DecodeSubtitles(AVSubtitle *Subtitle, int *GotSubtitles,
                 Subtitle->rects = static_cast<AVSubtitleRect**>(av_mallocz(sizeof(AVSubtitleRect*) * Subtitle->num_rects));
                 for (uint i = 0; i < Subtitle->num_rects; i++)
                     Subtitle->rects[i] = static_cast<AVSubtitleRect*>(av_mallocz(sizeof(AVSubtitleRect)));
-                Subtitle->rects[0]->data[1] = static_cast<uint8_t*>(av_mallocz(4 * 4));
+                Subtitle->rects[0]->data[1] = static_cast<uint8_t*>(av_mallocz(4_UZ * 4_UZ));
                 DecodeRLE(bitmap, width * 2, width, (height + 1) / 2,
                           SpuPkt, offset1 * 2, BufSize);
                 DecodeRLE(bitmap + width, width * 2, width, height / 2,
@@ -1597,7 +1600,7 @@ bool MythDVDBuffer::DecodeSubtitles(AVSubtitle *Subtitle, int *GotSubtitles,
                 if (NumMenuButtons() > 0)
                 {
                     Subtitle->rects[1]->type = SUBTITLE_BITMAP;
-                    Subtitle->rects[1]->data[1] = static_cast<uint8_t*>(av_malloc(4 *4));
+                    Subtitle->rects[1]->data[1] = static_cast<uint8_t*>(av_malloc(4_UZ * 4_UZ));
                     GuessPalette(reinterpret_cast<uint32_t*>(Subtitle->rects[1]->data[1]),
                                  m_buttonColor, m_buttonAlpha);
                 }
@@ -1614,7 +1617,10 @@ bool MythDVDBuffer::DecodeSubtitles(AVSubtitle *Subtitle, int *GotSubtitles,
     {
         if (force_subtitle_display)
         {
-            Subtitle->forced = 1;
+            for (unsigned i = 0; i < Subtitle->num_rects; i++)
+            {
+                Subtitle->rects[i]->flags |= AV_SUBTITLE_FLAG_FORCED;
+            }
             LOG(VB_PLAYBACK, LOG_INFO, LOC + "Decoded forced subtitle");
         }
         return true;
@@ -2087,7 +2093,7 @@ int MythDVDBuffer::FindSmallestBoundingRectangle(AVSubtitle *Subtitle)
         if (((reinterpret_cast<uint32_t*>(Subtitle->rects[0]->data[1])[i] >> 24)) == 0)
             colors[i] = 1;
 
-    int bottom = 0;
+    ptrdiff_t bottom = 0;
     while (bottom < Subtitle->rects[0]->h &&
           IsTransparent(Subtitle->rects[0]->data[0] + bottom * Subtitle->rects[0]->linesize[0],
                         1, Subtitle->rects[0]->w, colors))
@@ -2102,7 +2108,7 @@ int MythDVDBuffer::FindSmallestBoundingRectangle(AVSubtitle *Subtitle)
         return 0;
     }
 
-    int top = Subtitle->rects[0]->h - 1;
+    ptrdiff_t top = Subtitle->rects[0]->h - 1;
     while (top > 0 &&
             IsTransparent(Subtitle->rects[0]->data[0] + top * Subtitle->rects[0]->linesize[0], 1,
                           Subtitle->rects[0]->w, colors))
@@ -2134,7 +2140,7 @@ int MythDVDBuffer::FindSmallestBoundingRectangle(AVSubtitle *Subtitle)
 
     for (int y = 0; y < height; y++)
     {
-        memcpy(bitmap + width * y, Subtitle->rects[0]->data[0] + left +
+        memcpy(bitmap + static_cast<ptrdiff_t>(width) * y, Subtitle->rects[0]->data[0] + left +
               (bottom + y) * Subtitle->rects[0]->linesize[0], static_cast<size_t>(width));
     }
 

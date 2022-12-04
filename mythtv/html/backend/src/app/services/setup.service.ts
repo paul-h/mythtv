@@ -1,13 +1,15 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import {TranslateService} from '@ngx-translate/core';
+import { TranslateService } from '@ngx-translate/core';
 
 import { GetSettingResponse } from './interfaces/myth.interface';
-import {  HostAddress, Locale,  Setup, Miscellaneous, EITScanner, ShutWake, BackendWake, BackendControl,
-    JobQBackend, JobQCommands, JobQGlobal, EpgDownload }
+import {
+    HostAddress, Locale, Setup, Miscellaneous, EITScanner, ShutWake, BackendWake, BackendControl,
+    JobQBackend, JobQCommands, JobQGlobal, EpgDownload
+}
     from './interfaces/setup.interface';
 import { MythService } from './myth.service';
-import { throwIfEmpty } from 'rxjs/operators';
+import { NgForm } from '@angular/forms';
 
 @Injectable({
     providedIn: 'root'
@@ -16,6 +18,8 @@ export class SetupService {
 
     m_hostName: string = ""; // hostname of the backend server
     m_initialized: boolean = false;
+    requesterForm: NgForm | null = null;
+
 
     constructor(private mythService: MythService, private translate: TranslateService) {
         this.mythService.GetHostName().subscribe(data => {
@@ -27,13 +31,17 @@ export class SetupService {
         this.m_initialized = true;
     }
 
+    getHostName(): string {
+        return this.m_hostName;
+    }
+
     m_HostAddressData!: HostAddress;
 
     getHostAddressData(): HostAddress {
         this.m_HostAddressData = {
-            successCount:           0,
-            errorCount:             0,
-            thisHostName:   this.m_hostName,
+            successCount: 0,
+            errorCount: 0,
+            thisHostName: this.m_hostName,
             BackendServerPort: 4543,
             BackendStatusPort: 4544,
             SecurityPin: '0000',
@@ -106,17 +114,25 @@ export class SetupService {
     HostAddressObs = {
         next: (x: any) => {
             if (x.bool)
-                this.m_HostAddressData.successCount ++;
-            else
-                this.m_HostAddressData.errorCount;
+                this.m_HostAddressData.successCount++;
+            else {
+                this.m_HostAddressData.errorCount++;
+                if (this.requesterForm)
+                    this.requesterForm.form.markAsDirty();
+            }
         },
         error: (err: any) => {
             console.error(err);
-            this.m_HostAddressData.errorCount ++
+            this.m_HostAddressData.errorCount++
+            if (this.requesterForm)
+                this.requesterForm.form.markAsDirty();
         }
     };
 
-    saveHostAddressData() {
+    saveHostAddressData(requesterForm: NgForm | null) {
+        this.requesterForm = requesterForm;
+        this.m_HostAddressData.successCount = 0;
+        this.m_HostAddressData.errorCount = 0;
         this.mythService.PutSetting({
             HostName: this.m_hostName, Key: "BackendServerPort",
             Value: String(this.m_HostAddressData.BackendServerPort)
@@ -164,11 +180,11 @@ export class SetupService {
 
     getLocaleData(): Locale {
         this.m_LocaleData = {
-            successCount:   0,
-            errorCount:     0,
-            TVFormat:       'PAL',
-            VbiFormat:      'None',
-            FreqTable:      'us-bcast'
+            successCount: 0,
+            errorCount: 0,
+            TVFormat: 'PAL',
+            VbiFormat: 'None',
+            FreqTable: 'us-bcast'
         }
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "TVFormat" })
             .subscribe({
@@ -191,18 +207,27 @@ export class SetupService {
     LocaleObs = {
         next: (x: any) => {
             if (x.bool)
-                this.m_LocaleData.successCount ++;
-            else
-                this.m_LocaleData.errorCount;
+                this.m_LocaleData.successCount++;
+            else {
+                this.m_LocaleData.errorCount++;
+                if (this.requesterForm)
+                    this.requesterForm.form.markAsDirty();
+            }
         },
         error: (err: any) => {
             console.error(err);
-            this.m_LocaleData.errorCount ++
+            this.m_LocaleData.errorCount++
+            if (this.requesterForm)
+                this.requesterForm.form.markAsDirty();
         }
     };
 
 
-    saveLocaleData() {
+    saveLocaleData(requesterForm: NgForm | null) {
+        this.requesterForm = requesterForm;
+        this.m_LocaleData.successCount = 0;
+        this.m_LocaleData.errorCount = 0;
+
         this.mythService.PutSetting({
             HostName: "_GLOBAL_", Key: "TVFormat",
             Value: this.m_LocaleData.TVFormat
@@ -226,9 +251,9 @@ export class SetupService {
         this.getHostAddressData();
         this.getLocaleData();
         this.m_setupData = {
-            General : {
-                HostAddress : this.m_HostAddressData,
-                Locale : this.m_LocaleData
+            General: {
+                HostAddress: this.m_HostAddressData,
+                Locale: this.m_LocaleData
             }
         }
         return this.m_setupData;
@@ -236,48 +261,66 @@ export class SetupService {
 
     m_miscellaneousData!: Miscellaneous;
 
-    getMiscellaneousData () : Miscellaneous  {
+    getMiscellaneousData(): Miscellaneous {
         this.m_miscellaneousData = {
-            successCount:           0,
-            errorCount:             0,
-            MasterBackendOverride:  false,
-            DeletesFollowLinks:     false,
-            TruncateDeletesSlowly:  false,
-            HDRingbufferSize:       9400,
-            StorageScheduler:       "BalancedFreeSpace",
-            UPNPWmpSource:          "0",
-            MiscStatusScript:       "",
+            successCount: 0,
+            errorCount: 0,
+            MasterBackendOverride: false,
+            DeletesFollowLinks: false,
+            TruncateDeletesSlowly: false,
+            HDRingbufferSize: 9400,
+            StorageScheduler: "BalancedFreeSpace",
+            UPNPWmpSource: "0",
+            MiscStatusScript: "",
             DisableAutomaticBackup: false,
-            DisableFirewireReset:   false,
+            DisableFirewireReset: false,
         };
 
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "MasterBackendOverride", Default: "0" })
-            .subscribe({next: data => this.m_miscellaneousData.MasterBackendOverride = (data.String == "1"),
-            error: () => this.m_miscellaneousData.errorCount++});
+            .subscribe({
+                next: data => this.m_miscellaneousData.MasterBackendOverride = (data.String == "1"),
+                error: () => this.m_miscellaneousData.errorCount++
+            });
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "DeletesFollowLinks", Default: "0" })
-            .subscribe({next: data => this.m_miscellaneousData.DeletesFollowLinks = (data.String == "1"),
-            error: () => this.m_miscellaneousData.errorCount++});
+            .subscribe({
+                next: data => this.m_miscellaneousData.DeletesFollowLinks = (data.String == "1"),
+                error: () => this.m_miscellaneousData.errorCount++
+            });
         this.mythService.GetSetting({ HostName: this.m_hostName, Key: "TruncateDeletesSlowly", Default: "0" })
-            .subscribe({next: data => this.m_miscellaneousData.TruncateDeletesSlowly = (data.String == "1"),
-            error: () => this.m_miscellaneousData.errorCount++});
+            .subscribe({
+                next: data => this.m_miscellaneousData.TruncateDeletesSlowly = (data.String == "1"),
+                error: () => this.m_miscellaneousData.errorCount++
+            });
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "HDRingbufferSize", Default: "9400" })
-            .subscribe({next: data => this.m_miscellaneousData.HDRingbufferSize = Number(data.String),
-            error: () => this.m_miscellaneousData.errorCount++});
+            .subscribe({
+                next: data => this.m_miscellaneousData.HDRingbufferSize = Number(data.String),
+                error: () => this.m_miscellaneousData.errorCount++
+            });
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "StorageScheduler", Default: "BalancedFreeSpace" })
-            .subscribe({next: data => this.m_miscellaneousData.StorageScheduler = data.String,
-            error: () => this.m_miscellaneousData.errorCount++});
+            .subscribe({
+                next: data => this.m_miscellaneousData.StorageScheduler = data.String,
+                error: () => this.m_miscellaneousData.errorCount++
+            });
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "UPNPWmpSource", Default: "0" })
-            .subscribe({next: data => this.m_miscellaneousData.UPNPWmpSource = data.String,
-            error: () => this.m_miscellaneousData.errorCount++});
+            .subscribe({
+                next: data => this.m_miscellaneousData.UPNPWmpSource = data.String,
+                error: () => this.m_miscellaneousData.errorCount++
+            });
         this.mythService.GetSetting({ HostName: this.m_hostName, Key: "MiscStatusScript", Default: "" })
-            .subscribe({next: data => this.m_miscellaneousData.MiscStatusScript = data.String,
-            error: () => this.m_miscellaneousData.errorCount++});
+            .subscribe({
+                next: data => this.m_miscellaneousData.MiscStatusScript = data.String,
+                error: () => this.m_miscellaneousData.errorCount++
+            });
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "DisableAutomaticBackup", Default: "0" })
-            .subscribe({next: data => this.m_miscellaneousData.DisableAutomaticBackup = (data.String == "1"),
-            error: () => this.m_miscellaneousData.errorCount++});
+            .subscribe({
+                next: data => this.m_miscellaneousData.DisableAutomaticBackup = (data.String == "1"),
+                error: () => this.m_miscellaneousData.errorCount++
+            });
         this.mythService.GetSetting({ HostName: this.m_hostName, Key: "DisableFirewireReset", Default: "0" })
-            .subscribe({next: data => this.m_miscellaneousData.DisableFirewireReset = (data.String == "1"),
-            error: () => this.m_miscellaneousData.errorCount++});
+            .subscribe({
+                next: data => this.m_miscellaneousData.DisableFirewireReset = (data.String == "1"),
+                error: () => this.m_miscellaneousData.errorCount++
+            });
 
         return this.m_miscellaneousData;
     }
@@ -285,45 +328,69 @@ export class SetupService {
     miscObserver = {
         next: (x: any) => {
             if (x.bool)
-                this.m_miscellaneousData.successCount ++;
-            else
-                this.m_miscellaneousData.errorCount;
+                this.m_miscellaneousData.successCount++;
+            else {
+                this.m_miscellaneousData.errorCount++;
+                if (this.requesterForm)
+                    this.requesterForm.form.markAsDirty();
+            }
         },
         error: (err: any) => {
             console.error(err);
-            this.m_miscellaneousData.errorCount ++
+            this.m_miscellaneousData.errorCount++
+            if (this.requesterForm)
+                this.requesterForm.form.markAsDirty();
         }
     };
 
-    saveMiscellaneousSettings () {
+    saveMiscellaneousSettings(requesterForm: NgForm | null) {
+        this.requesterForm = requesterForm;
         this.m_miscellaneousData.successCount = 0;
         this.m_miscellaneousData.errorCount = 0;
-        this.mythService.PutSetting({ HostName: '_GLOBAL_', Key: "MasterBackendOverride",
-            Value: this.m_miscellaneousData.MasterBackendOverride ? "1" : "0"})
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "MasterBackendOverride",
+            Value: this.m_miscellaneousData.MasterBackendOverride ? "1" : "0"
+        })
             .subscribe(this.miscObserver);
-        this.mythService.PutSetting({ HostName: '_GLOBAL_', Key: "DeletesFollowLinks",
-            Value: this.m_miscellaneousData.DeletesFollowLinks ? "1" : "0"})
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "DeletesFollowLinks",
+            Value: this.m_miscellaneousData.DeletesFollowLinks ? "1" : "0"
+        })
             .subscribe(this.miscObserver);
-        this.mythService.PutSetting({ HostName: this.m_hostName, Key: "TruncateDeletesSlowly",
-            Value: this.m_miscellaneousData.TruncateDeletesSlowly ? "1" : "0"})
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "TruncateDeletesSlowly",
+            Value: this.m_miscellaneousData.TruncateDeletesSlowly ? "1" : "0"
+        })
             .subscribe(this.miscObserver);
-        this.mythService.PutSetting({ HostName: '_GLOBAL_', Key: "HDRingbufferSize",
-            Value: String(this.m_miscellaneousData.HDRingbufferSize)})
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "HDRingbufferSize",
+            Value: String(this.m_miscellaneousData.HDRingbufferSize)
+        })
             .subscribe(this.miscObserver);
-        this.mythService.PutSetting({ HostName: '_GLOBAL_', Key: "StorageScheduler",
-            Value: this.m_miscellaneousData.StorageScheduler})
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "StorageScheduler",
+            Value: this.m_miscellaneousData.StorageScheduler
+        })
             .subscribe(this.miscObserver);
-        this.mythService.PutSetting({ HostName: '_GLOBAL_', Key: "UPNPWmpSource",
-            Value: this.m_miscellaneousData.UPNPWmpSource})
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "UPNPWmpSource",
+            Value: this.m_miscellaneousData.UPNPWmpSource
+        })
             .subscribe(this.miscObserver);
-        this.mythService.PutSetting({ HostName: this.m_hostName, Key: "MiscStatusScript",
-            Value: this.m_miscellaneousData.MiscStatusScript})
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "MiscStatusScript",
+            Value: this.m_miscellaneousData.MiscStatusScript
+        })
             .subscribe(this.miscObserver);
-        this.mythService.PutSetting({ HostName: '_GLOBAL_', Key: "DisableAutomaticBackup",
-            Value: this.m_miscellaneousData.DisableAutomaticBackup ? "1" : "0"})
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "DisableAutomaticBackup",
+            Value: this.m_miscellaneousData.DisableAutomaticBackup ? "1" : "0"
+        })
             .subscribe(this.miscObserver);
-        this.mythService.PutSetting({ HostName: this.m_hostName, Key: "DisableFirewireReset",
-            Value: this.m_miscellaneousData.DisableFirewireReset ? "1" : "0"})
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "DisableFirewireReset",
+            Value: this.m_miscellaneousData.DisableFirewireReset ? "1" : "0"
+        })
             .subscribe(this.miscObserver);
     }
 
@@ -337,12 +404,16 @@ export class SetupService {
             EITCrawIdleStart: 60
         }
 
-        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "EITTransportTimeout", Default : "5" })
-            .subscribe({next: data => this.m_EITScanner.EITTransportTimeout = Number(data.String),
-                error: () => this.m_EITScanner.errorCount++});
+        this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "EITTransportTimeout", Default: "5" })
+            .subscribe({
+                next: data => this.m_EITScanner.EITTransportTimeout = Number(data.String),
+                error: () => this.m_EITScanner.errorCount++
+            });
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "EITCrawIdleStart", Default: "60" })
-            .subscribe({next: data => this.m_EITScanner.EITCrawIdleStart = Number(data.String),
-                error: () => this.m_EITScanner.errorCount++});
+            .subscribe({
+                next: data => this.m_EITScanner.EITCrawIdleStart = Number(data.String),
+                error: () => this.m_EITScanner.errorCount++
+            });
 
         return this.m_EITScanner;
     }
@@ -351,22 +422,32 @@ export class SetupService {
         next: (x: any) => {
             if (x.bool)
                 this.m_EITScanner.successCount++;
-            else
-                this.m_EITScanner.errorCount;
+            else {
+                this.m_EITScanner.errorCount++;
+                if (this.requesterForm)
+                    this.requesterForm.form.markAsDirty();
+            }
         },
         error: (err: any) => {
             console.error(err);
-            this.m_EITScanner.errorCount++
+            this.m_EITScanner.errorCount++;
+            if (this.requesterForm)
+                this.requesterForm.form.markAsDirty();
         },
     };
 
-    saveEITScanner() {
+    saveEITScanner(requesterForm: NgForm | null) {
+        this.requesterForm = requesterForm;
         this.m_EITScanner.successCount = 0;
         this.m_EITScanner.errorCount = 0;
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "EITTransportTimeout",
-            Value: String(this.m_EITScanner.EITTransportTimeout)}).subscribe(this.eitObserver);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "EITCrawIdleStart",
-            Value: String(this.m_EITScanner.EITCrawIdleStart)}).subscribe(this.eitObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "EITTransportTimeout",
+            Value: String(this.m_EITScanner.EITTransportTimeout)
+        }).subscribe(this.eitObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "EITCrawIdleStart",
+            Value: String(this.m_EITScanner.EITCrawIdleStart)
+        }).subscribe(this.eitObserver);
     }
 
     m_ShutWake!: ShutWake;
@@ -375,15 +456,15 @@ export class SetupService {
         this.m_ShutWake = {
             successCount: 0,
             errorCount: 0,
-            startupCommand:             "",
-            blockSDWUwithoutClient:     true,
-            idleTimeoutSecs:            0,
-            idleWaitForRecordingTime:   15,
+            startupCommand: "",
+            blockSDWUwithoutClient: true,
+            idleTimeoutSecs: 0,
+            idleWaitForRecordingTime: 15,
             StartupSecsBeforeRecording: 120,
-            WakeupTimeFormat:           "hh:mm yyyy-MM-dd",
-            SetWakeuptimeCommand:       "",
-            ServerHaltCommand:          "sudo /sbin/halt -p",
-            preSDWUCheckCommand:        ""
+            WakeupTimeFormat: "hh:mm yyyy-MM-dd",
+            SetWakeuptimeCommand: "",
+            ServerHaltCommand: "sudo /sbin/halt -p",
+            preSDWUCheckCommand: ""
         }
 
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "startupCommand", Default: "" })
@@ -439,36 +520,60 @@ export class SetupService {
         next: (x: any) => {
             if (x.bool)
                 this.m_ShutWake.successCount++;
-            else
-                this.m_ShutWake.errorCount;
+            else {
+                this.m_ShutWake.errorCount++;
+                if (this.requesterForm)
+                    this.requesterForm.form.markAsDirty();
+            }
         },
         error: (err: any) => {
             console.error(err);
-            this.m_ShutWake.errorCount++
+            this.m_ShutWake.errorCount++;
+            if (this.requesterForm)
+                this.requesterForm.form.markAsDirty();
         },
     };
 
-    saveShutWake() {
+    saveShutWake(requesterForm: NgForm | null) {
+        this.requesterForm = requesterForm;
         this.m_ShutWake.successCount = 0;
         this.m_ShutWake.errorCount = 0;
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "startupCommand",
-            Value: this.m_ShutWake.startupCommand}).subscribe(this.swObserver);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "blockSDWUwithoutClient",
-            Value: this.m_ShutWake.blockSDWUwithoutClient ? "1" : "0"}).subscribe(this.swObserver);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "idleTimeoutSecs",
-            Value: String(this.m_ShutWake.idleTimeoutSecs)}).subscribe(this.swObserver);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "idleWaitForRecordingTime",
-            Value: String(this.m_ShutWake.idleWaitForRecordingTime)}).subscribe(this.swObserver);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "StartupSecsBeforeRecording",
-            Value: String(this.m_ShutWake.StartupSecsBeforeRecording)}).subscribe(this.swObserver);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "WakeupTimeFormat",
-            Value: this.m_ShutWake.WakeupTimeFormat}).subscribe(this.swObserver);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "SetWakeuptimeCommand",
-            Value: this.m_ShutWake.SetWakeuptimeCommand}).subscribe(this.swObserver);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "ServerHaltCommand",
-            Value: this.m_ShutWake.ServerHaltCommand}).subscribe(this.swObserver);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "preSDWUCheckCommand",
-            Value: this.m_ShutWake.preSDWUCheckCommand}).subscribe(this.swObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "startupCommand",
+            Value: this.m_ShutWake.startupCommand
+        }).subscribe(this.swObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "blockSDWUwithoutClient",
+            Value: this.m_ShutWake.blockSDWUwithoutClient ? "1" : "0"
+        }).subscribe(this.swObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "idleTimeoutSecs",
+            Value: String(this.m_ShutWake.idleTimeoutSecs)
+        }).subscribe(this.swObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "idleWaitForRecordingTime",
+            Value: String(this.m_ShutWake.idleWaitForRecordingTime)
+        }).subscribe(this.swObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "StartupSecsBeforeRecording",
+            Value: String(this.m_ShutWake.StartupSecsBeforeRecording)
+        }).subscribe(this.swObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "WakeupTimeFormat",
+            Value: this.m_ShutWake.WakeupTimeFormat
+        }).subscribe(this.swObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "SetWakeuptimeCommand",
+            Value: this.m_ShutWake.SetWakeuptimeCommand
+        }).subscribe(this.swObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "ServerHaltCommand",
+            Value: this.m_ShutWake.ServerHaltCommand
+        }).subscribe(this.swObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "preSDWUCheckCommand",
+            Value: this.m_ShutWake.preSDWUCheckCommand
+        }).subscribe(this.swObserver);
     }
 
     m_BackendWake!: BackendWake;
@@ -477,11 +582,11 @@ export class SetupService {
         this.m_BackendWake = {
             successCount: 0,
             errorCount: 0,
-            WOLbackendReconnectWaitTime:    0,
-            WOLbackendConnectRetry:         5,
-            WOLbackendCommand:              "",
-            SleepCommand:                   "",
-            WakeUpCommand:                  ""
+            WOLbackendReconnectWaitTime: 0,
+            WOLbackendConnectRetry: 5,
+            WOLbackendCommand: "",
+            SleepCommand: "",
+            WakeUpCommand: ""
         }
 
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "WOLbackendReconnectWaitTime", Default: "0" })
@@ -517,38 +622,54 @@ export class SetupService {
         next: (x: any) => {
             if (x.bool)
                 this.m_BackendWake.successCount++;
-            else
-                this.m_BackendWake.errorCount;
+            else {
+                this.m_BackendWake.errorCount++;
+                if (this.requesterForm)
+                    this.requesterForm.form.markAsDirty();
+            }
         },
         error: (err: any) => {
             console.error(err);
-            this.m_BackendWake.errorCount++
+            this.m_BackendWake.errorCount++;
+            if (this.requesterForm)
+                this.requesterForm.form.markAsDirty();
         },
     };
 
-    saveBackendWake() {
+    saveBackendWake(requesterForm: NgForm | null) {
+        this.requesterForm = requesterForm;
         this.m_BackendWake.successCount = 0;
         this.m_BackendWake.errorCount = 0;
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "WOLbackendReconnectWaitTime",
-            Value: String(this.m_BackendWake.WOLbackendReconnectWaitTime)}).subscribe(this.bewObserver);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "WOLbackendConnectRetry",
-            Value: String(this.m_BackendWake.WOLbackendConnectRetry)}).subscribe(this.bewObserver);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "WOLbackendCommand",
-            Value: this.m_BackendWake.WOLbackendCommand}).subscribe(this.bewObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "SleepCommand",
-            Value: this.m_BackendWake.SleepCommand}).subscribe(this.bewObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "WakeUpCommand",
-            Value: this.m_BackendWake.WakeUpCommand}).subscribe(this.bewObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "WOLbackendReconnectWaitTime",
+            Value: String(this.m_BackendWake.WOLbackendReconnectWaitTime)
+        }).subscribe(this.bewObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "WOLbackendConnectRetry",
+            Value: String(this.m_BackendWake.WOLbackendConnectRetry)
+        }).subscribe(this.bewObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "WOLbackendCommand",
+            Value: this.m_BackendWake.WOLbackendCommand
+        }).subscribe(this.bewObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "SleepCommand",
+            Value: this.m_BackendWake.SleepCommand
+        }).subscribe(this.bewObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "WakeUpCommand",
+            Value: this.m_BackendWake.WakeUpCommand
+        }).subscribe(this.bewObserver);
     }
 
-    m_BackendControl! : BackendControl;
+    m_BackendControl!: BackendControl;
 
     getBackendControl(): BackendControl {
         this.m_BackendControl = {
             successCount: 0,
             errorCount: 0,
-            BackendStopCommand:     "killall mythbackend",
-            BackendStartCommand:    "mythbackend"
+            BackendStopCommand: "killall mythbackend",
+            BackendStartCommand: "mythbackend"
         }
 
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "BackendStopCommand", Default: "killall mythbackend" })
@@ -569,22 +690,32 @@ export class SetupService {
         next: (x: any) => {
             if (x.bool)
                 this.m_BackendControl.successCount++;
-            else
-                this.m_BackendControl.errorCount;
+            else {
+                this.m_BackendControl.errorCount++;
+                if (this.requesterForm)
+                    this.requesterForm.form.markAsDirty();
+            }
         },
         error: (err: any) => {
             console.error(err);
-            this.m_BackendControl.errorCount++
+            this.m_BackendControl.errorCount++;
+            if (this.requesterForm)
+                this.requesterForm.form.markAsDirty();
         },
     };
 
-    saveBackendControl() {
+    saveBackendControl(requesterForm: NgForm | null) {
+        this.requesterForm = requesterForm;
         this.m_BackendControl.successCount = 0;
         this.m_BackendControl.errorCount = 0;
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "BackendStopCommand",
-            Value: this.m_BackendControl.BackendStopCommand}).subscribe(this.becObserver);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "BackendStartCommand",
-            Value: this.m_BackendControl.BackendStartCommand}).subscribe(this.becObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "BackendStopCommand",
+            Value: this.m_BackendControl.BackendStopCommand
+        }).subscribe(this.becObserver);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "BackendStartCommand",
+            Value: this.m_BackendControl.BackendStartCommand
+        }).subscribe(this.becObserver);
     }
 
     m_JobQBackend!: JobQBackend;
@@ -595,7 +726,7 @@ export class SetupService {
         date.setMinutes(Number(parts[1]));
     }
 
-    formatTime(date: Date) : string{
+    formatTime(date: Date): string {
         let hours = date.getHours();
         let minutes = date.getMinutes();
         let string = "";
@@ -615,24 +746,24 @@ export class SetupService {
         this.m_JobQBackend = {
             successCount: 0,
             errorCount: 0,
-            JobQueueMaxSimultaneousJobs:    1,
-            JobQueueCheckFrequency:         60,
-            JobQueueWindowStart:            new Date(0),
-            JobQueueWindowStart$:           new Observable<GetSettingResponse>(),
-            JobQueueWindowEnd:              new Date(0),
-            JobQueueWindowEnd$:             new Observable<GetSettingResponse>(),
-            JobQueueCPU:                    "0",
-            JobAllowMetadata:               true,
-            JobAllowCommFlag:               true,
-            JobAllowTranscode:              true,
-            JobAllowPreview:                true,
-            JobAllowUserJob1:               false,
-            JobAllowUserJob2:               false,
-            JobAllowUserJob3:               false,
-            JobAllowUserJob4:               false,
+            JobQueueMaxSimultaneousJobs: 1,
+            JobQueueCheckFrequency: 60,
+            JobQueueWindowStart: new Date(0),
+            JobQueueWindowStart$: new Observable<GetSettingResponse>(),
+            JobQueueWindowEnd: new Date(0),
+            JobQueueWindowEnd$: new Observable<GetSettingResponse>(),
+            JobQueueCPU: "0",
+            JobAllowMetadata: true,
+            JobAllowCommFlag: true,
+            JobAllowTranscode: true,
+            JobAllowPreview: true,
+            JobAllowUserJob1: false,
+            JobAllowUserJob2: false,
+            JobAllowUserJob3: false,
+            JobAllowUserJob4: false,
         }
-        this.parseTime(this.m_JobQBackend.JobQueueWindowStart,"00:00");
-        this.parseTime(this.m_JobQBackend.JobQueueWindowEnd,"23:59");
+        this.parseTime(this.m_JobQBackend.JobQueueWindowStart, "00:00");
+        this.parseTime(this.m_JobQBackend.JobQueueWindowEnd, "23:59");
 
         this.mythService.GetSetting({ HostName: this.m_hostName, Key: "JobQueueMaxSimultaneousJobs", Default: "1" })
             .subscribe({
@@ -645,14 +776,16 @@ export class SetupService {
                 error: () => this.m_JobQBackend.errorCount++
             });
         this.m_JobQBackend.JobQueueWindowStart$ = this.mythService.GetSetting({
-             HostName: this.m_hostName, Key: "JobQueueWindowStart", Default: "00:00" });
+            HostName: this.m_hostName, Key: "JobQueueWindowStart", Default: "00:00"
+        });
         this.m_JobQBackend.JobQueueWindowStart$
             .subscribe({
                 next: data => this.parseTime(this.m_JobQBackend.JobQueueWindowStart, data.String),
                 error: () => this.m_JobQBackend.errorCount++
             });
         this.m_JobQBackend.JobQueueWindowEnd$ = this.mythService.GetSetting({
-            HostName: this.m_hostName, Key: "JobQueueWindowEnd", Default: "23:59" });
+            HostName: this.m_hostName, Key: "JobQueueWindowEnd", Default: "23:59"
+        });
         this.m_JobQBackend.JobQueueWindowEnd$
             .subscribe({
                 next: data => this.parseTime(this.m_JobQBackend.JobQueueWindowEnd, data.String),
@@ -660,47 +793,47 @@ export class SetupService {
             });
         this.mythService.GetSetting({ HostName: this.m_hostName, Key: "JobQueueCPU", Default: "0" })
             .subscribe({
-                next: data => this.m_JobQBackend.JobQueueCPU =  data.String,
+                next: data => this.m_JobQBackend.JobQueueCPU = data.String,
                 error: () => this.m_JobQBackend.errorCount++
             });
         this.mythService.GetSetting({ HostName: this.m_hostName, Key: "JobAllowMetadata", Default: "1" })
             .subscribe({
-                next: data => this.m_JobQBackend.JobAllowMetadata =  (data.String == '1'),
+                next: data => this.m_JobQBackend.JobAllowMetadata = (data.String == '1'),
                 error: () => this.m_JobQBackend.errorCount++
             });
         this.mythService.GetSetting({ HostName: this.m_hostName, Key: "JobAllowCommFlag", Default: "1" })
             .subscribe({
-                next: data => this.m_JobQBackend.JobAllowCommFlag =  (data.String == '1'),
+                next: data => this.m_JobQBackend.JobAllowCommFlag = (data.String == '1'),
                 error: () => this.m_JobQBackend.errorCount++
             });
         this.mythService.GetSetting({ HostName: this.m_hostName, Key: "JobAllowTranscode", Default: "1" })
             .subscribe({
-                next: data => this.m_JobQBackend.JobAllowTranscode =  (data.String == '1'),
+                next: data => this.m_JobQBackend.JobAllowTranscode = (data.String == '1'),
                 error: () => this.m_JobQBackend.errorCount++
             });
         this.mythService.GetSetting({ HostName: this.m_hostName, Key: "JobAllowPreview", Default: "1" })
             .subscribe({
-                next: data => this.m_JobQBackend.JobAllowPreview =  (data.String == '1'),
+                next: data => this.m_JobQBackend.JobAllowPreview = (data.String == '1'),
                 error: () => this.m_JobQBackend.errorCount++
             });
         this.mythService.GetSetting({ HostName: this.m_hostName, Key: "JobAllowUserJob1", Default: "0" })
             .subscribe({
-                next: data => this.m_JobQBackend.JobAllowUserJob1 =  (data.String == '1'),
+                next: data => this.m_JobQBackend.JobAllowUserJob1 = (data.String == '1'),
                 error: () => this.m_JobQBackend.errorCount++
             });
         this.mythService.GetSetting({ HostName: this.m_hostName, Key: "JobAllowUserJob2", Default: "0" })
             .subscribe({
-                next: data => this.m_JobQBackend.JobAllowUserJob2 =  (data.String == '1'),
+                next: data => this.m_JobQBackend.JobAllowUserJob2 = (data.String == '1'),
                 error: () => this.m_JobQBackend.errorCount++
             });
         this.mythService.GetSetting({ HostName: this.m_hostName, Key: "JobAllowUserJob3", Default: "0" })
             .subscribe({
-                next: data => this.m_JobQBackend.JobAllowUserJob3 =  (data.String == '1'),
+                next: data => this.m_JobQBackend.JobAllowUserJob3 = (data.String == '1'),
                 error: () => this.m_JobQBackend.errorCount++
             });
         this.mythService.GetSetting({ HostName: this.m_hostName, Key: "JobAllowUserJob4", Default: "0" })
             .subscribe({
-                next: data => this.m_JobQBackend.JobAllowUserJob4 =  (data.String == '1'),
+                next: data => this.m_JobQBackend.JobAllowUserJob4 = (data.String == '1'),
                 error: () => this.m_JobQBackend.errorCount++
             });
         return this.m_JobQBackend;
@@ -710,46 +843,78 @@ export class SetupService {
         next: (x: any) => {
             if (x.bool)
                 this.m_JobQBackend.successCount++;
-            else
-                this.m_JobQBackend.errorCount;
+            else {
+                this.m_JobQBackend.errorCount++;
+                if (this.requesterForm)
+                    this.requesterForm.form.markAsDirty();
+            }
         },
         error: (err: any) => {
             console.error(err);
-            this.m_JobQBackend.errorCount++
+            this.m_JobQBackend.errorCount++;
+            if (this.requesterForm)
+                this.requesterForm.form.markAsDirty();
         },
     };
 
-    saveJobQBackend() {
+    saveJobQBackend(requesterForm: NgForm | null) {
+        this.requesterForm = requesterForm;
         this.m_JobQBackend.successCount = 0;
         this.m_JobQBackend.errorCount = 0;
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "JobQueueMaxSimultaneousJobs",
-            Value: String(this.m_JobQBackend.JobQueueMaxSimultaneousJobs)}).subscribe(this.jqbObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "JobQueueCheckFrequency",
-            Value: String(this.m_JobQBackend.JobQueueCheckFrequency)}).subscribe(this.jqbObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "JobQueueWindowStart",
-            Value: this.formatTime(this.m_JobQBackend.JobQueueWindowStart)}).subscribe(this.jqbObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "JobQueueWindowEnd",
-            Value: this.formatTime(this.m_JobQBackend.JobQueueWindowEnd)}).subscribe(this.jqbObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "JobQueueCPU",
-            Value: this.m_JobQBackend.JobQueueCPU}).subscribe(this.jqbObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "JobAllowMetadata",
-            Value: this.m_JobQBackend.JobAllowMetadata ? "1" : "0"}).subscribe(this.jqbObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "JobAllowCommFlag",
-            Value: this.m_JobQBackend.JobAllowCommFlag ? "1" : "0"}).subscribe(this.jqbObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "JobAllowTranscode",
-            Value: this.m_JobQBackend.JobAllowTranscode ? "1" : "0"}).subscribe(this.jqbObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "JobAllowPreview",
-            Value: this.m_JobQBackend.JobAllowPreview ? "1" : "0"}).subscribe(this.jqbObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "JobAllowUserJob1",
-            Value: this.m_JobQBackend.JobAllowUserJob1 ? "1" : "0"}).subscribe(this.jqbObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "JobAllowUserJob2",
-            Value: this.m_JobQBackend.JobAllowUserJob2 ? "1" : "0"}).subscribe(this.jqbObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "JobAllowUserJob3",
-            Value: this.m_JobQBackend.JobAllowUserJob3 ? "1" : "0"}).subscribe(this.jqbObserver);
-        this.mythService.PutSetting({HostName: this.m_hostName, Key: "JobAllowUserJob4",
-            Value: this.m_JobQBackend.JobAllowUserJob4 ? "1" : "0"}).subscribe(this.jqbObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "JobQueueMaxSimultaneousJobs",
+            Value: String(this.m_JobQBackend.JobQueueMaxSimultaneousJobs)
+        }).subscribe(this.jqbObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "JobQueueCheckFrequency",
+            Value: String(this.m_JobQBackend.JobQueueCheckFrequency)
+        }).subscribe(this.jqbObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "JobQueueWindowStart",
+            Value: this.formatTime(this.m_JobQBackend.JobQueueWindowStart)
+        }).subscribe(this.jqbObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "JobQueueWindowEnd",
+            Value: this.formatTime(this.m_JobQBackend.JobQueueWindowEnd)
+        }).subscribe(this.jqbObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "JobQueueCPU",
+            Value: this.m_JobQBackend.JobQueueCPU
+        }).subscribe(this.jqbObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "JobAllowMetadata",
+            Value: this.m_JobQBackend.JobAllowMetadata ? "1" : "0"
+        }).subscribe(this.jqbObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "JobAllowCommFlag",
+            Value: this.m_JobQBackend.JobAllowCommFlag ? "1" : "0"
+        }).subscribe(this.jqbObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "JobAllowTranscode",
+            Value: this.m_JobQBackend.JobAllowTranscode ? "1" : "0"
+        }).subscribe(this.jqbObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "JobAllowPreview",
+            Value: this.m_JobQBackend.JobAllowPreview ? "1" : "0"
+        }).subscribe(this.jqbObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "JobAllowUserJob1",
+            Value: this.m_JobQBackend.JobAllowUserJob1 ? "1" : "0"
+        }).subscribe(this.jqbObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "JobAllowUserJob2",
+            Value: this.m_JobQBackend.JobAllowUserJob2 ? "1" : "0"
+        }).subscribe(this.jqbObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "JobAllowUserJob3",
+            Value: this.m_JobQBackend.JobAllowUserJob3 ? "1" : "0"
+        }).subscribe(this.jqbObserver);
+        this.mythService.PutSetting({
+            HostName: this.m_hostName, Key: "JobAllowUserJob4",
+            Value: this.m_JobQBackend.JobAllowUserJob4 ? "1" : "0"
+        }).subscribe(this.jqbObserver);
 
-        }
+    }
 
     m_JobQCommands!: JobQCommands;
 
@@ -758,28 +923,28 @@ export class SetupService {
         // This is different from others since it is used by more than one tab
         // and must not be reloaded for the other tab, as that may overwrite
         // unsaved changes.
-        if ( typeof this.m_JobQCommands == 'object')
+        if (typeof this.m_JobQCommands == 'object')
             return this.m_JobQCommands;
 
         this.m_JobQCommands = {
             successCount: 0,
             errorCount: 0,
-            UserJobDesc:    [],
-            UserJob:        []
+            UserJobDesc: [],
+            UserJob: []
         }
         for (let ix = 0; ix < 4; ix++) {
-            let num=ix+1;
+            let num = ix + 1;
             let defaultName;
-            this.translate.get('settings.services.job_default',{num:num})
+            this.translate.get('settings.services.job_default', { num: num })
                 .subscribe(data => this.m_JobQCommands.UserJobDesc[ix] = data);
-            this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "UserJobDesc"+num, Default: defaultName})
+            this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "UserJobDesc" + num, Default: defaultName })
                 .subscribe({
-                    next: data => this.m_JobQCommands.UserJobDesc[ix] =  data.String,
+                    next: data => this.m_JobQCommands.UserJobDesc[ix] = data.String,
                     error: () => this.m_JobQBackend.errorCount++
                 });
-            this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "UserJob"+num, Default: ""})
+            this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "UserJob" + num, Default: "" })
                 .subscribe({
-                    next: data => this.m_JobQCommands.UserJob[ix] =  data.String,
+                    next: data => this.m_JobQCommands.UserJob[ix] = data.String,
                     error: () => this.m_JobQBackend.errorCount++
                 });
         }
@@ -790,24 +955,34 @@ export class SetupService {
         next: (x: any) => {
             if (x.bool)
                 this.m_JobQCommands.successCount++;
-            else
-                this.m_JobQCommands.errorCount;
+            else {
+                this.m_JobQCommands.errorCount++;
+                if (this.requesterForm)
+                    this.requesterForm.form.markAsDirty();
+            }
         },
         error: (err: any) => {
             console.error(err);
-            this.m_JobQCommands.errorCount++
+            this.m_JobQCommands.errorCount++;
+            if (this.requesterForm)
+                this.requesterForm.form.markAsDirty();
         },
     };
 
-    saveJobQCommands() {
+    saveJobQCommands(requesterForm: NgForm | null) {
+        this.requesterForm = requesterForm;
         this.m_JobQCommands.successCount = 0;
         this.m_JobQCommands.errorCount = 0;
         for (let ix = 0; ix < 4; ix++) {
-            let num=ix+1;
-            this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "UserJobDesc"+num,
-                Value: this.m_JobQCommands.UserJobDesc[ix]}).subscribe(this.JobQCommandsObs);
-            this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "UserJob"+num,
-                Value: this.m_JobQCommands.UserJob[ix]}).subscribe(this.JobQCommandsObs);
+            let num = ix + 1;
+            this.mythService.PutSetting({
+                HostName: '_GLOBAL_', Key: "UserJobDesc" + num,
+                Value: this.m_JobQCommands.UserJobDesc[ix]
+            }).subscribe(this.JobQCommandsObs);
+            this.mythService.PutSetting({
+                HostName: '_GLOBAL_', Key: "UserJob" + num,
+                Value: this.m_JobQCommands.UserJob[ix]
+            }).subscribe(this.JobQCommandsObs);
         }
     }
 
@@ -817,22 +992,22 @@ export class SetupService {
         this.m_JobQGlobal = {
             successCount: 0,
             errorCount: 0,
-            JobsRunOnRecordHost:            false,
-            AutoCommflagWhileRecording:     false,
-            JobQueueCommFlagCommand:        "mythcommflag",
-            JobQueueTranscodeCommand:       "mythtranscode",
-            AutoTranscodeBeforeAutoCommflag:false,
-            SaveTranscoding:                false,
+            JobsRunOnRecordHost: false,
+            AutoCommflagWhileRecording: false,
+            JobQueueCommFlagCommand: "mythcommflag",
+            JobQueueTranscodeCommand: "mythtranscode",
+            AutoTranscodeBeforeAutoCommflag: false,
+            SaveTranscoding: false,
         }
 
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "JobsRunOnRecordHost", Default: "0" })
             .subscribe({
-                next: data => this.m_JobQGlobal.JobsRunOnRecordHost =  (data.String == '1'),
+                next: data => this.m_JobQGlobal.JobsRunOnRecordHost = (data.String == '1'),
                 error: () => this.m_JobQGlobal.errorCount++
             });
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "AutoCommflagWhileRecording", Default: "0" })
             .subscribe({
-                next: data => this.m_JobQGlobal.AutoCommflagWhileRecording =  (data.String == '1'),
+                next: data => this.m_JobQGlobal.AutoCommflagWhileRecording = (data.String == '1'),
                 error: () => this.m_JobQGlobal.errorCount++
             });
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "JobQueueCommFlagCommand", Default: "mythcommflag" })
@@ -847,12 +1022,12 @@ export class SetupService {
             });
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "AutoTranscodeBeforeAutoCommflag", Default: "0" })
             .subscribe({
-                next: data => this.m_JobQGlobal.AutoTranscodeBeforeAutoCommflag =  (data.String == '1'),
+                next: data => this.m_JobQGlobal.AutoTranscodeBeforeAutoCommflag = (data.String == '1'),
                 error: () => this.m_JobQGlobal.errorCount++
             });
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "SaveTranscoding", Default: "0" })
             .subscribe({
-                next: data => this.m_JobQGlobal.SaveTranscoding =  (data.String == '1'),
+                next: data => this.m_JobQGlobal.SaveTranscoding = (data.String == '1'),
                 error: () => this.m_JobQGlobal.errorCount++
             });
         return this.m_JobQGlobal;
@@ -863,30 +1038,48 @@ export class SetupService {
         next: (x: any) => {
             if (x.bool)
                 this.m_JobQGlobal.successCount++;
-            else
-                this.m_JobQGlobal.errorCount;
+            else {
+                this.m_JobQGlobal.errorCount++;
+                if (this.requesterForm)
+                    this.requesterForm.form.markAsDirty();
+            }
         },
         error: (err: any) => {
             console.error(err);
-            this.m_JobQGlobal.errorCount++
+            this.m_JobQGlobal.errorCount++;
+            if (this.requesterForm)
+                this.requesterForm.form.markAsDirty();
         },
     };
 
-    saveJobQGlobal() {
+    saveJobQGlobal(requesterForm: NgForm | null) {
+        this.requesterForm = requesterForm;
         this.m_JobQGlobal.successCount = 0;
         this.m_JobQGlobal.errorCount = 0;
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "JobsRunOnRecordHost",
-            Value: this.m_JobQGlobal.JobsRunOnRecordHost ? "1" : "0"}).subscribe(this.JobQGlobalObs);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "AutoCommflagWhileRecording",
-            Value: this.m_JobQGlobal.AutoCommflagWhileRecording ? "1" : "0"}).subscribe(this.JobQGlobalObs);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "JobQueueCommFlagCommand",
-            Value: this.m_JobQGlobal.JobQueueCommFlagCommand}).subscribe(this.JobQGlobalObs);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "JobQueueTranscodeCommand",
-            Value: this.m_JobQGlobal.JobQueueTranscodeCommand}).subscribe(this.JobQGlobalObs);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "AutoTranscodeBeforeAutoCommflag",
-            Value: this.m_JobQGlobal.AutoTranscodeBeforeAutoCommflag ? "1" : "0"}).subscribe(this.JobQGlobalObs);
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "SaveTranscoding",
-            Value: this.m_JobQGlobal.SaveTranscoding ? "1" : "0"}).subscribe(this.JobQGlobalObs);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "JobsRunOnRecordHost",
+            Value: this.m_JobQGlobal.JobsRunOnRecordHost ? "1" : "0"
+        }).subscribe(this.JobQGlobalObs);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "AutoCommflagWhileRecording",
+            Value: this.m_JobQGlobal.AutoCommflagWhileRecording ? "1" : "0"
+        }).subscribe(this.JobQGlobalObs);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "JobQueueCommFlagCommand",
+            Value: this.m_JobQGlobal.JobQueueCommFlagCommand
+        }).subscribe(this.JobQGlobalObs);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "JobQueueTranscodeCommand",
+            Value: this.m_JobQGlobal.JobQueueTranscodeCommand
+        }).subscribe(this.JobQGlobalObs);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "AutoTranscodeBeforeAutoCommflag",
+            Value: this.m_JobQGlobal.AutoTranscodeBeforeAutoCommflag ? "1" : "0"
+        }).subscribe(this.JobQGlobalObs);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "SaveTranscoding",
+            Value: this.m_JobQGlobal.SaveTranscoding ? "1" : "0"
+        }).subscribe(this.JobQGlobalObs);
     }
 
     m_EpgDownload!: EpgDownload;
@@ -899,7 +1092,7 @@ export class SetupService {
         }
         this.mythService.GetSetting({ HostName: '_GLOBAL_', Key: "MythFillEnabled", Default: "1" })
             .subscribe({
-                next: data => this.m_EpgDownload.MythFillEnabled =  (data.String == '1'),
+                next: data => this.m_EpgDownload.MythFillEnabled = (data.String == '1'),
                 error: () => this.m_EpgDownload.errorCount++
             });
         return this.m_EpgDownload;
@@ -909,19 +1102,39 @@ export class SetupService {
         next: (x: any) => {
             if (x.bool)
                 this.m_EpgDownload.successCount++;
-            else
-                this.m_EpgDownload.errorCount;
+            else {
+                this.m_EpgDownload.errorCount++;
+                if (this.requesterForm)
+                    this.requesterForm.form.markAsDirty();
+            }
         },
         error: (err: any) => {
             console.error(err);
             this.m_EpgDownload.errorCount++
+            if (this.requesterForm)
+                this.requesterForm.form.markAsDirty();
         },
     };
 
-    saveEpgDownload() {
+    saveEpgDownload(requesterForm: NgForm | null) {
+        this.requesterForm = requesterForm;
         this.m_EpgDownload.successCount = 0;
         this.m_EpgDownload.errorCount = 0;
-        this.mythService.PutSetting({HostName: '_GLOBAL_', Key: "MythFillEnabled",
-            Value: this.m_EpgDownload.MythFillEnabled ? "1" : "0"}).subscribe(this.EpgDownloadObs);
+        this.mythService.PutSetting({
+            HostName: '_GLOBAL_', Key: "MythFillEnabled",
+            Value: this.m_EpgDownload.MythFillEnabled ? "1" : "0"
+        }).subscribe(this.EpgDownloadObs);
     }
+
+    currentForm: NgForm | null = null;
+
+    getCurrentForm(): NgForm | null {
+        return this.currentForm;
+    }
+
+    setCurrentForm(form: NgForm | null) {
+        this.currentForm = form;
+
+    }
+
 }

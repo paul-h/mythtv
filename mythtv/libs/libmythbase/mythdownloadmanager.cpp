@@ -32,7 +32,7 @@
 #include "portchecker.h"
 
 #define LOC      QString("DownloadManager: ")
-#define CACHE_REDIRECTION_LIMIT     10
+static constexpr int CACHE_REDIRECTION_LIMIT { 10 };
 
 MythDownloadManager *downloadManager = nullptr;
 QMutex               dmCreateLock;
@@ -727,7 +727,7 @@ void MythDownloadManager::downloadQNetworkRequest(MythDownloadInfo *dlInfo)
     if (!request.hasRawHeader("User-Agent"))
     {
         request.setRawHeader("User-Agent",
-                             "MythTV v" MYTH_BINARY_VERSION
+                             QByteArray("MythTV v") + MYTH_BINARY_VERSION +
                              " MythDownloadManager");
     }
 
@@ -942,7 +942,8 @@ bool MythDownloadManager::downloadNowLinkLocal(MythDownloadInfo *dlInfo, bool de
         if (dlInfo->m_headers)
             headers = *dlInfo->m_headers;
         if (!headers.contains("User-Agent"))
-            headers.insert("User-Agent", "MythDownloadManager v" MYTH_BINARY_VERSION);
+            headers.insert("User-Agent", QByteArray("MythDownloadManager v") +
+                           MYTH_BINARY_VERSION);
         headers.insert("Connection", "close");
         headers.insert("Accept-Encoding", "identity");
         if (!buffer->isEmpty())
@@ -1264,7 +1265,8 @@ void MythDownloadManager::downloadFinished(MythDownloadInfo *dlInfo)
         }
 
         request.setRawHeader("User-Agent",
-                             "MythDownloadManager v" MYTH_BINARY_VERSION);
+                             "MythDownloadManager v" +
+                             QByteArray(MYTH_BINARY_VERSION));
 
         dlInfo->m_bytesReceived = 0;
 
@@ -1729,7 +1731,7 @@ void MythDownloadManager::updateCookieJar(void)
 QString MythDownloadManager::getHeader(const QUrl& url, const QString& header)
 {
     if (!m_manager || !m_manager->cache())
-        return QString();
+        return {};
 
     m_infoLock->lock();
     QNetworkCacheMetaData metadata = m_manager->cache()->metaData(url);
@@ -1749,8 +1751,8 @@ QString MythDownloadManager::getHeader(const QNetworkCacheMetaData &cacheData,
     auto headers = cacheData.rawHeaders();
     for (const auto& rh : qAsConst(headers))
         if (QString(rh.first) == header)
-            return QString(rh.second);
-    return QString();
+            return {rh.second};
+    return {};
 }
 
 

@@ -66,6 +66,9 @@ class MUI_PUBLIC MythImage : public QImage, public ReferenceCounter
                  int spacing = 0);
     void ToGreyscale();
 
+    int64_t GetSize(void)
+    { return static_cast<int64_t>(bytesPerLine()) * height(); }
+
     /**
      * @brief Create a gradient image.
      * @param painter The painter on which the gradient should be draw.
@@ -94,11 +97,7 @@ class MUI_PUBLIC MythImage : public QImage, public ReferenceCounter
 
     uint GetCacheSize(void) const
     {
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-        return (m_cached) ? byteCount() : 0;
-#else
         return (m_cached) ? sizeInBytes() : 0;
-#endif
     }
 
   protected:

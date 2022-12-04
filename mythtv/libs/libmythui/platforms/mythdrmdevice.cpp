@@ -131,7 +131,7 @@ MythDRMPtr MythDRMDevice::FindDevice(bool NeedPlanes)
         devices.append(s_mythDRMDevice);
     }
 
-    for (const auto & dev : devices)
+    for (const auto & dev : qAsConst(devices))
         if (auto device = MythDRMDevice::Create(nullptr, root + dev, NeedPlanes); device && device->Authenticated())
             return device;
 
@@ -144,19 +144,12 @@ void MythDRMDevice::SetupDRM(const MythCommandLineParser& CmdLine)
     if (CmdLine.toBool("vrr"))
         MythDRMVRR::ForceFreeSync(FindDevice(false), CmdLine.toUInt("vrr") > 0);
 
-#if QT_VERSION >= QT_VERSION_CHECK(5,12,0)
     // Return early if eglfs is not *explicitly* requested via the command line or environment.
     // Note: On some setups it is not necessary to explicitly request eglfs for Qt to use it.
     // Note: Not sure which takes precedent in Qt or what happens if they are different.
     auto platform = CmdLine.toString("platform");
     if (platform.isEmpty())
-    {
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-        platform = QString(qgetenv("QT_QPA_PLATFORM"));
-#else
         platform = qEnvironmentVariable("QT_QPA_PLATFORM");
-#endif
-    }
     if (!platform.contains("eglfs", Qt::CaseInsensitive))
     {
         // Log something just in case it reminds someone to enable eglfs
@@ -221,7 +214,7 @@ void MythDRMDevice::SetupDRM(const MythCommandLineParser& CmdLine)
                     "it looks like not all environment variables have been set.");
                 LOG(VB_GENERAL, LOG_INFO,
                     QString("Minimum required: %1 and/or %2 for plane index and %3 for alpha blending")
-                    .arg(s_kmsPlaneIndex).arg(s_kmsPlaneCRTCS).arg(s_kmsConfigFile));
+                    .arg(s_kmsPlaneIndex, s_kmsPlaneCRTCS, s_kmsConfigFile));
             }
             else
             {
@@ -262,11 +255,7 @@ void MythDRMDevice::SetupDRM(const MythCommandLineParser& CmdLine)
     }
 
     // N.B. No MythDirs setup yet so mimic the conf dir setup
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-    QString confdir = QString(qgetenv("MYTHCONFDIR"));
-#else
     QString confdir = qEnvironmentVariable("MYTHCONFDIR");
-#endif
     if (confdir.isEmpty())
         confdir = QDir::homePath() + "/.mythtv";
 
@@ -286,22 +275,22 @@ void MythDRMDevice::SetupDRM(const MythCommandLineParser& CmdLine)
         "}\n";
 
     // Note: mode is not sanitised
-    const auto *wrote = qPrintable(s_json.arg(drmGetDeviceNameFromFd2(device->GetFD()))
-        .arg(device->m_connector->m_name).arg(MythDRMPlane::FormatToString(format).toLower())
-        .arg(s_mythDRMVideoMode.isEmpty() ? "current" : s_mythDRMVideoMode));
+    QString wrote = s_json.arg(drmGetDeviceNameFromFd2(device->GetFD()),
+             device->m_connector->m_name, MythDRMPlane::FormatToString(format).toLower(),
+             s_mythDRMVideoMode.isEmpty() ? "current" : s_mythDRMVideoMode);
 
-    if (file.write(wrote))
+    if (file.write(qPrintable(wrote)))
     {
-        LOG(VB_GENERAL, LOG_INFO, QString("Wrote %1:\r\n%2").arg(filename).arg(wrote));
-        LOG(VB_GENERAL, LOG_INFO, QString("Exporting '%1=%2'").arg(s_kmsConfigFile).arg(filename));
+        LOG(VB_GENERAL, LOG_INFO, QString("Wrote %1:\r\n%2").arg(filename, wrote));
+        LOG(VB_GENERAL, LOG_INFO, QString("Exporting '%1=%2'").arg(s_kmsConfigFile, filename));
         setenv(s_kmsConfigFile, qPrintable(filename), 1);
     }
     file.close();
 
     auto planeindex = QString::number(guiplane->m_index);
     auto crtcplane  = QString("%1,%2").arg(device->m_crtc->m_id).arg(guiplane->m_id);
-    LOG(VB_GENERAL, LOG_INFO, QString("Exporting '%1=%2'").arg(s_kmsPlaneIndex).arg(planeindex));
-    LOG(VB_GENERAL, LOG_INFO, QString("Exporting '%1=%2'").arg(s_kmsPlaneCRTCS).arg(crtcplane));
+    LOG(VB_GENERAL, LOG_INFO, QString("Exporting '%1=%2'").arg(s_kmsPlaneIndex, planeindex));
+    LOG(VB_GENERAL, LOG_INFO, QString("Exporting '%1=%2'").arg(s_kmsPlaneCRTCS, crtcplane));
     setenv(s_kmsPlaneIndex, qPrintable(planeindex), 1);
     setenv(s_kmsPlaneCRTCS, qPrintable(crtcplane), 1);
 
@@ -311,14 +300,13 @@ void MythDRMDevice::SetupDRM(const MythCommandLineParser& CmdLine)
         if (auto *range = dynamic_cast<MythDRMRangeProperty*>(zposp.get()); range)
         {
             auto val = QString::number(std::min(range->m_min + 1, range->m_max));
-            LOG(VB_GENERAL, LOG_INFO, QString("Exporting '%1=%2'").arg(s_kmsPlaneZpos).arg(val));
+            LOG(VB_GENERAL, LOG_INFO, QString("Exporting '%1=%2'").arg(s_kmsPlaneZpos, val));
             setenv(s_kmsPlaneZpos, qPrintable(val), 1);
         }
     }
 
     // Signal to our future self that we did request some Qt DRM configuration
     s_planarRequested = true;
-#endif
 }
 #endif
 
@@ -830,7 +818,7 @@ bool MythDRMDevice::Initialise()
 QString MythDRMDevice::FindBestDevice()
 {
     if (!m_screen)
-        return QString();
+        return {};
 
     auto [root, devices] = GetDeviceList();
     if (devices.isEmpty())
@@ -845,7 +833,7 @@ QString MythDRMDevice::FindBestDevice()
     if (serial.isEmpty())
     {
         LOG(VB_GENERAL, m_verbose, LOC + "No serial number to search for");
-        return QString();
+        return {};
     }
 
     for (const auto& dev : qAsConst(devices))
@@ -860,7 +848,7 @@ QString MythDRMDevice::FindBestDevice()
         if (drmdevice.GetSerialNumber() == serial)
             return device;
     }
-    return QString();
+    return {};
 }
 
 bool MythDRMDevice::ConfirmDevice(const QString& Device)
@@ -982,7 +970,7 @@ DRMPlane MythDRMDevice::GetGUIPlane() const
 */
 void MythDRMDevice::AnalysePlanes()
 {
-    if (!(m_fd && m_crtc && m_crtc->m_index > -1))
+    if (!m_fd || !m_crtc || m_crtc->m_index <= -1)
         return;
 
     // Find our planes

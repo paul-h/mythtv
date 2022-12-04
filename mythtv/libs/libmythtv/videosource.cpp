@@ -1566,7 +1566,7 @@ QString HDHomeRunConfigurationGroup::GetDeviceCheckBoxes(void)
 {
     // Return a string listing each HDHomeRun device with its checbox
     // turned on.
-    QStringList devstrs;    
+    QStringList devstrs;
     QMap<QString, HDHomeRunDevice>::iterator dit;
     for (dit = m_deviceList.begin(); dit != m_deviceList.end(); ++dit)
     {
@@ -2135,7 +2135,7 @@ void CetonDeviceID::Load(void)
 
 void CetonDeviceID::UpdateValues(void)
 {
-    QRegularExpression newstyle { R"(^([0-9.]+)-(\d|RTP)\.(\d)$)" };
+    static const QRegularExpression newstyle { R"(^([0-9.]+)-(\d|RTP)\.(\d)$)" };
     auto match = newstyle.match(getValue());
     if (match.hasMatch())
     {
@@ -2606,7 +2606,7 @@ QString CaptureCard::GetRawCardType(void) const
 {
     int cardid = getCardID();
     if (cardid <= 0)
-        return QString();
+        return {};
     return CardUtil::GetRawInputType(cardid);
 }
 
@@ -2849,7 +2849,8 @@ class InputDisplayName : public MythUITextEditSetting
         setHelpText(QObject::tr(
                         "This name is displayed on screen when Live TV begins "
                         "and in various other places.  Make sure the last two "
-                        "characters are unique for each input."));
+                        "characters are unique for each input or use a "
+                        "slash ('/') to designate the unique portion."));
     };
     void Load(void) override {
         MythUITextEditSetting::Load();
@@ -3507,28 +3508,8 @@ void CardInput::Save(void)
     uint icount = 1;
     if (m_instanceCount)
         icount = m_instanceCount->getValue().toUInt();
-    std::vector<uint> cardids = CardUtil::GetChildInputIDs(cardid);
 
-    // Delete old clone cards as required.
-    for (size_t i = cardids.size() + 1;
-         (i > icount) && !cardids.empty(); --i)
-    {
-        CardUtil::DeleteInput(cardids.back());
-        cardids.pop_back();
-    }
-
-    // Clone this config to existing clone cards.
-    for (uint id : cardids)
-        CardUtil::CloneCard(cardid, id);
-
-    // Create new clone cards as required.
-    for (size_t i = cardids.size() + 1; i < icount; i++)
-    {
-        CardUtil::CloneCard(cardid, 0);
-    }
-
-    // Delete any unused input groups
-    CardUtil::UnlinkInputGroup(0,0);
+    CardUtil::InputSetMaxRecordings(cardid, icount);
 }
 
 int CardInputDBStorage::getInputID(void) const

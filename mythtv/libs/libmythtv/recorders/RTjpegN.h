@@ -25,14 +25,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 #define RTJPEG_H
 
 #include "mythtvexp.h"
+#include "libmythbase/sizetliteral.h"
 #include <cstdint>
 
 /*
  * Macros and definitions used internally to RTjpeg
  */
 
-#define RTJPEG_FILE_VERSION 0
-#define RTJPEG_HEADER_SIZE 12
+static constexpr uint8_t RTJPEG_FILE_VERSION {  0 };
+static constexpr uint8_t RTJPEG_HEADER_SIZE  { 12 };
 
 using RTjpegData16 = std::array<int16_t,64>;
 using RTjpegData32 = std::array<int32_t,64>;
@@ -43,9 +44,11 @@ using RTjpegData32 = std::array<int32_t,64>;
 
 /* Format definitions */
 
-#define RTJ_YUV420 0
-#define RTJ_YUV422 1
-#define RTJ_RGB8   2
+enum RTJFormat {
+    RTJ_YUV420 = 0,
+    RTJ_YUV422 = 1,
+    RTJ_RGB8   = 2
+};
 
 class RTjpeg
 {
@@ -97,7 +100,7 @@ private:
 #endif
     
     alignas(32) RTjpegData16   m_block {0};
-    alignas(32) std::array<int32_t,64*4> m_ws    {0};
+    alignas(32) std::array<int32_t,64_UZ * 4> m_ws    {0};
     alignas(32) RTjpegData32   m_lqt   {0};
     alignas(32) RTjpegData32   m_cqt   {0};
     alignas(32) RTjpegData32   m_liqt  {0};

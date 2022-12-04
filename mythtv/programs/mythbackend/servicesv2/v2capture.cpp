@@ -48,6 +48,16 @@ void V2Capture::RegisterCustomTypes()
 {
     qRegisterMetaType<V2CaptureCardList*>("V2CaptureCardList");
     qRegisterMetaType<V2CaptureCard*>("V2CaptureCard");
+    qRegisterMetaType<V2CardTypeList*>("V2CardTypeList");
+    qRegisterMetaType<V2CardType*>("V2CardType");
+    qRegisterMetaType<V2CaptureDeviceList*>("V2CaptureDeviceList");
+    qRegisterMetaType<V2CaptureDevice*>("V2CaptureDevice");
+    qRegisterMetaType<V2DiseqcTree*>("V2DiseqcTree");
+    qRegisterMetaType<V2DiseqcTreeList*>("V2DiseqcTreeList");
+    qRegisterMetaType<V2InputGroupList*>("V2InputGroupList");
+    qRegisterMetaType<V2InputGroup*>("V2InputGroup");
+    qRegisterMetaType<V2DiseqcConfig*>("V2DiseqcConfig");
+    qRegisterMetaType<V2DiseqcConfigList*>("V2DiseqcConfigList");
 }
 
 V2Capture::V2Capture()
@@ -60,7 +70,7 @@ V2Capture::V2Capture()
 /////////////////////////////////////////////////////////////////////////////
 
 V2CaptureCardList* V2Capture::GetCaptureCardList( const QString &sHostName,
-                                                   const QString &sCardType )
+                                                  const QString &sCardType )
 {
     MSqlQuery query(MSqlQuery::InitCon());
 
@@ -252,6 +262,11 @@ V2CaptureCard* V2Capture::GetCaptureCard( int nCardId )
 //
 /////////////////////////////////////////////////////////////////////////////
 
+bool V2Capture::RemoveAllCaptureCards( void )
+{
+    return CardUtil::DeleteAllInputs();
+}
+
 bool V2Capture::RemoveCaptureCard( int nCardId )
 {
     if ( nCardId < 1 )
@@ -372,4 +387,676 @@ bool V2Capture::UpdateCardInput    ( int              nCardInputId,
         throw( QString( "Input ID, Setting Name, and Value are required." ));
 
     return set_on_input(sSetting, nCardInputId, sValue);
+}
+
+V2CardTypeList*  V2Capture::GetCardTypeList ( )
+{
+    auto* pCardTypeList = new V2CardTypeList();
+
+#ifdef USING_DVB
+    pCardTypeList->AddCardType(
+        QObject::tr("DVB-T/S/C, ATSC or ISDB-T tuner card"), "DVB");
+#endif // USING_DVB
+
+#ifdef USING_V4L2
+    pCardTypeList->AddCardType(
+        QObject::tr("V4L2 encoder"), "V4L2ENC");
+    pCardTypeList->AddCardType(
+        QObject::tr("HD-PVR H.264 encoder"), "HDPVR");
+#endif // USING_V4L2
+
+#ifdef USING_HDHOMERUN
+    pCardTypeList->AddCardType(
+        QObject::tr("HDHomeRun networked tuner"), "HDHOMERUN");
+#endif // USING_HDHOMERUN
+
+#ifdef USING_SATIP
+    pCardTypeList->AddCardType(
+        QObject::tr("Sat>IP networked tuner"), "SATIP");
+#endif // USING_SATIP
+
+#ifdef USING_VBOX
+    pCardTypeList->AddCardType(
+        QObject::tr("V@Box TV Gateway networked tuner"), "VBOX");
+#endif // USING_VBOX
+
+#ifdef USING_FIREWIRE
+    pCardTypeList->AddCardType(
+        QObject::tr("FireWire cable box"), "FIREWIRE");
+#endif // USING_FIREWIRE
+
+#ifdef USING_CETON
+    pCardTypeList->AddCardType(
+        QObject::tr("Ceton Cablecard tuner"), "CETON");
+#endif // USING_CETON
+
+#ifdef USING_IPTV
+    pCardTypeList->AddCardType(QObject::tr("IPTV recorder"), "FREEBOX");
+#endif // USING_IPTV
+
+#ifdef USING_V4L2
+    pCardTypeList->AddCardType(
+        QObject::tr("Analog to MPEG-2 encoder card (PVR-150/250/350, etc)"), "MPEG");
+    pCardTypeList->AddCardType(
+        QObject::tr("Analog to MJPEG encoder card (Matrox G200, DC10, etc)"), "MJPEG");
+    pCardTypeList->AddCardType(
+        QObject::tr("Analog to MPEG-4 encoder (Plextor ConvertX USB, etc)"),
+        "GO7007");
+    pCardTypeList->AddCardType(
+        QObject::tr("Analog capture card"), "V4L");
+#endif // USING_V4L2
+
+#ifdef USING_ASI
+    pCardTypeList->AddCardType(QObject::tr("DVEO ASI recorder"), "ASI");
+#endif
+
+    pCardTypeList->AddCardType(QObject::tr("Import test recorder"), "IMPORT");
+    pCardTypeList->AddCardType(QObject::tr("Demo test recorder"),   "DEMO");
+#if !defined( USING_MINGW ) && !defined( _MSC_VER )
+    pCardTypeList->AddCardType(QObject::tr("External (black box) recorder"),
+                          "EXTERNAL");
+#endif
+    return pCardTypeList;
+}
+
+V2InputGroupList*  V2Capture::GetUserInputGroupList ( void )
+{
+    auto* pInputGroupList = new V2InputGroupList();
+
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    if (!query.isConnected())
+        throw( QString("Database not open while trying to list "
+                       "Input Groups."));
+
+    QString q = "SELECT cardinputid,inputgroupid,inputgroupname "
+                "FROM inputgroup WHERE inputgroupname LIKE 'user:%' "
+                "ORDER BY inputgroupid, cardinputid";
+    query.prepare(q);
+
+    if (!query.exec())
+    {
+        MythDB::DBError("GetUserInputGroupList", query);
+        return pInputGroupList;
+    }
+
+    while (query.next())
+    {
+        pInputGroupList->AddInputGroup(query.value(0).toUInt(),
+                                       query.value(1).toUInt(),
+                                       query.value(2).toString());
+    }
+
+    return pInputGroupList;
+}
+
+int V2Capture::AddUserInputGroup(const QString & Name)
+{
+    if (Name.isEmpty())
+        throw( QString( "Input group name cannot be empty." ) );
+
+    QString new_name = QString("user:") + Name;
+
+    uint inputgroupid = CardUtil::CreateInputGroup(new_name);
+
+    if (inputgroupid == 0)
+    {
+        throw( QString( "Failed to add or retrieve %1" ).arg(new_name) );
+    }
+
+    return inputgroupid;
+}
+
+bool V2Capture::LinkInputGroup(const uint InputId,
+                               const uint InputGroupId)
+{
+    if (!CardUtil::LinkInputGroup(InputId, InputGroupId))
+        throw( QString ( "Failed to link input %1 to group %2" )
+               .arg(InputId).arg(InputGroupId));
+    return true;
+}
+
+
+bool V2Capture::UnlinkInputGroup(const uint InputId,
+                                 const uint InputGroupId)
+{
+    if (!CardUtil::UnlinkInputGroup(InputId, InputGroupId))
+        throw( QString ( "Failed to unlink input %1 from group %2" )
+               .arg(InputId).arg(InputGroupId));
+    return true;
+}
+
+bool V2Capture::SetInputMaxRecordings( const uint InputId,
+                                       const uint Max )
+{
+    return CardUtil::InputSetMaxRecordings(InputId, Max);
+}
+
+
+#ifdef USING_DVB
+static QString remove_chaff(const QString &name)
+{
+    // Trim off some of the chaff.
+    QString short_name = name;
+    if (short_name.startsWith("LG Electronics"))
+        short_name = short_name.right(short_name.length() - 15);
+    if (short_name.startsWith("Oren"))
+        short_name = short_name.right(short_name.length() - 5);
+    if (short_name.startsWith("Nextwave"))
+        short_name = short_name.right(short_name.length() - 9);
+    if (short_name.startsWith("frontend", Qt::CaseInsensitive))
+        short_name = short_name.left(short_name.length() - 9);
+    if (short_name.endsWith("VSB/QAM"))
+        short_name = short_name.left(short_name.length() - 8);
+    if (short_name.endsWith("VSB"))
+        short_name = short_name.left(short_name.length() - 4);
+    if (short_name.endsWith("DVB-T"))
+        short_name = short_name.left(short_name.length() - 6);
+
+    // It would be infinitely better if DVB allowed us to query
+    // the vendor ID. But instead we have to guess based on the
+    // demodulator name. This means cards like the Air2PC HD5000
+    // and DViCO Fusion HDTV cards are not identified correctly.
+    short_name = short_name.simplified();
+    if (short_name.startsWith("or51211", Qt::CaseInsensitive))
+        short_name = "pcHDTV HD-2000";
+    else if (short_name.startsWith("or51132", Qt::CaseInsensitive))
+        short_name = "pcHDTV HD-3000";
+    else if (short_name.startsWith("bcm3510", Qt::CaseInsensitive))
+        short_name = "Air2PC v1";
+    else if (short_name.startsWith("nxt2002", Qt::CaseInsensitive) ||
+             short_name.startsWith("nxt200x", Qt::CaseInsensitive))
+        short_name = "Air2PC v2";
+    else if (short_name.startsWith("lgdt3302", Qt::CaseInsensitive))
+        short_name = "DViCO HDTV3";
+    else if (short_name.startsWith("lgdt3303", Qt::CaseInsensitive))
+        short_name = "DViCO v2 or Air2PC v3 or pcHDTV HD-5500";
+
+    return short_name;
+}
+#endif // USING_DVB
+
+
+
+V2CaptureDeviceList* V2Capture::GetCaptureDeviceList  ( const QString  &sCardType )
+{
+    auto* pList = new V2CaptureDeviceList();
+
+    // Get devices from system
+    QStringList sdevs = CardUtil::ProbeVideoDevices(sCardType);
+
+    for (const auto & it : qAsConst(sdevs))
+    {
+        auto* pDev = pList->AddCaptureDevice();
+        pDev->setCardType (sCardType);
+        pDev->setVideoDevice (it);
+#ifdef USING_DVB
+        // From DVBConfigurationGroup::probeCard in Videosource.cpp
+        if (sCardType == "DVB")
+        {
+            QString frontendName = CardUtil::ProbeDVBFrontendName(it);
+            pDev->setInputNames( CardUtil::ProbeDeliverySystems (it));
+            pDev->setDefaultInputName( CardUtil::ProbeDefaultDeliverySystem (it));
+            QString subType = CardUtil::ProbeDVBType(it);
+            int signalTimeout = 0;
+            int channelTimeout = 0;
+            int tuningDelay = 0;
+            QString err_open  = tr("Could not open card %1").arg(it);
+            QString err_other = tr("Could not get card info for card %1").arg(it);
+
+            switch (CardUtil::toInputType(subType))
+            {
+                case CardUtil::ERROR_OPEN:
+                    frontendName = err_open;
+                    subType = strerror(errno);
+                    break;
+                case CardUtil::ERROR_UNKNOWN:
+                    frontendName = err_other;
+                    subType = "Unknown error";
+                    break;
+                case CardUtil::ERROR_PROBE:
+                    frontendName = err_other;
+                    subType = strerror(errno);
+                    break;
+                case CardUtil::QPSK:
+                    subType = "DVB-S";
+                    signalTimeout = 7000;
+                    channelTimeout = 10000;
+                    break;
+                case CardUtil::DVBS2:
+                    subType = "DVB-S2";
+                    signalTimeout = 7000;
+                    channelTimeout = 10000;
+                    break;
+                case CardUtil::QAM:
+                    subType = "DVB-C";
+                    signalTimeout = 3000;
+                    channelTimeout = 6000;
+                    break;
+                case CardUtil::DVBT2:
+                    subType = "DVB-T2";
+                    signalTimeout = 3000;
+                    channelTimeout = 6000;
+                    break;
+                case CardUtil::OFDM:
+                {
+                    subType = "DVB-T";
+                    signalTimeout = 3000;
+                    channelTimeout = 6000;
+                    if (frontendName.toLower().indexOf("usb") >= 0)
+                    {
+                        signalTimeout = 40000;
+                        channelTimeout = 42500;
+                    }
+
+                    // slow down tuning for buggy drivers
+                    if ((frontendName == "DiBcom 3000P/M-C DVB-T") ||
+                        (frontendName ==
+                        "TerraTec/qanu USB2.0 Highspeed DVB-T Receiver"))
+                    {
+                        tuningDelay = 200;
+                    }
+                    break;
+                }
+                case CardUtil::ATSC:
+                {
+                    QString short_name = remove_chaff(frontendName);
+                    subType = "ATSC";
+                    frontendName = short_name;
+                    signalTimeout = 2000;
+                    channelTimeout = 4000;
+
+                    // According to #1779 and #1935 the AverMedia 180 needs
+                    // a 3000 ms signal timeout, at least for QAM tuning.
+                    if (frontendName == "Nextwave NXT200X VSB/QAM frontend")
+                    {
+                        signalTimeout = 3000;
+                        channelTimeout = 5500;
+                    }
+                    break;
+                }
+                default:
+                    break;
+            }
+
+            pDev->setFrontendName ( frontendName );
+            pDev->setSubType ( subType );
+            pDev->setSignalTimeout ( signalTimeout );
+            pDev->setChannelTimeout ( channelTimeout );
+            pDev->setTuningDelay ( tuningDelay );
+        } // endif (sCardType == "DVB")
+#endif // USING_DVB
+#ifdef USING_HDHOMERUN
+        if (sCardType == "HDHOMERUN")
+        {
+            pDev->setSignalTimeout ( 3000 );
+            pDev->setChannelTimeout ( 6000 );
+        }
+#endif //USING_HDHOMERUN
+    } // endfor (const auto & it : qAsConst(sdevs))
+    return pList;
+}
+
+
+V2DiseqcTreeList* V2Capture::GetDiseqcTreeList  (  )
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    if (!query.isConnected())
+        throw( QString("Database not open while trying to list "
+                       "DiseqcTrees."));
+
+    QString str =  "SELECT diseqcid, "
+                   "parentid, "
+                   "ordinal, "
+                   "type, "
+                   "subtype, "
+                   "description, "
+                   "switch_ports, "
+                   "rotor_hi_speed, "
+                   "rotor_lo_speed, "
+                   "rotor_positions, "
+                   "lnb_lof_switch, "
+                   "lnb_lof_hi, "
+                   "lnb_lof_lo, "
+                   "cmd_repeat, "
+                   "lnb_pol_inv, "
+                   "address, "
+                   "scr_userband, "
+                   "scr_frequency, "
+                   "scr_pin "
+                   "FROM diseqc_tree ORDER BY diseqcid";
+
+    query.prepare(str);
+
+    if (!query.exec())
+    {
+        MythDB::DBError("MythAPI::GetDiseqcTreeList()", query);
+        throw( QString( "Database Error executing query." ));
+    }
+
+    // ----------------------------------------------------------------------
+    // return the results of the query
+    // ----------------------------------------------------------------------
+
+    auto* pList = new V2DiseqcTreeList();
+
+    while (query.next())
+    {
+        auto *pRec = pList->AddDiseqcTree();
+        pRec->setDiSEqCId           ( query.value(  0 ).toUInt() );
+        pRec->setParentId           ( query.value(  1 ).toUInt() );
+        pRec->setOrdinal            ( query.value(  2 ).toUInt() );
+        pRec->setType               ( query.value(  3 ).toString() );
+        pRec->setSubType            ( query.value(  4 ).toString() );
+        pRec->setDescription        ( query.value(  5 ).toString() );
+        pRec->setSwitchPorts        ( query.value(  6 ).toUInt() );
+        pRec->setRotorHiSpeed       ( query.value(  7 ).toFloat() );
+        pRec->setRotorLoSpeed       ( query.value(  8 ).toFloat() );
+        pRec->setRotorPositions     ( query.value(  9 ).toString() );
+        pRec->setLnbLofSwitch       ( query.value( 10 ).toInt() );
+        pRec->setLnbLofHi           ( query.value( 11 ).toInt() );
+        pRec->setLnbLofLo           ( query.value( 12 ).toInt() );
+        pRec->setCmdRepeat          ( query.value( 13 ).toInt() );
+        pRec->setLnbPolInv          ( query.value( 14 ).toBool() );
+        pRec->setAddress            ( query.value( 15 ).toInt() );
+        pRec->setScrUserband        ( query.value( 16 ).toUInt() );
+        pRec->setScrFrequency       ( query.value( 17 ).toUInt() );
+        pRec->setScrPin             ( query.value( 18 ).toInt() );
+    }
+
+    return pList;
+}
+
+int  V2Capture::AddDiseqcTree ( uint           ParentId,
+                                uint           Ordinal,
+                                const QString& Type,
+                                const QString& SubType,
+                                const QString& Description,
+                                uint           SwitchPorts,
+                                float          RotorHiSpeed,
+                                float          RotorLoSpeed,
+                                const QString& RotorPositions,
+                                int            LnbLofSwitch,
+                                int            LnbLofHi,
+                                int            LnbLofLo,
+                                int            CmdRepeat,
+                                bool           LnbPolInv,
+                                int            Address,
+                                uint           ScrUserband,
+                                uint           ScrFrequency,
+                                int            ScrPin)
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare(
+             "INSERT INTO diseqc_tree "
+            "(parentid, "
+            "ordinal, "
+            "type, "
+            "subtype, "
+            "description, "
+            "switch_ports, "
+            "rotor_hi_speed, "
+            "rotor_lo_speed, "
+            "rotor_positions, "
+            "lnb_lof_switch, "
+            "lnb_lof_hi, "
+            "lnb_lof_lo, "
+            "cmd_repeat, "
+            "lnb_pol_inv, "
+            "address, "
+            "scr_userband, "
+            "scr_frequency, "
+            "scr_pin) "
+            "VALUES "
+            "(:PARENTID, "
+            ":ORDINAL, "
+            ":TYPE, "
+            ":SUBTYPE, "
+            ":DESCRIPTION, "
+            ":SWITCH_PORTS, "
+            ":ROTOR_HI_SPEED, "
+            ":ROTOR_LO_SPEED, "
+            ":ROTOR_POSITIONS, "
+            ":LNB_LOF_SWITCH, "
+            ":LNB_LOF_HI, "
+            ":LNB_LOF_LO, "
+            ":CMD_REPEAT, "
+            ":LNB_POL_INV, "
+            ":ADDRESS, "
+            ":SCR_USERBAND, "
+            ":SCR_FREQUENCY, "
+            ":SCR_PIN ) " );
+
+    if (ParentId == 0) // Value 0 is set to null
+    {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        query.bindValue(":PARENTID", QVariant(QVariant::UInt));
+#else
+        query.bindValue(":PARENTID", QVariant(QMetaType(QMetaType::UInt)));
+#endif
+    }
+    else
+        query.bindValue(":PARENTID", ParentId);
+    query.bindValue(":ORDINAL", Ordinal);
+    query.bindValue(":TYPE", Type);
+    query.bindValue(":SUBTYPE", SubType);
+    query.bindValue(":DESCRIPTION", Description);
+    query.bindValue(":SWITCH_PORTS", SwitchPorts);
+    query.bindValue(":ROTOR_HI_SPEED", RotorHiSpeed);
+    query.bindValue(":ROTOR_LO_SPEED", RotorLoSpeed);
+    query.bindValue(":ROTOR_POSITIONS", RotorPositions);
+    query.bindValue(":LNB_LOF_SWITCH", LnbLofSwitch);
+    query.bindValue(":LNB_LOF_HI", LnbLofHi);
+    query.bindValue(":LNB_LOF_LO", LnbLofLo);
+    query.bindValue(":CMD_REPEAT", CmdRepeat);
+    query.bindValue(":LNB_POL_INV", LnbPolInv);
+    query.bindValue(":ADDRESS", Address);
+    query.bindValue(":SCR_USERBAND", ScrUserband);
+    query.bindValue(":SCR_FREQUENCY", ScrFrequency);
+    query.bindValue(":SCR_PIN", ScrPin);
+
+    if (!query.exec())
+    {
+        MythDB::DBError("MythAPI::AddDiseqcTree()", query);
+        throw( QString( "Database Error executing query." ));
+    }
+    uint DiSEqCId  = query.lastInsertId().toInt();
+    return DiSEqCId;
+}
+
+bool V2Capture::UpdateDiseqcTree  ( uint           DiSEqCId,
+                                    uint           ParentId,
+                                    uint           Ordinal,
+                                    const QString& Type,
+                                    const QString& SubType,
+                                    const QString& Description,
+                                    uint           SwitchPorts,
+                                    float          RotorHiSpeed,
+                                    float          RotorLoSpeed,
+                                    const QString& RotorPositions,
+                                    int            LnbLofSwitch,
+                                    int            LnbLofHi,
+                                    int            LnbLofLo,
+                                    int            CmdRepeat,
+                                    bool           LnbPolInv,
+                                    int            Address,
+                                    uint           ScrUserband,
+                                    uint           ScrFrequency,
+                                    int            ScrPin)
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare(
+            "UPDATE diseqc_tree SET "
+            "parentid = :PARENTID, "
+            "ordinal = :ORDINAL, "
+            "type = :TYPE, "
+            "subtype = :SUBTYPE, "
+            "description = :DESCRIPTION, "
+            "switch_ports = :SWITCH_PORTS, "
+            "rotor_hi_speed = :ROTOR_HI_SPEED, "
+            "rotor_lo_speed = :ROTOR_LO_SPEED, "
+            "rotor_positions = :ROTOR_POSITIONS, "
+            "lnb_lof_switch = :LNB_LOF_SWITCH, "
+            "lnb_lof_hi = :LNB_LOF_HI, "
+            "lnb_lof_lo = :LNB_LOF_LO, "
+            "cmd_repeat = :CMD_REPEAT, "
+            "lnb_pol_inv = :LNB_POL_INV, "
+            "address = :ADDRESS, "
+            "scr_userband = :SCR_USERBAND, "
+            "scr_frequency = :SCR_FREQUENCY, "
+            "scr_pin = :SCR_PIN "
+            "WHERE diseqcid = :DISEQCID " );
+
+    query.bindValue(":DISEQCID", DiSEqCId);
+    if (ParentId == 0) // Value 0 is set to null
+    {
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        query.bindValue(":PARENTID", QVariant(QVariant::UInt));
+#else
+        query.bindValue(":PARENTID", QVariant(QMetaType(QMetaType::UInt)));
+#endif
+    }
+    else
+        query.bindValue(":PARENTID", ParentId);
+    query.bindValue(":ORDINAL", Ordinal);
+    query.bindValue(":TYPE", Type);
+    query.bindValue(":SUBTYPE", SubType);
+    query.bindValue(":DESCRIPTION", Description);
+    query.bindValue(":SWITCH_PORTS", SwitchPorts);
+    query.bindValue(":ROTOR_HI_SPEED", RotorHiSpeed);
+    query.bindValue(":ROTOR_LO_SPEED", RotorLoSpeed);
+    query.bindValue(":ROTOR_POSITIONS", RotorPositions);
+    query.bindValue(":LNB_LOF_SWITCH", LnbLofSwitch);
+    query.bindValue(":LNB_LOF_HI", LnbLofHi);
+    query.bindValue(":LNB_LOF_LO", LnbLofLo);
+    query.bindValue(":CMD_REPEAT", CmdRepeat);
+    query.bindValue(":LNB_POL_INV", LnbPolInv);
+    query.bindValue(":ADDRESS", Address);
+    query.bindValue(":SCR_USERBAND", ScrUserband);
+    query.bindValue(":SCR_FREQUENCY", ScrFrequency);
+    query.bindValue(":SCR_PIN", ScrPin);
+
+    if (!query.exec())
+    {
+        MythDB::DBError("MythAPI::UpdateDiseqcTree()", query);
+        throw( QString( "Database Error executing query." ));
+    }
+    return true;
+}
+
+bool  V2Capture::RemoveDiseqcTree  ( uint DiSEqCId)
+{
+    // Find and remove children
+    MSqlQuery query(MSqlQuery::InitCon());
+    query.prepare("SELECT diseqcid FROM diseqc_tree WHERE parentid = :PARENTID ");
+    query.bindValue(":PARENTID", DiSEqCId);
+
+    if (!query.exec())
+    {
+        MythDB::DBError("MythAPI::RemoveDiseqcTree()", query);
+        throw( QString( "Database Error executing query." ));
+    }
+
+    bool childOK = true;
+    while (query.next())
+    {
+        uint child = query.value(  0 ).toUInt();
+        childOK = RemoveDiseqcTree(child) && childOK;
+    }
+    // remove this row
+    MSqlQuery query2(MSqlQuery::InitCon());
+    query2.prepare("DELETE FROM diseqc_tree WHERE diseqcid = :DISEQCID ");
+    query2.bindValue(":DISEQCID", DiSEqCId);
+    if (!query2.exec())
+    {
+        MythDB::DBError("MythAPI::RemoveDiseqcTree()", query2);
+        throw( QString( "Database Error executing query." ));
+    }
+    int numrows = query2.numRowsAffected();
+    return numrows > 0 && childOK;
+}
+
+
+V2DiseqcConfigList* V2Capture::GetDiseqcConfigList  ( void )
+{
+
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    if (!query.isConnected())
+        throw( QString("Database not open while trying to list "
+                       "DiseqcConfigs."));
+
+    QString str =  "SELECT cardinputid, "
+                   "diseqcid, "
+                   "value "
+                   "FROM diseqc_config ORDER BY cardinputid, diseqcid";
+
+    query.prepare(str);
+
+    if (!query.exec())
+    {
+        MythDB::DBError("MythAPI::GetDiseqcConfigList()", query);
+        throw( QString( "Database Error executing query." ));
+    }
+
+    // ----------------------------------------------------------------------
+    // return the results of the query
+    // ----------------------------------------------------------------------
+
+    auto* pList = new V2DiseqcConfigList();
+
+    while (query.next())
+    {
+        auto *pRec = pList->AddDiseqcConfig();
+        pRec->setCardId             ( query.value(  0 ).toUInt() );
+        pRec->setDiSEqCId           ( query.value(  1 ).toUInt() );
+        pRec->setValue              ( query.value(  2 ).toString() );
+    }
+    return pList;
+}
+
+bool V2Capture::AddDiseqcConfig  ( uint           CardId,
+                                   uint           DiSEqCId,
+                                   const QString& Value)
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare(
+             "INSERT INTO diseqc_config "
+            "(cardinputid, "
+            "diseqcid, "
+            "value) "
+            "VALUES "
+            "(:CARDID, "
+            ":DISEQCID, "
+            ":VALUE) ");
+
+    query.bindValue(":CARDID", CardId);
+    query.bindValue(":DISEQCID", DiSEqCId);
+    query.bindValue(":VALUE", Value);
+
+    if (!query.exec())
+    {
+        MythDB::DBError("MythAPI::AddDiseqcConfig()", query);
+        throw( QString( "Database Error executing query." ));
+    }
+    return true;
+}
+
+
+bool V2Capture::RemoveDiseqcConfig  ( uint  CardId )
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+    query.prepare("DELETE FROM diseqc_config WHERE cardinputid = :CARDID ");
+    query.bindValue(":CARDID", CardId);
+    if (!query.exec())
+    {
+        MythDB::DBError("MythAPI::RemoveDiseqcConfig()", query);
+        throw( QString( "Database Error executing query." ));
+    }
+    int numrows = query.numRowsAffected();
+    return numrows > 0;
 }

@@ -51,7 +51,6 @@
 // MythTV headers
 #include <mythconfig.h>
 #include <libmyth/mythcontext.h>
-#include <libmyth/programinfo.h>
 #include <libmythbase/exitcodes.h>
 #include <libmythbase/mythcommandlineparser.h>
 #include <libmythbase/mythcoreutil.h>
@@ -63,6 +62,7 @@
 #include <libmythbase/mythpluginexport.h>
 #include <libmythbase/mythsystemlegacy.h>
 #include <libmythbase/mythversion.h>
+#include <libmythbase/programinfo.h>
 #include <libmythtv/mythavutil.h>
 #include <libmythmetadata/metadatacommon.h>
 #include <libmythbase/storagegroup.h>
@@ -2211,7 +2211,7 @@ static int grabThumbnail(const QString& inFile, const QString& thumbList, const 
     AVCodecContext *codecCtx = codecmap.GetCodecContext(inputFC->streams[videostream]);
 
     // get decoder for video stream
-    AVCodec * codec = avcodec_find_decoder(codecCtx->codec_id);
+    const AVCodec * codec = avcodec_find_decoder(codecCtx->codec_id);
 
     if (codec == nullptr)
     {
@@ -2570,7 +2570,7 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
 #else
                 QStringList param = QString::fromStdString(buf).split(',', Qt::SkipEmptyParts);
 #endif
-                QString codec = param[0].remove("Video:", Qt::CaseInsensitive);
+                QString codec = param[0].remove("Video:", Qt::CaseInsensitive).remove(QChar::Null);
                 QDomElement stream = doc.createElement("video");
                 stream.setAttribute("streamindex", i);
                 stream.setAttribute("ffmpegindex", ffmpegIndex++);
@@ -2701,7 +2701,7 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
 #else
                 QStringList param = QString::fromStdString(buf).split(',', Qt::SkipEmptyParts);
 #endif
-                QString codec = param[0].remove("Audio:", Qt::CaseInsensitive);
+                QString codec = param[0].remove("Audio:", Qt::CaseInsensitive).remove(QChar::Null);
 
                 QDomElement stream = doc.createElement("audio");
                 stream.setAttribute("streamindex", i);
@@ -2750,7 +2750,7 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
 #else
                 QStringList param = QString::fromStdString(buf).split(',', Qt::SkipEmptyParts);
 #endif
-                QString codec = param[0].remove("Subtitle:", Qt::CaseInsensitive);
+                QString codec = param[0].remove("Subtitle:", Qt::CaseInsensitive).remove(QChar::Null);
 
                 QDomElement stream = doc.createElement("subtitle");
                 stream.setAttribute("streamindex", i);
@@ -2775,7 +2775,7 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
             {
                 QDomElement stream = doc.createElement("data");
                 stream.setAttribute("streamindex", i);
-                stream.setAttribute("codec", QString::fromStdString(buf));
+                stream.setAttribute("codec", QString::fromStdString(buf).remove(QChar::Null));
                 streams.appendChild(stream);
 
                 break;
@@ -2808,7 +2808,7 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
 
 static int getDBParamters(const QString& outFile)
 {
-    DatabaseParams params = gContext->GetDatabaseParams();
+    DatabaseParams params = GetMythDB()->GetDatabaseParams();
 
     // save the db paramters to the file
     QFile f(outFile);
@@ -2974,7 +2974,7 @@ void MythArchiveHelperCommandLineParser::LoadArguments(void)
 
 
 
-int main(int argc, char **argv)
+static int main_local(int argc, char **argv)
 {
     MythArchiveHelperCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
@@ -3191,4 +3191,9 @@ int main(int argc, char **argv)
     exit(res);
 }
 
-
+int main(int argc, char **argv)
+{
+    int result = main_local(argc, argv);
+    logStop();
+    return result;
+}

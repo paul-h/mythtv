@@ -86,14 +86,15 @@ class basetzinfo( _pytzinfo ):
             p,n = self._transitions[i:i+2]
             rstart = p.local[0:5]
 
+            # ToDo: re-evaluate this for 'all year in dst' zones
             offset = p.offset - n.offset
             rend = list(n.local[0:5])
-            rend[4] += offset/60
+            rend[4] += offset//60
             if (0 > rend[4]) or (rend[4] > 59):
-                rend[3] += rend[4]/60
+                rend[3] += rend[4]//60
                 rend[4] = rend[4]%60
             if (0 > rend[3]) or (rend[3] > 23):
-                rend[2] += rend[3]/24
+                rend[2] += rend[3]//24
                 rend[3] = rend[3]%24
 
             self._ranges.append((rstart, tuple(rend), i))
@@ -135,16 +136,18 @@ class posixtzinfo(basetzinfo, metaclass=InputSingleton):
         if version == '\0':
             return 1
         else:
-            return int(version) # should be 2
+            return int(version) # should be 2 or 3
 
     def _process(self, fd, version=1, skip=False):
         from struct import unpack, calcsize
         if version == 1:
             ttmfmt = '!l'
             lfmt = '!ll'
-        elif version == 2:
+        elif version == 2 or version == 3:
             ttmfmt = '!q'
             lfmt = '!ql'
+        else:
+            raise MythTZError(MythTZError.TZ_VERSION_ERROR)
 
         counts = self._Count(*unpack('!llllll', fd.read(24)))
         if skip:
@@ -228,9 +231,11 @@ class posixtzinfo(basetzinfo, metaclass=InputSingleton):
             fd = open('/etc/localtime', 'rb')
 
         version = self._get_version(fd)
-        if version == 2:
+        if version == 2 or version == 3:
             self._process(fd, skip=True)
             self._get_version(fd)
+        elif version > 3:
+            raise MythTZError(MythTZError.TZ_VERSION_ERROR)
         self._process(fd, version)
         fd.close()
 

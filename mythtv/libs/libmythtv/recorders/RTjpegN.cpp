@@ -22,6 +22,7 @@
 
 */
 
+#include <algorithm>
 #include <array>
 #include <cstdio>
 #include <cstdlib>
@@ -29,17 +30,7 @@
 #include "RTjpegN.h"
 
 #include <QtGlobal>
-#if (Q_BYTE_ORDER == Q_BIG_ENDIAN)
-#define RTJPEG_SWAP_WORD(a) ( ((a) << 24) | \
-			(((a) << 8) & 0x00ff0000) | \
-			(((a) >> 8) & 0x0000ff00) | \
-			((unsigned long)(a) >>24) )
-#define RTJPEG_SWAP_HALFWORD(a) ( (((a) << 8) & 0xff00) | \
-			(((a) >> 8) & 0x00ff) )
-#else
-#define RTJPEG_SWAP_WORD(a) (a)
-#define RTJPEG_SWAP_HALFWORD(a) (a)
-#endif
+#include <QtEndian>
 
 #ifdef MMX
 static mmx_t RTjpeg_ones;
@@ -51,8 +42,8 @@ static mmx_t RTjpeg_C2pC6;
 static mmx_t RTjpeg_zero;
 #endif
 
-//#define SHOWBLOCK 1
-#define BETTERCOMPRESSION 1
+//#define SHOWBLOCK 1       // NOLINT(cppcoreguidelines-macro-usage)
+#define BETTERCOMPRESSION 1 // NOLINT(cppcoreguidelines-macro-usage)
 
 static const std::array<const uint8_t,64> RTjpeg_ZZ {
 0,
@@ -588,14 +579,14 @@ void RTjpeg::Quant(RTjpegData16 &_block, RTjpegData32 &qtbl)
  * Perform the forward DCT on one block of samples.
  */
 #ifndef MMX
-#define FIX_0_382683433  ((int32_t)   98)               /* FIX(0.382683433) */
-#define FIX_0_541196100  ((int32_t)  139)               /* FIX(0.541196100) */
-#define FIX_0_707106781  ((int32_t)  181)               /* FIX(0.707106781) */
-#define FIX_1_306562965  ((int32_t)  334)               /* FIX(1.306562965) */
+static constexpr int32_t FIX_0_382683433  {  98 };      /* FIX(0.382683433) */
+static constexpr int32_t FIX_0_541196100  { 139 };      /* FIX(0.541196100) */
+static constexpr int32_t FIX_0_707106781  { 181 };      /* FIX(0.707106781) */
+static constexpr int32_t FIX_1_306562965  { 334 };      /* FIX(1.306562965) */
 
-#define DESCALE10(x) (int16_t)( ((x)+128) >> 8)
-#define DESCALE20(x)  (int16_t)(((x)+32768) >> 16)
-#define D_MULTIPLY(var,const)  ((int32_t) ((var) * (const)))
+static constexpr int16_t DESCALE10(int32_t x) { return static_cast<int16_t>((x+128) >> 8); };
+static constexpr int16_t DESCALE20(int32_t x) { return static_cast<int16_t>((x+32768) >> 16); };
+static constexpr int32_t D_MULTIPLY(int32_t var, int32_t constant) { return var * constant; };
 #endif
 
 void RTjpeg::DctInit()
@@ -1507,17 +1498,20 @@ void RTjpeg::DctY(uint8_t *idata, int rskip)
 #endif
 }
 
-#define FIX_1_082392200  ((int32_t)  277)               /* FIX(1.082392200) */
-#define FIX_1_414213562  ((int32_t)  362)               /* FIX(1.414213562) */
-#define FIX_1_847759065  ((int32_t)  473)               /* FIX(1.847759065) */
-#define FIX_2_613125930  ((int32_t)  669)               /* FIX(2.613125930) */
+#ifndef MMX
+static constexpr int32_t FIX_1_082392200  { 277 };      /* FIX(1.082392200) */
+static constexpr int32_t FIX_1_414213562  { 362 };      /* FIX(1.414213562) */
+static constexpr int32_t FIX_1_847759065  { 473 };      /* FIX(1.847759065) */
+static constexpr int32_t FIX_2_613125930  { 669 };      /* FIX(2.613125930) */
 
-#define DESCALE(x) (int16_t)( ((x)+4) >> 3)
+static constexpr int16_t DESCALE(int32_t x) { return static_cast<int16_t>((x+4) >> 3); };
 
 /* clip yuv to 16..235 (should be 16..240 for cr/cb but ... */
 
-#define RL(x) ((x)>235) ? 235 : (((x)<16) ? 16 : (x))
-#define MULTIPLY(var,const)  (((int32_t) ((var) * (const)) + 128)>>8)
+static inline int16_t RL(int32_t x) { return std::clamp(x, 16, 235); };
+static constexpr int32_t MULTIPLY(int32_t var, int32_t constant)
+    { return ((var * constant) + 128) >> 8; };
+#endif
 
 void RTjpeg::IdctInit(void)
 {
@@ -2730,7 +2724,7 @@ int RTjpeg::SetSize(const int *w, const int *h)
             fprintf(stderr, "RTjpeg: Could not allocate memory\n");
             return -1;
         }
-        memset(m_old, 0, ((4*m_width*m_height)));
+        memset(m_old, 0, (4_UZ * m_width * m_height));
     }
     return 0;
 }
@@ -2772,7 +2766,7 @@ int RTjpeg::SetIntra(int *key, int *lm, int *cm)
          fprintf(stderr, "RTjpeg: Could not allocate memory\n");
          return -1;
     }
-    memset(m_old, 0, ((4*m_width*m_height)));
+    memset(m_old, 0, (4_UZ * m_width * m_height));
 
     return 0;
 }
@@ -3296,7 +3290,7 @@ int RTjpeg::Compress(int8_t *sp, uint8_t **planes)
   fh->key = 0;
  } else {
   if (m_keyCount == 0)
-   memset(m_old, 0, ((4 * m_width * m_height)));
+   memset(m_old, 0, (4_UZ * m_width * m_height));
   switch(m_f)
   {
    case RTJ_YUV420: ds = mcompressYUV420((int8_t*)&(fh->data), planes); break;
@@ -3308,11 +3302,11 @@ int RTjpeg::Compress(int8_t *sp, uint8_t **planes)
    m_keyCount = 0;
  }
  ds += RTJPEG_HEADER_SIZE;
- fh->framesize = RTJPEG_SWAP_WORD(ds);
+ fh->framesize = qToLittleEndian<qint32>(ds);
  fh->headersize = RTJPEG_HEADER_SIZE;
  fh->version = RTJPEG_FILE_VERSION;
- fh->width = RTJPEG_SWAP_HALFWORD(m_width);
- fh->height = RTJPEG_SWAP_HALFWORD(m_height);
+ fh->width = qToLittleEndian<qint16>(m_width);
+ fh->height = qToLittleEndian<qint16>(m_height);
  fh->quality = m_q;
  return ds;
 }
@@ -3321,11 +3315,11 @@ void RTjpeg::Decompress(int8_t *sp, uint8_t **planes)
 {
  auto * fh = reinterpret_cast<RTjpeg_frameheader *>(sp);
 
- if ((RTJPEG_SWAP_HALFWORD(fh->width) != m_width)||
-    (RTJPEG_SWAP_HALFWORD(fh->height) != m_height))
+ if ((qFromLittleEndian<qint16>(fh->width) != m_width)||
+    (qFromLittleEndian<qint16>(fh->height) != m_height))
  {
-  int w = RTJPEG_SWAP_HALFWORD(fh->width);
-  int h = RTJPEG_SWAP_HALFWORD(fh->height);
+  int w = qFromLittleEndian<qint16>(fh->width);
+  int h = qFromLittleEndian<qint16>(fh->height);
   SetSize(&w, &h);
  }
  if (fh->quality != m_q)

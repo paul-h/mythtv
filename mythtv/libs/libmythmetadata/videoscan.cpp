@@ -8,10 +8,10 @@
 
 // mythtv
 #include "libmyth/mythcontext.h"
-#include "libmyth/remoteutil.h"
 #include "libmythbase/mythdate.h"
 #include "libmythbase/mythevent.h"
 #include "libmythbase/mythlogging.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythui/mythdialogbox.h"
 #include "libmythui/mythmainwindow.h"
 #include "libmythui/mythprogressdialog.h"
@@ -210,7 +210,6 @@ void VideoScannerThread::run()
 
         QStringList slist;
 
-        QList<int>::const_iterator i;
         for (int id : qAsConst(m_addList))
             slist << QString("added::%1").arg(id);
         for (int id : qAsConst(m_movList))

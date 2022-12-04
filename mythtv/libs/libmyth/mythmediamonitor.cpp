@@ -37,15 +37,6 @@ static const QString sLocation = QObject::tr("Media Monitor");
 
 MediaMonitor *MediaMonitor::s_monitor = nullptr;
 
-// MonitorThread
-MonitorThread::MonitorThread(MediaMonitor* pMon, unsigned long interval) :
-    MThread("Monitor")
-{
-    m_monitor = pMon;
-    m_interval = interval;
-    m_lastCheckTime = QDateTime::currentDateTimeUtc();
-}
-
 // Nice and simple, as long as our monitor is valid and active,
 // loop and check it's devices.
 void MonitorThread::run(void)
@@ -79,7 +70,7 @@ void MonitorThread::run(void)
 ////////////////////////////////////////////////////////////////////////
 // MediaMonitor
 
-#define MONITOR_INTERVAL 5000
+static constexpr unsigned long MONITOR_INTERVAL { 5000 };
 
 MediaMonitor* MediaMonitor::GetMediaMonitor(void)
 {
@@ -739,7 +730,7 @@ void MediaMonitor::mediaStatusChanged(MythMediaStatus oldStatus,
     // We now send events for all non-error statuses, so plugins get ejects
     if (stat != MEDIASTAT_ERROR && stat != MEDIASTAT_UNKNOWN &&
         // Don't send an event for a new device that's not mounted
-        !(oldStatus == MEDIASTAT_UNPLUGGED && stat == MEDIASTAT_NOTMOUNTED))
+        (oldStatus != MEDIASTAT_UNPLUGGED || stat != MEDIASTAT_NOTMOUNTED))
     {
         // Should we ValidateAndLock() first?
         QEvent *e = new MythMediaEvent(stat, pMedia);

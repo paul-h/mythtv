@@ -1,7 +1,7 @@
 // MythTV
-#include "libmyth/remoteutil.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythlogging.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythtv/channelutil.h"
 #include "libmythtv/recordinginfo.h"
 #include "libmythtv/scheduledrecording.h"
@@ -274,7 +274,7 @@ void ViewScheduleDiff::fillList(void)
 
 void ViewScheduleDiff::updateUIList(void)
 {
-    for (auto s : m_recList)
+    for (const auto& s : m_recList)
     {
         class ProgramInfo *pginfo = s.m_after;
         if (!pginfo)

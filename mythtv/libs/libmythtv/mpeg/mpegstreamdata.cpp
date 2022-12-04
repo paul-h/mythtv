@@ -854,6 +854,7 @@ void MPEGStreamData::UpdateTimeOffset(uint64_t _si_utc_time)
 
 }
 
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define DONE_WITH_PSIP_PACKET() { delete psip; \
     if (morePSIPTables) goto HAS_ANOTHER_PSIP; else return; }
 
@@ -908,7 +909,7 @@ void MPEGStreamData::HandleTSTables(const TSPacket* tspacket)
     if (tspacket->Scrambled())
     { // scrambled! ATSC, DVB require tables not to be scrambled
         LOG(VB_RECORD, LOG_ERR, LOC +
-            "PSIP packet is scrambled, not ATSC/DVB compiant");
+            "PSIP packet is scrambled, not ATSC/DVB compliant");
         DONE_WITH_PSIP_PACKET();
     }
 
@@ -1011,6 +1012,23 @@ bool MPEGStreamData::ProcessTSPacket(const TSPacket& tspacket)
 
     if (tspacket.Scrambled())
         return true;
+
+    // Discard broken packets with invalid adaptation field length
+    // See ISO/IEC 13818-1 : 2000 (E). 2.4.3.5 Semantic definition of fields in adaptation field
+    if (tspacket.HasAdaptationField())
+    {
+        size_t afsize = tspacket.AdaptationFieldSize();
+        bool validsize = (tspacket.HasPayload())
+            ? afsize <= 182
+            : afsize == 183;
+        if (!validsize)
+        {
+            LOG(VB_RECORD, LOG_DEBUG, QString("Invalid adaptation field, type %3, size %4")
+                .arg(tspacket.AdaptationFieldControl()).arg(afsize) + "\n" +
+                tspacket.toString());
+            return false;
+        }
+    }
 
     if (VERBOSE_LEVEL_CHECK(VB_RECORD, LOG_DEBUG))
     {

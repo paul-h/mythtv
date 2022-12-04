@@ -41,11 +41,11 @@
 // myth
 #include <mythconfig.h>
 #include <libmyth/mythcontext.h>
-#include <libmyth/programinfo.h>
 #include <libmythbase/mythdate.h>
 #include <libmythbase/mythdbcon.h>
 #include <libmythbase/mythdirs.h>
 #include <libmythbase/mythmiscutil.h> // for MythFile::copy
+#include <libmythbase/programinfo.h>
 #include <libmythui/mythdialogbox.h>
 #include <libmythui/mythimage.h>
 #include <libmythui/mythmainwindow.h>
@@ -67,7 +67,7 @@ extern "C" {
 #include "thumbfinder.h"
 
 // the amount to seek before the required frame
-#define PRE_SEEK_AMOUNT 50
+static constexpr int8_t PRE_SEEK_AMOUNT { 50 };
 
 static const std::array<const SeekAmount,9> kSeekAmounts
 {{
@@ -388,7 +388,7 @@ void ThumbFinder::updateThumb(void)
     item->SetImage(imageFile, "", true);
 
     // update the image grid item
-    int64_t pos = (int) ((m_currentPTS - m_startPTS) / m_frameTime);
+    int64_t pos = (m_currentPTS - m_startPTS) / m_frameTime;
     thumb->frame = pos - m_offset;
     if (itemNo != 0)
     {
@@ -759,15 +759,12 @@ bool ThumbFinder::getFrameImage(bool needKeyFrame, int64_t requiredPTS)
     }
 
     bool frameFinished = false;
-    int frameCount = 0;
     bool gotKeyFrame = false;
 
     while (av_read_frame(m_inputFC, pkt) >= 0 && !frameFinished)
     {
         if (pkt->stream_index == m_videostream)
         {
-            frameCount++;
-
             int keyFrame = pkt->flags & AV_PKT_FLAG_KEY;
 
             if (m_startPTS == -1 && pkt->dts != AV_NOPTS_VALUE)

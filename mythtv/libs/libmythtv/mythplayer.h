@@ -59,7 +59,7 @@ enum TCTypes
     TC_SUB,
     TC_CC
 };
-#define TCTYPESMAX 4
+static constexpr size_t TCTYPESMAX { 4 };
 using tctype_arr = std::array<std::chrono::milliseconds,TCTYPESMAX>;
 
 enum PlayerFlags
@@ -132,7 +132,7 @@ class MTV_PUBLIC MythPlayer : public QObject
     QSize   GetVideoSize(void) const          { return m_videoDispDim; }
     float   GetVideoAspect(void) const        { return m_videoAspect; }
     float   GetFrameRate(void) const          { return m_videoFrameRate; }
-    bool    IsAudioNeeded(void) { return ((FlagIsSet(kVideoIsNull)) == 0); }
+    bool    IsAudioNeeded(void)               { return !FlagIsSet(kVideoIsNull); }
     int     GetFreeVideoFrames(void) const;
 
     int     GetFFRewSkip(void) const          { return m_ffrewSkip; }
@@ -221,12 +221,12 @@ class MTV_PUBLIC MythPlayer : public QObject
     virtual int GetNumTitles(void) const { return 0; }
     virtual int GetCurrentTitle(void) const { return 0; }
     virtual std::chrono::seconds GetTitleDuration(int /*title*/) const { return 0s; }
-    virtual QString GetTitleName(int /*title*/) const { return QString(); }
+    virtual QString GetTitleName(int /*title*/) const { return {}; }
 
     // Angle public stuff
     virtual int GetNumAngles(void) const { return 0; }
     virtual int GetCurrentAngle(void) const { return 0; }
-    virtual QString GetAngleName(int /*title*/) const { return QString(); }
+    virtual QString GetAngleName(int /*title*/) const { return {}; }
 
     // DVD public stuff
     virtual bool IsInStillFrame() const         { return false;     }
@@ -243,6 +243,7 @@ class MTV_PUBLIC MythPlayer : public QObject
     static const double kInaccuracyDefault;
     static const double kInaccuracyEditor;
     static const double kInaccuracyFull;
+    static const double kSeekToEndOffset;
 
     void SaveTotalFrames(void);
     void SetErrored(const QString &reason);
@@ -317,7 +318,7 @@ class MTV_PUBLIC MythPlayer : public QObject
     bool GetEditMode(void) const { return m_deleteMap.IsEditing(); }
     bool IsInDelete(uint64_t frame);
 
-    bool FlagIsSet(PlayerFlags arg) { return m_playerFlags & arg; }
+    bool FlagIsSet(PlayerFlags arg) { return (m_playerFlags & arg) != 0; }
 
   protected:
     // Private Sets
@@ -496,7 +497,7 @@ class MTV_PUBLIC MythPlayer : public QObject
         {microsecondsFromFloat(1000000.0F / 30)};///< always adjusted for play_speed
     int        m_fpsMultiplier            {1}; ///< used to detect changes
     int        m_ffrewSkip                {1};
-    int        m_ffrewUseRenderOne        {false}; // mediacode work around
+    bool       m_ffrewUseRenderOne        {false}; // mediacode work around
     int        m_ffrewAdjust              {0}; ///< offset after last skip
     float      m_ffrewScale               {1.0F}; ///< scale skip for large gops
     bool       m_fileChanged              {false};

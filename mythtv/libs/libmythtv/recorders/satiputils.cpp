@@ -49,7 +49,7 @@ QStringList SatIP::probeDevices(void)
     }
 
     return SatIP::doUPNPsearch(true);
-};
+}
 
 QStringList SatIP::doUPNPsearch(bool loginfo)
 {
@@ -60,7 +60,7 @@ QStringList SatIP::doUPNPsearch(bool loginfo)
     if (!satipservers)
     {
         LOG(VB_GENERAL, LOG_INFO, LOC + "No UPnP Sat>IP servers found");
-        return QStringList();
+        return {};
     }
 
     int count = satipservers->Count();
@@ -132,7 +132,7 @@ QStringList SatIP::doUPNPsearch(bool loginfo)
     satipservers = nullptr;
 
     return result;
-};
+}
 
 QStringList SatIP::findServers(void)
 {

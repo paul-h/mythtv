@@ -2,10 +2,10 @@
 #include <QCoreApplication>
 
 // MythTV stuff
-#include "libmyth/remoteutil.h"
 #include "libmythbase/exitcodes.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythsystemlegacy.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythui/mythdialogbox.h"
 #include "libmythui/mythmainwindow.h"
 #include "libmythui/mythscreenstack.h"
@@ -97,11 +97,11 @@ void ExitPrompter::handleExit()
         }
 
         dia->SetReturnEvent(this, "problemprompt");
-        
+
         dia->AddButton(tr("Yes please"));
         dia->AddButton(tr("No, I know what I am doing"),
                        &ExitPrompter::masterPromptExit);
-                
+
         m_d->m_stk->AddScreen(dia);
     }
     else
@@ -116,7 +116,7 @@ void ExitPrompter::customEvent(QEvent *event)
 
         QString resultid= dce->GetId();
         int buttonnum = dce->GetResult();
-        
+
         if (resultid == "mythfillprompt")
         {
             quit();

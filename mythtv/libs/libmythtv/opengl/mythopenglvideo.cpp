@@ -19,7 +19,7 @@ extern "C" {
 }
 
 #define LOC QString("GLVid: ")
-#define MAX_VIDEO_TEXTURES 10 // YV12 Kernel deinterlacer + 1
+// static constexpr int8_t MAX_VIDEO_TEXTURES { 10 }; // YV12 Kernel deinterlacer + 1
 
 /**
  * \class MythOpenGLVideo
@@ -265,7 +265,7 @@ bool MythOpenGLVideo::AddDeinterlacer(const MythVideoFrame* Frame, FrameScanType
     if (refstocreate)
     {
         std::vector<QSize> sizes;
-        sizes.emplace_back(QSize(m_videoDim));
+        sizes.emplace_back(m_videoDim);
         m_prevTextures = MythVideoTextureOpenGL::CreateTextures(m_openglRender, m_inputType, m_outputType, sizes);
         m_nextTextures = MythVideoTextureOpenGL::CreateTextures(m_openglRender, m_inputType, m_outputType, sizes);
         // ensure we use GL_NEAREST if resizing is already active and needed
@@ -823,7 +823,7 @@ void MythOpenGLVideo::RenderFrame(MythVideoFrame* Frame, bool TopFieldFirst, Fra
 
     // We don't need an extra stage prior to bicubic if the frame is already RGB (e.g. VDPAU, MediaCodec)
     // So bypass if we only set resize for bicubic.
-    bool needresize = resize && !(MythVideoFrame::FormatIsRGB(m_outputType) && (resize == Bicubic));
+    bool needresize = resize && (!MythVideoFrame::FormatIsRGB(m_outputType) || (resize != Bicubic));
 
     // set software frame filtering if resizing has changed
     if (!needresize && m_resizing)

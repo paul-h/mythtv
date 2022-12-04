@@ -74,7 +74,7 @@ static void my_av_print(void *ptr, int level, const char* fmt, va_list vl)
     if (level > AV_LOG_INFO)
         return;
 
-    s_fullLine += QString::asprintf(fmt, vl);
+    s_fullLine += QString::vasprintf(fmt, vl);
     if (s_fullLine.endsWith("\n"))
     {
         s_fullLine.chop(1);
@@ -348,7 +348,8 @@ MPEG2fixup::~MPEG2fixup()
 }
 
 //#define MPEG2trans_DEBUG
-#define MATCH_HEADER(ptr) (((ptr)[0] == 0x00) && ((ptr)[1] == 0x00) && ((ptr)[2] == 0x01))
+static constexpr bool MATCH_HEADER(const uint8_t *ptr)
+    { return (ptr[0] == 0x00) && (ptr[1] == 0x00) && (ptr[2] == 0x01); };
 
 static void SETBITS(unsigned char *ptr, long value, int num)
 {
@@ -793,7 +794,7 @@ bool MPEG2fixup::InitAV(const QString& inputfile, const char *type, int64_t offs
     QByteArray ifarray = inputfile.toLocal8Bit();
     const char *ifname = ifarray.constData();
 
-    AVInputFormat *fmt = nullptr;
+    const AVInputFormat *fmt = nullptr;
 
     if (type)
         fmt = av_find_input_format(type);
@@ -864,7 +865,7 @@ bool MPEG2fixup::InitAV(const QString& inputfile, const char *type, int64_t offs
 
             case AVMEDIA_TYPE_AUDIO:
                 if (!m_allAudio && m_extCount > 0 &&
-                    m_inputFC->streams[i]->codecpar->channels < 2 &&
+                    m_inputFC->streams[i]->codecpar->ch_layout.nb_channels < 2 &&
                     m_inputFC->streams[i]->codecpar->sample_rate < 100000)
                 {
                     LOG(VB_GENERAL, LOG_ERR,
@@ -1242,7 +1243,7 @@ bool MPEG2fixup::BuildFrame(AVPacket *pkt, const QString& fname)
     m_picture->interlaced_frame = ((info->display_picture->flags &
                                     PIC_FLAG_PROGRESSIVE_FRAME) != 0) ? 0 : 1;
 
-    AVCodec *out_codec = avcodec_find_encoder(AV_CODEC_ID_MPEG2VIDEO);
+    const AVCodec *out_codec = avcodec_find_encoder(AV_CODEC_ID_MPEG2VIDEO);
     if (!out_codec)
     {
         LOG(VB_GENERAL, LOG_ERR, "Couldn't find MPEG2 encoder");
@@ -1281,6 +1282,9 @@ bool MPEG2fixup::BuildFrame(AVPacket *pkt, const QString& fname)
 
     c->qmin = c->qmax = 2;
 
+    m_picture->width = info->sequence->width;
+    m_picture->height = info->sequence->height;
+    m_picture->format = AV_PIX_FMT_YUV420P;
     m_picture->pts = AV_NOPTS_VALUE;
     m_picture->key_frame = 1;
     m_picture->pict_type = AV_PICTURE_TYPE_NONE;
@@ -1346,7 +1350,7 @@ bool MPEG2fixup::BuildFrame(AVPacket *pkt, const QString& fname)
     return false;
 }
 
-#define MAX_FRAMES 20000
+static constexpr int MAX_FRAMES { 20000 };
 MPEG2frame *MPEG2fixup::GetPoolFrame(AVPacket *pkt)
 {
     MPEG2frame *f = nullptr;
@@ -1894,7 +1898,7 @@ int MPEG2fixup::InsertFrame(int frameNum, int64_t deltaPTS,
 
     {
         QString fname;
-#if SPEW_FILES
+#ifdef SPEW_FILES
         static int ins_count = 0;
         fname = (VERBOSE_LEVEL_CHECK(VB_PROCESS, LOG_ANY) ?
                 (QString("ins%1").arg(ins_count++)) : QString());

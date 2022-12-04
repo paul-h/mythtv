@@ -64,7 +64,7 @@ MythDB *GetMythTestDB(const QString& testname)
     DatabaseParams params {};
     params.m_dbHostName = "localhost";
     params.m_dbHostPing = false;
-#if CONFIG_DEBUGTYPE
+#ifndef NDEBUG
     params.m_dbName =
         QStandardPaths::writableLocation(QStandardPaths::TempLocation) +
         QDir::separator() +
@@ -242,6 +242,11 @@ QString MythDB::DBErrorMessage(const QSqlError& err)
         .arg(err.nativeErrorCode(),
              err.driverText(),
              err.databaseText());
+}
+
+QString MythDB::GetDatabaseName() const
+{
+    return d->m_dbParams.m_dbName;
 }
 
 DatabaseParams MythDB::GetDatabaseParams(void) const

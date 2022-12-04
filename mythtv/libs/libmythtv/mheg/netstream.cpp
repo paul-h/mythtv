@@ -4,9 +4,6 @@
 #include "netstream.h"
 
 // C/C++ lib
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-#include <cstdlib>
-#endif
 #include <cstddef>
 #include <cstdio>
 #include <cinttypes>
@@ -42,14 +39,10 @@
 #include "libmythbase/mythdirs.h"
 #include "libmythbase/mythlogging.h"
 
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-#define qEnvironmentVariable std::getenv
-#endif
-
 /*
  * Constants
  */
-#define LOC "[netstream] "
+static const QString LOC { QStringLiteral("[netstream] ") };
 
 
 /*
@@ -765,7 +758,7 @@ NAMThread::~NAMThread()
 // virtual
 void NAMThread::run()
 {
-    LOG(VB_FILE, LOG_INFO, LOC "NAMThread starting");
+    LOG(VB_FILE, LOG_INFO, LOC + "NAMThread starting");
 
     m_nam = new QNetworkAccessManager();
     m_nam->setObjectName("NetStream NAM");
@@ -794,7 +787,7 @@ void NAMThread::run()
             QNetworkProxy::NoProxy;
         if (QNetworkProxy::NoProxy != type)
         {
-            LOG(VB_GENERAL, LOG_INFO, LOC "Using proxy: " + proxy);
+            LOG(VB_GENERAL, LOG_INFO, LOC + "Using proxy: " + proxy);
             m_nam->setProxy(QNetworkProxy(
                 type, url.host(), url.port(), url.userName(), url.password() ));
         }
@@ -838,7 +831,7 @@ void NAMThread::run()
     delete m_nam;
     m_nam = nullptr;
 
-    LOG(VB_FILE, LOG_INFO, LOC "NAMThread stopped");
+    LOG(VB_FILE, LOG_INFO, LOC + "NAMThread stopped");
 }
 
 // slot
@@ -875,7 +868,7 @@ bool NAMThread::StartRequest(NetStreamRequest *p)
 {
     if (!p)
     {
-        LOG(VB_GENERAL, LOG_ERR, LOC "Invalid NetStreamRequest");
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Invalid NetStreamRequest");
         return false;
     }
 
@@ -895,7 +888,7 @@ bool NAMThread::AbortRequest(NetStreamAbort *p)
 {
     if (!p)
     {
-        LOG(VB_GENERAL, LOG_ERR, LOC "Invalid NetStreamAbort");
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Invalid NetStreamAbort");
         return false;
     }
 
@@ -930,18 +923,18 @@ QDateTime NAMThread::GetLastModified(const QUrl &url)
     QMutexLocker locker(&m.m_mutex);
 
     if (!m.m_nam)
-        return QDateTime(); // Invalid
+        return {}; // Invalid
 
     QAbstractNetworkCache *cache = m.m_nam->cache();
     if (!cache)
-        return QDateTime(); // Invalid
+        return {}; // Invalid
 
     QNetworkCacheMetaData meta = cache->metaData(url);
     if (!meta.isValid())
     {
         LOG(VB_FILE, LOG_DEBUG, LOC + QString("GetLastModified('%1') not in cache")
             .arg(url.toString()));
-        return QDateTime(); // Invalid
+        return {}; // Invalid
     }
 
     // Check if expired
@@ -951,7 +944,7 @@ QDateTime NAMThread::GetLastModified(const QUrl &url)
     {
         LOG(VB_FILE, LOG_INFO, LOC + QString("GetLastModified('%1') past expiration %2")
             .arg(url.toString(), expire.toString()));
-        return QDateTime(); // Invalid
+        return {}; // Invalid
     }
 
     // Get time URI was modified (Last-Modified header)  NB this may be invalid
@@ -973,7 +966,7 @@ QDateTime NAMThread::GetLastModified(const QUrl &url)
                     QString("GetLastModified('%1') Cache-Control disabled")
                         .arg(url.toString()) );
                 cache->remove(url);
-                return QDateTime(); // Invalid
+                return {}; // Invalid
             }
         }
         else if (first == "date")

@@ -28,7 +28,6 @@
 
 // MythTV
 #include "libmyth/mythcontext.h"
-#include "libmyth/remoteutil.h"
 #include "libmythbase/compat.h"
 #include "libmythbase/exitcodes.h"
 #include "libmythbase/mythdate.h"
@@ -36,6 +35,7 @@
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythmiscutil.h"
 #include "libmythbase/mythsystemlegacy.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythbase/storagegroup.h"
 #include "libmythtv/cardutil.h"
 #include "libmythtv/jobqueue.h"
@@ -454,12 +454,12 @@ bool Scheduler::FillRecordList(void)
     AddNotListed();
 
     LOG(VB_SCHEDULE, LOG_INFO, "Sort by time...");
-    SORT_RECLIST(m_workList, comp_overlap);
+    std::stable_sort(m_workList.begin(), m_workList.end(), comp_overlap);
     LOG(VB_SCHEDULE, LOG_INFO, "PruneOverlaps...");
     PruneOverlaps();
 
     LOG(VB_SCHEDULE, LOG_INFO, "Sort by priority...");
-    SORT_RECLIST(m_workList, comp_priority);
+    std::stable_sort(m_workList.begin(), m_workList.end(), comp_priority);
     LOG(VB_SCHEDULE, LOG_INFO, "BuildListMaps...");
     BuildListMaps();
     LOG(VB_SCHEDULE, LOG_INFO, "SchedNewRecords...");
@@ -472,12 +472,12 @@ bool Scheduler::FillRecordList(void)
     m_schedLock.lock();
 
     LOG(VB_SCHEDULE, LOG_INFO, "Sort by time...");
-    SORT_RECLIST(m_workList, comp_redundant);
+    std::stable_sort(m_workList.begin(), m_workList.end(), comp_redundant);
     LOG(VB_SCHEDULE, LOG_INFO, "PruneRedundants...");
     PruneRedundants();
 
     LOG(VB_SCHEDULE, LOG_INFO, "Sort by time...");
-    SORT_RECLIST(m_workList, comp_recstart);
+    std::stable_sort(m_workList.begin(), m_workList.end(), comp_recstart);
     LOG(VB_SCHEDULE, LOG_INFO, "ClearWorkList...");
     bool res = ClearWorkList();
 
@@ -1520,7 +1520,7 @@ void Scheduler::SchedNewRetryPass(const RecIter& start, const RecIter& end,
         if ((*i)->GetRecordingStatus() == RecStatus::Unknown)
             retry_list.push_back(*i);
     }
-    SORT_RECLIST(retry_list, comp_retry);
+    std::stable_sort(retry_list.begin(), retry_list.end(), comp_retry);
 
     for (auto *p : retry_list)
     {

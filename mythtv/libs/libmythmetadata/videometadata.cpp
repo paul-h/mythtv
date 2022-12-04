@@ -6,8 +6,6 @@
 #include <QRegularExpression>
 
 #include "libmyth/mythcontext.h"
-#include "libmyth/programinfo.h" // for format_season_and_episode
-#include "libmyth/remoteutil.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythdate.h"
 #include "libmythbase/mythdb.h"
@@ -15,6 +13,7 @@
 #include "libmythbase/mythmiscutil.h"// for FileHash
 #include "libmythbase/mythsorthelper.h"
 #include "libmythbase/remotefile.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythbase/storagegroup.h"
 #include "libmythbase/stringutil.h"
 #include "libmythbase/ternarycompare.h"
@@ -1019,7 +1018,7 @@ QString VideoMetadataImp::GetImage(const QString& name) const
         return GetImage("coverart");
     }
 
-    return QString();
+    return {};
 }
 
 ////////////////////////////////////////
@@ -1145,9 +1144,12 @@ QString VideoMetadata::FilenameToMeta(const QString &file_name, int position)
     //          3 returns episode, 4 returns subtitle
 
     QString cleanFilename = file_name.left(file_name.lastIndexOf('.'));
-    cleanFilename.replace(QRegularExpression("%20"), " ");
-    cleanFilename.replace(QRegularExpression("_"), " ");
-    cleanFilename.replace(QRegularExpression("\\."), " ");
+    static const QRegularExpression kSpaceRE      { "%20" };
+    static const QRegularExpression kUnderscoreRE { "_"   };
+    static const QRegularExpression kDotRE        { "\\." };
+    cleanFilename.replace(kSpaceRE,      " ");
+    cleanFilename.replace(kUnderscoreRE, " ");
+    cleanFilename.replace(kDotRE,        " ");
 
     /*: Word(s) which should be recognized as "season" when parsing a video
      * file name. To list more than one word, separate them with a '|'.
@@ -1218,9 +1220,9 @@ QString VideoMetadata::FilenameToMeta(const QString &file_name, int position)
         return title.trimmed();
     }
     else if (position == 2 || position == 3)
-        return QString("0");
+        return {"0"};
 
-    return QString();
+    return {};
 }
 
 VideoMetadata::VideoMetadata(const QString &filename, const QString &sortFilename,
@@ -1420,7 +1422,7 @@ QString VideoMetadata::GetText(const QString& name) const
         return GetDisplayProcessed(GetProcessed());
     if (name == QStringLiteral(u"category"))
         return GetCategory();
-    return QString();
+    return {};
 }
 
 void VideoMetadata::GetStateMap(InfoMap &stateMap) const
@@ -1444,7 +1446,7 @@ QString VideoMetadata::GetState(const QString& name) const
         return WatchedToState(GetWatched());
     if (name == QStringLiteral(u"videolevel"))
         return ParentalLevelToState(GetShowLevel());
-    return QString();
+    return {};
 }
 
 void VideoMetadata::GetImageMap(InfoMap &imageMap)
@@ -1504,7 +1506,7 @@ void ClearMap(InfoMap &metadataMap)
 QString VideoMetadata::MetadataGetTextCb(const QString& name, void *data)
 {
     if (data == nullptr)
-        return QString();
+        return {};
     auto *metadata = static_cast<VideoMetadata *>(data);
     QString result = metadata->GetText(name);
     if (!result.isEmpty())
@@ -1518,7 +1520,7 @@ QString VideoMetadata::MetadataGetTextCb(const QString& name, void *data)
 QString VideoMetadata::MetadataGetImageCb(const QString& name, void *data)
 {
     if (data == nullptr)
-        return QString();
+        return {};
     auto *metadata = static_cast<VideoMetadata *>(data);
     return metadata->GetImage(name);
 }
@@ -1526,7 +1528,7 @@ QString VideoMetadata::MetadataGetImageCb(const QString& name, void *data)
 QString VideoMetadata::MetadataGetStateCb(const QString& name, void *data)
 {
     if (data == nullptr)
-        return QString();
+        return {};
     auto *metadata = static_cast<VideoMetadata *>(data);
     return metadata->GetState(name);
 }

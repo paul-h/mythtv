@@ -8,7 +8,7 @@
 #include <QMutex>
 #include <QString>
 
-#include "libmyth/programinfo.h" // for subtitle types and audio and video properties
+#include "libmythbase/programinfo.h" // for subtitle types and audio and video properties
 #include "libmythtv/mythtvexp.h" // MTV_PUBLIC - Symbol Visibility
 #include "mpegdescriptors.h"
 
@@ -48,21 +48,27 @@ inline QString dvb_decode_text(const unsigned char *src, uint length)
 
 QString dvb_decode_short_name(const unsigned char *src, uint raw_length);
 
-#define byteBCDH2int(i) ((i) >> 4)
-#define byteBCDL2int(i) ((i) & 0x0f)
-#define byteBCD2int(i) (byteBCDH2int(i) * 10 + byteBCDL2int(i))
-#define byte2BCD2int(i, j) \
-  (byteBCDH2int(i) * 1000     + byteBCDL2int(i) * 100       + \
-   byteBCDH2int(j) * 10       + byteBCDL2int(j))
-#define byte3BCD2int(i, j, k) \
-  (byteBCDH2int(i) * 100000   + byteBCDL2int(i) * 10000     + \
-   byteBCDH2int(j) * 1000     + byteBCDL2int(j) * 100       + \
-   byteBCDH2int(k) * 10       + byteBCDL2int(k))
-#define byte4BCD2int(i, j, k, l) \
-  (byteBCDH2int(i) * 10000000LL + byteBCDL2int(i) * 1000000 + \
-   byteBCDH2int(j) * 100000     + byteBCDL2int(j) * 10000   + \
-   byteBCDH2int(k) * 1000       + byteBCDL2int(k) * 100     + \
-   byteBCDH2int(l) * 10         + byteBCDL2int(l))
+static constexpr uint8_t byteBCDH2int(uint8_t i) { return i >> 4; };
+static constexpr uint8_t byteBCDL2int(uint8_t i) { return i & 0x0f; };
+static constexpr uint8_t byteBCD2int(uint8_t i)
+{ return (byteBCDH2int(i) * 10) + byteBCDL2int(i); };
+static constexpr uint16_t byte2BCD2int(uint8_t i, uint8_t j)
+{ return (byteBCDH2int(i) * 1000     + byteBCDL2int(i) * 100       +
+          byteBCDH2int(j) * 10       + byteBCDL2int(j)); };
+static constexpr uint32_t byte3BCD2int(uint8_t i, uint8_t j, uint8_t k)
+{ return (byteBCDH2int(i) * 100000   + byteBCDL2int(i) * 10000     +
+          byteBCDH2int(j) * 1000     + byteBCDL2int(j) * 100       +
+          byteBCDH2int(k) * 10       + byteBCDL2int(k)); };
+static constexpr uint32_t byte4BCD2int(uint8_t i, uint8_t j, uint8_t k, uint8_t l)
+{ return (byteBCDH2int(i) * 10000000LL + byteBCDL2int(i) * 1000000 +
+          byteBCDH2int(j) * 100000     + byteBCDL2int(j) * 10000   +
+          byteBCDH2int(k) * 1000       + byteBCDL2int(k) * 100     +
+          byteBCDH2int(l) * 10         + byteBCDL2int(l)); };
+
+static_assert( byteBCD2int(0x98) == 98);
+static_assert(byte2BCD2int(0x98, 0x76) == 9876);
+static_assert(byte3BCD2int(0x98, 0x76, 0x54) == 987654);
+static_assert(byte4BCD2int(0x98, 0x76, 0x54, 0x32) == 98765432);
 
 // DVB Bluebook A038 (Sept 2011) p 77
 class NetworkNameDescriptor : public MPEGDescriptor
@@ -831,7 +837,7 @@ class SatelliteDeliverySystemDescriptor : public MPEGDescriptor
         return ((m_data[2]<<24) | (m_data[3]<<16) |
                 (m_data[4]<<8)  | (m_data[5]));
     }
-    unsigned long long FrequencykHz(void) const
+    uint64_t FrequencykHz(void) const
     {
         return byte4BCD2int(m_data[2], m_data[3], m_data[4], m_data[5]) * 10;
     }
@@ -1116,10 +1122,13 @@ class T2DeliverySystemDescriptor : public MPEGDescriptor
         const unsigned char *data, int len = 300) :
         MPEGDescriptor(data, len, DescriptorID::extension)
     {
-        if (DescriptorTagExtension() != DescriptorID::t2_delivery_system)
-            m_data = nullptr;
-        else
-            Parse();
+        if (IsValid())
+        {
+            if (DescriptorTagExtension() != DescriptorID::t2_delivery_system)
+                m_data = nullptr;
+            else
+                Parse();
+        }
     }
     //       Name             bits  loc  expected value
     // descriptor_tag           8   0.0       0x7f      extension
@@ -1845,7 +1854,7 @@ class ParentalRatingDescriptor : public MPEGDescriptor
     {
         int o = 2 + i*4;
         if (i >= Count())
-            return QString("");
+            return {""};
         std::array<QChar,3> code
             { QChar(m_data[o]), QChar(m_data[o+1]), QChar(m_data[o+2]) };
         return QString(code.data(), 3);
@@ -2937,6 +2946,51 @@ class DefaultAuthorityDescriptor : public MPEGDescriptor
         return QString("DefaultAuthorityDescriptor: Authority(%1)")
             .arg(DefaultAuthority());
     }
+};
+
+// Draft ETSI EN 300 468 V1.16.1 (2019-05)
+// DVB Bluebook A038 (Feb 2019) p 59
+// Table 42: S2 satellite delivery system descriptor
+// 0x79
+class S2SatelliteDeliverySystemDescriptor : public MPEGDescriptor
+{
+  public:
+    explicit S2SatelliteDeliverySystemDescriptor(
+        const unsigned char *data, int len = 300) :
+        MPEGDescriptor(data, len, DescriptorID::s2_satellite_delivery_system) { }
+    //       Name                     bits  loc     expected value
+    // descriptor_tag                   8   0.0     0x79
+    // descriptor_length                8   1.0
+    // scrambling_sequence_selector     1   2.0
+    uint ScramblingSequenceSelector() const
+        { return (m_data[2] >> 7) & 0x01; }
+
+    // multiple_input_stream_flag       1   2.1
+    uint MultipleInputStreamFlag() const
+        { return (m_data[2] >> 6) & 0x01; }
+
+    // reserved_zero_future_use         1   2.2
+    // not_timeslice_flag               1   2.3
+    uint NotTimesliceFlag() const
+        { return (m_data[2] >> 4) & 0x01; }
+
+    // reserved_future_use              2   2.4
+    // TS_GS_mode                       2   2.6
+    uint TSGSMode() const
+        { return m_data[2] & 0x03; }
+
+    // if (scrambling_sequence_selector == 1){
+    //   reserved_future_use            6   3.0
+    //   scrambling_sequence_index     18   3.6
+    // }
+    // if (multiple_input_stream_flag == 1){
+    //   input_stream_identifier        8   6.0
+    // }
+    // if (not_timeslice_flag == 0){
+    //   timeslice_number               8   7.0
+    // }
+
+    QString toString(void) const override; // MPEGDescriptor
 };
 
 /*

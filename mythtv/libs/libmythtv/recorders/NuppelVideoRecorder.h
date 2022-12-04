@@ -36,7 +36,7 @@ extern "C" {
 #include "libavcodec/avcodec.h"
 }
 
-#define KEYFRAMEDIST   30
+static constexpr int8_t KEYFRAMEDIST { 30 };
 
 struct video_audio;
 class RTjpeg;
@@ -185,11 +185,10 @@ class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
 
     RTjpeg             *m_rtjc                   {nullptr};
 
-#define OUT_LEN (1024*1024 + 1024*1024 / 64 + 16 + 3)    
-    std::array<lzo_byte,OUT_LEN> m_out                {};
-#define HEAP_ALLOC(var,size) \
-    std::array<long,((size) + (sizeof(long) - 1)) / sizeof(long)>  __LZO_MMODEL var
-    HEAP_ALLOC(wrkmem, LZO1X_1_MEM_COMPRESS) {};
+    static constexpr size_t kOutLen {1024*1024 + 1024*1024 / 64 + 16 + 3};
+    std::array<lzo_byte,kOutLen> m_out                {};
+
+    alignas(8) std::array<uint8_t,LZO1X_1_MEM_COMPRESS> __LZO_MMODEL m_wrkmem {0} ;
 
     std::vector<struct vidbuffertype *> m_videoBuffer;
     std::vector<struct audbuffertype *> m_audioBuffer;
@@ -246,7 +245,7 @@ class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
     
     bool                m_useAvCodec             {false};
 
-    AVCodec            *m_mpaVidCodec            {nullptr};
+    const AVCodec      *m_mpaVidCodec            {nullptr};
     AVCodecContext     *m_mpaVidCtx              {nullptr};
 
     int                 m_targetBitRate          {2200};

@@ -459,7 +459,7 @@ QDomElement Wsdl::CreateMethodType( MethodInfo   &oInfo,
 //
 /////////////////////////////////////////////////////////////////////////////
 
-bool Wsdl::IsCustomType( QString &sTypeName )
+bool Wsdl::IsCustomType( const QString &sTypeName )
 {
 #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
     int id = QMetaType::type( sTypeName.toUtf8() );
@@ -522,5 +522,5 @@ QString Wsdl::ReadClassInfo( const QMetaObject *pMeta, const QString &sKey )
     if (nIdx >=0)
         return pMeta->classInfo( nIdx ).value();
 
-    return QString();
+    return {};
 }

@@ -33,6 +33,8 @@ class MBASE_PUBLIC MythHTTPService : public QObject
     QString m_name;
     MythHTTPMetaService* m_staticMetaService { nullptr };
     HTTPRequest2 m_request{nullptr};
+    bool HAS_PARAMv2(const QString& p)
+        { return m_request->m_queries.contains(p.toLower()); }
 };
 
 class MBASE_PUBLIC V2HttpRedirectException
@@ -47,6 +49,8 @@ class MBASE_PUBLIC V2HttpRedirectException
 
         ~V2HttpRedirectException() = default;
 };
+
+//NOLINTBEGIN(cppcoreguidelines-macro-usage)
 
 /// @def SERVICE_PROPERTY(Type, Name)
 ///
@@ -122,6 +126,8 @@ class MBASE_PUBLIC V2HttpRedirectException
     {                                   \
         m_b##name = enabled;            \
     }
+
+//NOLINTEND(cppcoreguidelines-macro-usage)
 
 template< class T >
 void CopyListContents( QObject *pParent, QVariantList &dst, const QVariantList &src )

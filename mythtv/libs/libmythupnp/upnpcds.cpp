@@ -15,7 +15,6 @@
 #include <cstdint>
 
 #include "libmythbase/configuration.h"
-#include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythversion.h"
 
@@ -23,8 +22,8 @@
 #include "upnpcds.h"
 #include "upnputil.h"
 
-#define DIDL_LITE_BEGIN "<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">"
-#define DIDL_LITE_END   "</DIDL-Lite>";
+static constexpr const char* DIDL_LITE_BEGIN { R"(<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/">)" };
+static constexpr const char* DIDL_LITE_END   { "</DIDL-Lite>" };
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -95,7 +94,7 @@ UPnpCDS::UPnpCDS( UPnpDevice *pDevice, const QString &sSharePath )
     SetValue< QString  >( "ServiceResetToken",
                           QDateTime::currentDateTimeUtc().toString(Qt::ISODate) );
 
-    QString sUPnpDescPath = MythCoreContext::GetConfiguration()->GetValue( "UPnP/DescXmlPath", sSharePath );
+    QString sUPnpDescPath = XmlConfiguration().GetValue("UPnP/DescXmlPath", sSharePath);
 
     m_sServiceDescFileName = sUPnpDescPath + "CDS_scpd.xml";
     m_sControlUrl          = "/CDS_Control";
@@ -571,7 +570,7 @@ void UPnpCDS::HandleSearch( HTTPRequest *pRequest )
     // -=>TODO: This DOES NOT handle ('s or other complex expressions
     // ----------------------------------------------------------------------
 
-    QRegularExpression re {"\\b(or|and)\\b", QRegularExpression::CaseInsensitiveOption};
+    static const QRegularExpression re {"\\b(or|and)\\b", QRegularExpression::CaseInsensitiveOption};
 
 #if QT_VERSION < QT_VERSION_CHECK(5,14,0)
     request.m_sSearchList  = request.m_sSearchCriteria.split(
@@ -1053,7 +1052,7 @@ IDToken UPnpCDSExtension::GetCurrentToken(const QString& Id)
     QString key = current.section('=', 0, 0).toLower();
     QString value = current.section('=', 1, 1);
 
-    return IDToken(key, value);
+    return {key, value};
 }
 
 QString UPnpCDSExtension::CreateIDString(const QString &requestId,

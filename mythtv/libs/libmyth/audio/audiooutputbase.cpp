@@ -2,11 +2,17 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <SoundTouch.h>
 
 // POSIX headers
 #include <unistd.h>
 #include <sys/time.h>
+
+// SoundTouch
+#if __has_include(<soundtouch/SoundTouch.h>)
+#include <soundtouch/SoundTouch.h>
+#else
+#include <SoundTouch.h>
+#endif
 
 // Qt headers
 #include <QtGlobal>
@@ -38,11 +44,11 @@
 #define RPOS (&m_audioBuffer[m_raud])
 #define ABUF (m_audioBuffer.data())
 #define STST soundtouch::SAMPLETYPE
-#define AOALIGN(x) (((long)&(x) + 15) & ~0xf);
 
 // 1,2,5 and 7 channels are currently valid for upmixing if required
-#define UPMIX_CHANNEL_MASK ((1<<1)|(1<<2)|(1<<5)|1<<7)
-#define IS_VALID_UPMIX_CHANNEL(ch) ((1 << (ch)) & UPMIX_CHANNEL_MASK)
+static constexpr int UPMIX_CHANNEL_MASK { (1<<1)|(1<<2)|(1<<5)|(1<<7) };
+static constexpr bool IS_VALID_UPMIX_CHANNEL(int ch)
+{ return ((1 << ch) & UPMIX_CHANNEL_MASK) != 0; }
 
 const char *AudioOutputBase::quality_string(int q)
 {
@@ -92,18 +98,13 @@ AudioOutputBase::~AudioOutputBase()
                 "~AudioOutputBase called, but KillAudio has not been called!");
 
     // We got this from a subclass, delete it
-    // These all seem to be the same pointer, avoid freeing multiple times
-    VBAUDIO(QString("m_outputSettings != m_outputSettingsDigital : %1").arg(m_outputSettings != m_outputSettingsDigital));
-    if (m_outputSettingsDigital != m_outputSettings)
-    {
-        if (m_outputSettingsDigitalRaw != m_outputSettingsDigital && m_outputSettingsDigitalRaw != m_outputSettings)
-            delete m_outputSettingsDigitalRaw;
-        delete m_outputSettingsDigital;
-    }
-    VBAUDIO(QString("m_outputSettingsRaw != m_outputSettings %1").arg(m_outputSettingsRaw != m_outputSettings));
-    if (m_outputSettingsRaw != m_outputSettings)
-        delete m_outputSettingsRaw;
     delete m_outputSettings;
+    delete m_outputSettingsRaw;
+    if (m_outputSettings != m_outputSettingsDigital)
+    {
+        delete m_outputSettingsDigital;
+        delete m_outputSettingsDigitalRaw;
+    }
 
     if (m_kAudioSRCOutputSize > 0)
         delete[] m_srcOut;
@@ -197,9 +198,9 @@ AudioOutputSettings* AudioOutputBase::GetOutputSettingsUsers(bool digital)
     else if (m_outputSettingsDigital)
         return m_outputSettingsDigital;
 
-    //bugfix: don't allocate as GetOutputSettings will do it
-    //auto* aosettings = new AudioOutputSettings;
-    AudioOutputSettings* aosettings = GetOutputSettingsCleaned(digital);
+    auto* aosettings = new AudioOutputSettings;
+
+    *aosettings = *GetOutputSettingsCleaned(digital);
     aosettings->GetUsers();
 
     if (digital)
@@ -252,8 +253,8 @@ bool AudioOutputBase::CanPassthrough(int samplerate, int channels,
     ret &= m_outputSettingsDigital->IsSupportedFormat(FORMAT_S16);
     ret &= m_outputSettingsDigital->IsSupportedRate(samplerate);
     // if we must resample to 48kHz ; we can't passthrough
-    ret &= !((samplerate != 48000) &&
-             gCoreContext->GetBoolSetting("Audio48kOverride", false));
+    ret &= (samplerate == 48000) ||
+             !gCoreContext->GetBoolSetting("Audio48kOverride", false);
     // Don't know any cards that support spdif clocked at < 44100
     // Some US cable transmissions have 2ch 32k AC-3 streams
     ret &= samplerate >= 44100;
@@ -636,7 +637,7 @@ void AudioOutputBase::Reconfigure(const AudioSettings &orig_settings)
     }
 
     VBAUDIO(QString("Original codec was %1, %2, %3 kHz, %4 channels")
-            .arg(ff_codec_id_string(m_codec),
+            .arg(avcodec_get_name(m_codec),
                  m_outputSettings->FormatToString(m_format))
             .arg(m_sampleRate/1000)
             .arg(m_sourceChannels));
@@ -1227,7 +1228,7 @@ int AudioOutputBase::CopyWithUpmix(char *buffer, int frames, uint &org_waud)
     int len   = CheckFreeSpace(frames);
     int bdiff = kAudioRingBufferSize - org_waud;
     int bpf   = m_bytesPerFrame;
-    int off   = 0;
+    ptrdiff_t off = 0;
 
     if (!m_needsUpmix)
     {
@@ -1617,7 +1618,7 @@ void AudioOutputBase::Status()
         ct = 0ms;
 
     if (m_sourceBitRate == -1)
-        m_sourceBitRate = m_sourceSampleRate * m_sourceChannels *
+        m_sourceBitRate = static_cast<long>(m_sourceSampleRate) * m_sourceChannels *
                          AudioOutputSettings::FormatToBits(m_format);
 
     if (duration_cast<std::chrono::seconds>(ct) != m_currentSeconds)
@@ -1646,9 +1647,8 @@ void AudioOutputBase::GetBufferStatus(uint &fill, uint &total)
  */
 void AudioOutputBase::OutputAudioLoop(void)
 {
-    auto *zeros        = new uchar[m_fragmentSize];
-    auto *fragment_buf = new uchar[m_fragmentSize + 16];
-    auto *fragment     = (uchar *)AOALIGN(fragment_buf[0]);
+    auto *zeros        = new(std::align_val_t(16)) uchar[m_fragmentSize];
+    auto *fragment     = new(std::align_val_t(16)) uchar[m_fragmentSize];
     memset(zeros, 0, m_fragmentSize);
 
     // to reduce startup latency, write silence in 8ms chunks
@@ -1726,7 +1726,7 @@ void AudioOutputBase::OutputAudioLoop(void)
     }
 
     delete[] zeros;
-    delete[] fragment_buf;
+    delete[] fragment;
     VBAUDIO("OutputAudioLoop: Stop Event");
     OutputEvent e(OutputEvent::Stopped);
     dispatch(e);

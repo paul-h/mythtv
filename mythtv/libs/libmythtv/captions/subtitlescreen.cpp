@@ -721,11 +721,7 @@ bool FormattedTextChunk::PreRender(bool isFirst, bool isLast,
     {
         ++count;
     }
-#if QT_VERSION < QT_VERSION_CHECK(5,11,0)
-    int x_adjust = count * font.width(" ");
-#else
     int x_adjust = count * font.horizontalAdvance(" ");
-#endif
     int leftPadding = 0;
     int rightPadding = 0;
     CalcPadding(isFirst, isLast, leftPadding, rightPadding);
@@ -1161,7 +1157,8 @@ static QString extract_cc608(QString &text, int &color,
 
     // Copy the string into the result, up to the next control
     // character.
-    int nextControl = text.indexOf(QRegularExpression("[\\x{7000}-\\x{7fff}]"));
+    static const QRegularExpression kControlCharsRE { "[\\x{7000}-\\x{7fff}]" };
+    int nextControl = text.indexOf(kControlCharsRE);
     if (nextControl < 0)
     {
         result = text;
@@ -1649,11 +1646,7 @@ QSize SubtitleScreen::CalcTextSize(const QString &text,
     MythFontProperties *mythfont = GetFont(format);
     QFont *font = mythfont->GetFace();
     QFontMetrics fm(*font);
-#if QT_VERSION < QT_VERSION_CHECK(5,11,0)
-    int width = fm.width(text);
-#else
     int width = fm.horizontalAdvance(text);
-#endif
     int height = fm.height() * (1 + PAD_HEIGHT);
     if (layoutSpacing > 0 && !text.trimmed().isEmpty())
         height = std::max(height, (int)(font->pixelSize() * layoutSpacing));
@@ -1918,7 +1911,7 @@ void SubtitleScreen::DisplayAVSubtitles(void)
                 {
                     bbox = QRect(0, 0, rect->w, uh);
                     uh = DisplayScaledAVSubtitles(rect, bbox, true, display,
-                                                  subtitle.forced,
+                                                  rect->flags & AV_SUBTITLE_FLAG_FORCED,
                                                   QString("avsub%1t").arg(i),
                                                   displayuntil, late);
                 }
@@ -1929,7 +1922,7 @@ void SubtitleScreen::DisplayAVSubtitles(void)
                 {
                     bbox = QRect(0, uh, rect->w, lh);
                     DisplayScaledAVSubtitles(rect, bbox, false, display,
-                                             subtitle.forced,
+                                             rect->flags & AV_SUBTITLE_FLAG_FORCED,
                                              QString("avsub%1b").arg(i),
                                              displayuntil, late);
                 }

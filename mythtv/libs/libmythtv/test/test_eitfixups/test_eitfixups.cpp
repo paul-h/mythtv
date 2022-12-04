@@ -23,14 +23,14 @@
 
 #include "test_eitfixups.h"
 
-#include "libmyth/programinfo.h"
+#include "libmythbase/programinfo.h"
 #include "libmythtv/channelutil.h"
 #include "libmythtv/eitfixup.h"
 #include "libmythtv/mpeg/dishdescriptors.h"
 
 
 // Make this non-zero to enable dumping event details to stdout
-#define DUMP_EVENTS 0
+#define DUMP_EVENTS 0 // NOLINT(cppcoreguidelines-macro-usage)
 
 #if DUMP_EVENTS
     #define PRINT_EVENT(a) printEvent(a)

@@ -17,7 +17,7 @@ extern "C" {
 #include "libmyth/audio/audiooutputsettings.h"
 #include "libmyth/audio/audiooutpututil.h"
 #include "libmyth/audio/spdifencoder.h"
-#include "libmyth/programinfo.h"
+#include "libmythbase/programinfo.h"
 
 #include "captions/vbilut.h"
 #include "decoderbase.h"
@@ -72,7 +72,7 @@ class AudioInfo
     QString toString() const
     {
         return QString("id(%1) %2Hz %3ch %4bps %5 (profile %6)")
-            .arg(ff_codec_id_string(m_codecId),4).arg(m_sampleRate,6)
+            .arg(avcodec_get_name(m_codecId),4).arg(m_sampleRate,6)
             .arg(m_channels,2).arg(AudioOutputSettings::FormatToBits(format),2)
             .arg((m_doPassthru) ? "pt":"",3).arg(m_codecProfile);
     }
@@ -274,7 +274,6 @@ class AvFormatDecoder : public DecoderBase
     struct SwsContext *m_swsCtx                       {nullptr};
     bool               m_directRendering              {false};
 
-    bool               m_noDtsHack                    {false};
     bool               m_doRewind                     {false};
 
     bool               m_gopSet                       {false};

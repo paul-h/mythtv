@@ -8,6 +8,10 @@ const PROXY_CONFIG = [
             "/Guide",
             "/Status",
             "/Config",
+            "/Capture",
+            "/Content",
+            "/Dvr",
+            "/Channel",
         ],
         target: "http://localhost:6744",
     }

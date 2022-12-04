@@ -7,8 +7,8 @@
 #include <QWidget>
 
 // MythTV headers
-#include "libmyth/programinfo.h" // for COMM_DETECT*, GetPreferredSkipTypeCombinations()
 #include "libmythbase/mythdirs.h"
+#include "libmythbase/programinfo.h" // for COMM_DETECT*, GetPreferredSkipTypeCombinations()
 
 #include "cardutil.h"
 #include "channelsettings.h"
@@ -335,7 +335,7 @@ class ServiceID : public MythUISpinBoxSetting
     QString getValue(void) const override // StandardSetting
     {
         if (StandardSetting::getValue().toInt() == -1)
-            return QString();
+            return {};
         return StandardSetting::getValue();
     }
 };

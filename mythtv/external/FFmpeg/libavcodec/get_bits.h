@@ -29,15 +29,11 @@
 
 #include <stdint.h>
 
-/* MythTV: Prevent "ISO C++17 does not allow ‘register’ storage class
- * specifier" warning. */
-#define register
-
 #include "libavutil/common.h"
 #include "libavutil/intreadwrite.h"
-#include "libavutil/log.h"
 #include "libavutil/avassert.h"
-#include "avcodec.h"
+
+#include "defs.h"
 #include "mathops.h"
 #include "vlc.h"
 
@@ -150,11 +146,7 @@ static inline unsigned int show_bits(GetBitContext *s, int n);
 #define BITS_AVAILABLE(name, gb) name ## _index < name ## _size_plus8
 #endif
 
-// Added the void use of the cache to defeat compiler warnings with newer gcc
-// (warning: variable 're_cache" set but not used)
-#   define CLOSE_READER(name, gb) \
-    (gb)->index = name##_index;   \
-    (void)name##_cache
+#define CLOSE_READER(name, gb) (gb)->index = name ## _index
 
 # ifdef LONG_BITSTREAM_READER
 
@@ -351,8 +343,8 @@ static inline int get_xbits(GetBitContext *s, int n)
 #if !CACHED_BITSTREAM_READER
 static inline int get_xbits_le(GetBitContext *s, int n)
 {
-    int sign;
-    int32_t cache;
+    register int sign;
+    register int32_t cache;
     OPEN_READER(re, s);
     av_assert2(n>0 && n<=25);
     UPDATE_CACHE_LE(re, s);
@@ -408,9 +400,6 @@ static inline unsigned int get_bits(GetBitContext *s, int n)
 #else
     OPEN_READER(re, s);
     av_assert2(n>0 && n<=25);
-    /* MythTV: clang-tidy warns "Access to field 'l' results in a
-     * dereference of a null pointer".  No plans to investigate.
-     * NOLINTNEXTLINE(clang-analyzer-core.NullDereference) */
     UPDATE_CACHE(re, s);
     tmp = SHOW_UBITS(re, s, n);
     LAST_SKIP_BITS(re, s, n);
@@ -620,16 +609,6 @@ static inline unsigned int show_bits_long(GetBitContext *s, int n)
     }
 }
 
-static inline int check_marker(void *logctx, GetBitContext *s, const char *msg)
-{
-    int bit = get_bits1(s);
-    if (!bit)
-        av_log(logctx, AV_LOG_INFO, "Marker bit missing at %d of %d %s\n",
-               get_bits_count(s) - 1, s->size_in_bits, msg);
-
-    return bit;
-}
-
 static inline int init_get_bits_xe(GetBitContext *s, const uint8_t *buffer,
                                    int bit_size, int is_le)
 {
@@ -654,9 +633,6 @@ static inline int init_get_bits_xe(GetBitContext *s, const uint8_t *buffer,
     s->cache              = 0;
     s->bits_left          = 0;
     refill_64(s, is_le);
-#else
-    /* MythTV: Fix unused parameter warning. */
-    (void)is_le;
 #endif
 
     return ret;
@@ -723,8 +699,8 @@ static inline const uint8_t *align_get_bits(GetBitContext *s)
         unsigned int index;                                     \
                                                                 \
         index = SHOW_UBITS(name, gb, bits);                     \
-        code  = table[index][0];                                \
-        n     = table[index][1];                                \
+        code  = table[index].sym;                               \
+        n     = table[index].len;                               \
                                                                 \
         if (max_depth > 1 && n < 0) {                           \
             LAST_SKIP_BITS(name, gb, bits);                     \
@@ -733,8 +709,8 @@ static inline const uint8_t *align_get_bits(GetBitContext *s)
             nb_bits = -n;                                       \
                                                                 \
             index = SHOW_UBITS(name, gb, nb_bits) + code;       \
-            code  = table[index][0];                            \
-            n     = table[index][1];                            \
+            code  = table[index].sym;                           \
+            n     = table[index].len;                           \
             if (max_depth > 2 && n < 0) {                       \
                 LAST_SKIP_BITS(name, gb, nb_bits);              \
                 UPDATE_CACHE(name, gb);                         \
@@ -742,8 +718,8 @@ static inline const uint8_t *align_get_bits(GetBitContext *s)
                 nb_bits = -n;                                   \
                                                                 \
                 index = SHOW_UBITS(name, gb, nb_bits) + code;   \
-                code  = table[index][0];                        \
-                n     = table[index][1];                        \
+                code  = table[index].sym;                       \
+                n     = table[index].len;                       \
             }                                                   \
         }                                                       \
         SKIP_BITS(name, gb, n);                                 \
@@ -788,15 +764,15 @@ static inline const uint8_t *align_get_bits(GetBitContext *s)
 
 /* Return the LUT element for the given bitstream configuration. */
 static inline int set_idx(GetBitContext *s, int code, int *n, int *nb_bits,
-                          VLC_TYPE (*table)[2])
+                          const VLCElem *table)
 {
     unsigned idx;
 
     *nb_bits = -*n;
     idx = show_bits(s, *nb_bits) + code;
-    *n = table[idx][1];
+    *n = table[idx].len;
 
-    return table[idx][0];
+    return table[idx].sym;
 }
 
 /**
@@ -808,14 +784,14 @@ static inline int set_idx(GetBitContext *s, int code, int *n, int *nb_bits,
  *                  = (max_vlc_length + bits - 1) / bits
  * @returns the code parsed or -1 if no vlc matches
  */
-static av_always_inline int get_vlc2(GetBitContext *s, VLC_TYPE (*table)[2],
+static av_always_inline int get_vlc2(GetBitContext *s, const VLCElem *table,
                                      int bits, int max_depth)
 {
 #if CACHED_BITSTREAM_READER
     int nb_bits;
     unsigned idx = show_bits(s, bits);
-    int code = table[idx][0];
-    int n    = table[idx][1];
+    int code = table[idx].sym;
+    int n    = table[idx].len;
 
     if (max_depth > 1 && n < 0) {
         skip_remaining(s, bits);

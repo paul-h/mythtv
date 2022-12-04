@@ -18,8 +18,10 @@ class MediaMonitorUnix : public MediaMonitor
 #if CONFIG_QTDBUS
     Q_OBJECT
   public slots:
-    Q_NOREPLY void deviceAdded(const QDBusObjectPath& o);
-    Q_NOREPLY void deviceRemoved(const QDBusObjectPath& o);
+    Q_NOREPLY void deviceAdded(const QDBusObjectPath& o,
+                               const QMap<QString, QVariant> &interfaces);
+    Q_NOREPLY void deviceRemoved(const QDBusObjectPath& o,
+                                 const QStringList &interfaces);
 #endif
 
   public:
@@ -52,7 +54,16 @@ class MediaMonitorUnix : public MediaMonitor
 
   protected:
     int                          m_fifo {-1};
-    static const char           *kUDEV_FIFO;
+    static constexpr const char *kUDEV_FIFO { "/tmp/mythtv_media" };
+;
 };
 
+#if CONFIG_QTDBUS
+    enum MythUdisksDevice
+    {
+        UDisks2INVALID = 0, 
+        UDisks2DVD     = 1,
+        UDisks2HDD     = 2,
+    };
+#endif
 #endif // MYTH_MEDIA_MONITOR_H

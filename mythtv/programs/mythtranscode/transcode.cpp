@@ -18,11 +18,11 @@
 #include "libmythbase/mythconfig.h"
 
 #include "libmyth/audio/audiooutput.h"
-#include "libmyth/programinfo.h"
 #include "libmythbase/exitcodes.h"
 #include "libmythbase/mthreadpool.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythdbcon.h"
+#include "libmythbase/programinfo.h"
 #include "libmythtv/HLS/httplivestream.h"
 #include "libmythtv/deletemap.h"
 #include "libmythtv/io/mythavformatwriter.h"
@@ -157,7 +157,7 @@ static QString get_str_option(RecordingProfile *profile, const QString &name)
     LOG(VB_GENERAL, LOG_ERR, LOC +
         QString("get_str_option(...%1): Option not in profile.").arg(name));
 
-    return QString();
+    return {};
 }
 
 static int get_int_option(RecordingProfile *profile, const QString &name)
@@ -777,7 +777,8 @@ int Transcode::TranscodeFile(const QString &inputname,
                     QString("Forcing Recorder option '%1' to '%2'")
                         .arg(key, value));
 
-                if (value.contains(QRegularExpression("\\D")))
+                static const QRegularExpression kNonDigitRE { "\\D" };
+                if (value.contains(kNonDigitRE))
                     m_nvr->SetOption(key, value);
                 else
                     m_nvr->SetOption(key, value.toInt());

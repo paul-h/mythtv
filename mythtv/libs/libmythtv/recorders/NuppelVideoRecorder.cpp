@@ -13,9 +13,9 @@
 #include <QtEndian>
 
 #include "libmyth/mythcontext.h"
-#include "libmyth/programinfo.h"
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythmiscutil.h"
+#include "libmythbase/programinfo.h"
 
 #include "NuppelVideoRecorder.h"
 #include "audioinput.h"
@@ -477,7 +477,6 @@ bool NuppelVideoRecorder::SetupAVCodecVideo(void)
     av_dict_set(&opts, "rc_init_cplx", "0", 0);
     m_mpaVidCtx->dct_algo = FF_DCT_AUTO;
     m_mpaVidCtx->idct_algo = FF_IDCT_AUTO;
-    av_dict_set_int(&opts, "pred", FF_PRED_LEFT, 0);
     if (m_videocodec.toLower() == "huffyuv" || m_videocodec.toLower() == "mjpeg")
         m_mpaVidCtx->strict_std_compliance = FF_COMPLIANCE_UNOFFICIAL;
     m_mpaVidCtx->thread_count = m_encodingThreadCount;
@@ -726,10 +725,10 @@ void NuppelVideoRecorder::InitBuffers(void)
     else
         videomegs = 12;
 
-    m_videoBufferCount = (videomegs * 1000 * 1000) / m_videoBufferSize;
+    m_videoBufferCount = (videomegs * 1000 * 1000) / static_cast<int>(m_videoBufferSize);
 
     if (m_audioBufferSize != 0)
-        m_audioBufferCount = (audiomegs * 1000 * 1000) / m_audioBufferSize;
+        m_audioBufferCount = (audiomegs * 1000 * 1000) / static_cast<int>(m_audioBufferSize);
     else
         m_audioBufferCount = 0;
 
@@ -1032,7 +1031,7 @@ bool NuppelVideoRecorder::SetFormatV4L2(void) { return false; }
 #endif // !USING_V4L2
 
 #ifdef USING_V4L2
-#define MAX_VIDEO_BUFFERS 5
+static constexpr size_t MAX_VIDEO_BUFFERS { 5 };
 void NuppelVideoRecorder::DoV4L2(void)
 {
     struct v4l2_buffer     vbuf {};
@@ -1694,7 +1693,7 @@ void NuppelVideoRecorder::WriteKeyFrameAdjustTable(
     char *kfa_buf = new char[frameheader.packetlength];
     uint offset = 0;
 
-    for (auto kfa : kfa_table)
+    for (const auto& kfa : kfa_table)
     {
         memcpy(kfa_buf + offset, &kfa,
                sizeof(struct kfatable_entry));
@@ -2275,7 +2274,7 @@ void NuppelVideoRecorder::WriteVideo(MythVideoFrame *frame, bool skipsync,
                                      bool forcekey)
 {
     int tmp = 0;
-    lzo_uint out_len = OUT_LEN;
+    lzo_uint out_len = kOutLen;
     struct rtframeheader frameheader {};
     int raw = 0;
     int compressthis = m_compression;
@@ -2358,16 +2357,33 @@ void NuppelVideoRecorder::WriteVideo(MythVideoFrame *frame, bool skipsync,
             packet->data = (uint8_t *)m_strm;
             packet->size = frame->m_bufferSize;
 
-            int got_packet = 0;
-            tmp = avcodec_encode_video2(m_mpaVidCtx, packet, mpa_picture, &got_packet);
+            bool got_packet = false;
+            int ret = avcodec_receive_packet(m_mpaVidCtx, packet);
+            if (ret == 0)
+                got_packet = true;
+            if (ret == AVERROR(EAGAIN))
+                ret = 0;
+            if (ret == 0)
+                ret = avcodec_send_frame(m_mpaVidCtx, mpa_picture);
+            // if ret from avcodec_send_frame is AVERROR(EAGAIN) then
+            // there are 2 packets to be received while only 1 frame to be
+            // sent. The code does not cater for this. Hopefully it will not happen.
 
-            if (tmp < 0 || !got_packet)
+            if (ret < 0)
             {
-                LOG(VB_GENERAL, LOG_ERR, LOC +
-                    "WriteVideo : avcodec_encode_video() failed");
+                std::string error;
+                LOG(VB_GENERAL, LOG_ERR, LOC + QString("video encode error: %1 (%2)")
+                    .arg(av_make_error_stdstring(error, ret)).arg(got_packet));
                 av_packet_free(&packet);
                 return;
             }
+
+            if (!got_packet)
+            {
+                av_packet_free(&packet);
+                return;
+            }
+
 
             tmp = packet->size;
             av_packet_free(&packet);
@@ -2408,12 +2424,12 @@ void NuppelVideoRecorder::WriteVideo(MythVideoFrame *frame, bool skipsync,
             if (raw)
             {
                 r = lzo1x_1_compress(frame->m_buffer, frame->m_bufferSize,
-                                     m_out.data(), &out_len, wrkmem.data());
+                                     m_out.data(), &out_len, m_wrkmem.data());
             }
             else
             {
                 r = lzo1x_1_compress((unsigned char *)m_strm, tmp, m_out.data(),
-                                     &out_len, wrkmem.data());
+                                     &out_len, m_wrkmem.data());
             }
             if (r != LZO_E_OK)
             {

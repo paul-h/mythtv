@@ -452,7 +452,7 @@ AVCodecID myth2av_codecid(MythCodecID codec_id)
     return AV_CODEC_ID_NONE;
 }
 
-uint mpeg_version(int codec_id)
+uint mpeg_version(AVCodecID codec_id)
 {
     switch (codec_id)
     {
@@ -705,10 +705,10 @@ QString get_encoding_type(MythCodecID codecid)
         case kCodec_MMAL_END:
         case kCodec_MMAL_DEC_END:
         case kCodec_DRMPRIME_END:
-            return QString();
+            return {};
     }
 
-    return QString();
+    return {};
 }
 
 QString get_decoder_name(MythCodecID codec_id)

@@ -23,8 +23,8 @@
 #include "mythfilerecorder.h"
 #include "mythfilerecorder_commandlineparser.h"
 
-#define API_VERSION 1
-#define VERSION "1.0.0"
+static constexpr int API_VERSION { 1 };
+static constexpr const char* VERSION { "1.0.0" };
 #define LOC QString("File(%1): ").arg(m_fileName)
 
 Streamer::Streamer(Commands *parent, QString fname,
@@ -93,7 +93,7 @@ void Streamer::SendBytes(void)
         int read_sz = m_blockSize.loadAcquire();
         if (!m_startTime.isValid())
             m_startTime = MythDate::current();
-        int delta = m_startTime.secsTo(MythDate::current()) + 1;
+        qint64 delta = m_startTime.secsTo(MythDate::current()) + 1;
         int rate  = (delta * m_dataRate) - m_dataRead;
 
         read_sz = std::min(rate, read_sz);

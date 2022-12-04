@@ -28,8 +28,8 @@ extern "C" {
 // MythMusic
 #include "constants.h"
 
-#define CDEXT ".cda"
-const unsigned kSamplesPerSec = 44100;
+static constexpr const char* CDEXT { ".cda" };
+static constexpr long kSamplesPerSec { 44100 };
 
 // Handle cdio log output
 static void logger(cdio_log_level_t level, const char *message)
@@ -521,7 +521,7 @@ MusicMetadata *CdDecoder::getMetadata()
     else
     {
         tracknum = m_setTrackNum;
-        setURL(QString("%1" CDEXT).arg(tracknum));
+        setURL(QString("%1%2").arg(tracknum).arg(CDEXT));
     }
 
     QMutexLocker lock(&getCdioMutex());
@@ -585,7 +585,8 @@ MusicMetadata *CdDecoder::getMetadata()
 
     bool isCompilation = false;
 
-#define CDTEXT 0 // Disabled - cd-text access on discs without it is S L O W
+// Disabled - cd-text access on discs without it is S L O W
+#define CDTEXT 0 // NOLINT(cppcoreguidelines-macro-usage)
 #if CDTEXT
     static int s_iCdtext;
     if (isDiscChanged)

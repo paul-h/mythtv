@@ -11,14 +11,14 @@
 #include <QStringList>
 
 // MythTV
-#include "libmyth/programinfo.h"
-#include "libmyth/remoteutil.h"
 #include "libmythbase/filesysteminfo.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythdirs.h"
 #include "libmythbase/mythevent.h"
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythrandom.h"
+#include "libmythbase/programinfo.h"
+#include "libmythbase/remoteutil.h"
 #include "libmythbase/storagegroup.h"
 #include "libmythtv/metadataimagehelper.h"
 #include "libmythtv/previewgeneratorqueue.h"
@@ -462,17 +462,17 @@ QString PlaybackBoxHelper::LocateArtwork(
     auto *e = new MythEvent("LOCATE_ARTWORK", list);
     QCoreApplication::postEvent(m_eventHandler, e);
 
-    return QString();
+    return {};
 }
 
 QString PlaybackBoxHelper::GetPreviewImage(
     const ProgramInfo &pginfo, bool check_availability)
 {
     if (!check_availability && pginfo.GetAvailableStatus() != asAvailable)
-        return QString();
+        return {};
 
     if (pginfo.GetAvailableStatus() == asPendingDelete)
-        return QString();
+        return {};
 
     QString token = QString("%1:%2")
         .arg(pginfo.MakeUniqueKey()).arg(MythRandom());

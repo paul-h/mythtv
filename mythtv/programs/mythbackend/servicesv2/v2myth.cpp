@@ -9,9 +9,9 @@
 #include "libmythbase/dbutil.h"
 #include "libmythbase/hardwareprofile.h"
 #include "libmythbase/http/mythhttpmetaservice.h"
-#include "libmythbase/mythcorecontext.h"
 #include "libmythbase/mythcoreutil.h"
 #include "libmythbase/mythdate.h"
+#include "libmythbase/mythdb.h"
 #include "libmythbase/mythdbcon.h"
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythtimezone.h"
@@ -27,10 +27,6 @@
 #include "v2serviceUtil.h"
 #include "v2versionInfo.h"
 #include "v2wolInfo.h"
-
-#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
-#define qEnvironmentVariable getenv
-#endif
 
 // This will be initialised in a thread safe manner on first use
 Q_GLOBAL_STATIC_WITH_ARGS(MythHTTPMetaService, s_service,
@@ -79,7 +75,7 @@ V2ConnectionInfo* V2Myth::GetConnectionInfo( const QString  &sPin )
         throw( QString( "Not Authorized" ));
         //SB: UPnPResult_ActionNotAuthorized );
 
-    DatabaseParams params = gCoreContext->GetDatabaseParams();
+    DatabaseParams params = GetMythDB()->GetDatabaseParams();
 
     // ----------------------------------------------------------------------
     // Check for DBHostName of "localhost" and change to public name or IP
@@ -261,6 +257,17 @@ QStringList V2Myth::GetKeys()
 
     return oResults;
 }
+
+/////////////////////////////////////////////////////////////////////////////
+// DirListing gets a list of subdirectories
+/////////////////////////////////////////////////////////////////////////////
+
+QStringList V2Myth::GetDirListing ( const QString &DirName)
+{
+    QDir directory(DirName);
+    return directory.entryList(QDir::AllDirs|QDir::NoDotAndDotDot, QDir::Name);
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -1081,6 +1088,9 @@ V2BackendInfo* V2Myth::GetBackendInfo( void )
     pEnv->setLCALL         ( qEnvironmentVariable("LC_ALL")      );
     pEnv->setLCCTYPE       ( qEnvironmentVariable("LC_CTYPE")    );
     pEnv->setHOME          ( qEnvironmentVariable("HOME")        );
+    // USER for Linux systems, USERNAME for Windows
+    pEnv->setUSER          ( qEnvironmentVariable("USER",
+                             qEnvironmentVariable("USERNAME"))   );
     pEnv->setMYTHCONFDIR   ( qEnvironmentVariable("MYTHCONFDIR") );
     pLog->setLogArgs       ( logPropagateArgs      );
 
