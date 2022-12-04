@@ -16,8 +16,8 @@
 #include <libmyth/mythcontext.h>
 #include <libmythbase/mythdb.h>
 #include <libmythbase/mthread.h>
-#include <libmyth/programinfo.h>
-#include <libmyth/remoteutil.h>
+#include <libmythbase/programinfo.h>
+#include <libmythbase/remoteutil.h>
 #include <libmythbase/remotefile.h>
 #include <libmythbase/mythtimer.h>
 #include <libmythui/mythuitext.h>
