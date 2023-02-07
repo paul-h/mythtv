@@ -60,6 +60,9 @@ ImageProperties::~ImageProperties()
         m_maskImage->DecrRef();
 }
 
+// The m_maskImage field is assigned in the call to SetMaskImage().
+//
+// cppcheck-suppress operatorEqVarError
 void ImageProperties::Copy(const ImageProperties &other)
 {
     m_filename = other.m_filename;
@@ -557,13 +560,13 @@ public:
 MythUIImage::MythUIImage(const QString &filepattern,
                          int low, int high, std::chrono::milliseconds delay,
                          MythUIType *parent, const QString &name)
-    : MythUIType(parent, name)
+    : MythUIType(parent, name),
+      m_delay(delay),
+      m_lowNum(low),
+      m_highNum(high)
 {
     m_imageProperties.m_filename = filepattern;
-    m_lowNum = low;
-    m_highNum = high;
 
-    m_delay = delay;
     m_enableInitiator = true;
 
     d = new MythUIImagePrivate(this);
@@ -572,14 +575,12 @@ MythUIImage::MythUIImage(const QString &filepattern,
 
 MythUIImage::MythUIImage(const QString &filename, MythUIType *parent,
                          const QString &name)
-    : MythUIType(parent, name)
+    : MythUIType(parent, name),
+      m_origFilename(filename),
+      m_delay(-1ms)
 {
     m_imageProperties.m_filename = filename;
-    m_origFilename = filename;
 
-    m_lowNum = 0;
-    m_highNum = 0;
-    m_delay = -1ms;
     m_enableInitiator = true;
 
     d = new MythUIImagePrivate(this);
@@ -587,11 +588,9 @@ MythUIImage::MythUIImage(const QString &filename, MythUIType *parent,
 }
 
 MythUIImage::MythUIImage(MythUIType *parent, const QString &name)
-    : MythUIType(parent, name)
+    : MythUIType(parent, name),
+      m_delay(-1ms)
 {
-    m_lowNum = 0;
-    m_highNum = 0;
-    m_delay = -1ms;
     m_enableInitiator = true;
 
     d = new MythUIImagePrivate(this);

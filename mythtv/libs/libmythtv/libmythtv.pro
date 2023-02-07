@@ -964,8 +964,7 @@ using_backend {
 
         DEFINES += USING_HDHOMERUN
         DEFINES += HDHOMERUN_HEADERFILE=\\\"$${HDHOMERUN_PREFIX}hdhomerun.h\\\"
-        contains(HDHOMERUN_V2, yes): DEFINES += HDHOMERUN_V2
-        contains(HDHOMERUN_DEVICE_SELECTOR_LOAD_FROM_STR, yes): DEFINES += NEED_HDHOMERUN_DEVICE_SELECTOR_LOAD_FROM_STR
+        DEFINES += HDHOMERUN_VERSION=$${HDHOMERUN_VERSION}
     }
 
     # Support for Sat>IP
@@ -1135,6 +1134,7 @@ LIBS += -lmythservicecontracts-$$LIBVERSION
 using_mheg: LIBS += -L../libmythfreemheg -lmythfreemheg-$$LIBVERSION
 using_backend:using_mp3lame: LIBS += -lmp3lame
 using_backend: LIBS += -llzo2
+using_hdhomerun: LIBS += -lhdhomerun
 LIBS += $$EXTRA_LIBS $$QMAKE_LIBS_DYNLOAD
 
 !mingw || win32-msvc* {

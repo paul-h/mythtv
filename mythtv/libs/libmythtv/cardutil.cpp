@@ -486,19 +486,84 @@ QStringList CardUtil::ProbeVideoDevices(const QString &rawtype)
 #ifdef USING_HDHOMERUN
     else if (rawtype.toUpper() == "HDHOMERUN")
     {
+#if HDHOMERUN_VERSION >= 20221010
+        struct hdhomerun_debug_t *dbg = hdhomerun_debug_create();
+        struct hdhomerun_discover_t *ds = hdhomerun_discover_create(dbg);
+
+        // Find devices
+        uint32_t type  { HDHOMERUN_DEVICE_TYPE_TUNER };
+        uint32_t flags { HDHOMERUN_DISCOVER_FLAGS_IPV4_GENERAL |
+                         HDHOMERUN_DISCOVER_FLAGS_IPV6_GENERAL };
+        int result =
+            hdhomerun_discover2_find_devices_broadcast(ds, flags, &type, 1);
+
+        if (result == -1)
+        {
+            LOG(VB_GENERAL, LOG_ERR, "Error finding HDHomerun devices");
+        }
+        else if (result == 0)
+        {
+            LOG(VB_GENERAL, LOG_INFO, "No HDHomerun devices found.");
+        }
+        else
+        {
+            // For each device found
+            struct hdhomerun_discover2_device_t *device = hdhomerun_discover2_iter_device_first(ds);
+            while (device)
+            {
+                uint8_t tuners = hdhomerun_discover2_device_get_tuner_count(device);
+                uint32_t device_id = hdhomerun_discover2_device_get_device_id(device);
+                QString id = QString("%1").arg(device_id, 0, 16, QChar('0')).toUpper();
+                auto *dev1 = hdhomerun_device_create_from_str(id.toLatin1(), nullptr);
+                QString model = hdhomerun_device_get_model_str(dev1);
+
+                QHostAddress ip;
+                struct sockaddr_storage saddr {};
+                struct hdhomerun_discover2_device_if_t *device_if { nullptr };
+
+                // Enumerate all addresses
+                device_if = hdhomerun_discover2_iter_device_if_first(device);
+                while (device_if)
+                {
+                    hdhomerun_discover2_device_if_get_ip_addr(device_if, &saddr);
+                    ip = QHostAddress((struct sockaddr *)&saddr);
+                    LOG(VB_GENERAL, LOG_DEBUG,
+                        QString("HDHomerun %1 has IP %2").arg(id, ip.toString()));
+                    device_if = hdhomerun_discover2_iter_device_if_next(device_if);
+                }
+
+                // HDHomerun API recommends using first entry
+                device_if = hdhomerun_discover2_iter_device_if_first(device);
+                if (nullptr == device_if)
+                {
+                    LOG(VB_GENERAL, LOG_WARNING,
+                        QString("HDHomerun %1 has no IP addresses").arg(id));
+                    continue;
+                }
+                hdhomerun_discover2_device_if_get_ip_addr(device_if, &saddr);
+                ip = QHostAddress((struct sockaddr *)&saddr);
+
+                // Create device name
+                QString hdhrdev = QString("%1 %2 %3").arg(id, ip.toString(), model);
+                devs.push_back(hdhrdev);
+                LOG(VB_GENERAL, LOG_INFO,
+                    QString("HDHomerun %1: IP %2, model %3, %4 tuners")
+                    .arg(id, ip.toString(), model).arg(tuners));
+
+                device = hdhomerun_discover2_iter_device_next(device);
+            }
+            hdhomerun_discover_destroy(ds);
+            hdhomerun_debug_destroy(dbg);
+        }
+#else // HDHOMERUN_VERSION >= 20221010
         uint32_t  target_ip   = 0;
         uint32_t  device_type = HDHOMERUN_DEVICE_TYPE_TUNER;
         uint32_t  device_id   = HDHOMERUN_DEVICE_ID_WILDCARD;
         const int max_count   = 50;
         std::array<hdhomerun_discover_device_t,max_count> result_list {};
 
-#ifdef HDHOMERUN_V2
         int result = hdhomerun_discover_find_devices_custom_v2(
             target_ip, device_type, device_id, result_list.data(), result_list.size());
-#else
-        int result = hdhomerun_discover_find_devices_custom(
-            target_ip, device_type, device_id, result_list.data(), result_list.size());
-#endif
 
         if (result == -1)
         {
@@ -533,6 +598,7 @@ QStringList CardUtil::ProbeVideoDevices(const QString &rawtype)
             QString hdhrdev = id.toUpper() + " " + ip + " " + model;
             devs.push_back(hdhrdev);
         }
+#endif // HDHOMERUN_VERSION >= 20221010
     }
 #endif // USING_HDHOMERUN
 #ifdef USING_SATIP
@@ -910,7 +976,7 @@ DTVModulationSystem CardUtil::ProbeCurrentDeliverySystem(int fd_frontend)
             QString("FE_GET_PROPERTY ioctl failed (fd_frontend:%1)")
                 .arg(fd_frontend) + ENO);
         return delsys;
-        }
+    }
 
     delsys = prop.u.data;
 
@@ -1183,7 +1249,7 @@ int CardUtil::SetDeliverySystem(uint inputid, DTVModulationSystem delsys, int fd
             QString("[%1] FE_SET_PROPERTY ioctl failed")
                 .arg(inputid) + ENO);
         return ret;
-        }
+    }
 #else
     Q_UNUSED(inputid);
     Q_UNUSED(delsys);
@@ -1547,9 +1613,6 @@ bool CardUtil::InputSetMaxRecordings(uint parentid, uint max_recordings)
     {
         CardUtil::CloneCard(parentid, 0);
     }
-
-    // Delete any unused input groups
-    CardUtil::UnlinkInputGroup(0,0);
 
     return true;
 }
@@ -2030,7 +2093,7 @@ uint CardUtil::CreateDeviceInputGroup(uint inputid,
     QString name = host + '|' + device;
     if (type == "FREEBOX"   || type == "IMPORT"   ||
         type == "DEMO"      || type == "EXTERNAL" ||
-        type == "HDHOMERUN" || type == "SATIP")
+        type == "HDHOMERUN" )
         name += QString("|%1").arg(inputid);
     return CreateInputGroup(name);
 }
@@ -2837,7 +2900,7 @@ bool CardUtil::DeleteInput(uint inputid)
         }
     }
 
-    // delete any unused input groups
+    // Delete any unused input groups
     UnlinkInputGroup(0, 0);
 
     return true;
