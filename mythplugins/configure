@@ -743,7 +743,6 @@ sed -e "s/@MYTHTV_VERSION_MAJMIN@/${MYTHTV_VERSION_MAJMIN}/g" \
     -e "s/@MYTHTV_LIBVERSION@/${MYTHTV_LIBVERSION}/g" \
     settings2.pro.in > $TMPPRO
 cp_if_changed $TMPPRO settings2.pro
->>>>>>> upstream/master
 
 ###########################################################
 #                                                         #
