@@ -9,7 +9,7 @@ import { SetupService } from 'src/app/services/setup.service';
   templateUrl: './eit-scanner.component.html',
   styleUrls: ['./eit-scanner.component.css']
 })
-export class EitScannerComponent implements OnInit,AfterViewInit {
+export class EitScannerComponent implements OnInit, AfterViewInit {
 
   eitData: EITScanner = this.setupService.getEITScanner();
   @ViewChild("eitscanopt")
@@ -22,11 +22,6 @@ export class EitScannerComponent implements OnInit,AfterViewInit {
 
   ngAfterViewInit() {
     this.setupService.setCurrentForm(this.currentForm);
-  }
-
-  showHelp() {
-    console.log("show help clicked");
-    console.log(this);
   }
 
   saveForm() {

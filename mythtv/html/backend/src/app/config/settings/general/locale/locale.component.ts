@@ -11,7 +11,6 @@ import { SetupService } from 'src/app/services/setup.service';
 
 export class LocaleComponent implements OnInit, AfterViewInit {
     m_LocaleData!: Locale;
-    m_showHelp: boolean = false;
 
     @ViewChild("locale")
     currentForm!: NgForm;
@@ -72,7 +71,7 @@ export class LocaleComponent implements OnInit, AfterViewInit {
             "malaysia",
             "israel-hot-matav",
             "try-all"
-            ];
+        ];
 
         this.m_LocaleData = this.setupService.getLocaleData();
     }
@@ -82,10 +81,6 @@ export class LocaleComponent implements OnInit, AfterViewInit {
 
     ngAfterViewInit() {
         this.setupService.setCurrentForm(this.currentForm);
-    }
-
-    showHelp() {
-        this.m_showHelp = true;
     }
 
     saveForm() {

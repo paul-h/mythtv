@@ -15,7 +15,7 @@ export class JobqueueCommandsComponent implements OnInit, AfterViewInit {
   currentForm!: NgForm;
 
   JobQCommandsData!: JobQCommands;
-  items: number [] = [0,1,2,3];
+  items: number[] = [0, 1, 2, 3];
 
   constructor(private setupService: SetupService) {
     this.JobQCommandsData = this.setupService.getJobQCommands();
@@ -26,11 +26,6 @@ export class JobqueueCommandsComponent implements OnInit, AfterViewInit {
 
   ngAfterViewInit() {
     this.setupService.setCurrentForm(this.currentForm);
-  }
-
-  showHelp() {
-    console.log("show help clicked");
-    console.log(this);
   }
 
   saveForm() {
