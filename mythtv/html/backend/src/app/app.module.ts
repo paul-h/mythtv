@@ -65,6 +65,14 @@ import { IconnectionComponent } from './config/settings/input-connections/iconne
 import { StorageGroupsComponent } from './config/settings/storage-groups/storage-groups.component';
 import { SgroupComponent } from './config/settings/storage-groups/sgroup/sgroup.component';
 import { ChannelEditorComponent } from './config/settings/channel-editor/channel-editor.component';
+import { RecordingProfilesComponent } from './config/settings/recording-profiles/recording-profiles.component';
+import { ProfileGroupComponent } from './config/settings/recording-profiles/profile-group/profile-group.component';
+import { RecprofileComponent } from './config/settings/recording-profiles/profile-group/recprofile/recprofile.component';
+import { SystemEventsComponent } from './config/settings/system-events/system-events.component';
+import { BackendWarningComponent } from './config/backend-warning/backend-warning.component';
+import { V4l2Component } from './config/settings/capture-cards/v4l2/v4l2.component';
+import { HdpvrComponent } from './config/settings/capture-cards/hdpvr/hdpvr.component';
+import { SatipComponent } from './config/settings/capture-cards/satip/satip.component';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -126,6 +134,14 @@ export function HttpLoaderFactory(http: HttpClient) {
     StorageGroupsComponent,
     SgroupComponent,
     ChannelEditorComponent,
+    RecordingProfilesComponent,
+    ProfileGroupComponent,
+    RecprofileComponent,
+    SystemEventsComponent,
+    BackendWarningComponent,
+    V4l2Component,
+    HdpvrComponent,
+    SatipComponent,
   ],
   imports: [
     BrowserModule,

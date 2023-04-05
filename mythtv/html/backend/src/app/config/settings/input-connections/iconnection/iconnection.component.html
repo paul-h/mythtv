@@ -62,13 +62,24 @@
                         </div>
                     </div>
 
-                    <div class="form-group field">
-                        <label for="InputName" class="block">{{ 'settings.iconnection.inputname_label' | translate
+                    <div class="form-group field" *ngIf="card.CardType == 'DVB'">
+                        <label for="Delivery" class="block">{{ 'settings.iconnection.delivery_label' | translate
                             }}</label>
-                        <input pInputText id="InputName" [(ngModel)]="card.InputName" name="InputName" disabled="true"
+                        <input pInputText id="Delivery" [(ngModel)]="card.InputName" name="Delivery" disabled="true"
                             #InputName="ngModel" class="mb-2 form-control w-full" />
                         <small class="block">
-                            {{ 'settings.iconnection.inputname_desc' | translate }}
+                            {{ 'settings.iconnection.delivery_desc' | translate }}
+                        </small>
+                    </div>
+
+                    <div class="form-group field" *ngIf="card.CardType != 'DVB'">
+                        <label for="InputName" class="block">{{ 'settings.iconnection.input_label' | translate
+                            }}</label>
+                        <p-dropdown *ngIf="work.isReady" [options]="this.currentDevice.InputNames"
+                            [(ngModel)]="card.InputName" name="InputName" #InputName="ngModel">
+                        </p-dropdown>
+                        <small class="block">
+                            {{ 'settings.capture.inputname_desc' | translate }}
                         </small>
                     </div>
 
@@ -105,7 +116,7 @@
                         </small>
                     </div>
 
-                    <div class="form-group field" *ngIf="work.isEncoder || work.isUnscanable">
+                    <div class="form-group field" *ngIf="work.showPresetTuner">
                         <label for="TuneChan" class="block">{{ 'settings.iconnection.tunechan_label' | translate
                             }}</label>
                         <input pInputText id="TuneChan" [(ngModel)]="card.TuneChan" name="TuneChan" #TuneChan="ngModel"
@@ -163,7 +174,7 @@
                     <p-dialog header="Fetch Channels" [(visible)]="work.fetchChannelsDialog" [modal]="true"
                         [style]="{width: '50vw'}" [draggable]="false" [resizable]="false">
                         <p>{{ 'settings.iconnection.fetch.warning' | translate }}</p>
-                        <p>{{ 'settings.ru_sure' | translate}}</p>
+                        <p>{{ 'settings.common.ru_sure' | translate}}</p>
                         <ng-template pTemplate="footer">
                             <p-button icon="pi pi-times-circle" (click)="work.fetchChannelsDialog=false"
                                 label="{{ 'common.no' | translate }}" styleClass="p-button-plain">
@@ -266,7 +277,7 @@
                 </div>
                 <p-button class="col pr-1" label="{{'common.save' | translate}}" icon="pi pi-save" iconPos="left"
                     (onClick)="saveForm(); connform.form.markAsPristine()"
-                    [disabled]="(!connform.dirty || !card.VideoDevice)"></p-button>
+                    [disabled]="!connform.dirty || !card.VideoDevice || setupService.schedulingEnabled"></p-button>
             </div>
         </ng-template>
     </p-card>

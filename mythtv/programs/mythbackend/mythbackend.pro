@@ -73,7 +73,7 @@ HEADERS += servicesv2/v2videoStreamInfo.h servicesv2/v2videoStreamInfoList.h
 HEADERS += servicesv2/v2blurayInfo.h
 HEADERS += servicesv2/v2country.h servicesv2/v2countryList.h
 HEADERS += servicesv2/v2language.h servicesv2/v2languageList.h
-HEADERS += servicesv2/v2databaseStatus.h
+HEADERS += servicesv2/v2databaseStatus.h servicesv2/v2systemEventList.h
 
 
 HEADERS += servicesv2/v2dvr.h servicesv2/v2recording.h
@@ -99,6 +99,7 @@ HEADERS += servicesv2/v2status.h
 HEADERS += servicesv2/preformat.h servicesv2/v2backendStatus.h
 HEADERS += servicesv2/v2capture.h
 HEADERS += servicesv2/v2captureCard.h servicesv2/v2captureCardList.h
+HEADERS += servicesv2/v2recordingProfile.h
 HEADERS += servicesv2/v2music.h
 HEADERS += servicesv2/v2musicMetadataInfo.h servicesv2/v2musicMetadataInfoList.h
 HEADERS += servicesv2/v2config.h
