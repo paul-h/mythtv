@@ -29,7 +29,12 @@ extern "C" {
 extern "C" {
 #include "libavcodec/jni.h"
 }
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
 #include <QtAndroidExtras>
+#else
+#include <QJniEnvironment>
+#define QAndroidJniEnvironment QJniEnvironment
+#endif
 #endif // Android
 
 // regardless of building with V4L2 or not, enable IVTV VBI data
@@ -645,6 +650,8 @@ bool AvFormatDecoder::DoFastForward(long long desiredFrame, bool discardFrames)
         m_getRawFrames = oldrawstate;
         return false;
     }
+    if (auto* reader = m_parent->GetSubReader(); reader)
+        reader->SeekFrame(ts, flags);
 
     int normalframes = 0;
 
@@ -1884,7 +1891,7 @@ void AvFormatDecoder::ScanDSMCCStreams(void)
             desc += 2; // Skip data ID
             while (desc != endDesc)
             {
-                uint appTypeCode = desc[0]<<8 | desc[1];
+                [[maybe_unused]] uint appTypeCode = desc[0]<<8 | desc[1];
                 desc += 3; // Skip app type code and boot priority hint
                 uint appSpecDataLen = *desc++;
 #ifdef USING_MHEG
@@ -1903,8 +1910,6 @@ void AvFormatDecoder::ScanDSMCCStreams(void)
                     }
                 }
                 else
-#else
-                (void) appTypeCode;
 #endif // USING_MHEG
                 {
                     desc += appSpecDataLen;
@@ -3740,10 +3745,8 @@ bool AvFormatDecoder::ProcessVideoFrame(AVStream *Stream, AVFrame *AvFrame)
  *  \sa CC608Decoder, TeletextDecoder
  */
 void AvFormatDecoder::ProcessVBIDataPacket(
-    const AVStream *stream, const AVPacket *pkt)
+    [[maybe_unused]] const AVStream *stream, const AVPacket *pkt)
 {
-    (void) stream;
-
     const uint8_t *buf     = pkt->data;
     uint64_t linemask      = 0;
     std::chrono::microseconds utc = m_lastCcPtsu;
@@ -3828,38 +3831,52 @@ void AvFormatDecoder::ProcessVBIDataPacket(
 void AvFormatDecoder::ProcessDVBDataPacket(
     const AVStream* /*stream*/, const AVPacket *pkt)
 {
+    // ETSI EN 301 775 V1.2.1 (2003-05)
+    // Check data_identifier value
+    // Defined in 4.4.2 Semantics for PES data field, Table 2
+    // Support only the "low range" 0x10-0x1F because they have
+    // the fixed data_unit_length of 0x2C (44) that the teletext
+    // decoder expects.
+    //
     const uint8_t *buf     = pkt->data;
     const uint8_t *buf_end = pkt->data + pkt->size;
 
+    if (*buf >= 0x10 && *buf <= 0x1F)
+    {
+        buf++;
+    }
+    else
+    {
+        LOG(VB_VBI, LOG_WARNING, LOC +
+            QString("VBI: Unknown data_identier: %1 discarded").arg(*buf));
+        return;
+    }
 
+    // Process data packets in the PES packet payload
     while (buf < buf_end)
     {
-        if (*buf == 0x10)
+        if (*buf == 0x02)               // data_unit_id 0x02    EBU Teletext non-subtitle data
         {
-            buf++; // skip
-        }
-        else if (*buf == 0x02)
-        {
-            buf += 4;
+            buf += 4;                   // Skip data_unit_id, data_unit_length (0x2C, 44) and first two data bytes
             if ((buf_end - buf) >= 42)
                 m_ttd->Decode(buf, VBI_DVB);
             buf += 42;
         }
-        else if (*buf == 0x03)
+        else if (*buf == 0x03)          // data_unit_id 0x03    EBU Teletext subtitle data
         {
             buf += 4;
             if ((buf_end - buf) >= 42)
                 m_ttd->Decode(buf, VBI_DVB_SUBTITLE);
             buf += 42;
         }
-        else if (*buf == 0xff)
+        else if (*buf == 0xff)          // data_unit_id 0xff    stuffing
         {
-            buf += 3;
+            buf += 46;                  // data_unit_id, data_unit_length and 44 data bytes
         }
         else
         {
-            LOG(VB_VBI, LOG_ERR, LOC +
-                QString("VBI: Unknown descriptor: %1").arg(*buf));
+            LOG(VB_VBI, LOG_WARNING, LOC +
+                QString("VBI: Unsupported data_unit_id: %1 discarded").arg(*buf));
             buf += 46;
         }
     }
@@ -3868,7 +3885,8 @@ void AvFormatDecoder::ProcessDVBDataPacket(
 /** \fn AvFormatDecoder::ProcessDSMCCPacket(const AVStream*, const AVPacket*)
  *  \brief Process DSMCC object carousel packet.
  */
-void AvFormatDecoder::ProcessDSMCCPacket(const AVStream *str, const AVPacket *pkt)
+void AvFormatDecoder::ProcessDSMCCPacket([[maybe_unused]] const AVStream *str,
+                                         [[maybe_unused]] const AVPacket *pkt)
 {
 #ifdef USING_MHEG
     if (!m_itv && ! (m_itv = m_parent->GetInteractiveTV()))
@@ -3900,9 +3918,6 @@ void AvFormatDecoder::ProcessDSMCCPacket(const AVStream *str, const AVPacket *pk
         length -= sectionLen;
         data += sectionLen;
     }
-#else
-    Q_UNUSED(str);
-    Q_UNUSED(pkt);
 #endif // USING_MHEG
 }
 
@@ -4009,7 +4024,7 @@ bool AvFormatDecoder::ProcessRawTextPacket(AVPacket* Packet)
 }
 
 bool AvFormatDecoder::ProcessDataPacket(AVStream *curstream, AVPacket *pkt,
-                                        DecodeType decodetype)
+                                        [[maybe_unused]] DecodeType decodetype)
 {
     enum AVCodecID codec_id = curstream->codecpar->codec_id;
 
@@ -4030,8 +4045,6 @@ bool AvFormatDecoder::ProcessDataPacket(AVStream *curstream, AVPacket *pkt,
 #ifdef USING_MHEG
             if (!(decodetype & kDecodeVideo))
                 m_allowedQuit |= (m_itv && m_itv->ImageHasChanged());
-#else
-            Q_UNUSED(decodetype);
 #endif // USING_MHEG:
             break;
         }
@@ -5067,7 +5080,8 @@ void AvFormatDecoder::StreamChangeCheck(void)
 {
     if (m_streamsChanged)
     {
-        SeekReset(0, 0, true, true);
+        LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("StreamChangeCheck skip SeekReset"));
+        // SeekReset(0, 0, true, true);
         ScanStreams(false);
         m_streamsChanged = false;
     }

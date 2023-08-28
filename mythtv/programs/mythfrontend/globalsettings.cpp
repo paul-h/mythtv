@@ -17,7 +17,6 @@
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <QImage>
-#include <QTextCodec>
 #include <QtGlobal>
 
 // MythTV headers
@@ -31,6 +30,7 @@
 #include "libmythbase/mythlogging.h"
 #include "libmythbase/mythpower.h"
 #include "libmythbase/mythsorthelper.h"
+#include "libmythbase/mythsystem.h"
 #include "libmythbase/mythtranslation.h"
 #include "libmythtv/cardutil.h"
 #include "libmythtv/channelgroup.h"
@@ -1570,11 +1570,27 @@ static HostComboBoxSetting *DecodeVBIFormat()
 
 static HostComboBoxSetting *SubtitleCodec()
 {
+    static const QRegularExpression crlf { "[\r\n]" };
+    static const QRegularExpression suffix { "(//.*)" };
+
     auto *gc = new HostComboBoxSetting("SubtitleCodec");
 
     gc->setLabel(OSDSettings::tr("Subtitle Codec"));
 
-    QList<QByteArray> list = QTextCodec::availableCodecs();
+    // Translations are now done via FFmpeg(iconv).  Get the list of
+    // encodings that iconv supports.
+    QScopedPointer<MythSystem>
+        cmd(MythSystem::Create({"iconv", "-l"},
+                               kMSStdOut | kMSDontDisableDrawing));
+    cmd->Wait();
+    QString results = cmd->GetStandardOutputStream()->readAll();
+#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
+    QStringList list = results.toLower().split(crlf, QString::SkipEmptyParts);
+#else
+    QStringList list = results.toLower().split(crlf, Qt::SkipEmptyParts);
+#endif
+    list.replaceInStrings(suffix, "");
+    list.sort();
 
     for (const auto & codec : qAsConst(list))
     {
@@ -2312,6 +2328,21 @@ static HostCheckBoxSetting *GuiSizeForTV()
 
     gc->setHelpText(AppearanceSettings::tr("If enabled, use the above size for "
                                            "TV, otherwise use full screen."));
+    return gc;
+}
+
+static HostCheckBoxSetting *ForceFullScreen()
+{
+    auto *gc = new HostCheckBoxSetting("ForceFullScreen");
+
+    gc->setLabel(AppearanceSettings::tr("Force Full Screen for GUI and TV playback"));
+
+    gc->setValue(false);
+
+    gc->setHelpText(AppearanceSettings::tr(
+        "Use Full Screen for GUI and TV playback independent of the settings for "
+        "the GUI dimensions. This does not change the values of the GUI dimensions "
+        "so it is easy to switch from window mode to full screen and back."));
     return gc;
 }
 
@@ -4725,6 +4756,7 @@ AppearanceSettings::AppearanceSettings()
     PopulateScreens(MythDisplay::GetScreenCount());
     connect(m_display, &MythDisplay::ScreenCountChanged, this, &AppearanceSettings::PopulateScreens);
 
+    screen->addChild(ForceFullScreen());
     screen->addChild(new GuiDimension());
 
     screen->addChild(GuiSizeForTV());

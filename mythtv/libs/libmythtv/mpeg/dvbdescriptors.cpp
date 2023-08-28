@@ -207,7 +207,7 @@ static QString decode_text(const unsigned char *buf, uint length)
     {
         return iconv_helper(4 + buf[0], (char*)(buf + 1), length - 1);
     }
-    if (buf[0] == 0x10)
+    if ((buf[0] == 0x10) && (length >= 3))
     {
         // If the first byte of the text field has a value "0x10"
         // then the following two bytes carry a 16-bit value (uimsbf) N
@@ -959,7 +959,7 @@ QString SkyLCNDescriptor::toString() const
     ret += QString("\n      RegionID (%1) (0x%2) Raw (0x%3)")
         .arg(RegionID()).arg(RegionID(),4,16,QChar('0')).arg(RegionRaw(),4,16,QChar('0'));
 
-    for (uint i=0; i<ServiceCount(); i++)
+    for (size_t i=0; i<ServiceCount(); i++)
     {
         ret += QString("\n        ServiceID (%1) (0x%2) ").arg(ServiceID(i)).arg(ServiceID(i),4,16,QChar('0'));
         ret += QString("ServiceType (0x%1) ").arg(ServiceType(i),2,16,QChar('0'));
@@ -977,7 +977,7 @@ QString FreesatLCNDescriptor::toString() const
     ret += QString("(0x%1)").arg(DescriptorTag(),2,16,QChar('0'));
     ret += QString(" length(%1)").arg(DescriptorLength());
 
-    for (uint i=0; i<ServiceCount(); i++)
+    for (size_t i=0; i<ServiceCount(); i++)
     {
         ret += QString("\n      ServiceID (%1) (0x%2) ").arg(ServiceID(i)).arg(ServiceID(i),4,16,QChar('0'));
         ret += QString("ChanID (0x%1)").arg(ChanID(i), 4, 16, QChar('0'));

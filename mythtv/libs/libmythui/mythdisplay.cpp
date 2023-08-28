@@ -80,7 +80,7 @@
 /*! \brief Create a MythDisplay object appropriate for the current platform.
  * \note This function always returns a valid MythDisplay object.
 */
-MythDisplay* MythDisplay::Create(MythMainWindow* MainWindow)
+MythDisplay* MythDisplay::Create([[maybe_unused]] MythMainWindow* MainWindow)
 {
     MythDisplay* result = nullptr;
 #ifdef USING_X11
@@ -111,8 +111,6 @@ MythDisplay* MythDisplay::Create(MythMainWindow* MainWindow)
         }
 #endif
     }
-#else
-    (void)MainWindow;
 #endif
 #ifdef USING_MMAL
     if (!result)
@@ -647,7 +645,8 @@ void MythDisplay::InitScreenBounds()
         return;
     }
 
-    if (GetMythDB()->GetBoolSetting("RunFrontendInWindow", false))
+    if (!GetMythDB()->GetBoolSetting("ForceFullScreen", false) &&
+        GetMythDB()->GetBoolSetting("RunFrontendInWindow", false))
     {
         LOG(VB_GUI, LOG_INFO, LOC + "Running in a window");
         // This doesn't include the area occupied by the

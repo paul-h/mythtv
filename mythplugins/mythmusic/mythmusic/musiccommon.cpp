@@ -957,9 +957,8 @@ void MusicCommon::showVolume(void)
     popupStack->AddScreen(vol);
 }
 
-void MusicCommon::showSpeed(bool show)
+void MusicCommon::showSpeed([[maybe_unused]] bool show)
 {
-    (void) show;
 }
 
 void MusicCommon::switchVisualizer(const QString &visual)
@@ -1101,8 +1100,13 @@ void MusicCommon::seekforward()
 
 void MusicCommon::seekback()
 {
+    // I don't know why, but seeking before 00:05 fails.  Repeated
+    // rewind under 00:05 can hold time < 5s while the music plays.
+    // Time starts incrementing from zero but is now several seconds
+    // behind.  Finishing a track after this records a truncated
+    // length.  We can workaround this by limiting rewind to 1s.
     std::chrono::seconds nextTime = m_currentTime - 5s;
-    nextTime = std::clamp(nextTime, 0s, m_maxTime);
+    nextTime = std::clamp(nextTime, 1s, m_maxTime); // #787
     seek(nextTime);
 }
 
@@ -1181,7 +1185,7 @@ void MusicCommon::customEvent(QEvent *event)
 {
     QString statusString;
 
-    if (event->type() == OutputEvent::Playing)
+    if (event->type() == OutputEvent::kPlaying)
     {
         MusicMetadata *curMeta = gPlayer->getCurrentMetadata();
         if (curMeta)
@@ -1214,11 +1218,11 @@ void MusicCommon::customEvent(QEvent *event)
             updateVolume();
         }
     }
-    else if (event->type() == OutputEvent::Buffering)
+    else if (event->type() == OutputEvent::kBuffering)
     {
         statusString = tr("Buffering stream.");
     }
-    else if (event->type() == OutputEvent::Paused)
+    else if (event->type() == OutputEvent::kPaused)
     {
         statusString = tr("Stream paused.");
 
@@ -1241,7 +1245,7 @@ void MusicCommon::customEvent(QEvent *event)
             }
         }
     }
-    else if (event->type() == OutputEvent::Info)
+    else if (event->type() == OutputEvent::kInfo)
     {
 
         auto *oe = dynamic_cast<OutputEvent *>(event);
@@ -1311,7 +1315,7 @@ void MusicCommon::customEvent(QEvent *event)
         // TODO only need to update the playlist times here
         updatePlaylistStats();
     }
-    else if (event->type() == OutputEvent::Stopped)
+    else if (event->type() == OutputEvent::kStopped)
     {
         statusString = tr("Stream stopped.");
         if (m_stopButton)
@@ -1556,7 +1560,7 @@ void MusicCommon::customEvent(QEvent *event)
             }
         }
     }
-    else if (event->type() == MusicPlayerEvent::TrackChangeEvent)
+    else if (event->type() == MusicPlayerEvent::kTrackChangeEvent)
     {
         auto *mpe = dynamic_cast<MusicPlayerEvent *>(event);
 
@@ -1605,11 +1609,11 @@ void MusicCommon::customEvent(QEvent *event)
         updatePlaylistStats();
         updateTrackInfo(gPlayer->getCurrentMetadata());
     }
-    else if (event->type() == MusicPlayerEvent::VolumeChangeEvent)
+    else if (event->type() == MusicPlayerEvent::kVolumeChangeEvent)
     {
         updateVolume();
     }
-    else if (event->type() == MusicPlayerEvent::TrackRemovedEvent)
+    else if (event->type() == MusicPlayerEvent::kTrackRemovedEvent)
     {
         auto *mpe = dynamic_cast<MusicPlayerEvent *>(event);
 
@@ -1652,7 +1656,7 @@ void MusicCommon::customEvent(QEvent *event)
         if (m_noTracksText && gPlayer->getCurrentPlaylist())
             m_noTracksText->SetVisible((gPlayer->getCurrentPlaylist()->getTrackCount() == 0));
     }
-    else if (event->type() == MusicPlayerEvent::TrackAddedEvent)
+    else if (event->type() == MusicPlayerEvent::kTrackAddedEvent)
     {
         auto *mpe = dynamic_cast<MusicPlayerEvent *>(event);
 
@@ -1711,14 +1715,14 @@ void MusicCommon::customEvent(QEvent *event)
         updatePlaylistStats();
         updateTrackInfo(gPlayer->getCurrentMetadata());
     }
-    else if (event->type() == MusicPlayerEvent::AllTracksRemovedEvent)
+    else if (event->type() == MusicPlayerEvent::kAllTracksRemovedEvent)
     {
         updateUIPlaylist();
         updatePlaylistStats();
         updateTrackInfo(nullptr);
     }
-    else if (event->type() == MusicPlayerEvent::MetadataChangedEvent ||
-             event->type() == MusicPlayerEvent::TrackStatsChangedEvent)
+    else if (event->type() == MusicPlayerEvent::kMetadataChangedEvent ||
+             event->type() == MusicPlayerEvent::kTrackStatsChangedEvent)
     {
         auto *mpe = dynamic_cast<MusicPlayerEvent *>(event);
 
@@ -1768,7 +1772,7 @@ void MusicCommon::customEvent(QEvent *event)
         if (gPlayer->getNextMetadata() && trackID == gPlayer->getNextMetadata()->ID())
             updateTrackInfo(gPlayer->getCurrentMetadata());
     }
-    else if (event->type() == MusicPlayerEvent::AlbumArtChangedEvent)
+    else if (event->type() == MusicPlayerEvent::kAlbumArtChangedEvent)
     {
         auto *mpe = dynamic_cast<MusicPlayerEvent *>(event);
 
@@ -1807,7 +1811,7 @@ void MusicCommon::customEvent(QEvent *event)
         if (gPlayer->getCurrentMetadata() && trackID == gPlayer->getCurrentMetadata()->ID())
             updateTrackInfo(gPlayer->getCurrentMetadata());
     }
-    else if (event->type() == MusicPlayerEvent::TrackUnavailableEvent)
+    else if (event->type() == MusicPlayerEvent::kTrackUnavailableEvent)
     {
         auto *mpe = dynamic_cast<MusicPlayerEvent *>(event);
 
@@ -2137,10 +2141,15 @@ QString MusicCommon::getTimeString(std::chrono::seconds exTime, std::chrono::sec
 {
     if (maxTime <= 0ms)
         return MythDate::formatTime(exTime,
-                              (exTime >= 1h) ? "H:mm:ss" : "mm:ss");
+                                    (exTime >= 1h) ? "H:mm:ss" : "mm:ss");
 
     QString fmt = (maxTime >= 1h) ? "H:mm:ss" : "mm:ss";
-    return MythDate::formatTime(exTime, fmt) + " / " + MythDate::formatTime(maxTime, fmt);
+    QString out = MythDate::formatTime(exTime, fmt)
+        + " / " + MythDate::formatTime(maxTime, fmt);
+    float speed = gPlayer->getSpeed();
+    if (int(speed * 100.0F + 0.5F) != 100) // v34 - show altered speed
+        out += QString(", %1").arg(speed);
+    return out;
 }
 
 void MusicCommon::searchButtonList(void)

@@ -70,6 +70,7 @@ class VisualBase
 
     // this is called on nodes that will not be displayed :: Not needed for most visualizations
     // (i.e. between the displayed frames, if you need the whole audio stream)
+    // as of v33, this processes *all* samples, see the comments in WaveForm
     virtual bool processUndisplayed( VisualNode */*node*/ )
     {
         return true; // By default this does nothing : Ignore the in-between chunks of audio data
@@ -116,8 +117,7 @@ class StereoScope : public VisualBase
     void resize( const QSize &size ) override; // VisualBase
     bool process( VisualNode *node ) override; // VisualBase
     bool draw( QPainter *p, const QColor &back ) override; // VisualBase
-    void handleKeyPress(const QString &action) override // VisualBase
-        {(void) action;}
+    void handleKeyPress([[maybe_unused]] const QString &action) override {}; // VisualBase
 
   protected:
     QColor         m_startColor  {Qt::yellow};
@@ -140,13 +140,12 @@ class MonoScope : public StereoScope
 
 // WaveForm - see whole track - by twitham@sbcglobal.net, 2023/01
 
-#define WF_AUDIO_SIZE 4096     // maximum samples to process at a time
-#define WF_WIDTH 1920   // image cache size, will scale to any display
-#define WF_HEIGHT 1080
-
 class WaveForm : public StereoScope
 {
-  public:
+    static constexpr unsigned long kWFAudioSize { 4096 };
+    static QImage s_image;      // picture of full track
+
+public:
     WaveForm() = default;
     ~WaveForm() override;
 
@@ -157,33 +156,32 @@ class WaveForm : public StereoScope
     void handleKeyPress(const QString &action) override;
 
   protected:
-    bool process_all_types(VisualNode *node, bool displayed);
     void saveload(MusicMetadata *meta);
-    unsigned long m_offset {0}; // pass from process to draw
+    QSize         m_wfsize {1920, 1080}; // picture size
+    unsigned long m_offset {0};          // node offset for draw
     short         *m_right {nullptr};
     QFont         m_font;       // optional text overlay
     bool          m_showtext {true};
-    QImage        m_image;      // picture of full track
     MusicMetadata *m_currentMetadata {nullptr};
-    unsigned long m_duration {60000};
-    unsigned int  m_lastx    {WF_WIDTH}; // vert line tracker
-    unsigned int  m_position {0};        // location inside pixel
-    short int     m_minl     {0};        // left range
-    short int     m_maxl     {0};
-    unsigned long m_sqrl     {0}; // sum of squares, for RMS
-    short int     m_minr     {0}; // right range
-    short int     m_maxr     {0};
-    unsigned long m_sqrr     {0};
+    unsigned long m_duration {60000}; // file length in milliseconds
+    unsigned int  m_lastx    {1920};  // vert line tracker
+    unsigned int  m_position {0};     // location inside pixel
+    short int     m_minl     {0};     // left range minimum
+    short int     m_maxl     {0};     // left range maximum
+    unsigned long m_sqrl     {0};     // sum of squares, for RMS
+    short int     m_minr     {0};     // right range minimum
+    short int     m_maxr     {0};     // right range maximum
+    unsigned long m_sqrr     {0};     // sum of squares, for RMS
+    bool          m_stream   {false}; // true if radio stream
 };
 
 class LogScale
 {
   public:
     explicit LogScale(int maxscale = 0, int maxrange = 0);
-    ~LogScale();
 
-    int scale() const { return m_s; }
-    int range() const { return m_r; }
+    int scale() const { return m_scale; }
+    int range() const { return m_range; }
 
     void setMax(int maxscale, int maxrange);
 
@@ -191,9 +189,75 @@ class LogScale
 
 
   private:
-    int *m_indices {nullptr};
-    int  m_s       {0};
-    int  m_r       {0};
+    std::vector<int> m_indices;
+    int  m_scale       {0};
+    int  m_range       {0};
+};
+
+class MelScale
+{
+  public:
+    explicit MelScale(int maxscale = 0, int maxrange = 0, int maxfreq = 0);
+
+    int scale() const { return m_scale; }
+    int range() const { return m_range; }
+
+    void setMax(int maxscale, int maxrange, int maxfreq);
+    double hz2mel(double hz);
+    double mel2hz(double mel);
+    int operator[](int index);
+
+  private:
+    std::vector<int> m_indices;
+    int  m_scale       {0};
+    int  m_range       {0};
+};
+
+// Spectrogram - by twitham@sbcglobal.net, 2023/05
+
+class Spectrogram : public VisualBase
+{
+    // 1152 is the most I can get = 38.28125 fps @ 44100
+    static constexpr int kSGAudioSize { 1152 };
+
+  public:
+    Spectrogram(bool hist);
+    ~Spectrogram() override;
+
+    unsigned long getDesiredSamples(void) override;
+    void resize(const QSize &size) override; // VisualBase
+    void FFT(VisualNode *node);
+    bool processUndisplayed(VisualNode *node) override;
+    bool process( VisualNode *node ) override;
+    bool draw(QPainter *p, const QColor &back = Qt::black) override;
+    void handleKeyPress(const QString &action) override;
+    // {(void) action;}
+    static QImage s_image;      // picture of spectrogram
+    static int    s_offset;     // position on screen
+
+  protected:
+    static inline double clamp(double cur, double max, double min);
+    QImage         *m_image;              // picture in use
+    QSize          m_sgsize {1920, 1080}; // picture size
+    QSize          m_size;                // displayed dize
+    MelScale       m_scale;               // Y-axis
+    int            m_fftlen {16 * 1024}; // window width
+    QVector<float> m_sigL;               // decaying signal window
+    QVector<float> m_sigR;
+    FFTSample*     m_dftL { nullptr }; // real in, complex out
+    FFTSample*     m_dftR { nullptr };
+    RDFTContext*   m_rdftContext { nullptr };
+    int            *m_red   {nullptr}; // continuous color spectrum
+    int            *m_green {nullptr};
+    int            *m_blue  {nullptr};
+    bool           m_binpeak { true }; // peak of bins, else mean
+    bool           m_history { true }; // spectrogram? or spectrum
+};
+class SpectrumDetail : public Spectrogram
+{
+  public:
+    SpectrumDetail() = default;
+    ~SpectrumDetail() override = default;
 };
 
 class Spectrum : public VisualBase
@@ -208,29 +272,33 @@ class Spectrum : public VisualBase
 
     void resize(const QSize &size) override; // VisualBase
     bool process(VisualNode *node) override; // VisualBase
+    bool processUndisplayed(VisualNode *node) override; // VisualBase
     bool draw(QPainter *p, const QColor &back = Qt::black) override; // VisualBase
-    void handleKeyPress(const QString &action) override // VisualBase
-        {(void) action;}
+    void handleKeyPress([[maybe_unused]] const QString &action) override {}; // VisualBase
 
   protected:
     static inline double clamp(double cur, double max, double min);
 
     QColor             m_startColor       {Qt::blue};
     QColor             m_targetColor      {Qt::red};
-    QVector<QRect>     m_rects;
-    QVector<double>    m_magnitudes;
+    QVector<QRect>     m_rectsL;
+    QVector<QRect>     m_rectsR;
+    QVector<float>     m_magnitudes;
     QSize              m_size;
-    LogScale           m_scale;
+    MelScale           m_scale;
 
     // Setup the "magical" audio data transformations
     // provided by the Fast Fourier Transforms library
-    double             m_scaleFactor      {2.0};
-    double             m_falloff          {10.0};
+    float              m_scaleFactor      {2.0};
+    float              m_falloff          {10.0};
     int                m_analyzerBarWidth {6};
 
-    FFTComplex*        m_dftL              { nullptr };
-    FFTComplex*        m_dftR              { nullptr };
-    FFTContext*        m_fftContextForward { nullptr };
+    int            m_fftlen {16 * 1024}; // window width
+    QVector<float> m_sigL;               // decaying signal window
+    QVector<float> m_sigR;
+    FFTSample*     m_dftL { nullptr }; // real in, complex out
+    FFTSample*     m_dftR { nullptr };
+    RDFTContext*   m_rdftContext { nullptr };
 };
 
 class Squares : public Spectrum
@@ -241,8 +309,7 @@ class Squares : public Spectrum
 
     void resize (const QSize &newsize) override; // Spectrum
     bool draw(QPainter *p, const QColor &back = Qt::black) override; // Spectrum
-    void handleKeyPress(const QString &action) override // Spectrum
-        {(void) action;}
+    void handleKeyPress([[maybe_unused]] const QString &action) override {}; // Spectrum
 
   private:
     void drawRect(QPainter *p, QRect *rect, int i, int c, int w, int h);
@@ -294,8 +361,7 @@ struct piano_key_data {
     unsigned long getDesiredSamples(void) override; // VisualBase
 
     bool draw(QPainter *p, const QColor &back = Qt::black) override; // VisualBase
-    void handleKeyPress(const QString &action) override // VisualBase
-        {(void) action;}
+    void handleKeyPress([[maybe_unused]] const QString &action) override {}; // VisualBase
 
   protected:
     static inline double clamp(double cur, double max, double min);
@@ -355,8 +421,7 @@ class Blank : public VisualBase
     void resize(const QSize &size) override; // VisualBase
     bool process(VisualNode *node = nullptr) override; // VisualBase
     bool draw(QPainter *p, const QColor &back = Qt::black) override; // VisualBase
-    void handleKeyPress(const QString &action) override // VisualBase
-        {(void) action;}
+    void handleKeyPress([[maybe_unused]] const QString &action) override {}; // VisualBase
 
   private:
     QSize m_size;

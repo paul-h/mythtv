@@ -159,7 +159,7 @@ AudioConfigSettings::AudioConfigSettings()
     addChild(srcqualityoverride);
 
     advancedSettings->addChild(Audio48kOverride());
-#if USING_ALSA
+#ifdef USING_ALSA
     advancedSettings->addChild(SPDIFRateOverride());
 #endif
 
@@ -630,7 +630,7 @@ AudioTestThread::AudioTestThread(QObject *parent,
     }
 }
 
-QEvent::Type ChannelChangedEvent::kEventType =
+const QEvent::Type ChannelChangedEvent::kEventType =
     static_cast<QEvent::Type>(QEvent::registerEventType());
 
 AudioTestThread::~AudioTestThread()

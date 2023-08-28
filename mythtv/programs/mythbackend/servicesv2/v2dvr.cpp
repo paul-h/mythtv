@@ -1046,7 +1046,7 @@ V2MarkupList* V2Dvr::GetRecordedMarkup ( int RecordedId )
         else
             pMarkup->setData(QString::number(entry.data));
     }
-    for (auto entry : qAsConst(mapSeek))
+    for (const auto& entry : qAsConst(mapSeek))
     {
         V2Markup *pSeek = pMarkupList->AddNewSeek();
         QString typestr = toString(static_cast<MarkTypes>(entry.type));
@@ -1421,7 +1421,8 @@ uint V2Dvr::AddRecordSchedule   (
                                bool      bAutoUserJob2,
                                bool      bAutoUserJob3,
                                bool      bAutoUserJob4,
-                               int       nTranscoder)
+                               int       nTranscoder,
+                               const QString&   AutoExtend)
 {
     QDateTime recstartts = StartTime.toUTC();
     QDateTime recendts = EndTime.toUTC();
@@ -1518,6 +1519,7 @@ uint V2Dvr::AddRecordSchedule   (
     rule.m_autoUserJob4 = bAutoUserJob4;
 
     rule.m_transcoder = nTranscoder;
+    rule.m_autoExtend = autoExtendTypeFromString(AutoExtend);
 
     rule.m_lastRecorded = lastrects;
 
@@ -1573,7 +1575,8 @@ bool V2Dvr::UpdateRecordSchedule ( uint      nRecordId,
                                  bool      bAutoUserJob2,
                                  bool      bAutoUserJob3,
                                  bool      bAutoUserJob4,
-                                 int       nTranscoder)
+                                 int       nTranscoder,
+                                 const QString&   AutoExtend)
 {
     if (nRecordId == 0 )
         throw QString("Record ID is invalid.");
@@ -1689,6 +1692,9 @@ bool V2Dvr::UpdateRecordSchedule ( uint      nRecordId,
     pRule.m_autoUserJob4 = bAutoUserJob4;
 
     pRule.m_transcoder = nTranscoder;
+
+    if (!AutoExtend.isEmpty())
+        pRule.m_autoExtend = autoExtendTypeFromString(AutoExtend);
 
     QString msg;
     if (!pRule.IsValid(msg))
@@ -2121,7 +2127,8 @@ bool V2Dvr::UpdateRecordedMetadata ( uint             RecordedId,
                                      uint             Stars,
                                      const QString   &SubTitle,
                                      const QString   &Title,
-                                     bool             Watched )
+                                     bool             Watched,
+                                     const QString   &RecGroup )
 
 {
     if (m_request->m_queries.size() < 2 || !HAS_PARAMv2("RecordedId"))
@@ -2214,7 +2221,8 @@ bool V2Dvr::UpdateRecordedMetadata ( uint             RecordedId,
 
     if (HAS_PARAMv2("OriginalAirDate"))
     {
-        if (!OriginalAirDate.isValid())
+        // OriginalAirDate can be set to null by submitting value 'null' in json
+        if (!OriginalAirDate.isValid() && !OriginalAirDate.isNull())
         {
             LOG(VB_GENERAL, LOG_ERR, "Need valid OriginalAirDate yyyy-mm-dd.");
             return false;
@@ -2237,6 +2245,9 @@ bool V2Dvr::UpdateRecordedMetadata ( uint             RecordedId,
 
     if (HAS_PARAMv2("Watched"))
         pi.SaveWatched(Watched);
+
+    if (HAS_PARAMv2("RecGroup"))
+        ri.ApplyRecordRecGroupChange(RecGroup);
 
     return true;
 }

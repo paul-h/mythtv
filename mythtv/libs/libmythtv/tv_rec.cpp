@@ -1868,7 +1868,7 @@ bool TVRec::SetupDTVSignalMonitor(bool EITscan)
 
     // Check if this is an DVB channel
     int progNum = dtvchan->GetProgramNumber();
-    if ((progNum >= 0) && (tuningmode == "dvb") && (m_genOpt.m_inputType != "VBOX"))
+    if ((progNum >= 0) && (tuningmode == "dvb") && CardUtil::IsChannelReusable(m_genOpt.m_inputType))
     {
         int netid   = dtvchan->GetOriginalNetworkID();
         int tsid    = dtvchan->GetTransportID();
@@ -2780,13 +2780,11 @@ void TVRec::InitAutoRunJobs(RecordingInfo *rec, AutoRunInitType t,
  *         RecStatus::Cancelled, and set to -1 to base the decision of the recording
  *         group.
  */
-void TVRec::SetLiveRecording(int recording)
+void TVRec::SetLiveRecording([[maybe_unused]] int recording)
 {
     LOG(VB_GENERAL, LOG_INFO, LOC +
         QString("SetLiveRecording(%1)").arg(recording));
     QMutexLocker locker(&m_stateChangeLock);
-
-    (void) recording;
 
     RecStatus::Type recstat = RecStatus::Cancelled;
     bool was_rec = m_pseudoLiveTVRecording;
@@ -3339,6 +3337,8 @@ void TVRec::RingBufferChanged(MythMediaBuffer *Buffer, RecordingInfo *pginfo, Re
 {
     LOG(VB_GENERAL, LOG_INFO, LOC + "RingBufferChanged()");
 
+    QMutexLocker lock(&m_stateChangeLock);
+
     if (pginfo)
     {
         if (m_curRecording)
@@ -3880,7 +3880,7 @@ MPEGStreamData *TVRec::TuningSignalCheck(void)
             if (!m_curRecording->GetSubtitle().isEmpty())
                 title += " - " + m_curRecording->GetSubtitle();
 
-            MythNotification mn(MythNotification::Check, desc,
+            MythNotification mn(MythNotification::kCheck, desc,
                                 "Recording", title,
                                 tr("See 'Tuning timeout' in mythtv-setup "
                                    "for this input."));
@@ -3935,7 +3935,7 @@ MPEGStreamData *TVRec::TuningSignalCheck(void)
         if (!m_curRecording->GetSubtitle().isEmpty())
             title += " - " + m_curRecording->GetSubtitle();
 
-        MythNotification mn(MythNotification::Error, desc,
+        MythNotification mn(MythNotification::kError, desc,
                             "Recording", title,
                             tr("See 'Tuning timeout' in mythtv-setup "
                                "for this input."));
@@ -4218,6 +4218,8 @@ void TVRec::TuningNewRecorder(MPEGStreamData *streamData)
             gCoreContext->dispatch(me);
         }
         TeardownRecorder(kFlagKillRec);
+        if (m_tvChain)
+            rec = nullptr;
         goto err_ret;
     }
 
@@ -4780,6 +4782,28 @@ TVRec* TVRec::GetTVRec(uint inputid)
     if (it == s_inputs.constEnd())
         return nullptr;
     return *it;
+}
+
+void TVRec::EnableActiveScan(bool enable) {
+    if (m_scanner != nullptr) {
+        if (enable) {
+            if ( ! HasFlags(kFlagEITScannerRunning)
+                && m_eitScanStartTime > MythDate::current().addYears(9))
+                {
+                    auto secs = m_eitCrawlIdleStart + eit_start_rand(m_inputId, m_eitTransportTimeout);
+                    m_eitScanStartTime = MythDate::current().addSecs(secs.count());
+                }
+        }
+        else {
+            m_eitScanStartTime = MythDate::current().addYears(10);
+            if (HasFlags(kFlagEITScannerRunning))
+            {
+                m_scanner->StopActiveScan();
+                ClearFlags(kFlagEITScannerRunning, __FILE__, __LINE__);
+            }
+
+        }
+    }
 }
 
 QString TuningRequest::toString(void) const

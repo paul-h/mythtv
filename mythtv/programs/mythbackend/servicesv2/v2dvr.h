@@ -267,7 +267,8 @@ class V2Dvr : public MythHTTPService
                                             bool      AutoUserJob2,
                                             bool      AutoUserJob3,
                                             bool      AutoUserJob4,
-                                            int       Transcoder);
+                                            int       Transcoder,
+                                            const QString&   AutoExtend);
 
     static bool        UpdateRecordSchedule ( uint    RecordId,
                                               const QString&   Title,
@@ -310,7 +311,8 @@ class V2Dvr : public MythHTTPService
                                               bool      AutoUserJob2,
                                               bool      AutoUserJob3,
                                               bool      AutoUserJob4,
-                                              int       Transcoder);
+                                              int       Transcoder,
+                                              const QString&   AutoExtend);
 
     static bool       RemoveRecordSchedule ( uint             RecordId   );
 
@@ -379,7 +381,8 @@ class V2Dvr : public MythHTTPService
                                                uint             Stars,
                                                const QString   &SubTitle,
                                                const QString   &Title,
-                                               bool             Watched );
+                                               bool             Watched,
+                                               const QString   &RecGroup );
 
   private:
     Q_DISABLE_COPY(V2Dvr)
