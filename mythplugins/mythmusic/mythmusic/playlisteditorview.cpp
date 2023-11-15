@@ -154,17 +154,8 @@ bool PlaylistEditorView::Create(void)
 
     m_playlistTree->AssignTree(m_rootNode);
 
-    // if (m_restorePosition) // v33- only when switching gallery/tree
-    if (true)              // v34+ always enter where we exited
-    {
-        QStringList route = gCoreContext->GetSetting("MusicTreeLastActive", "").split("\n");
-        restoreTreePosition(route);
-    }
-    else               // not used, could enter at any point like this
-    {
-        QStringList route = (QString("Root Music Node.Albums").split("."));
-        restoreTreePosition(route);
-    }
+    QStringList route = gCoreContext->GetSetting("MusicTreeLastActive", "").split("\n");
+    restoreTreePosition(route);
 
     connect(m_playlistTree, &MythUIButtonTree::itemClicked,
             this, &PlaylistEditorView::treeItemClicked);
@@ -708,7 +699,7 @@ MythMenu* PlaylistEditorView::createPlaylistMenu(void)
         if (mnode->getAction() == "playlist")
         {
             menu = new MythMenu(tr("Playlist Actions"), this, "treeplaylistmenu");
-            if (gPlayer->getPlayNow())
+            if (MusicPlayer::getPlayNow())
             {
                 menu->AddItem(tr("Play Now"));
                 menu->AddItem(tr("Add Tracks"));
@@ -749,7 +740,7 @@ MythMenu* PlaylistEditorView::createSmartPlaylistMenu(void)
         {
             menu = new MythMenu(tr("Smart Playlist Actions"), this, "smartplaylistmenu");
 
-            if (gPlayer->getPlayNow())
+            if (MusicPlayer::getPlayNow())
             {
                 menu->AddItem(tr("Play Now"));
                 menu->AddItem(tr("Add Tracks"));
@@ -857,7 +848,7 @@ void PlaylistEditorView::treeItemClicked(MythUIButtonListItem *item)
             gPlayer->removeTrack(mnode->getInt());
             mnode->setCheck(MythUIButtonListItem::NotChecked);
         }
-        else if (gPlayer->getPlayNow())
+        else if (MusicPlayer::getPlayNow())
         {
             gPlayer->addTrack(mnode->getInt(), false);
             gPlayer->setCurrentTrackPos(gPlayer->getCurrentPlaylist()->getTrackCount() - 1);

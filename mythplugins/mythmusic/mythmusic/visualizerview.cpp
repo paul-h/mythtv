@@ -18,6 +18,7 @@
 #include <libmythui/mythdialogbox.h>
 
 // mythmusic
+#include "mainvisual.h"
 #include "musiccommon.h"
 #include "visualizerview.h"
 
@@ -74,6 +75,9 @@ bool VisualizerView::keyPressEvent(QKeyEvent *event)
     {
         QString action = actions[i];
         handled = true;
+
+        if (m_mainvisual && m_mainvisual->visual())
+            m_mainvisual->visual()->handleKeyPress(action);
 
         // unassgined arrow keys might as well be useful
         if (action == "UP")
@@ -242,7 +246,7 @@ bool TrackInfoPopup::keyPressEvent(QKeyEvent *event)
                 m_displayTimer->stop();
             return true;
         }
-        else if (action == "ESCAPE")
+        if (action == "ESCAPE")
             Close();
         else if (action == "INFO")
             showTrackInfo(gPlayer->getCurrentMetadata());

@@ -36,6 +36,7 @@
         "channeleditor": "Kanalredigerare",
         "guide": {
             "channel": "Kanal",
+            "full_search": "Fullständig sökning",
             "people_search": "People Search",
             "retgrid": "Återgå till Grid Display",
             "title_search": "Titelsökning"
@@ -56,6 +57,7 @@
             "edit_rule": "Redigera inspelningsregel",
             "episode": "Episod",
             "file_size": "Filstorlek",
+            "filename_label": "Filnamn",
             "filter": "Filtrera",
             "heading": "Inspelningar",
             "inetref": "InetRef",
@@ -155,7 +157,6 @@
             "startoffset_label": "Antal extra minuter att spela in vid start",
             "starttime_label": "Startdatum och tid",
             "subtitle_label": "Texta",
-            "template_apply": "Använd malländring",
             "template_label": "Använd mall",
             "title_label": "Titel",
             "type": {
@@ -658,6 +659,8 @@
             "format_label": "TV-format",
             "freqid": "Frekvens-ID",
             "freqid_desc": "Kanalnummer enligt dina tuners.",
+            "mplex_desc": "Sändningsfrekvens för transportströmmen som bär denna kanal. Samma ström kan bära många kanaler.",
+            "mplex_label": "Flerfaldig",
             "never-visible": "Aldrig synlig",
             "new_channel": "Ny kanal",
             "not-visible": "Inte synlig",
@@ -677,6 +680,7 @@
             "xmltvid_desc": "ID som används av listtjänster för att få en exakt överensstämmelse mellan en kanal i din line-up och en kanal i deras databas. Normalt ställs detta in automatiskt när 'mythfilldatabase' körs.",
             "xmltvid_label": "XMLTV ID"
         },
+        "chanedit_advanced": "Avancerade inställningar",
         "channelscan": {
             "FEC_desc": "Vidarebefordra felkorrigering (standard: Auto)",
             "FEC_label": "FEC",
@@ -790,7 +794,7 @@
             "rolloff_label": "Rulla av",
             "sattuning_desc": "Välj en satellit från denna lista för inställningsdata för referenstranspondern.",
             "sattuning_label": "Satellitinställningsdata",
-            "scan_desc": "Innan du kör detta måste du välja videokälla och spara sidan om några ändringar inte har sparats.",
+            "scan_desc": "Innan du kör detta måste du välja videokälla. Starta skanning sparar automatiskt sidan om det behövs före skanning.",
             "scan_label": "Starta skanning",
             "scanimport_label": "Skanna för att importera",
             "scanimport_option": "Välj ett importalternativ.",

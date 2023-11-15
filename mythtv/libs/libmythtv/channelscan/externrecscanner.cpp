@@ -7,6 +7,7 @@
 
 // Qt headers
 #include <QFile>
+#include <QRegularExpression>
 #include <QTextStream>
 
 // MythTV headers
@@ -122,7 +123,8 @@ void ExternRecChannelScanner::run(void)
     QString callsign;
     QString xmltvid;
     QString icon;
-    int     atsc_major, atsc_minor;
+    int     atsc_major = 0;
+    int     atsc_minor = 0;
     int     cnt = 0;
 
     if (!fetch.FirstChannel(channum, name, callsign, xmltvid, icon))

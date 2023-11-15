@@ -17,7 +17,7 @@
         "instructions": "Bruksanvisning",
         "loading": "Laster",
         "networkfail": "FEIL: Backend Network Feil",
-        "next": "neste",
+        "next": "Neste",
         "no": "Nei",
         "nosave": "Lukk uten å lagre",
         "ok": "Ok",
@@ -36,6 +36,7 @@
         "channeleditor": "Kanalredaktør",
         "guide": {
             "channel": "Kanal",
+            "full_search": "Fullt søk",
             "people_search": "People Search",
             "retgrid": "Gå tilbake til rutenettvisning",
             "title_search": "Tittelsøk"
@@ -56,6 +57,7 @@
             "edit_rule": "Rediger opptaksregel",
             "episode": "Episode",
             "file_size": "Filstørrelse",
+            "filename_label": "Filnavn",
             "filter": "Filter",
             "heading": "Opptak",
             "inetref": "InetRef",
@@ -155,7 +157,6 @@
             "startoffset_label": "Antall ekstra minutter å registrere ved start",
             "starttime_label": "Startdato og klokkeslett",
             "subtitle_label": "Undertekst",
-            "template_apply": "Bruk malendring",
             "template_label": "Bruk mal",
             "title_label": "Tittel",
             "type": {
@@ -658,6 +659,8 @@
             "format_label": "TV-format",
             "freqid": "Frekvens-ID",
             "freqid_desc": "Kanalnummer som forstått av tunerne.",
+            "mplex_desc": "Kringkastingsfrekvens for transportstrømmen som fører denne kanalen. Den samme strømmen kan bære mange kanaler.",
+            "mplex_label": "Multipleks",
             "never-visible": "Aldri synlig",
             "new_channel": "Ny kanal",
             "not-visible": "Ikke synlig",
@@ -677,6 +680,7 @@
             "xmltvid_desc": "ID som brukes av listetjenester for å få en nøyaktig korrespondanse mellom en kanal i serien din og en kanal i databasen deres. Normalt settes dette automatisk når 'mythfilldatabase' kjøres.",
             "xmltvid_label": "XMLTV ID"
         },
+        "chanedit_advanced": "Avanserte innstillinger",
         "channelscan": {
             "FEC_desc": "Videresend feilretting (standard: Auto)",
             "FEC_label": "FEC",
@@ -790,7 +794,7 @@
             "rolloff_label": "Avrulling",
             "sattuning_desc": "Velg en satellitt fra denne listen for innstillingsdata for referansetransponderen.",
             "sattuning_label": "Satellittinnstillingsdata",
-            "scan_desc": "Før du kjører dette må du velge videokilden, og lagre siden hvis noen endringer ikke er lagret.",
+            "scan_desc": "Før du kjører dette må du velge videokilden. Start skanning vil automatisk lagre siden om nødvendig før skanning.",
             "scan_label": "Start søk",
             "scanimport_label": "Skann for å importere",
             "scanimport_option": "Velg et importalternativ.",

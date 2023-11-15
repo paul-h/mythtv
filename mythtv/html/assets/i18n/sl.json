@@ -36,6 +36,7 @@
         "channeleditor": "Urejevalnik kanalov",
         "guide": {
             "channel": "Kanal",
+            "full_search": "Celotno iskanje",
             "people_search": "Iskanje ljudi",
             "retgrid": "Nazaj na prikaz mreže",
             "title_search": "Iskanje po naslovu"
@@ -56,6 +57,7 @@
             "edit_rule": "Uredi pravilo snemanja",
             "episode": "Epizoda",
             "file_size": "Velikost datoteke",
+            "filename_label": "Ime datoteke",
             "filter": "Filter",
             "heading": "Posnetki",
             "inetref": "InetRef",
@@ -155,7 +157,6 @@
             "startoffset_label": "Število dodatnih minut za snemanje na začetku",
             "starttime_label": "Začetni datum in čas",
             "subtitle_label": "Podnaslov",
-            "template_apply": "Uporabi spremembo predloge",
             "template_label": "Uporabite predlogo",
             "title_label": "Naslov",
             "type": {
@@ -658,6 +659,8 @@
             "format_label": "TV format",
             "freqid": "Id frekvence",
             "freqid_desc": "Številka kanala, kot jo razumejo vaši sprejemniki.",
+            "mplex_desc": "Frekvenca oddajanja transportnega toka, ki prenaša ta kanal. Isti tok lahko prenaša več kanalov.",
+            "mplex_label": "Multipleks",
             "never-visible": "Nikoli vidno",
             "new_channel": "Nov kanal",
             "not-visible": "Ni vidno",
@@ -677,6 +680,7 @@
             "xmltvid_desc": "ID, ki se uporablja pri navajanju storitev za pridobitev natančnega ujemanja med kanalom v vaši postavi in ​​kanalom v njihovi bazi podatkov. Običajno se to nastavi samodejno, ko se zažene »mythfilldatabase«.",
             "xmltvid_label": "XMLTV ID"
         },
+        "chanedit_advanced": "Napredne nastavitve",
         "channelscan": {
             "FEC_desc": "Posredovanje popravljanja napak (privzeto: samodejno)",
             "FEC_label": "FEC",
@@ -790,7 +794,7 @@
             "rolloff_label": "Roll-off",
             "sattuning_desc": "Na tem seznamu izberite satelit za nastavitve referenčnega transponderja.",
             "sattuning_label": "Podatki o satelitski nastavitvi",
-            "scan_desc": "Preden to zaženete, morate izbrati video vir in shraniti stran, če spremembe niso bile shranjene.",
+            "scan_desc": "Preden to zaženete, morate izbrati video vir. Začni skeniranje bo po potrebi samodejno shranilo stran pred skeniranjem.",
             "scan_label": "Zaženi skeniranje",
             "scanimport_label": "Skeniraj za uvoz",
             "scanimport_option": "Izberite možnost uvoza.",

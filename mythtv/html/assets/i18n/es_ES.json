@@ -36,6 +36,7 @@
         "channeleditor": "Editor de canales",
         "guide": {
             "channel": "Canal",
+            "full_search": "Búsqueda completa",
             "people_search": "Búsqueda de personas",
             "retgrid": "Regresar a la pantalla de cuadrícula",
             "title_search": "Buscar título"
@@ -56,6 +57,7 @@
             "edit_rule": "Editar regla de grabación",
             "episode": "Episodio",
             "file_size": "Tamaño del archivo",
+            "filename_label": "Nombre del archivo",
             "filter": "Filtrar",
             "heading": "Grabaciones",
             "inetref": "InetRef",
@@ -155,7 +157,6 @@
             "startoffset_label": "Número de minutos adicionales para registrar al inicio",
             "starttime_label": "Fecha y hora de inicio",
             "subtitle_label": "Subtitular",
-            "template_apply": "Aplicar cambio de plantilla",
             "template_label": "Usar plantilla",
             "title_label": "Título",
             "type": {
@@ -658,6 +659,8 @@
             "format_label": "Formato de televisión",
             "freqid": "ID de frecuencia",
             "freqid_desc": "Número de canal tal como lo entienden sus sintonizadores.",
+            "mplex_desc": "Frecuencia de transmisión del flujo de transporte que transporta este canal. La misma transmisión puede transportar muchos canales.",
+            "mplex_label": "Multicine",
             "never-visible": "nunca visible",
             "new_channel": "Nuevo canal",
             "not-visible": "No visible",
@@ -677,6 +680,7 @@
             "xmltvid_desc": "ID utilizado por los servicios de listado para obtener una correspondencia exacta entre un canal en su programación y un canal en su base de datos. Normalmente, esto se configura automáticamente cuando se ejecuta 'mythfilldatabase'.",
             "xmltvid_label": "ID de XMLTV"
         },
+        "chanedit_advanced": "Ajustes avanzados",
         "channelscan": {
             "FEC_desc": "Corrección de errores de reenvío (predeterminado: automático)",
             "FEC_label": "FEC",
@@ -790,7 +794,7 @@
             "rolloff_label": "despegue",
             "sattuning_desc": "Seleccione un satélite de esta lista para los datos de sintonización del transpondedor de referencia.",
             "sattuning_label": "Datos de sintonización de satélite",
-            "scan_desc": "Antes de ejecutar esto, debe seleccionar la fuente de video y guardar la página si no se han guardado los cambios.",
+            "scan_desc": "Antes de ejecutar esto, debes seleccionar la fuente del video. Iniciar escaneo guardará automáticamente la página si es necesario antes de escanear.",
             "scan_label": "Iniciar escaneo",
             "scanimport_label": "Escanear para importar",
             "scanimport_option": "Seleccione una opción de importación.",

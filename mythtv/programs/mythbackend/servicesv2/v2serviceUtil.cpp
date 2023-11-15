@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 
 // MythTV
+#include "libmythbase/compat.h"
 #include "libmythbase/mythscheduler.h"
 #include "libmythbase/programinfo.h"
 #include "libmythbase/programtypes.h"
@@ -700,7 +701,7 @@ void V2FillSeek(V2CutList* pCutList, RecordingInfo* rInfo, MarkTypes marktype)
 void FillEncoderList(QVariantList &list, QObject* parent)
 {
     QReadLocker tvlocker(&TVRec::s_inputsLock);
-    QList<InputInfo> inputInfoList = CardUtil::GetAllInputInfo();
+    QList<InputInfo> inputInfoList = CardUtil::GetAllInputInfo(true);
     for (auto * elink : qAsConst(gTVList))
     {
         if (elink != nullptr)
@@ -889,7 +890,7 @@ DBCredits * V2jsonCastToCredits(const QJsonObject &cast)
         QString     character = actor.value("CharacterName").toString("");
         QString     role      = actor.value("Role").toString("");
 
-        credits->push_back(DBPerson(role, name, priority++, character));
+        credits->emplace_back(role, name, priority++, character);
     }
 
     return credits;
