@@ -9,6 +9,7 @@
 #include <QHash>
 #include <QImage>
 #include <QReadWriteLock>
+#include <QRegularExpression>
 
 #include "libmythbase/mythdb.h"
 #include "libmythbase/stringutil.h"
@@ -16,6 +17,7 @@
 #include "channelutil.h"
 #include "mpeg/dvbtables.h"
 #include "recorders/HLS/HLSReader.h"
+#include "sourceutil.h"
 
 #define LOC QString("ChanUtil: ")
 
@@ -1985,8 +1987,8 @@ bool ChannelUtil::GetChannelData(
     if (!chanid)
     {
         LOG(VB_GENERAL, LOG_ERR,
-            QString("Could not find channel '%1' in DB for source '%2'.")
-                .arg(channum).arg(sourceid));
+            QString("Could not find channel '%1' in DB for source %2 '%3'.")
+                .arg(channum).arg(sourceid).arg(SourceUtil::GetSourceName(sourceid)));
         return false;
     }
 

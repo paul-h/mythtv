@@ -1,83 +1,73 @@
-#-*- coding: UTF-8 -*-
+# -*- Mode: python; coding: utf-8; tab-width: 8; indent-tabs-mode: t; -*-
+"""
+Scraper for https://supermusic.cz
 
-import sys, re, socket
+Jose Riha
+"""
 
-try:
-    from urllib2 import quote, urlopen, HTTPError
-except ImportError:
-    from urllib.request import urlopen, HTTPError
-    from urllib.parse import quote
+import re
+import requests
+import html
 
-try:
-    import HTMLParser as html_parser
-except ImportError:
-    from html import parser as html_parser
-
+import os
+import sys
 from optparse import OptionParser
+from common import utilities
 
-if sys.version_info < (2, 7):
-    import simplejson
-else:
-    import json as simplejson
-
-from common import *
-
-__author__      = "Paul Harrison and ronie'"
-__title__       = "LyricsWiki"
-__description__ = "Search http://lyrics.wikia.com for lyrics"
-__priority__    = "150"
-__version__     = "0.2"
+__author__      = "Paul Harrison and Jose Riha"
+__title__       = "SuperMusic"
+__description__ = "Search https://supermusic.cz for lyrics"
+__priority__    = "250"
+__version__     = "0.1"
 __syncronized__ = False
-
-
-LIC_TXT = 'we are not licensed to display the full lyrics for this song at the moment'
 
 debug = False
 
-socket.setdefaulttimeout(10)
-
 class LyricsFetcher:
     def __init__( self ):
-        self.url = 'http://lyrics.wikia.com/api.php?func=getSong&artist=%s&song=%s&fmt=realjson'
+        return
 
     def get_lyrics(self, lyrics):
-        utilities.log(debug,  "%s: searching lyrics for %s - %s - %s" % (__title__, lyrics.artist, lyrics.album, lyrics.title))
+        utilities.log(debug, "%s: searching lyrics for %s - %s - %s" % (__title__, lyrics.artist, lyrics.album, lyrics.title))
+
+        artist = lyrics.artist.lower()
+        title = lyrics.title.lower()
 
         try:
-            req = urlopen(self.url % (quote(lyrics.artist), quote(lyrics.title)))
-            response = req.read().decode('utf-8')
+            req = requests.post('https://supermusic.cz/najdi.php', data={'hladane': title, 'typhladania': 'piesen', 'fraza': 'off'})
+            response = req.text
         except:
             return False
         req.close()
-        data = simplejson.loads(response)
+        url = None
         try:
-            self.page = data['url']
+            items = re.search(r'Počet nájdených piesní.+<br><br>(.*)<BR>', response, re.S).group(1)
+            for match in re.finditer(r'<a href=(?P<url>"[^"]+?") target="_parent"><b>(?P<artist>.*?)</b></a> - (?P<type>.+?) \(<a href', items):
+                matched_url, matched_artist, matched_type = match.groups()
+                if matched_type not in ('text', 'akordy a text'):
+                    continue
+                if matched_artist.lower() == artist:
+                    url = matched_url.strip('"')
+                    break
         except:
             return False
-        if not self.page.endswith('action=edit'):
-            utilities.log(debug, "%s: search url: %s" % (__title__, self.page))
-            try:
-                req = urlopen(self.page)
-                response = req.read().decode('utf-8')
-            except HTTPError as error: # strange... sometimes lyrics are returned with a 404 error
-                if error.code == 404:
-                    response = error.read().decode('utf-8')
-                else:
-                    return False
-            req.close()
-            matchcode = re.search("lyricbox'>.*?(&#.*?)<div", response)
-            try:
-                lyricscode = (matchcode.group(1))
-                htmlparser = html_parser.HTMLParser()
-                lyricstext = htmlparser.unescape(lyricscode).replace('<br />', '\n')
-                lyr = re.sub('<[^<]+?>', '', lyricstext)
-                if LIC_TXT in lyr:
-                    return False
-                lyrics.lyrics = lyr
-                return True
-            except:
-                return False
-        else:
+        print(url)
+        if not url:
+            return False
+
+        try:
+            req = requests.get('https://supermusic.cz/%s' % url)
+            response = req.text
+            lyr = re.search(r'class=piesen>(.*?)</font>', response, re.S).group(1)
+            lyr = re.sub(r'<sup>.*?</sup>', '', lyr)
+            lyr = re.sub(r'<br\s*/>\s*', '\n', lyr)
+            lyr = re.sub(r'<!--.*?-->', '', lyr, flags=re.DOTALL)
+            lyr = re.sub(r'<[^>]*?>', '', lyr, flags=re.DOTALL)
+            lyr = lyr.strip('\r\n')
+            lyr = html.unescape(lyr)
+            lyrics.lyrics = lyr
+            return True
+        except:
             return False
 
 def performSelfTest():
@@ -85,9 +75,9 @@ def performSelfTest():
     lyrics = utilities.Lyrics()
     lyrics.source = __title__
     lyrics.syncronized = __syncronized__
-    lyrics.artist = 'Dire Straits'
-    lyrics.album = 'Brothers In Arms'
-    lyrics.title = 'Money For Nothing'
+    lyrics.artist = 'Karel Gott'
+    lyrics.album = ''
+    lyrics.title = 'Trezor'
 
     fetcher = LyricsFetcher()
     found = fetcher.get_lyrics(lyrics)
@@ -122,7 +112,7 @@ def buildVersion():
     version = etree.XML(u'<grabber></grabber>')
     etree.SubElement(version, "name").text = __title__
     etree.SubElement(version, "author").text = __author__
-    etree.SubElement(version, "command").text = 'lyricswiki.py'
+    etree.SubElement(version, "command").text = 'supermusic.py'
     etree.SubElement(version, "type").text = 'lyrics'
     etree.SubElement(version, "description").text = __description__
     etree.SubElement(version, "version").text = __version__
@@ -184,9 +174,8 @@ def main():
         buildLyrics(lyrics)
         sys.exit(0)
     else:
-        utilities.log(True,  "No lyrics found for this track")
+        utilities.log(True, "No lyrics found for this track")
         sys.exit(1)
-
 
 if __name__ == '__main__':
     main()

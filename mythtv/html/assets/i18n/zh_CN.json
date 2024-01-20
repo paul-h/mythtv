@@ -25,6 +25,7 @@
         "refresh": "刷新",
         "save": "节省",
         "savesuccess": "保存成功",
+        "selected_menu": "选择下面的一行或多行，然后单击此处对其执行操作。或者，右键单击选定的行。",
         "submit": "提交",
         "success": "成功",
         "unsaved_heading": "未保存的更改",
@@ -35,14 +36,23 @@
         "backendStatus": "后端状态",
         "channeleditor": "频道编辑",
         "guide": {
+            "calendar_tip": "日期选择器：首先选择时间，然后选择日期。",
+            "catcolors": "类别 颜色",
             "channel": "渠道",
+            "channel_group": "渠道组",
+            "color_customize": "通过编辑此文件来自定义颜色：",
+            "color_expl": "没有类别颜色的类别的显示使用类别类型颜色。",
+            "color_includes": "此列表仅包含指南当前页面上的程序的颜色。完整的颜色列表位于下面提到的文件中。",
+            "colors": "颜色",
             "full_search": "完整搜索",
             "people_search": "人物搜索",
             "retgrid": "返回网格显示",
-            "title_search": "标题搜索"
+            "title_search": "标题搜索",
+            "typecolors": "类别 类型 颜色"
         },
         "programguide": "节目指南",
         "recordings": {
+            "actionsselected": "对 {{ num }} 个选定录音执行的操作",
             "airdate": "播出日期",
             "alreadydel": "已删除",
             "canundel": "您可以使用取消删除来反转此情况。",
@@ -63,7 +73,8 @@
             "inetref": "InetRef",
             "job_Commflag": "检测广告",
             "job_Metadata": "查找元数据",
-            "job_Transcode": "转码",
+            "job_Transcode": "使用默认配置文件进行转码",
+            "jobsselected": "对 {{ num }} 个选定的录音运行作业",
             "mnu_delete": "删除",
             "mnu_delete_rerec": "删除并允许重新录制",
             "mnu_markdamaged": "标记为已损坏",
@@ -75,6 +86,7 @@
             "mnu_stoprec": "停止录音",
             "mnu_undelete": "恢复删除",
             "mnu_updatemeta": "更新元数据",
+            "mnu_updaterecgrp": "更改录音组",
             "mnu_updaterecrule": "更新记录规则",
             "nonrerec": "要允许重新录制损坏的程序，请使用“允许重新录制”。",
             "orig_airdate": "原始播出日期",
@@ -82,6 +94,7 @@
             "recgrp": "记录组",
             "seas_ep": "海洋EP",
             "season": "季节",
+            "selrecgroup": "选择录音组",
             "stop_details": "这将停止录制",
             "stop_recording": "停止录音",
             "subtitle": "字幕",
@@ -220,6 +233,7 @@
             "schedule_text": "计划录制的下一个 {{ length }} 个节目。",
             "schedule_title": "日程"
         },
+        "undefselection": "某些选定的行尚未加载。请滚动列表并重新选择行。",
         "upcoming": {
             "date": "日期",
             "encoder": "编码器",
@@ -844,6 +858,8 @@
         "eit": {
             "crawl_desc": "记录器空闲后，MythTV 开始收集 EIT 列表数据之前等待的最短秒数。",
             "crawl_label": "EIT 抓取之前后端空闲（秒）",
+            "scan_desc": "在移动到配置为 EIT 扫描的同一输入组中的下一张采集卡之前，先在一张采集卡上执行 EIT 扫描。通过 DiSEqC 交换机连接多个卫星 LNB 时可能会发生这种情况。",
+            "scan_label": "EIT 扫描周期（分钟）",
             "subtitle": "如果您使用的是电台传输的列表，这些选项定义 MythTV 搜索它们的方式。",
             "timeout_desc": "检查下一频道上的新列表数据之前等待一个数字电视频道上的列表数据的最长时间（以分钟为单位）。",
             "timeout_label": "EIT 传输超时（分钟）",
@@ -1013,14 +1029,24 @@
         "main": {
             "enableupdates_desc": "启用更新将阻止进行任何录制，直到您重新启动为止",
             "enableupdates_label": "启用更新",
+            "mustenable": "除非您先单击“启用更新”按钮，否则无法保存更改。",
+            "mustrestart": "完成更新后，重新启动后端。",
             "restart_desc": "录音将被禁用，直到您重新启动为止",
             "restart_label": "重启后端",
             "restarting": "重启后端",
+            "shutdown_label": "关闭后端",
             "slave_enabled": "从属后端始终启用更新。",
             "slave_instructions": "这似乎是一个从属后端。如果它打算作为从后端，请在运行从后端设置时禁用主后端上的调度。",
             "slave_warning": "如果这不是作为从属后端，请转至“设置”、“常规”、“主机地址后端设置”，然后选择“此服务器是主后端”，或者在“数据库设置”页面上设置正确的自定义标识符。保存并重新启动后端，",
             "title": "神话电视设置",
-            "upcomingrec": "下一个即将录制的节目：{{Title}}，时间：{{StartTime}}。状态：{{Status}}"
+            "upcomingrec": "下一个即将录制的节目：{{Title}}，时间：{{StartTime}}。状态：{{Status}}",
+            "webonly": {
+                "DBSETUP": "由于数据库安装未完成，后端无法正常启动。",
+                "DBTIMEZONE": "由于数据库时区未设置，后端无法正常启动。",
+                "IPADDRESS": "由于未设置常规、主机地址、主 IP 地址，后端无法正常启动。",
+                "SCHEMAUPDATE": "由于数据库架构更新失败，后端无法正常启动。",
+                "WEBONLYPARM": "由于命令行上的 --webonly 参数，后端处于受限模式。您必须手动重新启动。"
+            }
         },
         "misc": {
             "bal_io": "平衡磁盘 I/O",

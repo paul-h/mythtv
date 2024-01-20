@@ -25,6 +25,7 @@
         "refresh": "Frissítés",
         "save": "Megment",
         "savesuccess": "Sikeresen elmentve",
+        "selected_menu": "Válasszon ki egy vagy több sort lent, és kattintson ide a művelet végrehajtásához. Alternatív megoldásként kattintson a jobb gombbal a kiválasztott sorokra.",
         "submit": "Beküldés",
         "success": "Siker",
         "unsaved_heading": "Nem mentett módosítások",
@@ -35,14 +36,23 @@
         "backendStatus": "Háttérrendszer állapota",
         "channeleditor": "Csatornaszerkesztő",
         "guide": {
+            "calendar_tip": "Dátumválasztó: Először válassza ki az időt, majd a dátumot.",
+            "catcolors": "Kategória Színek",
             "channel": "Csatorna",
+            "channel_group": "Csatornacsoport",
+            "color_customize": "Testreszabhatja a színeket a fájl szerkesztésével:",
+            "color_expl": "A Kategória színnel nem rendelkező kategóriákkal rendelkező műsorok a Kategória típusa színt használják.",
+            "color_includes": "Ez a lista csak az útmutató aktuális oldalán található programok színeit tartalmazza. A színek teljes listája az alábbi fájlban található.",
+            "colors": "Színek",
             "full_search": "Teljes keresés",
             "people_search": "Emberek keresése",
             "retgrid": "Visszatérés a Rács megjelenítéséhez",
-            "title_search": "Cím keresése"
+            "title_search": "Cím keresése",
+            "typecolors": "Kategória Típus Színek"
         },
         "programguide": "Programkalauz",
         "recordings": {
+            "actionsselected": "Műveletek a {{ num }} kiválasztott felvételeken",
             "airdate": "Kiadás dátuma",
             "alreadydel": "Már törölve",
             "canundel": "Ezt megfordíthatja az Undelete használatával.",
@@ -63,7 +73,8 @@
             "inetref": "InetRef",
             "job_Commflag": "Reklámok észlelése",
             "job_Metadata": "Keresse meg a Metaadatokat",
-            "job_Transcode": "Átkódolás",
+            "job_Transcode": "Átkódolás alapértelmezett profillal",
+            "jobsselected": "Futtassa a Feladatokat a {{ num }} kiválasztott felvételeken",
             "mnu_delete": "Töröl",
             "mnu_delete_rerec": "Törlés és újrarögzítés engedélyezése",
             "mnu_markdamaged": "Megjelölés sérültként",
@@ -75,6 +86,7 @@
             "mnu_stoprec": "Felvétel leállítása",
             "mnu_undelete": "Törlés visszavonása",
             "mnu_updatemeta": "Frissítse a metaadatokat",
+            "mnu_updaterecgrp": "Felvételi csoport módosítása",
             "mnu_updaterecrule": "Frissítse a rögzítési szabályt",
             "nonrerec": "A sérült program újbóli rögzítésének engedélyezéséhez használja az Allow Re Record lehetőséget.",
             "orig_airdate": "Eredeti sugárzási dátum",
@@ -82,6 +94,7 @@
             "recgrp": "Rec Grp",
             "seas_ep": "Seas Ep",
             "season": "Évad",
+            "selrecgroup": "Válassza a Felvételi csoport lehetőséget",
             "stop_details": "Ezzel leállítja a rögzítést",
             "stop_recording": "Felvétel leállítása",
             "subtitle": "Felirat",
@@ -220,6 +233,7 @@
             "schedule_text": "A következő felvételre ütemezett {{ length }} műsor(ok).",
             "schedule_title": "Menetrend"
         },
+        "undefselection": "Néhány kiválasztott sor nem lett betöltve. Kérjük, görgessen végig a listán, és jelölje ki újra a sorokat.",
         "upcoming": {
             "date": "Dátum",
             "encoder": "Kódoló",
@@ -844,6 +858,8 @@
         "eit": {
             "crawl_desc": "A minimális másodpercek száma azután, hogy a felvevő tétlenné válik, hogy várjon, mielőtt a MythTV elkezdi gyűjteni az EIT-adatokat.",
             "crawl_label": "A háttér tétlen az EIT feltérképezése előtt (másodperc)",
+            "scan_desc": "Ideje elvégezni az EIT szkennelést egy rögzítési kártyán, mielőtt a következő rögzítési kártyára lépne ugyanabban a bemeneti csoportban, amely az EIT szkenneléshez van konfigurálva. Ez megtörténhet több, DiSEqC kapcsolón keresztül csatlakoztatott műholdas vevőfejnél.",
+            "scan_label": "EIT vizsgálati időszak (perc)",
             "subtitle": "Ha az állomás által közvetített listákat használ, ezek az opciók határozzák meg, hogy a MythTV hogyan keressen rájuk.",
             "timeout_desc": "Maximális várakozási idő (percekben) az egyik digitális TV-csatorna listázási adataira, mielőtt a következő csatornán keresne új listázási adatokat.",
             "timeout_label": "EIT szállítási időtúllépés (perc)",
@@ -1013,14 +1029,24 @@
         "main": {
             "enableupdates_desc": "A frissítések engedélyezése megakadályozza a rögzítéseket az újraindításig",
             "enableupdates_label": "Frissítések engedélyezése",
+            "mustenable": "A módosítások csak akkor menthetők el, ha először a Frissítések engedélyezése gombra kattint.",
+            "mustrestart": "Ha végzett a frissítésekkel, indítsa újra a háttérprogramot.",
             "restart_desc": "A felvételek le vannak tiltva az újraindításig",
             "restart_label": "Indítsa újra a Backendet",
             "restarting": "Backend újraindítása",
+            "shutdown_label": "Háttér bezárása",
             "slave_enabled": "A frissítések mindig engedélyezve vannak a slave háttérrendszeren.",
             "slave_instructions": "Ez egy szolga háttérprogramnak tűnik. Ha szolga háttérprogramnak szánja, tiltsa le az ütemezést a mester háttérrendszeren a szolga háttérprogram telepítése közben.",
             "slave_warning": "Ha ezt nem szolga háttérprogramnak szánja, lépjen a Beállítás, Általános, Gazdacím-háttérbeállítás menüpontra, és válassza ki az \"Ez a kiszolgáló a fő háttérrendszer\" lehetőséget, vagy állítsa be a megfelelő egyéni azonosítót az Adatbázis beállítása oldalon. Mentse és indítsa újra a háttérprogramot,",
             "title": "MythTV beállítása",
-            "upcomingrec": "Következő felvétel: {{Title}}, {{StartTime}}. Állapot: {{Status}}"
+            "upcomingrec": "Következő felvétel: {{Title}}, {{StartTime}}. Állapot: {{Status}}",
+            "webonly": {
+                "DBSETUP": "A háttérprogram nem indul el normálisan, mert az adatbázis-beállítás nem fejeződött be.",
+                "DBTIMEZONE": "A háttérprogram nem indul el normálisan, mert az adatbázis időzónái nincsenek beállítva.",
+                "IPADDRESS": "A háttérprogram nem indul el normálisan, mert az Általános, a Gazdagép címe és az Elsődleges IP-cím nincs beállítva.",
+                "SCHEMAUPDATE": "A háttérprogram nem indul el rendesen, mert az adatbázisséma frissítése meghiúsult.",
+                "WEBONLYPARM": "A háttérprogram korlátozott módban van a parancssori --webonly paraméter miatt. Manuálisan újra kell indítania."
+            }
         },
         "misc": {
             "bal_io": "Kiegyensúlyozott lemez I/O",

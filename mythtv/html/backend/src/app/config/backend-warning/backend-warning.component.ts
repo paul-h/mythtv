@@ -1,4 +1,6 @@
 import { Component, OnInit } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
+import { MessageService } from 'primeng/api';
 import { DvrService } from 'src/app/services/dvr.service';
 import { ScheduleOrProgram } from 'src/app/services/interfaces/program.interface';
 import { MythService } from 'src/app/services/myth.service';
@@ -8,7 +10,8 @@ import { SetupWizardService } from 'src/app/services/setupwizard.service';
 @Component({
   selector: 'app-backend-warning',
   templateUrl: './backend-warning.component.html',
-  styleUrls: ['./backend-warning.component.css']
+  styleUrls: ['./backend-warning.component.css'],
+  providers: [MessageService]
 })
 export class BackendWarningComponent implements OnInit {
 
@@ -24,7 +27,8 @@ export class BackendWarningComponent implements OnInit {
   masterServerName = '';
 
   constructor(private mythService: MythService, public setupService: SetupService,
-    private dvrService: DvrService, private wizardService: SetupWizardService) {
+    private dvrService: DvrService, private wizardService: SetupWizardService,
+    private messageService: MessageService, private translate: TranslateService) {
     this.getBackendInfo();
     this.refreshInfo();
   }
@@ -62,6 +66,7 @@ export class BackendWarningComponent implements OnInit {
           this.setupService.schedulingEnabled = data.BackendInfo.Env.SchedulingEnabled;
           this.setupService.isDatabaseIgnored = data.BackendInfo.Env.IsDatabaseIgnored;
           this.setupService.DBTimezoneSupport = data.BackendInfo.Env.DBTimezoneSupport;
+          this.setupService.WebOnlyStartup = data.BackendInfo.Env.WebOnlyStartup;
           if (this.setupService.isDatabaseIgnored)
             this.wizardService.wizardItems = this.wizardService.dbSetupMenu;
           else
@@ -125,20 +130,27 @@ export class BackendWarningComponent implements OnInit {
   }
 
   restart() {
-    this.mythService.Shutdown({ Restart: true })
+    let restart = this.setupService.WebOnlyStartup != 'WEBONLYPARM';
+    this.mythService.Shutdown({ Restart: restart })
       .subscribe({
         next: data => {
+          // if (restart) {
           if (data.bool) {
             // each retry generates 2 errors
             // this retry count approximates to number of seconds
-            this.retryCount = 30;
+            if (restart)
+              this.retryCount = 30;
+            else
+              this.retryCount = 9999;
             this.getBackendInfo();
           }
           else
             this.errorCount++;
+          // }
         },
         error: () => this.errorCount++
       });
+    // if (restart)
     this.delay = 5000;
   }
 

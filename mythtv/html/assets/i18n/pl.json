@@ -25,6 +25,7 @@
         "refresh": "Odświeżać",
         "save": "Ratować",
         "savesuccess": "Zapisano pomyślnie",
+        "selected_menu": "Wybierz jeden lub więcej wierszy poniżej i kliknij tutaj, aby wykonać na nich akcję. Alternatywnie kliknij prawym przyciskiem myszy wybrane wiersze.",
         "submit": "Składać",
         "success": "Powodzenie",
         "unsaved_heading": "Niezapisane zmiany",
@@ -35,14 +36,23 @@
         "backendStatus": "Stan zaplecza",
         "channeleditor": "Edytor kanału",
         "guide": {
+            "calendar_tip": "Wybór daty: najpierw wybierz godzinę, a następnie datę.",
+            "catcolors": "Kategoria Kolory",
             "channel": "Kanał",
+            "channel_group": "Grupa kanałów",
+            "color_customize": "Dostosuj kolory, edytując ten plik:",
+            "color_expl": "W programach z kategoriami, które nie mają koloru kategorii, używany jest kolor typu kategorii.",
+            "color_includes": "Ta lista zawiera tylko kolory programów znajdujących się na bieżącej stronie przewodnika. Pełna lista kolorów znajduje się w pliku wymienionym poniżej.",
+            "colors": "Zabarwienie",
             "full_search": "Pełne wyszukiwanie",
             "people_search": "Ludzie szukają",
             "retgrid": "Powrót do wyświetlania siatki",
-            "title_search": "Wyszukiwanie tytułów"
+            "title_search": "Wyszukiwanie tytułów",
+            "typecolors": "Kategoria Typ Kolory"
         },
         "programguide": "Przewodnik po programach",
         "recordings": {
+            "actionsselected": "Działania na {{ num }} wybranych nagraniach",
             "airdate": "Data emisji",
             "alreadydel": "Już usunięte",
             "canundel": "Możesz to odwrócić, używając opcji Cofnij usunięcie.",
@@ -63,7 +73,8 @@
             "inetref": "InetRef",
             "job_Commflag": "Wykrywaj reklamy",
             "job_Metadata": "Wyszukaj metadane",
-            "job_Transcode": "Transkoduj",
+            "job_Transcode": "Transkoduj z profilem domyślnym",
+            "jobsselected": "Uruchom zadania na {{ num }} wybranych nagraniach",
             "mnu_delete": "Usuwać",
             "mnu_delete_rerec": "Usuń i zezwól na ponowne nagranie",
             "mnu_markdamaged": "Oznacz jako uszkodzony",
@@ -75,6 +86,7 @@
             "mnu_stoprec": "Zatrzymaj nagrywanie",
             "mnu_undelete": "Cofnij usunięcie",
             "mnu_updatemeta": "Zaktualizuj metadane",
+            "mnu_updaterecgrp": "Zmień grupę nagrań",
             "mnu_updaterecrule": "Zaktualizuj regułę rekordu",
             "nonrerec": "Aby umożliwić ponowne nagranie uszkodzonego programu, użyj opcji Zezwól na ponowne nagranie.",
             "orig_airdate": "Oryginalna data emisji",
@@ -82,6 +94,7 @@
             "recgrp": "Grupa nagr",
             "seas_ep": "Seas odc",
             "season": "Pora roku",
+            "selrecgroup": "Wybierz grupę nagrań",
             "stop_details": "Spowoduje to zatrzymanie nagrywania",
             "stop_recording": "Zatrzymaj nagrywanie",
             "subtitle": "Podtytuł",
@@ -220,6 +233,7 @@
             "schedule_text": "Kolejne programy ({{ length }}), które są zaplanowane do nagrania.",
             "schedule_title": "Harmonogram"
         },
+        "undefselection": "Niektóre wybrane wiersze nie zostały załadowane. Proszę przewinąć listę i ponownie wybrać wiersze.",
         "upcoming": {
             "date": "Data",
             "encoder": "Koder",
@@ -641,7 +655,7 @@
             "col_name": "Nazwa",
             "col_priority": "Priorytet",
             "col_source": "Źródło",
-            "col_useeit": "Widzisz to",
+            "col_useeit": "Użyj EIT",
             "col_visibility": "Widoczność",
             "commmethod_desc": "Zmienia metodę wykrywania reklam używaną do nagrań na tym kanale lub pomija wykrywanie, oznaczając kanał jako wolny od reklam.",
             "commmethod_label": "Komercyjna metoda wykrywania",
@@ -844,6 +858,8 @@
         "eit": {
             "crawl_desc": "Minimalna liczba sekund, po których rejestrator staje się bezczynny, zanim MythTV zacznie zbierać dane o listach EIT.",
             "crawl_label": "Backend bezczynny przed indeksowaniem EIT (s)",
+            "scan_desc": "Czas wykonać skanowanie EIT na jednej karcie przechwytującej przed przejściem do następnej karty przechwytującej w tej samej grupie wejściowej, która jest skonfigurowana do skanowania EIT. Może się to zdarzyć w przypadku wielu konwerterów satelitarnych podłączonych za pomocą przełącznika DiSEqC.",
+            "scan_label": "Okres skanowania EIT (w minutach)",
             "subtitle": "Jeśli korzystasz z list przekazywanych przez stację, te opcje określają, w jaki sposób MythTV je wyszukuje.",
             "timeout_desc": "Maksymalny czas oczekiwania (w minutach) na dane o listach jednego cyfrowego kanału telewizyjnego przed sprawdzeniem nowych danych o listach w następnym kanale.",
             "timeout_label": "Limit czasu transportu EIT (min)",
@@ -1013,14 +1029,24 @@
         "main": {
             "enableupdates_desc": "Włączenie aktualizacji zapobiegnie nagrywaniu do momentu ponownego uruchomienia",
             "enableupdates_label": "Włącz aktualizacje",
+            "mustenable": "Zmiany nie mogą zostać zapisane, chyba że najpierw klikniesz przycisk Włącz aktualizacje.",
+            "mustrestart": "Po zakończeniu aktualizacji uruchom ponownie backend.",
             "restart_desc": "Nagrania są wyłączone do ponownego uruchomienia",
             "restart_label": "Uruchom ponownie zaplecze",
             "restarting": "Ponowne uruchamianie backendu",
+            "shutdown_label": "Zamknij zaplecze",
             "slave_enabled": "Aktualizacje są zawsze włączone na podrzędnym zapleczu.",
             "slave_instructions": "Wygląda na to, że jest to backend podrzędny. Jeśli ma służyć jako podrzędny backend, wyłącz planowanie na głównym backendzie podczas uruchamiania konfiguracji podrzędnego backendu.",
             "slave_warning": "Jeśli nie jest to zaplecze podrzędne, przejdź do Ustawienia, Ogólne, Konfiguracja zaplecza adresu hosta i wybierz „Ten serwer jest głównym zapleczem” lub ustaw poprawny niestandardowy identyfikator na stronie Konfiguracja bazy danych. Zapisz i uruchom ponownie backend,",
             "title": "Konfiguracja MythTV",
-            "upcomingrec": "Następne nadchodzące nagranie: {{Title}} o {{StartTime}}. Stan: {{Status}}"
+            "upcomingrec": "Następne nadchodzące nagranie: {{Title}} o {{StartTime}}. Stan: {{Status}}",
+            "webonly": {
+                "DBSETUP": "Zaplecze nie może uruchomić się normalnie, ponieważ konfiguracja bazy danych nie została ukończona.",
+                "DBTIMEZONE": "Zaplecze nie może uruchomić się normalnie, ponieważ strefy czasowe bazy danych nie są skonfigurowane.",
+                "IPADDRESS": "Backend nie może uruchomić się normalnie, ponieważ nie ustawiono opcji Ogólne, Adres hosta i Podstawowy adres IP.",
+                "SCHEMAUPDATE": "Zaplecze nie może uruchomić się normalnie, ponieważ aktualizacja schematu bazy danych nie powiodła się.",
+                "WEBONLYPARM": "Backend jest w trybie ograniczonym z powodu parametru --webonly w wierszu poleceń. Będziesz musiał ponownie uruchomić ręcznie."
+            }
         },
         "misc": {
             "bal_io": "Zbalansowane we/wy dysku",

@@ -1,71 +1,73 @@
 #-*- coding: UTF-8 -*-
 """
-Scraper for http://lyrics.alsong.co.kr/
-driip
+Scraper for https://www.megalobiz.com/
+
+megalobiz
 """
 
+import requests
+import re
+from bs4 import BeautifulSoup
+
 import sys
-import socket
-import urllib2
-import difflib
-import xml.dom.minidom as xml
 from optparse import OptionParser
 from common import utilities
 
-__author__      = "Paul Harrison and 'driip'"
-__title__       = "Alsong"
-__description__ = "Search http://lyrics.alsong.co.kr"
+__author__      = "Paul Harrison and 'ronie'"
+__title__       = "Megalobiz"
+__description__ = "Search https://www.megalobiz.com/ for lyrics"
 __version__     = "0.1"
-__priority__    = "140"
+__priority__    = "400"
 __syncronized__ = True
 
 debug = False
 
-socket.setdefaulttimeout(10)
-
-ALSONG_URL = 'http://lyrics.alsong.net/alsongwebservice/service1.asmx'
-
-ALSONG_TMPL = '''\
-<?xml version='1.0' encoding='UTF-8'?>
-<SOAP-ENV:Envelope xmlns:SOAP-ENV='http://www.w3.org/2003/05/soap-envelope' xmlns:SOAP-ENC='http://www.w3.org/2003/05/soap-encoding' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:xsd='http://www.w3.org/2001/XMLSchema' xmlns:ns2='ALSongWebServer/Service1Soap' xmlns:ns1='ALSongWebServer' xmlns:ns3='ALSongWebServer/Service1Soap12'>
-<SOAP-ENV:Body>
-    <ns1:GetResembleLyric2>
-    <ns1:stQuery>
-        <ns1:strTitle>%s</ns1:strTitle>
-        <ns1:strArtistName>%s</ns1:strArtistName>
-        <ns1:nCurPage>0</ns1:nCurPage>
-    </ns1:stQuery>
-    </ns1:GetResembleLyric2>
-</SOAP-ENV:Body>
-</SOAP-ENV:Envelope>
-'''
-
 class LyricsFetcher:
     def __init__( self ):
-        self.base_url = 'http://lyrics.alsong.co.kr/'
+        self.SEARCH_URL = 'https://www.megalobiz.com/search/all?qry=%s-%s&searchButton.x=0&searchButton.y=0'
+        self.LYRIC_URL = 'https://www.megalobiz.com/%s'
 
     def get_lyrics(self, lyrics):
         utilities.log(debug, "%s: searching lyrics for %s - %s - %s" % (__title__, lyrics.artist, lyrics.album, lyrics.title))
 
         try:
-            headers = {'Content-Type':'text/xml; charset=utf-8'}
-            request = urllib2.Request(ALSONG_URL, ALSONG_TMPL % (lyrics.title, lyrics.artist), headers)
-            response = urllib2.urlopen(request)
-            Page = response.read()
+            url = self.SEARCH_URL % (lyrics.artist, lyrics.title)
+            response = requests.get(url, timeout=10)
+            result = response.text
         except:
-            return False
-        tree = xml.parseString(Page)
-        try:
-            name = tree.getElementsByTagName('strArtistName')[0].childNodes[0].data
-            track = tree.getElementsByTagName('strTitle')[0].childNodes[0].data
-        except:
-            return False
-        if (difflib.SequenceMatcher(None, lyrics.artist.lower(), name.lower()).ratio() > 0.8) and (difflib.SequenceMatcher(None, lyrics.title.lower(), track.lower()).ratio() > 0.8):
-            lyr = tree.getElementsByTagName('strLyric')[0].childNodes[0].data.replace('<br>','\n')
-            lyrics.lyrics = lyr.encode('utf-8')
-            return True
-
+            return None
+        links = []
+        soup = BeautifulSoup(result, 'html.parser')
+        for link in soup.find_all('a'):
+            if link.get('href') and link.get('href').startswith('/lrc/maker/'):
+                linktext = link.text.replace('_', ' ').strip()
+                if lyrics.artist.lower() in linktext.lower() and lyrics.title.lower() in linktext.lower():
+                    links.append((linktext, self.LYRIC_URL % link.get('href'), lyrics.artist, lyrics.title))
+        if len(links) == 0:
+            return None
+        elif len(links) > 1:
+            lyrics.list = links
+        for link in links:
+            lyr = self.get_lyrics_from_list(link)
+            if lyr:
+                lyrics.lyrics = lyr
+                return True
         return False
+
+    def get_lyrics_from_list(self, link):
+        title,url,artist,song = link
+        try:
+            utilities.log(debug, '%s: search url: %s' % (__title__, url))
+            response = requests.get(url, timeout=10)
+            result = response.text
+        except:
+            return None
+        matchcode = re.search('span id="lrc_[0-9]+_lyrics">(.*?)</span', result, flags=re.DOTALL)
+        if matchcode:
+            lyricscode = (matchcode.group(1))
+            cleanlyrics = re.sub('<[^<]+?>', '', lyricscode)
+            return cleanlyrics
+
 
 def performSelfTest():
     found = False
@@ -81,6 +83,7 @@ def performSelfTest():
 
     if found:
         utilities.log(True, "Everything appears in order.")
+        buildLyrics(lyrics)
         sys.exit(0)
 
     utilities.log(True, "The lyrics for the test search failed!")
@@ -99,8 +102,8 @@ def buildLyrics(lyrics):
     for line in lines:
         etree.SubElement(xml, "lyric").text = line
 
-    utilities.log(True, etree.tostring(xml, encoding='UTF-8', pretty_print=True,
-                                    xml_declaration=True))
+    utilities.log(True, utilities.convert_etree(etree.tostring(xml, encoding='UTF-8',
+                                                pretty_print=True, xml_declaration=True)))
     sys.exit(0)
 
 def buildVersion():
@@ -108,15 +111,15 @@ def buildVersion():
     version = etree.XML(u'<grabber></grabber>')
     etree.SubElement(version, "name").text = __title__
     etree.SubElement(version, "author").text = __author__
-    etree.SubElement(version, "command").text = 'alsong.py'
+    etree.SubElement(version, "command").text = 'megalobiz.py'
     etree.SubElement(version, "type").text = 'lyrics'
     etree.SubElement(version, "description").text = __description__
     etree.SubElement(version, "version").text = __version__
     etree.SubElement(version, "priority").text = __priority__
     etree.SubElement(version, "syncronized").text = 'True' if __syncronized__ else 'False'
 
-    utilities.log(True, etree.tostring(version, encoding='UTF-8', pretty_print=True,
-                                    xml_declaration=True))
+    utilities.log(True, utilities.convert_etree(etree.tostring(version, encoding='UTF-8',
+                                                pretty_print=True, xml_declaration=True)))
     sys.exit(0)
 
 def main():

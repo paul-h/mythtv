@@ -1,59 +1,77 @@
-#-*- coding: UTF-8 -*-
+# -*- Mode: python; coding: utf-8; tab-width: 8; indent-tabs-mode: t; -*-
 """
-Scraper for http://www.baidu.com
+Scraper for http://music.163.com/
 
-ronie
+osdlyrics
 """
+
+import requests
+import re
+import random
+import difflib
 
 import sys
-import urllib
-import socket
-import re
-import chardet
-import difflib
 from optparse import OptionParser
 from common import utilities
 
-__author__      = "Paul Harrison and 'ronie'"
-__title__       = "Baidu"
-__description__ = "Search http://www.baidu.com for lyrics"
+__author__      = "Paul Harrison and ronie"
+__title__       = "Music163"
+__description__ = "Lyrics scraper for http://music.163.com/"
+__priority__    = "500"
 __version__     = "0.1"
-__priority__    = "210"
 __syncronized__ = True
 
 debug = False
 
-socket.setdefaulttimeout(10)
+headers = {}
+headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:51.0) Gecko/20100101 Firefox/51.0'
 
 class LyricsFetcher:
     def __init__( self ):
-        self.BASE_URL = 'http://music.baidu.com/search/lrc?key=%s-%s'
-        self.LRC_URL = 'http://music.baidu.com%s'
+        self.SEARCH_URL = 'http://music.163.com/api/search/get'
+        self.LYRIC_URL = 'http://music.163.com/api/song/lyric'
+
 
     def get_lyrics(self, lyrics):
         utilities.log(debug, "%s: searching lyrics for %s - %s - %s" % (__title__, lyrics.artist, lyrics.album, lyrics.title))
 
+        artist = lyrics.artist.replace(' ', '+')
+        title = lyrics.title.replace(' ', '+')
+        search = '?s=%s+%s&type=1' % (artist, title)
         try:
-            url = self.BASE_URL % (lyrics.title, lyrics.artist)
-            utilities.log(debug, "%s: searching url %s" % (__title__, url))
-            data = urllib.urlopen(url).read()
-            songmatch = re.search('song-title.*?<em>(.*?)</em>', data, flags=re.DOTALL)
-            track = songmatch.group(1)
-            artistmatch = re.search('artist-title.*?<em>(.*?)</em>', data, flags=re.DOTALL)
-            name = artistmatch.group(1)
-            urlmatch = re.search("down-lrc-btn.*?':'(.*?)'", data, flags=re.DOTALL)
-            found_url = urlmatch.group(1)
-            if (difflib.SequenceMatcher(None, lyrics.artist.lower(), name.lower()).ratio() > 0.8) and (difflib.SequenceMatcher(None, lyrics.title.lower(), track.lower()).ratio() > 0.8):
-                lyr = urllib.urlopen(self.LRC_URL % found_url).read()
-            else:
-                return False
+            url = self.SEARCH_URL + search
+            response = requests.get(url, headers=headers, timeout=10)
+            result = response.json()
         except:
             return False
+        links = []
+        if 'result' in result and 'songs' in result['result']:
+            for item in result['result']['songs']:
+                artists = "+&+".join([a["name"] for a in item["artists"]])
+                if (difflib.SequenceMatcher(None, artist.lower(), artists.lower()).ratio() > 0.6) and (difflib.SequenceMatcher(None, title.lower(), item['name'].lower()).ratio() > 0.8):
+                    links.append((artists + ' - ' + item['name'], self.LYRIC_URL + '?id=' + str(item['id']) + '&lv=-1&kv=-1&tv=-1', artists, item['name']))
+        if len(links) == 0:
+            return False
+        elif len(links) > 1:
+            lyrics.list = links
+        for link in links:
+            lyr = self.get_lyrics_from_list(link)
+            if lyr and lyr.startswith('['):
+                lyrics.lyrics = lyr
+                return True
+        return None
 
-        enc = chardet.detect(lyr)
-        lyr = lyr.decode(enc['encoding'], 'ignore')
-        lyrics.lyrics = lyr
-        return True
+    def get_lyrics_from_list(self, link):
+        title,url,artist,song = link
+        try:
+            utilities.log(debug, '%s: search url: %s' % (__title__, url))
+            response = requests.get(url, headers=headers, timeout=10)
+            result = response.json()
+        except:
+            return None
+        if 'lrc' in result:
+            return result['lrc']['lyric']
+
 
 def performSelfTest():
     found = False
@@ -69,6 +87,7 @@ def performSelfTest():
 
     if found:
         utilities.log(True, "Everything appears in order.")
+        buildLyrics(lyrics)
         sys.exit(0)
 
     utilities.log(True, "The lyrics for the test search failed!")
@@ -87,8 +106,8 @@ def buildLyrics(lyrics):
     for line in lines:
         etree.SubElement(xml, "lyric").text = line
 
-    utilities.log(True, etree.tostring(xml, encoding='UTF-8', pretty_print=True,
-                                    xml_declaration=True))
+    utilities.log(True, utilities.convert_etree(etree.tostring(xml, encoding='UTF-8',
+                                                pretty_print=True, xml_declaration=True)))
     sys.exit(0)
 
 def buildVersion():
@@ -96,15 +115,15 @@ def buildVersion():
     version = etree.XML(u'<grabber></grabber>')
     etree.SubElement(version, "name").text = __title__
     etree.SubElement(version, "author").text = __author__
-    etree.SubElement(version, "command").text = 'baidu.py'
+    etree.SubElement(version, "command").text = 'music163.py'
     etree.SubElement(version, "type").text = 'lyrics'
     etree.SubElement(version, "description").text = __description__
     etree.SubElement(version, "version").text = __version__
     etree.SubElement(version, "priority").text = __priority__
     etree.SubElement(version, "syncronized").text = 'True' if __syncronized__ else 'False'
 
-    utilities.log(True, etree.tostring(version, encoding='UTF-8', pretty_print=True,
-                                    xml_declaration=True))
+    utilities.log(True, utilities.convert_etree(etree.tostring(version, encoding='UTF-8',
+                                                pretty_print=True, xml_declaration=True)))
     sys.exit(0)
 
 def main():
@@ -115,7 +134,7 @@ def main():
     parser.add_option('-v', "--version", action="store_true", default=False,
                       dest="version", help="Display version and author")
     parser.add_option('-t', "--test", action="store_true", default=False,
-                      dest="test", help="Perform self-test for dependencies.")
+                      dest="test", help="Test grabber with a know good search")
     parser.add_option('-s', "--search", action="store_true", default=False,
                       dest="search", help="Search for lyrics.")
     parser.add_option('-a', "--artist", metavar="ARTIST", default=None,
@@ -152,10 +171,6 @@ def main():
         lyrics.title = opts.title
     if opts.filename:
         lyrics.filename = opts.filename
-
-    if (len(args) > 0):
-        utilities.log('ERROR: invalid arguments found')
-        sys.exit(1)
 
     fetcher = LyricsFetcher()
     if fetcher.get_lyrics(lyrics):

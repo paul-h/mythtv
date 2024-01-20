@@ -25,6 +25,7 @@
         "refresh": "ricaricare",
         "save": "Salva",
         "savesuccess": "Salvato con successo",
+        "selected_menu": "Seleziona una o più righe di seguito e fai clic qui per eseguire un'azione su di esse. In alternativa, fare clic con il pulsante destro del mouse sulle righe selezionate.",
         "submit": "Invia",
         "success": "Successo",
         "unsaved_heading": "Modifiche non salvate",
@@ -35,14 +36,23 @@
         "backendStatus": "Stato back-end",
         "channeleditor": "Editor di canali",
         "guide": {
+            "calendar_tip": "Selettore data: seleziona prima l'ora, poi la data.",
+            "catcolors": "Categoria Colori",
             "channel": "Canale",
+            "channel_group": "Gruppo di canali",
+            "color_customize": "Personalizza i colori modificando questo file:",
+            "color_expl": "Gli spettacoli con categorie che non hanno un colore Categoria utilizzano il colore Tipo categoria.",
+            "color_includes": "Questo elenco include solo i colori per i programmi nella pagina corrente della guida. L'elenco completo dei colori è nel file indicato di seguito.",
+            "colors": "Colori",
             "full_search": "Ricerca completa",
             "people_search": "Cerca persone",
             "retgrid": "Ritorna alla visualizzazione della griglia",
-            "title_search": "Ricerca del titolo"
+            "title_search": "Ricerca del titolo",
+            "typecolors": "Categoria Tipo Colori"
         },
         "programguide": "Guida al programma",
         "recordings": {
+            "actionsselected": "Azioni su {{ num }} registrazioni selezionate",
             "airdate": "Airdate",
             "alreadydel": "Già cancellato",
             "canundel": "Puoi invertire questa situazione utilizzando Undelete.",
@@ -63,7 +73,8 @@
             "inetref": "InetRif",
             "job_Commflag": "Rileva spot pubblicitari",
             "job_Metadata": "Cerca Metadati",
-            "job_Transcode": "Transcodifica",
+            "job_Transcode": "Transcodifica con il profilo predefinito",
+            "jobsselected": "Esegui lavori su {{ num }} registrazioni selezionate",
             "mnu_delete": "Eliminare",
             "mnu_delete_rerec": "Elimina e consenti nuova registrazione",
             "mnu_markdamaged": "Contrassegna come danneggiato",
@@ -75,6 +86,7 @@
             "mnu_stoprec": "Interrompi la registrazione",
             "mnu_undelete": "Annulla cancellazione",
             "mnu_updatemeta": "Aggiorna metadati",
+            "mnu_updaterecgrp": "Cambia gruppo di registrazione",
             "mnu_updaterecrule": "Aggiorna regola record",
             "nonrerec": "Per consentire la riregistrazione del programma danneggiato, utilizzare Consenti riregistrazione.",
             "orig_airdate": "Data di messa in onda originale",
@@ -82,6 +94,7 @@
             "recgrp": "Rec Grp",
             "seas_ep": "Mari Ep",
             "season": "Stagione",
+            "selrecgroup": "Seleziona Gruppo di registrazione",
             "stop_details": "Questo interromperà la registrazione",
             "stop_recording": "Interrompi la registrazione",
             "subtitle": "Sottotitolo",
@@ -220,6 +233,7 @@
             "schedule_text": "I prossimi {{ length }} spettacoli programmati per la registrazione.",
             "schedule_title": "Programma"
         },
+        "undefselection": "Alcune righe selezionate non sono state caricate. Scorri l'elenco e seleziona nuovamente le righe.",
         "upcoming": {
             "date": "Data",
             "encoder": "Codificatore",
@@ -641,7 +655,7 @@
             "col_name": "Nome",
             "col_priority": "Priorità",
             "col_source": "Fonte",
-            "col_useeit": "Lo vedi",
+            "col_useeit": "Usa EIT",
             "col_visibility": "Visibilità",
             "commmethod_desc": "Cambia il metodo di rilevamento commerciale utilizzato per le registrazioni su questo canale o salta il rilevamento contrassegnando il canale come Senza pubblicità.",
             "commmethod_label": "Metodo di rilevamento commerciale",
@@ -844,6 +858,8 @@
         "eit": {
             "crawl_desc": "Il numero minimo di secondi dopo che un registratore diventa inattivo per attendere prima che MythTV inizi a raccogliere i dati degli elenchi EIT.",
             "crawl_label": "Back-end inattivo prima della scansione EIT (sec)",
+            "scan_desc": "È necessario eseguire la scansione EIT su una scheda di acquisizione prima di passare alla scheda di acquisizione successiva nello stesso gruppo di input configurato per la scansione EIT. Ciò può accadere con più LNB satellitari collegati tramite uno switch DiSEqC.",
+            "scan_label": "Periodo di scansione EIT (minuti)",
             "subtitle": "Se stai utilizzando le liste trasmesse dalla stazione, queste opzioni definiscono come MythTV le cerca.",
             "timeout_desc": "Tempo massimo da trascorrere in attesa (in minuti) dei dati dei palinsesti su un canale TV digitale prima di verificare i nuovi dati dei palinsesti sul canale successivo.",
             "timeout_label": "Timeout trasporto EIT (minuti)",
@@ -1013,14 +1029,24 @@
         "main": {
             "enableupdates_desc": "L'abilitazione degli aggiornamenti impedirà qualsiasi registrazione fino al riavvio",
             "enableupdates_label": "Abilita Aggiornamenti",
+            "mustenable": "Non è possibile salvare le modifiche se non si fa prima clic sul pulsante Abilita aggiornamenti.",
+            "mustrestart": "Una volta terminati gli aggiornamenti, riavviare il backend.",
             "restart_desc": "Le registrazioni sono disabilitate fino al riavvio",
             "restart_label": "Riavvia il back-end",
             "restarting": "Riavvio del backend",
+            "shutdown_label": "Chiudi il back-end",
             "slave_enabled": "Gli aggiornamenti sono sempre abilitati su un backend slave.",
             "slave_instructions": "Questo sembra essere un backend slave. Se è inteso come back-end slave, disabilita la pianificazione sul back-end principale durante l'esecuzione della configurazione del back-end slave.",
             "slave_warning": "Se questo non è inteso come back-end slave, vai a Configurazione, Generale, Configurazione back-end indirizzo host e seleziona \"Questo server è il back-end principale\" oppure imposta l'identificatore personalizzato corretto nella pagina Configurazione database. Salva e riavvia il backend,",
             "title": "Installazione di MythTV",
-            "upcomingrec": "Prossima registrazione in arrivo: {{Title}} alle {{StartTime}}. Stato: {{Status}}"
+            "upcomingrec": "Prossima registrazione in arrivo: {{Title}} alle {{StartTime}}. Stato: {{Status}}",
+            "webonly": {
+                "DBSETUP": "Il backend non può avviarsi normalmente perché la configurazione del database non è completa.",
+                "DBTIMEZONE": "Il backend non può avviarsi normalmente perché i fusi orari del database non sono impostati.",
+                "IPADDRESS": "Il backend non può avviarsi normalmente perché Generale, Indirizzo host, Indirizzo IP primario non sono impostati.",
+                "SCHEMAUPDATE": "Il backend non può essere avviato normalmente perché l'aggiornamento dello schema del database non è riuscito.",
+                "WEBONLYPARM": "Il backend è in modalità limitata a causa del parametro --webonly sulla riga di comando. Dovrai riavviare manualmente."
+            }
         },
         "misc": {
             "bal_io": "I/O su disco bilanciato",

@@ -25,6 +25,7 @@
         "refresh": "Endurnýja",
         "save": "Vista",
         "savesuccess": "Vistað tókst",
+        "selected_menu": "Veldu eina eða fleiri línur hér að neðan og smelltu hér til að framkvæma aðgerð á þeim. Að öðrum kosti hægrismelltu á valdar línur.",
         "submit": "Sendu inn",
         "success": "Árangur",
         "unsaved_heading": "Óvistaðar breytingar",
@@ -35,14 +36,23 @@
         "backendStatus": "Staða bakenda",
         "channeleditor": "Rásarstjóri",
         "guide": {
+            "calendar_tip": "Dagsetningarval: Veldu fyrst tímann og síðan dagsetninguna.",
+            "catcolors": "Flokkur Litir",
             "channel": "Rás",
+            "channel_group": "Rásarhópur",
+            "color_customize": "Sérsníddu liti þetta með því að breyta þessari skrá:",
+            "color_expl": "Sýningar með flokkum sem hafa ekki flokkslit nota flokkategund litinn.",
+            "color_includes": "Þessi listi inniheldur aðeins liti fyrir forrit á núverandi síðu handbókarinnar. Allur listi yfir liti er í skránni sem nefnd er hér að neðan.",
+            "colors": "Litir",
             "full_search": "Full leit",
             "people_search": "Fólksleit",
             "retgrid": "Fara aftur í Grid Display",
-            "title_search": "Titilleit"
+            "title_search": "Titilleit",
+            "typecolors": "Flokkur Tegund Litir"
         },
         "programguide": "Dagskrárleiðbeiningar",
         "recordings": {
+            "actionsselected": "Aðgerðir á {{ num }} völdum upptökum",
             "airdate": "Útsendingardagur",
             "alreadydel": "Þegar eytt",
             "canundel": "Þú getur snúið þessu við með því að nota Undelete.",
@@ -63,7 +73,8 @@
             "inetref": "InetRef",
             "job_Commflag": "Uppgötvaðu auglýsingar",
             "job_Metadata": "Flettu upp Lýsigögn",
-            "job_Transcode": "Umkóðun",
+            "job_Transcode": "Umkóðun með sjálfgefnu sniði",
+            "jobsselected": "Keyra störf á {{ num }} völdum upptökum",
             "mnu_delete": "Eyða",
             "mnu_delete_rerec": "Eyða og leyfa endurupptöku",
             "mnu_markdamaged": "Merktu sem skemmd",
@@ -75,6 +86,7 @@
             "mnu_stoprec": "Hætta upptöku",
             "mnu_undelete": "Afturkalla eyðingu",
             "mnu_updatemeta": "Uppfærðu lýsigögn",
+            "mnu_updaterecgrp": "Skiptu um upptökuhóp",
             "mnu_updaterecrule": "Uppfærðu skráningarreglu",
             "nonrerec": "Til að leyfa endurskráningu á skemmda forritinu skaltu nota Allow Re Record.",
             "orig_airdate": "Upprunaleg flugdagsetning",
@@ -82,6 +94,7 @@
             "recgrp": "Rec Grp",
             "seas_ep": "Seas Ep",
             "season": "Tímabil",
+            "selrecgroup": "Veldu Upptökuhópur",
             "stop_details": "Þetta mun hætta upptöku",
             "stop_recording": "Hætta upptöku",
             "subtitle": "Undirtitill",
@@ -220,6 +233,7 @@
             "schedule_text": "Næstu {{ length }} sýning(ar) sem eru áætluð til upptöku.",
             "schedule_title": "Dagskrá"
         },
+        "undefselection": "Sumar valdar línur hafa ekki verið hlaðnar. Vinsamlega flettu í gegnum listann og veldu aftur línurnar.",
         "upcoming": {
             "date": "Dagsetning",
             "encoder": "Kóðari",
@@ -844,6 +858,8 @@
         "eit": {
             "crawl_desc": "Lágmarksfjöldi sekúndna eftir að upptökutæki verður aðgerðalaus til að bíða áður en MythTV byrjar að safna EIT skráningargögnum.",
             "crawl_label": "Bakendi aðgerðalaus fyrir EIT skrið (sekúndur)",
+            "scan_desc": "Tími til að gera EIT skönnun á einu handtökukorti áður en farið er yfir á næsta handfangakort í sama inntakshópi sem er stilltur fyrir EIT skönnun. Þetta getur gerst með mörgum LNB gervihnöttum tengdum með DiSEqC rofa.",
+            "scan_label": "EIT skannatímabil (mín)",
             "subtitle": "Ef þú ert að nota skráningar sem sendar eru af stöðinni, skilgreina þessir valkostir hvernig MythTV leitar að þeim.",
             "timeout_desc": "Hámarkstími til að eyða í bið (í mínútum) eftir skráningargögnum á einni stafrænni sjónvarpsrás áður en leitað er að nýjum skráningargögnum á næstu rás.",
             "timeout_label": "EIT flutningstími (mín.)",
@@ -1013,14 +1029,24 @@
         "main": {
             "enableupdates_desc": "Að virkja uppfærslur kemur í veg fyrir að allar upptökur eigi sér stað fyrr en þú endurræsir",
             "enableupdates_label": "Virkja uppfærslur",
+            "mustenable": "Ekki er hægt að vista breytingar nema þú smellir á hnappinn Virkja uppfærslur fyrst.",
+            "mustrestart": "Þegar þú ert búinn með uppfærslur skaltu endurræsa bakendann.",
             "restart_desc": "Upptökur eru óvirkar þar til þú endurræsir",
             "restart_label": "Endurræstu bakenda",
             "restarting": "Endurræsir bakenda",
+            "shutdown_label": "Lokaðu bakenda",
             "slave_enabled": "Uppfærslur eru alltaf virkar á bakenda þræls.",
             "slave_instructions": "Þetta virðist vera þrælabakendi. Ef það er ætlað sem þrælabakendi, vinsamlegast slökktu á tímasetningu á aðalbakendanum meðan þú keyrir uppsetningu þrælabakendans.",
             "slave_warning": "Ef þetta er ekki ætlað sem þrælabakendi, vinsamlegast farðu í Uppsetning, Almennt, Uppsetning hýsingarfangs, og veldu „Þessi þjónn er aðalbakendi“ eða stilltu rétt sérsniðið auðkenni á gagnagrunnsuppsetningu síðunni. Vistaðu og endurræstu bakendann,",
             "title": "MythTV uppsetning",
-            "upcomingrec": "Næsta væntanleg upptaka: {{Title}} kl. {{StartTime}}. Staða: {{Status}}"
+            "upcomingrec": "Næsta væntanleg upptaka: {{Title}} kl. {{StartTime}}. Staða: {{Status}}",
+            "webonly": {
+                "DBSETUP": "Backend getur ekki ræst venjulega vegna þess að gagnagrunnsuppsetningu er ekki lokið.",
+                "DBTIMEZONE": "Bakendi getur ekki ræst venjulega vegna þess að tímabelti gagnagrunns eru ekki sett upp.",
+                "IPADDRESS": "Backend getur ekki ræst venjulega vegna þess að General, Host Address, Primary IP Address er ekki stillt.",
+                "SCHEMAUPDATE": "Bakendi getur ekki ræst venjulega vegna þess að uppfærsla gagnagrunnskerfis mistókst.",
+                "WEBONLYPARM": "Bakendi er í takmörkuðum ham vegna --webonly færibreytu á skipanalínunni. Þú verður að endurræsa handvirkt."
+            }
         },
         "misc": {
             "bal_io": "Balanced disk I/O",

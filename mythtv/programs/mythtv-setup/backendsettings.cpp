@@ -402,6 +402,48 @@ static GlobalSpinBoxSetting *EITCrawIdleStart()
     return gc;
 }
 
+static GlobalSpinBoxSetting *EITScanPeriod()
+{
+    auto *gc = new GlobalSpinBoxSetting("EITScanPeriod", 5, 60, 5);
+    gc->setLabel(QObject::tr("EIT scan period (mins)"));
+    gc->setValue(15);
+    QString helpText = QObject::tr(
+        "Time to do EIT scanning on one capture card before moving "
+        "to the next capture card in the same input group that is "
+        "configured for EIT scanning. This can happen with multiple "
+        "satellite LNBs connected via a DiSEqC switch.");
+    gc->setHelpText(helpText);
+    return gc;
+}
+
+static GlobalSpinBoxSetting *EITEventChunkSize()
+{
+    auto *gc = new GlobalSpinBoxSetting("EITEventChunkSize", 20, 1000, 20);
+    gc->setLabel(QObject::tr("EIT event chunk size"));
+    gc->setValue(20);
+    QString helpText = QObject::tr(
+        "Maximum number of DB inserts per ProcessEvents call. "
+        "This limits the rate at which EIT events are processed "
+        "in the backend so that there is always enough processing "
+        "capacity for the other backend tasks.");
+    gc->setHelpText(helpText);
+    return gc;
+}
+
+static GlobalCheckBoxSetting *EITCachePersistent()
+{
+    auto *gc = new GlobalCheckBoxSetting("EITCachePersistent");
+    gc->setLabel(QObject::tr("EIT cache persistent"));
+    gc->setValue(true);
+    QString helpText = QObject::tr(
+        "Save the content of the EIT cache in the database "
+        "and use that at the next start of the backend. "
+        "This reduces EIT event processing at a restart of the backend but at the "
+        "cost of updating the copy of the EIT cache in the database continuously.");
+    gc->setHelpText(helpText);
+    return gc;
+}
+
 static GlobalSpinBoxSetting *WOLbackendReconnectWaitTime()
 {
     auto *gc = new GlobalSpinBoxSetting("WOLbackendReconnectWaitTime", 0, 1200, 5);
@@ -955,6 +997,9 @@ BackendSettings::BackendSettings()
     group2a1->setLabel(QObject::tr("EIT Scanner Options"));
     group2a1->addChild(EITTransportTimeout());
     group2a1->addChild(EITCrawIdleStart());
+    group2a1->addChild(EITScanPeriod());
+    group2a1->addChild(EITEventChunkSize());
+    group2a1->addChild(EITCachePersistent());
     addChild(group2a1);
 
     auto* group3 = new GroupSetting();

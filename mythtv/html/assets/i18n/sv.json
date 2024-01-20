@@ -25,6 +25,7 @@
         "refresh": "Uppdatera",
         "save": "Spara",
         "savesuccess": "Sparad",
+        "selected_menu": "Välj en eller flera rader nedan och klicka här för att utföra en åtgärd på dem. Alternativt högerklicka på de markerade raderna.",
         "submit": "Skicka in",
         "success": "Framgång",
         "unsaved_heading": "Osparade ändringar",
@@ -35,14 +36,23 @@
         "backendStatus": "Backend Status",
         "channeleditor": "Kanalredigerare",
         "guide": {
+            "calendar_tip": "Datumväljare: Välj först tid och sedan datum.",
+            "catcolors": "Kategori Färger",
             "channel": "Kanal",
+            "channel_group": "Kanalgrupp",
+            "color_customize": "Anpassa färgerna genom att redigera den här filen:",
+            "color_expl": "Program med kategorier som inte har en kategorifärg använder färgen kategorityp.",
+            "color_includes": "Denna lista innehåller endast färger för program på den aktuella sidan i guiden. Den fullständiga listan över färger finns i filen som nämns nedan.",
+            "colors": "Färger",
             "full_search": "Fullständig sökning",
             "people_search": "People Search",
             "retgrid": "Återgå till Grid Display",
-            "title_search": "Titelsökning"
+            "title_search": "Titelsökning",
+            "typecolors": "Kategori Typ Färger"
         },
         "programguide": "Programguide",
         "recordings": {
+            "actionsselected": "Åtgärder på {{ num }} valda inspelningar",
             "airdate": "Sändningsdatum",
             "alreadydel": "Redan raderad",
             "canundel": "Du kan vända detta genom att använda Återställ.",
@@ -63,7 +73,8 @@
             "inetref": "InetRef",
             "job_Commflag": "Upptäck reklam",
             "job_Metadata": "Slå upp Metadata",
-            "job_Transcode": "Omkoda",
+            "job_Transcode": "Omkoda med standardprofil",
+            "jobsselected": "Kör jobb på {{ num }} valda inspelningar",
             "mnu_delete": "Radera",
             "mnu_delete_rerec": "Ta bort och tillåt ominspelning",
             "mnu_markdamaged": "Markera som skadad",
@@ -75,6 +86,7 @@
             "mnu_stoprec": "Stoppa inspelning",
             "mnu_undelete": "Ångra radering",
             "mnu_updatemeta": "Uppdatera metadata",
+            "mnu_updaterecgrp": "Byt inspelningsgrupp",
             "mnu_updaterecrule": "Uppdatera postregel",
             "nonrerec": "För att tillåta återinspelning av det skadade programmet, använd Allow Re Record.",
             "orig_airdate": "Original Air Date",
@@ -82,6 +94,7 @@
             "recgrp": "Rec Grp",
             "seas_ep": "Seas Ep",
             "season": "Säsong",
+            "selrecgroup": "Välj Inspelningsgrupp",
             "stop_details": "Detta kommer att stoppa inspelningen",
             "stop_recording": "Stoppa inspelning",
             "subtitle": "Texta",
@@ -220,6 +233,7 @@
             "schedule_text": "Nästa {{ length }} show(er) som är schemalagda för inspelning.",
             "schedule_title": "Schema"
         },
+        "undefselection": "Vissa valda rader har inte laddats. Bläddra igenom listan och välj om raderna.",
         "upcoming": {
             "date": "Datum",
             "encoder": "Encoder",
@@ -844,6 +858,8 @@
         "eit": {
             "crawl_desc": "Det minsta antalet sekunder efter att en inspelare blir inaktiv för att vänta innan MythTV börjar samla in EIT-listningsdata.",
             "crawl_label": "Backend inaktiv före EIT-genomsökning (sekunder)",
+            "scan_desc": "Dags att göra EIT-skanning på ett fångstkort innan du går till nästa fångstkort i samma ingångsgrupp som är konfigurerad för EIT-skanning. Detta kan hända med flera satellit-LNB:er anslutna via en DiSEqC-switch.",
+            "scan_label": "EIT-skanningsperiod (min)",
             "subtitle": "Om du använder listor som sänds av stationen, definierar dessa alternativ hur MythTV söker efter dem.",
             "timeout_desc": "Maximal tid att vänta (i minuter) för listningsdata på en digital TV-kanal innan du söker efter nya listningsdata på nästa kanal.",
             "timeout_label": "EIT transport timeout (minut)",
@@ -1013,14 +1029,24 @@
         "main": {
             "enableupdates_desc": "Om du aktiverar uppdateringar förhindras alla inspelningar tills du startar om",
             "enableupdates_label": "Aktivera uppdateringar",
+            "mustenable": "Ändringar kan inte sparas om du inte klickar på knappen Aktivera uppdateringar först.",
+            "mustrestart": "När du är klar med uppdateringarna, starta om backend.",
             "restart_desc": "Inspelningar är inaktiverade tills du startar om",
             "restart_label": "Starta om Backend",
             "restarting": "Startar om backend",
+            "shutdown_label": "Stäng Backend",
             "slave_enabled": "Uppdateringar är alltid aktiverade på en slavbackend.",
             "slave_instructions": "Detta verkar vara en slavbackend. Om den är avsedd som en slavbackend, inaktivera schemaläggning på masterbackend medan du kör slavbackend-installation.",
             "slave_warning": "Om detta inte är avsett som en slavbackend, gå till Setup, General, Host Address Backend Setup och välj \"Den här servern är Master Backend\" eller ställ in rätt anpassad identifierare på Databas Setup-sidan. Spara och starta om backend,",
             "title": "MythTV Setup",
-            "upcomingrec": "Nästa kommande inspelning: {{Title}} kl. {{StartTime}}. Status: {{Status}}"
+            "upcomingrec": "Nästa kommande inspelning: {{Title}} kl. {{StartTime}}. Status: {{Status}}",
+            "webonly": {
+                "DBSETUP": "Backend kan inte starta normalt eftersom databasinstallationen inte är klar.",
+                "DBTIMEZONE": "Backend kan inte starta normalt eftersom databastidszoner inte är inställda.",
+                "IPADDRESS": "Backend kan inte starta normalt eftersom Allmänt, Värdadress, Primär IP-adress inte är inställt.",
+                "SCHEMAUPDATE": "Backend kan inte starta normalt eftersom uppdatering av databasschema misslyckades.",
+                "WEBONLYPARM": "Backend är i begränsat läge på grund av parametern --webonly på kommandoraden. Du måste starta om manuellt."
+            }
         },
         "misc": {
             "bal_io": "Balanserad disk I/O",
