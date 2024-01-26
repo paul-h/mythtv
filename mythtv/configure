@@ -6564,6 +6564,7 @@ if enabled bindings_python; then
     check_py_lib lxml          || disable_bindings_python "lxml"
     check_py_lib requests      || disable_bindings_python "requests"
     check_python "(3,11,1)" && check_py_lib wheel && check_py_lib_version pip "(23,0,1)" && USE_PYTHON_PIP="yes"
+    test x"$USE_PYTHON_PIP" = x"" && check_python "(3,12,0)" && disable_bindings_python "pip, wheel"
 fi
 
 # Check for perl dependencies
@@ -6789,7 +6790,7 @@ fi
 # incompatible function pointer waring has been promoted to an error.
 # Demoting it back to a warning allows the builds to work again.
 # https://lists.ffmpeg.org/pipermail/ffmpeg-devel/2023-March/307515.html
-if test $target_os == "freebsd" &&
+if test $target_os = "freebsd" &&
 	enabled clangxx &&
 	test $clangxx_major -ge 16; then
    ffmpeg_extra_cflags="$ffmpeg_extra_cflags -Wno-error=incompatible-function-pointer-types"
