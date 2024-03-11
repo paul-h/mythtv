@@ -3916,7 +3916,9 @@ bool AvFormatDecoder::ProcessSubtitlePacket(AVStream *curstream, AVPacket *pkt)
 
     m_trackLock.lock();
     int subIdx = m_selectedTrack[kTrackTypeSubtitle].m_av_stream_index;
-    bool isForcedTrack = m_selectedTrack[kTrackTypeSubtitle].m_forced;
+    int forcedSubIdx = m_selectedForcedTrack[kTrackTypeSubtitle].m_av_stream_index;
+    bool mainTrackIsForced = m_selectedTrack[kTrackTypeSubtitle].m_forced;
+    bool isForcedTrack = false;
     m_trackLock.unlock();
 
     int gotSubtitles = 0;
@@ -3941,7 +3943,8 @@ bool AvFormatDecoder::ProcessSubtitlePacket(AVStream *curstream, AVPacket *pkt)
             }
         }
     }
-    else if (m_decodeAllSubtitles || pkt->stream_index == subIdx)
+    else if (m_decodeAllSubtitles || pkt->stream_index == subIdx
+                                  || pkt->stream_index == forcedSubIdx)
     {
         m_avCodecLock.lock();
         AVCodecContext *ctx = m_codecMap.GetCodecContext(curstream);
@@ -3950,6 +3953,9 @@ bool AvFormatDecoder::ProcessSubtitlePacket(AVStream *curstream, AVPacket *pkt)
 
         subtitle.start_display_time += pts;
         subtitle.end_display_time += pts;
+
+        if (pkt->stream_index != subIdx)
+            isForcedTrack = true;
     }
 
     if (gotSubtitles)
@@ -3969,7 +3975,8 @@ bool AvFormatDecoder::ProcessSubtitlePacket(AVStream *curstream, AVPacket *pkt)
 
         bool forcedon = m_parent->GetSubReader(pkt->stream_index)->AddAVSubtitle(
                 subtitle, curstream->codecpar->codec_id == AV_CODEC_ID_XSUB,
-                m_parent->GetAllowForcedSubtitles(), false);
+                isForcedTrack,
+                (m_parent->GetAllowForcedSubtitles() && !mainTrackIsForced), false);
          m_parent->EnableForcedSubtitles(forcedon || isForcedTrack);
     }
 
@@ -3992,11 +3999,7 @@ bool AvFormatDecoder::ProcessRawTextPacket(AVPacket* Packet)
     auto toUtf16 = QStringDecoder(QStringDecoder::Utf8);
     QString text = toUtf16.decode(Packet->data);
 #endif
-#if QT_VERSION < QT_VERSION_CHECK(5,14,0)
-    auto list = text.split('\n', QString::SkipEmptyParts);
-#else
     auto list = text.split('\n', Qt::SkipEmptyParts);
-#endif
     m_parent->GetSubReader(id)->AddRawTextSubtitle(list, std::chrono::milliseconds(Packet->duration));
     return true;
 }
@@ -4387,8 +4390,8 @@ int AvFormatDecoder::AutoSelectAudioTrack(void)
                 ftype.push_back(i);
         }
 
-        // try to get the language track matching the frontend language.
-        QString language_key_convert = iso639_str2_to_str3(gCoreContext->GetLanguage());
+        // Try to get the language track for the preferred language for audio
+        QString language_key_convert = iso639_str2_to_str3(gCoreContext->GetAudioLanguage());
         uint language_key = iso639_str3_to_key(language_key_convert);
         uint canonical_key = iso639_key_to_canonical_key(language_key);
 
@@ -4415,8 +4418,8 @@ int AvFormatDecoder::AutoSelectAudioTrack(void)
         if (selTrack < 0)
             selTrack = filter_max_ch(m_ic, atracks, flang);
 
-        // try to get best track for most preferred language
-        // Set by the "Guide Data" language prefs in Appearance.
+        // Try to get best track for most preferred language for audio.
+        // Set by the "Guide Data" "Audio Language" preference in Appearance.
         if (selTrack < 0)
         {
             auto it = m_languagePreference.begin();
@@ -4450,8 +4453,8 @@ int AvFormatDecoder::AutoSelectAudioTrack(void)
             }
         }
 
-        // could not select track based on user preferences (language)
-        // try to select the default track
+        // Could not select track based on user preferences (audio language)
+        // Try to select the default track
         if (selTrack < 0)
         {
             LOG(VB_AUDIO, LOG_INFO, LOC + "Trying to select default track");
@@ -4465,7 +4468,7 @@ int AvFormatDecoder::AutoSelectAudioTrack(void)
             }
         }
 
-        // try to get best track for any language
+        // Try to get best track for any language
         if (selTrack < 0)
         {
             LOG(VB_AUDIO, LOG_INFO, LOC +
