@@ -58,11 +58,11 @@ bool ImportEditMetadataDialog::Create(void)
     connect(m_okButton, SIGNAL(Clicked()), this, SLOT(okPressed()));
     connect(m_cancelButton, SIGNAL(Clicked()), this, SLOT(cancelPressed()));
 
-    new MythUIButtonListItem(m_importTypeSelector, tr("IP Encoder"),    qVariantFromValue(QString("IPEncoder")));
-    new MythUIButtonListItem(m_importTypeSelector, tr("HD-PVR2"),       qVariantFromValue(QString("HDPVR2")));
-    new MythUIButtonListItem(m_importTypeSelector, tr("Intensity Pro"), qVariantFromValue(QString("IntensityPro")));
-    new MythUIButtonListItem(m_importTypeSelector, tr("Magewell"),      qVariantFromValue(QString("Magewell")));
-    m_importTypeSelector->SetValueByData(qVariantFromValue(m_sourceImportItem->type));
+    new MythUIButtonListItem(m_importTypeSelector, tr("IP Encoder"),    QString("IPEncoder"));
+    new MythUIButtonListItem(m_importTypeSelector, tr("HD-PVR2"),       QString("HDPVR2"));
+    new MythUIButtonListItem(m_importTypeSelector, tr("Intensity Pro"), QString("IntensityPro"));
+    new MythUIButtonListItem(m_importTypeSelector, tr("Magewell"),      QString("Magewell"));
+    m_importTypeSelector->SetValueByData(m_sourceImportItem->type);
 
     m_titleEdit->SetText(m_sourceImportItem->title);
     m_subtitleEdit->SetText(m_sourceImportItem->subtitle);

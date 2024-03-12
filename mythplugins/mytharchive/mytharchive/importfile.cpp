@@ -512,7 +512,7 @@ void ImportFile::updateRecordingList(void)
                     item->setChecked(MythUIButtonListItem::NotChecked);
                 }
 
-                item->SetData(qVariantFromValue(i));
+                item->SetData(QVariant::fromValue(i));
             }
             qApp->processEvents();
         }

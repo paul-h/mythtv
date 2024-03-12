@@ -401,10 +401,10 @@ QString filenameFromMetadataLookup(MetadataLookup *lookup)
             value = fixFilename(lookup->GetSubtitle());
 
         if ((key == "season") && (lookup->GetSeason() > 0))
-            value.sprintf("%02d", lookup->GetSeason());
+            value = QString("%1").arg(lookup->GetSeason(), 2, '0');
 
         if ((key == "episode") && (lookup->GetEpisode() > 0))
-            value.sprintf("%02d", lookup->GetEpisode());
+            value = QString("%1").arg(lookup->GetEpisode(), 2, '0');
 
         if ((key == "year") && (lookup->GetYear() > 0))
             value = QString::number(lookup->GetYear(), 10);
