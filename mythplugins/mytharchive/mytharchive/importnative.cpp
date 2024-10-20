@@ -273,6 +273,9 @@ void ArchiveFileSelector::nextPressed()
         if (native->Create())
             mainStack->AddScreen(native);
     }
+    // No memory leak. ImportNative (via MythUIType) adds the new item
+    // onto the parent mainStack.
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
 }
 
 void ArchiveFileSelector::prevPressed()
@@ -365,14 +368,16 @@ bool ImportNative::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "MENU")
         {
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

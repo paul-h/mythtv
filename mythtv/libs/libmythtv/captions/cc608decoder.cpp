@@ -114,7 +114,7 @@ void CC608Decoder::FormatCCField(std::chrono::milliseconds tc, size_t field, int
             m_badVbi[field] = 0;
             m_ccMode[field] = -1;
             m_txtMode[field*2] = 0;
-            m_txtMode[field*2 + 1] = 0;
+            m_txtMode[(field*2) + 1] = 0;
         }
         return;
     }
@@ -145,7 +145,7 @@ void CC608Decoder::FormatCCField(std::chrono::milliseconds tc, size_t field, int
     if (m_ccMode[field] >= 0)
     {
         mode = field << 2 |
-            (m_txtMode[field*2 + m_ccMode[field]] << 1) |
+            (m_txtMode[(field*2) + m_ccMode[field]] << 1) |
             m_ccMode[field];
         if (mode != std::numeric_limits<std::size_t>::max())
             len = m_ccBuf[mode].length();
@@ -199,7 +199,7 @@ void CC608Decoder::FormatCCField(std::chrono::milliseconds tc, size_t field, int
         m_lastCodeTc[field] += 67ms;
 
         int newccmode = (b1 >> 3) & 1;
-        int newtxtmode = m_txtMode[field*2 + newccmode];
+        int newtxtmode = m_txtMode[(field*2) + newccmode];
         if ((b1 & 0x06) == 0x04)
         {
             switch (b2)
@@ -222,7 +222,7 @@ void CC608Decoder::FormatCCField(std::chrono::milliseconds tc, size_t field, int
             }
         }
         m_ccMode[field] = newccmode;
-        m_txtMode[field*2 + newccmode] = newtxtmode;
+        m_txtMode[(field*2) + newccmode] = newtxtmode;
         mode = (field << 2) | (newtxtmode << 1) | m_ccMode[field];
 
         m_timeCode[mode] = tc;
@@ -359,7 +359,9 @@ void CC608Decoder::FormatCCField(std::chrono::milliseconds tc, size_t field, int
                                 m_col[mode] = 0;
                             }
                             else if (m_style[mode] == CC_STYLE_POPUP)
+                            {
                                 ResetCC(mode);
+                            }
 
                             m_rowCount[mode] = b2 - 0x25 + 2;
                             m_style[mode] = CC_STYLE_ROLLUP;
@@ -404,7 +406,9 @@ void CC608Decoder::FormatCCField(std::chrono::milliseconds tc, size_t field, int
                                 m_col[mode] = 0;
                             }
                             else if (m_style[mode] == CC_STYLE_POPUP)
+                            {
                                 ResetCC(mode);
+                            }
 
                             m_style[mode] = CC_STYLE_PAINT;
                             m_rowCount[mode] = 0;
@@ -652,9 +656,13 @@ QString CC608Decoder::ToASCII(const QString &cc608str, bool suppress_unknown)
                         ret += QString("[%1]").arg(cpu, 2, 16);
                 }
                 else if (cpu <= 0x80)
+                {
                     ret += QString(cp.toLatin1());
+                }
                 else if (!suppress_unknown)
+                {
                     ret += QString("{%1}").arg(cpu, 2, 16);
+                }
         }
     }
 
@@ -668,7 +676,11 @@ void CC608Decoder::BufferCC(size_t mode, int len, int clr)
     {
         // calculate UTF-8 encoding length
         tmpbuf = m_ccBuf[mode].toUtf8();
-        len = std::min(static_cast<int>(tmpbuf.length()), 255);
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        len = std::min(tmpbuf.length(), 255);
+#else
+        len = std::min(tmpbuf.length(), 255LL);
+#endif
     }
 
     unsigned char *bp = m_rbuf;
@@ -691,7 +703,9 @@ void CC608Decoder::BufferCC(size_t mode, int len, int clr)
         len += sizeof(ccsubtitle);
     }
     else
+    {
         len = sizeof(ccsubtitle);
+    }
 
     if ((len != 0) && VERBOSE_LEVEL_CHECK(VB_VBI, LOG_INFO))
     {
@@ -1343,7 +1357,9 @@ bool CC608Decoder::XDSPacketParseProgram(
             }
         }
         else if (sel == 0x13 || sel == 0x1f)
+        {
             ; // Reserved according to TVTime code
+        }
         else if ((rating_system & 0x3) == 1)
         {
             if (!(kHasTPG & m_xdsRatingSystems[cf]) ||
@@ -1394,7 +1410,9 @@ bool CC608Decoder::XDSPacketParseProgram(
         ; // program data
 #endif
     else
+    {
         handled = false;
+    }
 
     return handled;
 }
@@ -1433,7 +1451,9 @@ bool CC608Decoder::XDSPacketParseChannel(const std::vector<unsigned char> &xds_b
         }
     }
     else
+    {
         handled = false;
+    }
 
     return handled;
 }

@@ -173,8 +173,8 @@ std::string MusicBrainz::queryRelease(const std::string &discId)
                                     LOG(VB_MEDIA, LOG_DEBUG, QString("musicbrainz: %1: %2:%3 - %4 (%5)")
                                         .arg(track->Position())
                                         .arg(minutes, 2).arg(seconds, 2, 10, QChar('0'))
-                                        .arg(QString::fromStdString(recording->Title()))
-                                        .arg(artistsToString(artists)));
+                                        .arg(QString::fromStdString(recording->Title()),
+                                             artistsToString(artists)));
 
                                     // fill metadata
                                     MusicMetadata &metadata = m_tracks[track->Position()];
@@ -270,7 +270,7 @@ static void logError(CoverArtArchive::CCoverArt &coverArt)
 QString MusicBrainz::queryCoverart(const std::string &releaseId)
 {
     const QString fileName = QString("musicbrainz-%1-front.jpg").arg(releaseId.c_str());
-    const QString filePath = QDir::temp().absoluteFilePath(fileName);
+    QString filePath = QDir::temp().absoluteFilePath(fileName);
     LOG(VB_MEDIA, LOG_DEBUG, QString("musicbrainz: Check if coverart file exists for release '%1'").arg(QString::fromStdString(releaseId)));
     if (QDir::temp().exists(fileName))
     {
@@ -283,7 +283,7 @@ QString MusicBrainz::queryCoverart(const std::string &releaseId)
     try
     {
         std::vector<unsigned char> imageData = coverArt.FetchFront(releaseId);
-        if (imageData.size())
+        if (!imageData.empty())
         {
             LOG(VB_MEDIA, LOG_DEBUG, QString("musicbrainz: Saving front coverart to '%1'").arg(filePath));
 

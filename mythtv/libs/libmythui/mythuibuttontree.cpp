@@ -321,7 +321,9 @@ bool MythUIButtonTree::SetNodeByString(QStringList route)
                 }
             }
             else
+            {
                 foundit = true;
+            }
         }
     }
 
@@ -475,7 +477,9 @@ void MythUIButtonTree::SwitchList(bool right)
             doUpdate = true;
         }
         else
+        {
             return;
+        }
     }
     else if (!right)
     {
@@ -487,7 +491,9 @@ void MythUIButtonTree::SwitchList(bool right)
             doUpdate = true;
         }
         else
+        {
             return;
+        }
     }
 
     if (doUpdate)
@@ -585,7 +591,7 @@ bool MythUIButtonTree::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (m_activeList && m_activeList->m_layout == MythUIButtonList::LayoutGrid)
@@ -599,7 +605,9 @@ bool MythUIButtonTree::keyPressEvent(QKeyEvent *event)
                 SwitchList(false);
             }
             else
+            {
                 handled = false;
+            }
         }
         else
         {
@@ -612,7 +620,9 @@ bool MythUIButtonTree::keyPressEvent(QKeyEvent *event)
                 SwitchList(false);
             }
             else
+            {
                 handled = false;
+            }
         }
     }
 

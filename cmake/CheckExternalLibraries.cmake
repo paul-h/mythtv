@@ -56,21 +56,21 @@ endif()
 find_package(LibX264 0.118)
 if(ENABLE_X264 AND LibX264_VERSION)
   add_build_config(LibX264::LibX264 "x264")
-  set(HAVE_LIBX264 ${LibX264_FOUND})
+  set(CONFIG_LIBX264 ${LibX264_FOUND})
 endif()
 
 # x265: fedora:x265-devel debian:libx265-dev
 find_package(LibX265)
 if(ENABLE_X265 AND LibX265_VERSION)
   add_build_config(LibX265::LibX265 "x265")
-  set(HAVE_LIBX264 ${LibX264_FOUND})
+  set(CONFIG_LIBX265 ${LibX265_FOUND})
 endif()
 
 # xvid: fedora:xvidcore-devel debian:libxvidcore-dev
 find_package(LibXvid)
 if(ENABLE_XVID AND LibX2vid_VERSION)
   add_build_config(LibXvid::LibXvid "xvid")
-  set(HAVE_LIBXvid ${LibXvid_FOUND})
+  set(CONFIG_LIBXVID ${LibXvid_FOUND})
 endif()
 
 # vpx: fedora:libvpx-devel debian:libvpx-dev
@@ -80,7 +80,7 @@ if(ENABLE_VPX)
 endif()
 
 # mp3lame: fedora:lame-devel debian:libmp3lame-dev
-if(ENABLE_MP3LAME)
+if(ENABLE_MP3LAME AND (NOT MINGW AND NOT MSVC))
   find_package(Lame 3.98.3 MODULE REQUIRED)
   if(Lame_VERSION STREQUAL "unknown")
     message(STATUS "LAME VERSION IS UNKNOWN.")
@@ -88,6 +88,7 @@ if(ENABLE_MP3LAME)
   add_build_config(Lame::Lame "libmp3lame")
   target_compile_definitions(Lame::Lame INTERFACE USING_LIBMP3LAME)
   add_library(lame ALIAS Lame::Lame)
+  set(CONFIG_LIBMP3LAME TRUE)
 endif()
 
 # vdpau: fedora:libvdpau-devel debian:libvdpau-dev

@@ -33,7 +33,7 @@
 #include "captions/textsubtitleparser.h"
 #include "captions/subtitlereader.h"
 
-#define IO_BUFFER_SIZE 32768
+static constexpr uint32_t IO_BUFFER_SIZE { 32768 };
 
 // This background thread helper class is adapted from the
 // RebuildSaver class in mythcommflagplayer.cpp.
@@ -172,9 +172,11 @@ struct local_buffer_t {
 };
 
 TextSubtitleParser::TextSubtitleParser(SubtitleReader *parent, QString fileName, TextSubtitles *target)
-    : m_parent(parent), m_target(target), m_fileName(std::move(fileName))
+    : m_parent(parent),
+      m_target(target),
+      m_fileName(std::move(fileName)),
+      m_pkt(av_packet_alloc())
 {
-    m_pkt = av_packet_alloc();
 }
 
 TextSubtitleParser::~TextSubtitleParser()

@@ -78,7 +78,7 @@
                     <label for="ChanId" class="label block">{{ 'dashboard.sched.channel_label' | translate
                         }}</label>
                     <p-dropdown [options]="allChannels" [(ngModel)]="channel" [editable]="false"
-                        optionLabel="Description" [maxlength]="0" [style]="{'minWidth':'400px'}" name="Type"
+                        optionLabel="Description" [maxlength]="0" [style]="{'minWidth':'400px'}" name="Channel"
                         (onChange)="onChannelChange()">
                     </p-dropdown>
                 </div>
@@ -106,7 +106,8 @@
                 <label for="Type" class="label block">{{ 'dashboard.sched.type_label' | translate
                     }}</label>
                 <p-dropdown [options]="typeList" [(ngModel)]="recRule.Type" [editable]="false" optionLabel="prompt"
-                    optionValue="value" [maxlength]="0" [style]="{'minWidth':'400px'}" name="Type" #Type="ngModel">
+                    optionValue="value" [maxlength]="0" [style]="{'minWidth':'400px'}" name="Type" #Type="ngModel"
+                    [disabled]="schedTypeDisabled">
                 </p-dropdown>
             </div>
 
@@ -257,13 +258,13 @@
             <div class="form-group field" *ngIf="recRule.Type != 'Recording Template'">
                 <label for="Inetref" class="label block">{{ 'dashboard.sched.inetref_label' | translate }}</label>
                 <div class="grid p-0">
-                    <div class="col-3 flex align-items-center">
+                    <div class="col-5 flex align-items-center">
                         <p-radioButton name="prefix" value="ttvdb4.py_" [(ngModel)]="metaPrefix" inputId="ttvdb"
                             (ngModelChange)="iCheckbox(recRule)"></p-radioButton>
                         <label for="ttvdb"><img class="pl-1 " src="images/metadata/thetvdb.png" alt="thtvdb"
                                 height="40"></label>
                     </div>
-                    <div class="col-9 flex align-items-center">
+                    <div class="col-7 flex align-items-center">
                         <a href="{{ URLencode('https://thetvdb.com/search?query='+recRule.Title) }}" target="_blank">
                             {{ 'dashboard.sched.isearch' | translate }} thetvdb.com</a>
                         <br>
@@ -279,13 +280,13 @@
                             {{ 'dashboard.sched.isearch' | translate }} tvmaze.com</a>
                         <br>
                     </div>
-                    <div class="col-3 flex align-items-center">
+                    <div class="col-5 flex align-items-center">
                         <p-radioButton name="prefix" value="tmdb3.py_" [(ngModel)]="metaPrefix" inputId="tmdb"
                             (ngModelChange)="iCheckbox(recRule)"></p-radioButton>
                         <label for="tmdb"><img class="pl-1 " src="images/metadata/themoviedb.svg" alt="themoviedb"
                                 height="40"></label>
                     </div>
-                    <div class="col-9 flex align-items-center">
+                    <div class="col-7 flex align-items-center">
                         <a href="{{ URLencode('https://www.themoviedb.org/search?query='+recRule.Title) }}"
                             target="_blank">
                             {{ 'dashboard.sched.isearch' | translate }} themoviedb.org</a>
@@ -316,7 +317,7 @@
                 </p-button>
                 <p-button icon="pi pi-check-circle" (onClick)="save();" label="{{ 'common.save' | translate }}"
                     styleClass="p-button-success"
-                    [disabled]="!schedform.dirty || recRule.Id == 0 && recRule.Type == 'Not Recording' || !recRule.Title"></p-button>
+                    [disabled]="!schedform.dirty || recRule.Id == 0 && recRule.Type == 'Not Recording' || !recRule.Title || schedTypeDisabled"></p-button>
             </ng-template>
 
         </p-dialog>

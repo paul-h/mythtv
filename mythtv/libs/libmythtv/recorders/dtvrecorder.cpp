@@ -329,7 +329,7 @@ void DTVRecorder::BufferedWrite(const TSPacket &tspacket, bool insert)
     }
 }
 
-enum { kExtractPTS, kExtractDTS };
+enum : std::uint8_t { kExtractPTS, kExtractDTS };
 static int64_t extract_timestamp(
     const uint8_t *bufptr, int bytes_left, int pts_or_dts)
 {
@@ -919,9 +919,9 @@ bool DTVRecorder::FindH2645Keyframes(const TSPacket *tspacket)
             }
 
             // must find the PES start code
-            if (tspacket->data()[i++] != 0x00 ||
-                tspacket->data()[i++] != 0x00 ||
-                tspacket->data()[i++] != 0x01)
+            if (tspacket->data()[i  ] != 0x00 ||
+                tspacket->data()[i+1] != 0x00 ||
+                tspacket->data()[i+2] != 0x01)
             {
                 if (!m_pesTimer.isRunning() || m_pesTimer.elapsed() > 20000ms)
                 {
@@ -931,6 +931,7 @@ bool DTVRecorder::FindH2645Keyframes(const TSPacket *tspacket)
                 }
                 break;
             }
+            i += 3;
 
             m_pesTimer.stop();
 
@@ -1101,7 +1102,9 @@ void DTVRecorder::HandleH2645Keyframe(void)
         SendMythSystemRecEvent("REC_STARTED_WRITING", m_curRecording);
     }
     else
+    {
         startpos = m_h2645Parser->keyframeAUstreamOffset();
+    }
 
     // Add key frame to position map
     m_positionMapLock.lock();

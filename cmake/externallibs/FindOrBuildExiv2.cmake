@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022-2023 David Hampton
+# Copyright (C) 2022-2024 David Hampton
 #
 # See the file LICENSE_FSF for licensing information.
 #
@@ -16,17 +16,22 @@
 # Dear folks, Exiv2 v0.27.6 has been released!  I'll start working on the v1.0.0
 # major release based on 9ca161d.
 #
+# However, Exiv2 v0.28 was released with C++17 support included, so we can use
+# that version if the distro includes it.
+#
 function(find_or_build_exiv2)
-  pkg_check_modules(EXIV2 "exiv2>=1.0" QUIET IMPORTED_TARGET)
-  if(NOT EXIV2_FOUND)
-    pkg_check_modules(EXIV2 "mythexiv2>=0.99" QUIET IMPORTED_TARGET)
-  endif()
-  if(TARGET PkgConfig::EXIV2)
-    message(STATUS "Found Exiv2 ${EXIV2_VERSION} ${EXIV2_LINK_LIBRARIES}")
-    set(ProjectDepends
-        ${ProjectDepends} PkgConfig::EXIV2
-        PARENT_SCOPE)
-    return()
+  if(LIBS_USE_INSTALLED)
+    pkg_check_modules(EXIV2 "exiv2>=0.28" IMPORTED_TARGET)
+    if(NOT EXIV2_FOUND)
+      pkg_check_modules(EXIV2 "mythexiv2>=0.28" IMPORTED_TARGET)
+    endif()
+    if(TARGET PkgConfig::EXIV2)
+      message(STATUS "Found Exiv2 ${EXIV2_VERSION} ${EXIV2_LINK_LIBRARIES}")
+      set(ProjectDepends
+          ${ProjectDepends} PkgConfig::EXIV2
+          PARENT_SCOPE)
+      return()
+    endif()
   endif()
 
   if(CMAKE_CROSSCOMPILING)
@@ -103,6 +108,7 @@ function(find_or_build_exiv2)
                -DEXIV2_BUILD_SAMPLES:BOOL=OFF
                -DEXIV2_BUILD_EXIV2_COMMAND:BOOL=OFF
                ${CMDLINE_ARGS_EXIV2}
+               ${EXIV2_PLATFORM_ARGS}
                ${PLATFORM_ARGS}
     CMAKE_CACHE_ARGS
       -DCMAKE_FIND_ROOT_PATH:STRING=${CMAKE_FIND_ROOT_PATH}
@@ -111,6 +117,7 @@ function(find_or_build_exiv2)
       -DCMAKE_JOB_POOLS:STRING=${CMAKE_JOB_POOLS}
       -DPKG_CONFIG_LIBDIR:PATH=${PKG_CONFIG_LIBDIR}
       -DPKG_CONFIG_PATH:PATH=${PKG_CONFIG_PATH}
+    BUILD_ALWAYS ${LIBS_ALWAYS_REBUILD}
     USES_TERMINAL_BUILD TRUE
     DEPENDS external_libs ${after_libs})
 

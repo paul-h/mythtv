@@ -74,10 +74,10 @@ void V2Status::RegisterCustomTypes()
     qRegisterMetaType<V2Backend*>("V2Backend");
 }
 
-V2Status::V2Status () : MythHTTPService(s_service)
+V2Status::V2Status () : MythHTTPService(s_service),
+                        m_pSched(dynamic_cast<Scheduler*>(gCoreContext->GetScheduler())),
+                        m_pEncoders(&gTVList) // extern
 {
-    m_pEncoders = &gTVList;  // extern
-    m_pSched    =  dynamic_cast<Scheduler*>(gCoreContext->GetScheduler());
     if (m_pSched)
         m_pMainServer = m_pSched->GetMainServer();
     m_bIsMaster = gCoreContext->IsMasterHost();
@@ -697,7 +697,9 @@ void V2Status::FillStatusXML( QDomDocument *pDoc )
             total = group;
         }
         else
+        {
             fsXML << group;
+        }
     }
 
     storage.appendChild(total);
@@ -1383,7 +1385,9 @@ int V2Status::PrintJobQueue( QTextStream &os, const QDomElement& jobs )
         os << "      </div>\r\n";
     }
     else
+    {
         os << "    Job Queue is currently empty.\r\n\r\n";
+    }
 
     os << "  </div>\r\n\r\n ";
 
@@ -1630,8 +1634,10 @@ int V2Status::PrintMachineInfo( QTextStream &os, const QDomElement& info )
                     os << " <strong>WARNING</strong>: is mythfilldatabase running?";
             }
             else
+            {
                 os << "    There's <strong>no guide data</strong> available! "
                    << "Have you run mythfilldatabase?";
+            }
         }
     }
     os << "\r\n  </div>\r\n";
@@ -1681,7 +1687,9 @@ int V2Status::PrintMiscellaneousInfo( QTextStream &os, const QDomElement& info )
                 linebreak = "\r\n";
             }
             else
+            {
                 linebreak = "<br />\r\n";
+            }
 
             os << "    " << display << linebreak;
         }

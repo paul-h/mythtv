@@ -12,7 +12,8 @@ class MBASE_PUBLIC RecStatus : public QObject
   Q_OBJECT
 
   public:
-    enum Type {
+    // NOLINTNEXTLINE(performance-enum-size)
+    enum Type  {
         Pending = -15,
         Failing = -14,
         //OtherRecording = -13, (obsolete)

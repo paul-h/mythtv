@@ -10,6 +10,7 @@
 */
 
 // C++
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 
@@ -134,10 +135,8 @@ void LogScale::setMax(int maxscale, int maxrange)
     for (int i = 1; i < (int) domain; i++)
     {
         int scaled = (int) floor(0.5 + (alpha * log((double(i) + alpha) / alpha)));
-        if (scaled < 1)
-            scaled = 1;
-        if (m_indices[scaled - 1] < i)
-            m_indices[scaled - 1] = i;
+        scaled = std::max(scaled, 1);
+        m_indices[scaled - 1] = std::max(m_indices[scaled - 1], i);
     }
 }
 
@@ -371,11 +370,11 @@ bool StereoScope::draw( QPainter *p, const QColor &back )
         per = 0.0;
 
     double r = m_startColor.red() +
-        (m_targetColor.red() - m_startColor.red()) * (per * per);
+        ((m_targetColor.red() - m_startColor.red()) * (per * per));
     double g = m_startColor.green() +
-        (m_targetColor.green() - m_startColor.green()) * (per * per);
+        ((m_targetColor.green() - m_startColor.green()) * (per * per));
     double b = m_startColor.blue() +
-        (m_targetColor.blue() - m_startColor.blue()) * (per * per);
+        ((m_targetColor.blue() - m_startColor.blue()) * (per * per));
 
     if (r > 255.0)
         r = 255.0;
@@ -561,11 +560,11 @@ bool MonoScope::draw( QPainter *p, const QColor &back )
             per = 0.0;
 
         double r = m_startColor.red() +
-            (m_targetColor.red() - m_startColor.red()) * (per * per);
+            ((m_targetColor.red() - m_startColor.red()) * (per * per));
         double g = m_startColor.green() +
-            (m_targetColor.green() - m_startColor.green()) * (per * per);
+            ((m_targetColor.green() - m_startColor.green()) * (per * per));
         double b = m_startColor.blue() +
-            (m_targetColor.blue() - m_startColor.blue()) * (per * per);
+            ((m_targetColor.blue() - m_startColor.blue()) * (per * per));
 
         if (r > 255.0)
             r = 255.0;
@@ -726,14 +725,14 @@ bool WaveForm::processUndisplayed(VisualNode *node)
         for (uint i = 0; i < n; i++) // find min/max and sum of squares
         {
             short int val = node->m_left[i];
-            if (val > m_maxl) m_maxl = val;
-            if (val < m_minl) m_minl = val;
+            m_maxl = std::max(val, m_maxl);
+            m_minl = std::min(val, m_minl);
             m_sqrl += static_cast<long>(val) * static_cast<long>(val);
             if (m_right)
             {
                 val = node->m_right[i];
-                if (val > m_maxr) m_maxr = val;
-                if (val < m_minr) m_minr = val;
+                m_maxr = std::max(val, m_maxr);
+                m_minr = std::min(val, m_minr);
                 m_sqrr += static_cast<long>(val) * static_cast<long>(val);
             }
             m_position++;
@@ -780,12 +779,12 @@ bool WaveForm::processUndisplayed(VisualNode *node)
                 // Audacity uses 50,50,200 and 100,100,220 - I'm going
                 // darker to better contrast the StereoScope overlay
                 painter.setPen(qRgb(25, 25, 150)); // peak-to-peak
-                painter.drawLine(x, y - h * m_maxl / 32768,
-                                 x, y - h * m_minl / 32768);
+                painter.drawLine(x, y - (h * m_maxl / 32768),
+                                 x, y - (h * m_minl / 32768));
                 if (m_right)
                 {
-                    painter.drawLine(x, yr - h * m_maxr / 32768,
-                                     x, yr - h * m_minr / 32768);
+                    painter.drawLine(x, yr - (h * m_maxr / 32768),
+                                     x, yr - (h * m_minr / 32768));
                 }
                 painter.setPen(qRgb(150, 25, 25)); // RMS
                 int rmsl = sqrt(m_sqrl / m_position) * y / 32768;
@@ -795,7 +794,7 @@ bool WaveForm::processUndisplayed(VisualNode *node)
                     int rmsr = sqrt(m_sqrr / m_position) * y / 32768;
                     painter.drawLine(x, yr - rmsr, x, yr + rmsr);
                     painter.drawLine(x, m_wfsize.height() / 2, // L / R delta
-                                     x, m_wfsize.height() / 2 - rmsl + rmsr);
+                                     x, (m_wfsize.height() / 2) - rmsl + rmsr);
                 }
             }
             m_minl = 0;                 // reset metrics for next line
@@ -1014,6 +1013,16 @@ Spectrogram::Spectrogram(bool hist)
     static const std::array<int,6> red   {  0,  0, UP,  1,  1, DN }; // 0=OFF, 1=ON
     static const std::array<int,6> green { UP,  1,  1, DN,  0,  0 };
     static const std::array<int,6> blue  {  1, DN,  0,  0, UP,  1 };
+
+    auto updateColor = [](int color, int up, int down)
+    {
+        if (color == UP)
+            return up;
+        if (color == DN)
+            return down;
+        return color * 255;
+    };
+
     for (int i = 0; i < 6; i++) // for 6 color transitions...
     {
         int r = red[i];         // 0=OFF, 1=ON, UP, or DN
@@ -1021,17 +1030,17 @@ Spectrogram::Spectrogram(bool hist)
         int b = blue[i];
         for (int u = 0; u < 256; u++) { // u ramps up
             int d = 256 - u;            // d ramps down
-            m_red[  i * 256 + u] = r == UP ? u : r == DN ? d : r * 255;
-            m_green[i * 256 + u] = g == UP ? u : g == DN ? d : g * 255;
-            m_blue[ i * 256 + u] = b == UP ? u : b == DN ? d : b * 255;
+            m_red[  (i * 256) + u] = updateColor(r, u, d);
+            m_green[(i * 256) + u] = updateColor(g, u, d);
+            m_blue[ (i * 256) + u] = updateColor(b, u, d);
         }
     }
 }
 
 Spectrogram::~Spectrogram()
 {
-    av_freep(&m_dftL);
-    av_freep(&m_dftR);
+    av_freep(reinterpret_cast<void*>(&m_dftL));
+    av_freep(reinterpret_cast<void*>(&m_dftR));
     av_rdft_end(m_rdftContext);
 }
 
@@ -1084,13 +1093,13 @@ bool Spectrogram::process(VisualNode */*node*/)
         // }
         for (auto i = 0; i < 125; i++) // 125 notes fit in 22050 Hz
         {                  // let Qt center the note text on the pixel
-            painter.drawText(m_scale.pixel(i) - 20, half - (i % 12) * 15 - 40,
+            painter.drawText(m_scale.pixel(i) - 20, half - ((i % 12) * 15) - 40,
                              40, 40, Qt::AlignCenter, m_scale.note(i));
             if (i % 12 == 5)    // octave numbers
             {
                 painter.drawText(m_scale.pixel(i) - 20, half - 220,
                                  40, 40, Qt::AlignCenter,
-                                 QString("%1").arg(int(i / 12)));
+                                 QString("%1").arg(i / 12));
             }
         }
         painter.rotate(90);     // frequency in Hz draws down
@@ -1101,15 +1110,15 @@ bool Spectrogram::process(VisualNode */*node*/)
               continue;
             int now = m_scale.pixel(i);
             if (now >= prev + 20) { // skip until good spacing
-                painter.drawText(half + 20, -1 * now - 40,
+                painter.drawText(half + 20, (-1 * now) - 40,
                                  80, 80, Qt::AlignVCenter|Qt::AlignLeft,
                                  QString("%1").arg(m_scale.freq(i)));
                 if (m_scale.note(i) != ".")
                 {
-                    painter.drawText(half + 100, -1 * now - 40,
+                    painter.drawText(half + 100, (-1 * now) - 40,
                                      80, 80, Qt::AlignVCenter|Qt::AlignLeft,
                                      QString("%1%2").arg(m_scale.note(i))
-                                     .arg(int(i / 12)));
+                                     .arg(i / 12));
                 }
                 prev = now;
             }
@@ -1155,9 +1164,12 @@ bool Spectrogram::processUndisplayed(VisualNode *node)
         int end = m_fftlen / 40; // ramp window ends down to zero crossing
         for (int k = 0; k < m_fftlen; k++)
         {
-            mult = k < end ? (float)k / (float)end
-                       : k > m_fftlen - end ?
-                (float)(m_fftlen - k) / (float)end : 1;
+            if (k < end)
+                mult = (float)k / (float)end;
+            else if (k > m_fftlen - end)
+                mult = (float)(m_fftlen - k) / (float)end;
+            else
+                mult = 1;
             m_dftL[k] = m_sigL[k] * mult;
             m_dftR[k] = m_sigR[k] * mult;
         }
@@ -1186,10 +1198,10 @@ bool Spectrogram::processUndisplayed(VisualNode *node)
         int count = 0;
         for (auto j = prev + 1; j <= index; j++) // log scale!
         {    // for the freqency bins of this pixel, find peak or mean
-            tmp = sq(m_dftL[2 * j]) + sq(m_dftL[2 * j + 1]);
-            left  = m_binpeak ? (tmp > left  ? tmp : left ) : left  + tmp;
-            tmp = sq(m_dftR[2 * j]) + sq(m_dftR[2 * j + 1]);
-            right = m_binpeak ? (tmp > right ? tmp : right) : right + tmp;
+            tmp = sq(m_dftL[2 * j]) + sq(m_dftL[(2 * j) + 1]);
+            left  = m_binpeak ? std::max(tmp, left) : left + tmp;
+            tmp = sq(m_dftR[2 * j]) + sq(m_dftR[(2 * j) + 1]);
+            right = m_binpeak ? std::max(tmp, right) : right + tmp;
             count++;
         }
         if (!m_binpeak  && count > 0)
@@ -1212,7 +1224,7 @@ bool Spectrogram::processUndisplayed(VisualNode *node)
 
         left *= gain;
         int mag = clamp(left, 255, 0);
-        int z = (int)(mag * 6);
+        int z = mag * 6;
         left > 255 ? painter.setPen(Qt::white) :
             painter.setPen(qRgb(m_red[z], m_green[z], m_blue[z]));
         if (m_history)
@@ -1232,12 +1244,12 @@ bool Spectrogram::processUndisplayed(VisualNode *node)
             }
             painter.drawPoint(s_offset, h - i);
         } else {
-            painter.drawLine(i, h / 2, i, h / 2 - h / 2 * mag / 256);
+            painter.drawLine(i, h / 2, i, (h / 2) - (h / 2 * mag / 256));
         }
 
         right *= gain;          // copy of above, s/left/right/g
         mag = clamp(right, 255, 0);
-        z = (int)(mag * 6);
+        z = mag * 6;
         right > 255 ? painter.setPen(Qt::white) :
             painter.setPen(qRgb(m_red[z], m_green[z], m_blue[z]));
         if (m_history)
@@ -1257,7 +1269,7 @@ bool Spectrogram::processUndisplayed(VisualNode *node)
             }
             painter.drawPoint(s_offset, h - i);
         } else {
-            painter.drawLine(i, h / 2, i, h / 2 + h / 2 * mag / 256);
+            painter.drawLine(i, h / 2, i, (h / 2) + (h / 2 * mag / 256));
         }
 
         prev = index;           // next pixel is FFT bins from here
@@ -1274,9 +1286,7 @@ bool Spectrogram::processUndisplayed(VisualNode *node)
 double Spectrogram::clamp(double cur, double max, double min)
 {
     if (isnan(cur)) return 0;
-    if (cur > max) cur = max;
-    if (cur < min) cur = min;
-    return cur;
+    return std::clamp(cur, min, max);
 }
 
 bool Spectrogram::draw(QPainter *p, const QColor &back)
@@ -1312,7 +1322,9 @@ void Spectrogram::handleKeyPress(const QString &action)
                                       QString("%1").arg(m_color));
         }
         else
+        {
             m_showtext = ! m_showtext;
+        }
     }
     if (action == "2")          // 1/3 is slower/faster, 2 should be unused
     {
@@ -1386,8 +1398,8 @@ Spectrum::Spectrum()
 
 Spectrum::~Spectrum()
 {
-    av_freep(&m_dftL);
-    av_freep(&m_dftR);
+    av_freep(reinterpret_cast<void*>(&m_dftL));
+    av_freep(reinterpret_cast<void*>(&m_dftR));
     av_rdft_end(m_rdftContext);
 }
 
@@ -1403,8 +1415,7 @@ void Spectrum::resize(const QSize &newsize)
 
     m_analyzerBarWidth = m_size.width() / 128;
 
-    if (m_analyzerBarWidth < 6)
-        m_analyzerBarWidth = 6;
+    m_analyzerBarWidth = std::max(m_analyzerBarWidth, 6);
 
     m_scale.setMax(m_fftlen/2, m_size.width() / m_analyzerBarWidth, 44100/2);
     m_sigL.resize(m_fftlen);
@@ -1467,8 +1478,12 @@ bool Spectrum::processUndisplayed(VisualNode *node)
         int end = m_fftlen / 40; // ramp window ends down to zero crossing
         for (int k = 0; k < m_fftlen; k++)
         {
-            mult = k < end ? k / end : k > m_fftlen - end ?
-                (m_fftlen - k) / end : 1;
+            if (k < end)
+                mult = static_cast<float>(k) / end;
+            else if (k > m_fftlen - end)
+                mult = static_cast<float>(m_fftlen - k) / end;
+            else
+                mult = 1;
             m_dftL[k] = m_sigL[k] * mult;
             m_dftR[k] = m_sigR[k] * mult;
         }
@@ -1485,61 +1500,43 @@ bool Spectrum::processUndisplayed(VisualNode *node)
     int prev = 0;               // frequency index of previous pixel
     float adjHeight = m_size.height() / 2.0;
 
-    for (int i = 0; (int)i < m_rectsL.size(); i++, w += m_analyzerBarWidth)
+    for (int i = 0; i < m_rectsL.size(); i++, w += m_analyzerBarWidth)
     {
         float magL = 0;         // modified from Spectrogram
         float magR = 0;
         float tmp = 0;
         for (auto j = prev + 1; j <= index; j++) // log scale!
         {    // for the freqency bins of this pixel, find peak or mean
-            tmp = sq(m_dftL[2 * j]) + sq(m_dftL[2 * j + 1]);
+            tmp = sq(m_dftL[2 * j]) + sq(m_dftL[(2 * j) + 1]);
             magL  = tmp > magL  ? tmp : magL;
-            tmp = sq(m_dftR[2 * j]) + sq(m_dftR[2 * j + 1]);
+            tmp = sq(m_dftR[2 * j]) + sq(m_dftR[(2 * j) + 1]);
             magR = tmp > magR ? tmp : magR;
         }
         magL = 10 * log10(magL) * m_scaleFactor;
         magR = 10 * log10(magR) * m_scaleFactor;
 
-        if (magL > adjHeight)
-        {
-            magL = adjHeight;
-        }
+        magL = std::min(magL, adjHeight);
         if (magL < magnitudesp[i])
         {
             tmp = magnitudesp[i] - m_falloff;
-            if ( tmp < magL )
-            {
-                tmp = magL;
-            }
+            tmp = std::max(tmp, magL);
             magL = tmp;
         }
-        if (magL < 1)
-        {
-            magL = 1;
-        }
+        magL = std::max<float>(magL, 1);
 
-        if (magR > adjHeight)
-        {
-            magR = adjHeight;
-        }
+        magR = std::min(magR, adjHeight);
         if (magR < magnitudesp[i + m_scale.range()])
         {
             tmp = magnitudesp[i + m_scale.range()] - m_falloff;
-            if ( tmp < magR )
-            {
-                tmp = magR;
-            }
+            tmp = std::max(tmp, magR);
             magR = tmp;
         }
-        if (magR < 1)
-        {
-            magR = 1;
-        }
+        magR = std::max<float>(magR, 1);
 
         magnitudesp[i] = magL;
         magnitudesp[i + m_scale.range()] = magR;
-        rectspL[i].setTop( m_size.height() / 2 - int( magL ) );
-        rectspR[i].setBottom( m_size.height() / 2 + int( magR ) );
+        rectspL[i].setTop( (m_size.height() / 2) - int( magL ) );
+        rectspR[i].setBottom( (m_size.height() / 2) + int( magR ) );
 
         prev = index;           // next pixel is FFT bins from here
         index = m_scale[i];     // to the next bin by LOG scale
@@ -1551,11 +1548,7 @@ bool Spectrum::processUndisplayed(VisualNode *node)
 
 double Spectrum::clamp(double cur, double max, double min)
 {
-    if (cur > max)
-        cur = max;
-    if (cur < min)
-        cur = min;
-    return cur;
+    return std::clamp(cur, min, max);
 }
 
 bool Spectrum::draw(QPainter *p, const QColor &back)
@@ -1577,11 +1570,11 @@ bool Spectrum::draw(QPainter *p, const QColor &back)
         per = clamp(per, 1.0, 0.0);
 
         double r = m_startColor.red() +
-            (m_targetColor.red() - m_startColor.red()) * (per * per);
+            ((m_targetColor.red() - m_startColor.red()) * (per * per));
         double g = m_startColor.green() +
-            (m_targetColor.green() - m_startColor.green()) * (per * per);
+            ((m_targetColor.green() - m_startColor.green()) * (per * per));
         double b = m_startColor.blue() +
-            (m_targetColor.blue() - m_startColor.blue()) * (per * per);
+            ((m_targetColor.blue() - m_startColor.blue()) * (per * per));
 
         r = clamp(r, 255.0, 0.0);
         g = clamp(g, 255.0, 0.0);
@@ -1671,11 +1664,11 @@ void Squares::drawRect(QPainter *p, QRect *rect, int i, int c, int w, int h)
     per = clamp(per, 1.0, 0.0);
 
     double r = m_startColor.red() +
-        (m_targetColor.red() - m_startColor.red()) * (per * per);
+        ((m_targetColor.red() - m_startColor.red()) * (per * per));
     double g = m_startColor.green() +
-        (m_targetColor.green() - m_startColor.green()) * (per * per);
+        ((m_targetColor.green() - m_startColor.green()) * (per * per));
     double b = m_startColor.blue() +
-        (m_targetColor.blue() - m_startColor.blue()) * (per * per);
+        ((m_targetColor.blue() - m_startColor.blue()) * (per * per));
 
     r = clamp(r, 255.0, 0.0);
     g = clamp(g, 255.0, 0.0);
@@ -1752,15 +1745,11 @@ Piano::Piano()
 
         // Want 20 whole cycles of the current waveform at least
         double samples_required = sample_rate/current_freq * 20.0;
-        if (samples_required > sample_rate/4.0)
-        {
-            // For the really low notes, 4 updates a second is good enough...
-            samples_required = sample_rate/4.0;
-        }
-        if (samples_required < sample_rate/(double)m_fps * 0.75)
-        {   // For the high notes, use as many samples as we need in a display_fps
-            samples_required = sample_rate/(double)m_fps * 0.75;
-        }
+        // For the really low notes, 4 updates a second is good enough...
+        // For the high notes, use as many samples as we need in a display_fps
+        samples_required = std::clamp(samples_required,
+                                      sample_rate/(double)m_fps * 0.75,
+                                      sample_rate/4.0);
         m_pianoData[key].samples_process_before_display_update = (int)samples_required;
         m_pianoData[key].is_black_note = false; // Will be put right in .resize()
 
@@ -1810,8 +1799,7 @@ void Piano::resize(const QSize &newsize)
 
     // There are 88-36=52 white notes on piano keyboard
     double key_unit_size = (double)m_size.width() / 54.0;  // One white key extra spacing, if possible
-    if (key_unit_size < 10.0) // Keys have to be at least this many pixels wide
-        key_unit_size = 10.0;
+    key_unit_size = std::max(key_unit_size, 10.0); // Keys have to be at least this many pixels wide
 
     double white_width_pct = .8;
     double black_width_pct = .6;
@@ -1822,8 +1810,8 @@ void Piano::resize(const QSize &newsize)
 
     // This is the starting position of the keyboard (may be beyond LHS)
     // - actually position of C below bottom A (will be added to...).  This is 4 octaves below middle C.
-    double left =  (double)m_size.width() / 2.0 - (4.0*7.0 + 3.5) * key_unit_size; // The extra 3.5 centers 'F' inthe middle of the screen
-    double top_of_keys = (double)m_size.height() / 2.0 - key_unit_size * white_height_pct / 2.0; // Vertically center keys
+    double left =  ((double)m_size.width() / 2.0) - ((4.0*7.0 + 3.5) * key_unit_size); // The extra 3.5 centers 'F' inthe middle of the screen
+    double top_of_keys = ((double)m_size.height() / 2.0) - (key_unit_size * white_height_pct / 2.0); // Vertically center keys
 
     m_rects.resize(kPianoNumKeys);
 
@@ -1860,8 +1848,8 @@ void Piano::resize(const QSize &newsize)
         double height = (is_black? black_height_pct:white_height_pct) * key_unit_size;
 
         m_rects[key].setRect(
-            left + center * key_unit_size //  Basic position of left side of key
-                - width / 2.0  // Less half the width
+            left + (center * key_unit_size) //  Basic position of left side of key
+                - (width / 2.0)  // Less half the width
                 + (is_black ? (offset * black_offset_pct * key_unit_size):0.0), // And jiggle the positions of the black keys for aethetic reasons
             top_of_keys, // top
             width, // width
@@ -1957,7 +1945,7 @@ bool Piano::process_all_types(VisualNode *node, bool /*this_will_be_displayed*/)
 
         for (uint i = 0; i < n; i++)
         {
-            goertzel_data q0 = coeff * q1 - q2 + m_audioData[i];
+            goertzel_data q0 = (coeff * q1) - q2 + m_audioData[i];
             q2 = q1;
             q1 = q0;
         }
@@ -1971,7 +1959,7 @@ bool Piano::process_all_types(VisualNode *node, bool /*this_will_be_displayed*/)
         // Only do this update if we've processed enough chunks for this key...
         if (n_samples > m_pianoData[key].samples_process_before_display_update)
         {
-            goertzel_data magnitude2 = q1*q1 + q2*q2 - q1*q2*coeff;
+            goertzel_data magnitude2 = (q1*q1) + (q2*q2) - (q1*q2*coeff);
 
 #if 0
             // This is RMS of signal
@@ -2007,10 +1995,8 @@ bool Piano::process_all_types(VisualNode *node, bool /*this_will_be_displayed*/)
             }
 
             m_pianoData[key].magnitude = magnitude_av; // Store this for later : We'll do the colours from this...
-            if ( m_pianoData[key].max_magnitude_seen < magnitude_av)
-            {
-                m_pianoData[key].max_magnitude_seen = magnitude_av;
-            }
+            m_pianoData[key].max_magnitude_seen =
+                std::max(m_pianoData[key].max_magnitude_seen, magnitude_av);
             LOG(VB_GENERAL, LOG_DEBUG, QString("Piano : Updated Key %1 from %2 samples, magnitude=%3")
                     .arg(key).arg(n_samples).arg(magnitude_av));
 
@@ -2031,11 +2017,7 @@ bool Piano::process_all_types(VisualNode *node, bool /*this_will_be_displayed*/)
 
 double Piano::clamp(double cur, double max, double min)
 {
-    if (cur > max)
-        cur = max;
-    if (cur < min)
-        cur = min;
-    return cur;
+    return std::clamp(cur, min, max);
 }
 
 bool Piano::draw(QPainter *p, const QColor &back)
@@ -2054,8 +2036,7 @@ bool Piano::draw(QPainter *p, const QColor &back)
     p->fillRect(0, 0, m_size.width(), m_size.height(), back);
 
     // Protect maximum array length
-    if(n > (uint)m_rects.size())
-        n = (uint)m_rects.size();
+    n = std::min(n, (uint)m_rects.size());
 
     // Sweep up across the keys, making sure the max_magnitude_seen is at minimum X% of its neighbours
     double mag = kPianoRmsNegligible;
@@ -2098,8 +2079,7 @@ bool Piano::draw(QPainter *p, const QColor &back)
     for (uint key = 0; key < n; key++)
     {
         mag = m_pianoData[key].magnitude / m_pianoData[key].max_magnitude_seen;
-        if (magnitude_max < mag)
-            magnitude_max = mag;
+        magnitude_max = std::max(magnitude_max, mag);
 
         magnitudep[key] = mag;
     }
@@ -2118,9 +2098,9 @@ bool Piano::draw(QPainter *p, const QColor &back)
         LOG(VB_GENERAL, LOG_DEBUG, QString("Piano : Display key %1, magnitude=%2, seen=%3")
                 .arg(key).arg(per*100.0).arg(m_pianoData[key].max_magnitude_seen));
 
-        double r = m_whiteStartColor.red() + (m_whiteTargetColor.red() - m_whiteStartColor.red()) * per;
-        double g = m_whiteStartColor.green() + (m_whiteTargetColor.green() - m_whiteStartColor.green()) * per;
-        double b = m_whiteStartColor.blue() + (m_whiteTargetColor.blue() - m_whiteStartColor.blue()) * per;
+        double r = m_whiteStartColor.red() + ((m_whiteTargetColor.red() - m_whiteStartColor.red()) * per);
+        double g = m_whiteStartColor.green() + ((m_whiteTargetColor.green() - m_whiteStartColor.green()) * per);
+        double b = m_whiteStartColor.blue() + ((m_whiteTargetColor.blue() - m_whiteStartColor.blue()) * per);
 
         p->fillRect(rectsp[key], QColor(int(r), int(g), int(b)));
     }
@@ -2137,9 +2117,9 @@ bool Piano::draw(QPainter *p, const QColor &back)
         if (per < kPianoKeypressTooLight)
             per = 0.0; // Clamp to zero for lightly detected keys
 
-        double r = m_blackStartColor.red() + (m_blackTargetColor.red() - m_blackStartColor.red()) * per;
-        double g = m_blackStartColor.green() + (m_blackTargetColor.green() - m_blackStartColor.green()) * per;
-        double b = m_blackStartColor.blue() + (m_blackTargetColor.blue() - m_blackStartColor.blue()) * per;
+        double r = m_blackStartColor.red() + ((m_blackTargetColor.red() - m_blackStartColor.red()) * per);
+        double g = m_blackStartColor.green() + ((m_blackTargetColor.green() - m_blackStartColor.green()) * per);
+        double b = m_blackStartColor.blue() + ((m_blackTargetColor.blue() - m_blackStartColor.blue()) * per);
 
         p->fillRect(rectsp[key], QColor(int(r), int(g), int(b)));
     }
@@ -2309,7 +2289,9 @@ bool AlbumArt::draw(QPainter *p, const QColor &back)
         }
         else
             if (!imageFilename.isEmpty())
+            {
                 art.load(imageFilename);
+            }
 
         if (art.isNull())
         {

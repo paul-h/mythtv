@@ -735,23 +735,25 @@ static GroupSetting *CategoryOverTimeSettings()
 
 PlaybackProfileItemConfig::PlaybackProfileItemConfig(
     PlaybackProfileConfig *parent, uint idx, MythVideoProfileItem &_item) :
-    m_item(_item), m_parentConfig(parent), m_index(idx)
+    m_item(_item),
+    m_widthRange(new TransTextEditSetting()),
+    m_heightRange(new TransTextEditSetting()),
+    m_codecs(new TransMythUIComboBoxSetting(true)),
+    m_framerate(new TransTextEditSetting()),
+    m_decoder(new TransMythUIComboBoxSetting()),
+    m_skipLoop(new TransMythUICheckBoxSetting()),
+    m_vidRend(new TransMythUIComboBoxSetting()),
+    m_upscaler(new TransMythUIComboBoxSetting()),
+    m_singleDeint(new TransMythUIComboBoxSetting()),
+    m_singleShader(new TransMythUICheckBoxSetting()),
+    m_singleDriver(new TransMythUICheckBoxSetting()),
+    m_doubleDeint(new TransMythUIComboBoxSetting()),
+    m_doubleShader(new TransMythUICheckBoxSetting()),
+    m_doubleDriver(new TransMythUICheckBoxSetting()),
+    m_parentConfig(parent),
+    m_index(idx)
 {
-    m_widthRange   = new TransTextEditSetting();
-    m_heightRange  = new TransTextEditSetting();
-    m_codecs       = new TransMythUIComboBoxSetting(true);
-    m_framerate    = new TransTextEditSetting();
-    m_decoder      = new TransMythUIComboBoxSetting();
     m_maxCpus      = new TransMythUISpinBoxSetting(1, HAVE_THREADS ? VIDEO_MAX_CPUS : 1, 1, 1);
-    m_skipLoop     = new TransMythUICheckBoxSetting();
-    m_vidRend      = new TransMythUIComboBoxSetting();
-    m_upscaler     = new TransMythUIComboBoxSetting();
-    m_singleDeint  = new TransMythUIComboBoxSetting();
-    m_singleShader = new TransMythUICheckBoxSetting();
-    m_singleDriver = new TransMythUICheckBoxSetting();
-    m_doubleDeint  = new TransMythUIComboBoxSetting();
-    m_doubleShader = new TransMythUICheckBoxSetting();
-    m_doubleDriver = new TransMythUICheckBoxSetting();
 
     const QString rangeHelp(tr(" Valid formats for the setting are "
         "[nnnn - nnnn], [> nnnn], [>= nnnn], [< nnnn], "
@@ -1175,7 +1177,9 @@ void PlaybackProfileItemConfig::ShowDeleteDialog() const
         popupStack->AddScreen(confirmDelete);
     }
     else
+    {
         delete confirmDelete;
+    }
 }
 
 void PlaybackProfileItemConfig::DoDeleteSlot(bool doDelete)
@@ -1390,7 +1394,9 @@ void PlaybackSettings::NewPlaybackProfileSlot() const
         popupStack->AddScreen(settingdialog);
     }
     else
+    {
         delete settingdialog;
+    }
 }
 
 void PlaybackSettings::CreateNewPlaybackProfileSlot(const QString &name)
@@ -2954,7 +2960,7 @@ static HostComboBoxSetting *ChannelGroupDefault()
                                              "shown in the EPG.  Pressing "
                                              "GUIDE key will toggle channel "
                                              "group."));
-    gc->setValue(false);
+    gc->setValue(0);
 
     return gc;
 }
@@ -4785,6 +4791,9 @@ void AppearanceSettings::PopulateScreens(int Screens)
 }
 
 AppearanceSettings::AppearanceSettings()
+  : m_screen(ScreenSelection()),
+    m_screenAspect(ScreenAspectRatio()),
+    m_display(GetMythMainWindow()->GetDisplay())
 {
     auto *screen = new GroupSetting();
     screen->setLabel(tr("Theme / Screen Settings"));
@@ -4794,9 +4803,6 @@ AppearanceSettings::AppearanceSettings()
     screen->addChild(MenuTheme());
     screen->addChild(GUIRGBLevels());
 
-    m_display = GetMythMainWindow()->GetDisplay();
-    m_screen = ScreenSelection();
-    m_screenAspect = ScreenAspectRatio();
     screen->addChild(m_screen);
     screen->addChild(m_screenAspect);
     PopulateScreens(MythDisplay::GetScreenCount());
@@ -4889,11 +4895,11 @@ ChannelCheckBoxSetting::ChannelCheckBoxSetting(uint chanid,
 
 ChannelGroupSetting::ChannelGroupSetting(const QString &groupName,
                                          int groupId = -1)
-    : m_groupId(groupId)
+    : m_groupId(groupId),
+      m_groupName(new TransTextEditSetting())
 {
     setLabel(groupName == "Favorites" ? tr("Favorites") : groupName);
     setValue(groupName);
-    m_groupName = new TransTextEditSetting();
     m_groupName->setLabel(groupName);
 }
 

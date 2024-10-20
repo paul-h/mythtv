@@ -123,7 +123,7 @@ bool ProgDetails::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; ++i)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "INFO" || action == "SELECT")
@@ -140,7 +140,9 @@ bool ProgDetails::keyPressEvent(QKeyEvent *event)
             m_infoList.PageUp();
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -299,10 +301,14 @@ void ProgDetails::PowerPriorities(const QString & ptable)
                 total += adj;
             }
             else
+            {
                 adjustmsg += tr(" not matched");
+            }
         }
         else
+        {
             adjustmsg += tr(" Query FAILED");
+        }
 
         addItem(tr("Recording Priority Adjustment"), adjustmsg,
                 ProgInfoList::kLevel2);
@@ -373,7 +379,9 @@ void ProgDetails::loadPage(void)
             title_pronounce = query.value(12).toString();
         }
         else if (!query.isActive())
+        {
             MythDB::DBError("ProgDetails", query);
+        }
 
         rating = getRatings(
             recorded, m_progInfo.GetChanID(),

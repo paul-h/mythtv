@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
-import { LazyLoadEvent, MessageService } from 'primeng/api';
+import { MessageService } from 'primeng/api';
+import { Table, TableLazyLoadEvent } from 'primeng/table';
 import { ScheduleLink, SchedulerSummary } from 'src/app/schedule/schedule.component';
 import { DataService } from 'src/app/services/data.service';
 import { DvrService } from 'src/app/services/dvr.service';
@@ -23,6 +24,9 @@ interface RuleListEntry {
 })
 export class UpcomingComponent implements OnInit, SchedulerSummary {
 
+  @ViewChild('table') table!: Table;
+  @ViewChildren('row') rows!: QueryList<ElementRef>;
+
   programs: ScheduleOrProgram[] = [];
   recRules: RuleListEntry[] = [];
   allRecRules: RuleListEntry[] = [];
@@ -30,15 +34,19 @@ export class UpcomingComponent implements OnInit, SchedulerSummary {
   defaultRecRule: RuleListEntry = { Id: 0, Title: 'settings.chanedit.all' };
   editingProgram?: ScheduleOrProgram;
   displayUpdateDlg = false;
-  showAllStatuses = false;
   refreshing = false;
   loaded = false;
   inter: ScheduleLink = { summaryComponent: this };
-  lazyLoadEvent!: LazyLoadEvent;
+  lazyLoadEvent!: TableLazyLoadEvent;
 
   displayStop = false;
   errorCount = 0;
   program?: ScheduleOrProgram;
+  totalRecords = 0;
+  showTable = false;
+  virtualScrollItemSize = 0;
+  selectedRule: RuleListEntry | null = null;
+  selectedStatus = '';
 
   constructor(private dvrService: DvrService, private messageService: MessageService,
     private translate: TranslateService, public dataService: DataService,
@@ -47,7 +55,10 @@ export class UpcomingComponent implements OnInit, SchedulerSummary {
     this.loadRecRules();
   }
 
-  ngOnInit(): void { }
+  ngOnInit(): void {
+    // Initial Load
+    this.loadLazy({ first: 0, rows: 1 });
+  }
 
   refresh() {
     this.refreshing = true;
@@ -74,35 +85,52 @@ export class UpcomingComponent implements OnInit, SchedulerSummary {
             };
           }
         });
+        this.recRules.length = 0;
+        if (this.selectedStatus == 'All')
+          this.recRules.push(...this.allRecRules)
+        else
+          this.recRules.push(...this.activeRecRules)
       },
     });
   }
 
-  loadLazy(event: LazyLoadEvent) {
+  loadLazy(event: TableLazyLoadEvent) {
     this.lazyLoadEvent = event;
 
     let request: GetUpcomingRequest = {
       StartIndex: 0,
-      Count: 1
+      Count: 1,
+      ShowAll: false
     };
-    if (event.first)
+    if (event.first != undefined) {
       request.StartIndex = event.first;
-    if (event.rows) {
-      request.Count = event.rows;
-      // When it only requests 50 rows, page down waits until the entire
-      // screen is empty before loading the next page. Fix this by always
-      // requesting at least 100 records.
-      if (request.Count < 100)
-        request.Count = 100;
+      if (event.last)
+        request.Count = event.last - event.first;
+      else if (event.rows)
+        request.Count = event.rows;
     }
-    if (event.filters) {
-      if (event.filters.ShowAll.value) {
-        request.ShowAll = true;
-      }
-      if (event.filters.RecordId.value) {
-        request.RecordId = event.filters.RecordId.value;
-      }
-    }
+    let sortField = '';
+    if (Array.isArray(event.sortField))
+      sortField = event.sortField[0];
+    else if (event.sortField)
+      sortField = event.sortField;
+    if (!sortField)
+      sortField = 'StartTime';
+    if (sortField == 'Channel.ChanNum')
+      request.Sort = 'ChanNum';
+    else
+      request.Sort = sortField;
+    let sortOrder = '';
+    if (event.sortOrder && event.sortOrder < 0)
+      sortOrder = ' desc';
+    request.Sort = request.Sort + sortOrder;
+
+    if (this.selectedStatus == 'All')
+      request.ShowAll = true;
+    else if (this.selectedStatus && this.selectedStatus != 'Default')
+      request.RecStatus = this.selectedStatus;
+    if (this.selectedRule != null && this.selectedRule.Id != 0)
+      request.RecordId = this.selectedRule.Id;
     this.recRules.length = 0;
     if (request.ShowAll)
       this.recRules.push(...this.allRecRules)
@@ -110,7 +138,8 @@ export class UpcomingComponent implements OnInit, SchedulerSummary {
       this.recRules.push(...this.activeRecRules)
     this.dvrService.GetUpcomingList(request).subscribe(data => {
       let recordings = data.ProgramList;
-      this.programs.length = data.ProgramList.TotalAvailable;
+      this.totalRecords = data.ProgramList.TotalAvailable;
+      this.programs.length = this.totalRecords;
       // populate page of virtual programs
       // note that Count is returned as the count requested, even
       // if less items are returned because you hit the end.
@@ -120,17 +149,43 @@ export class UpcomingComponent implements OnInit, SchedulerSummary {
       // notify of change
       this.programs = [...this.programs]
       this.refreshing = false;
+      this.showTable = true;
+      let row = this.rows.get(0);
+      if (row && row.nativeElement.offsetHeight)
+        this.virtualScrollItemSize = row.nativeElement.offsetHeight;
+      if (this.table) {
+        this.table.totalRecords = this.totalRecords;
+        this.table.virtualScrollItemSize = this.virtualScrollItemSize;
+      }
     });
 
   }
 
-  formatStartDate(program: ScheduleOrProgram): string {
-    return this.utility.formatDate(program.Recording.StartTs, true);
+  onFilter() {
+    this.reload();
+  }
+
+  reload() {
+    this.showTable = false;
+    this.programs.length = 0;
+    this.refreshing = true;
+    this.loadLazy(({ first: 0, rows: 1 }));
+  }
+
+  formatStartDate(program: ScheduleOrProgram, rowIndex: number): string {
+    let priorDate = '';
+    if (rowIndex > 0 && this.programs[rowIndex - 1]
+      && this.programs[rowIndex - 1].Recording.StartTs)
+      priorDate = this.utility.formatDate(this.programs[rowIndex - 1].Recording.StartTs, true, true);
+    let thisDate = this.utility.formatDate(program.Recording.StartTs, true, true);
+    if (priorDate == thisDate)
+      return ' ';
+    return thisDate;
   }
 
   formatAirDate(program: ScheduleOrProgram): string {
     if (!program.Airdate)
-      return '';
+      return ' ';
     let date = program.Airdate + ' 00:00';
     return this.utility.formatDate(date, true);
   }
@@ -154,7 +209,8 @@ export class UpcomingComponent implements OnInit, SchedulerSummary {
 
   override(program: ScheduleOrProgram) {
     if (this.inter.sched) {
-      if (program.Recording.RecType == 7) // If already an override
+      if (program.Recording.RecType == 7 || program.Recording.RecType == 8
+        || program.Recording.StatusName == 'NeverRecord') // If already an override
         this.inter.sched.open(program);
       else
         this.inter.sched.open(program, undefined, <RecRule>{ Type: 'Override Recording' });

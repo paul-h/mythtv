@@ -17,10 +17,10 @@
 // ---------------------------------------------------
 
 GeneralSetupWizard::GeneralSetupWizard(MythScreenStack *parent, const char *name)
-    : MythScreenType(parent, name)
+    : MythScreenType(parent, name),
+      m_hardwareProfile(new HardwareProfile())
 {
     m_popupStack = GetMythMainWindow()->GetStack("popup stack");
-    m_hardwareProfile = new HardwareProfile();
 }
 
 bool GeneralSetupWizard::Create()
@@ -114,7 +114,9 @@ void GeneralSetupWizard::slotNext(void)
         mainStack->AddScreen(sw);
     }
     else
+    {
         delete sw;
+    }
 }
 
 void GeneralSetupWizard::slotSubmit(void)

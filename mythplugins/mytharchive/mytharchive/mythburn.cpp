@@ -131,7 +131,7 @@ bool MythBurn::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         // if we are currently moving an item,
@@ -176,7 +176,9 @@ bool MythBurn::keyPressEvent(QKeyEvent *event)
             toggleUseCutlist();
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -375,7 +377,9 @@ QString MythBurn::loadFile(const QString &filename)
         file.close();
     }
     else
+    {
         return "";
+    }
 
     return res;
 }

@@ -278,7 +278,9 @@ void MythNews::updateInfoView(MythUIButtonListItem *selected)
                         m_downloadImage->Show();
                 }
                 else
+                {
                     m_downloadImage->Hide();
+                }
             }
 
             if (m_enclosureImage)
@@ -289,7 +291,9 @@ void MythNews::updateInfoView(MythUIButtonListItem *selected)
                         m_enclosureImage->Show();
                 }
                 else
+                {
                     m_enclosureImage->Hide();
+                }
             }
 
             if (m_podcastImage)
@@ -347,7 +351,9 @@ void MythNews::updateInfoView(MythUIButtonListItem *selected)
                                            MythDate::kDateTimeFull | MythDate::kSimplify);
             }
             else
+            {
                 text += tr("Unknown");
+            }
             m_updatedText->SetText(text);
         }
     }
@@ -363,7 +369,7 @@ bool MythNews::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "RETRIEVENEWS")
@@ -567,7 +573,9 @@ void MythNews::ShowEditDialog(bool edit)
         mainStack->AddScreen(mythnewseditor);
     }
     else
+    {
         delete mythnewseditor;
+    }
 }
 
 void MythNews::ShowFeedManager() const
@@ -582,7 +590,9 @@ void MythNews::ShowFeedManager() const
         mainStack->AddScreen(mythnewsconfig);
     }
     else
+    {
         delete mythnewsconfig;
+    }
 }
 
 void MythNews::ShowMenu(void)
@@ -719,7 +729,7 @@ QString MythNews::cleanText(const QString &text)
     result.replace( kStartingSpaceRE, "\n");
     // Remove any remaining HTML tags
     static const QRegularExpression kRemoveHtmlRE(QRegularExpression("</?.+>"));
-    result.remove((const QRegularExpression&) kRemoveHtmlRE);
+    result.remove(kRemoveHtmlRE);
     result = result.trimmed();
 
     return result;

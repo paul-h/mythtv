@@ -104,7 +104,7 @@ DTC::VideoMetadataInfoList* Video::GetVideoList( const QString &Folder,
     {
         DTC::VideoMetadataInfo *pVideoMetadataInfo = pVideoMetadataInfos->AddNewVideoMetadataInfo();
 
-        VideoMetadataListManager::VideoMetadataPtr metadata = videos[n];
+        const VideoMetadataListManager::VideoMetadataPtr& metadata = videos[n];
 
         if (metadata)
             FillVideoMetadataInfo ( pVideoMetadataInfo, metadata, true );
@@ -728,7 +728,9 @@ bool Video::UpdateVideoMetadata ( int           nId,
             update_required = true;
         }
         else
+        {
             LOG(VB_GENERAL, LOG_ERR, QString("UpdateVideoMetadata: Ignoring unknown ContentType: %1").arg(sContentType));
+        }
     }
 
     if (m_parsedParams.contains("genres"))

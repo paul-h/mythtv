@@ -18,9 +18,18 @@
    Or, point your browser to http://www.gnu.org/copyleft/gpl.html
 
 */
-#include "libmythbase/compat.h"
-
 #include "Text.h"
+
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+
+#include <QRect>
+#include <QString>
+
 #include "Visible.h"
 #include "Presentable.h"
 #include "Ingredients.h"
@@ -32,20 +41,20 @@
 #include "Logging.h"
 #include "freemheg.h"
 
-MHText::MHText(const MHText &ref): MHVisible(ref) // Copy constructor for cloning.
+MHText::MHText(const MHText &ref) // Copy constructor for cloning.
+  : MHVisible(ref),
+    m_nCharSet(ref.m_nCharSet),
+    m_horizJ(ref.m_horizJ),
+    m_vertJ(ref.m_vertJ),
+    m_lineOrientation(ref.m_lineOrientation),
+    m_startCorner(ref.m_startCorner),
+    m_fTextWrap(ref.m_fTextWrap),
+    m_fNeedsRedraw(ref.m_fNeedsRedraw)
 {
     m_origFont.Copy(ref.m_origFont);
     m_originalFontAttrs.Copy(ref.m_originalFontAttrs);
     m_originalTextColour.Copy(ref.m_originalTextColour);
     m_originalBgColour.Copy(ref.m_originalBgColour);
-    m_nCharSet = ref.m_nCharSet;
-    m_horizJ = ref.m_horizJ;
-    m_vertJ = ref.m_vertJ;
-    m_lineOrientation = ref.m_lineOrientation;
-    m_startCorner = ref.m_startCorner;
-    m_fTextWrap = ref.m_fTextWrap;
-    m_pDisplay = nullptr;
-    m_fNeedsRedraw = ref.m_fNeedsRedraw;
 }
 
 MHText::~MHText()
@@ -472,10 +481,10 @@ class MHTextItem
     MHTextItem();
     MHOctetString m_text;      // UTF-8 text
     QString       m_unicode;   // Unicode text
-    int           m_nUnicode;  // Number of characters in it
-    int           m_width;     // Size of this block
+    int           m_nUnicode{0};  // Number of characters in it
+    int           m_width{0};     // Size of this block
     MHRgba        m_colour;    // Colour of the text
-    int           m_nTabCount; // Number of tabs immediately before this (usually zero)
+    int           m_nTabCount{0}; // Number of tabs immediately before this (usually zero)
 
     // Generate new items inheriting properties from the previous
     MHTextItem *NewItem() const;
@@ -483,10 +492,7 @@ class MHTextItem
 
 MHTextItem::MHTextItem()
 {
-    m_nUnicode = 0;
-    m_width = 0; // Size of this block
     m_colour = MHRgba(0, 0, 0, 255);
-    m_nTabCount = 0;
 }
 
 MHTextItem *MHTextItem::NewItem() const
@@ -655,9 +661,15 @@ void MHText::Redraw()
                         pCurrItem->m_colour = colourStack.Top();
                     }
                 }
-                else MHLOG(MHLogWarning, QString("Unknown text escape code 0x%1").arg(code,2,16));
+                else
+                {
+                    MHLOG(MHLogWarning, QString("Unknown text escape code 0x%1").arg(code,2,16));
+                }
             }
-            else MHLOG(MHLogWarning, QString("Unknown text escape code 0x%1").arg(code,2,16));
+            else
+            {
+                MHLOG(MHLogWarning, QString("Unknown text escape code 0x%1").arg(code,2,16));
+            }
         }
 
         else if (ch <= 0x1f)
@@ -777,15 +789,9 @@ void MHText::Redraw()
             pItem->m_width = rect.width();
             pLine->m_nLineWidth += rect.width();
 
-            if (rect.height() > pLine->m_nLineHeight)
-            {
-                pLine->m_nLineHeight = rect.height();
-            }
+            pLine->m_nLineHeight = std::max(rect.height(), pLine->m_nLineHeight);
 
-            if (rect.bottom() > pLine->m_nDescent)
-            {
-                pLine->m_nDescent = rect.bottom();
-            }
+            pLine->m_nDescent = std::max(rect.bottom(), pLine->m_nDescent);
         }
     }
 
@@ -835,7 +841,7 @@ void MHText::Redraw()
 
             if (! pItem->m_unicode.isEmpty())   // We may have blank lines.
             {
-                m_pDisplay->AddText(xOffset, yOffset + (pLine->m_nLineHeight + lineSpace) / 2 - pLine->m_nDescent,
+                m_pDisplay->AddText(xOffset, yOffset + ((pLine->m_nLineHeight + lineSpace) / 2) - pLine->m_nDescent,
                                     pItem->m_unicode.left(pItem->m_nUnicode), pItem->m_colour);
             }
 

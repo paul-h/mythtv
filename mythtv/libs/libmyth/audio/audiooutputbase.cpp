@@ -79,8 +79,7 @@ AudioOutputBase::AudioOutputBase(const AudioSettings &settings) :
     {
         m_srcQuality = gCoreContext->GetNumSetting("SRCQuality", QUALITY_MEDIUM);
         // Extra test to keep backward compatibility with earlier SRC setting
-        if (m_srcQuality > QUALITY_HIGH)
-            m_srcQuality = QUALITY_HIGH;
+        m_srcQuality = std::min<int>(m_srcQuality, QUALITY_HIGH);
 
         VBAUDIO(QString("SRC quality = %1").arg(quality_string(m_srcQuality)));
     }
@@ -164,7 +163,9 @@ AudioOutputSettings* AudioOutputBase::GetOutputSettingsCleaned(bool digital)
             return m_outputSettingsRaw;
     }
     else if (m_outputSettingsDigitalRaw)
+    {
         return m_outputSettingsDigitalRaw;
+    }
 
     AudioOutputSettings* aosettings = GetOutputSettings(digital);
     if (aosettings)
@@ -191,7 +192,9 @@ AudioOutputSettings* AudioOutputBase::GetOutputSettingsUsers(bool digital)
             return m_outputSettings;
     }
     else if (m_outputSettingsDigital)
+    {
         return m_outputSettingsDigital;
+    }
 
     auto* aosettings = new AudioOutputSettings;
 
@@ -671,10 +674,14 @@ void AudioOutputBase::Reconfigure(const AudioSettings &orig_settings)
     }
         // this will always be false for passthrough audio as
         // CanPassthrough() already tested these conditions
-    else if ((m_needResampler =
-              !OutputSettings(m_enc || m_passthru)->IsSupportedRate(m_sampleRate)))
+    else
     {
-        dest_rate = OutputSettings(m_enc)->NearestSupportedRate(m_sampleRate);
+        m_needResampler =
+            !OutputSettings(m_enc || m_passthru)->IsSupportedRate(m_sampleRate);
+        if (m_needResampler)
+        {
+            dest_rate = OutputSettings(m_enc)->NearestSupportedRate(m_sampleRate);
+        }
     }
 
     if (m_needResampler && m_srcQuality > QUALITY_DISABLED)
@@ -699,7 +706,7 @@ void AudioOutputBase::Reconfigure(const AudioSettings &orig_settings)
 
         m_srcData.src_ratio = (double)m_sampleRate / settings.m_sampleRate;
         m_srcData.data_in   = m_srcIn;
-        int newsize        = (int)(kAudioSRCInputSize * m_srcData.src_ratio + 15)
+        int newsize        = (int)((kAudioSRCInputSize * m_srcData.src_ratio) + 15)
                              & ~0xf;
 
         if (m_kAudioSRCOutputSize < newsize)
@@ -1034,7 +1041,9 @@ std::chrono::milliseconds AudioOutputBase::GetAudiotime(void)
         obpf = 448000 * 10 / m_sourceSampleRate;
     }
     else
+    {
         obpf = static_cast<int64_t>(m_outputBytesPerFrame) * 80;
+    }
 
     /* We want to calculate 'm_audioTime', which is the timestamp of the audio
        Which is leaving the sound card at this instant.
@@ -1271,7 +1280,7 @@ int AudioOutputBase::CopyWithUpmix(char *buffer, int frames, uint &org_waud)
     len = 0;
     while (i < frames)
     {
-        i += m_upmixer->putFrames(buffer + i * off, frames - i, m_sourceChannels);
+        i += m_upmixer->putFrames(buffer + (i * off), frames - i, m_sourceChannels);
         int nFrames = m_upmixer->numFrames();
         if (!nFrames)
             continue;
@@ -1371,7 +1380,9 @@ bool AudioOutputBase::AddData(void *in_buffer, int in_len,
             frames = len / m_sourceBytesPerFrame;
         }
         else
+        {
             frames = 0;
+        }
     }
     m_lengthLastData = millisecondsFromFloat
         ((double)(len * 1000) / (m_sourceSampleRate * m_sourceBytesPerFrame));
@@ -1485,14 +1496,17 @@ bool AudioOutputBase::AddData(void *in_buffer, int in_len,
             frames = m_srcData.output_frames_gen;
         }
         else if (m_processing)
+        {
             buffer = m_srcIn;
+        }
 
         /* we want the timecode of the last sample added but we are given the
            timecode of the first - add the time in ms that the frames added
            represent */
 
         // Copy samples into audiobuffer, with upmix if necessary
-        if ((len = CopyWithUpmix((char *)buffer, frames, org_waud)) <= 0)
+        len = CopyWithUpmix((char *)buffer, frames, org_waud);
+        if (len <= 0)
         {
             continue;
         }
@@ -1526,7 +1540,9 @@ bool AudioOutputBase::AddData(void *in_buffer, int in_len,
                 m_pSoundStretch->putSamples((STST *)ABUF, (len - bdiff) / bpf);
             }
             else
+            {
                 m_pSoundStretch->putSamples((STST *)(WPOS), frames);
+            }
 
             int nFrames = m_pSoundStretch->numSamples();
             if (nFrames > frames)
@@ -1648,8 +1664,7 @@ void AudioOutputBase::OutputAudioLoop(void)
 
     // to reduce startup latency, write silence in 8ms chunks
     int zero_fragment_size = 8 * m_sampleRate * m_outputBytesPerFrame / 1000;
-    if (zero_fragment_size > m_fragmentSize)
-        zero_fragment_size = m_fragmentSize;
+    zero_fragment_size = std::min(zero_fragment_size, m_fragmentSize);
 
     while (!m_killAudio)
     {

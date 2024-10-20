@@ -10,7 +10,7 @@
 // MythTV
 #include "libmythbase/http/mythhttpcommon.h"
 
-enum WSOpCode
+enum WSOpCode : std::uint8_t
 {
     WSOpContinuation = 0x0,
     WSOpTextFrame    = 0x1,
@@ -30,7 +30,7 @@ enum WSOpCode
     WSOpReservedF    = 0xF
 };
 
-enum WSErrorCode
+enum WSErrorCode : std::uint16_t
 {
     WSCloseNormal        = 1000,
     WSCloseGoingAway     = 1001,
@@ -76,7 +76,7 @@ class MythWS
     static QString     OpCodeToString        (WSOpCode Code);
     static WSOpCode    FrameFormatForProtocol(MythSocketProtocol Protocol);
     static bool        UseRawTextForProtocol (MythSocketProtocol Protocol);
-    static inline bool OpCodeIsValid         (WSOpCode Code)
+    static bool        OpCodeIsValid         (WSOpCode Code)
     {
         return Code == WSOpContinuation || Code == WSOpTextFrame ||
                Code == WSOpBinaryFrame  || Code == WSOpClose ||

@@ -111,7 +111,9 @@ void V2FillProgramInfo( V2Program *pProgram,
         }
     }
     else
+    {
         pProgram->enableChannel(false);
+    }
 
     // Build Recording Child Element
 
@@ -148,7 +150,9 @@ void V2FillProgramInfo( V2Program *pProgram,
         }
     }
     else
+    {
         pProgram->enableRecording(false);
+    }
 
     if ( bIncArtwork && !pInfo->GetInetRef().isEmpty() )
         V2FillArtworkInfoList( pProgram->Artwork(), pInfo->GetInetRef(), pInfo->GetSeason());
@@ -189,9 +193,10 @@ bool V2FillChannelInfo( V2ChannelInfo *pChannel,
     pChannel->setCallSign(channelInfo.m_callSign);
     if (!channelInfo.m_icon.isEmpty())
     {
-        QString sIconURL  = QString( "/Guide/GetChannelIcon?ChanId=%3")
-                                    .arg( channelInfo.m_chanId );
+        QString sIconURL  = QString( "/Guide/GetChannelIcon?FileName=%1")
+                                    .arg( channelInfo.m_icon );
         pChannel->setIconURL( sIconURL );
+        pChannel->setIcon( channelInfo.m_icon );
     }
     pChannel->setChannelName(channelInfo.m_name);
     pChannel->setVisible(channelInfo.m_visible > kChannelNotVisible);
@@ -478,6 +483,19 @@ void V2FillVideoMetadataInfo (
     }
 
     V2FillGenreList(pVideoMetadataInfo->Genres(), pVideoMetadataInfo->GetId());
+
+    auto castList = pMetadata->GetCast();
+    V2CastMemberList* pCastMemberList = pVideoMetadataInfo->Cast();
+
+    QString actors = QObject::tr("Actors");
+    for (const VideoMetadata::cast_entry& ent : castList )
+    {
+        V2CastMember *pCastMember = pCastMemberList->AddNewCastMember();
+        pCastMember->setTranslatedRole(actors);
+        pCastMember->setRole("ACTOR");
+        pCastMember->setName(ent.second);
+    }
+
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -772,7 +790,8 @@ int FillUpcomingList(QVariantList &list, QObject* parent,
                                         int& nCount,
                                         bool bShowAll,
                                         int  nRecordId,
-                                        int  nRecStatus )
+                                        int  nRecStatus,
+                                        const QString  &Sort )
 {
     RecordingList  recordingList; // Auto-delete deque
     RecList  tmpList; // Standard deque, objects must be deleted
@@ -821,6 +840,44 @@ int FillUpcomingList(QVariantList &list, QObject* parent,
         delete *it;
         *it = nullptr;
     }
+
+    // Sort the list
+
+    int sortType = 0;
+    if (Sort.startsWith("channum", Qt::CaseInsensitive))
+        sortType = 10;
+    else if (Sort.startsWith("title", Qt::CaseInsensitive))
+        sortType = 20;
+    if (Sort.endsWith("desc", Qt::CaseInsensitive))
+        sortType += 1;
+
+    static QRegularExpression regex("[_-]");
+
+    auto comp = [sortType](const RecordingInfo *First, const RecordingInfo *Second)
+    {
+        switch (sortType)
+        {
+            case 0:
+                return First->GetScheduledStartTime() < Second->GetScheduledStartTime();
+            case 1:
+                return First->GetScheduledStartTime() > Second->GetScheduledStartTime();
+            case 10:
+                return First->GetChanNum().replace(regex,".").toDouble()
+                     < Second->GetChanNum().replace(regex,".").toDouble();
+            case 11:
+                return First->GetChanNum().replace(regex,".").toDouble()
+                     > Second->GetChanNum().replace(regex,".").toDouble();
+            case 20:
+                return QString::compare(First->GetTitle(), Second->GetTitle(), Qt::CaseInsensitive) < 0 ;
+            case 21:
+                return QString::compare(First->GetTitle(), Second->GetTitle(), Qt::CaseInsensitive) > 0 ;
+        }
+        return false;
+    };
+
+    // no need to sort when zero because that is the default order from the scheduler
+    if (sortType > 0)
+        std::stable_sort(recordingList.begin(), recordingList.end(), comp);
 
     // ----------------------------------------------------------------------
     // Build Response
@@ -1005,7 +1062,7 @@ uint fillSelectionsFromDir(const QDir& dir,
     return cnt;
 }
 
-V2CaptureDeviceList* getFirewireList (const QString & cardType)
+V2CaptureDeviceList* getFirewireList ([[maybe_unused]] const QString & cardType)
 {
     auto* pList = new V2CaptureDeviceList();
 

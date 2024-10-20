@@ -343,7 +343,7 @@ bool WebSocketWorker::ProcessHandshake(QTcpSocket *socket)
         return false;
     }
 
-    QString path = tokens[1];
+    const QString& path = tokens[1];
 
     if (path.contains('#')) // RFC 6455 - Fragments MUST NOT be used
     {
@@ -530,7 +530,7 @@ void WebSocketWorker::ProcessFrames(QTcpSocket *socket)
             frame.m_payloadSize = 0;
             for (int i = 0; i < payloadHeaderSize; i++)
             {
-                frame.m_payloadSize |= ((uint8_t)payloadHeader.at(i) << ((payloadHeaderSize - (i + 1)) * 8));
+                frame.m_payloadSize |= ((uint64_t)payloadHeader.at(i) << ((payloadHeaderSize - (i + 1)) * 8));
             }
         }
         else
@@ -636,7 +636,9 @@ void WebSocketWorker::ProcessFrames(QTcpSocket *socket)
                     // Fall through to appropriate handler for complete payload
                 }
                 else
+                {
                     break;
+                }
                 [[fallthrough]];
             case WebSocketFrame::kOpTextFrame:
             case WebSocketFrame::kOpBinaryFrame:

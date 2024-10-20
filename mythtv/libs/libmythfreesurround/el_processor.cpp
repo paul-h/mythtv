@@ -45,15 +45,18 @@ class fsurround_decoder::Impl {
 public:
     // create an instance of the decoder
     //  blocksize is fixed over the lifetime of this object for performance reasons
-    explicit Impl(unsigned blocksize=8192): m_n(blocksize), m_halfN(blocksize/2) {
+    explicit Impl(unsigned blocksize=8192)
+      : m_n(blocksize),
+        m_halfN(blocksize/2),
         // create lavc fft buffers
-        m_dftL = (FFTComplex*)av_malloc(sizeof(FFTComplex) * m_n * 2);
-        m_dftR = (FFTComplex*)av_malloc(sizeof(FFTComplex) * m_n * 2);
-        m_src  = (FFTComplex*)av_malloc(sizeof(FFTComplex) * m_n * 2);
+        m_dftL((FFTComplex*)av_malloc(sizeof(FFTComplex) * m_n * 2)),
+        m_dftR((FFTComplex*)av_malloc(sizeof(FFTComplex) * m_n * 2)),
         // TODO only valid because blocksize is always 8192:
         // (convert blocksize to log_2 (n) instead since FFmpeg only supports sizes that are powers of 2)
-        m_fftContextForward = av_fft_init(13, 0);
-        m_fftContextReverse = av_fft_init(13, 1);
+        m_fftContextForward(av_fft_init(13, 0)),
+        m_fftContextReverse(av_fft_init(13, 1)),
+        m_src((FFTComplex*)av_malloc(sizeof(FFTComplex) * m_n * 2))
+{
         // resize our own buffers
         m_frontR.resize(m_n);
         m_frontL.resize(m_n);
@@ -183,12 +186,12 @@ public:
 
 private:
     // polar <-> cartesian coodinates conversion
-    static inline cfloat polar(float a, float p) { return {static_cast<float>(a*std::cos(p)),static_cast<float>(a*std::sin(p))}; }
-    static inline float amplitude(FFTComplex z) { return std::hypot(z.re, z.im); }
-    static inline float phase(FFTComplex z) { return std::atan2(z.im, z.re); }
+    static cfloat polar(float a, float p) { return {a*std::cos(p), a*std::sin(p)}; }
+    static float amplitude(FFTComplex z) { return std::hypot(z.re, z.im); }
+    static float phase(FFTComplex z) { return std::atan2(z.im, z.re); }
 
     /// Clamp the input to the interval [-1, 1], i.e. clamp the magnitude to the unit interval [0, 1]
-    static inline float clamp_unit_mag(float x) { return std::clamp(x, -1.0F, 1.0F); }
+    static float clamp_unit_mag(float x) { return std::clamp(x, -1.0F, 1.0F); }
 
     // handle the output buffering for overlapped calls of block_decode
     void add_output(InputBufs input1, InputBufs input2, float center_width, float dimension, float adaption_rate, bool /*result*/=false) {
@@ -341,20 +344,20 @@ private:
 
 #define FASTER_CALC
     // map from amplitude difference and phase difference to yfs
-    static inline double get_yfs(double ampDiff, double phaseDiff) {
+    static double get_yfs(double ampDiff, double phaseDiff) {
         double x = 1-(((1-sqr(ampDiff))*phaseDiff)/M_PI*2);
 #ifdef FASTER_CALC
         double tanX = tan(x);
-        return 0.16468622925824683 + 0.5009268347818189*x - 0.06462757726992101*x*x
-            + 0.09170680403453149*x*x*x + 0.2617754892323973*tanX - 0.04180413533856156*sqr(tanX);
+        return 0.16468622925824683 + (0.5009268347818189*x) - (0.06462757726992101*x*x)
+            + (0.09170680403453149*x*x*x) + (0.2617754892323973*tanX) - (0.04180413533856156*sqr(tanX));
 #else
-        return 0.16468622925824683 + 0.5009268347818189*x - 0.06462757726992101*x*x
-            + 0.09170680403453149*x*x*x + 0.2617754892323973*tan(x) - 0.04180413533856156*sqr(tan(x));
+        return 0.16468622925824683 + (0.5009268347818189*x) - (0.06462757726992101*x*x)
+            + (0.09170680403453149*x*x*x) + (0.2617754892323973*tan(x)) - (0.04180413533856156*sqr(tan(x)));
 #endif
     }
 
     // map from amplitude difference and yfs to xfs
-    static inline double get_xfs(double ampDiff, double yfs) {
+    static double get_xfs(double ampDiff, double yfs) {
         double x=ampDiff;
         double y=yfs;
 #ifdef FASTER_CALC
@@ -366,25 +369,25 @@ private:
         double x3 = x*x*x;
         double y2 = y*y;
         double y3 = y*y2;
-        return 2.464833559224702*x - 423.52131153259404*x*y + 
-            67.8557858606918*x3*y + 788.2429425544392*x*y2 - 
-            79.97650354902909*x3*y2 - 513.8966153850349*x*y3 + 
-            35.68117670186306*x3*y3 + 13867.406173420834*y*asinX - 
-            2075.8237075786396*y2*asinX - 908.2722068360281*y3*asinX - 
-            12934.654772878019*asinX*sinY - 13216.736529661162*y*tanX + 
-            1288.6463247741938*y2*tanX + 1384.372969378453*y3*tanX + 
-            12699.231471126128*sinY*tanX + 95.37131275594336*sinX*tanY - 
-            91.21223198407546*tanX*tanY;
+        return (2.464833559224702*x) - (423.52131153259404*x*y) +
+            (67.8557858606918*x3*y) + (788.2429425544392*x*y2) -
+            (79.97650354902909*x3*y2) - (513.8966153850349*x*y3) +
+            (35.68117670186306*x3*y3) + (13867.406173420834*y*asinX) -
+            (2075.8237075786396*y2*asinX) - (908.2722068360281*y3*asinX) -
+            (12934.654772878019*asinX*sinY) - (13216.736529661162*y*tanX) +
+            (1288.6463247741938*y2*tanX) + (1384.372969378453*y3*tanX) +
+            (12699.231471126128*sinY*tanX) + (95.37131275594336*sinX*tanY) -
+            (91.21223198407546*tanX*tanY);
 #else
-        return 2.464833559224702*x - 423.52131153259404*x*y + 
-            67.8557858606918*x*x*x*y + 788.2429425544392*x*y*y - 
-            79.97650354902909*x*x*x*y*y - 513.8966153850349*x*y*y*y + 
-            35.68117670186306*x*x*x*y*y*y + 13867.406173420834*y*asin(x) - 
-            2075.8237075786396*y*y*asin(x) - 908.2722068360281*y*y*y*asin(x) - 
-            12934.654772878019*asin(x)*sin(y) - 13216.736529661162*y*tan(x) + 
-            1288.6463247741938*y*y*tan(x) + 1384.372969378453*y*y*y*tan(x) + 
-            12699.231471126128*sin(y)*tan(x) + 95.37131275594336*sin(x)*tan(y) - 
-            91.21223198407546*tan(x)*tan(y);
+        return (2.464833559224702*x) - (423.52131153259404*x*y) +
+            (67.8557858606918*x*x*x*y) + (788.2429425544392*x*y*y) -
+            (79.97650354902909*x*x*x*y*y) - (513.8966153850349*x*y*y*y) +
+            (35.68117670186306*x*x*x*y*y*y) + (13867.406173420834*y*asin(x)) -
+            (2075.8237075786396*y*y*asin(x)) - (908.2722068360281*y*y*y*asin(x)) -
+            (12934.654772878019*asin(x)*sin(y)) - (13216.736529661162*y*tan(x)) +
+            (1288.6463247741938*y*y*tan(x)) + (1384.372969378453*y*y*y*tan(x)) +
+            (12699.231471126128*sin(y)*tan(x)) + (95.37131275594336*sin(x)*tan(y)) -
+            (91.21223198407546*tan(x)*tan(y));
 #endif
     }
 
@@ -417,9 +420,9 @@ private:
         for (unsigned int k = 0; k < m_halfN; k++)
         {
             // 1st part is overlap add
-            target[m_currentBuf * m_halfN + k]      += m_src[k].re * m_wnd[k];
+            target[(m_currentBuf * m_halfN) + k]      += m_src[k].re * m_wnd[k];
             // 2nd part is set as has no history
-            target[(m_currentBuf ^ 1) * m_halfN + k] = m_src[m_halfN + k].re * m_wnd[m_halfN + k];
+            target[((m_currentBuf ^ 1) * m_halfN) + k] = m_src[m_halfN + k].re * m_wnd[m_halfN + k];
         }
     }
 

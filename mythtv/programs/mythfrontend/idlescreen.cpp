@@ -239,7 +239,9 @@ void IdleScreen::UpdateStatus(void)
             if (!status.isEmpty())
                 statusText->SetText(status);
             else
+            {
                 statusText->Reset();
+            }
         }
     }
 }

@@ -148,7 +148,7 @@ bool GallerySlideView::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "LEFT")
@@ -171,33 +171,61 @@ bool GallerySlideView::keyPressEvent(QKeyEvent *event)
                 Play();
         }
         else if (action == "SELECT")
+        {
             PlayVideo();
+        }
         else if (action == "STOP")
+        {
             Stop();
+        }
         else if (action == "ROTRIGHT")
+        {
             Transform(kRotateCW);
+        }
         else if (action == "ROTLEFT")
+        {
             Transform(kRotateCCW);
+        }
         else if (action == "FLIPHORIZONTAL")
+        {
             Transform(kFlipHorizontal);
+        }
         else if (action == "FLIPVERTICAL")
+        {
             Transform(kFlipVertical);
+        }
         else if (action == "ZOOMIN")
+        {
             Zoom(10);
+        }
         else if (action == "ZOOMOUT")
+        {
             Zoom(-10);
+        }
         else if (action == "FULLSIZE")
+        {
             Zoom();
+        }
         else if (action == "SCROLLUP")
+        {
             Pan(QPoint(0, 100));
+        }
         else if (action == "SCROLLDOWN")
+        {
             Pan(QPoint(0, -100));
+        }
         else if (action == "SCROLLLEFT")
+        {
             Pan(QPoint(-120, 0));
+        }
         else if (action == "SCROLLRIGHT")
+        {
             Pan(QPoint(120, 0));
+        }
         else if (action == "RECENTER")
+        {
             Pan();
+        }
         else if (action == "ESCAPE" && !GetMythMainWindow()->IsExitingToMain())
         {
             // Exit info details, if shown
@@ -579,7 +607,7 @@ void GallerySlideView::ShowSlide(int direction)
 void GallerySlideView::SlideAvailable(int count)
 {
     // Transition speed = 0.5x for every slide waiting. Min = 1x, Max = Half buffer size
-    float speed = 0.5 + count / 2.0;
+    float speed = 0.5 + (count / 2.0);
 
     // Are we transitioning ?
     if (m_transitioning)
@@ -713,7 +741,9 @@ void GallerySlideView::ShowNextSlide(int inc, bool useTransition)
         }
     }
     else if (m_view->Next(inc))
+    {
         ShowSlide(useTransition ? 1 : 0);
+    }
     else
     {
         // No images
@@ -784,6 +814,8 @@ void GallerySlideView::ClearStatus(const Slide &slide)
             SetStatus(tr("Failed to load %1").arg(im ? im->m_filePath : "?"));
         }
         else
+        {
             m_uiStatus->Reset();
+        }
     }
 }

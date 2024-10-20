@@ -111,6 +111,9 @@ void AudioConfigScreen::Init(void)
 }
 
 AudioConfigSettings::AudioConfigSettings()
+  : m_triggerDigital(new GroupSetting()),
+    m_passThroughOverride(PassThroughOverride()),
+    m_passThroughDeviceOverride(PassThroughOutputDevice())
 {
     setLabel(tr("Audio System"));
 
@@ -126,7 +129,6 @@ AudioConfigSettings::AudioConfigSettings()
     connect(rescan, &ButtonStandardSetting::clicked, this, &AudioConfigSettings::AudioRescan);
 
     // digital settings
-    m_triggerDigital = new GroupSetting();
     m_triggerDigital->setLabel(tr("Digital Audio Capabilities"));
     m_triggerDigital->addChild(m_ac3PassThrough = AC3PassThrough());
     m_triggerDigital->addChild(m_dtsPassThrough = DTSPassThrough());
@@ -146,9 +148,7 @@ AudioConfigSettings::AudioConfigSettings()
     advancedSettings->setHelpText(tr("Enable extra audio settings. Under most "
                                      "usage all options should be left alone"));
     addChild(advancedSettings);
-    m_passThroughOverride = PassThroughOverride();
     advancedSettings->addChild(m_passThroughOverride);
-    m_passThroughDeviceOverride = PassThroughOutputDevice();
     advancedSettings->addChild(m_passThroughDeviceOverride);
     m_passThroughDeviceOverride->setEnabled(m_passThroughOverride->boolValue());
     connect(m_passThroughOverride, &MythUICheckBoxSetting::valueChanged,
@@ -615,10 +615,9 @@ AudioTestThread::AudioTestThread(QObject *parent,
     MThread("AudioTest"),
     m_parent(parent), m_channels(channels), m_device(std::move(main)),
     m_passthrough(std::move(passthrough)), m_hd(hd),
+    m_samplerate(hd ? settings.BestSupportedRate() : 48000),
     m_format(hd ? settings.BestSupportedFormat() : FORMAT_S16)
 {
-    m_samplerate = hd ? settings.BestSupportedRate() : 48000;
-
     m_audioOutput = AudioOutput::OpenAudio(m_device, m_passthrough,
                                            m_format, m_channels,
                                            AV_CODEC_ID_NONE, m_samplerate,
@@ -810,16 +809,32 @@ AudioTest::AudioTest()
     connect(m_rearright,
             &ButtonStandardSetting::clicked, this, &AudioTest::toggle);
 
-    m_lfe = new ButtonStandardSetting(m_channels == 6 ? "5" :
-                                      m_channels == 7 ? "6" : "7");
+    QString lfe;
+    QString surroundleft;
+    if (m_channels == 6)
+    {
+        lfe = "5";
+        surroundleft = "4";
+    }
+    else if (m_channels == 7)
+    {
+        lfe = "6";
+        surroundleft = "5";
+    }
+    else
+    {
+        lfe = "7";
+        surroundleft = "6";
+    }
+
+    m_lfe = new ButtonStandardSetting(lfe);
     m_lfe->setLabel(tr("LFE"));
     m_lfe->setHelpText(tr("Start LFE channel test"));
     addChild(m_lfe);
     connect(m_lfe,
             &ButtonStandardSetting::clicked, this, &AudioTest::toggle);
 
-    m_surroundleft = new ButtonStandardSetting(m_channels == 6 ? "4" :
-                                               m_channels == 7 ? "5" : "6");
+    m_surroundleft = new ButtonStandardSetting(surroundleft);
     m_surroundleft->setLabel(tr("Surround Left"));
     m_surroundleft->setHelpText(tr("Start surround left channel test"));
     addChild(m_surroundleft);
@@ -920,13 +935,31 @@ void AudioTest::toggle()
     else if (this->sender() == m_rearright)
         channel = 4;
     else if (this->sender() == m_lfe)
-        channel = ((m_channels == 6) ? 5 :((m_channels == 7) ? 6 : 7));
+    {
+        if (m_channels == 6)
+            channel = 5;
+        else if (m_channels == 7)
+            channel = 6;
+        else
+            channel = 7;
+    }
     else if (this->sender() == m_surroundleft)
-        channel = ((m_channels == 6) ? 4 : ((m_channels == 7) ? 5 : 6));
+    {
+        if (m_channels == 6)
+            channel = 4;
+        else if (m_channels == 7)
+            channel = 5;
+        else
+            channel = 6;
+    }
     else if (this->sender() == m_surroundright)
+    {
         channel = 3;
+    }
     else if (this->sender() == m_center)
+    {
         channel = 1;
+    }
 
     m_at->setChannel(channel);
 

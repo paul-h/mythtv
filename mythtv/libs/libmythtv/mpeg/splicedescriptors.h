@@ -31,7 +31,7 @@ class SpliceDescriptorID
 {
     // ANSI SCTE 35 2007
   public:
-    enum
+    enum : std::uint8_t
     {
         avail        = 0x00,
         dtmf         = 0x01,
@@ -193,7 +193,7 @@ class SegmentationDescriptor : public SpliceDescriptor
     uint ComponentCount(void) const { return m_data[12]; }
     //     for (i = 0; i < component_count; i++) {
     //       component_tag      8  13 + i * 6
-    uint ComponentTag(uint i) const { return m_data[13 + i * 6]; }
+    uint ComponentTag(uint i) const { return m_data[13 + (i * 6)]; }
     //       reserved           7  14.1 + i * 6
     //       pts_offset        33  14.7 + i * 6
     uint64_t PTSOffset(uint i)
@@ -217,7 +217,7 @@ class SegmentationDescriptor : public SpliceDescriptor
                 (uint64_t(_ptrs[0][4])));
     }
     //   segmentation_upid_type   8 _ptrs[1]
-    enum
+    enum : std::uint8_t
     {
         kNotUsed  = 0x0, ///< upid is not present in the descriptor
         kVariable = 0x1, ///< user defined
@@ -248,7 +248,7 @@ class SegmentationDescriptor : public SpliceDescriptor
         return {ba};
     }
 
-    enum
+    enum : std::uint8_t
     {
         kNotIndicated                  = 0x00,
         kContentIdentification         = 0x01,

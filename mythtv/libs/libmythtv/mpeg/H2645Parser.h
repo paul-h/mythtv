@@ -30,19 +30,17 @@
 #include "libmythbase/compat.h" // for uint on Darwin, MinGW
 #include "libmythbase/mythconfig.h"
 #include "libmythbase/mythlogging.h"
-#include "libmythtv/recorders/recorderbase.h" // for ScanType
+
+#include "libmythtv/scantype.h"
 
 class BitReader;
 class FrameRate;
-enum class SCAN_t : uint8_t;
 
 class H2645Parser {
   public:
-    enum {
-        MAX_SLICE_HEADER_SIZE = 256
-    };
+    static constexpr uint16_t kMaxSliceHeaderSize { 256 };
 
-    enum field_type {
+    enum field_type : std::uint8_t {
         FRAME = 'F',
         FIELD_TOP = 'T',
         FIELD_BOTTOM = 'B'
@@ -83,11 +81,11 @@ class H2645Parser {
     uint32_t GetUnitsInTick(void) const { return m_unitsInTick; }
     SCAN_t GetScanType(void) const { return m_scanType; }
 
-    enum NAL_unit_type {
+    enum NAL_unit_type : std::int8_t {
         UNKNOWN = -1
     };
 
-    enum SLICE_type {
+    enum SLICE_type : std::uint8_t {
         SLICE_P = 0,
         SLICE_B = 1,
         SLICE_I = 2,
@@ -102,7 +100,7 @@ class H2645Parser {
     };
 
   protected:
-    enum constants {EXTENDED_SAR = 255};
+    static constexpr uint8_t kExtendedSar { 255 };
 
     void resetRBSP(void);
     bool fillRBSP(const uint8_t *byteP, uint32_t byte_count,

@@ -75,7 +75,9 @@ public:
                 MediaMonitor::GetMediaMonitor()->EjectMedia(m_media->getDevicePath());
             }
             else
+            {
                 LOG(VB_MEDIA, LOG_DEBUG, LOC + QString("Unlocked '%1'").arg(m_name));
+            }
 
             MediaMonitor::GetMediaMonitor()->Unlock(m_media);
             m_media = nullptr;
@@ -2336,7 +2338,9 @@ QString ImageManagerFe::LongDateOf(const ImagePtrK& im)
         format |= MythDate::kTime;
     }
     else
+    {
         secs = im->m_modTime;
+    }
 
     return MythDate::toString(QDateTime::fromSecsSinceEpoch(secs.count()), format);
 }
@@ -2404,9 +2408,11 @@ QString ImageManagerFe::CrumbName(ImageItemK &im, bool getPath) const
 
 void ImageManagerFe::CloseDevices(int devId, bool eject)
 {
-    QString reason = (devId == DEVICE_INVALID)
-            ? "DEVICE CLOSE ALL"
-            : eject ? "DEVICE EJECT" : "DEVICE REMOVE";
+    QString reason { "DEVICE REMOVE" };
+    if (devId == DEVICE_INVALID)
+        reason = "DEVICE CLOSE ALL";
+    else if (eject)
+        reason = "DEVICE EJECT";
     HandleScanRequest(reason, devId);
 }
 
@@ -2488,7 +2494,9 @@ void ImageManagerFe::DeviceEvent(MythMediaEvent *event)
             ScanImagesAction(true, true);
         }
         else
+        {
             monitor->Unlock(dev);
+        }
         return;
     }
 

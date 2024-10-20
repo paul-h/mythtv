@@ -231,17 +231,6 @@ MSocketDevice::~MSocketDevice()
 
 
 /*!
-    Returns true if this is a valid socket; otherwise returns false.
-
-    \sa socket()
-*/
-bool MSocketDevice::isValid() const
-{
-    return m_fd != -1;
-}
-
-
-/*!
     \fn Type MSocketDevice::type() const
 
     Returns the socket type which is either MSocketDevice::Stream
@@ -566,7 +555,9 @@ QHostAddress MSocketDevice::address() const
         ipaddress = QString("%1.%2.%3.%4").arg(addr[12]).arg(addr[13]).arg(addr[14]).arg(addr[15]);
     }
     else
+    {
         ipaddress = m_a.toString();
+    }
 
     return QHostAddress(ipaddress);
 }

@@ -25,8 +25,8 @@ struct ExitPrompterPrivate
 };
 
 ExitPrompter::ExitPrompter()
+  : m_d(new ExitPrompterPrivate)
 {
-    m_d = new ExitPrompterPrivate;
 }
 
 ExitPrompter::~ExitPrompter()
@@ -57,7 +57,9 @@ void ExitPrompter::masterPromptExit()
         }
     }
     else
+    {
         quit();
+    }
 }
 
 void ExitPrompter::handleExit()
@@ -69,7 +71,11 @@ void ExitPrompter::handleExit()
     {
         // Only report the first 4 problems
         QStringList problems;
-        int limit = std::min(4, static_cast<int>(allproblems.size()));
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        int limit = std::min(4, allproblems.size());
+#else
+        int limit = std::min(4LL, allproblems.size());
+#endif
         for (int i = 0; i < limit; ++i)
         {
             problems.push_back(allproblems[i]);
@@ -105,7 +111,9 @@ void ExitPrompter::handleExit()
         m_d->m_stk->AddScreen(dia);
     }
     else
+    {
         masterPromptExit();
+    }
 }
 
 void ExitPrompter::customEvent(QEvent *event)

@@ -60,12 +60,10 @@ class ScreenLoadTask : public QRunnable
 
 MythScreenType::MythScreenType(
     MythScreenStack *parent, const QString &name, bool fullscreen) :
-    MythUIComposite(parent, name)
+    MythUIComposite(parent, name),
+    m_fullScreen(fullscreen),
+    m_screenStack(parent)
 {
-    m_fullScreen = fullscreen;
-
-    m_screenStack = parent;
-
     // Can be overridden, of course, but default to full sized.
     m_area = GetMythMainWindow()->GetUIScreenRect();
 
@@ -76,10 +74,9 @@ MythScreenType::MythScreenType(
 
 MythScreenType::MythScreenType(
     MythUIType *parent, const QString &name, bool fullscreen) :
-    MythUIComposite(parent, name)
+    MythUIComposite(parent, name),
+    m_fullScreen(fullscreen)
 {
-    m_fullScreen = fullscreen;
-
     m_area = GetMythMainWindow()->GetUIScreenRect();
 
     if (QCoreApplication::applicationName() == MYTH_APPNAME_MYTHFRONTEND)
@@ -413,7 +410,7 @@ bool MythScreenType::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "LEFT" || action == "UP" || action == "PREVIOUS")
@@ -427,17 +424,29 @@ bool MythScreenType::keyPressEvent(QKeyEvent *event)
                 handled = false;
         }
         else if (action == "ESCAPE")
+        {
             Close();
+        }
         else if (action == "MENU")
+        {
             ShowMenu();
+        }
         else if (action.startsWith("SYSEVENT"))
+        {
             gCoreContext->SendSystemEvent(QString("KEY_%1").arg(action.mid(8)));
+        }
         else if (action == ACTION_SCREENSHOT)
+        {
             MythMainWindow::ScreenShot();
+        }
         else if (action == ACTION_TVPOWERON || action == ACTION_TVPOWEROFF)
+        {
             GetMythMainWindow()->HandleTVAction(action);
+        }
         else
+        {
             handled = false;
+        }
     }
 
     return handled;

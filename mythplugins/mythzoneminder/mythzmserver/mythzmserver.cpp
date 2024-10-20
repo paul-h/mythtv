@@ -14,6 +14,7 @@
  * ============================================================ */
 
 #include <arpa/inet.h>
+#include <algorithm>
 #include <array>
 #include <csignal>
 #include <cstdio>
@@ -43,7 +44,7 @@ static constexpr const char* ZM_OVERRIDECONFIG { "/etc/zm/conf.d/01-system-paths
 // Care should be taken to keep these in sync with the exit codes in
 // libmythbase/exitcodes.h (which is not included here to keep this code
 // separate from mythtv libraries).
-enum EXIT_CODES {
+enum EXIT_CODES : std::uint8_t {
     EXIT_OK                        =   0,
     EXIT_INVALID_CMDLINE           = 132,
     EXIT_OPENING_LOGFILE_ERROR     = 136, // mapped to _PERMISSIONS_ERROR
@@ -233,7 +234,7 @@ int main(int argc, char **argv)
     loadZMConfig(zmoverideconfig);
 
     // check we have a version (default to 1.34.16 if not found)
-    if (g_zmversion.length() == 0)
+    if (g_zmversion.empty())
     {
         std::cout << "ZM version not found. Assuming at least v1.34.16 is installed" << std::endl;
         g_majorVersion = 1;
@@ -264,7 +265,8 @@ int main(int argc, char **argv)
     FD_ZERO(&read_fds); // NOLINT(readability-isolate-declaration)
 
     // get the listener
-    if ((listener = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    listener = socket(AF_INET, SOCK_STREAM, 0);
+    if (listener == -1)
     {
         perror("socket");
         return EXIT_SOCKET_ERROR;
@@ -336,9 +338,9 @@ int main(int argc, char **argv)
                 {
                     // handle new connections
                     socklen_t addrlen = sizeof(remoteaddr);
-                    if ((newfd = accept(listener,
-                                        (struct sockaddr *) &remoteaddr,
-                                                               &addrlen)) == -1)
+                    newfd = accept(listener, (struct sockaddr *) &remoteaddr,
+                                   &addrlen);
+                    if (newfd == -1)
                     {
                         perror("accept");
                     }
@@ -346,10 +348,7 @@ int main(int argc, char **argv)
                     {
                         // add to master set
                         FD_SET(newfd, &master);
-                        if (newfd > fdmax)
-                        {    // keep track of the maximum
-                            fdmax = newfd;
-                        }
+                        fdmax = std::max(newfd, fdmax); // keep track of the maximum
 
                         // create new ZMServer and add to map
                         auto *server = new ZMServer(newfd, debug);

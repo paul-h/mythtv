@@ -24,6 +24,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 // C++
+#include <algorithm>
 #include <cmath>
 
 // MythTV
@@ -101,8 +102,7 @@ V2ProgramGuide *V2Guide::GetProgramGuide( const QDateTime &rawStartTime,
     if (dtEndTime < dtStartTime)
         throw QString( "EndTime is before StartTime");
 
-    if (nStartIndex <= 0)
-        nStartIndex = 0;
+    nStartIndex = std::max(nStartIndex, 0);
 
     if (nCount <= 0)
         nCount = 20000;
@@ -216,7 +216,8 @@ V2ProgramList* V2Guide::GetProgramList(int              nStartIndex,
                                         bool bDetails,
                                         const QString   &sSort,
                                         bool             bDescending,
-                                        bool             bWithInvisible)
+                                        bool             bWithInvisible,
+                                        const QString& sCatType)
 {
     if (!rawStartTime.isNull() && !rawStartTime.isValid())
         throw QString( "StartTime is invalid" );
@@ -253,7 +254,9 @@ V2ProgramList* V2Guide::GetProgramList(int              nStartIndex,
         bindings[":PersonFilter"] = QString("%%1%").arg(sPersonFilter);
     }
     else
+    {
         sSQL = "WHERE ";
+    }
 
     if (bOnlyNew)
     {
@@ -269,8 +272,7 @@ V2ProgramList* V2Guide::GetProgramList(int              nStartIndex,
 
     sSQL += "program.manualid = 0 "; // Exclude programmes created purely for 'manual' recording schedules
 
-    if (nChanId < 0)
-        nChanId = 0;
+    nChanId = std::max(nChanId, 0);
 
     if (nChanId > 0)
     {
@@ -302,6 +304,12 @@ V2ProgramList* V2Guide::GetProgramList(int              nStartIndex,
         bindings[":Category"] = sCategoryFilter;
     }
 
+    if (!sCatType.isEmpty())
+    {
+        sSQL += "AND program.category_type LIKE :CatType ";
+        bindings[":CatType"] = sCatType;
+    }
+
     if (!sKeywordFilter.isEmpty())
     {
         sSQL += "AND (program.title LIKE :Keyword1 "
@@ -323,7 +331,7 @@ V2ProgramList* V2Guide::GetProgramList(int              nStartIndex,
     else if (sSort == "duration")
         sSQL += "ORDER BY (program.endtime - program.starttime) ";
     else
-        sSQL += "ORDER BY program.starttime ";
+        sSQL += "ORDER BY program.starttime, channel.channum + 0 ";
 
     if (bDescending)
         sSQL += "DESC ";
@@ -358,6 +366,23 @@ V2ProgramList* V2Guide::GetProgramList(int              nStartIndex,
     for( int n = 0; n < nEndIndex; n++)
     {
         ProgramInfo *pInfo = progList[ n ];
+
+        if (bOnlyNew)
+        {
+            // Eliminate duplicate titles
+            bool duplicate = false;
+            for (int back = n-1 ; back >= 0 ; back--) {
+                auto *prior = progList[back];
+                if (prior != nullptr) {
+                    if (pInfo -> GetTitle() == prior -> GetTitle()) {
+                        duplicate = true;
+                        break;
+                    }
+                }
+            }
+            if (duplicate)
+                continue;
+        }
 
         V2Program *pProgram = pPrograms->AddNewProgram();
 
@@ -413,11 +438,17 @@ V2Program* V2Guide::GetProgramDetails( int              nChanId,
 
 QFileInfo V2Guide::GetChannelIcon( int nChanId,
                                  int nWidth  /* = 0 */,
-                                 int nHeight /* = 0 */ )
+                                 int nHeight /* = 0 */,
+                                 const QString &FileName )
 {
+
+    QString sFileName;
     // Get Icon file path
 
-    QString sFileName = ChannelUtil::GetIcon( nChanId );
+    if (FileName.isEmpty())
+        sFileName = ChannelUtil::GetIcon( nChanId );
+    else
+        sFileName = FileName;
 
     if (sFileName.isEmpty())
     {

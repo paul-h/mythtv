@@ -20,7 +20,7 @@
 #include "ClassicLogoDetector.h"
 #include "ClassicSceneChangeDetector.h"
 
-enum frameAspects {
+enum frameAspects : std::uint8_t {
     COMM_ASPECT_NORMAL = 0,
     COMM_ASPECT_WIDE
 } FrameAspects;
@@ -28,7 +28,7 @@ enum frameAspects {
 // letter-box and pillar-box are not mutually exclusive
 // So 3 is a valid value = (COMM_FORMAT_LETTERBOX | COMM_FORMAT_PILLARBOX)
 // And 4 = COMM_FORMAT_MAX is the number of valid values.
-enum frameFormats {
+enum frameFormats : std::uint8_t {
     COMM_FORMAT_NORMAL    = 0,
     COMM_FORMAT_LETTERBOX = 1,
     COMM_FORMAT_PILLARBOX = 2,
@@ -511,8 +511,7 @@ bool ClassicCommDetector::go()
             if (myTotalFrames)
                 percentage = currentFrameNumber * 100 / myTotalFrames;
 
-            if (percentage > 100)
-                percentage = 100;
+            percentage = std::min(percentage, 100);
 
             if (m_showProgress)
             {
@@ -573,7 +572,9 @@ bool ClassicCommDetector::go()
                     usecSleep = usecSleep * 0.25;
             }
             else if (secondsBehind < requiredBuffer)
+            {
                 usecSleep = usecPerFrame * 1.5;
+            }
 
             if (usecSleep > 0us)
                 std::this_thread::sleep_for(usecSleep);
@@ -828,7 +829,7 @@ void ClassicCommDetector::ProcessFrame(MythVideoFrame *frame,
         for(int x = m_commDetectBorder; x < (m_width - m_commDetectBorder);
                 x += m_horizSpacing)
         {
-            uchar pixel = framePtr[y * bytesPerLine + x];
+            uchar pixel = framePtr[(y * bytesPerLine) + x];
 
             if (m_commDetectMethod & COMM_DETECT_BLANKS)
             {
@@ -845,17 +846,10 @@ void ClassicCommDetector::ProcessFrame(MythVideoFrame *frame,
                      blankPixelsChecked++;
                      totBrightness += pixel;
 
-                     if (pixel < min)
-                          min = pixel;
-
-                     if (pixel > max)
-                          max = pixel;
-
-                     if (pixel > rowMax[y])
-                         rowMax[y] = pixel;
-
-                     if (pixel > colMax[x])
-                         colMax[x] = pixel;
+                     min = std::min<int>(pixel, min);
+                     max = std::max<int>(pixel, max);
+                     rowMax[y] = std::max(pixel, rowMax[y]);
+                     colMax[x] = std::max(pixel, colMax[x]);
                  }
             }
         }
@@ -1828,8 +1822,7 @@ void ClassicCommDetector::BuildAllMethodsCommList(void)
                    ((m_frameInfo[lastStartUpper + 1].flagMask & COMM_FRAME_BLANK) != 0))
                 lastStartUpper++;
             uint64_t adj = (lastStartUpper - lastStartLower) / 2;
-            if (adj > MAX_BLANK_FRAMES)
-                adj = MAX_BLANK_FRAMES;
+            adj = std::min<uint64_t>(adj, MAX_BLANK_FRAMES);
             lastStart = lastStartLower + adj;
 
             if (m_verboseDebugging)
@@ -1849,8 +1842,7 @@ void ClassicCommDetector::BuildAllMethodsCommList(void)
                    ((m_frameInfo[lastEndLower - 1].flagMask & COMM_FRAME_BLANK) != 0))
                 lastEndLower--;
             uint64_t adj = (lastEndUpper - lastEndLower) / 2;
-            if (adj > MAX_BLANK_FRAMES)
-                adj = MAX_BLANK_FRAMES;
+            adj = std::min<uint64_t>(adj, MAX_BLANK_FRAMES);
             lastEnd = lastEndUpper - adj;
 
             if (m_verboseDebugging)
@@ -1997,8 +1989,7 @@ void ClassicCommDetector::BuildBlankFrameCommList(void)
         }
 
         adjustment /= 2;
-        if (adjustment > MAX_BLANK_FRAMES)
-            adjustment = MAX_BLANK_FRAMES;
+        adjustment = std::min<long long>(adjustment, MAX_BLANK_FRAMES);
         r -= adjustment;
         m_blankCommMap[r] = MARK_COMM_END;
         first_comm = false;
@@ -2250,7 +2241,7 @@ void ClassicCommDetector::DumpMap(frm_dir_map_t &map) const
         int flag = *it;
         int my_fps = (int)ceil(m_fps);
         long long hour = (frame / my_fps) / 60 / 60;
-        long long min = (frame / my_fps) / 60 - (hour * 60);
+        long long min = ((frame / my_fps) / 60) - (hour * 60);
         long long sec = (frame / my_fps) - (min * 60) - (hour * 60 * 60);
         long long frm = frame - ((sec * my_fps) + (min * 60 * my_fps) +
                            (hour * 60 * 60 * my_fps));

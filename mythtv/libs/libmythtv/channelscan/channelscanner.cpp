@@ -251,7 +251,8 @@ void ChannelScanner::Scan(
             LOG(VB_CHANSCAN, LOG_INFO, LOC +
                 QString("ScanIPTVChannels(%1) IPTV MPTS").arg(sourceid));
 
-            if ((ok = m_sigmonScanner->ScanIPTVChannels(sourceid, m_iptvChannels)))
+            ok = m_sigmonScanner->ScanIPTVChannels(sourceid, m_iptvChannels);
+            if (ok)
                 m_scanMonitor->ScanPercentComplete(0);
             else
             {
@@ -318,11 +319,13 @@ DTVConfParser::return_t ChannelScanner::ImportDVBUtils(
 
     if (DTVConfParser::OK != ret)
     {
-        QString msg = (DTVConfParser::ERROR_PARSE == ret) ?
-            tr("Failed to parse '%1'").arg(file) :
-            ((DTVConfParser::ERROR_CARDTYPE == ret) ?
-             tr("Programmer Error : incorrect card type") :
-             tr("Failed to open '%1'").arg(file));
+        QString msg;
+        if (DTVConfParser::ERROR_PARSE == ret)
+            msg = tr("Failed to parse '%1'").arg(file);
+        else if (DTVConfParser::ERROR_CARDTYPE == ret)
+            msg = tr("Programmer Error : incorrect card type");
+        else
+            msg = tr("Failed to open '%1'").arg(file);
 
         InformUser(msg);
     }

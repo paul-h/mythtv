@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdlib>
 
 #include "v3d.h"
@@ -29,10 +30,10 @@ void tentacle_new (void) {
 	vals = (float*)malloc ((definitionx+20)*sizeof(float));
 	
 	for (auto & tmp : grille) {
-		int z = 45+goom_rand()%30;
-		int x = 85+goom_rand()%5;
+		int z = 45+(goom_rand()%30);
+		int x = 85+(goom_rand()%5);
 		center.z = z;
-		tmp = grid3d_new (x,definitionx,z,definitionz+goom_rand()%10,center);
+		tmp = grid3d_new (x,definitionx,z,definitionz+(goom_rand()%10),center);
 		center.y += 8;
 	}
 }
@@ -45,9 +46,7 @@ lighten (unsigned char value, float power)
 
 	if (t > 0) {
 		val = (int) t; // (32.0F * log (t));
-		if (val > 255)
-			val = 255;
-		return val;
+		return std::min(val, 255);
 	}
         return 0;
 }
@@ -96,7 +95,9 @@ static void pretty_move (float lcycle, float *dist,float *dist2, float *rotangle
 		s_happens = iRAND(200)?0:100+iRAND(60);
 		s_lock = s_happens * 3 / 2;
 	}
-	else s_lock --;
+	else {
+		s_lock --;
+	}
 //	happens = 1;
 	
 	float tmp = s_happens?8.0F:0;
@@ -133,8 +134,9 @@ static void pretty_move (float lcycle, float *dist,float *dist2, float *rotangle
 			s_rot += 2.0F*M_PI_F;
 		*rotangle = s_rot;
 	}
-	else
+	else {
 		*rotangle = s_rot = (tmp + 15.0F*s_rot) / 16.0F;
+	}
 }
 
 void tentacle_update(int *buf, int *back, int W, int H, GoomDualData& data, float rapport, int drawit) {
@@ -173,13 +175,12 @@ void tentacle_update(int *buf, int *back, int W, int H, GoomDualData& data, floa
                 int color = s_col;
                 int colorlow = s_col;
 		
-		lightencolor(&color,s_lig * 2.0F + 2.0F);
+		lightencolor(&color,(s_lig * 2.0F) + 2.0F);
 		lightencolor(&colorlow,(s_lig/3.0F)+0.67F);
 
 		rapport = 1.0F + 2.0F * (rapport - 1.0F);
                 rapport *= 1.2F;
-		if (rapport > 1.12F)
-			rapport = 1.12F;
+		rapport = std::min(rapport, 1.12F);
 		
 		pretty_move (cycle,&dist,&dist2,&rotangle);
 

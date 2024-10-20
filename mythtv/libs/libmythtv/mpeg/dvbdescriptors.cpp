@@ -72,7 +72,7 @@ static QString iconv_helper(int which, char *buf, size_t length)
 
     // Allocate room for the output, including space for the Byte
     // Order Mark.
-    size_t outmaxlen = length * 2 + 2;
+    size_t outmaxlen = (length * 2) + 2;
     QByteArray outbytes;
     outbytes.resize(outmaxlen);
     char *outp = outbytes.data();
@@ -142,7 +142,7 @@ QString dvb_decode_text(const unsigned char *src, uint raw_length,
         size_t length = (raw_length - 1) / 2;
         auto *to = new QChar[length];
         for (size_t i=0; i<length; i++)
-            to[i] = QChar((src[1 + i*2] << 8) + src[1 + i*2 + 1]);
+            to[i] = QChar((src[1 + (i*2)] << 8) + src[1 + (i*2) + 1]);
         QString to2(to, length);
         delete [] to;
         return to2;
@@ -258,7 +258,7 @@ QString dvb_decode_short_name(const unsigned char *src, uint raw_length)
     {
         if (src[i] == 0x86)
         {
-            while ((++i < raw_length) && (src[i] != 0x87))
+            for (i = i + 1; i < raw_length && (src[i] != 0x87); i++)
             {
                 if ((src[i] < 0x80) || (src[i] > 0x9F))
                 {
@@ -564,7 +564,13 @@ QString FrequencyListDescriptor::toString() const
     for (uint i = 0; i < FrequencyCount(); i++)
     {
         str += QString("%1").arg(FrequencyHz(i));
-        str += (i+1 < FrequencyCount()) ? ((i+4)%10) ? ", " : ",\n      " : "";
+        if (i+1 < FrequencyCount())
+        {
+            if ((i+4)%10)
+                str += ", ";
+            else
+                str += ",\n      ";
+        }
     }
 
     return str;
@@ -934,7 +940,13 @@ QString DVBLogicalChannelDescriptor::toString() const
     for (uint i = 0; i < ChannelCount(); i++)
     {
         ret += QString("%1->%2").arg(ServiceID(i)).arg(ChannelNumber(i));
-        ret += (i+1 < ChannelCount()) ? ((i+4)%10) ? ", " : ",\n      " : "";
+        if (i+1 < ChannelCount())
+        {
+            if ((i+4)%10)
+                ret += ", ";
+            else
+                ret += ",\n      ";
+        }
     }
     return ret;
 }
@@ -945,7 +957,13 @@ QString DVBSimulcastChannelDescriptor::toString() const
     for (uint i = 0; i < ChannelCount(); i++)
     {
         ret += QString("%1->%2").arg(ServiceID(i)).arg(ChannelNumber(i));
-        ret += (i+1 < ChannelCount()) ? ((i+3)%10) ? ", " : ",\n      " : "";
+        if (i+1 < ChannelCount())
+        {
+            if ((i+3)%10)
+                ret += ", ";
+            else
+                ret += ",\n      ";
+        }
     }
     return ret;
 }

@@ -40,8 +40,6 @@ namespace
     }
 }
 
-bool inJobQueue = false;
-
 int main(int argc, char *argv[])
 {
     MythMetadataLookupCommandLineParser cmdline;
@@ -140,9 +138,13 @@ int main(int argc, char *argv[])
         LookerUpper::CopyRuleInetrefsToRecordings();
     }
     else if (cmdline.toBool("refresh-all-artwork"))
+    {
         lookup->HandleAllArtwork(false);
+    }
     else if (cmdline.toBool("refresh-all-artwork-dangerously"))
+    {
         lookup->HandleAllArtwork(true);
+    }
     else
     {
         // refresh-all is default behavior if no other arguments given

@@ -59,15 +59,23 @@ class UPNP_PUBLIC MSocketDevice: public QIODevice
 {
 
 public:
-    enum Type { Stream, Datagram };
-    enum Protocol { IPv4, IPv6, Unknown };
+    enum Type : std::uint8_t { Stream, Datagram };
+    enum Protocol : std::uint8_t { IPv4, IPv6, Unknown };
 
     explicit MSocketDevice(Type type = Stream);
     MSocketDevice(Type type, Protocol protocol, int dummy);
     MSocketDevice(int socket, Type type);
     ~MSocketDevice() override;
 
-    bool  isValid() const;
+    /*!
+      Returns true if this is a valid socket; otherwise returns false.
+
+      \sa socket()
+    */
+    bool  isValid() const
+    {
+        return m_fd != -1;
+    }
     Type  type() const;
     Protocol  protocol() const;
 
@@ -118,12 +126,12 @@ public:
     qint64  waitForMore(std::chrono::milliseconds msecs, bool *timeout = nullptr) const;
     virtual qint64 writeBlock(const char *data, quint64 len,
                               const QHostAddress & host, quint16 port);
-    inline qint64  writeBlock(const char *data, quint64 len)
+    qint64  writeBlock(const char *data, quint64 len)
     {
         return write(data, len);
     }
 
-    inline qint64 readBlock(char *data, quint64 maxlen)
+    qint64 readBlock(char *data, quint64 maxlen)
     {
         // read() does not correctly handle zero-byte udp packets
         // so call readData() directly which does
@@ -135,23 +143,23 @@ public:
     virtual QHostAddress address() const;
     virtual QHostAddress peerAddress() const;
 
-    enum Error
+    enum Error : std::uint8_t
     {
-        NoError,
-        AlreadyBound,
-        Inaccessible,
-        NoResources,
-        InternalError,
+        NoError = 0,
+        AlreadyBound = 1,
+        Inaccessible = 2,
+        NoResources = 3,
+        InternalError = 4,
         Bug = InternalError, // ### remove in 4.0?
-        Impossible,
-        NoFiles,
-        ConnectionRefused,
-        NetworkFailure,
-        UnknownError
+        Impossible = 5,
+        NoFiles = 6,
+        ConnectionRefused = 7,
+        NetworkFailure = 8,
+        UnknownError = 9
     };
     Error  error() const;
 
-    inline bool isSequential() const override // QIODevice
+    bool isSequential() const override // QIODevice
     {
         return true;
     }
@@ -173,7 +181,7 @@ private:
     MSocketDevice::Error  m_e {NoError};
     MSocketDevicePrivate *d{nullptr}; // NOLINT(readability-identifier-naming)
 
-    enum Option { Broadcast, ReceiveBuffer, ReuseAddress, SendBuffer, Keepalive };
+    enum Option : std::uint8_t { Broadcast, ReceiveBuffer, ReuseAddress, SendBuffer, Keepalive };
 
     int   option(Option opt) const;
     virtual void setOption(Option opt, int v);

@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <QFontMetrics>
 #include <QRegularExpression>
 
@@ -307,9 +309,13 @@ SubtitleFormat::GetFont(const QString &family,
             offset.setX(-off);
         }
         else if (attr.m_edgeType == k708AttrEdgeRightDropShadow)
+        {
             shadow = true;
+        }
         else
+        {
             shadow = false;
+        }
     }
     else
     {
@@ -337,7 +343,9 @@ SubtitleFormat::GetFont(const QString &family,
             off = lroundf(scale * pixelSize / 20);
         }
         else
+        {
             outline = false;
+        }
     }
     else
     {
@@ -819,8 +827,8 @@ void FormattedTextSubtitle::Layout(void)
         anchor_y -= anchor_height;
 
     // Shift the anchor point back into the safe area if necessary/possible.
-    anchor_y = std::max(0, std::min(anchor_y, m_safeArea.height() - anchor_height));
-    anchor_x = std::max(0, std::min(anchor_x, m_safeArea.width() - anchor_width));
+    anchor_y = std::clamp(anchor_y, 0, m_safeArea.height() - anchor_height);
+    anchor_x = std::clamp(anchor_x, 0, m_safeArea.width() - anchor_width);
 
     m_bounds = QRect(anchor_x, anchor_y, anchor_width, anchor_height);
 
@@ -1062,15 +1070,25 @@ void FormattedTextSubtitleSRT::Init(const QStringList &subs)
                     }
                 }
                 else if (html == "</font>")
+                {
                     color = Qt::white;
+                }
                 else if (html == "<b>")
+                {
                     isBold = true;
+                }
                 else if (html == "</b>")
+                {
                     isBold = false;
+                }
                 else if (html == "<u>")
+                {
                     isUnderline = true;
+                }
                 else if (html == "</u>")
+                {
                     isUnderline = false;
+                }
                 else
                 {
                     LOG(VB_VBI, LOG_INFO,
@@ -1312,7 +1330,7 @@ void FormattedTextSubtitle608::Init(const std::vector<CC608Text*> &buffers)
             QString captionText =
                 extract_cc608(text, color, isItalic, isUnderline);
             CC708CharacterAttribute attr(isItalic, isBold, isUnderline,
-                                         kClr[std::min(std::max(0, color), 7)]);
+                                         kClr[std::clamp(color, 0, 7)]);
             FormattedTextChunk chunk(captionText, attr, m_subScreen);
             line.chunks += chunk;
             LOG(VB_VBI, LOG_INFO,
@@ -1353,8 +1371,11 @@ void FormattedTextSubtitle708::Init(const CC708Window &win,
     if (m_subScreen)
         m_subScreen->SetFontSize(pixelSize);
 
-    float xrange  = win.m_relative_pos ? 100.0F :
-                    (aspect > 1.4F) ? 210.0F : 160.0F;
+    float xrange { 160.0F };
+    if (win.m_relative_pos)
+        xrange = 100.0F;
+    else if (aspect > 1.4F)
+        xrange = 210.0F;
     float yrange  = win.m_relative_pos ? 100.0F : 75.0F;
     float xmult   = (float)m_safeArea.width() / xrange;
     float ymult   = (float)m_safeArea.height() / yrange;
@@ -2019,20 +2040,26 @@ void SubtitleScreen::DisplayAVSubtitles(void)
                     if ((m_player->GetFrameRate() > 26.0F ||
                          m_player->GetFrameRate() < 24.0F) && bottom <= 480)
                         sd_height = 480;
-                    int height = ((currentFrame->m_height <= sd_height) &&
-                                  (bottom <= sd_height)) ? sd_height :
-                                 ((currentFrame->m_height <= 720) && bottom <= 720)
-                                   ? 720 : 1080;
-                    int width  = ((currentFrame->m_width  <= 720) &&
-                                  (right <= 720)) ? 720 :
-                                 ((currentFrame->m_width  <= 1280) &&
-                                  (right <= 1280)) ? 1280 : 1920;
+
+                    int height { 1080 };
+                    if ((currentFrame->m_height <= sd_height) &&
+                        (bottom <= sd_height))
+                        height = sd_height;
+                    else if ((currentFrame->m_height <= 720) && bottom <= 720)
+                        height = 720;
+
+                    int width { 1920 };
+                    if ((currentFrame->m_width  <= 720) && (right <= 720))
+                        width = 720;
+                    else if ((currentFrame->m_width  <= 1280) &&
+                             (right <= 1280))
+                        width = 1280;
                     display = QRect(0, 0, width, height);
                 }
 
                 // split into upper/lower to allow zooming
                 QRect bbox;
-                int uh = display.height() / 2 - rect->y;
+                int uh = (display.height() / 2) - rect->y;
                 std::chrono::milliseconds displayuntil = currentFrame->m_timecode + displayfor;
                 if (uh > 0)
                 {
@@ -2043,7 +2070,9 @@ void SubtitleScreen::DisplayAVSubtitles(void)
                                                   displayuntil, late);
                 }
                 else
+                {
                     uh = 0;
+                }
                 int lh = rect->h - uh;
                 if (lh > 0)
                 {
@@ -2104,24 +2133,20 @@ int SubtitleScreen::DisplayScaledAVSubtitles(const AVSubtitleRect *rect,
         for (int x = bbox.left(); x <= bbox.right(); ++x)
         {
             const uint8_t color =
-                rect->data[0][y * rect->linesize[0] + x];
+                rect->data[0][(y * rect->linesize[0]) + x];
             const uint32_t pixel = *((uint32_t *)rect->data[1] + color);
             if (pixel & 0xff000000)
             {
                 empty = false;
-                if (x < xmin)
-                    xmin = x;
-                if (x > xmax)
-                    xmax = x;
+                xmin = std::min(x, xmin);
+                xmax = std::max(x, xmax);
             }
         }
 
         if (!empty)
         {
-            if (y < ymin)
-                ymin = y;
-            if (y > ymax)
-                ymax = y;
+            ymin = std::min(y, ymin);
+            ymax = std::max(y, ymax);
         }
         else if (!prev_empty)
         {
@@ -2167,7 +2192,7 @@ int SubtitleScreen::DisplayScaledAVSubtitles(const AVSubtitleRect *rect,
         {
             int xsrc = x + bbox.left();
             const uint8_t color =
-                rect->data[0][ysrc * rect->linesize[0] + xsrc];
+                rect->data[0][(ysrc * rect->linesize[0]) + xsrc];
             const uint32_t pixel = *((uint32_t *)rect->data[1] + color);
             qImage.setPixel(x, y, pixel);
         }

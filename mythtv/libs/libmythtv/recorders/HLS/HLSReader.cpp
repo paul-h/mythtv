@@ -232,7 +232,9 @@ qint64 HLSReader::Read(uint8_t* buffer, qint64 maxlen)
         m_buffer.remove(0, len);
     }
     else
+    {
         m_buffer.clear();
+    }
 
     return len;
 }
@@ -354,10 +356,10 @@ bool HLSReader::ParseM3U8(const QByteArray& buffer, HLSRecStream* stream)
                 }
                 else
                 {
-                    StreamContainer::iterator Istream;
                     QString url = RelativeURI(m_segmentBase, uri).toString();
 
-                    if ((Istream = m_streams.find(url)) == m_streams.end())
+                    StreamContainer::iterator Istream = m_streams.find(url);
+                    if (Istream == m_streams.end())
                     {
                         int id = 0;
                         uint64_t bandwidth = 0;
@@ -375,8 +377,10 @@ bool HLSReader::ParseM3U8(const QByteArray& buffer, HLSRecStream* stream)
                         }
                     }
                     else
+                    {
                         LOG(VB_RECORD, LOG_INFO, LOC +
                             QString("Already have stream '%1'").arg(url));
+                    }
                 }
             }
         }
@@ -389,10 +393,9 @@ bool HLSReader::ParseM3U8(const QByteArray& buffer, HLSRecStream* stream)
         if (stream == nullptr)
         {
             /* No Meta playlist used */
-            StreamContainer::iterator Istream;
-
-            if ((Istream = m_streams.find(M3U::DecodedURI(m_m3u8))) ==
-                m_streams.end())
+            StreamContainer::iterator Istream =
+                m_streams.find(M3U::DecodedURI(m_m3u8));
+            if (Istream == m_streams.end())
             {
                 hls = new HLSRecStream(0, 0, m_m3u8, m_segmentBase);
                 if (hls)
@@ -535,7 +538,9 @@ bool HLSReader::ParseM3U8(const QByteArray& buffer, HLSRecStream* stream)
                                        RelativeURI(hls->SegmentBaseUrl(), line)));
                 }
                 else
+                {
                     ++skipped;
+                }
 
                 ++sequence_num;
                 segment_duration = -1s; /* reset duration */
@@ -625,9 +630,13 @@ bool HLSReader::ParseM3U8(const QByteArray& buffer, HLSRecStream* stream)
             m_bandwidthCheck = (m_bitrateIndex == 0);
         }
         else if (m_debugCnt > 0)
+        {
             --m_debugCnt;
+        }
         else
+        {
             m_debug = false;
+        }
     }
 
     LOG(VB_RECORD, LOG_DEBUG, LOC + "ParseM3U8 -- end");
@@ -864,7 +873,9 @@ bool HLSReader::LoadSegments(MythSingleDownload& downloader)
             LOG(VB_RECORD, LOG_INFO, LOC + "Throttle done");
         }
         else
+        {
             usleep(5000);
+        }
 
         if (m_prebufferCnt == 0)
         {
@@ -872,7 +883,9 @@ bool HLSReader::LoadSegments(MythSingleDownload& downloader)
             m_prebufferCnt = 2;
         }
         else
+        {
             --m_prebufferCnt;
+        }
     }
 
     LOG(VB_RECORD, LOG_DEBUG, LOC + "LoadSegment -- end");
@@ -974,7 +987,9 @@ int HLSReader::DownloadSegmentData(MythSingleDownload& downloader,
         }
     }
     else if (m_slowCnt > 0)
+    {
         --m_slowCnt;
+    }
 
     if (m_buffer.size() >= segment_len * playlist_size * 2)
     {

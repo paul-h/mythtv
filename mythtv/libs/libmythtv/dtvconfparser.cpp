@@ -46,8 +46,9 @@
     ++it; } while(false)
 
 #define PARSE_CONF(VAR) do { \
-    if (it == tokens.end() || !(VAR).ParseConf(*it++)) \
-        return false; } while(false)
+    if (it == tokens.end()) return false; \
+    if (!(VAR).ParseConf(*it)) return false; \
+    it++; } while(false)
 
 #define PARSE_STR(VAR) do { \
     if (it != tokens.end()) (VAR) = *it++; else return false; } while(false)
@@ -112,13 +113,21 @@ DTVConfParser::return_t DTVConfParser::Parse(void)
                 ok &= ParseVDR(list, channelNo);
         }
         else if (m_type == OFDM)
+        {
             ok &= ParseConfOFDM(list);
+        }
         else if (m_type == ATSC)
+        {
             ok &= ParseConfATSC(list);
+        }
         else if (m_type == QPSK || m_type == DVBS2)
+        {
             ok &= ParseConfQPSK(list);
+        }
         else if (m_type == QAM)
+        {
             ok &= ParseConfQAM(list);
+        }
     }
     file.close();
 

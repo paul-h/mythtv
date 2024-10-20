@@ -78,7 +78,7 @@ bool ScreenWizard::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
         bool refresh = false;
 
@@ -116,7 +116,9 @@ bool ScreenWizard::keyPressEvent(QKeyEvent *event)
                 refresh = moveBRRight();
         }
         else if (action == "MENU")
+        {
             doMenu();
+        }
         else if (action == "ESCAPE")
         {
             if (anythingChanged())
@@ -125,7 +127,9 @@ bool ScreenWizard::keyPressEvent(QKeyEvent *event)
                 qApp->quit();
         }
         else
+        {
             handled = false;
+        }
 
         if (refresh)
             updateScreen();
@@ -244,7 +248,9 @@ void ScreenWizard::doMenu()
             m_menuPopup->AddButton(tr("Save and Quit"));
         }
         else
+        {
             m_menuPopup->SetReturnEvent(this, "nosave");
+        }
 
         m_menuPopup->AddButton(tr("Reset Changes and Quit"));
         m_menuPopup->AddButton(tr("Coarse/Fine adjustment"));

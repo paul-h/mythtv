@@ -18,7 +18,7 @@
 #include "libmythbase/programinfo.h"
 #include "libmythupnp/httpserver.h"
 
-enum HttpStatusMethod
+enum HttpStatusMethod : std::uint8_t
 {
     HSM_Unknown         =  0,
     HSM_GetStatusHTML   =  1,
@@ -46,7 +46,7 @@ class HttpStatus : public HttpServerExtension
         Scheduler                   *m_pSched;
         QMap<int, EncoderLink *>    *m_pEncoders;
         AutoExpire                  *m_pExpirer;
-        MainServer                  *m_pMainServer;
+        MainServer                  *m_pMainServer{nullptr};
         bool                         m_bIsMaster;
         int                          m_nPreRollSeconds;
         QMutex                       m_settingLock;

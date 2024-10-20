@@ -188,7 +188,9 @@ static void exec_program_tv_cb(const QString &cmd)
         s = s.replace(0, tokens[0].length() + 1, "");
     }
     else
+    {
         strlist << "LOCK_TUNER";
+    }
 
     gCoreContext->SendReceiveStringList(strlist);
     int cardid = strlist[0].toInt();
@@ -268,9 +270,9 @@ static void eject_cb(void)
 
 MythContextPrivate::MythContextPrivate(MythContext *lparent)
     : m_parent(lparent),
-      m_sh(new MythContextSlotHandler(this))
+      m_sh(new MythContextSlotHandler(this)),
+      m_loop(new QEventLoop(this))
 {
-    m_loop = new QEventLoop(this);
     InitializeMythDirs();
 }
 
@@ -747,7 +749,9 @@ bool MythContextPrivate::PromptForDatabaseParams(const QString &error)
                 m_loop->exec();
         }
         else
+        {
             delete ssd;
+        }
         SilenceDBerrors();
         EndTempWindow();
         accepted = true;
@@ -827,7 +831,7 @@ QString MythContextPrivate::TestDBconnection(bool prompt)
     // 4 = backend awake, 5 = backend listening
     // 9 = all ok, 10 = quit
 
-    enum  startupStates {
+    enum  startupStates : std::uint8_t {
         st_start = 0,
         st_dbAwake = 1,
         st_dbStarted = 2,
@@ -862,9 +866,10 @@ QString MythContextPrivate::TestDBconnection(bool prompt)
             startupState = st_start;
         }
         else
+        {
             startupState = st_dbAwake;
-        if (attempts < 6)
-            attempts = 6;
+        }
+        attempts = std::max(attempts, 6);
         if (!prompt)
             attempts=1;
         if (wakeupTime < 5s)
@@ -1575,7 +1580,8 @@ void MythContextSlotHandler::VersionMismatchPopupClosed(void)
 }
 
 MythContext::MythContext(QString binversion, bool needsBackend)
-    : m_appBinaryVersion(std::move(binversion))
+    : d(new MythContextPrivate(this)),
+      m_appBinaryVersion(std::move(binversion))
 {
 #ifdef _WIN32
     static bool WSAStarted = false;
@@ -1588,7 +1594,6 @@ MythContext::MythContext(QString binversion, bool needsBackend)
     }
 #endif
 
-    d = new MythContextPrivate(this);
     d->m_needsBackend = needsBackend;
 
     gCoreContext = new MythCoreContext(m_appBinaryVersion, d);

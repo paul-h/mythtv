@@ -118,7 +118,8 @@ bool LCD::connectToHost(const QString &lhostname, unsigned int lport)
     m_port = lport;
 
     // Don't even try to connect if we're currently disabled.
-    if (!(m_enabled = GetMythDB()->GetBoolSetting("LCDEnable", false)))
+    m_enabled = GetMythDB()->GetBoolSetting("LCDEnable", false);
+    if (!m_enabled)
     {
         m_connected = false;
         m_serverUnavailable = true;
@@ -317,7 +318,9 @@ void LCD::ReadyRead(void)
             QString("last command: %1").arg(m_lastCommand));
     }
     else if (aList[0] == "KEY")
+    {
         handleKeyPress(aList.last().trimmed());
+    }
 }
 
 void LCD::handleKeyPress(const QString &keyPressed)
@@ -469,7 +472,7 @@ void LCD::setChannelProgress(const QString &time, float value)
     if (!m_lcdReady || !m_lcdShowChannel)
         return;
 
-    value = std::min(std::max(0.0F, value), 1.0F);
+    value = std::clamp(value, 0.0F, 1.0F);
     emit sendToServer(QString("SET_CHANNEL_PROGRESS %1 %2").arg(quotedString(time))
         .arg(value));
 }
@@ -479,7 +482,7 @@ void LCD::setGenericProgress(float value)
     if (!m_lcdReady || !m_lcdShowGeneric)
         return;
 
-    value = std::min(std::max(0.0F, value), 1.0F);
+    value = std::clamp(value, 0.0F, 1.0F);
     emit sendToServer(QString("SET_GENERIC_PROGRESS 0 %1").arg(value));
 }
 
@@ -496,7 +499,7 @@ void LCD::setMusicProgress(const QString &time, float value)
     if (!m_lcdReady || !m_lcdShowMusic)
         return;
 
-    value = std::min(std::max(0.0F, value), 1.0F);
+    value = std::clamp(value, 0.0F, 1.0F);
     emit sendToServer("SET_MUSIC_PROGRESS " + quotedString(time) + ' ' +
             QString().setNum(value));
 }

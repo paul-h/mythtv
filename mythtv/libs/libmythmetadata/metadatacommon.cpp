@@ -99,6 +99,7 @@ MetadataLookup::MetadataLookup(
     m_host(std::move(host)),
     m_filename(std::move(filename)),
     m_title(title),
+    m_baseTitle(title),
     m_network(std::move(network)),
     m_status(std::move(status)),
     m_categories(std::move(categories)),
@@ -153,7 +154,6 @@ MetadataLookup::MetadataLookup(
     m_downloads(std::move(downloads))
 {
     QString manRecSuffix = QString(" (%1)").arg(QObject::tr("Manual Record"));
-    m_baseTitle = title;
     m_baseTitle.replace(manRecSuffix,"");
 }
 
@@ -213,6 +213,7 @@ MetadataLookup::MetadataLookup(
     m_host(std::move(host)),
     m_filename(std::move(filename)),
     m_title(title),
+    m_baseTitle(title),
     m_categories(std::move(categories)),
     m_userRating(userrating),
     m_subtitle(std::move(subtitle)),
@@ -242,7 +243,6 @@ MetadataLookup::MetadataLookup(
     m_runtimeSecs(runtimesecs)
 {
     QString manRecSuffix = QString(" (%1)").arg(QObject::tr("Manual Record"));
-    m_baseTitle = title;
     m_baseTitle.replace(manRecSuffix,"");
 }
 
@@ -292,6 +292,7 @@ MetadataLookup::MetadataLookup(
     m_host(std::move(host)),
     m_filename(std::move(filename)),
     m_title(title),
+    m_baseTitle(title),
     m_categories(std::move(categories)),
     m_userRating(userrating),
     m_subtitle(std::move(subtitle)),
@@ -311,7 +312,6 @@ MetadataLookup::MetadataLookup(
     m_downloads(std::move(downloads))
 {
     QString manRecSuffix = QString(" (%1)").arg(QObject::tr("Manual Record"));
-    m_baseTitle = title;
     m_baseTitle.replace(manRecSuffix,"");
 }
 
@@ -1437,7 +1437,7 @@ ArtworkMap ParseArtwork(const QDomElement& artwork)
 int editDistance( const QString& s, const QString& t )
 {
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define D( i, j ) d[(i) * n + (j)]
+#define D( i, j ) d[((i) * n) + (j)]
     size_t m = s.length() + 1;
     size_t n = t.length() + 1;
     int *d = new int[m * n];
@@ -1535,7 +1535,9 @@ QDateTime RFC822TimeToQDateTime(const QString& t)
         }
     }
     else
+    {
         hoursShift = TimezoneOffsets.value(ltimezone, 0);
+    }
 
     if (tmp.at(0).size() == 1)
         tmp[0].prepend("0");
@@ -1550,7 +1552,7 @@ QDateTime RFC822TimeToQDateTime(const QString& t)
         result = QLocale::c().toDateTime(time, "dd MMM yy hh:mm:ss");
     if (result.isNull() || !result.isValid())
         return {};
-    result = result.addSecs(hoursShift * 3600 * (-1) + minutesShift *60 * (-1));
+    result = result.addSecs((hoursShift * 3600 * (-1)) + (minutesShift *60 * (-1)));
     result.setTimeSpec(Qt::UTC);
     return result;
 }

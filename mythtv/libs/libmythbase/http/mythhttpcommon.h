@@ -22,7 +22,7 @@
 #define PLISTRPC QStringLiteral("plistrpc")
 #define CBORRPC  QStringLiteral("cborrpc")
 
-enum MythSocketProtocol
+enum MythSocketProtocol : std::uint8_t
 {
     ProtHTTP = 0, // Socket has not been upgraded
     ProtFrame,    // Default WebSocket text and binary frame transmission
@@ -73,7 +73,7 @@ class MythHTTPWS
   public:
     static QString ProtocolToString(MythSocketProtocol Protocol);
     static MythSocketProtocol ProtocolFromString(const QString& Protocols);
-    static inline QString BitrateToString(uint64_t Rate)
+    static QString BitrateToString(uint64_t Rate)
     {
         if (Rate < 1)
             return "-";

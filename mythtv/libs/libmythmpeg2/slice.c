@@ -544,8 +544,9 @@ static int get_non_intra_block (mpeg2_decoder_t * const decoder,
     if (bit_buf >= 0x28000000) {
 	tab = DCT_B14DC_5 + (UBITS (bit_buf, 5) - 5);
 	goto entry_1;
-    } else
+    } else {
 	goto entry_2;
+    }
 
     while (1) {
 	if (bit_buf >= 0x28000000) {
@@ -596,7 +597,7 @@ static int get_non_intra_block (mpeg2_decoder_t * const decoder,
 
 	    DUMPBITS (bit_buf, bits, 12);
 	    NEEDBITS (bit_buf, bits, bit_ptr);
-	    int val = 2 * (SBITS (bit_buf, 12) + SBITS (bit_buf, 1)) + 1;
+	    int val = (2 * (SBITS (bit_buf, 12) + SBITS (bit_buf, 1))) + 1;
 	    val = (val * quant_matrix[j]) / 32;
 
 	    SATURATE (val);
@@ -773,8 +774,9 @@ static int get_mpeg1_non_intra_block (mpeg2_decoder_t * const decoder)
     if (bit_buf >= 0x28000000) {
 	tab = DCT_B14DC_5 + (UBITS (bit_buf, 5) - 5);
 	goto entry_1;
-    } else
+    } else {
 	goto entry_2;
+    }
 
     while (1) {
 	if (bit_buf >= 0x28000000) {
@@ -898,10 +900,11 @@ static inline void slice_intra_DCT (mpeg2_decoder_t * const decoder,
     if (decoder->mpeg1) {
 	if (decoder->coding_type != D_TYPE)
 	    get_mpeg1_intra_block (decoder);
-    } else if (decoder->intra_vlc_format)
+    } else if (decoder->intra_vlc_format) {
 	get_intra_block_B15 (decoder, decoder->quantizer_matrix[cc ? 2 : 0]);
-    else
+    } else {
 	get_intra_block_B14 (decoder, decoder->quantizer_matrix[cc ? 2 : 0]);
+    }
     mpeg2_idct_copy (decoder->DCTblock, dest, stride);
 #undef bit_buf
 #undef bits
@@ -922,6 +925,7 @@ static inline void slice_non_intra_DCT (mpeg2_decoder_t * const decoder,
     mpeg2_idct_add (last, decoder->DCTblock, dest, stride);
 }
 
+/* NOLINTBEGIN(readability-math-missing-parentheses) */
 #define MOTION_420(table,ref,motion_x,motion_y,size,y)			      \
     pos_x = 2 * decoder->offset + (motion_x);				      \
     pos_y = 2 * decoder->v_offset + (motion_y) + 2 * (y);		      \
@@ -1200,6 +1204,7 @@ static inline void slice_non_intra_DCT (mpeg2_decoder_t * const decoder,
 	      (ref)[1] + offset, decoder->stride, 16);			      \
     (table)[4] (decoder->dest[2] + decoder->offset,			      \
 	      (ref)[2] + offset, decoder->stride, 16)
+/* NOLINTEND(readability-math-missing-parentheses) */
 
 #define bit_buf (decoder->bitstream_buf)
 #define bits (decoder->bitstream_bits)

@@ -166,7 +166,7 @@ class CC708Pen
         m_attr.m_boldface  = false;
     }
   public:
-    CC708CharacterAttribute m_attr {};
+    CC708CharacterAttribute m_attr;
 
     uint m_row    {0};
     uint m_column {0};
@@ -178,7 +178,7 @@ class CC708Character
   public:
     CC708Character() = default;
     explicit CC708Character(const CC708Window &win);
-    CC708CharacterAttribute m_attr {};
+    CC708CharacterAttribute m_attr;
     QChar                   m_character {' '};
 };
 
@@ -188,7 +188,7 @@ class CC708String
     uint                    m_x {0};
     uint                    m_y {0};
     QString                 m_str;
-    CC708CharacterAttribute m_attr {};
+    CC708CharacterAttribute m_attr;
 };
 
 class MTV_PUBLIC CC708Window
@@ -242,10 +242,10 @@ class MTV_PUBLIC CC708Window
  private:
     bool            m_visible           {false};
  public:
-    enum {
-        kAnchorUpperLeft  = 0, kAnchorUpperCenter, kAnchorUpperRight,
-        kAnchorCenterLeft = 3, kAnchorCenter,      kAnchorCenterRight,
-        kAnchorLowerLeft  = 6, kAnchorLowerCenter, kAnchorLowerRight,
+    enum : std::uint8_t {
+        kAnchorUpperLeft  = 0, kAnchorUpperCenter = 1, kAnchorUpperRight  = 2,
+        kAnchorCenterLeft = 3, kAnchorCenter      = 4, kAnchorCenterRight = 5,
+        kAnchorLowerLeft  = 6, kAnchorLowerCenter = 7, kAnchorLowerRight  = 8,
     };
     uint            m_anchor_point      {0};
     uint            m_relative_pos      {0};
@@ -276,7 +276,7 @@ class MTV_PUBLIC CC708Window
     uint            m_true_column_count {0};
 
     CC708Character *m_text              {nullptr};
-    CC708Pen        m_pen               {};
+    CC708Pen        m_pen;
 
  private:
     /// set to false when DeleteWindow is called on the window.

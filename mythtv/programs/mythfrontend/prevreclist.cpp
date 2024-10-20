@@ -322,7 +322,9 @@ void PrevRecordedList::UpdateList(MythUIButtonList *bnList,
                 state = "disabled";
         }
         else
+        {
             infoMap["buttontext"] = infoMap["title"];
+        }
 
         item->SetTextFromMap(infoMap, state);
     }
@@ -478,7 +480,7 @@ bool PrevRecordedList::keyPressEvent(QKeyEvent *e)
     bool needUpdate = false;
     for (uint i = 0; i < uint(actions.size()) && !handled; ++i)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "CUSTOMEDIT")

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022-2023 David Hampton
+# Copyright (C) 2022-2024 David Hampton
 #
 # See the file LICENSE_FSF for licensing information.
 #
@@ -79,6 +79,11 @@ set(CMAKE_CXX_EXTENSIONS ON)
 include(SetSearchPaths)
 
 #
+# Perform platform specific customizations.
+#
+include(platform/AndroidCrossCustomization)
+
+#
 # The Qt androiddeployqt program reads the headers of shared object files and
 # automatically includes any of their required dependencies. Add the Qt install
 # directory to the CMAKE_FIND_ROOT_PATH list so that androiddeployqt can find
@@ -117,7 +122,6 @@ set(_BUNDLE_NAME "${NDK_ABI_${CMAKE_ANDROID_ARCH_ABI}_ARCH}")
 
 set(ANDROID_PACKAGE_SOURCE_DIR
     ${CMAKE_CURRENT_BINARY_DIR}/android-package-source)
-set(ANDROID_PLATFORM android-${CMAKE_SYSTEM_VERSION})
 set(ANDROID_VERSION_CODE 1)
 set(ANDROID_VERSION_NAME
     "${_date}-qt${QT_VERSION_MAJOR}-${_BUNDLE_NAME}-${MYTHTV_SOURCE_VERSION}")
@@ -128,6 +132,15 @@ set(QT_ANDROID_APPLICATION_ARGUMENTS "-v general")
 # specific customization.
 #
 file(COPY ${SUPER_SOURCE_DIR}/mythtv/android-package-source DESTINATION .)
+if(ANDROID_TARGET_SDK_VERSION GREATER_EQUAL 31)
+  list(APPEND MANIFEST_APPLICATION_ACTIVITY_EXTRAS android:exported="false")
+endif()
+if(ANDROID_TARGET_SDK_VERSION GREATER 99)
+  list(APPEND MANIFEST_APPLICATION_EXTRAS android:examplsTagHere="false")
+endif()
+list(JOIN MANIFEST_APPLICATION_EXTRAS " " MANIFEST_APPLICATION_EXTRAS_STR)
+list(JOIN MANIFEST_APPLICATION_ACTIVITY_EXTRAS " "
+     MANIFEST_APPLICATION_ACTIVITY_EXTRAS_STR)
 configure_file(AndroidManifest.xml.${QT_VERSION_MAJOR}.in
                android-package-source/AndroidManifest.xml @ONLY)
 
@@ -291,20 +304,27 @@ if(QT_VERSION_MAJOR EQUAL 5)
   add_custom_target(
     apk2
     COMMAND
+      # cmake-format: off
       echo ${CMAKE_COMMAND} -E env JAVA_HOME=${MYTH_JAVA_HOME}
-      ${ANDROID_DEPLOY_QT} --input
-      "${PROJECT_BINARY_DIR}/android_deployment_settings.json" --output
-      "${PROJECT_BINARY_DIR}/android-build" --apk
-      "${PROJECT_BINARY_DIR}/android-build/${PROJECT_NAME}.apk"
-      ${android_deploy_qt_platform} ${android_deploy_qt_jdk} ${BUNDLESIGN}
-      --verbose
+        ${ANDROID_DEPLOY_QT}
+        --input "${PROJECT_BINARY_DIR}/android_deployment_settings.json"
+        --output "${PROJECT_BINARY_DIR}/android-build"
+        --apk "${PROJECT_BINARY_DIR}/android-build/${PROJECT_NAME}.apk"
+        --android-platform ${ANDROID_PLATFORM}
+        ${BUNDLESIGN}
+        --verbose
+      # cmake-format: on
     COMMAND
-      ${CMAKE_COMMAND} -E env JAVA_HOME=${MYTH_JAVA_HOME} ${ANDROID_DEPLOY_QT}
-      --input "${PROJECT_BINARY_DIR}/android_deployment_settings.json" --output
-      "${PROJECT_BINARY_DIR}/android-build" --apk
-      "${PROJECT_BINARY_DIR}/android-build/${PROJECT_NAME}.apk"
-      ${android_deploy_qt_platform} ${android_deploy_qt_jdk} ${BUNDLESIGN}
-      --verbose
+      # cmake-format: off
+      ${CMAKE_COMMAND} -E env JAVA_HOME=${MYTH_JAVA_HOME}
+        ${ANDROID_DEPLOY_QT}
+        --input "${PROJECT_BINARY_DIR}/android_deployment_settings.json"
+        --output "${PROJECT_BINARY_DIR}/android-build"
+        --apk "${PROJECT_BINARY_DIR}/android-build/${PROJECT_NAME}.apk"
+        --android-platform ${ANDROID_PLATFORM}
+        ${BUNDLESIGN}
+        --verbose
+      # cmake-format: on
     DEPENDS ${ANDROID_EXTRA_LIBS}
     VERBATIM USES_TERMINAL)
 
@@ -334,6 +354,9 @@ if(QT_VERSION_MAJOR EQUAL 5)
   #
 
 elseif(QT_VERSION_MAJOR EQUAL 6)
+  set(QT_ANDROID_PLATFORM ${ANDROID_PLATFORM})
+  set(QT_ENABLE_VERBOSE_DEPLOYMENT ON)
+
   # Inject code from super-project provided modules (part 2). All the variables
   # necessary to describe the APK must be set before this include.
   #
@@ -342,6 +365,15 @@ elseif(QT_VERSION_MAJOR EQUAL 6)
   include(MythFindQt)
 
   set(CMAKE_BUILD_TYPE Debug)
+  if(QT_KNOWN_POLICY_QTP0001)
+    qt_policy(SET QTP0001 NEW)
+  endif()
+  if(QT_KNOWN_POLICY_QTP0002)
+    qt_policy(SET QTP0002 NEW)
+  endif()
+  if(QT_KNOWN_POLICY_QTP0003)
+    qt_policy(SET QTP0003 NEW)
+  endif()
 
   #
   # Create a dummy mythfrontend executable.  This is where all the magic happens
@@ -369,6 +401,8 @@ elseif(QT_VERSION_MAJOR EQUAL 6)
                QT_ANDROID_VERSION_NAME ${ANDROID_VERSION_NAME}
                QT_ANDROID_MIN_SDK_VERSION ${ANDROID_MIN_SDK_VERSION}
                QT_ANDROID_TARGET_SDK_VERSION ${ANDROID_TARGET_SDK_VERSION}
+               QT_ANDROID_SDK_BUILD_TOOLS_REVISION
+               ${ANDROID_SDK_BUILD_TOOLS_REVISION}
                QT_ANDROID_PACKAGE_SOURCE_DIR ${ANDROID_PACKAGE_SOURCE_DIR}
                QT_ANDROID_EXTRA_LIBS "${ANDROID_EXTRA_LIBS}")
 

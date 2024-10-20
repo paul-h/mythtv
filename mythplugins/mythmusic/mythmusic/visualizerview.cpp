@@ -117,7 +117,9 @@ bool VisualizerView::keyPressEvent(QKeyEvent *event)
             showTrackInfoPopup();
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MusicCommon::keyPressEvent(event))
@@ -237,7 +239,7 @@ bool TrackInfoPopup::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "SELECT")
@@ -268,7 +270,9 @@ bool TrackInfoPopup::keyPressEvent(QKeyEvent *event)
             // handled = false;
         }
         else
+        {
             handled = false;
+        }
     }
     // keep info up while seeking, theme should show progressbar/time
     if (m_displayTimer)

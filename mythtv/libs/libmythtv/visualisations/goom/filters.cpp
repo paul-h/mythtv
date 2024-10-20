@@ -12,6 +12,7 @@
 
 //#define _DEBUG_PIXEL;
 
+#include <algorithm>
 #include <array>
 #include <cinttypes>
 #include <cmath>
@@ -205,9 +206,8 @@ calculatePXandPY (int x, int y, int *px, int *py)
 		static int s_wave = 0;
 		static int s_wavesp = 0;
 
-		int yy = y + RAND () % 4 - RAND () % 4 + s_wave / 10;
-		if (yy < 0)
-			yy = 0;
+		int yy = y + (RAND () % 4) - (RAND () % 4) + (s_wave / 10);
+		yy = std::max(yy, 0);
 		if (yy >= (int)c_resoly)
 			yy = c_resoly - 1;
 
@@ -248,7 +248,7 @@ calculatePXandPY (int x, int y, int *px, int *py)
 		if (waveEffect) {
 			fvitesse *=
 				1024 +
-				ShiftRight (sintable[(unsigned short) (dist * 0xffff + EFFECT_DISTORS)], 6);
+				ShiftRight (sintable[(unsigned short) ((dist * 0xffff) + EFFECT_DISTORS)], 6);
 			fvitesse /= 1024;
 		}
 
@@ -297,8 +297,7 @@ calculatePXandPY (int x, int y, int *px, int *py)
 			break;
 		}
 
-		if (fvitesse < -3024)
-			fvitesse = -3024;
+		fvitesse = std::max(fvitesse, -3024);
 
 		int ppx = 0;
 		int ppy = 0;
@@ -333,7 +332,7 @@ setPixelRGB (Uint * buffer, Uint x, Uint y, Color c)
 	}
 #endif
 
-	buffer[y * resolx + x] =
+	buffer[(y * resolx) + x] =
 		(c.b << (BLEU * 8)) | (c.v << (VERT * 8)) | (c.r << (ROUGE * 8));
 }
 
@@ -391,9 +390,9 @@ getPixelRGB_ (const Uint * buffer, Uint x, Color * c)
 
 #else
 	/* ATTENTION AU PETIT INDIEN  */
-	c->b = *(unsigned char *) (tmp8 = (unsigned char *) (buffer + x));
-	c->v = *(unsigned char *) (++tmp8);
-	c->r = *(unsigned char *) (++tmp8);
+	c->b = *(tmp8 = (unsigned char *) (buffer + x));
+	c->v = *(++tmp8);
+	c->r = *(++tmp8);
 	// *c = (Color) buffer[x+y*WIDTH] ;
 #endif
 }
@@ -412,7 +411,7 @@ void c_zoom (unsigned int *lexpix1, unsigned int *lexpix2,
 	int     bufsize = lprevX * lprevY * 2;
 	int     bufwidth = lprevX;
 
-	lexpix1[0]=lexpix1[lprevX-1]=lexpix1[lprevX*lprevY-1]=lexpix1[lprevX*lprevY-lprevX]=0;
+	lexpix1[0]=lexpix1[lprevX-1]=lexpix1[(lprevX*lprevY)-1]=lexpix1[(lprevX*lprevY)-lprevX]=0;
 
 	for (int myPos = 0; myPos < bufsize; myPos += 2) {
 		Color   col1 {};
@@ -427,12 +426,10 @@ void c_zoom (unsigned int *lexpix1, unsigned int *lexpix2,
 		brutSmypos = lbrutS[myPos2];
 		int py = brutSmypos + (((lbrutD[myPos2] - brutSmypos) * buffratio) >> BUFFPOINTNB);
 
-                if (px < 0)
-                    px = 0;
-                if (py < 0)
-                    py = 0;
+                px = std::max(px, 0);
+                py = std::max(py, 0);
 
-		int pos = ((px >> PERTEDEC) + lprevX * (py >> PERTEDEC));
+		int pos = ((px >> PERTEDEC) + (lprevX * (py >> PERTEDEC)));
 		// coef en modulo 15
 		int lcoeffs = precalCoef[px & PERTEMASK][py & PERTEMASK];
 
@@ -556,13 +553,13 @@ zoomFilterFastRGB (Uint * pix1, Uint * pix2, ZoomFilterData * zf, Uint resx, Uin
 			generatePrecalCoef ();
 			select_zoom_filter ();
 
-			freebrutS = (signed int *) calloc (resx * resy * 2 + 128, sizeof(signed int));
+			freebrutS = (signed int *) calloc ((resx * resy * 2) + 128, sizeof(signed int));
 			brutS = (signed int *) ((1 + ((uintptr_t) (freebrutS)) / 128) * 128);
 
-			freebrutD = (signed int *) calloc (resx * resy * 2 + 128, sizeof(signed int));
+			freebrutD = (signed int *) calloc ((resx * resy * 2) + 128, sizeof(signed int));
 			brutD = (signed int *) ((1 + ((uintptr_t) (freebrutD)) / 128) * 128);
 
-			freebrutT = (signed int *) calloc (resx * resy * 2 + 128, sizeof(signed int));
+			freebrutT = (signed int *) calloc ((resx * resy * 2) + 128, sizeof(signed int));
 			brutT = (signed int *) ((1 + ((uintptr_t) (freebrutT)) / 128) * 128);
 
 			/** modif here by jeko : plus de multiplications **/
@@ -687,14 +684,13 @@ zoomFilterFastRGB (Uint * pix1, Uint * pix2, ZoomFilterData * zf, Uint resx, Uin
 
 	if (switchIncr != 0) {
 		buffratio += switchIncr;
-		if (buffratio > BUFFPOINTMASK)
-			buffratio = BUFFPOINTMASK;
+		buffratio = std::min(buffratio, BUFFPOINTMASK);
 	}
 
 	if (switchMult != 1.0F) {
 		buffratio =
-			(int) ((float) BUFFPOINTMASK * (1.0F - switchMult) +
-						 (float) buffratio * switchMult);
+			(int) (((float) BUFFPOINTMASK * (1.0F - switchMult)) +
+						 ((float) buffratio * switchMult));
 	}
 
 	zoom_width = prevX;

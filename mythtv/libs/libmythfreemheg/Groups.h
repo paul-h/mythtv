@@ -196,7 +196,7 @@ class MHSetTimer: public MHElemAction
     MHGenericInteger m_timerId;
     // A new timer may not be specified in which case this cancels the timer.
     // If the timer is specified the "absolute" flag is optional.
-    enum {
+    enum : std::uint8_t {
         ST_NoNewTimer,
         ST_TimerAbsolute,
         ST_TimerRelative
@@ -237,9 +237,9 @@ class MHTransitionTo: public MHElemAction
     void Perform(MHEngine *engine) override; // MHElemAction
   protected:
     void PrintArgs(FILE *fd, int nTabs) const override; // MHElemAction
-    bool    m_fIsTagged;
-    int     m_nConnectionTag;
-    int     m_nTransitionEffect;
+    bool    m_fIsTagged         { false };
+    int     m_nConnectionTag    {     0 };
+    int     m_nTransitionEffect {    -1 };
 };
 
 // Lock and unlock functions.

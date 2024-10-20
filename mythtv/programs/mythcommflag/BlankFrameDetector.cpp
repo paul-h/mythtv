@@ -1,4 +1,5 @@
 // C++ headers
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <utility>
@@ -39,7 +40,11 @@ sort_ascending_float(const void *aa, const void *bb)
 {
     float faa = *(float*)aa;
     float fbb = *(float*)bb;
-    return faa < fbb ? -1 : faa == fbb ? 0 : 1;
+    if (faa < fbb)
+        return -1;
+    if (faa == fbb)
+        return 0;
+    return 1;
 }
 
 bool
@@ -237,7 +242,7 @@ computeBreakMap(FrameAnalyzer::FrameMap *breakMap,
     {
         long long brkb = iiblank.key();
         long long iilen = *iiblank;
-        long long start = brkb + iilen / 2;
+        long long start = brkb + (iilen / 2);
 
         for (const auto& type : kBreakType)
         {
@@ -247,7 +252,7 @@ computeBreakMap(FrameAnalyzer::FrameMap *breakMap,
             {
                 long long brke = jjblank.key();
                 long long jjlen = *jjblank;
-                long long end = brke + jjlen / 2;
+                long long end = brke + (jjlen / 2);
 
                 auto testlen = std::chrono::seconds(lroundf((end - start) / fps));
                 if (testlen > type.m_len + type.m_delta)
@@ -354,8 +359,7 @@ computeBreakMap(FrameAnalyzer::FrameMap *breakMap,
             break;
         long long addb = *iter;
         addb = addb / 2;
-        if (addb > MAX_BLANK_FRAMES)
-            addb = MAX_BLANK_FRAMES;
+        addb = std::min<long long>(addb, MAX_BLANK_FRAMES);
         iib += addb;
         /* Add trailing blanks to commercial break. */
         iter = blankMap->find(iib);
@@ -364,8 +368,7 @@ computeBreakMap(FrameAnalyzer::FrameMap *breakMap,
         long long adde = *iter;
         iie += adde;
         long long sube = adde / 2;
-        if (sube > MAX_BLANK_FRAMES)
-            sube = MAX_BLANK_FRAMES;
+        sube = std::min<long long>(sube, MAX_BLANK_FRAMES);
         iie -= sube;
         breakMap->insert(iib, iie - iib);
     }

@@ -155,7 +155,7 @@ QStringList MythCommandLineParser::MythSplitCommandString(const QString &line)
 /**
  * States for the command line parser.
  */
-    enum states {
+    enum states : std::uint8_t {
         START,     ///< No current token.
         INTEXT,    ///< Collecting token text.
         INSQUOTE,  ///< Collecting token, inside single quotes.
@@ -186,9 +186,13 @@ QStringList MythCommandLineParser::MythSplitCommandString(const QString &line)
                 state = START;
                 break;
             }
-            else if (c == '\'') state = INSQUOTE;
-            else if (c == '\"') state = INDQUOTE;
-            else if (c == '\\') state = ESCTEXT;
+            else if (c == '\'') {
+                state = INSQUOTE;
+            } else if (c == '\"') {
+                state = INDQUOTE;
+            } else if (c == '\\') {
+                state = ESCTEXT;
+            }
             break;
           case INSQUOTE:
             if      (c == '\'') state = INTEXT;
@@ -466,7 +470,9 @@ QString CommandLineArg::GetLongHelpString(QString keyword) const
                 first = false;
             }
             else
+            {
                 msg << "             " << word << Qt::endl;
+            }
         }
     }
 
@@ -1009,7 +1015,9 @@ void CommandLineArg::Convert(void)
             (*iter) = QString::fromLocal8Bit(iter->toByteArray());
     }
     else
+    {
         return;
+    }
 
     m_converted = true;
 }
@@ -1657,7 +1665,9 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
             }
         }
         else
+        {
             argdef = m_optionedArgs[opt];
+        }
 
         // argument has been marked as removed, warn user and fail
         if (!argdef->m_removed.isEmpty())
@@ -2391,7 +2401,9 @@ QStringList MythCommandLineParser::toStringList(const QString& key, const QStrin
         varval = arg->m_stored;
     }
     else
+    {
         varval = arg->m_default;
+    }
 
     if (arg->m_type == QMetaType::QString && !sep.isEmpty())
         val = varval.toString().split(sep);
@@ -2473,7 +2485,9 @@ void MythCommandLineParser::allowArgs(bool allow)
             m_namedArgs.remove("_args");
     }
     else if (!allow)
+    {
         return;
+    }
 
     auto *arg = new CommandLineArg("_args", QMetaType::QStringList, QStringList());
     m_namedArgs["_args"] = arg;
@@ -2490,7 +2504,9 @@ void MythCommandLineParser::allowExtras(bool allow)
             m_namedArgs.remove("_extra");
     }
     else if (!allow)
+    {
         return;
+    }
 
     QMap<QString,QVariant> vmap;
     auto *arg = new CommandLineArg("_extra", QMetaType::QVariantMap, vmap);
@@ -2509,7 +2525,9 @@ void MythCommandLineParser::allowPassthrough(bool allow)
             m_namedArgs.remove("_passthrough");
     }
     else if (!allow)
+    {
         return;
+    }
 
     auto *arg = new CommandLineArg("_passthrough",
                                     QMetaType::QStringList, QStringList());
@@ -2848,8 +2866,6 @@ bool MythCommandLineParser::SetValue(const QString &key, const QVariant& value)
  */
 int MythCommandLineParser::ConfigureLogging(const QString& mask, bool progress)
 {
-    int err = 0;
-
     // Setup the defaults
     verboseString = "";
     verboseMask   = 0;
@@ -2857,11 +2873,14 @@ int MythCommandLineParser::ConfigureLogging(const QString& mask, bool progress)
 
     if (toBool("verbose"))
     {
-        if ((err = verboseArgParse(toString("verbose"))) != 0)
+        int err = verboseArgParse(toString("verbose"));
+        if (err != 0)
             return err;
     }
     else if (toBool("verboseint"))
+    {
         verboseMask = static_cast<uint64_t>(toLongLong("verboseint"));
+    }
 
     verboseMask |= VB_STDIO|VB_FLUSH;
 

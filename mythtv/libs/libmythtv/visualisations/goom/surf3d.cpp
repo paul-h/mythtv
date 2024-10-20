@@ -34,9 +34,9 @@ grid3d *grid3d_new (int sizex, int defx, int sizez, int defz, v3d center) {
 		x = defx;
 		while (x) {
 			--x;
-			s->vertex[x+defx*y].x = (x-defx/2.0F)*sizex/defx;
-			s->vertex[x+defx*y].y = 0;
-			s->vertex[x+defx*y].z = (y-defz/2.0F)*sizez/defz;
+			s->vertex[x+(defx*y)].x = (x-defx/2.0F)*sizex/defx;
+			s->vertex[x+(defx*y)].y = 0;
+			s->vertex[x+(defx*y)].z = (y-defz/2.0F)*sizez/defz;
 		}
 	}
 	return g;
@@ -67,7 +67,7 @@ void grid3d_draw (grid3d *g, int color, int colorlow,
 		V3D_TO_V2D(g->surf.svertex[x],v2x,W,H,dist);
 
 		for (int z=1;z<g->defz;z++) {
-			V3D_TO_V2D(g->surf.svertex[z*g->defx + x],v2,W,H,dist);
+			V3D_TO_V2D(g->surf.svertex[(z*g->defx) + x],v2,W,H,dist);
 			if (((v2.x != -666) || (v2.y!=-666))
 					&& ((v2x.x != -666) || (v2x.y!=-666))) {
 				draw_line(buf,v2x.x,v2x.y,v2.x,v2.y, colorlow, W, H);

@@ -98,7 +98,9 @@ void MythHTTPEncoding::GetContentType(MythHTTPRequest* Request)
             LOG(VB_HTTP, LOG_ERR, QString("Don't know how to get the parameters for MIME type: '%1'").arg(mime.Name()));
     }
     else
+    {
         LOG(VB_HTTP, LOG_ERR, QString("Unknown MIME type: '%1'").arg(types[0]));
+    }
 
 }
 
@@ -246,7 +248,11 @@ MythMimeType MythHTTPEncoding::GetMimeType(HTTPVariant Content)
     if (!(data || file))
         return {};
 
-    QString filename = data ? (*data)->m_fileName : file ? (*file)->m_fileName : "";
+    QString filename;
+    if (data)
+        filename = (*data)->m_fileName;
+    else if (file)
+        filename = (*file)->m_fileName;
 
     // Look for unambiguous mime type
     auto types = MythMimeDatabase::MimeTypesForFileName(filename);

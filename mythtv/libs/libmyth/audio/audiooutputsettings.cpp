@@ -33,10 +33,10 @@ const format_array AudioOutputSettings::kStdFormats
 };
 
 AudioOutputSettings::AudioOutputSettings(bool invalid) :
-    m_invalid(invalid)
+    m_invalid(invalid),
+    m_srIt(kStdRates.begin()),
+    m_sfIt(kStdFormats.begin())
 {
-    m_srIt = kStdRates.begin();
-    m_sfIt = kStdFormats.begin();
 }
 
 AudioOutputSettings::~AudioOutputSettings()
@@ -399,8 +399,7 @@ AudioOutputSettings* AudioOutputSettings::GetUsers(bool newcopy)
     if (max_channels == 2 && (bAC3 || bDTS))
         max_channels = 6;
 
-    if (cur_channels > max_channels)
-        cur_channels = max_channels;
+    cur_channels = std::min(cur_channels, max_channels);
 
     aosettings->SetBestSupportedChannels(cur_channels);
     aosettings->setFeature(bAC3, FEATURE_AC3);

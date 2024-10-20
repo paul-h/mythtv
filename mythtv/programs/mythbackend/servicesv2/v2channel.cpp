@@ -25,10 +25,12 @@
 //////////////////////////////////////////////////////////////////////////////
 
 // C++
+#include <algorithm>
 #include <cmath>
 
 // Qt
 #include <QList>
+#include <QTemporaryFile>
 
 // MythTV
 #include "libmythbase/http/mythhttpmetaservice.h"
@@ -38,6 +40,7 @@
 #include "libmythbase/mythversion.h"
 #include "libmythbase/mythcorecontext.h"
 #include "libmythbase/programtypes.h"
+#include "libmythbase/mythdownloadmanager.h"
 #include "libmythtv/channelutil.h"
 #include "libmythtv/channelscan/scanwizardconfig.h"
 #include "libmythtv/channelscan/channelscanner_web.h"
@@ -48,6 +51,8 @@
 #include "libmythbase/mythdate.h"
 #include "libmythtv/frequencies.h"
 #include "libmythbase/mythsystemlegacy.h"
+#include "libmythtv/restoredata.h"
+#include "libmythtv/scheduledrecording.h"
 
 // MythBackend
 #include "v2artworkInfoList.h"
@@ -90,6 +95,7 @@ void V2Channel::RegisterCustomTypes()
     qRegisterMetaType<V2ScanStatus*>("V2ScanStatus");
     qRegisterMetaType<V2Scan*>("V2Scan");
     qRegisterMetaType<V2ScanList*>("V2ScanList");
+    qRegisterMetaType<V2ChannelRestore*>("V2ChannelRestore");
 }
 
 V2Channel::V2Channel() : MythHTTPService(s_service)
@@ -136,7 +142,7 @@ V2ChannelInfoList* V2Channel::GetChannelInfoList( uint nSourceID,
     {
         V2ChannelInfo *pChannelInfo = pChannelInfos->AddNewChannelInfo();
 
-        ChannelInfo channelInfo = (*chanIt);
+        const ChannelInfo& channelInfo = (*chanIt);
 
         if (!V2FillChannelInfo(pChannelInfo, channelInfo, bDetails))
         {
@@ -287,6 +293,9 @@ bool V2Channel::UpdateDBChannel( uint          MplexID,
         channel.m_defaultAuthority, channel.m_serviceType,
         channel.m_recPriority, channel.m_tmOffset, channel.m_commMethod );
 
+    if (bResult)
+        ScheduledRecording::RescheduleMatch(0, 0, 0,
+                             QDateTime(), "UpdateDBChannel");
     return bResult;
 }
 
@@ -303,8 +312,7 @@ uint V2Channel::GetAvailableChanid ( void ) {
     }
     if (query.next())
         chanId = query.value(0).toUInt() + 1;
-    if (chanId < 1000)
-        chanId = 1000;
+    chanId = std::max<uint>(chanId, 1000);
     return chanId;
 }
 
@@ -700,15 +708,20 @@ V2VideoMultiplexList* V2Channel::GetVideoMultiplexList( uint nSourceID,
     if (!query.isConnected())
         throw( QString("Database not open while trying to list "
                        "Video Sources."));
-
-    query.prepare("SELECT mplexid, sourceid, transportid, networkid, "
+    QString where;
+    if (nSourceID > 0)
+        where = "WHERE sourceid = :SOURCEID";
+    QString sql = QString("SELECT mplexid, sourceid, transportid, networkid, "
                   "frequency, inversion, symbolrate, fec, polarity, "
                   "modulation, bandwidth, lp_code_rate, transmission_mode, "
                   "guard_interval, visible, constellation, hierarchy, hp_code_rate, "
                   "mod_sys, rolloff, sistandard, serviceversion, updatetimestamp, "
-                  "default_authority FROM dtv_multiplex WHERE sourceid = :SOURCEID "
-                  "ORDER BY mplexid" );
-    query.bindValue(":SOURCEID", nSourceID);
+                  "default_authority FROM dtv_multiplex %1 "
+                  "ORDER BY mplexid").arg(where);
+
+    query.prepare(sql);
+    if (nSourceID > 0)
+        query.bindValue(":SOURCEID", nSourceID);
 
     if (!query.exec())
     {
@@ -926,7 +939,9 @@ QStringList V2Channel::GetXMLTVIdList( uint SourceID )
         }
     }
     else
+    {
         throw(QString("SourceID (%1) not found").arg(SourceID));
+    }
 
     return idList;
 }
@@ -970,7 +985,7 @@ V2GrabberList* V2Channel::GetGrabberList  (  )
             QString grabber_list(ostream.readLine());
             QStringList grabber_split =
                 grabber_list.split("|", Qt::SkipEmptyParts);
-            QString grabber_name = grabber_split[1];
+            const QString& grabber_name = grabber_split[1];
             QFileInfo grabber_file(grabber_split[0]);
             QString program = grabber_file.fileName();
 
@@ -1139,4 +1154,106 @@ bool  V2Channel::SendScanDialogResponse ( uint Cardid,
         return true;
     }
     return false;
+}
+
+V2ChannelRestore* V2Channel::GetRestoreData ( uint SourceId,
+                                    bool XmltvId,
+                                    bool Icon,
+                                    bool Visible)
+{
+    auto * pResult = new V2ChannelRestore();
+    RestoreData* rd = RestoreData::getInstance(SourceId);
+    QString result = rd->doRestore(XmltvId, Icon, Visible);
+    if (result.isEmpty())
+        throw( QString("GetRestoreData failed."));
+    pResult->setNumChannels(rd->m_num_channels);
+    pResult->setNumXLMTVID(rd->m_num_xmltvid);
+    pResult->setNumIcon(rd->m_num_icon);
+    pResult->setNumVisible(rd->m_num_visible);
+    return pResult;
+}
+
+bool V2Channel::SaveRestoreData ( uint SourceId )
+{
+    RestoreData* rd = RestoreData::getInstance(SourceId);
+    bool result = rd->doSave();
+    RestoreData::freeInstance();
+    return result;
+}
+
+
+bool V2Channel::CopyIconToBackend(const QString& Url, const QString& ChanId)
+{
+    QString filename = Url.section('/', -1);
+
+    QString dirpath = GetConfDir();
+    QDir configDir(dirpath);
+    if (!configDir.exists() && !configDir.mkdir(dirpath))
+    {
+        LOG(VB_GENERAL, LOG_ERR, QString("Could not create %1").arg(dirpath));
+    }
+
+    QString channelDir = QString("%1/%2").arg(configDir.absolutePath(),
+                                           "/channels");
+    QDir strChannelDir(channelDir);
+    if (!strChannelDir.exists() && !strChannelDir.mkdir(channelDir))
+    {
+        LOG(VB_GENERAL, LOG_ERR,
+            QString("Could not create %1").arg(channelDir));
+    }
+    channelDir += "/";
+
+    QString filePath = channelDir + filename;
+
+    // If we get to this point we've already checked whether the icon already
+    // exist locally, we want to download anyway to fix a broken image or
+    // get the latest version of the icon
+
+    QTemporaryFile tmpFile(filePath);
+    if (!tmpFile.open())
+    {
+        LOG(VB_GENERAL, LOG_INFO, "Icon Download: Couldn't create temporary file");
+        return false;
+    }
+
+    bool fRet = GetMythDownloadManager()->download(Url, tmpFile.fileName());
+
+    if (!fRet)
+    {
+        LOG(VB_GENERAL, LOG_INFO,
+            QString("Download for icon %1 failed").arg(filename));
+        return false;
+    }
+
+    QImage icon(tmpFile.fileName());
+    if (icon.isNull())
+    {
+        LOG(VB_GENERAL, LOG_INFO,
+            QString("Downloaded icon for %1 isn't a valid image").arg(filename));
+        return false;
+    }
+
+    // Remove any existing icon
+    QFile file(filePath);
+    file.remove();
+
+    // Rename temporary file & prevent it being cleaned up
+    tmpFile.rename(filePath);
+    tmpFile.setAutoRemove(false);
+
+    MSqlQuery query(MSqlQuery::InitCon());
+    QString  qstr = "UPDATE channel SET icon = :ICON "
+                    "WHERE chanid = :CHANID";
+
+    query.prepare(qstr);
+    query.bindValue(":ICON", filename);
+    query.bindValue(":CHANID", ChanId);
+
+    if (!query.exec())
+    {
+        MythDB::DBError("Error inserting channel icon", query);
+        return false;
+    }
+
+    return fRet;
 }

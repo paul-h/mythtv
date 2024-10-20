@@ -4,6 +4,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <algorithm>
 #include <climits>
 #include <fcntl.h>
 #include <unistd.h>
@@ -485,8 +486,8 @@ void V4L2util::SetDefaultOptions(DriverOption::Options& options)
             DriverOption::menu_t::iterator Imenu = (*Iopt).m_menu.begin();
             for ( ; Imenu != (*Iopt).m_menu.end(); ++Imenu)
             {
-                if (Imenu.key() < minimum) minimum = Imenu.key();
-                if (Imenu.key() > maximum) maximum = Imenu.key();
+                minimum = std::min(Imenu.key(), minimum);
+                maximum = std::max(Imenu.key(), maximum);
             }
             if ((*Iopt).m_minimum != minimum)
             {
@@ -805,7 +806,9 @@ int V4L2util::GetStreamType(void) const
         type = V4L2_MPEG_STREAM_TYPE_MPEG2_PS;
     }
     else
+    {
         type = GetExtControl(V4L2_CID_MPEG_STREAM_TYPE, "Stream Type");
+    }
 
     LOG(VB_CHANNEL, LOG_INFO, LOC +
         QString("MPEG Stream Type is currently set to %1 (%2)")
@@ -1005,7 +1008,7 @@ bool V4L2util::SetVolume(int volume)
     // calculate volume in card units.
     int range = qctrl.maximum - qctrl.minimum;
     int value = (int) ((range * volume * 0.01F) + qctrl.minimum);
-    int ctrl_volume = std::min(qctrl.maximum, std::max(qctrl.minimum, value));
+    int ctrl_volume = std::clamp(value, qctrl.minimum, qctrl.maximum);
 
     // Set recording volume
     struct v4l2_control ctrl {};

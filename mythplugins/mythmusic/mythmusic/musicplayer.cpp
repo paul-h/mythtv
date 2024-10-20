@@ -440,7 +440,9 @@ void MusicPlayer::next(void)
         m_oneshotMetadata = nullptr;
     }
     else
+    {
         currentTrack++;
+    }
 
     if (currentTrack >= getCurrentPlaylist()->getTrackCount())
     {
@@ -477,7 +479,9 @@ void MusicPlayer::previous(void)
         m_oneshotMetadata = nullptr;
     }
     else
+    {
         currentTrack--;
+    }
 
     if (currentTrack >= 0)
     {
@@ -660,7 +664,7 @@ void MusicPlayer::customEvent(QEvent *event)
                 {
                     if (list.size() == 4)
                     {
-                        QString filename = list[3];
+                        const QString& filename = list[3];
                         MusicMetadata mdata;
                         mdata.setFilename(filename);
                         playFile(mdata);
@@ -753,7 +757,7 @@ void MusicPlayer::customEvent(QEvent *event)
             QStringList list = me->Message().simplified().split(' ');
             if (list.size() == 2)
             {
-                QString host = list[1];
+                const QString& host = list[1];
                 int id = getNotificationID(host);
                 sendNotification(id,
                                  tr("A music file scan has started on %1").arg(host),
@@ -766,7 +770,7 @@ void MusicPlayer::customEvent(QEvent *event)
             QStringList list = me->Message().simplified().split(' ');
             if (list.size() == 6)
             {
-                QString host = list[1];
+                const QString& host = list[1];
                 int id = getNotificationID(host);
                 int totalTracks = list[2].toInt();
                 int newTracks = list[3].toInt();
@@ -787,8 +791,8 @@ void MusicPlayer::customEvent(QEvent *event)
             QStringList list = me->Message().simplified().split(' ');
             if (list.size() == 3)
             {
-                QString host = list[1];
-                QString error = list[2];
+                const QString& host = list[1];
+                const QString& error = list[2];
                 int id = getNotificationID(host);
 
                 if (error == "Already_Running")
@@ -986,7 +990,9 @@ void MusicPlayer::loadPlaylist(void)
             m_currentTrack = bookmark;
         }
         else
+        {
             m_currentTrack = 0;
+        }
 
         setShuffleMode(SHUFFLE_OFF);
     }
@@ -1001,7 +1007,9 @@ void MusicPlayer::loadPlaylist(void)
             m_currentTrack = bookmark;
         }
         else
+        {
             m_currentTrack = 0;
+        }
     }
 }
 

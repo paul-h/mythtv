@@ -83,8 +83,8 @@ class TreeNodeDataPrivate
 };
 
 TreeNodeData::TreeNodeData(VideoMetadata *metadata)
+  : m_d(new TreeNodeDataPrivate(metadata))
 {
-    m_d = new TreeNodeDataPrivate(metadata);
 }
 
 TreeNodeData::TreeNodeData(QString path, QString host, QString prefix)
@@ -328,7 +328,8 @@ class VideoListImp
     using metadata_view_list = std::vector<VideoMetadata *>;
 
   private:
-    enum metadata_list_type { ltNone, ltFileSystem, ltDBMetadata,
+    enum metadata_list_type : std::uint8_t
+                            { ltNone, ltFileSystem, ltDBMetadata,
                               ltDBGenreGroup, ltDBCategoryGroup,
                               ltDBYearGroup, ltDBDirectorGroup,
                               ltDBStudioGroup, ltDBCastGroup,
@@ -448,8 +449,8 @@ class VideoListImp
 };
 
 VideoList::VideoList()
+  : m_imp(new VideoListImp)
 {
-    m_imp = new VideoListImp;
 }
 
 VideoList::~VideoList()
@@ -939,7 +940,9 @@ void VideoListImp::buildTVList(void)
             season_node->addEntry(smart_meta_node(new meta_data_node(data)));
         }
         else
+        {
             movie_node->addEntry(smart_meta_node(new meta_data_node(data)));
+        }
     }
 }
 
@@ -1062,7 +1065,7 @@ static void copy_filtered_tree(meta_dir_node &dst, meta_dir_node &src,
     copy_entries(dst, src, filter);
     for (auto dir = src.dirs_begin(); dir != src.dirs_end(); ++dir)
     {
-        simple_ref_ptr<meta_dir_node> node = *dir;
+        const simple_ref_ptr<meta_dir_node>& node = *dir;
         if (node == nullptr)
             continue;
 

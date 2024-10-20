@@ -283,7 +283,7 @@ void MythPainter::DrawTextPriv(MythImage *im, const QString &msg, int flags,
 
         path.translate(adjX + textOffsetX, adjY + textOffsetY);
         QPen pen = tmp.pen();
-        pen.setWidth(outlineSize * 2 + 1);
+        pen.setWidth((outlineSize * 2) + 1);
         pen.setCapStyle(Qt::RoundCap);
         pen.setJoinStyle(Qt::RoundJoin);
         tmp.setPen(pen);
@@ -314,11 +314,8 @@ void MythPainter::DrawRectPriv(MythImage *im, const QRect area, int radius,
     painter.setPen(linePen);
     painter.setBrush(fillBrush);
 
-    if ((area.width() / 2) < radius)
-        radius = area.width() / 2;
-
-    if ((area.height() / 2) < radius)
-        radius = area.height() / 2;
+    radius = std::min(area.width() / 2, radius);
+    radius = std::min(area.height() / 2, radius);
 
     int lineWidth = linePen.width();
     QRect r(lineWidth, lineWidth,

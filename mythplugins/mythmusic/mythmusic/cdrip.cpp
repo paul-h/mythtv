@@ -522,7 +522,6 @@ Ripper::Ripper(MythScreenStack *parent, QString device) :
 {
 #ifndef _WIN32
     // if the MediaMonitor is running stop it
-    m_mediaMonitorActive = false;
     MediaMonitor *mon = MediaMonitor::GetMediaMonitor();
     if (mon && mon->IsActive())
     {
@@ -640,7 +639,7 @@ bool Ripper::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "EDIT" || action == "INFO") // INFO purely for historical reasons
@@ -802,7 +801,9 @@ void Ripper::ScanFinished()
 
             }
             else
+            {
                 delete ripTrack;
+            }
         }
 
         m_artistEdit->SetText(m_artistName);
@@ -1109,7 +1110,9 @@ void Ripper::startRipper(void)
         mainStack->AddScreen(statusDialog);
     }
     else
+    {
         delete statusDialog;
+    }
 }
 
 void Ripper::RipComplete(bool result)
@@ -1221,7 +1224,9 @@ void Ripper::updateTrackList(void)
                 item->SetText(MythDate::formatTime(track->length, "mm:ss"), "length");
             }
             else
+            {
                 item->SetText("", "length");
+            }
 
 //             if (i == m_currentTrack)
 //                 m_trackList->SetItemCurrent(i);
@@ -1502,7 +1507,7 @@ bool RipStatus::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
 
@@ -1515,7 +1520,9 @@ bool RipStatus::keyPressEvent(QKeyEvent *event)
                 dialog->SetReturnEvent(this, "stop_ripping");
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

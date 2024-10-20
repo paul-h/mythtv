@@ -15,13 +15,13 @@
 //static constexpr uint8_t DSMCC_TRANSPORT_ERROR { 0x80 };
 //static constexpr uint8_t DSMCC_START_INDICATOR { 0x40 };
 
-enum DSMCC_MESSAGES {
+enum DSMCC_MESSAGES : std::uint16_t {
     DSMCC_MESSAGE_DSI         = 0x1006,
     DSMCC_MESSAGE_DII         = 0x1002,
     DSMCC_MESSAGE_DDB         = 0x1003,
 };
 
-enum DSMCC_SECTIONS {
+enum DSMCC_SECTIONS : std::uint8_t {
     DSMCC_SECTION_INDICATION  = 0x3B,
     DSMCC_SECTION_DATA        = 0x3C,
     DSMCC_SECTION_DESCR       = 0x3D,
@@ -145,11 +145,12 @@ void Dsmcc::ProcessDownloadServerInitiate(const unsigned char *data,
     }
 
     /* 20,21 compatibilitydescriptorlength = 0x0000 */
-    if (data[off++] != 0 || data[off++] != 0)
+    if (data[off] != 0 || data[off+1] != 0)
     {
         LOG(VB_DSMCC, LOG_WARNING, "[dsmcc] DSI non zero compatibilityDescriptorLen");
         return;
     }
+    off += 2;
 
     // 22,23 privateData length
     int data_len = (data[off] << 8) | data[off+1];

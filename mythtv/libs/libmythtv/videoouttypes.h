@@ -7,7 +7,7 @@
 #include <QObject>
 
 // Caption Display modes
-enum
+enum : std::uint16_t
 {
     kDisplayNone                = 0x000,
     kDisplayNUVTeletextCaptions = 0x001,
@@ -39,7 +39,7 @@ inline bool OptionalCaptionEnabled(uint Captions)
            (kDisplayTeletextMenu        == Captions);
 }
 
-enum ZoomDirection
+enum ZoomDirection : std::uint8_t
 {
     kZoomHome = 0,
     kZoomIn,
@@ -57,41 +57,41 @@ enum ZoomDirection
     kZoom_END
 };
 
-enum AspectOverrideMode
+enum AspectOverrideMode : std::int8_t
 {
     kAspect_Toggle = -1,
-    kAspect_Off = 0,
-    kAspect_4_3,
-    kAspect_16_9,
-    kAspect_14_9, // added after 16:9 so as not to upset existing setups.
-    kAspect_2_35_1,
-    kAspect_END
+    kAspect_Off    = 0,
+    kAspect_4_3    = 1,
+    kAspect_16_9   = 2,
+    kAspect_14_9   = 3, // added after 16:9 so as not to upset existing setups.
+    kAspect_2_35_1 = 4,
+    kAspect_END    = 5
 };
 
-enum AdjustFillMode
+enum AdjustFillMode : std::int8_t
 {
     kAdjustFill_Toggle = -1,
     kAdjustFill_Off = 0,
-    kAdjustFill_Half,
-    kAdjustFill_Full,
-    kAdjustFill_HorizontalStretch,
-    kAdjustFill_VerticalStretch,
-    kAdjustFill_HorizontalFill,
-    kAdjustFill_VerticalFill,
-    kAdjustFill_END,
-    kAdjustFill_AutoDetect_DefaultOff,
-    kAdjustFill_AutoDetect_DefaultHalf,
+    kAdjustFill_Half = 1,
+    kAdjustFill_Full = 2,
+    kAdjustFill_HorizontalStretch = 3,
+    kAdjustFill_VerticalStretch = 4,
+    kAdjustFill_HorizontalFill = 5,
+    kAdjustFill_VerticalFill = 6,
+    kAdjustFill_END = 7,
+    kAdjustFill_AutoDetect_DefaultOff = 8,
+    kAdjustFill_AutoDetect_DefaultHalf = 9,
 };
 
-enum LetterBoxColour
+enum LetterBoxColour : std::int8_t
 {
     kLetterBoxColour_Toggle = -1,
     kLetterBoxColour_Black = 0,
-    kLetterBoxColour_Gray25,
-    kLetterBoxColour_END
+    kLetterBoxColour_Gray25 = 1,
+    kLetterBoxColour_END = 2
 };
 
-enum FrameScanType
+enum FrameScanType : std::int8_t
 {
     kScan_Ignore       = -1,
     kScan_Detect       =  0,
@@ -100,20 +100,20 @@ enum FrameScanType
     kScan_Progressive  =  3,
 };
 
-enum PictureAttribute
+enum PictureAttribute : std::uint8_t
 {
     kPictureAttribute_None = 0,
     kPictureAttribute_MIN = 0,
     kPictureAttribute_Brightness = 1,
-    kPictureAttribute_Contrast,
-    kPictureAttribute_Colour,
-    kPictureAttribute_Hue,
-    kPictureAttribute_Range,
-    kPictureAttribute_Volume,
-    kPictureAttribute_MAX
+    kPictureAttribute_Contrast = 2,
+    kPictureAttribute_Colour = 3,
+    kPictureAttribute_Hue = 4,
+    kPictureAttribute_Range = 5,
+    kPictureAttribute_Volume = 6,
+    kPictureAttribute_MAX = 7
 };
 
-enum PictureAttributeSupported
+enum PictureAttributeSupported : std::uint8_t
 {
     kPictureAttributeSupported_None       = 0x00,
     kPictureAttributeSupported_Brightness = 0x01,
@@ -131,7 +131,7 @@ enum PictureAttributeSupported
      kPictureAttributeSupported_Hue | \
      kPictureAttributeSupported_Range)
 
-enum StereoscopicMode
+enum StereoscopicMode : std::uint8_t
 {
     kStereoscopicModeAuto,
     kStereoscopicModeIgnore3D,
@@ -139,7 +139,7 @@ enum StereoscopicMode
     kStereoscopicModeTopAndBottomDiscard
 };
 
-enum PrimariesMode
+enum PrimariesMode : std::uint8_t
 {
     PrimariesDisabled = 0,
     PrimariesRelaxed,
@@ -179,7 +179,7 @@ inline QString StereoscopictoString(StereoscopicMode Mode)
     return QObject::tr("Unknown");
 }
 
-enum VideoErrorState
+enum VideoErrorState : std::uint8_t
 {
     kError_None            = 0x00,
     kError_Unknown         = 0x01,

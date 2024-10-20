@@ -2,6 +2,8 @@
 #ifndef MYTHTV_CONFIG_H
 #define MYTHTV_CONFIG_H
 
+/* NOLINTBEGIN(cppcoreguidelines-macro-usage,modernize-macro-to-enum) */
+
 #define QT_MIN_VERSION_STR  "@QT_MIN_VERSION_STR@"
 #define QT_MIN_VERSION_HEX   @QT_MIN_VERSION_HEX@
 #define QT_MIN_VERSION       @QT_MIN_VERSION@
@@ -45,6 +47,7 @@
 #cmakedefine01 HAVE_BIGENDIAN
 #cmakedefine01 HAVE_BYTESWAP_H
 #cmakedefine01 HAVE_DIRENT_H
+#cmakedefine01 HAVE_CLOSE_RANGE
 #cmakedefine01 HAVE_FE_CAN_2G_MODULATION
 #cmakedefine01 HAVE_GETIFADDRS
 #cmakedefine01 HAVE_GETOPT_H
@@ -53,6 +56,7 @@
 #cmakedefine01 HAVE_LIBUDEV
 #cmakedefine01 HAVE_MALLOC_H
 #cmakedefine01 HAVE_POSIX_FADVISE
+#cmakedefine01 HAVE_POSIX_MEMALIGN
 #cmakedefine01 HAVE_STDINT_H
 #cmakedefine01 HAVE_STRUCT_HDR_METADATA_INFOFRAME
 #cmakedefine01 HAVE_SYS_DL_H
@@ -83,5 +87,7 @@
  */
 #define HAVE_LIBUDFREAD 1
 #define HAVE_LIBBLURAY 1
+
+/* NOLINTEND(cppcoreguidelines-macro-usage,modernize-macro-to-enum) */
 
 #endif /* MYTHTV_CONFIG_H */

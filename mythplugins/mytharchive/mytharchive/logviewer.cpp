@@ -72,8 +72,10 @@ void showLogViewer(void)
             mainStack->AddScreen(viewer);
     }
     else
+    {
         showWarningDialog(QCoreApplication::translate("LogViewer",
             "Cannot find any logs to show!"));
+    }
 }
 
 LogViewer::~LogViewer(void)
@@ -138,7 +140,7 @@ bool LogViewer::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "MENU")
@@ -296,7 +298,9 @@ bool LogViewer::loadFile(const QString& filename, QStringList &list, int startli
         file.close();
     }
     else
+    {
         return false;
+    }
 
     return true;
 }

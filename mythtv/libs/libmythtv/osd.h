@@ -41,7 +41,7 @@ class MythMainWindow;
 class MythPlayerUI;
 
 
-enum OSDFunctionalType
+enum OSDFunctionalType : std::uint8_t
 {
     kOSDFunctionalType_Default = 0,
     kOSDFunctionalType_PictureAdjust,
@@ -52,7 +52,7 @@ enum OSDFunctionalType
     kOSDFunctionalType_SubtitleDelayAdjust
 };
 
-enum OSDTimeout
+enum OSDTimeout : std::int8_t
 {
     kOSDTimeout_Ignore = -1, // Don't update existing timeout
     kOSDTimeout_None   = 0,  // Don't timeout
@@ -67,8 +67,8 @@ class MythOSDDialogData
     class MythOSDDialogButton
     {
       public:
-        QString  m_text    { };
-        QVariant m_data    { };
+        QString  m_text;
+        QVariant m_data;
         bool     m_menu    { false };
         bool     m_current { false };
     };
@@ -76,15 +76,15 @@ class MythOSDDialogData
     class MythOSDBackButton
     {
       public:
-        QString  m_text { };
+        QString  m_text;
         QVariant m_data { 0 };
         bool     m_exit { false };
     };
 
     QString m_dialogName;
-    QString m_message { };
+    QString m_message { }; //NOLINT(readability-redundant-member-init)
     std::chrono::milliseconds m_timeout { 0ms };
-    std::vector<MythOSDDialogButton> m_buttons { };
+    std::vector<MythOSDDialogButton> m_buttons { }; //NOLINT(readability-redundant-member-init)
     MythOSDBackButton m_back { };
 };
 
@@ -145,12 +145,12 @@ class OSD : public MythMediaOverlay
     bool            m_embedded          { false };
     std::chrono::milliseconds m_fadeTime { kOSDFadeTime };
     MythScreenType* m_dialog            { nullptr };
-    QString         m_pulsedDialogText  { };
-    QDateTime       m_nextPulseUpdate   { };
+    QString         m_pulsedDialogText;
+    QDateTime       m_nextPulseUpdate;
     std::array<std::chrono::milliseconds,4> m_timeouts  { -1ms, 3s, 5s, 13s };
     enum OSDFunctionalType m_functionalType { kOSDFunctionalType_Default };
-    QString                m_functionalWindow { };
-    QHash<MythScreenType*, QDateTime> m_expireTimes { };
+    QString                m_functionalWindow;
+    QHash<MythScreenType*, QDateTime> m_expireTimes;
 };
 
 #endif

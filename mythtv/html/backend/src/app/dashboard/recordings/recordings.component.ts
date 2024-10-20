@@ -1,8 +1,9 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { NgForm } from '@angular/forms';
 import { TranslateService } from '@ngx-translate/core';
-import { FilterMatchMode, LazyLoadEvent, MenuItem, MessageService, SelectItem } from 'primeng/api';
+import { FilterMatchMode, MenuItem, MessageService, SelectItem } from 'primeng/api';
 import { Menu } from 'primeng/menu';
+import { Table, TableLazyLoadEvent } from 'primeng/table';
 import { PartialObserver } from 'rxjs';
 import { DvrService } from 'src/app/services/dvr.service';
 import { GetRecordedListRequest, UpdateRecordedMetadataRequest } from 'src/app/services/interfaces/dvr.interface';
@@ -21,13 +22,15 @@ export class RecordingsComponent implements OnInit {
 
   @ViewChild("recsform") currentForm!: NgForm;
   @ViewChild("menu") menu!: Menu;
+  @ViewChild('table') table!: Table;
+  @ViewChildren('row') rows!: QueryList<ElementRef>;
 
   programs: ScheduleOrProgram[] = [];
   selection: ScheduleOrProgram[] = [];
   actionList: ScheduleOrProgram[] = [];
   recGroups: string[] = [];
   newRecGroup = '';
-  lazyLoadEvent!: LazyLoadEvent;
+  lazyLoadEvent!: TableLazyLoadEvent;
   JobQCmds!: JobQCommands;
   program: ScheduleOrProgram = <ScheduleOrProgram>{ Title: '', Recording: {} };
   editingProgram?: ScheduleOrProgram;
@@ -39,6 +42,11 @@ export class RecordingsComponent implements OnInit {
   errorCount = 0;
   refreshing = false;
   priorRequest: GetRecordedListRequest = {};
+  totalRecords = 0;
+  showTable = false;
+  virtualScrollItemSize = 0;
+  searchValue = '';
+  selectedRecGroup: string | null = null;
 
   msg = {
     Success: 'common.success',
@@ -130,70 +138,122 @@ export class RecordingsComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Initial Load
+    this.loadLazy({ first: 0, rows: 1 });
   }
 
-  loadLazy(event: LazyLoadEvent) {
+  loadLazy(event: TableLazyLoadEvent) {
     this.lazyLoadEvent = event;
     let request: GetRecordedListRequest = {
       StartIndex: 0,
       Count: 1
     };
-    if (event.first)
+    if (event.first != undefined) {
       request.StartIndex = event.first;
-    if (event.rows)
-      request.Count = event.rows;
-    if (!event.sortField)
-      event.sortField = 'Title';
-    request.Sort = event.sortField
-    if (event.sortField == 'Airdate')
+      if (event.last)
+        request.Count = event.last - event.first;
+      else if (event.rows)
+        request.Count = event.rows;
+      // When it only requests 50 rows, page down waits until the entire
+      // screen is empty before loading the next page. Fix this by always
+      // requesting at least 100 records.
+      // if (!request.Count || request.Count < 100)
+      //   request.Count = 100;
+    }
+    let sortField = '';
+    if (Array.isArray(event.sortField))
+      sortField = event.sortField[0];
+    else if (event.sortField)
+      sortField = event.sortField;
+    if (!sortField)
+      sortField = 'Title';
+    request.Sort = sortField;
+    if (sortField == 'Airdate')
       request.Sort = 'originalairdate';
-    else if (event.sortField == 'Recording.RecGroup')
+    else if (sortField == 'Recording.RecGroup')
       request.Sort = 'recgroup';
     else
-      request.Sort = event.sortField;
+      request.Sort = sortField;
     let sortOrder = ' asc';
     if (event.sortOrder && event.sortOrder < 0)
       sortOrder = ' desc';
     request.Sort = request.Sort + sortOrder;
     request.Sort += `,title${sortOrder},originalairdate${sortOrder},season${sortOrder},episode${sortOrder}`;
-    if (event.filters) {
-      if (event.filters.Title.value) {
-        switch (event.filters.Title.matchMode) {
-          case FilterMatchMode.STARTS_WITH:
-            request.TitleRegEx = '^' + event.filters.Title.value;
-            break;
-          case FilterMatchMode.CONTAINS:
-            request.TitleRegEx = event.filters.Title.value;
-            break;
-          case FilterMatchMode.EQUALS:
-            request.TitleRegEx = '^' + event.filters.Title.value + '$';
-            break;
-        }
-      }
-      if (event.filters['Recording.RecGroup'].value) {
-        if (event.filters['Recording.RecGroup'].matchMode == FilterMatchMode.EQUALS)
-          request.RecGroup = event.filters['Recording.RecGroup'].value;
-      }
-    }
+    // if (event.filters) {
+    //   if (event.filters.Title.value) {
+    //     switch (event.filters.Title.matchMode) {
+    //       case FilterMatchMode.STARTS_WITH:
+    //         request.TitleRegEx = '^' + event.filters.Title.value;
+    //         break;
+    //       case FilterMatchMode.CONTAINS:
+    //         request.TitleRegEx = event.filters.Title.value;
+    //         break;
+    //       case FilterMatchMode.EQUALS:
+    //         request.TitleRegEx = '^' + event.filters.Title.value + '$';
+    //         break;
+    //     }
+    //   }
+    //   if (event.filters['Recording.RecGroup'].value) {
+    //     if (event.filters['Recording.RecGroup'].matchMode == FilterMatchMode.EQUALS)
+    //       request.RecGroup = event.filters['Recording.RecGroup'].value;
+    //   }
+    // }
+
+    if (this.searchValue)
+      request.TitleRegEx = this.searchValue;
+    if (this.selectedRecGroup != null)
+      request.RecGroup = this.selectedRecGroup;
+
     if (request.TitleRegEx != this.priorRequest.TitleRegEx
       || request.RecGroup != this.priorRequest.RecGroup) {
-      this.programs = [];
+      // Do not set this.programs = []; This causes the body to have zero height
+      // After a search
       this.selection = [];
       this.menu.hide();
       this.priorRequest = request;
+      this.showTable = false;
     }
-
     this.dvrService.GetRecordedList(request).subscribe(data => {
       let recordings = data.ProgramList;
+      this.totalRecords = data.ProgramList.TotalAvailable;
       this.programs.length = data.ProgramList.TotalAvailable;
       // populate page of virtual programs
-      this.programs.splice(recordings.StartIndex, recordings.Count,
+      this.programs.splice(recordings.StartIndex, recordings.Programs.length,
         ...recordings.Programs);
       // notify of change
       this.programs = [...this.programs]
       this.refreshing = false;
+      this.showTable = true;
+      let row = this.rows.get(0);
+      if (row && row.nativeElement.offsetHeight)
+        this.virtualScrollItemSize = row.nativeElement.offsetHeight;
+      if (this.table) {
+        this.table.totalRecords = this.totalRecords;
+        this.table.virtualScrollItemSize = this.virtualScrollItemSize;
+      }
+      // setTimeout(() => {
+      //   this.recGroups.push(...this.recGroups)
+      //   this.selectedRecGroup = this.selectedRecGroup;
+      // }, 100);
     });
   }
+
+  onFilter() {
+    this.reload();
+  }
+
+  resetSearch() {
+    this.searchValue = '';
+    this.reload();
+  }
+
+  reload() {
+    this.showTable = false;
+    this.programs.length = 0;
+    this.refreshing = true;
+    this.loadLazy(({ first: 0, rows: 1 }));
+  }
+
 
   refresh() {
     this.selection = [];
@@ -210,6 +270,16 @@ export class RecordingsComponent implements OnInit {
     const endtm = new Date(program.Recording.EndTs).getTime();
     const duration = (endtm - starttm) / 60000;
     return duration;
+  }
+
+  getDownload(program: ScheduleOrProgram) {
+    let fn = program.Title;
+    if (program.Season && program.Episode) {
+      fn = fn + ' - S' + program.Season + 'E' + program.Episode;
+    }
+    if (program.SubTitle)
+      fn = fn + ' - ' + program.SubTitle;
+    return fn;
   }
 
   // return true causes default browser right click menu to show
@@ -287,8 +357,11 @@ export class RecordingsComponent implements OnInit {
           this.jobs[ix + this.jobsoffset].visible = false;
       }
     }
-    // todo: implement this
+    // todo: implement this ??
     // this.menuToShow.push(this.mnu_updaterecrule);
+
+    // Notify Angular that menu has changed
+    this.menuToShow = [...this.menuToShow];
     this.menu.toggle(event);
   }
 

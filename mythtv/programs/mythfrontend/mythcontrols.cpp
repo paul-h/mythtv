@@ -182,8 +182,10 @@ void MythControls::ActionButtonPressed()
         m_menuPopup->AddButton(tr("Set Binding"));
         m_menuPopup->AddButton(tr("Remove Binding"));
     }
-    else // for blank keys, no reason to ask what to do
+    else {
+        // for blank keys, no reason to ask what to do
         GrabKey();
+    }
 }
 
 /**
@@ -248,7 +250,9 @@ void MythControls::Close()
         confirmPopup->SetReturnEvent(this, "exit");
     }
     else
+    {
         MythScreenType::Close();
+    }
 }
 
 /**
@@ -445,10 +449,11 @@ uint MythControls::GetCurrentButton(void)
 QString MythControls::GetCurrentKey(void)
 {
     MythUIButtonListItem* currentButton = nullptr;
-    if (m_leftListType == kKeyList &&
-        (currentButton = m_leftList->GetItemCurrent()))
+    if (m_leftListType == kKeyList)
     {
-        return currentButton->GetText();
+        currentButton = m_leftList->GetItemCurrent();
+        if (currentButton != nullptr)
+            return currentButton->GetText();
     }
 
     if (GetFocusWidget() == m_leftList)
@@ -549,7 +554,9 @@ void MythControls::DeleteKey(void)
         popupStack->AddScreen(confirmPopup);
     }
     else
+    {
         delete confirmPopup;
+    }
 }
 
 /**
@@ -727,7 +734,9 @@ void MythControls::customEvent(QEvent *event)
                 contents = m_bindings->GetKeys();
             }
             else
+            {
                 return;
+            }
 
             m_leftDescription->SetText(leftcaption);
             m_rightDescription->SetText(rightcaption);

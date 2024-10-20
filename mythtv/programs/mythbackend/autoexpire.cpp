@@ -239,7 +239,7 @@ void AutoExpire::CalcParams()
     if (maxKBperMin > 0)
     {
         expireFreq = kSpaceTooBigKB / (maxKBperMin + maxKBperMin/3);
-        expireFreq = std::max(3U, std::min(expireFreq, 15U));
+        expireFreq = std::clamp(expireFreq, 3U, 15U);
     }
 
     double expireMinGB = ((maxKBperMin + maxKBperMin/3)
@@ -944,7 +944,8 @@ void AutoExpire::FillDBOrdered(pginfolist_t &expireList, int expMethod)
             orderby = "starttime ASC";
             break;
         case emOldDeletedPrograms:
-            if ((maxAge = gCoreContext->GetNumSetting("DeletedMaxAge", 0)) <= 0)
+            maxAge = gCoreContext->GetNumSetting("DeletedMaxAge", 0);
+            if (maxAge <= 0)
                 return;
             msg = QString("Adding programs deleted more than %1 days ago")
                           .arg(maxAge);

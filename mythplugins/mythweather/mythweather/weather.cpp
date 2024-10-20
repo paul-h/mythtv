@@ -247,7 +247,7 @@ bool Weather::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "LEFT")
@@ -269,7 +269,9 @@ bool Weather::keyPressEvent(QKeyEvent *event)
             Close();
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -375,7 +377,9 @@ void Weather::nextpage_timeout()
         showScreen(nxt);
     }
     else
+    {
         LOG(VB_GENERAL, LOG_ERR, "Next screen not ready");
+    }
 
     m_nextPageTimer->start(m_nextpageInterval);
 }

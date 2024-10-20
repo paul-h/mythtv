@@ -1,5 +1,6 @@
 #include "captions/teletextreader.h"
 
+#include <algorithm>
 #include <cstring>
 
 #include "captions/vbilut.h"
@@ -35,7 +36,6 @@ bool TeletextReader::KeyPress(const QString &Key, bool& Exit)
     }
 
     TeletextSubPage *curpage = FindSubPage(m_curpage, m_cursubpage);
-    TeletextPage *page = nullptr;
 
     if (Key == ACTION_0 || Key == ACTION_1 || Key == ACTION_2 ||
         Key == ACTION_3 || Key == ACTION_4 || Key == ACTION_5 ||
@@ -110,7 +110,8 @@ bool TeletextReader::KeyPress(const QString &Key, bool& Exit)
         if (!curpage)
             return true;
 
-        if ((page = FindPage(curpage->floflink[0])) != nullptr)
+        TeletextPage *page = FindPage(curpage->floflink[0]);
+        if (page != nullptr)
         {
             newPage = page->pagenum;
             newSubPage = -1;
@@ -122,7 +123,8 @@ bool TeletextReader::KeyPress(const QString &Key, bool& Exit)
         if (!curpage)
             return true;
 
-        if ((page = FindPage(curpage->floflink[1])) != nullptr)
+        TeletextPage *page = FindPage(curpage->floflink[1]);
+        if (page != nullptr)
         {
             newPage = page->pagenum;
             newSubPage = -1;
@@ -134,7 +136,8 @@ bool TeletextReader::KeyPress(const QString &Key, bool& Exit)
         if (!curpage)
             return true;
 
-        if ((page = FindPage(curpage->floflink[2])) != nullptr)
+        TeletextPage *page = FindPage(curpage->floflink[2]);
+        if (page != nullptr)
         {
             newPage = page->pagenum;
             newSubPage = -1;
@@ -146,7 +149,8 @@ bool TeletextReader::KeyPress(const QString &Key, bool& Exit)
         if (!curpage)
             return true;
 
-        if ((page = FindPage(curpage->floflink[3])) != nullptr)
+        TeletextPage *page = FindPage(curpage->floflink[3]);
+        if (page != nullptr)
         {
             newPage = page->pagenum;
             newSubPage = -1;
@@ -158,7 +162,8 @@ bool TeletextReader::KeyPress(const QString &Key, bool& Exit)
         if (!curpage)
             return true;
 
-        if ((page = FindPage(curpage->floflink[4])) != nullptr)
+        TeletextPage *page = FindPage(curpage->floflink[4]);
+        if (page != nullptr)
         {
             newPage = page->pagenum;
             newSubPage = -1;
@@ -166,12 +171,11 @@ bool TeletextReader::KeyPress(const QString &Key, bool& Exit)
         }
     }
     else
+    {
         return false;
+    }
 
-    if (newPage < 0x100)
-        newPage = 0x100;
-    if (newPage > 0x899)
-        newPage = 0x899;
+    newPage = std::clamp(newPage, 0x100, 0x899);
 
     if (!numeric_input)
     {
@@ -216,7 +220,9 @@ QString TeletextReader::GetPage(void)
                 str += "*";
             }
             else
+            {
                 str += " ";
+            }
 
             str += QString("%1").arg(subpage->subpagenum,2,16,QChar('0'));
 
@@ -240,8 +246,7 @@ QString TeletextReader::GetPage(void)
     {
         // try to centralize the selected sub page in the list
         int startPos = selected - 5;
-        if (startPos < 0)
-            startPos = 0;
+        startPos = std::max(startPos, 0);
         if (startPos + 9 >= count)
             startPos = count - 10;
 
@@ -455,20 +460,20 @@ void TeletextReader::AddTeletextData(int magazine, int row,
                 switch (vbimode)
                 {
                     case VBI_IVTV:
-                        b1 = hamm16(buf+1+6*i, &err);
-                        b2 = hamm16(buf+3+6*i, &err);
-                        b3 = hamm16(buf+5+6*i, &err);
+                        b1 = hamm16(buf+1+(6*i), &err);
+                        b2 = hamm16(buf+3+(6*i), &err);
+                        b3 = hamm16(buf+5+(6*i), &err);
                         if (err & 0xF000)
                             return;
                         break;
                     case VBI_DVB:
                     case VBI_DVB_SUBTITLE:
-                        b1 = hamm84(buf+2+6*i, &err) * 16 +
-                        hamm84(buf+1+6*i, &err);
-                        b2 = hamm84(buf+4+6*i, &err) * 16 +
-                        hamm84(buf+3+6*i, &err);
-                        b3 = hamm84(buf+6+6*i, &err) * 16 +
-                        hamm84(buf+5+6*i, &err);
+                        b1 = hamm84(buf+2+(6*i), &err) * 16 +
+                        hamm84(buf+1+(6*i), &err);
+                        b2 = hamm84(buf+4+(6*i), &err) * 16 +
+                        hamm84(buf+3+(6*i), &err);
+                        b3 = hamm84(buf+6+(6*i), &err) * 16 +
+                        hamm84(buf+5+(6*i), &err);
                         if (err == 1)
                             return;
                         break;
@@ -552,7 +557,9 @@ const TeletextPage *TeletextReader::FindPageInternal(
             res = &iter->second;
         }
         else
+        {
             res = &pageIter->second;
+        }
     }
 
     if (direction == 1)
@@ -564,7 +571,9 @@ const TeletextPage *TeletextReader::FindPageInternal(
             res = &pageIter->second;
         }
         else
+        {
             res = &pageIter->second;
+        }
     }
 
     return res;

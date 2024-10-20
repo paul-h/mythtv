@@ -20,8 +20,7 @@
 */
 #include <algorithm>
 #include <limits>
-
-#include "libmythbase/mythrandom.h"
+#include <random>
 
 #include "Programs.h"
 #include "Ingredients.h"
@@ -320,7 +319,10 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 // ETSI ES 202 184 V2.4.1 (2016-06) §11.10.5 Random number function
                 // specifies "The returned value is undefined if the num parameter < 1."
                 // so this is fine.
-                int r = MythRandom(0, nLimit);
+                static std::random_device rd;
+                static std::mt19937 generator {rd()};
+                std::uniform_int_distribution<int> distrib {0, nLimit};
+                int r = distrib(generator);
                 engine->FindObject(
                     *(pResInt->GetReference()))->SetVariableValue(r);
                 SetSuccessFlag(success, true, engine);
@@ -392,25 +394,8 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 int nBeginExtract = GetInt(args.GetAt(1), engine);
                 int nEndExtract = GetInt(args.GetAt(2), engine);
 
-                if (nBeginExtract < 1)
-                {
-                    nBeginExtract = 1;
-                }
-
-                if (nBeginExtract > string.Size())
-                {
-                    nBeginExtract = string.Size();
-                }
-
-                if (nEndExtract < 1)
-                {
-                    nEndExtract = 1;
-                }
-
-                if (nEndExtract > string.Size())
-                {
-                    nEndExtract = string.Size();
-                }
+                nBeginExtract = std::clamp(nBeginExtract, 1, string.Size());
+                nEndExtract = std::clamp(nEndExtract, 1, string.Size());
 
                 MHParameter *pResString = args.GetAt(3);
                 // Returns beginExtract to endExtract inclusive.
@@ -434,10 +419,7 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 GetString(args.GetAt(0), string, engine);
                 int nStart = GetInt(args.GetAt(1), engine);
 
-                if (nStart < 1)
-                {
-                    nStart = 1;
-                }
+                nStart = std::max(nStart, 1);
 
                 GetString(args.GetAt(2), searchString, engine);
                 // Strings are indexed from one.
@@ -492,10 +474,7 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 GetString(args.GetAt(0), string, engine);
                 int nStart = GetInt(args.GetAt(1), engine);
 
-                if (nStart < 1)
-                {
-                    nStart = 1;
-                }
+                nStart = std::max(nStart, 1);
 
                 GetString(args.GetAt(2), searchString, engine);
                 // Strings are indexed from one.
@@ -704,7 +683,10 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 // TODO Notify player
                 SetSuccessFlag(success, true, engine);
             }
-            else SetSuccessFlag(success, false, engine);
+            else
+            {
+                SetSuccessFlag(success, false, engine);
+            }
         }
 
         else if (m_name.Equal("WAI"))   // WhoAmI
@@ -783,7 +765,10 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 // Nothing todo at present
                 SetSuccessFlag(success, true, engine);
             }
-            else SetSuccessFlag(success, false, engine);
+            else
+            {
+                SetSuccessFlag(success, false, engine);
+            }
         }
 
         // InteractionChannelExtension
@@ -797,7 +782,10 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 engine->FindObject(*(args.GetAt(0)->GetReference()))->SetVariableValue(ICstatus);
                 SetSuccessFlag(success, true, engine);
             }
-            else SetSuccessFlag(success, false, engine);
+            else
+            {
+                SetSuccessFlag(success, false, engine);
+            }
         }
         else if (m_name.Equal("RDa")) { // ReturnData
             if (args.Size() >= 3)
@@ -837,7 +825,10 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
 
                 SetSuccessFlag(success, true, engine);
             }
-            else SetSuccessFlag(success, false, engine);
+            else
+            {
+                SetSuccessFlag(success, false, engine);
+            }
         }
         else if (m_name.Equal("SHF")) { // SetHybridFileSystem
             if (args.Size() == 2)
@@ -852,7 +843,10 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                     .arg(str, str2));
                 SetSuccessFlag(success, false, engine);
             }
-            else SetSuccessFlag(success, false, engine);
+            else
+            {
+                SetSuccessFlag(success, false, engine);
+            }
         }
         else if (m_name.Equal("PST")) { // PersistentStorageInfo
             if (args.Size() == 1)
@@ -860,7 +854,10 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 engine->FindObject(*(args.GetAt(0)->GetReference()))->SetVariableValue(true);
                 SetSuccessFlag(success, true, engine);
             }
-            else SetSuccessFlag(success, false, engine);
+            else
+            {
+                SetSuccessFlag(success, false, engine);
+            }
         }
         else if (m_name.Equal("SCk")) { // SetCookie
             if (args.Size() == 4)
@@ -876,7 +873,10 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 MHLOG(MHLogNotifications, QString("NOTE SetCookie id=%1 MJD=%2 value=%3 secure=%4")
                     .arg(id).arg(iExpiry).arg(val).arg(bSecure) );
             }
-            else SetSuccessFlag(success, false, engine);
+            else
+            {
+                SetSuccessFlag(success, false, engine);
+            }
         }
         else if (m_name.Equal("GCk")) { // GetCookie
             MHERROR("GetCookie ResidentProgram is not implemented");
@@ -897,7 +897,10 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 engine->FindObject(*(args.GetAt(1)->GetReference()))->SetVariableValue(-1);
                 SetSuccessFlag(success, true, engine);
             }
-            else SetSuccessFlag(success, false, engine);
+            else
+            {
+                SetSuccessFlag(success, false, engine);
+            }
         }
         else if (m_name.Equal("PFG")) { // PromptForGuidance
             if (args.Size() == 2)
@@ -910,7 +913,10 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 engine->FindObject(*(args.GetAt(1)->GetReference()))->SetVariableValue(true);
                 SetSuccessFlag(success, true, engine);
             }
-            else SetSuccessFlag(success, false, engine);
+            else
+            {
+                SetSuccessFlag(success, false, engine);
+            }
 
         }
         else if (m_name.Equal("GAP") || // GetAudioDescPref
@@ -920,7 +926,10 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 engine->FindObject(*(args.GetAt(1)->GetReference()))->SetVariableValue(false);
                 SetSuccessFlag(success, true, engine);
             }
-            else SetSuccessFlag(success, false, engine);
+            else
+            {
+                SetSuccessFlag(success, false, engine);
+            }
         }
         else if (m_name.Equal("GPS")) { // GetPINSupport
             if (args.Size() == 1)
@@ -931,7 +940,10 @@ void MHResidentProgram::CallProgram(bool fIsFork, const MHObjectRef &success, co
                 engine->FindObject(*(args.GetAt(1)->GetReference()))->SetVariableValue(0);
                 SetSuccessFlag(success, true, engine);
             }
-            else SetSuccessFlag(success, false, engine);
+            else
+            {
+                SetSuccessFlag(success, false, engine);
+            }
         }
 
         // Undocumented functions

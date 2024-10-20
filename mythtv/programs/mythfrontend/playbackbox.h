@@ -55,11 +55,9 @@ using PlaybackBoxCb = void (PlaybackBox::*)();
 
 static constexpr size_t kMaxJobs {7};
 
-enum {
-    kArtworkFanTimeout    = 300,
-    kArtworkBannerTimeout = 50,
-    kArtworkCoverTimeout  = 50,
-};
+static constexpr uint16_t kArtworkFanTimeout    { 300 };
+static constexpr uint8_t  kArtworkBannerTimeout {  50 };
+static constexpr uint8_t  kArtworkCoverTimeout  {  50 };
 
 class PlaybackBox : public ScheduleCommon
 {
@@ -69,7 +67,7 @@ class PlaybackBox : public ScheduleCommon
 
   public:
     // ViewType values cannot change; they are stored in the database.
-    enum ViewType {
+    enum ViewType : std::uint8_t {
         TitlesOnly = 0,
         TitlesCategories = 1,
         TitlesCategoriesRecGroups = 2,
@@ -77,17 +75,17 @@ class PlaybackBox : public ScheduleCommon
         Categories = 4,
         CategoriesRecGroups = 5,
         RecGroups = 6,
-        ViewTypes,                  // placeholder value, not in database
+        ViewTypes = 7,              // placeholder value, not in database
     };
 
     // Sort function when TitlesOnly. Values are stored in database.
-    enum ViewTitleSort {
+    enum ViewTitleSort : std::uint8_t {
         TitleSortAlphabetical = 0,
         TitleSortRecPriority = 1,
-        TitleSortMethods,           // placeholder value, not in database
+        TitleSortMethods = 2,       // placeholder value, not in database
     };
 
-    enum ViewMask {
+    enum ViewMask : std::uint16_t {
         VIEW_NONE       =  0x0000,
         VIEW_TITLES     =  0x0001,
         VIEW_CATEGORIES =  0x0002,
@@ -99,14 +97,14 @@ class PlaybackBox : public ScheduleCommon
         VIEW_WATCHED    =  0x8000
     };
 
-    enum DeletePopupType
+    enum DeletePopupType : std::uint8_t
     {
         kDeleteRecording,
         kStopRecording,
         kForceDeleteRecording,
     };
 
-    enum DeleteFlags
+    enum DeleteFlags : std::uint8_t
     {
         kNoFlags       = 0x00,
         kForgetHistory = 0x01,
@@ -115,7 +113,7 @@ class PlaybackBox : public ScheduleCommon
         kAllRemaining  = 0x08,
     };
 
-    enum killStateType
+    enum killStateType : std::uint8_t
     {
         kNvpToPlay,
         kNvpToStop,

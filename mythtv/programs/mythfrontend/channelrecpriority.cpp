@@ -103,7 +103,7 @@ bool ChannelRecPriority::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "UPCOMING")
@@ -137,7 +137,9 @@ bool ChannelRecPriority::keyPressEvent(QKeyEvent *event)
             SortList();
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -284,7 +286,9 @@ void ChannelRecPriority::FillList(void)
         }
     }
     else if (!result.isActive())
+    {
         MythDB::DBError("Get channel recording priorities query", result);
+    }
 
     SortList();
 }

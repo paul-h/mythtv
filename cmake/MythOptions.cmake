@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022-2023 David Hampton
+# Copyright (C) 2022-2024 David Hampton
 #
 # See the file LICENSE_FSF for licensing information.
 #
@@ -194,6 +194,18 @@ option(MYTH_VERSIONED_EXTENSIONS
        ON)
 
 #
+# Library build instructions
+#
+# The first option affect the cmake configuration stage, and the seconds affects
+# the cmake build stage.
+#
+option(
+  LIBS_USE_INSTALLED
+  "Reuse libraries installed by previous runs of cmake.  Don't generate the framework to rebuild a library if it is already installed."
+  ON)
+option(LIBS_ALWAYS_REBUILD "Rebuild libraries on every call to --build." OFF)
+
+#
 # Library install locations.  Using configure/make these will be compiled every
 # time. Setting the following to ON will put these into the LIBS directory so
 # they only need to be compiled once.
@@ -218,29 +230,63 @@ option(MYTH_BUILD_THEMESTRING_TOOL
 #
 # Android Related Options
 #
-if(ANDROID
-   OR ARM64
-   OR SDK
-   OR CMAKE_ANDROID_ARCH_ABI)
+if(ANDROID)
   # As per:
   # https://cmake.org/cmake/help/latest/manual/cmake-toolchains.7.html#cross-compiling-for-android
   #
   # Note: Any of these cache variable can be overridden on the command line.
   set(ANDROID_MIN_SDK_VERSION
       "21"
-      CACHE STRING "Android minimum SDK version.")
+      CACHE
+        STRING
+        "\
+Android minimum SDK version.  This sets the minimum \
+Java ABI level to use when compiling for android.  MythTV \
+can get by with this minimum level of features in the API.")
   set(ANDROID_TARGET_SDK_VERSION
       "29"
-      CACHE STRING "Android target SDK version.")
-  set(ANDROID_SDK
+      CACHE
+        STRING
+        "\
+Android target SDK version.  This sets the target \
+Java ABI level to use when compiling for android.  MythTV \
+will use features past the minimum API level up to this \
+API level if they are present.")
+  set(ANDROID_PLATFORM
       ""
       CACHE
-        PATH
-        "Location of the Android SDK.  If empty the code will attempt to figure it out from the NDK path."
-  )
+        STRING
+        "\
+The Android platform target for building.  If empty, this \
+will be set based on the value of CMAKE_SYSTEM_VERSION.  \
+Available values can be found in $ENV{HOME}/Android/Sdk/platforms")
+  # ~~~
+  # Minimum SDK Build Tools versions:
+  # Qt 5.15.11 (aka Gradle Plugin 7.0.2) requires 30.0.2
+  # Qt 6.7.2 (aka Gradle Plugin 7.4.1) requires 30.0.3
+  # ~~~
+  set(ANDROID_SDK_BUILD_TOOLS_REVISION
+      "30.0.2"
+      CACHE
+        STRING
+        "\
+Android build tools version.  This specifies which compiler \
+and other tools to use when building the android specific \
+bits of the project.  Available versions can be found in \
+$ENV{HOME}/Android/Sdk/build-tools")
+  set(ANDROID_SDK
+      ""
+      CACHE PATH "\
+Location of the Android SDK.  If empty the code will attempt \
+to figure it out from the NDK path.")
   set(CMAKE_ANDROID_NDK
       $ENV{HOME}/Android/Sdk/ndk/26.1.10909125
-      CACHE PATH "Default Android NDK to use")
+      CACHE
+        PATH
+        "\
+Default Android NDK to use.  This sets the C/C++ ABI \
+level to use when compiling for android.  Available \
+versions can be found in $ENV{HOME}/Android/Sdk/ndk")
   # Valid values are arm64-v8a, armeabi-v7a, x86, and x86_64.
   set(CMAKE_ANDROID_ARCH_ABI
       arm64-v8a
@@ -282,6 +328,7 @@ if(ANDROID)
   foreach(DIR "jbr" "jre")
     set(FILENAME "$ENV{HOME}/Android/android-studio/${DIR}")
     if(EXISTS ${FILENAME})
+      message(STATUS "Defaulting MYTH_JAVA_HOME to ${FILENAME}")
       set(MYTH_JAVA_HOME
           ${FILENAME}
           CACHE PATH "Path to JDK home directory")

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022-2023 David Hampton
+# Copyright (C) 2022-2024 David Hampton
 #
 # See the file LICENSE_FSF for licensing information.
 #
@@ -18,6 +18,21 @@ endif()
 if(NOT DEFINED CMAKE_INSTALL_PREFIX OR CMAKE_INSTALL_PREFIX STREQUAL "")
   message(FATAL_ERROR "CMAKE_INSTALL_PREFIX isn't set.")
 endif()
+if(NOT ANDROID_PLATFORM)
+  if(CMAKE_SYSTEM_VERSION GREATER 34)
+    message(
+      FATAL_ERROR
+        "Cannot build to version ${CMAKE_SYSTEM_VERSION}.  ANDROID_PLATFORM higher than 34 is not currently supported."
+    )
+  endif()
+  set(ANDROID_PLATFORM android-${CMAKE_SYSTEM_VERSION})
+else()
+  string(REPLACE "android-" "" PLATFORM_NUM ${ANDROID_PLATFORM})
+  if(PLATFORM_NUM GREATER 34)
+    message(
+      FATAL_ERROR "ANDROID_PLATFORM higher than 34 is not currently supported.")
+  endif()
+endif()
 
 # Set up the PLATFORM_ARGS variable to contain arguments to pass to any cmake
 # based external projects.
@@ -27,23 +42,26 @@ list(
   "-DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}"
   "-DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION}"
   "-DCMAKE_ANDROID_NDK=${CMAKE_ANDROID_NDK}"
-  "-DCMAKE_ANDROID_ARCH_ABI=${CMAKE_ANDROID_ARCH_ABI}"
-  "-DANDROID_PLATFORM=android-${CMAKE_SYSTEM_VERSION}")
+  "-DCMAKE_ANDROID_ARCH_ABI=${CMAKE_ANDROID_ARCH_ABI}")
 
 # Fix the toolchain prefix variables. The android ndk screws them up for 32-bit
 # builds. No, really! It does.
 if(CMAKE_ANDROID_ARCH STREQUAL "arm")
   set(CMAKE_C_ANDROID_TOOLCHAIN_MACHINE "armv7a-linux-androideabi")
-  string(
-    REGEX
-    REPLACE "arm-linux-androideabi" "armv7a-linux-androideabi"
-            CMAKE_C_ANDROID_TOOLCHAIN_PREFIX
-            ${CMAKE_C_ANDROID_TOOLCHAIN_PREFIX})
-  string(
-    REGEX
-    REPLACE "arm-linux-androideabi" "armv7a-linux-androideabi"
-            CMAKE_CXX_ANDROID_TOOLCHAIN_PREFIX
-            ${CMAKE_CXX_ANDROID_TOOLCHAIN_PREFIX})
+  if(CMAKE_C_ANDROID_TOOLCHAIN_PREFIX)
+    string(
+      REGEX
+      REPLACE "arm-linux-androideabi" "armv7a-linux-androideabi"
+              CMAKE_C_ANDROID_TOOLCHAIN_PREFIX
+              ${CMAKE_C_ANDROID_TOOLCHAIN_PREFIX})
+  endif()
+  if(CMAKE_CXX_ANDROID_TOOLCHAIN_PREFIX)
+    string(
+      REGEX
+      REPLACE "arm-linux-androideabi" "armv7a-linux-androideabi"
+              CMAKE_CXX_ANDROID_TOOLCHAIN_PREFIX
+              ${CMAKE_CXX_ANDROID_TOOLCHAIN_PREFIX})
+  endif()
 endif()
 
 #
@@ -86,10 +104,14 @@ set(LIBBLURAY_CONFIGURE_ENV ${PLATFORM_CONFIGURE_ENV})
 #
 # Set variables for later use when building with meson.
 #
-string(REGEX REPLACE "-$" "${CMAKE_SYSTEM_VERSION}-clang" CROSS_CC
-                     ${CMAKE_C_ANDROID_TOOLCHAIN_PREFIX})
-string(REGEX REPLACE "-$" "${CMAKE_SYSTEM_VERSION}-clang++" CROSS_CXX
-                     ${CMAKE_CXX_ANDROID_TOOLCHAIN_PREFIX})
+if(CMAKE_C_ANDROID_TOOLCHAIN_PREFIX)
+  string(REGEX REPLACE "-$" "${CMAKE_SYSTEM_VERSION}-clang" CROSS_CC
+                       ${CMAKE_C_ANDROID_TOOLCHAIN_PREFIX})
+endif()
+if(CMAKE_CXX_ANDROID_TOOLCHAIN_PREFIX)
+  string(REGEX REPLACE "-$" "${CMAKE_SYSTEM_VERSION}-clang++" CROSS_CXX
+                       ${CMAKE_CXX_ANDROID_TOOLCHAIN_PREFIX})
+endif()
 if(EXISTS ${PROJECT_SOURCE_DIR}/cmake/files/meson-cross-android.in)
   if(CMAKE_ANDROID_ARCH STREQUAL "arm64")
     set(MESON_SYSTEM_CPU_FAMILY "aarch64")
@@ -137,8 +159,12 @@ set(ANDROID_ABI ${CMAKE_ANDROID_ARCH_ABI})
 # Set variables for later use when building Qt.
 #
 set(QT_PLATFORM_CONFIGURE_ENV
-    ${PLATFORM_CONFIGURE_ENV}
+    ${PLATFORM_CONFIGURE_ENV} "PATH=${MYTH_JAVA_HOME}/bin:$ENV{PATH}"
     "PKG_CONFIG_SYSROOT_DIR=${CMAKE_ANDROID_NDK_TOOLCHAIN_UNIFIED}")
+set(QT_PLATFORM_BUILD_ENV ${PLATFORM_BUILD_ENV}
+                          "PATH=${MYTH_JAVA_HOME}/bin:$ENV{PATH}")
+set(QT_PLATFORM_INSTALL_ENV ${PLATFORM_INSTALL_ENV}
+                            "PATH=${MYTH_JAVA_HOME}/bin:$ENV{PATH}")
 
 set(QT5_PLATFORM_ARGS
     # cmake-format: off
@@ -152,12 +178,22 @@ set(QT5_PLATFORM_LIBS_ARGS "ICU_LIBS=-licui18n -licuuc -licudata")
 set(QT6_PLATFORM_ARGS
     -DANDROID_ABI=${CMAKE_ANDROID_ARCH_ABI}
     -DANDROID_NDK=${CMAKE_ANDROID_NDK}
-    -DANDROID_PLATFORM=android-${CMAKE_SYSTEM_VERSION}
     -DANDROID_SDK_ROOT=${ANDROID_SDK}
     -DCMAKE_SYSTEM_NAME=Android
     -DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION}
     -DCMAKE_TOOLCHAIN_FILE=${CMAKE_ANDROID_NDK}/build/cmake/android.toolchain.cmake
 )
+
+if(ANDROID_MIN_SDK_VERSION LESS 28)
+  # Fix compiling of libxml2.  Android < 28 doesn't include iconv, so we have to
+  # build it ourselves.  Make sure the compile of XML2 finds the include file
+  # from our build, instead of from the Android SDK.   Iconv vs libiconv is a
+  # PITA.
+  list(APPEND EXIV2_PLATFORM_ARGS
+       -DIconv_INCLUDE_DIR=${LIBS_INSTALL_PREFIX}/include)
+  list(APPEND XML2_PLATFORM_ARGS
+       -DIconv_INCLUDE_DIR=${LIBS_INSTALL_PREFIX}/include)
+endif()
 
 # Sigh, Qt cmake files don't use the same variable names as cmake proper uses.
 # Set up another variable to handle the mapping when building things that use

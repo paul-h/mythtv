@@ -238,7 +238,7 @@ V2VideoMetadataInfoList* V2Video::GetVideoList( const QString &Folder,
     for (const auto & item : std::as_const(sortList))
     {
         QStringList partList = item.split(' ',Qt::SkipEmptyParts);
-        if (partList.length() == 0)
+        if (partList.empty())
             continue;
         QString sort = partList[0];
         if (sort == "added")
@@ -853,7 +853,9 @@ bool V2Video::UpdateVideoMetadata ( int           nId,
             update_required = true;
         }
         else
+        {
             LOG(VB_GENERAL, LOG_ERR, QString("UpdateVideoMetadata: Ignoring unknown ContentType: %1").arg(sContentType));
+        }
     }
 
     if (HAS_PARAMv2("Genres"))

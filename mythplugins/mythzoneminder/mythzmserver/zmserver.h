@@ -73,7 +73,7 @@ const std::string RESTART          = "restart";
 const std::string RELOAD           = "reload";
 const std::string RUNNING          = "running";
 
-enum State
+enum State : std::uint8_t
 {
     IDLE,
     PREALARM,
@@ -228,7 +228,7 @@ struct SharedData34
 
 
 
-enum TriggerState { TRIGGER_CANCEL, TRIGGER_ON, TRIGGER_OFF };
+enum TriggerState : std::uint8_t { TRIGGER_CANCEL, TRIGGER_ON, TRIGGER_OFF };
 
 // Triggerdata for ZM version 1.24.x and 1.25.x
 struct TriggerData
@@ -280,12 +280,12 @@ class MONITOR
     int getState(void);
     int getFrameSize(void);
 
-    std::string    m_name               {};
-    std::string    m_type               {};
-    std::string    m_function           {};
+    std::string    m_name;
+    std::string    m_type;
+    std::string    m_function;
     int            m_enabled            {0};
-    std::string    m_device             {};
-    std::string    m_host               {};
+    std::string    m_device;
+    std::string    m_host;
     int            m_imageBufferCount   {0};
     int            m_width              {0};
     int            m_height             {0};
@@ -293,7 +293,7 @@ class MONITOR
     int            m_monId              {0};
     unsigned char *m_sharedImages       {nullptr};
     int            m_lastRead           {0};
-    std::string    m_status             {};
+    std::string    m_status;
     int            m_palette            {0};
     int            m_controllable       {0};
     int            m_trackMotion        {0};
@@ -304,7 +304,7 @@ class MONITOR
     SharedData26  *m_sharedData26       {nullptr};
     SharedData32  *m_sharedData32       {nullptr};
     SharedData34  *m_sharedData34       {nullptr};
-    std::string    m_id                 {};
+    std::string    m_id;
 };
 
 class ZMServer

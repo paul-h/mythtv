@@ -25,6 +25,7 @@
  */
 
 // c++
+#include <algorithm>
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
@@ -163,7 +164,7 @@ bool ThumbFinder::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "MENU")
@@ -213,10 +214,14 @@ bool ThumbFinder::keyPressEvent(QKeyEvent *event)
                 updateThumb();
             }
             else
+            {
                 handled = false;
+            }
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -460,7 +465,9 @@ bool ThumbFinder::getThumbImages()
         m_thumbList.append(thumb);
     }
     else
+    {
         m_frameFile = thumb->filename;
+    }
 
     seekToFrame(thumb->frame);
     getFrameImage();
@@ -499,7 +506,9 @@ bool ThumbFinder::getThumbImages()
             m_thumbList.append(thumb);
         }
         else
+        {
             m_frameFile = thumb->filename;
+        }
 
         seekToFrame(thumb->frame);
         QCoreApplication::processEvents();
@@ -656,8 +665,7 @@ bool ThumbFinder::seekToFrame(int frame, bool checkPos)
                         (PRE_SEEK_AMOUNT * m_frameTime);
     int64_t requiredPTS = m_startPTS + (frame * m_frameTime);
 
-    if (timestamp < m_startTime)
-        timestamp = m_startTime;
+    timestamp = std::max(timestamp, m_startTime);
 
     if (av_seek_frame(m_inputFC, m_videostream, timestamp, AVSEEK_FLAG_ANY) < 0)
     {
@@ -697,7 +705,9 @@ bool ThumbFinder::seekForward()
         return true;
     }
     else
+    {
         inc = (int) (inc * ceil(m_fps));
+    }
 
     int64_t newFrame = currentFrame + inc - m_offset;
     if (newFrame == currentFrame + 1)
@@ -734,7 +744,9 @@ bool ThumbFinder::seekBackward()
         return true;
     }
     else
+    {
         inc = (int) (-inc * ceil(m_fps));
+    }
 
     int64_t newFrame = currentFrame + inc - m_offset;
     seekToFrame(newFrame);

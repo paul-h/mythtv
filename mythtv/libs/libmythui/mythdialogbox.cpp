@@ -134,7 +134,9 @@ bool MythDialogBox::Create(void)
             return false;
     }
     else if (!CopyWindowFromBase(windowName, this))
+    {
         return false;
+    }
 
     bool err = false;
     if (m_fullscreen)
@@ -353,7 +355,7 @@ bool MythDialogBox::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "ESCAPE")
@@ -390,7 +392,9 @@ bool MythDialogBox::keyPressEvent(QKeyEvent *event)
             Select(m_buttonList->GetItemCurrent());
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -499,7 +503,7 @@ bool MythConfirmationDialog::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "ESCAPE")

@@ -177,7 +177,9 @@ ZMLivePlayer::~ZMLivePlayer()
         delete m_players;
     }
     else
+    {
         gCoreContext->SaveSetting("ZoneMinderLiveCameras", "");
+    }
 
     delete m_frameTimer;
 
@@ -194,7 +196,7 @@ bool ZMLivePlayer::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "PAUSE")
@@ -217,13 +219,17 @@ bool ZMLivePlayer::keyPressEvent(QKeyEvent *event)
         else if (action == "1" || action == "2" || action == "3" ||
                  action == "4" || action == "5" || action == "6" ||
                  action == "7" || action == "8" || action == "9")
+        {
             changePlayerMonitor(action.toInt());
+        }
         else if (action == "MENU")
         {
             ShowMenu();
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

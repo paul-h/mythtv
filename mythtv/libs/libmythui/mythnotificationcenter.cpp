@@ -650,7 +650,7 @@ void MythNotificationScreen::UpdateFrom(const MythNotificationScreen &s)
 void MythNotificationScreen::AdjustYPosition(void)
 {
     MythPoint point = m_position;
-    point.setY(m_position.getY().toInt() + (GetHeight() + HGAP) * m_index);
+    point.setY(m_position.getY().toInt() + ((GetHeight() + HGAP) * m_index));
 
     if (point == GetPosition())
         return;
@@ -729,7 +729,7 @@ bool MythNotificationScreen::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
 
         if (action == "ESCAPE")
         {

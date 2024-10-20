@@ -9,20 +9,20 @@
 #
 
 set(PYFILES
-    azlyrics.py
-    darklyrics.py
-    embedlrc.py
-    filelyrics.py
-    genius.py
-    lrclib.py
-    lyricscom.py
-    lyricsify.py
-    lyricsmode.py
-    megalobiz.py
-    music163.py
-    musixmatch.py
-    musixmatchlrc.py
-    supermusic.py)
+  azlyrics.py
+  darklyrics.py
+  embedlrc.py
+  filelyrics.py
+  genius.py
+  lrclib.py
+  lyricscom.py
+  lyricsmode.py
+  megalobiz.py
+  music163.py
+  musixmatchlrc.py
+  musixmatch.py
+  rclyricsband.py
+  supermusic.py)
 
 #
 # The cmake documentation strongly recommands against globbing source file
@@ -42,6 +42,6 @@ add_custom_target(metadata_Music_lyrics ALL DEPENDS ${PROCESSED_FILES})
 install(FILES README
         DESTINATION ${CMAKE_INSTALL_DATADIR}/mythtv/metadata/Music/lyrics)
 install(
-  DIRECTORY common examples
+  DIRECTORY common examples lib Kodistubs
   DESTINATION ${CMAKE_INSTALL_DATADIR}/mythtv/metadata/Music/lyrics
   PATTERN "\.gitignore" EXCLUDE)

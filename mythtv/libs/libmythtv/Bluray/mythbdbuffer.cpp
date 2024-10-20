@@ -78,10 +78,10 @@ static int BDRead(void *Handle, void *Buf, int LBA, int NumBlocks)
 
 MythBDBuffer::MythBDBuffer(const QString &Filename)
   : MythOpticalBuffer(kMythBufferBD),
-    m_overlayPlanes(2, nullptr)
+    m_tryHDMVNavigation(qEnvironmentVariableIsSet("MYTHTV_HDMV")),
+    m_overlayPlanes(2, nullptr),
+    m_mainThread(QThread::currentThread())
 {
-    m_tryHDMVNavigation = qEnvironmentVariableIsSet("MYTHTV_HDMV");
-    m_mainThread = QThread::currentThread();
     MythBDBuffer::OpenFile(Filename);
 }
 
@@ -160,8 +160,7 @@ long long MythBDBuffer::SeekInternal(long long Position, int Whence)
     else
     {
         QString cmd = QString("Seek(%1, %2)").arg(Position)
-            .arg((Whence == SEEK_SET) ? "SEEK_SET" :
-                 ((Whence == SEEK_CUR) ?"SEEK_CUR" : "SEEK_END"));
+            .arg(seek2string(Whence));
         LOG(VB_GENERAL, LOG_ERR, LOC + cmd + " Failed" + ENO);
     }
 

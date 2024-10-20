@@ -87,9 +87,13 @@ AudioOutputALSA::AudioOutputALSA(const AudioSettings &settings) :
         }
     }
     else if (m_passthruDevice.toLower() == "default")
+    {
         m_passthruDevice = m_mainDevice;
+    }
     else
+    {
         m_discreteDigital = true;
+    }
 
     InitSettings(settings);
     if (settings.m_init)
@@ -261,7 +265,8 @@ QByteArray *AudioOutputALSA::GetELD(int card, int device, int subdevice)
                 .arg(snd_strerror(err)));
         return nullptr;
     }
-    if ((err = snd_hctl_load(hctl)) < 0)
+    err = snd_hctl_load(hctl);
+    if (err  < 0)
     {
         VBAUDIO(QString("Control %1 load error: %2")
                 .arg(card)
@@ -290,7 +295,8 @@ QByteArray *AudioOutputALSA::GetELD(int card, int device, int subdevice)
             snd_hctl_close(hctl);
             return nullptr;
         }
-        if ((err = snd_hctl_elem_read(elem, control)) < 0)
+        err = snd_hctl_elem_read(elem, control);
+        if (err < 0)
         {
             VBAUDIO(QString("Control %1 element read error: %2")
                     .arg(card)
@@ -317,7 +323,6 @@ AudioOutputSettings* AudioOutputALSA::GetOutputSettings(bool passthrough)
     snd_pcm_hw_params_t *params = nullptr;
     snd_pcm_format_t afmt = SND_PCM_FORMAT_UNKNOWN;
     AudioFormat fmt = FORMAT_NONE;
-    int err = 0;
 
     auto *settings = new AudioOutputSettings();
 
@@ -327,7 +332,8 @@ AudioOutputSettings* AudioOutputALSA::GetOutputSettings(bool passthrough)
         m_pcmHandle = nullptr;
     }
 
-    if ((err = TryOpenDevice(OPEN_FLAGS, passthrough)) < 0)
+    int err = TryOpenDevice(OPEN_FLAGS, passthrough);
+    if (err < 0)
     {
         AERROR(QString("snd_pcm_open(\"%1\")").arg(m_lastDevice));
         delete settings;
@@ -339,13 +345,15 @@ AudioOutputSettings* AudioOutputALSA::GetOutputSettings(bool passthrough)
     if (snd_pcm_hw_params_any(m_pcmHandle, params) < 0)
     {
         snd_pcm_close(m_pcmHandle);
-        if ((err = TryOpenDevice(OPEN_FLAGS&FILTER_FLAGS, passthrough)) < 0)
+        err = TryOpenDevice(OPEN_FLAGS&FILTER_FLAGS, passthrough);
+        if (err  < 0)
         {
             AERROR(QString("snd_pcm_open(\"%1\")").arg(m_lastDevice));
             delete settings;
             return nullptr;
         }
-        if ((err = snd_pcm_hw_params_any(m_pcmHandle, params)) < 0)
+        err = snd_pcm_hw_params_any(m_pcmHandle, params);
+        if (err < 0)
         {
             AERROR("No playback configurations available");
             snd_pcm_close(m_pcmHandle);
@@ -448,12 +456,12 @@ AudioOutputSettings* AudioOutputALSA::GetOutputSettings(bool passthrough)
 bool AudioOutputALSA::OpenDevice()
 {
     snd_pcm_format_t format = SND_PCM_FORMAT_UNKNOWN;
-    int err = 0;
 
     if (m_pcmHandle != nullptr)
         CloseDevice();
 
-    if ((err = TryOpenDevice(0, m_passthru || m_enc)) < 0)
+    int err = TryOpenDevice(0, m_passthru || m_enc);
+    if (err < 0)
     {
         AERROR(QString("snd_pcm_open(\"%1\")").arg(m_lastDevice));
         if (m_pcmHandle)
@@ -586,7 +594,8 @@ void AudioOutputALSA::WriteAudio(uchar *aubuf, int size)
                  if (snd_pcm_state(m_pcmHandle) == SND_PCM_STATE_XRUN)
                  {
                     VBAUDIO("WriteAudio: buffer underrun");
-                    if ((err = snd_pcm_prepare(m_pcmHandle)) < 0)
+                    err = snd_pcm_prepare(m_pcmHandle);
+                    if (err  < 0)
                     {
                         AERROR("WriteAudio: unable to recover from xrun");
                         return;
@@ -603,7 +612,8 @@ void AudioOutputALSA::WriteAudio(uchar *aubuf, int size)
                 if (err < 0)
                 {
                     VBERROR("WriteAudio: resume failed");
-                    if ((err = snd_pcm_prepare(m_pcmHandle)) < 0)
+                    err = snd_pcm_prepare(m_pcmHandle);
+                    if (err < 0)
                     {
                         AERROR("WriteAudio: unable to recover from suspend");
                         return;
@@ -846,9 +856,9 @@ int AudioOutputALSA::GetVolumeChannel(int channel) const
     }
     else
     {
-        retvol = (m_mixer.volrange != 0L) ? (mixervol - m_mixer.volmin) *
-                                            100.0F / m_mixer.volrange + 0.5F
-                                            : 0;
+        retvol = (m_mixer.volrange != 0L)
+            ? ((mixervol - m_mixer.volmin) * 100.0F / m_mixer.volrange) + 0.5F
+            : 0;
         retvol = std::max(retvol, 0);
         retvol = std::min(retvol, 100);
         VBAUDIO(QString("get volume channel %1: %2")
@@ -862,7 +872,7 @@ void AudioOutputALSA::SetVolumeChannel(int channel, int volume)
     if (!(m_internalVol && m_mixer.elem))
         return;
 
-    long mixervol = (int64_t(volume) * m_mixer.volrange) / 100 + m_mixer.volmin;
+    long mixervol = ((int64_t(volume) * m_mixer.volrange) / 100) + m_mixer.volmin;
     mixervol = std::max(mixervol, m_mixer.volmin);
     mixervol = std::min(mixervol, m_mixer.volmax);
 
@@ -906,7 +916,8 @@ bool AudioOutputALSA::OpenMixer(void)
     struct snd_mixer_selem_regopt regopts =
         {1, SND_MIXER_SABSTRACT_NONE, dev_ba.constData(), nullptr, nullptr};
 
-    if ((chk = snd_mixer_selem_register(m_mixer.handle, &regopts, nullptr)) < 0)
+    chk = snd_mixer_selem_register(m_mixer.handle, &regopts, nullptr);
+    if (chk < 0)
     {
         snd_mixer_close(m_mixer.handle);
         m_mixer.handle = nullptr;
@@ -915,7 +926,8 @@ bool AudioOutputALSA::OpenMixer(void)
         return false;
     }
 
-    if ((chk = snd_mixer_load(m_mixer.handle)) < 0)
+    chk = snd_mixer_load(m_mixer.handle);
+    if (chk < 0)
     {
         snd_mixer_close(m_mixer.handle);
         m_mixer.handle = nullptr;

@@ -1,5 +1,6 @@
 
 // C/C++
+#include <algorithm>
 #include <array>
 #include <fcntl.h>
 #include <iostream>
@@ -97,7 +98,11 @@ void Streamer::SendBytes(void)
         int rate  = (delta * m_dataRate) - m_dataRead;
 
         read_sz = std::min(rate, read_sz);
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        read_sz = std::min((m_bufferMax - m_buffer.size()), read_sz);
+#else
         read_sz = std::min(static_cast<int>(m_bufferMax - m_buffer.size()), read_sz);
+#endif
 
         if (read_sz > 0)
         {
@@ -133,8 +138,7 @@ void Streamer::SendBytes(void)
         .arg(pkt_size).arg(buf_size));
 
     int write_len = m_blockSize.loadAcquire();
-    if (write_len > buf_size)
-        write_len = buf_size;
+    write_len = std::min(write_len, buf_size);
     LOG(VB_RECORD, LOG_DEBUG, LOC +
         QString("SendBytes -- writing %1 bytes").arg(write_len));
 
@@ -150,7 +154,9 @@ void Streamer::SendBytes(void)
             QString("%1 bytes unwritten").arg(m_buffer.size()));
     }
     else
+    {
         m_buffer.clear();
+    }
 
     LOG(VB_RECORD, LOG_DEBUG, LOC + "SendBytes -- end");
 }

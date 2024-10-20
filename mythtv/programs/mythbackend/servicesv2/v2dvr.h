@@ -146,7 +146,9 @@ class V2Dvr : public MythHTTPService
 
     static bool       RescheduleRecordings( void );
 
-    static bool       AllowReRecord       ( int              RecordedId );
+    static bool       AllowReRecord       ( int              RecordedId,
+                                            int              ChanId,
+                                            const QDateTime &StartTime);
 
     static bool       UpdateRecordedWatchedStatus ( int   RecordedId,
                                                     int   ChanId,
@@ -197,13 +199,15 @@ class V2Dvr : public MythHTTPService
 
     static V2ProgramList* GetConflictList ( int              StartIndex,
                                             int              Count,
-                                            int              RecordId );
+                                            int              RecordId,
+                                            const QString   &Sort);
 
     static V2ProgramList* GetUpcomingList ( int              StartIndex,
                                             int              Count,
                                             bool             ShowAll,
                                             int              RecordId,
-                                            const QString &  RecStatus );
+                                            const QString &  RecStatus,
+                                            const QString   &Sort);
 
     static V2EncoderList*    GetEncoderList      ( );
 
@@ -375,7 +379,9 @@ class V2Dvr : public MythHTTPService
                                                const QString   &Description,
                                                uint             Episode,
                                                const QString   &Inetref,
-                                                     QDate      OriginalAirDate,
+                                               long             LastPlayOffset,
+                                               const QString   &LastPlayOffsetType,
+                                               QDate            OriginalAirDate,
                                                bool             Preserve,
                                                uint             Season,
                                                uint             Stars,

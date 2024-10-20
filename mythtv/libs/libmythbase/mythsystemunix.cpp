@@ -207,10 +207,14 @@ void MythSystemLegacyIOHandler::HandleWrite(int fd, QBuffer *buff)
             BuildFDs();
         }
         else
+        {
             buff->seek(pos);
+        }
     }
     else if( rlen != len )
+    {
         buff->seek(pos+rlen);
+    }
 }
 
 void MythSystemLegacyIOHandler::insert(int fd, QBuffer *buff)
@@ -685,9 +689,13 @@ bool MythSystemLegacyUnix::ParseShell(const QString &cmd, QString &abscmd,
 
         // handle quotes and escape characters
         else if (quote == *i)
+        {
             quoted = true;
+        }
         else if (hardquote == *i)
+        {
             hardquoted = true;
+        }
         else if (escape == *i)
         {
             escaped = true;
@@ -701,8 +709,10 @@ bool MythSystemLegacyUnix::ParseShell(const QString &cmd, QString &abscmd,
         }
 
         else
+        {
             // pass everything else
             tmp += *i;
+        }
 
         // step forward to next character
         ++i;
@@ -1110,8 +1120,12 @@ void MythSystemLegacyUnix::Fork(std::chrono::seconds timeout)
         }
 
         /* Close all open file descriptors except stdin/stdout/stderr */
+#if HAVE_CLOSE_RANGE
+        close_range(3, sysconf(_SC_OPEN_MAX) - 1, 0);
+#else
         for( int fd = sysconf(_SC_OPEN_MAX) - 1; fd > 2; fd-- )
             close(fd);
+#endif
 
         /* set directory */
         if( directory && chdir(directory) < 0 )
@@ -1151,7 +1165,7 @@ void MythSystemLegacyUnix::Fork(std::chrono::seconds timeout)
     {
         for (int i = 0; cmdargs[i]; i++)
             free( cmdargs[i] );
-        free( cmdargs );
+        free( reinterpret_cast<void*>(cmdargs) );
     }
 
     if( GetStatus() != GENERIC_EXIT_RUNNING )

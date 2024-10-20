@@ -1,3 +1,6 @@
+// C++
+#include <algorithm>
+
 // Qt
 #include <QCoreApplication>
 
@@ -146,7 +149,7 @@ bool ViewScheduled::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "EDIT")
@@ -293,8 +296,7 @@ void ViewScheduled::LoadList(bool useExistingData)
               recstatus != RecStatus::NeverRecord)))
         {
             m_inputref[pginfo->GetInputID()]++;
-            if (pginfo->GetInputID() > m_maxinput)
-                m_maxinput = pginfo->GetInputID();
+            m_maxinput = std::max(pginfo->GetInputID(), m_maxinput);
 
             QDate date = pginfo->GetRecordingStartTime().toLocalTime().date();
             m_recgroupList[date].push_back(pginfo);
@@ -413,9 +415,13 @@ void ViewScheduled::UpdateUIListItem(MythUIButtonListItem* item,
              recstatus == RecStatus::DontRecord ||
              (recstatus != RecStatus::DontRecord &&
               recstatus <= RecStatus::EarlierShowing))
+    {
         state = "disabled";
+    }
     else
+    {
         state = "warning";
+    }
 
     InfoMap infoMap;
     pginfo->ToMap(infoMap);
@@ -486,7 +492,9 @@ void ViewScheduled::FillList()
             statusText->SetText(cstring);
         }
         else
+        {
             statusText->SetText(tr("No Conflicts"));
+        }
     }
 
     MythUIText *filterText = dynamic_cast<MythUIText*>(GetChild("filter"));
@@ -727,7 +735,9 @@ void ViewScheduled::customEvent(QEvent *event)
                 LoadList();
         }
         else
+        {
             ScheduleCommon::customEvent(event);
+        }
     }
 }
 

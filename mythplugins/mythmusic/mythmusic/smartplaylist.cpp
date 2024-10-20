@@ -265,7 +265,9 @@ QString getOrderBySQL(const QString& orderByFields)
                result = " ORDER BY " + Field->m_sqlName + order;
            }
            else
+           {
                result += ", " + Field->m_sqlName + order;
+           }
         }
     }
 
@@ -429,7 +431,7 @@ bool SmartPlaylistEditor::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "MENU")
@@ -445,7 +447,9 @@ bool SmartPlaylistEditor::keyPressEvent(QKeyEvent *event)
             editCriteria();
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -482,7 +486,9 @@ void SmartPlaylistEditor::customEvent(QEvent *event)
                     delete input;
             }
             else if (resulttext == tr("Delete Category"))
+            {
                 startDeleteCategory(m_categorySelector->GetValue());
+            }
             else if (resulttext == tr("Rename Category"))
             {
                 MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
@@ -1659,7 +1665,7 @@ bool SmartPLResultViewer::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "INFO")
@@ -1691,7 +1697,9 @@ void SmartPLResultViewer::trackVisible(MythUIButtonListItem *item)
                 item->SetImage(mdata->getAlbumArtFile());
         }
         else
+        {
             item->SetImage("mm_nothumb.png");
+        }
     }
 }
 
@@ -1816,7 +1824,9 @@ QString SmartPLOrderByDialog::getFieldList(void)
             result = m_fieldList->GetItemAt(i)->GetText();
         }
         else
+        {
             result += ", " + m_fieldList->GetItemAt(i)->GetText();
+        }
     }
 
     return result;
@@ -2049,7 +2059,9 @@ QString SmartPLDateDialog::getDate(void)
         sResult = m_yearSpin->GetValue() + "-" + month + "-" + day;
     }
     else
+    {
        sResult = m_statusText->GetText();
+    }
 
     return sResult;
 }
@@ -2077,7 +2089,9 @@ void SmartPLDateDialog::setDate(QString date)
             m_addDaysSpin->SetValue(nDays);
         }
         else
+        {
             m_addDaysSpin->SetValue(0);
+        }
 
         nowCheckToggled(true);
     }

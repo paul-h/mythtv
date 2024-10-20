@@ -55,10 +55,13 @@ endif()
 pkg_check_modules(LIBUDFREAD "libudfread>=1.1.1" REQUIRED IMPORTED_TARGET)
 
 #
-# Find an exiv2 that has c++17 support.  The current version number is 0.28 and
-# the c++17 based version is supposed to be 1.0.
+# Find an exiv2 that has c++17 support.  The current version number is 0.27 and
+# the c++17 based version is supposed to be 1.0 but is included in 0.28
 #
-pkg_check_modules(EXIV2 "mythexiv2>=0.99" REQUIRED IMPORTED_TARGET)
+pkg_check_modules(EXIV2 "exiv2>=0.28" QUIET IMPORTED_TARGET)
+if(NOT EXIV2_FOUND)
+  pkg_check_modules(EXIV2 "mythexiv2>=0.28" REQUIRED IMPORTED_TARGET)
+endif()
 
 #
 # If not provided by the system, this is currently built as part of mythtv (not
@@ -115,6 +118,7 @@ if(ENABLE_BINDINGS_PYTHON)
     message(
       STATUS "Python interperter and modules found. Enbling python bindings.")
     set(USING_BINDINGS_PYTHON TRUE)
+    set(CONFIG_BINDINGS_PYTHON TRUE)
   endif()
 
   # Strip off any minor version on the python executable name.
@@ -175,8 +179,11 @@ endif()
 # (on Fedora) is part of a separate libzip-tools package and may or may not be
 # installed.  Use pkg-config which only cares about the presence of the library.
 #
-# libzip: fedora:libzip-devel debian:libzip-dev:
+# libzip: fedora:libzip-devel debian:libzip-dev
 pkg_check_modules(LIBZIP "libzip" REQUIRED IMPORTED_TARGET)
+
+# liblzo: fedora:lzo-devel debian:liblzo2-dev
+pkg_check_modules(LZO2 "lzo2" REQUIRED IMPORTED_TARGET)
 
 # taglib: fedora:taglib-devel debian:libtag1-dev
 pkg_check_modules(TAGLIB "taglib>=1.11.1" REQUIRED IMPORTED_TARGET)
@@ -303,6 +310,7 @@ if(ENABLE_AUDIO_ALSA)
   add_build_config(PkgConfig::ALSA "alsa")
   if(ALSA_FOUND)
     target_compile_definitions(PkgConfig::ALSA INTERFACE USING_ALSA)
+    set(CONFIG_AUDIO_ALSA TRUE)
   endif()
 endif()
 
@@ -312,6 +320,7 @@ if(ENABLE_AUDIO_OSS)
     add_build_config(TRUE "oss")
     add_library(mythtv_oss INTERFACE)
     target_compile_definitions(mythtv_oss INTERFACE USING_OSS)
+    set(CONFIG_AUDIO_OSS TRUE)
   endif()
 endif()
 
@@ -384,6 +393,7 @@ if(ENABLE_LIBDNS_SD)
     if(LIBCRYPTO_FOUND)
       target_compile_definitions(PkgConfig::LIBDNS_SD INTERFACE USING_AIRPLAY)
     endif()
+    set(CONFIG_LIBDNS_SD TRUE)
   endif()
 endif()
 
@@ -394,11 +404,13 @@ if(ENABLE_SYSTEMD_NOTIFY OR ENABLE_SYSTEMD_JOURNAL)
     find_file(SYSTEMD_JOURNALD "systemd/sd-journal.h"
               PATHS ${SYSTEMD_INCLUDE_PATH})
     add_build_config(SYSTEMD_JOURNALD "systemd_journal")
+    set(CONFIG_SYSTEMD_JOURNAL ON)
   endif()
   if(SYSTEMD_FOUND AND ENABLE_SYSTEMD_NOTIFY)
     find_file(SYSTEMD_NOTIFY "systemd/sd-daemon.h"
               PATHS ${SYSTEMD_INCLUDE_PATH})
     add_build_config(SYSTEMD_NOTIFY "systemd_notify")
+    set(CONFIG_SYSTEMD_NOTIFY ON)
   endif()
 endif()
 

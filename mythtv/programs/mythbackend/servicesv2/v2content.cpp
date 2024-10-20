@@ -457,7 +457,9 @@ QFileInfo V2Content::GetAlbumArt( int nTrackId, int nWidth, int nHeight )
         img.loadFromData(data);
     }
     else
+    {
         img.load(sFullFileName);
+    }
 
     if (img.isNull())
         return {};
@@ -684,7 +686,8 @@ QFileInfo V2Content::GetPreviewImage(        int        nRecordedId,
 
 QFileInfo V2Content::GetRecording( int              nRecordedId,
                                  int              nChanId,
-                                 const QDateTime &StartTime )
+                                 const QDateTime &StartTime,
+                                 const QString   &Download )
 {
     if ((nRecordedId <= 0) &&
         (nChanId <= 0 || !StartTime.isValid()))
@@ -725,6 +728,9 @@ QFileInfo V2Content::GetRecording( int              nRecordedId,
     }
 
     QString sFileName( GetPlaybackURL(&pginfo) );
+
+    if (HAS_PARAMv2("Download"))
+        m_request->m_headers->insert("mythtv-download",Download);
 
     // ----------------------------------------------------------------------
     // check to see if the file exists

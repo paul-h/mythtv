@@ -402,8 +402,10 @@ uint32_t AVCParser::addBytes(const uint8_t  *bytes,
                 }
             }
             else
+            {
                 LOG(VB_GENERAL, LOG_ERR,
                     "AVCParser::addbytes: malformed NAL units");
+            }
         } //found start code
     }
 
@@ -455,7 +457,7 @@ void AVCParser::processRBSP(bool rbsp_complete)
     {
         /* Need only parse the header. So return only
          * if we have insufficient bytes */
-        if (!rbsp_complete && m_rbspIndex < MAX_SLICE_HEADER_SIZE)
+        if (!rbsp_complete && m_rbspIndex < kMaxSliceHeaderSize)
             return;
 
         decode_Header(br);
@@ -603,7 +605,9 @@ bool AVCParser::decode_Header(BitReader& br)
         m_isKeyframe = true;
     }
     else
+    {
         m_isKeyframe = (m_iIsKeyframe && isKeySlice(m_sliceType));
+    }
 
     /*
       m_picOrderCntLsb specifies the picture order count modulo
@@ -627,7 +631,9 @@ bool AVCParser::decode_Header(BitReader& br)
             m_deltaPicOrderCntBottom = 0;
     }
     else
+    {
         m_deltaPicOrderCntBottom = 0;
+    }
 
     /*
       m_deltaPicOrderAlwaysZeroFlag equal to 1 specifies that
@@ -703,7 +709,8 @@ void AVCParser::decode_SPS(BitReader& br)
         profile_idc == 244 || profile_idc == 44  || profile_idc == 83  ||
         profile_idc == 86  || profile_idc == 118 || profile_idc == 128 )
     { // high profile
-        if ((m_chromaFormatIdc = br.get_ue_golomb()) == 3)
+        m_chromaFormatIdc = br.get_ue_golomb();
+        if (m_chromaFormatIdc == 3)
             m_separateColourPlaneFlag = (br.get_bits(1) == 1);
 
         br.get_ue_golomb();     // bit_depth_luma_minus8

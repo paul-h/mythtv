@@ -208,7 +208,7 @@ class MBASE_PUBLIC MythCoreContext : public QObject, public MythObservable, publ
     bool GetScopeForAddress(QHostAddress &addr) const;
     void SetScopeForAddress(const QHostAddress &addr);
     void SetScopeForAddress(const QHostAddress &addr, int scope);
-    enum ResolveType { ResolveAny = -1, ResolveIPv4 = 0, ResolveIPv6 = 1 };
+    enum ResolveType : std::int8_t { ResolveAny = -1, ResolveIPv4 = 0, ResolveIPv6 = 1 };
     QString resolveSettingAddress(const QString &name,
                                   const QString &host = QString(),
                                   ResolveType type = ResolveAny,
@@ -319,9 +319,9 @@ class MBASE_PUBLIC MythCoreContext : public QObject, public MythObservable, publ
     void connectionClosed(MythSocket *sock) override; // MythSocketCBs
     void readyRead(MythSocket *sock) override; // MythSocketCBs
 
-    QMap<QString,int>     m_testOverrideInts    {};
-    QMap<QString,double>  m_testOverrideFloats  {};
-    QMap<QString,QString> m_testOverrideStrings {};
+    QMap<QString,int>     m_testOverrideInts;
+    QMap<QString,double>  m_testOverrideFloats;
+    QMap<QString,QString> m_testOverrideStrings;
 
   private:
     bool m_dvbv3                {false};

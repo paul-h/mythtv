@@ -77,8 +77,8 @@ void goom_init (guint32 resx, guint32 resy, int cinemascope) {
 	c_offset = c_black_height * resx;
 	c_resoly = resy - c_black_height * 2;
 
-	pixel = (guint32 *) malloc (buffsize * sizeof (guint32) + 128);
-	back = (guint32 *) malloc (buffsize * sizeof (guint32) + 128);
+	pixel = (guint32 *) malloc ((buffsize * sizeof (guint32)) + 128);
+	back = (guint32 *) malloc ((buffsize * sizeof (guint32)) + 128);
 	//RAND_INIT ();
 	srand ((uintptr_t) pixel);
 	if (!rand_tab) rand_tab = (int *) malloc (NB_RAND * sizeof(int)) ;
@@ -117,10 +117,10 @@ void goom_set_resolution (guint32 resx, guint32 resy, int cinemascope) {
 	resoly = resy;
 	buffsize = resx * resy;
 
-	pixel = (guint32 *) malloc (buffsize * sizeof (guint32) + 128);
-	memset (pixel, 0, buffsize * sizeof (guint32) + 128);
-	back = (guint32 *) malloc (buffsize * sizeof (guint32) + 128);
-	memset (back, 0,  buffsize * sizeof (guint32) + 128);
+	pixel = (guint32 *) malloc ((buffsize * sizeof (guint32)) + 128);
+	memset (pixel, 0, (buffsize * sizeof (guint32)) + 128);
+	back = (guint32 *) malloc ((buffsize * sizeof (guint32)) + 128);
+	memset (back, 0,  (buffsize * sizeof (guint32)) + 128);
 	p1 = (guint32 *) ((1 + ((uintptr_t) (pixel)) / 128) * 128);
 	p2 = (guint32 *) ((1 + ((uintptr_t) (back)) / 128) * 128);
 
@@ -170,8 +170,7 @@ guint32 * goom_update (GoomDualData& data, int forceMode) {
 	/* ! etude du signal ... */
 	int incvar = 0;				// volume du son
 	for (int i = 0; i < 512; i++) {
-		if (incvar < data[0][i])
-			incvar = data[0][i];
+		incvar = std::max<int>(incvar, data[0][i]);
 	}
 
 	int i = s_accelVar;
@@ -181,8 +180,7 @@ guint32 * goom_update (GoomDualData& data, int forceMode) {
 		s_accelVar--;
 		if (s_speedVar > 20)
 			s_accelVar--;
-		if (s_speedVar > 40)
-			s_speedVar = 40;
+		s_speedVar = std::min(s_speedVar, 40);
 	}
 	s_accelVar--;
 
@@ -198,18 +196,14 @@ guint32 * goom_update (GoomDualData& data, int forceMode) {
 		s_speedVar = (s_speedVar*7)/8;
 	}
 
-	if (s_speedVar < 0)
-		s_speedVar = 0;
-	if (s_speedVar > 50)
-		s_speedVar = 50;
+	s_speedVar = std::clamp(s_speedVar, 0, 50);
 
 
 	/* ! calcul du deplacement des petits points ... */
 
         // largfactor: elargissement de l'intervalle d'évolution
 	float largfactor = ((float) s_speedVar / 40.0F + (float) incvar / 50000.0F) / 1.5F;
-	if (largfactor > 1.5F)
-		largfactor = 1.5F;
+	largfactor = std::min(largfactor, 1.5F);
 
 	s_decayIfs--;
 	if (s_decayIfs > 0)
@@ -234,25 +228,25 @@ guint32 * goom_update (GoomDualData& data, int forceMode) {
 			s_loopVar += s_speedVar*2/3 + 1;
 
 			pointFilter (p1 + c_offset, YELLOW,
-                                     ((pointWidth - 6.0F) * largfactor + 5.0F),
-                                     ((pointHeight - 6.0F) * largfactor + 5.0F),
-                                     i * 152.0F, 128.0F, s_loopVar + i * 2032);
+                                     (((pointWidth - 6.0F) * largfactor) + 5.0F),
+                                     (((pointHeight - 6.0F) * largfactor) + 5.0F),
+                                     i * 152.0F, 128.0F, s_loopVar + (i * 2032));
 			pointFilter (p1 + c_offset, ORANGE,
-                                     ((pointWidth  / 2.0F) * largfactor) / i + 10.0F * i,
-                                     ((pointHeight / 2.0F) * largfactor) / i + 10.0F * i,
+                                     (((pointWidth  / 2.0F) * largfactor) / i) + (10.0F * i),
+                                     (((pointHeight / 2.0F) * largfactor) / i) + (10.0F * i),
                                      96.0F, i * 80.0F, s_loopVar / i);
 			pointFilter (p1 + c_offset, VIOLET,
-                                     ((pointHeight / 3.0F + 5.0F) * largfactor) / i + 10.0F * i,
-                                     ((pointHeight / 3.0F + 5.0F) * largfactor) / i + 10.0F * i,
+                                     (((pointHeight / 3.0F + 5.0F) * largfactor) / i) + (10.0F * i),
+                                     (((pointHeight / 3.0F + 5.0F) * largfactor) / i) + (10.0F * i),
                                      i + 122.0F, 134.0F, s_loopVar / i);
 			pointFilter (p1 + c_offset, BLACK,
-                                     ((pointHeight / 3.0F) * largfactor + 20.0F),
-                                     ((pointHeight / 3.0F) * largfactor + 20.0F),
+                                     (((pointHeight / 3.0F) * largfactor) + 20.0F),
+                                     (((pointHeight / 3.0F) * largfactor) + 20.0F),
                                      58.0F, i * 66.0F, s_loopVar / i);
 			pointFilter (p1 + c_offset, WHITE,
                                      (pointHeight * largfactor + 10.0F * i) / i,
                                      (pointHeight * largfactor + 10.0F * i) / i,
-                                     66.0F, 74.0F, s_loopVar + i * 500); }
+                                     66.0F, 74.0F, s_loopVar + (i * 500)); }
 	}
 
 	// par défaut pas de changement de zoom
@@ -405,7 +399,10 @@ guint32 * goom_update (GoomDualData& data, int forceMode) {
 				s_rndn = iRAND(STATES_RANGEMAX);
 				s_blocker = 3;
 			}
-			else if (s_blocker) s_blocker--;
+			else if (s_blocker)
+			{
+			    s_blocker--;
+			}
 
                         (void)s_rndn; // Used in the lambda. Quiet warning.
                         auto goodstate = [&](auto state)
@@ -648,7 +645,9 @@ guint32 * goom_update (GoomDualData& data, int forceMode) {
 			s_nombreCddc = 0;
 		}
 		else
+		{
 			s_nombreCddc++;
+		}
 	}
 
 #ifdef VERBOSE
@@ -752,7 +751,9 @@ guint32 * goom_update (GoomDualData& data, int forceMode) {
 	}
 	else
 		if ((cycle%80==0)&&(iRAND(5)==0)&&s_lineMode)
+		{
 			s_lineMode--;
+		}
 
 	if ((cycle % 120 == 0)
 			&& (iRAND (4) == 0)

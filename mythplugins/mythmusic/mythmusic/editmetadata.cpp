@@ -93,7 +93,7 @@ bool EditMetadataCommon::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "ESCAPE")
@@ -448,7 +448,7 @@ bool EditMetadataDialog::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "THMBUP")
@@ -569,7 +569,9 @@ void EditMetadataDialog::updateArtistImage(void)
             m_artistIcon->Load();
         }
         else
+        {
             m_artistIcon->Reset();
+        }
     }
 }
 
@@ -635,7 +637,9 @@ void EditMetadataDialog::updateAlbumImage(void)
             m_albumIcon->Load();
         }
         else
+        {
             m_albumIcon->Reset();
+        }
     }
 }
 
@@ -686,7 +690,9 @@ void EditMetadataDialog::updateGenreImage(void)
             m_genreIcon->Load();
         }
         else
+        {
             m_genreIcon->Reset();
+        }
     }
 }
 
@@ -787,7 +793,7 @@ void EditMetadataDialog::customEvent(QEvent *event)
             if (tokens[0] == "BROWSER_DOWNLOAD_FINISHED")
             {
                 QStringList args = me->ExtraDataList();
-                QString oldFilename = args[1];
+                const QString& oldFilename = args[1];
                 int fileSize  = args[2].toInt();
                 int errorCode = args[4].toInt();
 
@@ -950,7 +956,7 @@ bool EditAlbumartDialog::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "MENU")
@@ -1226,7 +1232,9 @@ void EditAlbumartDialog::startCopyImageToTag(void)
         popupStack->AddScreen(fb);
     }
     else
+    {
         delete fb;
+    }
 }
 
 void EditAlbumartDialog::copyImageToTag(ImageType imageType)

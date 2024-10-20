@@ -7,6 +7,7 @@
 //
 
 // C++
+#include <algorithm>
 #include <cinttypes>
 #include <cmath>
 #include <cstdint>
@@ -72,9 +73,9 @@ void Synaesthesia::setupPalette(void)
         //m_palette[i * 3 + 1] = sPEAKIFY(b*bgGreen*16+f*fgGreen*16);
         //m_palette[i * 3 + 2] = sPEAKIFY(b*bgBlue*16+f*fgBlue*16);
 
-        double red = b * bgRed * 16 + f * fgRed * 16;
-        double green = b * bgGreen * 16 + f * fgGreen * 16;
-        double blue = b * bgBlue * 16 + f * fgBlue * 16;
+        double red = (b * bgRed * 16) + (f * fgRed * 16);
+        double green = (b * bgGreen * 16) + (f * fgGreen * 16);
+        double blue = (b * bgBlue * 16) + (f * fgBlue * 16);
 
         double excess = 0.0;
         for (int j = 0; j < 5; j++)
@@ -95,9 +96,9 @@ void Synaesthesia::setupPalette(void)
         green *= scale2;
         blue *= scale2;
 
-        m_palette[i * 3 + 0] = std::clamp(int(red), 0, 255);
-        m_palette[i * 3 + 1] = std::clamp(int(green), 0, 255);
-        m_palette[i * 3 + 2] = std::clamp(int(blue), 0, 255);
+        m_palette[(i * 3) + 0] = std::clamp(int(red), 0, 255);
+        m_palette[(i * 3) + 1] = std::clamp(int(green), 0, 255);
+        m_palette[(i * 3) + 2] = std::clamp(int(blue), 0, 255);
     }
 }
 
@@ -126,8 +127,8 @@ void Synaesthesia::resize(const QSize &newsize)
     }
 
     for (size_t i = 0; i < 256; i++)
-        m_outputImage->setColor(i, qRgba(m_palette[i * 3], m_palette[i * 3 + 1], 
-                                      m_palette[i * 3 + 2], 255));
+        m_outputImage->setColor(i, qRgba(m_palette[i * 3], m_palette[(i * 3) + 1],
+                                      m_palette[(i * 3) + 2], 255));
 
 #if 0
     surface = SDL_SetVideoMode(size.width(), size.height(), 8, 0);
@@ -172,8 +173,8 @@ void Synaesthesia::fft(double *x, double *y)
         n2 /= 2;
         for (size_t j = 0; j < n2; j++)
         {
-            double c = m_cosTable[j * twoToTheK & (NumSamples - 1)];
-            double s = m_negSinTable[j * twoToTheK & (NumSamples - 1)];
+            double c = m_cosTable[(j * twoToTheK) & (NumSamples - 1)];
+            double s = m_negSinTable[(j * twoToTheK) & (NumSamples - 1)];
             for (size_t i = j; i < NumSamples; i += n1)
             {
                 size_t l = i + n2;
@@ -190,14 +191,16 @@ void Synaesthesia::fft(double *x, double *y)
 
 void Synaesthesia::setStarSize(double lsize)
 {
-    double fadeModeFudge = (m_fadeMode == Wave ? 0.4 :
-                           (m_fadeMode == Flame ? 0.6 : 0.78));
+    double fadeModeFudge { 0.78 };
+    if (m_fadeMode == Wave)
+        fadeModeFudge = 0.4;
+    else if (m_fadeMode == Flame)
+        fadeModeFudge = 0.6;
 
     int factor = 0;
     if (lsize > 0.0)
         factor = int(exp(log(fadeModeFudge) / (lsize * 8.0)) * 255);
-    if (factor > 255) 
-        factor = 255;
+    factor = std::min(factor, 255);
 
     for (int i = 0; i < 256; i++)
         m_scaleDown[i] = i * factor>>8;
@@ -226,8 +229,8 @@ void Synaesthesia::addPixel(int x, int y, int br1, int br2) const
     if (x < 0 || x > m_outWidth || y < 0 || y >= m_outHeight)
         return;
 
-    unsigned char *p = output + static_cast<ptrdiff_t>(x) * 2 +
-        static_cast<ptrdiff_t>(y) * m_outWidth * 2;
+    unsigned char *p = output + (static_cast<ptrdiff_t>(x) * 2) +
+        (static_cast<ptrdiff_t>(y) * m_outWidth * 2);
     if (p[0] + br1 < 255)
         p[0] += br1;
     else
@@ -315,7 +318,7 @@ void Synaesthesia::fadeWave(void)
         fadePixelWave(x, m_outHeight - 1, j + 1, step);
     }
 
-    for (int y = 1, i = m_outWidth * 2, j = m_outWidth * 4 - 2;
+    for (int y = 1, i = m_outWidth * 2, j = (m_outWidth * 4) - 2;
          y < m_outHeight; y++, i += step, j += step) 
     {
         fadePixelWave(0, y, i, step);
@@ -324,7 +327,7 @@ void Synaesthesia::fadeWave(void)
         fadePixelWave(m_outWidth - 1, y, j + 1, step);
     }
 
-    for (int y = 1, start = m_outWidth * 2 + 2, end = m_outWidth * 4 - 2;
+    for (int y = 1, start = (m_outWidth * 2) + 2, end = (m_outWidth * 4) - 2;
          y < m_outHeight - 1; y++, start += step, end += step) 
     {
         int i2 = start;
@@ -391,7 +394,7 @@ void Synaesthesia::fadeHeat(void)
         fadePixelHeat(x, m_outHeight - 1, j + 1, step);
     }
 
-    for(int y = 1, i = m_outWidth * 2, j = m_outWidth * 4 - 2; y < m_outHeight;
+    for(int y = 1, i = m_outWidth * 2, j = (m_outWidth * 4) - 2; y < m_outHeight;
         y++, i += step, j += step) 
     {
         fadePixelHeat(0, y, i, step);
@@ -400,7 +403,7 @@ void Synaesthesia::fadeHeat(void)
         fadePixelHeat(m_outWidth - 1, y, j + 1, step);
     }
 
-    for(int y = 1, start = m_outWidth * 2 + 2, end = m_outWidth * 4 - 2;
+    for(int y = 1, start = (m_outWidth * 2) + 2, end = (m_outWidth * 4) - 2;
         y < m_outHeight - 1; y++, start += step, end += step) 
     {
         int i2 = start;
@@ -519,7 +522,7 @@ bool Synaesthesia::process(VisualNode *node)
             if (br2 < 0) br2 = 0; else if (br2 > 255) br2 = 255;
 
             int px = h;
-            int py = m_outHeight - i * m_outHeight / (NumSamples / 2);
+            int py = m_outHeight - (i * m_outHeight / (NumSamples / 2));
 
             if (m_pointsAreDiamonds)
             {
@@ -557,8 +560,8 @@ bool Synaesthesia::process(VisualNode *node)
                 }
                 else
                 {
-                    unsigned char *p = output + static_cast<ptrdiff_t>(px) * 2 +
-                        static_cast<ptrdiff_t>(py) * m_outWidth * 2;
+                    unsigned char *p = output + (static_cast<ptrdiff_t>(px) * 2) +
+                        (static_cast<ptrdiff_t>(py) * m_outWidth * 2);
                     unsigned char *p1 = p;
                     unsigned char *p2 = p;
                     unsigned char *p3 = p;

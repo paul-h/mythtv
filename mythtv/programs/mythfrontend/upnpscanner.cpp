@@ -293,7 +293,7 @@ bool UPNPScanner::GetMetadata(QVariant &data)
     if (list.size() != 2)
         return false;
 
-    QString usn = list[0];
+    const QString& usn = list[0];
     QString object = list[1];
 
     m_lock.lock();
@@ -633,7 +633,9 @@ void UPNPScanner::replyFinished(QNetworkReply *reply)
         }
     }
     else
+    {
         LOG(VB_UPNP, LOG_ERR, LOC + "Received unknown reply");
+    }
 
     reply->deleteLater();
 }
@@ -806,7 +808,9 @@ void UPNPScanner::Debug(void)
                 status = "Failed";
         }
         else
+        {
             status = "Yes";
+        }
         LOG(VB_UPNP, LOG_INFO, LOC +
             QString("'%1' Connected: %2 Subscribed: %3 SystemUpdateID: "
                     "%4 timerId: %5")

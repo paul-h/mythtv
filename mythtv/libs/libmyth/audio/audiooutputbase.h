@@ -39,7 +39,7 @@ public:
     AsyncLooseLock() = default;
     void Clear() { m_head = m_tail = 0; }
     void Ref() { m_head++; }
-    bool TestAndDeref() { bool r = false; if ((r=(m_head != m_tail))) m_tail++; return r; }
+    bool TestAndDeref() { bool r = (m_head != m_tail); if (r) m_tail++; return r; }
 private:
     int m_head {0};
     int m_tail {0};
@@ -205,7 +205,7 @@ class AudioOutputBase : public AudioOutput, public MThread
 
     int               m_configuredChannels         {0};
     int               m_maxChannels                {0};
-    enum
+    enum : std::int8_t
     {
         QUALITY_DISABLED = -1,
         QUALITY_LOW      =  0,

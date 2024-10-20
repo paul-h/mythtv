@@ -31,7 +31,7 @@ CannyEdgeDetector::CannyEdgeDetector(void)
 
     /* The SGM computations require that mask_radius >= 2. */
     m_maskRadius = std::max(2, (int)roundf(TRUNCATION * sigma));
-    int mask_width = 2 * m_maskRadius + 1;
+    int mask_width = (2 * m_maskRadius) + 1;
 
     /* Compute Gaussian mask. */
     m_mask = new double[mask_width];
@@ -51,10 +51,10 @@ CannyEdgeDetector::CannyEdgeDetector(void)
 
 CannyEdgeDetector::~CannyEdgeDetector(void)
 {
-    av_freep(&m_edges.data[0]);
-    av_freep(&m_convolved.data[0]);
-    av_freep(&m_s2.data[0]);
-    av_freep(&m_s1.data[0]);
+    av_freep(reinterpret_cast<void*>(&m_edges.data[0]));
+    av_freep(reinterpret_cast<void*>(&m_convolved.data[0]));
+    av_freep(reinterpret_cast<void*>(&m_s2.data[0]));
+    av_freep(reinterpret_cast<void*>(&m_s1.data[0]));
     delete []m_sgmSorted;
     delete []m_sgm;
     delete []m_mask;
@@ -71,17 +71,17 @@ CannyEdgeDetector::resetBuffers(int newwidth, int newheight)
          * Sentinel value to determine whether or not stuff has already been
          * allocated.
          */
-        av_freep(&m_s1.data[0]);
-        av_freep(&m_s2.data[0]);
-        av_freep(&m_convolved.data[0]);
-        av_freep(&m_edges.data[0]);
+        av_freep(reinterpret_cast<void*>(&m_s1.data[0]));
+        av_freep(reinterpret_cast<void*>(&m_s2.data[0]));
+        av_freep(reinterpret_cast<void*>(&m_convolved.data[0]));
+        av_freep(reinterpret_cast<void*>(&m_edges.data[0]));
         delete []m_sgm;
         delete []m_sgmSorted;
         m_sgm = nullptr;
     }
 
-    const int   padded_width = newwidth + 2 * m_maskRadius;
-    const int   padded_height = newheight + 2 * m_maskRadius;
+    const int   padded_width = newwidth + (2 * m_maskRadius);
+    const int   padded_height = newheight + (2 * m_maskRadius);
 
     if (av_image_alloc(m_s1.data, m_s1.linesize,
         padded_width, padded_height, AV_PIX_FMT_GRAY8, IMAGE_ALIGN))
@@ -124,11 +124,11 @@ CannyEdgeDetector::resetBuffers(int newwidth, int newheight)
     return 0;
 
 free_convolved:
-    av_freep(&m_convolved.data[0]);
+    av_freep(reinterpret_cast<void*>(&m_convolved.data[0]));
 free_s2:
-    av_freep(&m_s2.data[0]);
+    av_freep(reinterpret_cast<void*>(&m_s2.data[0]));
 free_s1:
-    av_freep(&m_s1.data[0]);
+    av_freep(reinterpret_cast<void*>(&m_s1.data[0]));
     return -1;
 }
 
@@ -154,7 +154,7 @@ CannyEdgeDetector::detectEdges(const AVFrame *pgm, int pgmheight,
      */
 
     const int   pgmwidth = pgm->linesize[0];
-    const int   padded_height = pgmheight + 2 * m_maskRadius;
+    const int   padded_height = pgmheight + (2 * m_maskRadius);
 
     if (resetBuffers(pgmwidth, pgmheight))
         return nullptr;

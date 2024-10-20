@@ -31,10 +31,10 @@ class AudioOutputGraph::AOBuffer : public QByteArray
 
     void SetMaxSamples(uint16_t Samples)    { m_maxSamples = Samples; }
     void SetSampleRate(uint16_t SampleRate) { m_sampleRate = SampleRate; }
-    static inline int BitsPerChannel() { return sizeof(short) * CHAR_BIT; }
-    inline int Channels() const { return m_channels; }
-    inline std::chrono::milliseconds Next() const  { return m_tcNext; }
-    inline std::chrono::milliseconds First() const { return m_tcFirst; }
+    static int BitsPerChannel() { return sizeof(short) * CHAR_BIT; }
+    int Channels() const { return m_channels; }
+    std::chrono::milliseconds Next() const  { return m_tcNext; }
+    std::chrono::milliseconds First() const { return m_tcFirst; }
 
     using Range = std::pair<std::chrono::milliseconds, std::chrono::milliseconds>;
     Range Avail(std::chrono::milliseconds Timecode) const
@@ -122,22 +122,22 @@ class AudioOutputGraph::AOBuffer : public QByteArray
     }
 
   protected:
-    inline uint BytesPerSample() const
+    uint BytesPerSample() const
     {
         return static_cast<uint>(m_channels * ((m_bits + 7) / 8));
     }
 
-    inline unsigned Bytes2Samples(unsigned Bytes) const
+    unsigned Bytes2Samples(unsigned Bytes) const
     {
         return  (m_channels && m_bits) ? Bytes / BytesPerSample() : 0;
     }
 
-    inline std::chrono::milliseconds Samples2MS(unsigned Samples) const
+    std::chrono::milliseconds Samples2MS(unsigned Samples) const
     {
         return m_sampleRate ? std::chrono::milliseconds((Samples * 1000UL + m_sampleRate - 1) / m_sampleRate) : 0ms; // round up
     }
 
-    inline int MS2Samples(std::chrono::milliseconds Msecs) const
+    int MS2Samples(std::chrono::milliseconds Msecs) const
     {
         return Msecs > 0ms ? static_cast<int>((Msecs.count() * m_sampleRate) / 1000) : 0; // NB round down
     }
@@ -293,11 +293,15 @@ MythImage* AudioOutputGraph::GetImage(std::chrono::milliseconds Timecode) const
         auto avg = qAbs(left) + qAbs(right);
         double db = 20 * log10(static_cast<double>(avg ? avg : 1) / range);
         auto idb = static_cast<int>(ceil(db));
-        auto rgb = idb <= m_dBsilence ? qRgb(255, 255, 255) :
-                   idb <= m_dBquiet   ? qRgb(  0, 255, 255) :
-                   idb <= m_dBLoud    ? qRgb(  0, 255,   0) :
-                   idb <= m_dbMax     ? qRgb(255, 255,   0) :
-                                        qRgb(255,   0,   0);
+        auto rgb { qRgb(255,   0,   0) };
+        if (idb <= m_dBsilence)
+            rgb = qRgb(255, 255, 255);
+        else if (idb <= m_dBquiet)
+            rgb = qRgb(  0, 255, 255);
+        else if (idb <= m_dBLoud)
+            rgb = qRgb(  0, 255,   0);
+        else if (idb <= m_dbMax)
+            rgb = qRgb(255, 255,   0);
 
         int v = height - static_cast<int>(height * (db / threshold));
         if (v >= height)

@@ -78,7 +78,9 @@ class SingleValueImp
                     m_dirty = true;
                 }
                 else
+                {
                     MythDB::DBError("get last id", query);
+                }
             }
         }
 
@@ -629,10 +631,14 @@ class FileAssociationsImp
                     m_fileAssociations.push_back(ret_fa);
                 }
                 else
+                {
                     return false;
+                }
             }
             else
+            {
                 *existing_fa = ret_fa;
+            }
 
             fa = ret_fa;
             return true;
@@ -818,8 +824,8 @@ void FileAssociations::load_data()
 }
 
 FileAssociations::FileAssociations()
+  : m_imp(new FileAssociationsImp)
 {
-    m_imp = new FileAssociationsImp;
 }
 
 FileAssociations::~FileAssociations()

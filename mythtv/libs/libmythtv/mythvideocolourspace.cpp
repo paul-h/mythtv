@@ -38,7 +38,8 @@ extern "C" {
  * using an HDR display. Futher work is required.
 */
 MythVideoColourSpace::MythVideoColourSpace()
-  : ReferenceCounter("Colour")
+  : ReferenceCounter("Colour"),
+    m_updatesDisabled(false)
 {
     m_dbSettings[kPictureAttribute_Brightness] = gCoreContext->GetNumSetting("PlaybackBrightness", 50);
     m_dbSettings[kPictureAttribute_Contrast]   = gCoreContext->GetNumSetting("PlaybackContrast",   50);
@@ -83,7 +84,6 @@ MythVideoColourSpace::MythVideoColourSpace()
         MythDisplay::AcquireRelease(false);
     }
     */
-    m_updatesDisabled = false;
     Update();
 }
 
@@ -198,9 +198,25 @@ void MythVideoColourSpace::Update(void)
     float blacklevel   =  16 << (m_colourSpaceDepth - 8);
     float lumapeak     = 235 << (m_colourSpaceDepth - 8);
     float chromapeak   = 240 << (m_colourSpaceDepth - 8);
-    float luma_scale   = noop ? 1.0F : (expand ? depth / (lumapeak - blacklevel)   : (lumapeak - blacklevel) / depth);
-    float chroma_scale = noop ? 1.0F : (expand ? depth / (chromapeak - blacklevel) : (chromapeak - blacklevel) / depth);
-    float offset       = noop ? 0.0F : (expand ? -blacklevel / depth               : blacklevel / depth);
+    float luma_scale   {NAN};
+    float chroma_scale {NAN};
+    float offset       {NAN};
+    if (noop)
+    {
+        luma_scale   = 1.0F;
+        chroma_scale = 1.0F;
+        offset       = 0.0F;
+    }
+    else if (expand)
+    {
+        luma_scale   = depth / (lumapeak - blacklevel);
+        chroma_scale = depth / (chromapeak - blacklevel);
+        offset       = -blacklevel / depth;
+    } else {
+        luma_scale   = (lumapeak - blacklevel) / depth;
+        chroma_scale = (chromapeak - blacklevel) / depth;
+        offset       = blacklevel / depth;
+    }
 
     setToIdentity();
     translate(m_brightness, m_brightness, m_brightness);
@@ -282,7 +298,7 @@ int MythVideoColourSpace::ChangePictureAttribute(PictureAttribute Attribute, boo
             newvalue = 1;
     }
 
-    newvalue = std::min(std::max(newvalue, 0), 100);
+    newvalue = std::clamp(newvalue, 0, 100);
     if (newvalue != current)
     {
         switch (Attribute)

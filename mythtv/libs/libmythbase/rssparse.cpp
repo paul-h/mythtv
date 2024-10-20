@@ -1049,7 +1049,9 @@ QDateTime Parse::RFC822TimeToQDateTime(const QString& t)
         }
     }
     else
+    {
         hoursShift = m_timezoneOffsets.value(tmpTimezone, 0);
+    }
 
     if (tmp.at(0).size() == 1)
         tmp[0].prepend("0");
@@ -1064,7 +1066,7 @@ QDateTime Parse::RFC822TimeToQDateTime(const QString& t)
         result = QLocale::c().toDateTime(time, "dd MMM yy hh:mm:ss");
     if (result.isNull() || !result.isValid())
         return {};
-    result = result.addSecs(hoursShift * 3600 * (-1) + minutesShift *60 * (-1));
+    result = result.addSecs((hoursShift * 3600 * (-1)) + (minutesShift * 60 * (-1)));
     result.setTimeSpec(Qt::UTC);
     return result;
 }
@@ -1098,7 +1100,7 @@ QDateTime Parse::FromRFC3339(const QString& t)
             multiplier = 1;
         int hoursShift =   match.capturedView(2).toInt();
         int minutesShift = match.capturedView(3).toInt();
-        result = result.addSecs(hoursShift * 3600 * multiplier + minutesShift * 60 * multiplier);
+        result = result.addSecs((hoursShift * 3600 * multiplier) + (minutesShift * 60 * multiplier));
     }
     result.setTimeSpec(Qt::UTC);
     return result;

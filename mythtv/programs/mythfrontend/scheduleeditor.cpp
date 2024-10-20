@@ -83,9 +83,9 @@ ScheduleEditor::ScheduleEditor(MythScreenStack *parent,
             SchedOptMixin(*this, nullptr), FilterOptMixin(*this, nullptr),
             StoreOptMixin(*this, nullptr), PostProcMixin(*this, nullptr),
             m_recInfo(new RecordingInfo(*recInfo)),
+            m_recordingRule(new RecordingRule()),
             m_player(player)
 {
-    m_recordingRule = new RecordingRule();
     m_recordingRule->m_recordID = m_recInfo->GetRecordingRuleID();
     SchedOptMixin::SetRule(m_recordingRule);
     FilterOptMixin::SetRule(m_recordingRule);
@@ -515,7 +515,9 @@ void ScheduleEditor::ShowSchedInfo()
         popupStack->AddScreen(menuPopup);
     }
     else
+    {
         delete menuPopup;
+    }
 }
 
 bool ScheduleEditor::keyPressEvent(QKeyEvent *event)
@@ -529,7 +531,7 @@ bool ScheduleEditor::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "MENU")
@@ -886,7 +888,7 @@ bool SchedEditChild::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "MENU")
@@ -1242,14 +1244,12 @@ MetadataOptions::MetadataOptions(MythScreenStack *parent,
                                  ScheduleEditor &editor,
                                  RecordingRule &rule,
                                  RecordingInfo *recInfo)
-    : SchedEditChild(parent, "MetadataOptions", editor, rule, recInfo)
+    : SchedEditChild(parent, "MetadataOptions", editor, rule, recInfo),
+      m_metadataFactory(new MetadataFactory(this)),
+      m_imageLookup(new MetadataDownload(this)),
+      m_imageDownload(new MetadataImageDownload(this))
 {
     m_popupStack = GetMythMainWindow()->GetStack("popup stack");
-
-    m_metadataFactory = new MetadataFactory(this);
-    m_imageLookup = new MetadataDownload(this);
-    m_imageDownload = new MetadataImageDownload(this);
-
     m_artworkMap = GetArtwork(m_recordingRule->m_inetref,
                               m_recordingRule->m_season);
 }
@@ -1329,11 +1329,21 @@ bool MetadataOptions::Create()
 
     // Season
     m_seasonSpin->SetRange(0,9999,1,5);
-    m_seasonSpin->SetValue(m_recordingRule->m_season != 0 ? m_recordingRule->m_season : m_recInfo ? m_recInfo->GetSeason() : 0);
+    int season {0};
+    if (m_recordingRule->m_season != 0)
+        season = m_recordingRule->m_season;
+    else if (m_recInfo)
+        season = m_recInfo->GetSeason();
+    m_seasonSpin->SetValue(season);
 
     // Episode
     m_episodeSpin->SetRange(0,9999,1,10);
-    m_episodeSpin->SetValue(m_recordingRule->m_episode != 0 ? m_recordingRule->m_episode : m_recInfo ? m_recInfo->GetEpisode() : 0);
+    int episode {0};
+    if (m_recordingRule->m_episode != 0)
+        episode = m_recordingRule->m_episode;
+    else if (m_recInfo)
+        episode = m_recInfo->GetEpisode();
+    m_episodeSpin->SetValue(episode);
 
     if (m_coverart)
     {
@@ -1530,7 +1540,9 @@ void MetadataOptions::FindImagePopup(const QString &prefix,
         popupStack->AddScreen(fb);
     }
     else
+    {
         delete fb;
+    }
 }
 
 QStringList MetadataOptions::GetSupportedImageExtensionFilter()

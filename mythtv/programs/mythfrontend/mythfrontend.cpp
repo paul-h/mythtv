@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include <memory>
+#include "zlib.h"
 
 // Qt
 #include <QtGlobal>
@@ -201,7 +202,9 @@ namespace
                     mainStack->AddScreen(ssd);
                 }
                 else
+                {
                     delete ssd;
+                }
             }
             else
             {
@@ -590,7 +593,9 @@ static void startPlaybackWithGroup(const QString& recGroup = "")
         mainStack->AddScreen(pbb);
     }
     else
+    {
         delete pbb;
+    }
 }
 
 static void startPlayback(void)
@@ -754,7 +759,9 @@ static void RunVideoScreen(VideoDialog::DialogType type, bool fromJump = false)
         mainStack->AddScreen(mythvideo);
     }
     else
+    {
         busyPopup->Close();
+    }
 }
 
 static void jumpScreenVideoManager() { RunVideoScreen(VideoDialog::DLG_MANAGER, true); }
@@ -910,7 +917,9 @@ static void handleGalleryMedia(MythMediaDevice *dev)
         GetMythMainWindow()->JumpTo(JUMP_GALLERY_DEFAULT);
     }
     else
+    {
         LOG(VB_MEDIA, LOG_INFO, "Main: Ignoring new gallery media - autorun not set");
+    }
 }
 
 static void TVMenuCallback([[maybe_unused]] void *data, QString &selection)
@@ -936,41 +945,77 @@ static void TVMenuCallback([[maybe_unused]] void *data, QString &selection)
             startPlayback();
     }
     else if (sel == "tv_schedule")
+    {
         startGuide();
+    }
     else if (sel == "tv_manualschedule")
+    {
         startManualSchedule();
+    }
     else if (sel == "tv_custom_record")
+    {
         startCustomEdit();
+    }
     else if (sel == "tv_fix_conflicts")
+    {
         startManaged();
+    }
     else if (sel == "tv_manage_recording_rules")
+    {
         startManageRecordingRules();
+    }
     else if (sel == "tv_progfind")
+    {
         startFinder();
+    }
     else if (sel == "tv_search_title")
+    {
         startSearchTitle();
+    }
     else if (sel == "tv_search_keyword")
+    {
         startSearchKeyword();
+    }
     else if (sel == "tv_search_people")
+    {
         startSearchPeople();
+    }
     else if (sel == "tv_search_power")
+    {
         startSearchPower();
+    }
     else if (sel == "tv_search_stored")
+    {
         startSearchStored();
+    }
     else if (sel == "tv_search_channel")
+    {
         startSearchChannel();
+    }
     else if (sel == "tv_search_category")
+    {
         startSearchCategory();
+    }
     else if (sel == "tv_search_movie")
+    {
         startSearchMovie();
+    }
     else if (sel == "tv_search_new")
+    {
         startSearchNew();
+    }
     else if (sel == "tv_search_time")
+    {
         startSearchTime();
+    }
     else if (sel == "tv_previous")
+    {
         startPrevious();
+    }
     else if (sel == "tv_previous_old")
+    {
         startPreviousOld();
+    }
     else if (sel == "settings appearance")
     {
         MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
@@ -982,7 +1027,9 @@ static void TVMenuCallback([[maybe_unused]] void *data, QString &selection)
             mainStack->AddScreen(ssd);
         }
         else
+        {
             delete ssd;
+        }
     }
     else if (sel == "settings themechooser")
     {
@@ -1033,7 +1080,9 @@ static void TVMenuCallback([[maybe_unused]] void *data, QString &selection)
             mainStack->AddScreen(ssd);
         }
         else
+        {
             delete ssd;
+        }
     }
     else if (sel == "settings general")
     {
@@ -1046,7 +1095,9 @@ static void TVMenuCallback([[maybe_unused]] void *data, QString &selection)
             mainStack->AddScreen(ssd);
         }
         else
+        {
             delete ssd;
+        }
     }
     else if (sel == "settings audiogeneral")
     {
@@ -1060,7 +1111,9 @@ static void TVMenuCallback([[maybe_unused]] void *data, QString &selection)
             mainStack->AddScreen(ssd);
         }
         else
+        {
             delete ssd;
+        }
     }
     else if (sel == "settings maingeneral")
     {
@@ -1073,7 +1126,9 @@ static void TVMenuCallback([[maybe_unused]] void *data, QString &selection)
             mainStack->AddScreen(ssd);
         }
         else
+        {
             delete ssd;
+        }
     }
     else if (sel == "settings playback")
     {
@@ -1086,7 +1141,9 @@ static void TVMenuCallback([[maybe_unused]] void *data, QString &selection)
             mainStack->AddScreen(ssd);
         }
         else
+        {
             delete ssd;
+        }
     }
     else if (sel == "settings osd")
     {
@@ -1099,7 +1156,9 @@ static void TVMenuCallback([[maybe_unused]] void *data, QString &selection)
             mainStack->AddScreen(ssd);
         }
         else
+        {
             delete ssd;
+        }
     }
     else if (sel == "settings epg")
     {
@@ -1112,7 +1171,9 @@ static void TVMenuCallback([[maybe_unused]] void *data, QString &selection)
             mainStack->AddScreen(ssd);
         }
         else
+        {
             delete ssd;
+        }
     }
     else if (sel == "settings channelgroups")
     {
@@ -1125,7 +1186,9 @@ static void TVMenuCallback([[maybe_unused]] void *data, QString &selection)
             mainStack->AddScreen(ssd);
         }
         else
+        {
             delete ssd;
+        }
     }
     else if (sel == "settings generalrecpriorities")
     {
@@ -1139,7 +1202,9 @@ static void TVMenuCallback([[maybe_unused]] void *data, QString &selection)
             mainStack->AddScreen(ssd);
         }
         else
+        {
             delete ssd;
+        }
     }
     else if (sel == "settings channelrecpriorities")
     {
@@ -1197,31 +1262,49 @@ static void TVMenuCallback([[maybe_unused]] void *data, QString &selection)
             mainStack->AddScreen(fa);
     }
     else if (sel == "manager")
+    {
         RunVideoScreen(VideoDialog::DLG_MANAGER);
+    }
     else if (sel == "browser")
+    {
         RunVideoScreen(VideoDialog::DLG_BROWSER);
+    }
     else if (sel == "listing")
+    {
         RunVideoScreen(VideoDialog::DLG_TREE);
+    }
     else if (sel == "gallery")
+    {
         RunVideoScreen(VideoDialog::DLG_GALLERY);
+    }
     else if (sel == "disc_play")
     {
         playDisc();
     }
     else if (sel == "tv_status")
+    {
         showStatus();
+    }
     else if (sel == "exiting_app_prompt")
+    {
         handleExit(true);
+    }
     else if (sel == "exiting_app")
+    {
         handleExit(false);
+    }
     else if (sel == "standby_mode")
+    {
         standbyScreen();
+    }
     else if (sel == "exiting_menu")
     {
         //ignore
     }
     else
+    {
         LOG(VB_GENERAL, LOG_ERR, "Unknown menu action: " + selection);
+    }
 
     if (sel.startsWith("settings ") || sel == "video_settings_general")
     {
@@ -1636,7 +1719,7 @@ static void InitKeys(void)
      REG_KEY("Video","DECPARENT", QT_TRANSLATE_NOOP("MythControls",
          "Decrease Parental Level"), "[,{,F10");
      REG_KEY("Video","INCSEARCH", QT_TRANSLATE_NOOP("MythControls",
-         "Show Incremental Search Dialog"), "Ctrl+S");
+         "Show Incremental Search Dialog"), "Ctrl+S,Search");
      REG_KEY("Video","DOWNLOADDATA", QT_TRANSLATE_NOOP("MythControls",
          "Download metadata for current item"), "W");
      REG_KEY("Video","ITEMDETAIL", QT_TRANSLATE_NOOP("MythControls",
@@ -1644,7 +1727,7 @@ static void InitKeys(void)
 
      // Gallery keybindings
      REG_KEY("Images", "PLAY", QT_TRANSLATE_NOOP("MythControls",
-         "Start/Stop Slideshow"), "P");
+         "Start/Stop Slideshow"), "P,Media Play");
      REG_KEY("Images", "RECURSIVESHOW", QT_TRANSLATE_NOOP("MythControls",
          "Start Recursive Slideshow"), "R");
      REG_KEY("Images", "ROTRIGHT", QT_TRANSLATE_NOOP("MythControls",
@@ -1656,9 +1739,9 @@ static void InitKeys(void)
      REG_KEY("Images", "FLIPVERTICAL", QT_TRANSLATE_NOOP("MythControls",
          "Flip image vertically"), "");
      REG_KEY("Images", "ZOOMOUT", QT_TRANSLATE_NOOP("MythControls",
-         "Zoom image out"), "7");
+         "Zoom image out"), "7,<,Ctrl+B,Media Rewind");
      REG_KEY("Images", "ZOOMIN", QT_TRANSLATE_NOOP("MythControls",
-         "Zoom image in"), "9");
+         "Zoom image in"), "9,>,Ctrl+F,Media Fast Forward");
      REG_KEY("Images", "FULLSIZE", QT_TRANSLATE_NOOP("MythControls",
          "Full-size (un-zoom) image"), "0");
      REG_KEY("Images", "MARK", QT_TRANSLATE_NOOP("MythControls",
@@ -1800,8 +1883,10 @@ static bool WasAutomaticStart(void)
                     autoStart = true;
                 }
                 else
+                {
                     LOG(VB_GENERAL, LOG_DEBUG,
                         "NOT close to auto-start time, USER-initiated startup assumed");
+                }
             }
         }
         else
@@ -1844,8 +1929,10 @@ static bool WasAutomaticStart(void)
                         autoStart = true;
                     }
                     else
+                    {
                         LOG(VB_GENERAL, LOG_DEBUG,
                             "NOT close to auto-start time, USER-initiated startup assumed");
+                    }
 
                 }
             }
@@ -2002,6 +2089,15 @@ Q_DECL_EXPORT int main(int argc, char **argv)
     if (maxImageSize >=0)
         QImageReader::setAllocationLimit(maxImageSize);
 #endif
+    LOG(VB_GENERAL, LOG_DEBUG,
+        QString("Built against zlib %1, linked against %2.")
+        .arg(ZLIB_VERSION, zlibVersion()));
+    QList<QByteArray> formats = QImageReader::supportedImageFormats();
+    QString format_str = formats.takeFirst();
+    for (const auto& format : std::as_const(formats))
+        format_str += ", " + format;
+    LOG(VB_GENERAL, LOG_DEBUG, QString("Supported image formats: %1").arg(format_str));
+
     QCoreApplication::setSetuidAllowed(true);
 
     if (revokeRoot() != 0)

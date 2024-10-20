@@ -1898,10 +1898,10 @@ bool CardUtil::IsUniqueDisplayName(const QString &name, uint exclude_inputid)
     if (name.isEmpty())
         return false;
 
-    qsizetype idx { 0 };
     QString   matching;
     bool      two { false };
-    if ((idx = name.indexOf('/')) >= 0)
+    qsizetype idx = name.indexOf('/');
+    if (idx >= 0)
     {
         matching = name.right(name.size() - idx -1);
         two = false;
@@ -1928,13 +1928,16 @@ bool CardUtil::IsUniqueDisplayName(const QString &name, uint exclude_inputid)
     while (query.next())
     {
         QString dn = query.value(1).toString();
-        if (!two && (idx = dn.indexOf('/')) >= 0)
+        idx = dn.indexOf('/');
+        if (!two && idx >= 0)
         {
             if (dn.right(dn.size() - idx - 1) == matching)
                 return false;
         }
         else if (dn.right(2) == matching.right(2))
+        {
             return false;
+        }
     }
 
     return true;
@@ -2718,7 +2721,9 @@ int CardUtil::CreateCaptureCard(const QString &videodevice,
 #endif
     }
     else
+    {
         query.bindValue(":AUDIODEVICE", audiodevice);
+    }
     if (vbidevice.length() == 0) // Empty string is set to null
     {
 #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
@@ -2728,7 +2733,9 @@ int CardUtil::CreateCaptureCard(const QString &videodevice,
 #endif
     }
     else
+    {
         query.bindValue(":VBIDEVICE", vbidevice);
+    }
     query.bindValue(":INPUTTYPE", inputtype);
     if (audioratelimit == 0) // Value 0 is set to null
     {
@@ -2739,7 +2746,9 @@ int CardUtil::CreateCaptureCard(const QString &videodevice,
 #endif
     }
     else
+    {
         query.bindValue(":AUDIORATELIMIT", audioratelimit);
+    }
     query.bindValue(":HOSTNAME", hostname);
     query.bindValue(":DVBSWFILTER", dvb_swfilter);
     query.bindValue(":DVBSATTYPE", dvb_sat_type);
@@ -2757,7 +2766,9 @@ int CardUtil::CreateCaptureCard(const QString &videodevice,
 #endif
     }
     else
+    {
         query.bindValue(":FIREWIREMODEL", firewire_model);
+    }
     query.bindValue(":FIREWIRECONNECTION", firewire_connection);
     query.bindValue(":SIGNALTIMEOUT", static_cast<qint64>(signal_timeout.count()));
     query.bindValue(":CHANNELTIMEOUT", static_cast<qint64>(channel_timeout.count()));
@@ -2775,7 +2786,9 @@ int CardUtil::CreateCaptureCard(const QString &videodevice,
 #endif
     }
     else
+    {
         query.bindValue(":DISEQCID", diseqcid);
+    }
     query.bindValue(":DVBEITSCAN", dvb_eitscan);
 
     if (!query.exec())

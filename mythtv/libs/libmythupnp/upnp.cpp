@@ -98,7 +98,8 @@ bool UPnp::Initialize( QList<QHostAddress> &sIPAddrList, int nServicePort, HttpS
         return false;
     }
 
-    if ((m_pHttpServer = pHttpServer) == nullptr)
+    m_pHttpServer = pHttpServer;
+    if (m_pHttpServer == nullptr)
     {
         LOG(VB_GENERAL, LOG_ERR,
             "UPnp::Initialize - Invalid Parameter (pHttpServer == NULL)");
@@ -268,7 +269,9 @@ void UPnp::FormatErrorResponse( HTTPRequest   *pRequest,
                                         sDetails );
     }
     else
+    {
         LOG(VB_GENERAL, LOG_ERR, "Response not created - pRequest == NULL" );
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////

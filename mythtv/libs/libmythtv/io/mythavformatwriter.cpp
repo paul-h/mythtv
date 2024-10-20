@@ -49,12 +49,12 @@ MythAVFormatWriter::~MythAVFormatWriter()
         av_write_trailer(m_ctx);
         avio_closep(&m_ctx->pb);
         for(uint i = 0; i < m_ctx->nb_streams; i++)
-            av_freep(&m_ctx->streams[i]);
-        av_freep(&m_ctx);
+            av_freep(reinterpret_cast<void*>(&m_ctx->streams[i]));
+        av_freep(reinterpret_cast<void*>(&m_ctx));
     }
 
-    av_freep(&m_audioInBuf);
-    av_freep(&m_audioInPBuf);
+    av_freep(reinterpret_cast<void*>(&m_audioInBuf));
+    av_freep(reinterpret_cast<void*>(&m_audioInPBuf));
     if (m_audPicture)
         av_frame_free(&m_audPicture);
     Cleanup();
@@ -188,8 +188,8 @@ bool MythAVFormatWriter::CloseFile(void)
         av_write_trailer(m_ctx);
         avio_close(m_ctx->pb);
         for(uint i = 0; i < m_ctx->nb_streams; i++)
-            av_freep(&m_ctx->streams[i]);
-        av_freep(&m_ctx);
+            av_freep(reinterpret_cast<void*>(&m_ctx->streams[i]));
+        av_freep(reinterpret_cast<void*>(&m_ctx));
     }
     return true;
 }
@@ -649,14 +649,16 @@ bool MythAVFormatWriter::OpenAudio(void)
     if (av_get_packed_sample_fmt(context->sample_fmt) == AV_SAMPLE_FMT_FLT)
     {
         // allocate buffer to convert from S16 to float
-        if (!(m_audioInBuf = static_cast<unsigned char*>(av_malloc(size))))
+        m_audioInBuf = static_cast<unsigned char*>(av_malloc(size));
+        if (m_audioInBuf == nullptr)
             return false;
     }
 
     if (av_sample_fmt_is_planar(context->sample_fmt))
     {
         // allocate buffer to convert interleaved to planar audio
-        if (!(m_audioInPBuf = static_cast<unsigned char*>(av_malloc(size))))
+        m_audioInPBuf = static_cast<unsigned char*>(av_malloc(size));
+        if (m_audioInPBuf == nullptr)
             return false;
     }
     return true;

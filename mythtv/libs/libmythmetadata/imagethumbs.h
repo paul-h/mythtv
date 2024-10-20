@@ -29,7 +29,7 @@
 //! \details Ordered to optimise perceived client performance, ie. pictures will be
 //! displayed before directories (4 thumbnails), then videos (slow to generate) are filled
 //! in last.
-enum ImageThumbPriority {
+enum ImageThumbPriority : std::int8_t {
     kUrgentPriority     = -10, //!< Scanner request needed to complete a scan
     kPicRequestPriority =  -7, //!< Client request to display an image thumbnail
     kDirRequestPriority =  -3, //!< Client request to display a directory thumbnail
@@ -110,7 +110,7 @@ private:
     //! A priority queue where 0 is highest priority
     using ThumbQueue = QMultiMap<int, TaskPtr>;
 
-    QString CreateThumbnail(ImagePtrK im, int thumbPriority);
+    QString CreateThumbnail(const ImagePtrK& im, int thumbPriority);
     static void RemoveTasks(ThumbQueue &queue, int devId);
 
     DBFS &m_dbfs;               //!< Database/filesystem adapter
@@ -146,7 +146,7 @@ private:
     // Minor element = id, so thumbs are created in order they were scanned
     // If not unique, QMultiMap will process later requests before earlier ones
     int Priority(ImageItemK &im)
-    { return im.m_filePath.count('/') * 1000 + im.m_id; }
+    { return (im.m_filePath.count('/') * 1000) + im.m_id; }
 
     //! Db/filesystem adapter
     DBFS              &m_dbfs;

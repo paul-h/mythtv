@@ -17,6 +17,7 @@ export interface Channel {
     Format:             string;
     FrequencyId:        string; // null in sample data
     IconURL:            string;
+    Icon:               string;
     InputId:            number;
     Inputs:             string; // null in sample data
     MplexId:            number;
@@ -170,4 +171,11 @@ export interface Scan {
     SourceId:               number;
     Processed:              boolean;
     ScanDate:               string;       // Date
+}
+
+export interface ChannelRestoreData {
+    NumChannels:            number;
+    NumXLMTVID:             number;
+    NumIcon:                number;
+    NumVisible:             number;
 }

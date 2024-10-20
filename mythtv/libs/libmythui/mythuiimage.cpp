@@ -352,7 +352,9 @@ class ImageLoader
                     imProps.SetMaskImage(newMaskImage);
                 }
                 else
+                {
                     imProps.SetMaskImage(nullptr);
+                }
                 newMaskImage->DecrRef();
 
                 QRect imageArea = image->rect();
@@ -563,13 +565,13 @@ MythUIImage::MythUIImage(const QString &filepattern,
     : MythUIType(parent, name),
       m_delay(delay),
       m_lowNum(low),
-      m_highNum(high)
+      m_highNum(high),
+      d(new MythUIImagePrivate(this))
 {
     m_imageProperties.m_filename = filepattern;
 
     m_enableInitiator = true;
 
-    d = new MythUIImagePrivate(this);
     emit DependChanged(false);
 }
 
@@ -577,23 +579,22 @@ MythUIImage::MythUIImage(const QString &filename, MythUIType *parent,
                          const QString &name)
     : MythUIType(parent, name),
       m_origFilename(filename),
-      m_delay(-1ms)
+      m_delay(-1ms),
+      d(new MythUIImagePrivate(this))
 {
     m_imageProperties.m_filename = filename;
 
     m_enableInitiator = true;
 
-    d = new MythUIImagePrivate(this);
     emit DependChanged(false);
 }
 
 MythUIImage::MythUIImage(MythUIType *parent, const QString &name)
     : MythUIType(parent, name),
-      m_delay(-1ms)
+      m_delay(-1ms),
+      d(new MythUIImagePrivate(this))
 {
     m_enableInitiator = true;
-
-    d = new MythUIImagePrivate(this);
 }
 
 MythUIImage::~MythUIImage()
@@ -663,7 +664,9 @@ void MythUIImage::Reset(void)
         Load();
     }
     else
+    {
         d->m_updateLock.unlock();
+    }
 
     MythUIType::Reset();
 }
@@ -890,7 +893,9 @@ void MythUIImage::SetAnimationFrames(const AnimationFrames& frames)
             SetDelays(delays);
     }
     else
+    {
         Reset();
+    }
 }
 
 /**
@@ -1279,7 +1284,9 @@ void MythUIImage::DrawSelf(MythPainter *p, int xoffset, int yoffset,
         d->m_updateLock.unlock();
     }
     else
+    {
         m_imagesLock.unlock();
+    }
 }
 
 /**
@@ -1328,9 +1335,13 @@ bool MythUIImage::ParseElement(
         m_imageProperties.m_forceSize = m_area.size();
     }
     else if (element.tagName() == "preserveaspect")
+    {
         m_imageProperties.m_preserveAspect = parseBool(element);
+    }
     else if (element.tagName() == "crop")
+    {
         m_imageProperties.m_cropRect = parseRect(element);
+    }
     else if (element.tagName() == "delay")
     {
         QString value = getFirstText(element);
@@ -1474,7 +1485,9 @@ void MythUIImage::CopyFrom(MythUIType *base)
         Load();
     }
     else
+    {
         d->m_updateLock.unlock();
+    }
 }
 
 /**
@@ -1500,7 +1513,9 @@ void MythUIImage::Finalize(void)
         Load();
     }
     else
+    {
         d->m_updateLock.unlock();
+    }
 
     MythUIType::Finalize();
 }

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <thread> // for sleep_for
 
 #include "PrePostRollFlagger.h"
@@ -99,7 +100,7 @@ bool PrePostRollFlagger::go()
 
     emit breathe();
 
-    long long stopFrame = m_preRoll + m_fps * 120; //look up to 2 minutes past
+    long long stopFrame = m_preRoll + (m_fps * 120); //look up to 2 minutes past
     long long framesToProcess = 0;
     if(m_preRoll)
         framesToProcess += stopFrame;
@@ -297,8 +298,7 @@ long long PrePostRollFlagger::findBreakInrange(long long startFrame,
             int percentage = 0;
             if (stopFrame)
                 percentage = framesProcessed * 100 / totalFrames;
-            if (percentage > 100)
-                percentage = 100;
+            percentage = std::min(percentage, 100);
 
             if (m_showProgress)
             {
@@ -368,7 +368,9 @@ long long PrePostRollFlagger::findBreakInrange(long long startFrame,
                     usecSleep = usecSleep * 0.25;
             }
             else if (secondsBehind < requiredBuffer)
+            {
                 usecSleep = usecPerFrame * 1.5;
+            }
 
             if (usecSleep > 0us)
                 std::this_thread::sleep_for(usecSleep);
@@ -396,11 +398,17 @@ void PrePostRollFlagger::GetCommercialBreakList(frm_dir_map_t &marks)
             end = m_closestBeforePre;
     }
     else if(m_closestBeforePre)
+    {
         end = m_closestBeforePre;
+    }
     else if(m_closestAfterPre)
+    {
         end = m_closestAfterPre;
+    }
     else
+    {
         end = m_preRoll;
+    }
 
     if(end)
     {
@@ -418,11 +426,17 @@ void PrePostRollFlagger::GetCommercialBreakList(frm_dir_map_t &marks)
             start = m_closestBeforePost;
     }
     else if(m_closestBeforePost)
+    {
         start = m_closestBeforePost;
+    }
     else if(m_closestAfterPost)
+    {
         start = m_closestAfterPost;
+    }
     else if(m_postRoll)
+    {
         start = m_myTotalFrames - m_postRoll;
+    }
 
     if(start)
     {

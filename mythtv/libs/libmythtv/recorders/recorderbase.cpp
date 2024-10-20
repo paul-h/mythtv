@@ -116,7 +116,9 @@ void RecorderBase::SetRecording(const RecordingInfo *pginfo)
         recFile->Save();
     }
     else
+    {
         m_curRecording = nullptr;
+    }
 
     delete oldrec;
 }
@@ -165,7 +167,9 @@ void RecorderBase::SetOption(const QString &name, const QString &value)
             SetFrameRate(29.97);
         }
         else if (value.toLower() == "pal-m")
+        {
             SetFrameRate(29.97);
+        }
         else if (value.toLower() == "atsc")
         {
             // Here we set the TV format values for ATSC. ATSC isn't really
@@ -179,7 +183,9 @@ void RecorderBase::SetOption(const QString &name, const QString &value)
             SetFrameRate(29.97);
         }
         else
+        {
             SetFrameRate(25.00);
+        }
     }
     else
     {
@@ -481,7 +487,9 @@ void RecorderBase::FinishRecording(void)
             recFile->Save();
         }
         else
+        {
             LOG(VB_GENERAL, LOG_CRIT, "RecordingFile object is NULL. No video file metadata can be stored");
+        }
 
         SavePositionMap(true, true); // Save Position Map only, not file size
 
@@ -520,20 +528,22 @@ RecordingQuality *RecorderBase::GetRecordingQuality(
 long long RecorderBase::GetKeyframePosition(long long desired) const
 {
     QMutexLocker locker(&m_positionMapLock);
-    long long ret = -1;
 
     if (m_positionMap.empty())
-        return ret;
+        return -1;
 
     // find closest exact or previous keyframe position...
     frm_pos_map_t::const_iterator it = m_positionMap.lowerBound(desired);
     if (it == m_positionMap.end())
-        ret = *m_positionMap.begin();
-    else if ((it.key() == desired) ||
-             (--it != m_positionMap.end()))
-        ret = *it;
+        return *m_positionMap.begin();
+    if (it.key() == desired)
+        return *it;
 
-    return ret;
+    it--;
+    if (it != m_positionMap.end())
+        return *it;
+
+    return -1;
 }
 
 bool RecorderBase::GetKeyframePositions(

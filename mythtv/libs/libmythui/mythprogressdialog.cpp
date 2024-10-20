@@ -75,7 +75,7 @@ bool MythUIBusyDialog::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "ESCAPE")
@@ -83,7 +83,9 @@ bool MythUIBusyDialog::keyPressEvent(QKeyEvent *event)
             // eat the escape keypress
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -149,7 +151,7 @@ bool MythUIProgressDialog::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "ESCAPE")
@@ -157,7 +159,9 @@ bool MythUIProgressDialog::keyPressEvent(QKeyEvent *event)
             // eat the escape keypress
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

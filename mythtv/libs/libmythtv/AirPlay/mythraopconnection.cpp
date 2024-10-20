@@ -1,5 +1,6 @@
 #include <unistd.h> // for usleep()
 
+#include <algorithm>
 #include <limits> // workaround QTBUG-90395
 #include <utility>
 
@@ -77,15 +78,16 @@ MythRAOPConnection::MythRAOPConnection(QObject *parent, QTcpSocket *socket,
   : QObject(parent),
     m_socket(socket),
     m_hardwareId(std::move(id)),
-    m_dataPort(port)
+    m_dataPort(port),
+    m_cctx(EVP_CIPHER_CTX_new()),
+    m_id(GetNotificationCenter()->Register(this))
 {
-    m_id = GetNotificationCenter()->Register(this);
 #if OPENSSL_VERSION_NUMBER < 0x030000000L
     m_cipher = EVP_aes_128_cbc();
 #else
+    //NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
     m_cipher = EVP_CIPHER_fetch(nullptr, "AES-128-CBC", nullptr);
 #endif
-    m_cctx = EVP_CIPHER_CTX_new();
 }
 
 MythRAOPConnection::~MythRAOPConnection()
@@ -477,7 +479,9 @@ void MythRAOPConnection::SendResendRequest(std::chrono::milliseconds timestamp,
         }
     }
     else
+    {
         LOG(VB_PLAYBACK, LOG_ERR, LOC + "Failed to send resend request.");
+    }
 }
 
 /**
@@ -583,7 +587,7 @@ void MythRAOPConnection::ProcessTimeResponse(const QByteArray &buf)
 static constexpr uint64_t CLOCK_EPOCH {0x83aa7e80};
 std::chrono::milliseconds MythRAOPConnection::NTPToLocal(uint32_t sec, uint32_t ticks)
 {
-    return std::chrono::milliseconds(((int64_t)sec - CLOCK_EPOCH) * 1000LL +
+    return std::chrono::milliseconds((((int64_t)sec - CLOCK_EPOCH) * 1000LL) +
                                      (((int64_t)ticks * 1000LL) >> 32));
 }
 void MythRAOPConnection::microsecondsToNTP(std::chrono::microseconds usec,
@@ -801,8 +805,7 @@ void MythRAOPConnection::ProcessAudio()
                         // calculate how many frames we have to drop to catch up
                     offset = (m_adjustedLatency.count() * m_frameRate / 1000) *
                         m_audio->GetBytesPerFrame();
-                    if (offset > data.length)
-                        offset = data.length;
+                    offset = std::min(offset, data.length);
                     framecnt = offset / m_audio->GetBytesPerFrame();
                     m_adjustedLatency -= framesToMs(framecnt+1);
                     LOG(VB_PLAYBACK, LOG_DEBUG, LOC +
@@ -819,8 +822,11 @@ void MythRAOPConnection::ProcessAudio()
             i++;
             m_audioStarted = true;
         }
-        else // QMap is sorted, so no need to continue if not found
+        else
+        {
+            // QMap is sorted, so no need to continue if not found
             break;
+        }
     }
 
     ExpireAudio(timestamp);
@@ -1047,8 +1053,7 @@ void MythRAOPConnection::ProcessRequest(const QStringList &header,
             LOG(VB_PLAYBACK, LOG_ERR, LOC +
                 QString("Base64 decoded challenge size %1, expected 16")
                 .arg(challenge_size));
-            if (challenge_size > 16)
-                challenge_size = 16;
+            challenge_size = std::min(challenge_size, 16);
         }
 
         int i = 0;
@@ -1533,7 +1538,7 @@ void MythRAOPConnection::ProcessRequest(const QStringList &header,
                         int volume = (m_allowVolumeControl && m_audio) ?
                             m_audio->GetCurrentVolume() : 0;
                         responseData += QString("volume: %1\r\n")
-                            .arg(volume * 30.0F / 100.0F - 30.0F,1,'f',6,'0');
+                            .arg((volume * 30.0F / 100.0F) - 30.0F,1,'f',6,'0');
                     }
                 }
             }

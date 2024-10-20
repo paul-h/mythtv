@@ -26,10 +26,9 @@
 #define LOC QString("MythUIGuideGrid: ")
 
 MythUIGuideGrid::MythUIGuideGrid(MythUIType *parent, const QString &name)
-    : MythUIType(parent, name)
+    : MythUIType(parent, name),
+      m_font(new MythFontProperties())
 {
-    m_font = new MythFontProperties();
-
     QMap<QString, QString> catColors;
     parseDefaultCategoryColors(catColors);
     SetCategoryColors(catColors);
@@ -561,7 +560,9 @@ void MythUIGuideGrid::drawBackground(MythPainter *p, int xoffset, int yoffset, U
             }
         }
         else
+        {
             area.adjust(breakin, breakin, -breakin, -breakin);
+        }
     }
     else
     {
@@ -587,7 +588,9 @@ void MythUIGuideGrid::drawBackground(MythPainter *p, int xoffset, int yoffset, U
             }
         }
         else
+        {
             area.adjust(breakin, breakin, -breakin, -breakin);
+        }
     }
 
     if (area.width() <= 1)

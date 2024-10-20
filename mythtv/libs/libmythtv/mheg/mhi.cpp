@@ -631,7 +631,7 @@ void MHIContext::Reinit(const QRect videoRect, const QRect dispRect, float aspec
     m_videoDisplayRect = QRect();
 
     // MHEG presumes square pixels
-    enum { kNone, kHoriz, kBoth };
+    enum : std::uint8_t { kNone, kHoriz, kBoth };
     int mode = gCoreContext->GetNumSetting("MhegAspectCorrection", kNone);
     auto const aspectd = static_cast<double>(aspect);
     double const vz = (mode == kBoth) ? std::min(1.15, 1. / sqrt(aspectd)) : 1.;
@@ -952,9 +952,13 @@ int MHIContext::GetChannelIndex(const QString &str)
                 nResult = query.value(0).toInt();
         }
         else if (str == "rec://svc/cur")
+        {
             nResult = m_currentStream > 0 ? m_currentStream : m_currentChannel;
+        }
         else if (str == "rec://svc/def")
+        {
             nResult = m_currentChannel;
+        }
         else
         {
             LOG(VB_GENERAL, LOG_WARNING,
@@ -1328,11 +1332,9 @@ QRect MHIText::GetBounds(const QString &str, int &strLen, int maxSize)
         // Calculate the ascent and descent of this glyph.
         int descent = slot->metrics.height - slot->metrics.horiBearingY;
 
-        if (slot->metrics.horiBearingY > maxAscent)
-            maxAscent = slot->metrics.horiBearingY;
+        maxAscent = std::max<FT_Pos>(slot->metrics.horiBearingY, maxAscent);
 
-        if (descent > maxDescent)
-            maxDescent = descent;
+        maxDescent = std::max(descent, maxDescent);
 
         width += advance;
         previous = glyphIndex;
@@ -1513,25 +1515,25 @@ void MHIDLA::Draw(int x, int y)
                            m_width, m_lineWidth, m_boxLineColour);
 
         m_parent->DrawRect(x, y + m_lineWidth,
-                           m_lineWidth, m_height - m_lineWidth * 2,
+                           m_lineWidth, m_height - (m_lineWidth * 2),
                            m_boxLineColour);
 
         m_parent->DrawRect(x + m_width - m_lineWidth, y + m_lineWidth,
-                           m_lineWidth, m_height - m_lineWidth * 2,
+                           m_lineWidth, m_height - (m_lineWidth * 2),
                            m_boxLineColour);
 
         // Deflate the box to within the border.
         bounds = QRect(bounds.x() + m_lineWidth,
                        bounds.y() + m_lineWidth,
-                       bounds.width() - 2*m_lineWidth,
-                       bounds.height() - 2*m_lineWidth);
+                       bounds.width() - (2*m_lineWidth),
+                       bounds.height() - (2*m_lineWidth));
     }
 
     // Draw the background.
     m_parent->DrawRect(x + m_lineWidth,
                        y + m_lineWidth,
-                       m_width  - m_lineWidth * 2,
-                       m_height - m_lineWidth * 2,
+                       m_width  - (m_lineWidth * 2),
+                       m_height - (m_lineWidth * 2),
                        m_boxFillColour);
 
     // Now the drawing.
@@ -1656,16 +1658,16 @@ void MHIDLA::DrawBorderedRectangle(int x, int y, int width, int height)
                  m_lineColour);
 
         DrawRect(x, y + m_lineWidth,
-                 m_lineWidth, height - m_lineWidth * 2,
+                 m_lineWidth, height - (m_lineWidth * 2),
                  m_lineColour);
 
         DrawRect(x + width - m_lineWidth, y + m_lineWidth,
-                 m_lineWidth, height - m_lineWidth * 2,
+                 m_lineWidth, height - (m_lineWidth * 2),
                  m_lineColour);
 
         // Fill the rectangle.
         DrawRect(x + m_lineWidth, y + m_lineWidth,
-                 width - m_lineWidth * 2, height - m_lineWidth * 2,
+                 width - (m_lineWidth * 2), height - (m_lineWidth * 2),
                  m_fillColour);
     }
     else
@@ -1731,10 +1733,8 @@ void MHIDLA::DrawPoly(bool isFilled, const MHPointVec& xArray, const MHPointVec&
                 lineArray[nLines++].m_slope =
                     (float)(thisX-lastX) / (float)(thisY-lastY);
             }
-            if (thisY < yMin)
-                yMin = thisY;
-            if (thisY > yMax)
-                yMax = thisY;
+            yMin = std::min(thisY, yMin);
+            yMax = std::max(thisY, yMax);
             lastX = thisX;
             lastY = thisY;
         }
@@ -1954,7 +1954,7 @@ void MHIBitmap::CreateFromMPEG(const unsigned char *data, int length)
                 m_image.setPixel(j, i, qRgb(red, green, blue));
             }
         }
-        av_freep(&outputbuf);
+        av_freep(reinterpret_cast<void*>(&outputbuf));
     }
 
 Close:

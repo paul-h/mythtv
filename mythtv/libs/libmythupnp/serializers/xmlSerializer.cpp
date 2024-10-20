@@ -13,6 +13,8 @@
 #include "xmlSerializer.h"
 #include "libmythbase/mythdate.h"
 
+#include <utility>
+
 #include <QMetaClassInfo>
 
 // --------------------------------------------------------------------------
@@ -26,10 +28,10 @@ static constexpr const char* XML_SERIALIZER_VERSION { "1.1" };
 //
 //////////////////////////////////////////////////////////////////////////////
 
-XmlSerializer::XmlSerializer( QIODevice *pDevice, const QString &sRequestName )
+XmlSerializer::XmlSerializer( QIODevice *pDevice, QString sRequestName )
+  : m_pXmlWriter(new QXmlStreamWriter( pDevice )),
+    m_sRequestName(std::move(sRequestName))
 {
-    m_pXmlWriter   = new QXmlStreamWriter( pDevice );
-    m_sRequestName = sRequestName;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -128,7 +130,9 @@ void XmlSerializer::AddProperty( const QString       &sName,
         RenderEnum ( sName, vValue, pMetaProp );
     }
     else
+    {
         RenderValue( GetContentName( sName, pMetaParent, pMetaProp ), vValue );
+    }
 
     m_pXmlWriter->writeEndElement();
 }

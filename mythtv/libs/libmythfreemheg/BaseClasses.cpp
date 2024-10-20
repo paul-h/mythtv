@@ -20,6 +20,9 @@
 */
 
 #include "BaseClasses.h"
+
+#include <algorithm>
+
 #include "ParseNode.h"
 #include "Engine.h"
 #include "ASN1Codes.h"
@@ -30,12 +33,6 @@
 static char THIS_FILE[] = __FILE__;
 #define new DEBUG_NEW
 #endif
-
-MHOctetString::MHOctetString()
-{
-    m_nLength = 0;
-    m_pChars = nullptr;
-}
 
 // Construct from a string
 MHOctetString::MHOctetString(const char *str, int nLen)
@@ -65,9 +62,8 @@ MHOctetString::MHOctetString(const char *str, int nLen)
 }
 
 MHOctetString::MHOctetString(const unsigned char *str, int nLen)
+  : m_nLength(nLen)
 {
-    m_nLength = nLen;
-
     if (nLen == 0)
     {
         m_pChars = nullptr;
@@ -93,15 +89,7 @@ MHOctetString::MHOctetString(const MHOctetString &str, int nOffset, int nLen)
         nLen = str.Size() - nOffset;    // The rest of the string.
     }
 
-    if (nLen < 0)
-    {
-        nLen = 0;
-    }
-
-    if (nLen > str.Size())
-    {
-        nLen = str.Size();
-    }
+    nLen = std::clamp(nLen, 0, str.Size());
 
     m_nLength = nLen;
 
@@ -178,10 +166,7 @@ int MHOctetString::Compare(const MHOctetString &str) const
 {
     int nLength = m_nLength;
 
-    if (nLength > str.m_nLength)
-    {
-        nLength = str.m_nLength;
-    }
+    nLength = std::min(nLength, str.m_nLength);
 
     // Test up to the length of the shorter string.
     int nTest = 0;

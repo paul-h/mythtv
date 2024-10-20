@@ -3,6 +3,7 @@
 // Copyright (C) 1999-2001 Zinx Verituse
 
 // C++ headers
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -100,18 +101,15 @@ void BumpScope::generate_cmap(unsigned int color)
 
         for (uint i = 255; i > 0; i--)
         {
-             uint r = (unsigned int)((100 * static_cast<double>(red) / 255)
-                                * m_intense1[i] + m_intense2[i]);
-             if (r > 255)
-                 r = 255;
-             uint g = (unsigned int)((100 * static_cast<double>(green) / 255)
-                                * m_intense1[i] + m_intense2[i]);
-             if (g > 255)
-                 g = 255;
-             uint b = (unsigned int)((100 * static_cast<double>(blue) / 255)
-                                * m_intense1[i] + m_intense2[i]);
-             if (b > 255)
-                 b = 255;
+             uint r = (unsigned int)(((100 * static_cast<double>(red) / 255)
+                                * m_intense1[i]) + m_intense2[i]);
+             r = std::min<uint>(r, 255);
+             uint g = (unsigned int)(((100 * static_cast<double>(green) / 255)
+                                * m_intense1[i]) + m_intense2[i]);
+             g = std::min<uint>(g, 255);
+             uint b = (unsigned int)(((100 * static_cast<double>(blue) / 255)
+                                * m_intense1[i]) + m_intense2[i]);
+             b = std::min<uint>(b, 255);
 
              m_image->setColor(i, qRgba(r, g, b, 255));
          }
@@ -128,8 +126,8 @@ void BumpScope::generate_phongdat(void)
     {
         for (uint x = 0; x < m_phongRad; x++)
         {
-            double i = (double)x / ((double)m_phongRad) - 1;
-            double i2 = (double)y / ((double)m_phongRad) - 1;
+            double i = ((double)x / ((double)m_phongRad)) - 1;
+            double i2 = ((double)y / ((double)m_phongRad)) - 1;
 
             //if (m_diamond)
                i = 1 - pow(i*i2,.75) - i*i - i2*i2;
@@ -143,8 +141,7 @@ void BumpScope::generate_phongdat(void)
                 //else
                 //    i = i*i*i * 255.0;
 
-                if (i > 255)
-                    i = 255;
+                i = std::min<double>(i, 255);
                 auto uci = (unsigned char)i;
 
                 m_phongDat[y][x] = uci;
@@ -236,7 +233,9 @@ inline void BumpScope::draw_vert_line(unsigned char *buffer, int x, int y1,
         }
     }
     else
+    {
         buffer[((y1 + 1) * m_bpl) + x + 1] = 0xff;
+    }
 }
 
 void BumpScope::render_light(int lx, int ly)
@@ -279,12 +278,12 @@ void BumpScope::rgb_to_hsv(unsigned int color, double *h, double *s, double *v)
   double b = (double)(color&0xff) / 255.0;
 
   double max = r;
-  if (g > max) max = g;
-  if (b > max) max = b;
+  max = std::max(g, max);
+  max = std::max(b, max);
 
   double min = r;
-  if (g < min) min = g;
-  if (b < min) min = b;
+  min = std::min(g, min);
+  min = std::min(b, min);
 
   *v = max;
 
@@ -353,11 +352,10 @@ bool BumpScope::process(VisualNode *node)
     if (node->m_length < 512)
         numSamps = node->m_length;
 
-    int prev_y = (int)m_height / 2 +
-        ((int)node->m_left[0] * (int)m_height) / 0x10000;
+    int prev_y = ((int)m_height / 2) +
+        (((int)node->m_left[0] * (int)m_height) / 0x10000);
 
-    if (prev_y < 0)
-        prev_y = 0;
+    prev_y = std::max(prev_y, 0);
     if (prev_y >= (int)m_height) prev_y = m_height - 1;
 
     for (uint i = 0; i < m_width; i++)
@@ -366,8 +364,7 @@ bool BumpScope::process(VisualNode *node)
         y = (int)m_height / 2 +
             ((int)node->m_left[y] * (int)m_height) / 0x10000;
 
-        if (y < 0)
-            y = 0;
+        y = std::max(y, 0);
         if (y >= (int)m_height)
             y = m_height - 1;
 
@@ -399,8 +396,8 @@ bool BumpScope::draw(QPainter *p, [[maybe_unused]] const QColor &back)
             m_wasMoving = 1;
         }
 
-        m_ilx = (int)(m_width / 2.0F + cosf(m_iangle * (M_PI / 180.0)) * m_ixo);
-        m_ily = (int)(m_height / 2.0F + sinf(m_iangle * (M_PI / 180.0)) * m_iyo);
+        m_ilx = (int)((m_width / 2.0F) + (cosf(m_iangle * (M_PI / 180.0)) * m_ixo));
+        m_ily = (int)((m_height / 2.0F) + (sinf(m_iangle * (M_PI / 180.0)) * m_iyo));
 
         m_iangle += 2;
         if (m_iangle >= 360)
@@ -489,8 +486,7 @@ bool BumpScope::draw(QPainter *p, [[maybe_unused]] const QColor &back)
 
             if (m_is <= 0 || m_is >= 0.5)
             {
-                if (m_is < 0)
-                    m_is = 0;
+                m_is = std::max<double>(m_is, 0);
                 if (m_is > 0.52)
                     m_isd = -0.01;
                 else if (m_is == 0)

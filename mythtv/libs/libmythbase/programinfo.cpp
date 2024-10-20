@@ -473,7 +473,7 @@ ProgramInfo::ProgramInfo(
     m_recordId(_recordid),
     m_findId(_findid),
 
-    m_programFlags((duplicate) ? FL_DUPLICATE : 0),
+    m_programFlags((duplicate) ? FL_DUPLICATE : FL_NONE),
 
     m_recStatus(_recstatus),
     m_recType(_rectype),
@@ -578,8 +578,8 @@ ProgramInfo::ProgramInfo(
     m_recStatus(_recstatus),
     m_recType(_rectype)
 {
-    m_programFlags |= (commfree) ? FL_CHANCOMMFREE : 0;
-    m_programFlags |= (repeat)   ? FL_REPEAT       : 0;
+    m_programFlags |= (commfree) ? FL_CHANCOMMFREE : FL_NONE;
+    m_programFlags |= (repeat)   ? FL_REPEAT       : FL_NONE;
 
     if (m_originalAirDate.isValid() && m_originalAirDate < QDate(1895, 12, 28))
         m_originalAirDate = QDate();
@@ -749,6 +749,8 @@ ProgramInfo::ProgramInfo(const QString &_pathname,
 {
     ProgramInfo::clear();
 
+    //NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer)
+    // These have to remain after the call to ::clear().
     m_title = _title;
     m_sortTitle = _sortTitle;
     m_subtitle = _subtitle;
@@ -760,6 +762,7 @@ ProgramInfo::ProgramInfo(const QString &_pathname,
     m_programId = _programid;
     m_inetRef = _inetref;
     m_year = _year;
+    //NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 
     QDateTime cur = MythDate::current();
     int64_t minutes = length_in_minutes.count();
@@ -1472,7 +1475,7 @@ QString propsValueToString (const QString& name, QMap<T,QString> propNames,
 }
 
 template <typename T>
-uint propsValueFromString (const QString& name, QMap<T,QString> propNames,
+uint propsValueFromString (const QString& name, const QMap<T,QString>& propNames,
                            const QString& props)
 {
     if (props.isEmpty())
@@ -1490,7 +1493,9 @@ uint propsValueFromString (const QString& name, QMap<T,QString> propNames,
                 .arg(name, n));
         }
         else
+        {
             result |= bit;
+        }
     }
     return result;
 }
@@ -2847,29 +2852,36 @@ uint64_t ProgramInfo::QueryProgStart(void) const
 
 uint64_t ProgramInfo::QueryStartMark(void) const
 {
-    uint64_t start = 0;
-    if ((start = QueryLastPlayPos()) > 0)
+    uint64_t start = QueryLastPlayPos();
+    if (start > 0)
     {
         LOG(VB_PLAYBACK, LOG_INFO, QString("Using last position @ %1").arg(start));
+        return start;
     }
-    else if ((start = QueryBookmark()) > 0)
+
+    start = QueryBookmark();
+    if (start > 0)
     {
         LOG(VB_PLAYBACK, LOG_INFO, QString("Using bookmark @ %1").arg(start));
+        return start;
     }
-    else if (HasCutlist())
+
+    if (HasCutlist())
     {
         // Disable progstart if the program has a cutlist.
         LOG(VB_PLAYBACK, LOG_INFO, "Ignoring progstart as cutlist exists");
+        return 0;
     }
-    else if ((start = QueryProgStart()) > 0)
+
+    start = QueryProgStart();
+    if (start > 0)
     {
         LOG(VB_PLAYBACK, LOG_INFO, QString("Using progstart @ %1").arg(start));
+        return start;
     }
-    else
-    {
-        LOG(VB_PLAYBACK, LOG_INFO, "Using file start");
-    }
-    return start;
+
+    LOG(VB_PLAYBACK, LOG_INFO, "Using file start");
+    return 0;
 }
 
 /** \brief Queries "dvdbookmark" table for bookmarking DVD serial
@@ -5945,8 +5957,7 @@ bool LoadFromOldRecorded(ProgramList &destination, const QString &sql,
         // For performance reasons we have to have an upper limit
         int nLimit = gCoreContext->GetNumSetting("PrevRecLimit", 20000);
         // For sanity sake at least 100
-        if (nLimit < 100)
-            nLimit = 100;
+        nLimit = std::max(nLimit, 100);
         querystr += QString("LIMIT %1 ").arg(nLimit);
     }
 

@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "libmythui/mythrender_base.h"
 #include "mythplayer.h"
 #include "videovisual.h"
@@ -140,8 +142,7 @@ void VideoVisual::add(const void *b, unsigned long b_len,
     len /= c;
     len /= (p / 8);
 
-    if (len > 512)
-        len = 512;
+    len = std::min<long>(len, 512);
 
     long cnt = len;
 
@@ -173,7 +174,9 @@ void VideoVisual::add(const void *b, unsigned long b_len,
             len = 0;
     }
     else
+    {
         len = 0;
+    }
 
     m_nodes.append(new VisualNode(l, r, len, timecode));
 }

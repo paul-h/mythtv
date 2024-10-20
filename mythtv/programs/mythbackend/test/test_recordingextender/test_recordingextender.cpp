@@ -100,7 +100,7 @@ static bool enableSqliteRegex (void)
 #endif
     if (sqlite3_load_extension(handle, pcre, nullptr, &errtext) != SQLITE_OK) {
         QString errmsg = QString("Cannot load the PCRE extension: %1.").arg(errtext);
-        qWarning(qPrintable(errmsg));
+        qWarning("%s", qPrintable(errmsg));
         return false;
     }
 
@@ -921,4 +921,4 @@ void TestRecordingExtender::test_processNewRecordings(void)
     QVERIFY(game.getGameUrl().url().endsWith(expectedGameUrl));
 }
 
-QTEST_APPLESS_MAIN(TestRecordingExtender)
+QTEST_GUILESS_MAIN(TestRecordingExtender)

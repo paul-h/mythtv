@@ -193,9 +193,21 @@ void SequentialAnimation::SetSpeed(float speed)
 */
 void SequentialAnimation::Finished()
 {
+    bool finished { false };
+
     // Finish group when last child finishes
-    if ((m_forwards && ++m_current == m_group.size())
-            || (!m_forwards && --m_current < 0))
+    if (m_forwards)
+    {
+        m_current++;
+        finished = (m_current == m_group.size());
+    }
+    else
+    {
+        m_current--;
+        finished = (m_current < 0);
+    }
+
+    if (finished)
         AbstractAnimation::Finished();
     else
         // Start next child
@@ -463,7 +475,9 @@ void Slide::Zoom(int percentage)
             m_zoomAnimation->Start();
         }
         else
+        {
             SetZoom(newZoom);
+        }
     }
 }
 
@@ -511,7 +525,9 @@ void Slide::Pan(QPoint offset)
             m_panAnimation->Start();
         }
         else
+        {
             SetPan(dest);
+        }
     }
 }
 
@@ -542,8 +558,8 @@ void Slide::SetPan(QPoint pos)
     // Determine crop area
     int h = std::min(int(roundf(m_area.height() * ratio)), imageArea.height());
     int w = std::min(int(roundf(m_area.width() * ratio)), imageArea.width());
-    int x = imageArea.center().x() - w / 2;
-    int y = imageArea.center().y() - h / 2;
+    int x = imageArea.center().x() - (w / 2);
+    int y = imageArea.center().y() - (h / 2);
 
     // Constrain pan to boundaries
     int limitX = (imageArea.width() - w) / 2;

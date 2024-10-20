@@ -40,9 +40,9 @@ static uint ELFHash(const QByteArray &ba)
     {
         while (*k)
         {
-            uint g = 0;
             h = (h << 4) + *k++;
-            if ((g = (h & 0xf0000000)) != 0)
+            uint g = (h & 0xf0000000);
+            if (g != 0)
                 h ^= g >> 24;
             h &= ~g;
         }
@@ -131,9 +131,13 @@ static void fromXMLTVDate(QString &timestr, QDateTime &dt)
             tmpTime = QTime::fromString(tsTime, "HHmmss");
         }
         else if (tsTime.length() == 4)
+        {
             tmpTime = QTime::fromString(tsTime, "HHmm");
+        }
         else if (tsTime.length() == 2)
+        {
             tmpTime = QTime::fromString(tsTime, "HH");
+        }
         if (!tmpTime.isValid())
         {
             // Time part exists, but is (somehow) invalid

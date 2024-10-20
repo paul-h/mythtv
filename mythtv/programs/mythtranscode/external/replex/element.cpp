@@ -186,7 +186,9 @@ void pts2time(uint64_t pts, uint8_t *buf, int len)
 			c = len;
 
 
-		} else c++;
+		} else {
+			c++;
+		}
 	}
 
 }
@@ -211,7 +213,7 @@ int get_video_info(ringbuffer *rbuf, sequence_t *s, int off, int le)
 	s->h_size	= ((headr[1] &0xF0) >> 4) | (headr[0] << 4);
 	s->v_size	= ((headr[1] &0x0F) << 8) | (headr[2]);
     
-        int sw = (int)((headr[3]&0xF0) >> 4) ;
+        int sw = ((headr[3]&0xF0) >> 4) ;
 
 	if (DEBUG){
 		switch( sw ){
@@ -366,7 +368,9 @@ int find_audio_sync(ringbuffer *rbuf, audio_sync_buf &buf, int off, int type, in
 				if (mring_peek(rbuf, buf.data(), l, c-1) < -1)
 					return -2;
 				return c-1-off;	
-			} else if ( b != b1) found = 0;
+			} else if ( b != b1) {
+				found = 0;
+			}
 		}
 		c++;
 	}	
@@ -408,7 +412,9 @@ int find_audio_s(const uint8_t *rbuf, int off, int type, int le)
 		case 1:
 			if ( (b&m2) == b2){
 				return c-1;	
-			} else if ( b != b1) found = 0;
+			} else if ( b != b1) {
+				found = 0;
+			}
 		}
 		c++;
 	}	
@@ -423,10 +429,9 @@ int check_audio_header(ringbuffer *rbuf, audio_frame_t * af, int  off, int le,
 	uint8_t frame = 0;
 	int fr = 0;
 	int half = 0;
-	int c=0;
-	
-	if ( (c = find_audio_sync(rbuf, headr, off, type, le))
-	     != 0 ) {
+
+	int c = find_audio_sync(rbuf, headr, off, type, le);
+	if (c != 0 ) {
 		if (c==-2){
 			LOG(VB_GENERAL, LOG_ERR, "Incomplete audio header");
 			return -2;
@@ -482,13 +487,13 @@ int check_audio_header(ringbuffer *rbuf, audio_frame_t * af, int  off, int le,
 
 int get_audio_info(ringbuffer *rbuf, audio_frame_t *af, int off, int le) 
 {
-	int c = 0;
 	int fr =0;
 	audio_sync_buf headr {};
 
 	af->set=0;
 
-	if ( (c = find_audio_sync(rbuf, headr, off, MPEG_AUDIO,le)) < 0 ) 
+	int c = find_audio_sync(rbuf, headr, off, MPEG_AUDIO,le);
+	if (c < 0 )
 		return c;
 
 	af->layer = (headr[1] & 0x06) >> 1;

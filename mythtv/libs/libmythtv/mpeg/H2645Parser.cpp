@@ -84,8 +84,8 @@
 */
 
 H2645Parser::H2645Parser(void)
+  : m_rbspBuffer(new uint8_t[m_rbspBufferSize])
 {
-    m_rbspBuffer = new uint8_t[m_rbspBufferSize];
     if (m_rbspBuffer == nullptr)
         m_rbspBufferSize = 0;
 }
@@ -323,7 +323,7 @@ void H2645Parser::vui_parameters(BitReader& br, bool hevc)
               540x576 16:9 frame with horizontal overscan
              */
             break;
-          case EXTENDED_SAR:
+          case kExtendedSar:
             m_sarWidth  = br.get_bits(16);
             m_sarHeight = br.get_bits(16);
             LOG(VB_RECORD, LOG_DEBUG,
@@ -333,7 +333,9 @@ void H2645Parser::vui_parameters(BitReader& br, bool hevc)
         }
     }
     else
+    {
         m_sarWidth = m_sarHeight = 0;
+    }
 
     if (br.next_bit()) //overscan_info_present_flag
         br.next_bit(); //overscan_appropriate_flag
@@ -456,7 +458,7 @@ uint H2645Parser::aspectRatio(void) const
             // 2:1
             aspect *= 2.0;
             break;
-        case EXTENDED_SAR:
+        case kExtendedSar:
             if (m_sarHeight)
                 aspect *= m_sarWidth / (double)m_sarHeight;
             else

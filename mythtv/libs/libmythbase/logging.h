@@ -35,7 +35,7 @@ void loggingDeregisterThread(void);
 
 class QWaitCondition;
 
-enum LoggingType {
+enum LoggingType : std::uint8_t {
     kMessage       = 0x01,
     kRegistering   = 0x02,
     kDeregistering = 0x04,
@@ -124,12 +124,12 @@ class LoggingItem: public QObject, public ReferenceCounter
     LogLevel_t          m_level      {LOG_INFO};
     int                 m_facility   {0};
     std::chrono::microseconds m_epoch {0us};
-    QString             m_file       {};
-    QString             m_function   {};
-    QString             m_threadName {};
-    QString             m_appName    {};
-    QString             m_logFile    {};
-    QString             m_message    {};
+    QString             m_file;
+    QString             m_function;
+    QString             m_threadName;
+    QString             m_appName;
+    QString             m_logFile;
+    QString             m_message;
 
   private:
     LoggingItem()

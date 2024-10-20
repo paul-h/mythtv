@@ -71,7 +71,7 @@ static constexpr const char* ERROR_NO_FRAMES         { "No frames found for even
 // Subpixel ordering (from zm_rgb.h)
 // Based on byte order naming. For example, for ARGB (on both little endian or big endian)
 // byte+0 should be alpha, byte+1 should be red, and so on.
-enum ZM_SUBPIX_ORDER {
+enum ZM_SUBPIX_ORDER : std::uint8_t {
     ZM_SUBPIX_ORDER_NONE =  2,
     ZM_SUBPIX_ORDER_RGB  =  6,
     ZM_SUBPIX_ORDER_BGR  =  5,
@@ -869,9 +869,9 @@ void ZMServer::handleGetEventList(std::vector<std::string> tokens)
         return;
     }
 
-    std::string monitor = tokens[1];
+    const std::string& monitor = tokens[1];
     bool oldestFirst = (tokens[2] == "1");
-    std::string date = tokens[3];
+    const std::string& date = tokens[3];
     bool includeContinuous = (tokens[4] == "1");
 
     if (m_debug)
@@ -901,7 +901,9 @@ void ZMServer::handleGetEventList(std::vector<std::string> tokens)
         }
         else
             if (!includeContinuous)
+            {
                 sql += "WHERE Cause != 'Continuous' ";
+            }
     }
 
     if (oldestFirst)
@@ -960,7 +962,7 @@ void ZMServer::handleGetEventDates(std::vector<std::string> tokens)
         return;
     }
 
-    std::string monitor = tokens[1];
+    const std::string& monitor = tokens[1];
     bool oldestFirst = (tokens[2] == "1");
 
     if (m_debug)
@@ -1182,10 +1184,10 @@ void ZMServer::handleGetEventFrame(std::vector<std::string> tokens)
         return;
     }
 
-    std::string monitorID(tokens[1]);
-    std::string eventID(tokens[2]);
+    const std::string& monitorID(tokens[1]);
+    const std::string& eventID(tokens[2]);
     int frameNo = atoi(tokens[3].c_str());
-    std::string eventTime(tokens[4]);
+    const std::string& eventTime(tokens[4]);
 
     if (m_debug)
     {
@@ -1266,10 +1268,10 @@ void ZMServer::handleGetAnalysisFrame(std::vector<std::string> tokens)
         return;
     }
 
-    std::string monitorID(tokens[1]);
-    std::string eventID(tokens[2]);
+    const std::string& monitorID(tokens[1]);
+    const std::string& eventID(tokens[2]);
     int frameNo = atoi(tokens[3].c_str());
-    std::string eventTime(tokens[4]);
+    const std::string& eventTime(tokens[4]);
     int frameID = 0;
     int frameCount = 0;
 
@@ -1382,7 +1384,8 @@ void ZMServer::handleGetAnalysisFrame(std::vector<std::string> tokens)
         sprintf(str.data(), m_analysisFileFormat.c_str(), frameID);
         frameFile = filepath + str.data();
 
-        if ((fd = fopen(frameFile.c_str(), "r" )))
+        fd = fopen(frameFile.c_str(), "r" );
+        if (fd != nullptr)
         {
             fileSize = fread(s_buffer.data(), 1, s_buffer.size(), fd);
             fclose(fd);
@@ -1403,7 +1406,8 @@ void ZMServer::handleGetAnalysisFrame(std::vector<std::string> tokens)
     sprintf(str.data(), m_eventFileFormat.c_str(), frameID);
     frameFile = filepath + str.data();
 
-    if ((fd = fopen(frameFile.c_str(), "r" )))
+    fd = fopen(frameFile.c_str(), "r" );
+    if (fd != nullptr)
     {
         fileSize = fread(s_buffer.data(), 1, s_buffer.size(), fd);
         fclose(fd);
@@ -1857,7 +1861,7 @@ int ZMServer::getFrame(FrameData &buffer, MONITOR *monitor)
 
     // fixup the colours if necessary we aim to always send RGB24 images
     unsigned char *data = monitor->m_sharedImages +
-        static_cast<ptrdiff_t>(monitor->getFrameSize()) * monitor->m_lastRead;
+        (static_cast<ptrdiff_t>(monitor->getFrameSize()) * monitor->m_lastRead);
     unsigned int rpos = 0;
     unsigned int wpos = 0;
 
@@ -1992,9 +1996,9 @@ void ZMServer::handleSetMonitorFunction(std::vector<std::string> tokens)
         return;
     }
 
-    std::string monitorID(tokens[1]);
-    std::string function(tokens[2]);
-    std::string enabled(tokens[3]);
+    const std::string& monitorID(tokens[1]);
+    const std::string& function(tokens[2]);
+    const std::string& enabled(tokens[3]);
 
     // Check validity of input passed to server. Does monitor exist && is function ok
     if (m_monitorMap.find(atoi(monitorID.c_str())) == m_monitorMap.end())
@@ -2076,10 +2080,14 @@ void ZMServer::handleSetMonitorFunction(std::vector<std::string> tokens)
         }
         else
             if (m_debug)
+            {
                 std::cout << "zm daemons are not running" << std::endl;
+            }
     }
     else
+    {
         std::cout << "Not updating monitor function as identical to existing configuration" << std::endl;
+    }
 
     ADD_STR(outStr, "OK");
     send(outStr);

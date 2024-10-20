@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
@@ -95,12 +96,11 @@ void NVRAudioThread::run(void)
 }
 
 NuppelVideoRecorder::NuppelVideoRecorder(TVRec *rec, ChannelBase *channel) :
-    V4LRecorder(rec)
+    V4LRecorder(rec),
+    m_seekTable(new std::vector<struct seektable_entry>),
+    m_channelObj(channel),
+    m_ccd(new CC608Decoder(this))
 {
-    m_channelObj = channel;
-    m_seekTable = new std::vector<struct seektable_entry>;
-    m_ccd = new CC608Decoder(this);
-
     SetPositionMapType(MARK_KEYFRAME);
 
     m_containerFormat = formatNUV;
@@ -183,11 +183,17 @@ void NuppelVideoRecorder::SetOption(const QString &opt, int value)
             m_maxQuality = 1;
     }
     else if (opt == "mpeg4minquality")
+    {
         m_minQuality = value;
+    }
     else if (opt == "mpeg4qualdiff")
+    {
         m_qualDiff = value;
+    }
     else if (opt == "encodingthreadcount")
+    {
         m_encodingThreadCount = value;
+    }
     else if (opt == "mpeg4optionvhq")
     {
         if (value)
@@ -217,29 +223,53 @@ void NuppelVideoRecorder::SetOption(const QString &opt, int value)
             m_mp4Opts &= ~AV_CODEC_FLAG_INTERLACED_ME;
     }
     else if (opt == "hardwaremjpegquality")
+    {
         m_hmjpgQuality = value;
+    }
     else if (opt == "hardwaremjpeghdecimation")
+    {
         m_hmjpgHDecimation = value;
+    }
     else if (opt == "hardwaremjpegvdecimation")
+    {
         m_hmjpgVDecimation = value;
+    }
     else if (opt == "audiocompression")
+    {
         m_compressAudio = (value != 0);
+    }
     else if (opt == "mp3quality")
+    {
         m_mp3Quality = value;
+    }
     else if (opt == "samplerate")
+    {
         m_audioSampleRate = value;
+    }
     else if (opt == "audioframesize")
+    {
         m_audioBufferSize = value;
+    }
     else if (opt == "pip_mode")
+    {
         m_pipMode = value;
+    }
     else if (opt == "inpixfmt")
+    {
         m_inPixFmt = (VideoFrameType)value;
+    }
     else if (opt == "skipbtaudio")
+    {
         m_skipBtAudio = (value != 0);
+    }
     else if (opt == "volume")
+    {
         m_volume = value;
+    }
     else
+    {
         V4LRecorder::SetOption(opt, value);
+    }
 }
 
 void NuppelVideoRecorder::SetOption(const QString &name, const QString &value)
@@ -322,7 +352,8 @@ void NuppelVideoRecorder::SetOptionsFromProfile(RecordingProfile *profile,
     }
 
     setting.clear();
-    if ((tmp = profile->byName("audiocodec")))
+    tmp = profile->byName("audiocodec");
+    if (tmp != nullptr)
         setting = tmp->getValue();
 
     if (setting == "MP3")
@@ -620,7 +651,9 @@ void NuppelVideoRecorder::Initialize(void)
         }
     }
     else
+    {
         m_livetv = m_ringBuffer->LiveMode();
+    }
 
     m_audioBytes = 0;
 
@@ -631,7 +664,6 @@ int NuppelVideoRecorder::AudioInit(bool skipdevice)
 {
     if (!skipdevice)
     {
-        int blocksize = 0;
         m_audioDevice = AudioInput::CreateDevice(m_audioDeviceName.toLatin1());
         if (!m_audioDevice)
         {
@@ -647,7 +679,8 @@ int NuppelVideoRecorder::AudioInit(bool skipdevice)
             return 1;
         }
 
-        if ((blocksize = m_audioDevice->GetBlockSize()) <= 0)
+        int blocksize = m_audioDevice->GetBlockSize();
+        if (blocksize <= 0)
         {
             blocksize = 1024;
             LOG(VB_GENERAL, LOG_ERR, LOC +
@@ -666,7 +699,6 @@ int NuppelVideoRecorder::AudioInit(bool skipdevice)
 
     if (m_compressAudio)
     {
-        int tmp = 0;
         m_gf = lame_init();
         lame_set_bWriteVbrTag(m_gf, 0);
         lame_set_quality(m_gf, m_mp3Quality);
@@ -674,7 +706,8 @@ int NuppelVideoRecorder::AudioInit(bool skipdevice)
         lame_set_mode(m_gf, m_audioChannels == 2 ? STEREO : MONO);
         lame_set_num_channels(m_gf, m_audioChannels);
         lame_set_in_samplerate(m_gf, m_audioSampleRate);
-        if ((tmp = lame_init_params(m_gf)) != 0)
+        int tmp = lame_init_params(m_gf);
+        if (tmp != 0)
         {
             LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("AudioInit(): lame_init_params error %1").arg(tmp));
@@ -688,7 +721,7 @@ int NuppelVideoRecorder::AudioInit(bool skipdevice)
             m_compressAudio = false;
         }
     }
-    m_mp3BufSize = (int)(1.25 * 16384 + 7200);
+    m_mp3BufSize = (int)((1.25 * 16384) + 7200);
     m_mp3Buf = new char[m_mp3BufSize];
 
     return 0;
@@ -783,7 +816,7 @@ void NuppelVideoRecorder::ResizeVideoBuffers(void)
 void NuppelVideoRecorder::StreamAllocate(void)
 {
     delete [] m_strm;
-    m_strm = new signed char[m_width * m_height * 2 + 10];
+    m_strm = new signed char[(m_width * m_height * 2) + 10];
 }
 
 bool NuppelVideoRecorder::Open(void)
@@ -1006,9 +1039,12 @@ bool NuppelVideoRecorder::SetFormatV4L2(void)
                 "v4l2: format set, getting yuyv from v4l, converting");
         }
     }
-    else // cool, we can do our preferred format, most likely running on bttv.
+    else
+    {
+        // cool, we can do our preferred format, most likely running on bttv.
         LOG(VB_RECORD, LOG_INFO, LOC +
             "v4l2: format set, getting yuv420 from v4l");
+    }
 
     // VIDIOC_S_FMT might change the format, check it
     if (m_width  != (int)vfmt.fmt.pix.width ||
@@ -1432,8 +1468,7 @@ void NuppelVideoRecorder::BufferIt(unsigned char *buf, int len, bool forcekey)
                 fn = (fn+16)/33;
             else
                 fn = (fn+20)/40;
-            if (fn<1)
-                fn=1;
+            fn = std::max(fn, 1);
             m_tf += 2*fn; // two fields
         }
     }
@@ -2416,7 +2451,9 @@ void NuppelVideoRecorder::WriteVideo(MythVideoFrame *frame, bool skipsync,
             tmp = m_rtjc->Compress(m_strm, planes.data());
         }
         else
+        {
             tmp = frame->m_bufferSize;
+        }
 
         // here is lzo compression afterwards
         if (compressthis)

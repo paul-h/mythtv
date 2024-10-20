@@ -38,6 +38,7 @@ class V2ChannelInfo : public QObject
     SERVICE_PROPERTY2( QString     , ChanNum        )
     SERVICE_PROPERTY2( QString     , CallSign       )
     SERVICE_PROPERTY2( QString     , IconURL        )
+    SERVICE_PROPERTY2( QString     , Icon           )
     SERVICE_PROPERTY2( QString     , ChannelName    )
     SERVICE_PROPERTY2( uint        , MplexId        )
     SERVICE_PROPERTY2( uint        , ServiceId      )
@@ -66,8 +67,8 @@ class V2ChannelInfo : public QObject
     public:
 
         Q_INVOKABLE V2ChannelInfo(QObject *parent = nullptr)
-            : QObject           ( parent ),
-              m_Visible         ( true   )
+            :   QObject           ( parent ),
+                m_Visible           (true)
         {
         }
 
@@ -77,6 +78,7 @@ class V2ChannelInfo : public QObject
             m_ChanNum       = src->m_ChanNum     ;
             m_CallSign      = src->m_CallSign    ;
             m_IconURL       = src->m_IconURL     ;
+            m_Icon          = src->m_Icon        ;
             m_ChannelName   = src->m_ChannelName ;
             m_ChanFilters   = src->m_ChanFilters ;
             m_SourceId      = src->m_SourceId    ;

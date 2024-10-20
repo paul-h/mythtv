@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <QFontMetrics>
 #include <QPainter>
 
@@ -83,7 +85,9 @@ QImage* TeletextScreen::GetRowImage(int row, QRect &rect)
             m_rowImages.insert(y, img);
         }
         else
+        {
             return nullptr;
+        }
     }
     return m_rowImages.value(y);
 }
@@ -154,10 +158,8 @@ void TeletextScreen::Pulse()
 
             int max_width  = (int)((float)m_colWidth * kTextPadding);
             m_fontHeight = (int)((float)m_rowHeight * kTextPadding);
-            if (max_width > (m_colWidth - 2))
-                max_width = m_colWidth -2;
-            if (m_fontHeight > (m_rowHeight - 2))
-                m_fontHeight = m_rowHeight - 2;
+            max_width = std::min(max_width, m_colWidth - 2);
+            m_fontHeight = std::min(m_fontHeight, m_rowHeight - 2);
             gTTFont->GetFace()->setPixelSize(m_fontHeight);
 
             m_fontStretch = 200;
@@ -586,9 +588,9 @@ void TeletextScreen::DrawMosaic(int x, int y, int code, bool doubleheight)
     dy = (doubleheight) ? (2 * dy) : dy;
 
     if (code & 0x10)
-        DrawRect(row, QRect(x,      y + 2*dy, dx, dy));
+        DrawRect(row, QRect(x,      y + (2*dy), dx, dy));
     if (code & 0x40)
-        DrawRect(row, QRect(x + dx, y + 2*dy, dx, dy));
+        DrawRect(row, QRect(x + dx, y + (2*dy), dx, dy));
     if (code & 0x01)
         DrawRect(row, QRect(x,      y,        dx, dy));
     if (code & 0x02)
@@ -637,7 +639,7 @@ void TeletextScreen::DrawStatus()
         else
             SetBackgroundColor(kTTColorBlack);
 
-        DrawBackground(x * 3 + 7, 0);
+        DrawBackground((x * 3) + 7, 0);
 
         if (str[x * 3] == '*')
         {
@@ -645,12 +647,12 @@ void TeletextScreen::DrawStatus()
             SetBackgroundColor(kTTColorRed);
         }
 
-        DrawBackground(x * 3 + 8, 0);
-        DrawBackground(x * 3 + 9, 0);
+        DrawBackground((x * 3) + 8, 0);
+        DrawBackground((x * 3) + 9, 0);
 
-        DrawCharacter(x * 3 + 7, 0, str[x * 3], false);
-        DrawCharacter(x * 3 + 8, 0, str[x * 3 + 1], false);
-        DrawCharacter(x * 3 + 9, 0, str[x * 3 + 2], false);
+        DrawCharacter((x * 3) + 7, 0, str[x * 3], false);
+        DrawCharacter((x * 3) + 8, 0, str[(x * 3) + 1], false);
+        DrawCharacter((x * 3) + 9, 0, str[(x * 3) + 2], false);
     }
 }
 
@@ -677,7 +679,9 @@ bool TeletextScreen::InitialiseFont()
         gTTFont = mythfont;
     }
     else
+    {
         return false;
+    }
 
     gTTBackgroundAlpha = SubtitleScreen::GetTeletextBackgroundAlpha();
 

@@ -1,4 +1,5 @@
 // C++
+#include <algorithm>
 #include <iostream>
 
 // Qt
@@ -77,10 +78,7 @@ bool BrowserConfig::Create()
 void BrowserConfig::slotSave(void)
 {
     float zoom = m_zoomEdit->GetText().toFloat();
-    if (zoom > 5.0F)
-        zoom = 5.0F;
-    if (zoom < 0.3F)
-        zoom = 0.3F; 
+    zoom = std::clamp(zoom, 0.3F, 5.0F);
     gCoreContext->SaveSetting("WebBrowserZoomLevel", QString("%1").arg(zoom));
     gCoreContext->SaveSetting("WebBrowserCommand", m_commandEdit->GetText());
     int checkstate = 0;
@@ -247,7 +245,7 @@ bool BookmarkManager::keyPressEvent(QKeyEvent *event)
     for (int i = 0; i < actions.size() && !handled; i++)
     {
 
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "MENU")
@@ -311,11 +309,17 @@ bool BookmarkManager::keyPressEvent(QKeyEvent *event)
             }
         }
         else if (action == "DELETE")
+        {
             slotDeleteCurrent();
+        }
         else if (action == "EDIT")
+        {
             slotEditBookmark();
+        }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -363,7 +367,9 @@ void BookmarkManager::slotBookmarkClicked(MythUIButtonListItem *item)
             mainStack->AddScreen(mythbrowser);
         }
         else
+        {
             delete mythbrowser;
+        }
     }
     else
     {
@@ -608,7 +614,9 @@ void BookmarkManager::slotShowMarked(void)
             mainStack->AddScreen(mythbrowser);
         }
         else
+        {
             delete mythbrowser;
+        }
     }
     else
     {

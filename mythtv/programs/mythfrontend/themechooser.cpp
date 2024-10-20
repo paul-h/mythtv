@@ -600,7 +600,7 @@ bool ThemeChooser::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; ++i)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "MENU")
@@ -613,7 +613,9 @@ bool ThemeChooser::keyPressEvent(QKeyEvent *event)
             toggleFullscreenPreview();
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -763,7 +765,9 @@ void ThemeChooser::itemChanged(MythUIButtonListItem *item)
             m_preview->Load();
         }
         else
+        {
             m_preview->Reset();
+        }
     }
     if (m_fullPreviewShowing && m_fullPreviewStateType)
     {
@@ -775,7 +779,9 @@ void ThemeChooser::itemChanged(MythUIButtonListItem *item)
                 m_fullScreenPreview->Load();
             }
             else
+            {
                 m_fullScreenPreview->Reset();
+            }
         }
 
         if (m_fullScreenName)

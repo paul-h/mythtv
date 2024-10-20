@@ -26,6 +26,7 @@
  *
  */
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdio>
@@ -201,8 +202,7 @@ static int write_ts_header(uint16_t pid, int payload_start, int count,
 		int size = stuff;
 		unsigned char flags = 0;
 		if(SCR >= 0) {
-			if(size < 7)
-				size = 7;
+			size = std::max(size, 7);
 			flags |= 0x10;
 		}
 		obuf[c++] = size;
@@ -444,7 +444,7 @@ void write_ts_patpmt(extdata_t *ext, int extcnt, uint8_t prog_num, uint8_t *buf)
 	pmtpos+=4;
 	memcpy(buf+pos, pmt.data(), pmtpos);
 	pos += pmtpos;
-	memset(buf+pos, 0xff, 2*TS_SIZE - pos);
+	memset(buf+pos, 0xff, (2*TS_SIZE) - pos);
 //	pos = 2*TS_SIZE;
 	s_count = (s_count+1) & 0x0f;
 }

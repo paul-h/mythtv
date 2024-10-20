@@ -80,7 +80,9 @@ void Playlist::addTrack(MusicMetadata::IdType trackID, bool update_display)
             gPlayer->activePlaylistChanged(trackID, false);
     }
     else
+    {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Can't add track, given a bad track ID");
+    }
 }
 
 void Playlist::removeAllTracks(void)
@@ -338,7 +340,8 @@ void Playlist::shuffleTracks(MusicPlayer::ShuffleMode shuffleMode)
                 if (mdata)
                 {
                     album = mdata->Album() + " ~ " + QString("%1").arg(mdata->getAlbumId());
-                    if ((Ialbum = album_map.find(album)) == album_map.end())
+                    Ialbum = album_map.find(album);
+                    if (Ialbum == album_map.end())
                         album_map.insert(AlbumMap::value_type(album, 0));
                 }
             }
@@ -360,7 +363,8 @@ void Playlist::shuffleTracks(MusicPlayer::ShuffleMode shuffleMode)
                 {
                     uint32_t album_order = 1;
                     album = album = mdata->Album() + " ~ " + QString("%1").arg(mdata->getAlbumId());;
-                    if ((Ialbum = album_map.find(album)) == album_map.end())
+                    Ialbum = album_map.find(album);
+                    if (Ialbum == album_map.end())
                     {
                         // we didn't find this album in the map,
                         // yet we pre-loaded them all. we are broken,
@@ -408,7 +412,8 @@ void Playlist::shuffleTracks(MusicPlayer::ShuffleMode shuffleMode)
                 if (mdata)
                 {
                     artist = mdata->Artist() + " ~ " + mdata->Title();
-                    if ((Iartist = artist_map.find(artist)) == artist_map.end())
+                    Iartist = artist_map.find(artist);
+                    if (Iartist == artist_map.end())
                         artist_map.insert(ArtistMap::value_type(artist,0));
                 }
             }
@@ -430,7 +435,8 @@ void Playlist::shuffleTracks(MusicPlayer::ShuffleMode shuffleMode)
                 {
                     uint32_t artist_order = 1;
                     artist = mdata->Artist() + " ~ " + mdata->Title();
-                    if ((Iartist = artist_map.find(artist)) == artist_map.end())
+                    Iartist = artist_map.find(artist);
+                    if (Iartist == artist_map.end())
                     {
                         // we didn't find this artist in the map,
                         // yet we pre-loaded them all. we are broken,
@@ -860,7 +866,9 @@ QString Playlist::toRawSonglist(bool shuffled, bool tracksOnly)
                     rawList += QString(",%1").arg(id);
             }
             else
+            {
                 rawList += QString(",%1").arg(id);
+            }
         }
     }
     else
@@ -874,7 +882,9 @@ QString Playlist::toRawSonglist(bool shuffled, bool tracksOnly)
                     rawList += QString(",%1").arg(id);
             }
             else
+            {
                 rawList += QString(",%1").arg(id);
+            }
         }
     }
 

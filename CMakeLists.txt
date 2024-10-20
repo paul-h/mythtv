@@ -58,6 +58,14 @@ foreach(var IN LISTS vars)
   endif()
 endforeach()
 
+# Collapse all the various ways of specifying an android build down into a
+# single flag.
+if(ARM64
+   OR SDK
+   OR CMAKE_ANDROID_ARCH_ABI)
+  set(ANDROID ON)
+endif()
+
 #
 # Copied from cmake/Modules/CMakeGenericSystem.cmake.  That module isn't
 # included on windows builds, and we need this variable set properly.
@@ -70,13 +78,15 @@ endif()
 # Read user options (part 1).  On android, several of these options affect the
 # initialization performed by the project function.
 #
+message(STATUS "Including default MythTV options")
 include(MythOptions)
 message(STATUS "Including user overrides ${MYTH_USER_OVERRIDES1}")
 include(${MYTH_USER_OVERRIDES1} OPTIONAL)
 
 #
 # Initial platform customization before declaring project. (CMAKE_CROSSCOMPILING
-# isn't set yet. Nor is ANDROID or WIN32.)
+# isn't set yet. Nor is ANDROID or WIN32. The former is set by the call to
+# project, and the latter two are set by the next two includes.)
 #
 include(platform/AndroidCrossEarlyInitialization)
 include(platform/WindowsCrossEarlyInitialization)
@@ -435,6 +445,7 @@ ExternalProject_Add(
     -DCMAKE_JOB_POOLS:STRING=${CMAKE_JOB_POOLS}
     -DPKG_CONFIG_LIBDIR:PATH=${PKG_CONFIG_LIBDIR}
     -DPKG_CONFIG_PATH:PATH=${PKG_CONFIG_PATH}
+  BUILD_ALWAYS TRUE
   USES_TERMINAL_CONFIGURE TRUE
   USES_TERMINAL_BUILD TRUE
   USES_TERMINAL_TEST TRUE
@@ -460,6 +471,7 @@ if(MYTH_BUILD_PLUGINS)
       -DCMAKE_JOB_POOLS:STRING=${CMAKE_JOB_POOLS}
       -DPKG_CONFIG_LIBDIR:PATH=${PKG_CONFIG_LIBDIR}
       -DPKG_CONFIG_PATH:PATH=${PKG_CONFIG_PATH}
+    BUILD_ALWAYS TRUE
     USES_TERMINAL_CONFIGURE TRUE
     USES_TERMINAL_BUILD TRUE
     DEPENDS MythTV)
@@ -490,6 +502,7 @@ if(MYTH_BUILD_THEMESTRING_TOOL)
       -DCMAKE_JOB_POOLS:STRING=${CMAKE_JOB_POOLS}
       -DPKG_CONFIG_LIBDIR:PATH=${PKG_CONFIG_LIBDIR}
       -DPKG_CONFIG_PATH:PATH=${PKG_CONFIG_PATH}
+    BUILD_ALWAYS TRUE
     INSTALL_COMMAND ${CMAKE_COMMAND} -E echo "Nothing to install."
     USES_TERMINAL_BUILD TRUE
     DEPENDS MythTV MythPlugins

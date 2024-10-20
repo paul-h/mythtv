@@ -4,4 +4,16 @@
 
 :host ::ng-deep .p-tieredmenu .p-submenu-list {
     border: 2px solid;
+    left: 10%;
+    top: 2em;
+}
+
+.mycell {
+    position: relative;
+}
+
+.mytext {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
 }

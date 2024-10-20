@@ -39,7 +39,9 @@ int ring_init (ringbuffer *rbuf, int size)
 {
 	if (size > 0){
 		rbuf->size = size;
-		if( !(rbuf->buffer = (uint8_t *) malloc(sizeof(uint8_t)*size)) ){
+		rbuf->buffer = (uint8_t *) malloc(sizeof(uint8_t)*size);
+		if (rbuf->buffer == nullptr)
+                {
 			LOG(VB_GENERAL, LOG_ERR,
 			    "Not enough memory for ringbuffer");
 			return -1;
@@ -458,7 +460,9 @@ int dummy_delete(dummy_buffer *dbuf, uint64_t time)
 			ring_read(&dbuf->data_index,(uint8_t *) &size, 
 				  sizeof(uint32_t));
 			dsize += size;
-		} else ex = 1;
+		} else {
+			ex = 1;
+		}
 	} while (ex == 0);
 #if 0
 	LOG(VB_GENERAL, LOG_INFO, QString("delete %1 ").arg(dummy_space(dbuf)));

@@ -398,7 +398,9 @@ int NativeArchive::getFieldList(QStringList &fieldList, const QString &tableName
         }
     }
     else
+    {
         MythDB::DBError("describe table", query);
+    }
 
     return fieldList.count();
 }
@@ -1801,7 +1803,9 @@ int NativeArchive::importVideo(const QDomElement &itemNode, const QString &xmlFi
         }
     }
     else
+    {
         coverFilename = "No Cover";
+    }
 
     // copy videometadata to database
     MSqlQuery query(MSqlQuery::InitCon());
@@ -2118,8 +2122,7 @@ static int doNativeArchive(const QString &jobFile)
         MythDate::toString(MythDate::current(), MythDate::kDatabase));
     gCoreContext->SaveSetting("MythArchiveLastRunStatus", "Running");
 
-    NativeArchive na;
-    int res = na.doNativeArchive(jobFile);
+    int res = NativeArchive::doNativeArchive(jobFile);
     gCoreContext->SaveSetting(
         "MythArchiveLastRunEnd",
         MythDate::toString(MythDate::current(), MythDate::kDatabase));
@@ -2135,8 +2138,7 @@ static int doNativeArchive(const QString &jobFile)
 
 static int doImportArchive(const QString &inFile, int chanID)
 {
-    NativeArchive na;
-    return na.doImportArchive(inFile, chanID);
+    return NativeArchive::doImportArchive(inFile, chanID);
 }
 
 static int doImportFile(const QString &inFile)
@@ -2422,7 +2424,9 @@ static int64_t getCutFrames(const QString &filename, int64_t lastFrame)
                 ++it;
             }
             else
+            {
                 end = lastFrame;
+            }
         }
         else if (it.value() == MARK_CUT_END)
         {
@@ -2579,7 +2583,9 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
                     stream.setAttribute("aspectratio", aspect_ratio);
                 }
                 else
+                {
                     stream.setAttribute("aspectratio", "N/A");
+                }
 
                 stream.setAttribute("id", st->id);
 
@@ -2591,7 +2597,9 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
                             .arg(secs).arg(av_rescale(us, 1000000, AV_TIME_BASE)));
                 }
                 else
+                {
                     stream.setAttribute("start_time", 0);
+                }
 
                 streams.appendChild(stream);
 
@@ -2615,7 +2623,9 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
                                 frameCount = (int64_t)(duration * fps);
                             }
                             else
+                            {
                                 root.setAttribute("duration", "N/A");
+                            }
                             break;
                         }
                         case 1:
@@ -2653,7 +2663,9 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
                                 frameCount = (int64_t)(duration * fps);
                             }
                             else
+                            {
                                 root.setAttribute("duration", "N/A");
+                            }
                             break;
                         }
                         default:
@@ -2714,7 +2726,9 @@ static int getFileInfo(const QString& inFile, const QString& outFile, int lenMet
                             .arg(secs).arg(av_rescale(us, 1000000, AV_TIME_BASE)));
                 }
                 else
+                {
                     stream.setAttribute("start_time", 0);
+                }
 
                 streams.appendChild(stream);
 
@@ -2973,9 +2987,9 @@ static int main_local(int argc, char **argv)
     QCoreApplication::setApplicationName("mytharchivehelper");
 
     // by default we only output our messages
-    int retval = GENERIC_EXIT_OK;
     QString mask("jobqueue");
-    if ((retval = cmdline.ConfigureLogging(mask)) != GENERIC_EXIT_OK)
+    int retval = cmdline.ConfigureLogging(mask);
+    if (retval != GENERIC_EXIT_OK)
         return retval;
 
     ///////////////////////////////////////////////////////////////////////
@@ -3157,7 +3171,9 @@ static int main_local(int argc, char **argv)
         res = sup2dast(inFileBA.constData(), ifoFileBA.constData(), delay);
     }
     else
+    {
         cmdline.PrintHelp();
+    }
 
     delete gContext;
     gContext = nullptr;

@@ -179,8 +179,10 @@ bool RecordingRule::LoadByProgram(const ProgramInfo* proginfo)
             return false;
     }
     else
+    {
         LoadTemplate(proginfo->GetTitle(), proginfo->GetCategory(),
                      proginfo->GetCategoryTypeString());
+    }
 
     if (m_type != kTemplateRecord &&
         (m_searchType == kNoSearch || m_searchType == kManualSearch))
@@ -609,7 +611,9 @@ void RecordingRule::ToMap(InfoMap &infoMap, uint date_format) const
             "Hours and minutes").arg(hourstring, minstring);
     }
     else
+    {
         infoMap["lentime"] = minstring;
+    }
 
 
     infoMap["timedate"] = MythDate::toString(
@@ -629,7 +633,7 @@ void RecordingRule::ToMap(InfoMap &infoMap, uint date_format) const
         QString findfrom = MythDate::toString(ldt, date_format | MythDate::kTime);
         if (m_type == kWeeklyRecord)
         {
-            int daynum = (m_findday + 5) % 7 + 1;
+            int daynum = ((m_findday + 5) % 7) + 1;
             findfrom = QString("%1, %2")
 		 .arg(gCoreContext->GetQLocale().dayName(daynum, QLocale::ShortFormat),
                       findfrom);

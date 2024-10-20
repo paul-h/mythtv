@@ -78,14 +78,16 @@ class V2Guide : public MythHTTPService
                                                   bool             Details,
                                                   const QString   &Sort,
                                                   bool             Descending,
-                                                  bool             WithInvisible);
+                                                  bool             WithInvisible,
+                                                  const QString   &CatType);
 
         static V2Program*   GetProgramDetails   ( int              ChanId,
                                                   const QDateTime &StartTime );
 
         static QFileInfo    GetChannelIcon      ( int              ChanId,
                                                   int              Width ,
-                                                  int              Height );
+                                                  int              Height,
+                                                  const QString   &FileName );
 
         static V2ChannelGroupList*  GetChannelGroupList ( bool         IncludeEmpty );
 

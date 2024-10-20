@@ -59,7 +59,7 @@ static constexpr int    PLAYBACK_MINBUFFER { 2 }; // number of segments to prefe
 static constexpr int8_t PLAYBACK_READAHEAD { 6 }; // number of segments download queue ahead of playback
 static constexpr int8_t PLAYLIST_FAILURE   { 6 }; // number of consecutive failures after which
                                                   // playback will abort
-enum
+enum : std::int8_t
 {
     RET_ERROR = -1,
     RET_OK    = 0,
@@ -128,6 +128,7 @@ class HLSSegment
         m_url(std::move(uri))
     {
 #ifdef USING_LIBCRYPTO
+        //NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
         m_pszKeyPath = std::move(current_key_path);
 #endif
     }
@@ -228,10 +229,7 @@ class HLSSegment
     uint32_t Read(uint8_t *buffer, int32_t length, FILE *fd = nullptr)
     {
         int32_t left = m_data.size() - m_played;
-        if (length > left)
-        {
-            length = left;
-        }
+        length = std::min(length, left);
         if (buffer != nullptr)
         {
             memcpy(buffer, m_data.constData() + m_played, length);
@@ -825,7 +823,11 @@ class HLSStream
             // not even size, pad with front 0
             line.insert(2, QLatin1String("0"));
         }
-        int padding = std::max(0, AES_BLOCK_SIZE - (static_cast<int>(line.size()) - 2));
+#if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+        int padding = std::max(0, AES_BLOCK_SIZE - (line.size() - 2));
+#else
+        int padding = std::max(0LL, AES_BLOCK_SIZE - (line.size() - 2));
+#endif
         QByteArray ba = QByteArray(padding, 0x0);
         ba.append(QByteArray::fromHex(QByteArray(line.toLatin1().constData() + 2)));
         std::copy(ba.cbegin(), ba.cend(), m_aesIv.begin());
@@ -1770,8 +1772,10 @@ int HLSRingBuffer::ParseDecimalValue(const QString &line, int &target)
     int p = line.indexOf(QLatin1String(":"));
     if (p < 0)
         return RET_ERROR;
-    int i = p;
-    while (++i < line.size() && line[i].isNumber());
+    int i = p + 1;
+    for ( ; i < line.size(); i++)
+        if (!line[i].isNumber())
+            break;
     if (i == p + 1)
         return RET_ERROR;
     target = line.mid(p+1, i - p - 1).toInt();
@@ -1801,7 +1805,7 @@ int HLSRingBuffer::ParseSegmentInformation(const HLSStream *hls, const QString &
     {
         return RET_ERROR;
     }
-    QString val = list[0];
+    const QString& val = list[0];
 
     if (hls->Version() < 3)
     {
@@ -2258,17 +2262,29 @@ int HLSRingBuffer::ParseM3U8(const QByteArray *buffer, StreamsList *streams)
                 segment_duration = std::chrono::seconds(tmp);
             }
             else if (line.startsWith(QLatin1String("#EXT-X-TARGETDURATION")))
+            {
                 err = ParseTargetDuration(hls, line);
+            }
             else if (line.startsWith(QLatin1String("#EXT-X-MEDIA-SEQUENCE")))
+            {
                 err = ParseMediaSequence(hls, line);
+            }
             else if (line.startsWith(QLatin1String("#EXT-X-KEY")))
+            {
                 err = ParseKey(hls, line);
+            }
             else if (line.startsWith(QLatin1String("#EXT-X-PROGRAM-DATE-TIME")))
+            {
                 err = ParseProgramDateTime(hls, line);
+            }
             else if (line.startsWith(QLatin1String("#EXT-X-ALLOW-CACHE")))
+            {
                 err = ParseAllowCache(hls, line);
+            }
             else if (line.startsWith(QLatin1String("#EXT-X-DISCONTINUITY")))
+            {
                 err = ParseDiscontinuity(hls, line);
+            }
             else if (line.startsWith(QLatin1String("#EXT-X-VERSION")))
             {
                 int version2 = 0;
@@ -2276,7 +2292,9 @@ int HLSRingBuffer::ParseM3U8(const QByteArray *buffer, StreamsList *streams)
                 hls->SetVersion(version2);
             }
             else if (line.startsWith(QLatin1String("#EXT-X-ENDLIST")))
+            {
                 err = ParseEndList(hls);
+            }
             else if (!line.startsWith(QLatin1String("#")) && !line.isEmpty())
             {
                 hls->AddSegment(segment_duration, title, decoded_URI(line));

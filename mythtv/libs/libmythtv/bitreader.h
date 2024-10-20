@@ -27,9 +27,9 @@
 #ifndef BIT_READER_H
 #define BIT_READER_H
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
-#include <climits> // for CHAR_BIT
 
 #if __has_include(<bit>) // C++20
 #include <bit>
@@ -55,12 +55,12 @@ class BitReader
         else
         {
             n -= m_cacheSize;
-            m_cacheSize = 0;
-            m_cache      = 0;
-            m_bitIndex += n;
-            int quotient = m_bitIndex / CHAR_BIT;
-            m_bitIndex %= CHAR_BIT;
-            m_buffer    += quotient;
+            m_cacheSize        = 0;
+            m_cache            = 0;
+            m_bitIndex        += n;
+            unsigned quotient  = m_bitIndex / kBitsPerRead;
+            m_bitIndex         = m_bitIndex % kBitsPerRead;
+            m_buffer          += quotient;
         }
     }
     uint32_t show_bits(unsigned n)
@@ -70,7 +70,7 @@ class BitReader
         {
             refill_cache(32);
         }
-        return uint32_t(get_upper_bits(m_cache, n));
+        return static_cast<uint32_t>(get_upper_bits(m_cache, n));
     }
     uint64_t show_bits64(unsigned n)
     {
@@ -155,7 +155,7 @@ class BitReader
 
     int64_t get_bits_left()
     {
-        return m_cacheSize + CHAR_BIT * int64_t(m_bufferEnd - m_buffer) - m_bitIndex;
+        return m_cacheSize + (kBitsPerRead * static_cast<int64_t>(m_bufferEnd - m_buffer)) - m_bitIndex;
     }
 
   private:
@@ -183,7 +183,7 @@ class BitReader
         v |= v >> 8;
         v |= v >> 16;
 
-        return 31 - MultiplyDeBruijnBitPosition[(uint32_t)(v * 0x07C4ACDDU) >> 27];
+        return 31 - MultiplyDeBruijnBitPosition[static_cast<uint32_t>(v * 0x07C4ACDDU) >> 27];
 #endif
     }
 
@@ -216,6 +216,8 @@ class BitReader
     uint64_t m_cache {0};
     unsigned m_cacheSize {0};
 
+    static constexpr unsigned kCacheSizeMax {64};
+    static constexpr unsigned kBitsPerRead  { 8};
 };
 
 /**
@@ -242,22 +244,32 @@ inline int BitReader::get_ue_golomb(unsigned max_length)
 
 inline void BitReader::refill_cache(unsigned min_bits)
 {
+    min_bits = std::min(min_bits, kCacheSizeMax);
+
+    //if (m_bitIndex >= kBitsPerRead)
+    {
+        unsigned quotient = m_bitIndex / kBitsPerRead;
+        m_bitIndex        = m_bitIndex % kBitsPerRead;
+        m_buffer         += quotient;
+    }
+
     while (m_cacheSize < min_bits && m_buffer < m_bufferEnd)
     {
-        int shift = 64 - m_cacheSize;
-        int bits = CHAR_BIT - m_bitIndex;
-        if (shift > bits)
+        unsigned shift = kCacheSizeMax - m_cacheSize;
+        unsigned bits  = kBitsPerRead  - m_bitIndex;
+        if (shift >= bits)
         {
-            m_cache |= int64_t(*m_buffer & ((1 << bits) - 1)) << (shift - bits);
+            m_cache |= static_cast<uint64_t>(*m_buffer) << (shift - bits);
             m_bitIndex   = 0;
             m_buffer++;
             m_cacheSize += bits;
         }
         else
         {
-            m_cache |= int64_t(*m_buffer & ((1 << bits) - 1)) >> (bits - shift);
+            m_cache |= static_cast<uint64_t>(*m_buffer) >> (bits - shift);
             m_bitIndex  += shift;
             m_cacheSize += shift;
+            return; // m_cacheSize == kCacheSizeMax
         }
 
     }

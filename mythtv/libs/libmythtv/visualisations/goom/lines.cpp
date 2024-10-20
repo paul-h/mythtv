@@ -2,6 +2,7 @@
  *  lines.c
  */
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -21,9 +22,7 @@ lighten (unsigned char value, float power)
 
 	if (t > 0) {
 		val = (int) t; // (32.0F * log (t));
-		if (val > 255)
-			val = 255;
-		return val;
+		return std::min(val, 255);
 	}
         return 0;
 }
@@ -209,8 +208,8 @@ goom_lines_draw (GMLine * line, const GoomSingleData& data, unsigned int *p)
 
 		lightencolor ((int *)&color, line->power);
 
-		int x1 = (int) (pt->x + cosa * line->amplitude * data[0]);
-		int y1 = (int) (pt->y + sina * line->amplitude * data[0]);
+		int x1 = (int) (pt->x + (cosa * line->amplitude * data[0]));
+		int y1 = (int) (pt->y + (sina * line->amplitude * data[0]));
 
 		for (int i = 1; i < 512; i++) {
 			pt = &(line->points[i]);
@@ -218,8 +217,8 @@ goom_lines_draw (GMLine * line, const GoomSingleData& data, unsigned int *p)
 			cosa = cosf (pt->angle) / 1000.0F;
 			sina = sinf (pt->angle) / 1000.0F;
 
-			int x2 = (int) (pt->x + cosa * line->amplitude * data[i]);
-			int y2 = (int) (pt->y + sina * line->amplitude * data[i]);
+			int x2 = (int) (pt->x + (cosa * line->amplitude * data[i]));
+			int y2 = (int) (pt->y + (sina * line->amplitude * data[i]));
 
 			draw_line ((int *)p, x1, y1, x2, y2, color, line->screenX, line->screenY);
 			DRAWMETHOD_DONE ();

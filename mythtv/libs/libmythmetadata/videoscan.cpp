@@ -75,11 +75,11 @@ class VideoMetadataListManager;
 class MythUIProgressDialog;
 
 VideoScannerThread::VideoScannerThread(QObject *parent) :
-    MThread("VideoScanner")
+    MThread("VideoScanner"),
+    m_parent(parent),
+    m_hasGUI(gCoreContext->HasGUI()),
+    m_dbMetadata(new VideoMetadataListManager)
 {
-    m_parent = parent;
-    m_dbMetadata = new VideoMetadataListManager;
-    m_hasGUI = gCoreContext->HasGUI();
     m_listUnknown = gCoreContext->GetBoolSetting("VideoListUnknownFiletypes", false);
 }
 
@@ -219,7 +219,9 @@ void VideoScannerThread::run()
         gCoreContext->SendEvent(me);
     }
     else
+    {
         gCoreContext->SendMessage("VIDEO_LIST_NO_CHANGE");
+    }
 
     RunEpilog();
 }
@@ -409,8 +411,8 @@ void VideoScannerThread::SendProgressEvent(uint progress, uint total,
 }
 
 VideoScanner::VideoScanner()
+  : m_scanThread(new VideoScannerThread(this))
 {
-    m_scanThread = new VideoScannerThread(this);
 }
 
 VideoScanner::~VideoScanner()

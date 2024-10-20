@@ -21,7 +21,7 @@ class MBASE_PUBLIC MythHTTPService : public QObject
     Q_OBJECT
 
   public:
-    template<class T> static inline HTTPServicePtr Create() { return std::shared_ptr<MythHTTPService>(new T); }
+    template<class T> static HTTPServicePtr Create() { return std::shared_ptr<MythHTTPService>(new T); }
 
     explicit MythHTTPService(MythHTTPMetaService* MetaService);
    ~MythHTTPService() override = default;
@@ -75,18 +75,20 @@ class MBASE_PUBLIC V2HttpRedirectException
         Type Get##Name() const { return m_##Name; }      \
         template <class T>                                         \
         typename std::enable_if_t<std::is_same_v<T, QString> || \
+                                  std::is_same_v<T, QStringList> || \
                                   std::is_same_v<T, QDateTime> || \
                                   std::is_same_v<T, QVariantMap> ||     \
                                   std::is_same_v<T, QVariantList>,void> \
         set##Name(const T& value) { m_##Name = value; }             \
         template <class T>                                          \
         typename std::enable_if_t<!std::is_same_v<T, QString> && \
+                                  !std::is_same_v<T, QStringList> && \
                                   !std::is_same_v<T, QDateTime> && \
                                   !std::is_same_v<T, QVariantMap> &&    \
                                   !std::is_same_v<T, QVariantList>,void> \
         set##Name(T value) { m_##Name = value; }                    \
     private:                                             \
-    Type m_##Name { };
+    Type m_##Name { }; // NOLINT(readability-redundant-member-init)
 
 #define SERVICE_PROPERTY_RO_REF( type, name ) \
     private: type m_##name;              \

@@ -87,7 +87,7 @@ DTC::ChannelInfoList* Channel::GetChannelInfoList( uint nSourceID,
     {
         DTC::ChannelInfo *pChannelInfo = pChannelInfos->AddNewChannelInfo();
 
-        ChannelInfo channelInfo = (*chanIt);
+        const ChannelInfo& channelInfo = (*chanIt);
 
         if (!FillChannelInfo(pChannelInfo, channelInfo, bDetails))
         {
@@ -801,7 +801,9 @@ QStringList Channel::GetXMLTVIdList( uint SourceID )
         }
     }
     else
+    {
         throw(QString("SourceID (%1) not found").arg(SourceID));
+    }
 
     return idList;
 }

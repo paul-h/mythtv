@@ -52,7 +52,7 @@ extern "C" {
  */
 
 /* Line type IDs */
-enum V4L2_MPEG_LINE_TYPES {
+enum V4L2_MPEG_LINE_TYPES : std::uint8_t {
     V4L2_MPEG_VBI_IVTV_TELETEXT_B     = 1, ///< Teletext (uses lines 6-22 for PAL, 10-21 for NTSC)
     V4L2_MPEG_VBI_IVTV_CAPTION_525    = 4, ///< Closed Captions (line 21 NTSC, line 22 PAL)
     V4L2_MPEG_VBI_IVTV_WSS_625        = 5, ///< Wide Screen Signal (line 20 NTSC, line 23 PAL)
@@ -379,18 +379,18 @@ AvFormatDecoder::AvFormatDecoder(MythPlayer *parent,
       // Closed Caption & Teletext decoders
       m_ccd608(new CC608Decoder(parent->GetCC608Reader())),
       m_ccd708(new CC708Decoder(parent->GetCC708Reader())),
-      m_ttd(new TeletextDecoder(parent->GetTeletextReader()))
+      m_ttd(new TeletextDecoder(parent->GetTeletextReader())),
+      m_itv(parent->GetInteractiveTV()),
+      m_audioSamples((uint8_t *)av_mallocz(AudioOutput::kMaxSizeBuffer))
 {
     // this will be deleted and recreated once decoder is set up
     m_mythCodecCtx = new MythCodecContext(this, kCodec_NONE);
 
-    m_audioSamples = (uint8_t *)av_mallocz(AudioOutput::kMaxSizeBuffer);
     m_ccd608->SetIgnoreTimecode(true);
 
     av_log_set_callback(myth_av_log);
 
     m_audioIn.m_sampleSize = -32;// force SetupAudioStream to run once
-    m_itv = m_parent->GetInteractiveTV();
 
     AvFormatDecoder::SetIdrOnlyKeyframes(true);
     m_audioReadAhead = gCoreContext->GetDurSetting<std::chrono::milliseconds>("AudioReadAhead", 100ms);
@@ -416,7 +416,7 @@ AvFormatDecoder::~AvFormatDecoder()
 
     sws_freeContext(m_swsCtx);
 
-    av_freep(&m_audioSamples);
+    av_freep(reinterpret_cast<void*>(&m_audioSamples));
 
     delete m_avfRingBuffer;
 
@@ -1011,7 +1011,7 @@ int AvFormatDecoder::OpenFile(MythMediaBuffer *Buffer, bool novideo,
                     .arg(av_make_error_stdstring(error, err)));
 
                 // note - m_ic (AVFormatContext) is freed on failure
-                if (retries > 1)
+                if (retries > 2)
                 {
                     // wait a little to buffer more data
                     // 50*0.1 = 5 seconds max
@@ -1119,7 +1119,9 @@ int AvFormatDecoder::OpenFile(MythMediaBuffer *Buffer, bool novideo,
     {
         int initialAudio = -1;
         int initialVideo = -1;
-        if (m_itv || (m_itv = m_parent->GetInteractiveTV()))
+        if (m_itv == nullptr)
+            m_itv = m_parent->GetInteractiveTV();
+        if (m_itv != nullptr)
             m_itv->GetInitialStreams(initialAudio, initialVideo);
         if (initialAudio >= 0)
             SetAudioByComponentTag(initialAudio);
@@ -1514,7 +1516,7 @@ void AvFormatDecoder::InitVideoCodec(AVStream *stream, AVCodecContext *enc,
         QString codecName;
         if (codec2)
             codecName = codec2->name;
-        m_parent->SetVideoParams(width, height, static_cast<double>(m_fps),
+        m_parent->SetVideoParams(width, height, m_fps,
                                  m_currentAspect, false, GetMaxReferenceFrames(enc),
                                  kScan_Detect, codecName);
         if (LCD *lcd = LCD::Get())
@@ -1828,7 +1830,9 @@ void AvFormatDecoder::ScanDSMCCStreams(void)
     if (!m_ic || !m_ic->pmt_section)
         return;
 
-    if (!m_itv && ! (m_itv = m_parent->GetInteractiveTV()))
+    if (m_itv == nullptr)
+        m_itv = m_parent->GetInteractiveTV();
+    if (m_itv == nullptr)
         return;
 
     auto pmt_buffer = MythAVBufferRef(m_ic->pmt_section);
@@ -1979,8 +1983,7 @@ int AvFormatDecoder::ScanStreams(bool novideo)
                     {
                         static const int s_baseSize = 1920 * 1080;
                         multiplier = ((par->width * par->height) + s_baseSize - 1) / s_baseSize;
-                        if (multiplier < 1)
-                            multiplier = 1;
+                        multiplier = std::max(multiplier, 1);
                     }
                     par->bit_rate = s_baseBitrate * multiplier;
                     unknownbitrate = true;
@@ -2191,7 +2194,9 @@ int AvFormatDecoder::ScanStreams(bool novideo)
                     channels = m_ringBuffer->DVD()->GetNumAudioChannels(logical_stream_id);
                 }
                 else
+                {
                     logical_stream_id = m_ic->streams[strm]->id;
+                }
 
                 if (logical_stream_id == -1)
                 {
@@ -2410,8 +2415,7 @@ int AvFormatDecoder::ScanStreams(bool novideo)
         }
     }
 
-    if (static_cast<uint>(m_ic->bit_rate) > m_bitrate)
-        m_bitrate = static_cast<uint>(m_ic->bit_rate);
+    m_bitrate = std::max(static_cast<uint>(m_ic->bit_rate), m_bitrate);
 
     if (m_bitrate > 0)
     {
@@ -2664,7 +2668,9 @@ void AvFormatDecoder::RemoveAudioStreams()
             i--;
         }
         else
+        {
             i++;
+        }
     }
     m_avCodecLock.unlock();
 }
@@ -3196,8 +3202,8 @@ int AvFormatDecoder::H264PreProcessPkt(AVStream *stream, AVPacket *pkt)
         double seqFPS = m_avcParser->frameRate();
 
         bool res_changed = ((width  != m_currentWidth) || (height != m_currentHeight));
-        bool fps_changed = (seqFPS > 0.0) && ((seqFPS > static_cast<double>(m_fps) + 0.01) ||
-                                              (seqFPS < static_cast<double>(m_fps) - 0.01));
+        bool fps_changed = (seqFPS > 0.0) && ((seqFPS > m_fps + 0.01) ||
+                                              (seqFPS < m_fps - 0.01));
         bool forcechange = !qFuzzyCompare(aspect + 10.0F, m_currentAspect) &&
                             m_mythCodecCtx && m_mythCodecCtx->DecoderWillResetOnAspect();
         m_currentAspect = aspect;
@@ -3631,7 +3637,9 @@ bool AvFormatDecoder::ProcessVideoFrame(AVStream *Stream, AVFrame *AvFrame)
         pts = millisecondsFromFloat(av_q2d(Stream->time_base) * av_pts * 1000);
     }
     else
+    {
         pts = millisecondsFromFloat(av_q2d(Stream->time_base) * AvFrame->reordered_opaque * 1000);
+    }
 
     std::chrono::milliseconds temppts = pts;
     // Validate the video pts against the last pts. If it's
@@ -3655,14 +3663,14 @@ bool AvFormatDecoder::ProcessVideoFrame(AVStream *Stream, AVFrame *AvFrame)
     {
         // If fps has doubled due to frame-doubling deinterlace
         // Set fps to double value.
-        double fpschange = calcfps / static_cast<double>(m_fps);
+        double fpschange = calcfps / m_fps;
         int prior = m_fpsMultiplier;
         if (fpschange > 1.9 && fpschange < 2.1)
             m_fpsMultiplier = 2;
         if (fpschange > 0.9 && fpschange < 1.1)
             m_fpsMultiplier = 1;
         if (m_fpsMultiplier != prior)
-            m_parent->SetFrameRate(static_cast<double>(m_fps));
+            m_parent->SetFrameRate(m_fps);
     }
 
     LOG(VB_PLAYBACK | VB_TIMESTAMP, LOG_INFO, LOC +
@@ -3867,7 +3875,9 @@ void AvFormatDecoder::ProcessDSMCCPacket([[maybe_unused]] const AVStream *str,
                                          [[maybe_unused]] const AVPacket *pkt)
 {
 #ifdef USING_MHEG
-    if (!m_itv && ! (m_itv = m_parent->GetInteractiveTV()))
+    if (m_itv == nullptr)
+        m_itv = m_parent->GetInteractiveTV();
+    if (m_itv == nullptr)
         return;
 
     // The packet may contain several tables.
@@ -4874,7 +4884,9 @@ bool AvFormatDecoder::GetFrame(DecodeType decodetype, bool &Retry)
                 pkt = av_packet_alloc();
 
             int retval = 0;
-            if (!m_ic || ((retval = ReadPacket(m_ic, pkt, storevideoframes)) < 0))
+            if (m_ic != nullptr)
+                retval = ReadPacket(m_ic, pkt, storevideoframes);
+            if ((m_ic == nullptr) || (retval < 0))
             {
                 if (retval == -EAGAIN)
                     continue;
@@ -5230,58 +5242,59 @@ bool AvFormatDecoder::SetupAudioStream(void)
 
     if ((m_currentTrack[kTrackTypeAudio] >= 0) && m_ic &&
         (m_selectedTrack[kTrackTypeAudio].m_av_stream_index <=
-         (int) m_ic->nb_streams) &&
-        (curstream = m_ic->streams[m_selectedTrack[kTrackTypeAudio]
-                                 .m_av_stream_index]) &&
-        (ctx = m_codecMap.GetCodecContext(curstream)))
+         (int) m_ic->nb_streams))
     {
-        AudioFormat fmt =
-            AudioOutputSettings::AVSampleFormatToFormat(ctx->sample_fmt,
-                                                        ctx->bits_per_raw_sample);
-
-        if (av_sample_fmt_is_planar(ctx->sample_fmt))
-        {
-            LOG(VB_AUDIO, LOG_INFO, LOC + QString("Audio data is planar"));
-        }
-
-        if (fmt == FORMAT_NONE)
-        {
-            int bps = av_get_bytes_per_sample(ctx->sample_fmt) << 3;
-            if (ctx->sample_fmt == AV_SAMPLE_FMT_S32 &&
-                ctx->bits_per_raw_sample)
-                bps = ctx->bits_per_raw_sample;
-            LOG(VB_GENERAL, LOG_ERR, LOC +
-                QString("Unsupported sample format with %1 bits").arg(bps));
-            return false;
-        }
-
-        bool using_passthru = DoPassThrough(curstream->codecpar, false);
-
-        requested_channels = ctx->ch_layout.nb_channels;
-
-        if (!using_passthru &&
-            ctx->ch_layout.nb_channels > (int)m_audio->GetMaxChannels() &&
-            DecoderWillDownmix(ctx))
-        {
-            requested_channels = m_audio->GetMaxChannels();
-
-            AVChannelLayout channel_layout;
-            av_channel_layout_default(&channel_layout, requested_channels);
-            av_opt_set_chlayout(ctx->priv_data, "downmix", &channel_layout, 0);
-        }
-
-        info = AudioInfo(ctx->codec_id, fmt, ctx->sample_rate,
-                         requested_channels, using_passthru, ctx->ch_layout.nb_channels,
-                         ctx->codec_id == AV_CODEC_ID_DTS ? ctx->profile : 0);
+        curstream = m_ic->streams[m_selectedTrack[kTrackTypeAudio]
+                                 .m_av_stream_index];
+        if (curstream != nullptr)
+            ctx = m_codecMap.GetCodecContext(curstream);
     }
 
-    if (!ctx)
+    if (ctx == nullptr)
     {
         if (!m_tracks[kTrackTypeAudio].empty())
             LOG(VB_PLAYBACK, LOG_INFO, LOC + "No codec context. Returning false");
         return false;
     }
 
+    AudioFormat fmt =
+        AudioOutputSettings::AVSampleFormatToFormat(ctx->sample_fmt,
+                                                    ctx->bits_per_raw_sample);
+
+    if (av_sample_fmt_is_planar(ctx->sample_fmt))
+    {
+        LOG(VB_AUDIO, LOG_INFO, LOC + QString("Audio data is planar"));
+    }
+
+    if (fmt == FORMAT_NONE)
+    {
+        int bps = av_get_bytes_per_sample(ctx->sample_fmt) << 3;
+        if (ctx->sample_fmt == AV_SAMPLE_FMT_S32 &&
+            ctx->bits_per_raw_sample)
+            bps = ctx->bits_per_raw_sample;
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Unsupported sample format with %1 bits").arg(bps));
+        return false;
+    }
+
+    bool using_passthru = DoPassThrough(curstream->codecpar, false);
+
+    requested_channels = ctx->ch_layout.nb_channels;
+
+    if (!using_passthru &&
+        ctx->ch_layout.nb_channels > (int)m_audio->GetMaxChannels() &&
+        DecoderWillDownmix(ctx))
+    {
+        requested_channels = m_audio->GetMaxChannels();
+
+        AVChannelLayout channel_layout;
+        av_channel_layout_default(&channel_layout, requested_channels);
+        av_opt_set_chlayout(ctx->priv_data, "downmix", &channel_layout, 0);
+    }
+
+    info = AudioInfo(ctx->codec_id, fmt, ctx->sample_rate,
+                     requested_channels, using_passthru, ctx->ch_layout.nb_channels,
+                     ctx->codec_id == AV_CODEC_ID_DTS ? ctx->profile : 0);
     if (info == m_audioIn)
         return false;
 
@@ -5389,31 +5402,29 @@ void AvFormatDecoder::av_update_stream_timings_video(AVFormatContext *ic)
    int64_t duration = INT64_MIN;
    if (st->start_time != AV_NOPTS_VALUE && st->time_base.den) {
        int64_t start_time1= av_rescale_q(st->start_time, st->time_base, AV_TIME_BASE_Q);
-       if (start_time1 < start_time)
-           start_time = start_time1;
+       start_time = std::min(start_time1, start_time);
        if (st->duration != AV_NOPTS_VALUE) {
            int64_t end_time1 = start_time1 +
                       av_rescale_q(st->duration, st->time_base, AV_TIME_BASE_Q);
-           if (end_time1 > end_time)
-               end_time = end_time1;
+           end_time = std::max(end_time1, end_time);
        }
    }
    if (st->duration != AV_NOPTS_VALUE) {
        int64_t duration1 = av_rescale_q(st->duration, st->time_base, AV_TIME_BASE_Q);
-       if (duration1 > duration)
-           duration = duration1;
+       duration = std::max(duration1, duration);
    }
     if (start_time != INT64_MAX) {
         ic->start_time = start_time;
         if (end_time != INT64_MIN) {
-            if (end_time - start_time > duration)
-                duration = end_time - start_time;
+            duration = std::max(end_time - start_time, duration);
         }
     }
     if (duration != INT64_MIN) {
-        int64_t filesize = 0;
         ic->duration = duration;
-        if (ic->pb && (filesize = avio_size(ic->pb)) > 0) {
+        if (!ic->pb)
+            return;
+        int64_t filesize = avio_size(ic->pb);
+        if (filesize > 0) {
             /* compute the bitrate */
             ic->bit_rate = (double)filesize * 8.0 * AV_TIME_BASE /
                 (double)ic->duration;

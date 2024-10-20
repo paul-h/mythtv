@@ -401,7 +401,7 @@ class CaptureCardSpinBoxSetting : public MythUISpinBoxSetting
     void setValueMs (std::chrono::milliseconds newValue)
         { setValue(newValue.count()); }
     // Handle non-integer seconds
-    template<typename T, typename = typename std::enable_if<!std::is_integral<T>()>>
+    template<typename T, typename = std::enable_if_t<!std::is_integral<T>()>>
     void setValueMs (std::chrono::duration<T> newSecs)
         { setValueMs(duration_cast<std::chrono::milliseconds>(newSecs)); }
 };
@@ -659,10 +659,10 @@ void XMLTV_generic_config::RunConfig(void)
 }
 
 EITOnly_config::EITOnly_config(const VideoSource& _parent, StandardSetting *_setting)
+  : m_useEit(new UseEIT(_parent))
 {
     setVisible(false);
 
-    m_useEit = new UseEIT(_parent);
     m_useEit->setValue(true);
     m_useEit->setVisible(false);
     addChild(m_useEit);
@@ -683,8 +683,8 @@ void EITOnly_config::Save(void)
 }
 
 NoGrabber_config::NoGrabber_config(const VideoSource& _parent)
+  : m_useEit(new UseEIT(_parent))
 {
-    m_useEit = new UseEIT(_parent);
     m_useEit->setValue(false);
     m_useEit->setVisible(false);
     addChild(m_useEit);
@@ -701,9 +701,9 @@ void NoGrabber_config::Save(void)
 }
 
 VideoSource::VideoSource()
-{
     // must be first
-    m_id = new ID();
+  : m_id(new ID())
+{
     addChild(m_id = new ID());
 
     setLabel(QObject::tr("Video Source Setup"));
@@ -913,14 +913,14 @@ class VBIDevice : public CaptureCardComboBoxSetting
 
     uint setFilter(const QString &card, const QString &driver)
     {
-        uint count = 0;
         clearSelections();
         QDir dev("/dev/v4l", "vbi*", QDir::Name, QDir::System);
-        if (!(count = fillSelectionsFromDir(dev, card, driver)))
+        uint count = fillSelectionsFromDir(dev, card, driver);
+        if (count == 0)
         {
             dev.setPath("/dev");
-            if (((count = fillSelectionsFromDir(dev, card, driver)) == 0U) &&
-                !getValue().isEmpty())
+            count = fillSelectionsFromDir(dev, card, driver);
+            if ((count == 0U) && !getValue().isEmpty())
             {
                 addSelection(getValue(),getValue(),true);
             }
@@ -1458,14 +1458,13 @@ class UseHDHomeRunDevice : public TransMythUICheckBoxSetting
 
 HDHomeRunConfigurationGroup::HDHomeRunConfigurationGroup
         (CaptureCard& a_parent, CardType &a_cardtype) :
-    m_parent(a_parent)
+    m_parent(a_parent),
+    m_deviceId(new HDHomeRunDeviceID(a_parent, *this))
 {
     setVisible(false);
 
     // Fill Device list
     FillDeviceList();
-
-    m_deviceId   = new HDHomeRunDeviceID(m_parent, *this);
 
     QMap<QString, HDHomeRunDevice>::iterator dit;
     for (dit = m_deviceList.begin(); dit != m_deviceList.end(); ++dit)
@@ -1971,7 +1970,9 @@ void ImportConfigurationGroup::probeCard(const QString &device)
             cs = tr("%1 MB").arg(fileInfo.size() / 1024 / 1024);
         }
         else
+        {
             ci = tr("File not readable");
+        }
     }
     else
     {
@@ -1988,18 +1989,18 @@ void ImportConfigurationGroup::probeCard(const QString &device)
 
 VBoxConfigurationGroup::VBoxConfigurationGroup
         (CaptureCard& a_parent, CardType& a_cardtype) :
-    m_parent(a_parent)
+    m_parent(a_parent),
+    m_desc(new GroupSetting()),
+    m_deviceId(new VBoxDeviceID(a_parent)),
+    m_cardIp(new VBoxIP()),
+    m_cardTuner(new VBoxTunerIndex())
 {
     setVisible(false);
 
     // Fill Device list
     FillDeviceList();
 
-    m_deviceId     = new VBoxDeviceID(m_parent);
-    m_desc         = new GroupSetting();
     m_desc->setLabel(tr("Description"));
-    m_cardIp       = new VBoxIP();
-    m_cardTuner    = new VBoxTunerIndex();
     m_deviceIdList = new VBoxDeviceIDList(
         m_deviceId, m_desc, m_cardIp, m_cardTuner, &m_deviceList, m_parent);
 
@@ -2229,12 +2230,12 @@ void V4LConfigurationGroup::probeCard(const QString &device)
 MPEGConfigurationGroup::MPEGConfigurationGroup(CaptureCard &parent,
                                                CardType &cardtype) :
     m_parent(parent),
+    m_vbiDevice(new VBIDevice(parent)),
     m_cardInfo(new GroupSetting())
 {
     setVisible(false);
     QRegularExpression drv { "^(ivtv|(saa7164(.*)))$" };
     m_device    = new VideoDevice(m_parent, 0, 15, QString(), drv);
-    m_vbiDevice = new VBIDevice(m_parent);
     m_vbiDevice->setVisible(false);
 
     m_cardInfo->setLabel(tr("Probed info"));
@@ -2315,7 +2316,9 @@ void DemoConfigurationGroup::probeCard(const QString &device)
             cs = tr("%1 MB").arg(fileInfo.size() / 1024 / 1024);
         }
         else
+        {
             ci = tr("File not readable");
+        }
     }
     else
     {
@@ -2486,7 +2489,9 @@ void V4L2encGroup::probeCard([[maybe_unused]] const QString &device_name)
             m_device->addTargetedChild(m_driverName, audioinput);
         }
         else
+        {
             delete audioinput;
+        }
 
         if (v4l2.HasSlicedVBI())
         {
@@ -2497,7 +2502,9 @@ void V4L2encGroup::probeCard([[maybe_unused]] const QString &device_name)
                 m_device->addTargetedChild(m_driverName, vbidev);
             }
             else
+            {
                 delete vbidev;
+            }
         }
 
         m_device->addTargetedChild(m_driverName, new EmptyVBIDevice(m_parent));
@@ -3305,7 +3312,9 @@ void CardInput::CreateNewInputGroup(void)
         popupStack->AddScreen(settingdialog);
     }
     else
+    {
         delete settingdialog;
+    }
 }
 
 void CardInput::CreateNewInputGroupSlot(const QString& name)
@@ -3380,7 +3389,7 @@ void CardInput::channelScanner(void)
     if (ssd->Create())
     {
         connect(ssd, &StandardSettingDialog::Exiting, this,
-                [=]()
+                [srcid, this, num_channels_before]()
                 {
                     if (SourceUtil::GetChannelCount(srcid))
                         m_startChan->SetSourceID(QString::number(srcid));
@@ -3393,7 +3402,9 @@ void CardInput::channelScanner(void)
         mainStack->AddScreen(ssd);
     }
     else
+    {
         delete ssd;
+    }
 
 #else
     LOG(VB_GENERAL, LOG_ERR, "You must compile the backend "
@@ -3963,15 +3974,16 @@ int TunerCardAudioInput::fillSelections(const QString &device)
 DVBConfigurationGroup::DVBConfigurationGroup(CaptureCard& a_parent,
                                              CardType& cardType) :
     m_parent(a_parent),
-    m_diseqcTree(new DiSEqCDevTree())
+    m_cardNum(new DVBCardNum(a_parent)),
+    m_cardName(new DVBCardName()),
+    m_cardType(new DVBCardType(a_parent)),
+    m_signalTimeout(new SignalTimeout(a_parent, 0.5s, 0.25s)),
+    m_tuningDelay(new DVBTuningDelay(a_parent)),
+    m_diseqcTree(new DiSEqCDevTree()),
+    m_diseqcBtn(new DeviceTree(*m_diseqcTree))
 {
     setVisible(false);
 
-    m_cardNum  = new DVBCardNum(m_parent);
-    m_cardName = new DVBCardName();
-    m_cardType = new DVBCardType(m_parent);
-
-    m_signalTimeout = new SignalTimeout(m_parent, 0.5s, 0.25s);
     m_channelTimeout = new ChannelTimeout(m_parent, 3s, 1.75s);
 
     cardType.addTargetedChild("DVB", m_cardNum);
@@ -3989,11 +4001,9 @@ DVBConfigurationGroup::DVBConfigurationGroup(CaptureCard& a_parent,
     cardType.addTargetedChild("DVB", new DVBOnDemand(m_parent));
     cardType.addTargetedChild("DVB", new DVBEITScan(m_parent));
 
-    m_diseqcBtn = new DeviceTree(*m_diseqcTree);
     m_diseqcBtn->setLabel(tr("DiSEqC (Switch, LNB and Rotor Configuration)"));
     m_diseqcBtn->setHelpText(tr("Input and satellite settings."));
 
-    m_tuningDelay = new DVBTuningDelay(m_parent);
     cardType.addTargetedChild("DVB", m_tuningDelay);
     cardType.addTargetedChild("DVB", m_diseqcBtn);
     m_tuningDelay->setVisible(false);
@@ -4057,7 +4067,8 @@ class DiSEqCPosition : public MythUISpinBoxSetting
 
 SatIPConfigurationGroup::SatIPConfigurationGroup
         (CaptureCard& a_parent, CardType &a_cardtype) :
-    m_parent(a_parent)
+    m_parent(a_parent),
+    m_deviceId(new SatIPDeviceID(a_parent))
 {
     setVisible(false);
 
@@ -4066,7 +4077,6 @@ SatIPConfigurationGroup::SatIPConfigurationGroup
     m_friendlyName = new SatIPDeviceAttribute(tr("Friendly name"), tr("Friendly name of the Sat>IP server"));
     m_tunerType    = new SatIPDeviceAttribute(tr("Tuner type"),    tr("Type of the selected tuner"));
     m_tunerIndex   = new SatIPDeviceAttribute(tr("Tuner index"),   tr("Index of the tuner on the Sat>IP server"));
-    m_deviceId     = new SatIPDeviceID(m_parent);
 
     m_deviceIdList = new SatIPDeviceIDList(
         m_deviceId, m_friendlyName, m_tunerType, m_tunerIndex, &m_deviceList, m_parent);
@@ -4204,8 +4214,8 @@ void SatIPDeviceIDList::fillSelections(const QString &cur)
 
     for (uint i = 0; i < devs.size(); ++i)
     {
-        const QString dev = devs[i];
-        const QString name = names[i];
+        const QString& dev = devs[i];
+        const QString& name = names[i];
         bool dev_in_use = (dev == sel) ? false : in_use[devs[i]];
         QString desc = name + (dev_in_use ? usestr : "");
         addSelection(desc, dev, dev == sel);

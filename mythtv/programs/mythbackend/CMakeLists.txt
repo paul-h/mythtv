@@ -90,6 +90,7 @@ add_executable(
   servicesv2/v2channelGroup.h
   servicesv2/v2channelGroupList.h
   servicesv2/v2channelInfoList.h
+  servicesv2/v2channelRestore.h
   servicesv2/v2channelScan.h
   servicesv2/v2commMethod.h
   servicesv2/v2config.cpp
@@ -188,8 +189,7 @@ target_link_libraries(
          mythprotoserver
          mythservicecontracts
          mythupnp
-         $<TARGET_NAME_IF_EXISTS:Qt${QT_VERSION_MAJOR}::DBus>
-         ${EXTRA_PACKAGES})
+         $<TARGET_NAME_IF_EXISTS:Qt${QT_VERSION_MAJOR}::DBus>)
 
 install(TARGETS mythbackend RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 

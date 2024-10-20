@@ -63,7 +63,7 @@ int pgm_match(const AVFrame *tmpl, const AVFrame *test, int height,
     {
         for (int cc = 0; cc < width; cc++)
         {
-            if (!tmpl->data[0][rr * width + cc])
+            if (!tmpl->data[0][(rr * width) + cc])
                 continue;
 
             int r2min = std::max(0, rr - radius);
@@ -76,7 +76,7 @@ int pgm_match(const AVFrame *tmpl, const AVFrame *test, int height,
             {
                 for (int c2 = c2min; c2 <= c2max; c2++)
                 {
-                    if (test->data[0][r2 * width + c2])
+                    if (test->data[0][(r2 * width) + c2])
                     {
                         score++;
                         goto next_pixel;
@@ -152,10 +152,8 @@ int finishedDebug(long long nframes, const unsigned short *matches,
         score = matches[frameno];
         if (match[frameno - 1] == match[frameno])
         {
-            if (score < low)
-                low = score;
-            if (score > high)
-                high = score;
+            low = std::min(score, low);
+            high = std::max(score, high);
             continue;
         }
 
@@ -263,11 +261,11 @@ unsigned short pick_mintmpledges(const unsigned short *matches,
 
     int local_minimum = matchstart;
     uint maxdelta = 0;
-    for (int matchcnt = matchstart + leftwidth + middlewidth / 2;
+    for (int matchcnt = matchstart + leftwidth + (middlewidth / 2);
             matchcnt < matchend - rightwidth - middlewidth / 2;
             matchcnt++)
     {
-        ushort p0 = matchcnt - leftwidth - middlewidth / 2;
+        ushort p0 = matchcnt - leftwidth - (middlewidth / 2);
         ushort p1 = p0 + leftwidth;
         ushort p2 = p1 + middlewidth;
         ushort p3 = p2 + rightwidth;
@@ -335,7 +333,7 @@ TemplateMatcher::~TemplateMatcher(void)
 {
     delete []m_matches;
     delete []m_match;
-    av_freep(&m_cropped.data[0]);
+    av_freep(reinterpret_cast<void*>(&m_cropped.data[0]));
 }
 
 enum FrameAnalyzer::analyzeFrameResult
@@ -345,8 +343,9 @@ TemplateMatcher::MythPlayerInited(MythPlayer *_player,
     m_player = _player;
     m_fps = m_player->GetFrameRate();
 
-    if (!(m_tmpl = m_templateFinder->getTemplate(&m_tmplRow, &m_tmplCol,
-                    &m_tmplWidth, &m_tmplHeight)))
+    m_tmpl = m_templateFinder->getTemplate(&m_tmplRow, &m_tmplCol,
+                    &m_tmplWidth, &m_tmplHeight);
+    if (m_tmpl == nullptr)
     {
         LOG(VB_COMMFLAG, LOG_ERR,
             QString("TemplateMatcher::MythPlayerInited: no template"));
@@ -388,7 +387,7 @@ TemplateMatcher::MythPlayerInited(MythPlayer *_player,
     return ANALYZE_OK;
 
 free_cropped:
-    av_freep(&m_cropped.data[0]);
+    av_freep(reinterpret_cast<void*>(&m_cropped.data[0]));
     return ANALYZE_FATAL;
 }
 
@@ -449,8 +448,8 @@ TemplateMatcher::analyzeFrame(const MythVideoFrame *frame, long long frameno,
                 m_tmplWidth, m_tmplHeight))
         goto error;
 
-    if (!(edges = m_edgeDetector->detectEdges(&m_cropped, m_tmplHeight,
-                    FRAMESGMPCTILE)))
+    edges = m_edgeDetector->detectEdges(&m_cropped, m_tmplHeight, FRAMESGMPCTILE);
+    if (edges == nullptr)
         goto error;
 
     if (pgm_match(m_tmpl, edges, m_tmplHeight, JITTER_RADIUS, &m_matches[frameno]))
@@ -631,7 +630,11 @@ TemplateMatcher::templateCoverage(long long nframes, bool final) const
     if (!final)
         return 0;   /* real-time flagging */
 
-    return brklen < MINBREAKS ? 1 : brklen <= MAXBREAKS ? 0 : -1;
+    if (brklen < MINBREAKS)
+        return 1;
+    if (brklen <= MAXBREAKS)
+        return 0;
+    return -1;
 }
 
 int
@@ -743,8 +746,7 @@ TemplateMatcher::adjustForBlanks(const BlankFrameDetector *blankFrameDetector,
         {
             newbrkb = jj.key();
             long long adj = *jj / 2;
-            if (adj > MAX_BLANK_FRAMES)
-                adj = MAX_BLANK_FRAMES;
+            adj = std::min<long long>(adj, MAX_BLANK_FRAMES);
             newbrkb += adj;
         }
 
@@ -765,8 +767,7 @@ TemplateMatcher::adjustForBlanks(const BlankFrameDetector *blankFrameDetector,
             long long adj = *kk;
             newbrke += adj;
             adj /= 2;
-            if (adj > MAX_BLANK_FRAMES)
-                adj = MAX_BLANK_FRAMES;
+            adj = std::min<long long>(adj, MAX_BLANK_FRAMES);
             newbrke -= adj;
         }
 
@@ -788,7 +789,9 @@ TemplateMatcher::adjustForBlanks(const BlankFrameDetector *blankFrameDetector,
                 m_breakMap.insert(newbrkb, newbrklen);
             }
             else
+            {
                 m_breakMap.erase(ii);
+            }
         }
 
         prevbrke = newbrke;

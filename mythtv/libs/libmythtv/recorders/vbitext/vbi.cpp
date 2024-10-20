@@ -5,6 +5,7 @@
 #include <sys/ioctl.h>
 
 // ANSI C++ headers
+#include <algorithm>
 #include <cmath>
 #include <cstdarg>
 #include <cstddef>
@@ -21,7 +22,7 @@
 #include "vbi.h"
 #include "vt.h"
 
-#define FAC    (1<<16)         // factor for fix-point arithmetic
+static constexpr int FAC = { 1<<16 };  // factor for fix-point arithmetic
 
 static unsigned char *rawbuf = nullptr;// one common buffer for raw vbi data.
 #ifdef USING_V4L2
@@ -86,8 +87,8 @@ vbi_send(struct vbi *vbi, int type, int i1, int i2, int i3, void *p1)
     ev.i3 = i3;
     ev.p1 = p1;
 
-    for (cl = static_cast<vbi_client *>((void*)vbi->clients[0].first);
-         (cln = static_cast<vbi_client *>((void*)cl->node->next)) != nullptr;
+    for (cl = reinterpret_cast<vbi_client *>(vbi->clients[0].first);
+         (cln = reinterpret_cast<vbi_client *>(cl->node->next)) != nullptr;
          cl = cln)
        cl->handler(cl->data, &ev);
 }
@@ -124,8 +125,8 @@ pll_add(struct vbi *vbi, int n, int err)
     if (vbi->pll_fixed)
        return;
 
-    if (err > PLL_ERROR*2/3)   // limit burst errors
-       err = PLL_ERROR*2/3;
+    // limit burst errors
+    err = std::min(err, PLL_ERROR*2/3);
 
     vbi->pll_err += err;
     vbi->pll_cnt += n;
@@ -261,7 +262,7 @@ vt_line(struct vbi *vbi, unsigned char *p)
 
            std::array<unsigned int,13> t {};
            for (ptrdiff_t i = 0; i < 13; ++i)
-               t[i] = hamm24(p + 1 + 3*i, &err);
+               t[i] = hamm24(p + 1 + (3*i), &err);
            if (err & 0xf000)
                return 4;
 
@@ -285,9 +286,9 @@ vt_line(struct vbi *vbi, unsigned char *p)
            for (ptrdiff_t i = 0; i < 6; ++i)
            {
                err = 0;
-               b1 = hamm16(p+1+6*i, &err);
-               b2 = hamm16(p+3+6*i, &err);
-               int b3 = hamm16(p+5+6*i, &err);
+               b1 = hamm16(p+1+(6*i), &err);
+               b2 = hamm16(p+3+(6*i), &err);
+               int b3 = hamm16(p+5+(6*i), &err);
                if (err & 0xf000)
                    return 1;
                int x = (b2 >> 7) | ((b3 >> 5) & 0x06);
@@ -340,7 +341,7 @@ vbi_line(struct vbi *vbi, const unsigned char *p)
 
     /* remove DC. edge-detector */
     for (i = vbi->soc; i < vbi->eoc; ++i)
-       dt[i] = p[i+bpb/FAC] - p[i];    // amplifies the edges best.
+       dt[i] = p[i+(bpb/FAC)] - p[i];    // amplifies the edges best.
 
     /* set barrier */
     for (i = vbi->eoc; i < vbi->eoc+16; i += 2)
@@ -371,8 +372,7 @@ vbi_line(struct vbi *vbi, const unsigned char *p)
        if (p[i] > max)
            max = p[i], sync = i;
     for (i = lo[4]; i < lo[5]; ++i)
-       if (p[i] < min)
-           min = p[i];
+       min = std::min(p[i], min);
     int thr = (min + max) / 2;
 
     p += sync;
@@ -392,7 +392,8 @@ vbi_line(struct vbi *vbi, const unsigned char *p)
            if (data[0] != 0x27)        // really 11100100? (rev order!)
                return -1;
 
-           if ((i = vt_line(vbi, data.data()+1)))
+           i = vt_line(vbi, data.data()+1);
+           if (i != 0)
            {
                if (i < 0)
                    pll_add(vbi, 2, -i);
@@ -453,9 +454,8 @@ vbi_handler(struct vbi *vbi, [[maybe_unused]] int fd)
 int
 vbi_add_handler(struct vbi *vbi, vbic_handler handler, void *data)
 {
-    struct vbi_client *cl = nullptr;
-
-    if (!(cl = new struct vbi_client))
+    auto *cl = new struct vbi_client;
+    if (cl == nullptr)
        return -1;
     cl->handler = handler;
     cl->data = data;
@@ -472,9 +472,9 @@ vbi_del_handler(struct vbi *vbi, vbic_handler handler, void *data)
 {
     struct vbi_client *cl = nullptr;
 
-    for (cl = static_cast<vbi_client*>((void*)vbi->clients->first);
+    for (cl = reinterpret_cast<vbi_client*>(vbi->clients->first);
          cl->node->next != nullptr;
-         cl = static_cast<vbi_client*>((void*)cl->node->next))
+         cl = reinterpret_cast<vbi_client*>(cl->node->next))
     {
        if (cl->handler == handler && cl->data == data)
        {
@@ -512,10 +512,8 @@ set_decode_parms(struct vbi *vbi, struct v4l2_vbi_format *p)
     double bpb = fs/6937500.0; // bytes per bit
     int    soc = (int)(9.2e-6*fs) - (int)p->offset;  // start of clock run-in
     int    eoc = (int)(12.9e-6*fs) - (int)p->offset; // end of clock run-in
-    if (soc < 0)
-       soc = 0;
-    if (eoc > bpl - (int)(43*8*bpb))
-       eoc = bpl - (int)(43*8*bpb);
+    soc = std::max(soc, 0);
+    eoc = std::min(eoc, bpl - (int)(43*8*bpb));
     if (eoc - soc < (int)(16*bpb))
     {
        // line too short or offset too large or wrong sample_rate
@@ -571,7 +569,8 @@ setup_dev([[maybe_unused]] struct vbi *vbi)
     {
        delete [] rawbuf;
        rawbuf_size = vbi->bufsize;
-       if (!(rawbuf = new u_char[rawbuf_size]))
+       rawbuf = new u_char[rawbuf_size];
+       if (rawbuf == nullptr)
        {
             error("unable to allocate in setup_dev()\n");
        }
@@ -605,7 +604,8 @@ vbi_open(const char *vbi_dev_name,
        goto fail1;
     }
 
-    if ((vbi->fd = open(vbi_dev_name, O_RDONLY)) == -1)
+    vbi->fd = open(vbi_dev_name, O_RDONLY);
+    if (vbi->fd == -1)
     {
        error("cannot open vbi device");
        goto fail2;

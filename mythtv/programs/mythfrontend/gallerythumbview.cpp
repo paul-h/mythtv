@@ -1,4 +1,5 @@
 // C++
+#include <algorithm>
 #include <chrono> // for milliseconds
 #include <thread> // for sleep_for
 #include <utility>
@@ -281,7 +282,7 @@ bool GalleryThumbView::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "MENU")
@@ -318,7 +319,9 @@ bool GalleryThumbView::keyPressEvent(QKeyEvent *event)
             }
         }
         else if (action == "PLAY")
+        {
             Slideshow();
+        }
         else if (action == "RECURSIVESHOW")
         {
             ImagePtrK im = m_view->GetSelected();
@@ -347,7 +350,9 @@ bool GalleryThumbView::keyPressEvent(QKeyEvent *event)
             }
         }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled)
@@ -558,7 +563,9 @@ void GalleryThumbView::customEvent(QEvent *event)
                 err = m_mgr.DeleteFiles(m_menuState.m_markedId);
             }
             else
+            {
                 return;
+            }
 
             if (!err.isEmpty())
                 ShowOkPopup(err);
@@ -690,8 +697,10 @@ void GalleryThumbView::BuildImageList()
                     item->DisplayState("upfolder", "parenttype");
             }
             else if (im == selected)
+            {
                 // Reinstate the active button item. Note this would fail for parent
                 m_imageList->SetItemCurrent(item);
+            }
         }
     }
 }
@@ -850,8 +859,10 @@ void GalleryThumbView::UpdateThumbnail(MythUIButtonListItem *button,
         }
     }
     else
+    {
         // Dir with 4 thumbnails
         button->SetImage(url, QString("thumbimage%1").arg(index));
+    }
 }
 
 
@@ -1223,7 +1234,9 @@ void GalleryThumbView::MenuAction(MythMenu *mainMenu)
             menu->AddItem(tr("Rename"),       &GalleryThumbView::ShowRenameInput);
         }
         else if (selected->m_userThumbnail)
+        {
             menu->AddItem(tr("Reset Cover"), &GalleryThumbView::ResetCover);
+        }
     }
 
     // Can only mkdir in a non-root dir
@@ -1278,7 +1291,9 @@ void GalleryThumbView::MenuSlideshow(MythMenu *mainMenu)
             menu->AddItem(tr("Recursive"), &GalleryThumbView::RecursiveSlideshow);
     }
     else
+    {
         menu->AddItem(tr("Current Directory"), &GalleryThumbView::Slideshow);
+    }
 
     auto *orderMenu = new MythMenu(tr("Slideshow Order"), this, "SlideOrderMenu");
 
@@ -1313,8 +1328,10 @@ void GalleryThumbView::MenuShow(MythMenu *mainMenu)
         menu->AddItem(tr("Hide Videos"), &GalleryThumbView::HideVideos);
     }
     else
+    {
         menu->AddItem(type == kPicOnly ? tr("Show Videos") : tr("Show Pictures"),
                       &GalleryThumbView::ShowType);
+    }
 
     int show = gCoreContext->GetNumSetting("GalleryImageCaption");
     auto *captionMenu = new MythMenu(tr("Image Captions"), this,
@@ -1446,7 +1463,9 @@ void GalleryThumbView::StartSlideshow(ImageSlideShowType mode)
         }
     }
     else
+    {
         delete slide;
+    }
 }
 
 
@@ -1715,7 +1734,9 @@ void GalleryThumbView::ShowDialog(const QString& msg, const QString& event)
         m_popupStack.AddScreen(popup);
     }
     else
+    {
         delete popup;
+    }
 }
 
 
@@ -1736,7 +1757,9 @@ void GalleryThumbView::ShowRenameInput()
             m_popupStack.AddScreen(popup);
         }
         else
+        {
             delete popup;
+        }
     }
 }
 
@@ -1763,7 +1786,9 @@ void GalleryThumbView::ShowPassword()
         m_popupStack.AddScreen(popup);
     }
     else
+    {
         delete popup;
+    }
 }
 
 
@@ -1830,8 +1855,7 @@ void GalleryThumbView::SelectZoomWidget(int change)
     m_zoomLevel += change;
 
     // constrain to zoom levels supported by theme
-    if (m_zoomLevel < 0)
-        m_zoomLevel = 0;
+    m_zoomLevel = std::max(m_zoomLevel, 0);
     if (m_zoomLevel >= m_zoomWidgets.size())
         m_zoomLevel = m_zoomWidgets.size() - 1;
 
@@ -1876,7 +1900,9 @@ void GalleryThumbView::MakeDir()
         m_popupStack.AddScreen(popup);
     }
     else
+    {
         delete popup;
+    }
 }
 
 

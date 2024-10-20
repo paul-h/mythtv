@@ -1,9 +1,9 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { NgForm } from '@angular/forms';
 import { TranslateService } from '@ngx-translate/core';
-import { LazyLoadEvent, MenuItem, MessageService } from 'primeng/api';
+import { MenuItem, MessageService } from 'primeng/api';
 import { Menu } from 'primeng/menu';
-import { Table } from 'primeng/table';
+import { Table, TableLazyLoadEvent } from 'primeng/table';
 import { PartialObserver } from 'rxjs';
 import { GetVideoListRequest, UpdateVideoMetadataRequest, VideoMetadataInfo } from 'src/app/services/interfaces/video.interface';
 import { UtilityService } from 'src/app/services/utility.service';
@@ -20,6 +20,7 @@ export class VideosComponent implements OnInit {
   @ViewChild("vidsform") currentForm!: NgForm;
   @ViewChild("menu") menu!: Menu;
   @ViewChild("table") table!: Table;
+  @ViewChildren('row') rows!: QueryList<ElementRef>;
 
   videos: VideoMetadataInfo[] = [];
   refreshing = false;
@@ -31,7 +32,10 @@ export class VideosComponent implements OnInit {
   displayMetadataDlg = false;
   displayUnsaved = false;
   showAllVideos = false;
-  lazyLoadEvent!: LazyLoadEvent;
+  lazyLoadEvent : TableLazyLoadEvent = {};
+  totalRecords = 0;
+  showTable = false;
+  virtualScrollItemSize = 0;
 
   mnu_markwatched: MenuItem = { label: 'dashboard.recordings.mnu_markwatched', command: (event) => this.markwatched(event, true) };
   mnu_markunwatched: MenuItem = { label: 'dashboard.recordings.mnu_markunwatched', command: (event) => this.markwatched(event, false) };
@@ -66,9 +70,11 @@ export class VideosComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Initial Load
+    this.loadLazy({ first: 0, rows: 1 });
   }
 
-  loadLazy(event: LazyLoadEvent) {
+  loadLazy(event: TableLazyLoadEvent) {
     this.lazyLoadEvent = event;
     let request: GetVideoListRequest = {
       Sort: "title",
@@ -78,43 +84,59 @@ export class VideosComponent implements OnInit {
       Count: 1
     };
 
-    if (event.sortField) {
-      request.Sort = event.sortField;
+    if (event.first != undefined) {
+      request.StartIndex = event.first;
+      if (event.last)
+        request.Count = event.last - event.first;
+      else if (event.rows)
+        request.Count = event.rows;
+    }
+
+    let sortField = '';
+    if (Array.isArray(event.sortField))
+      sortField = event.sortField[0];
+    else if (event.sortField)
+      sortField = event.sortField;
+    if (!sortField)
+      sortField = 'title';
+    if (sortField) {
+      request.Sort = sortField;
       if (event.sortOrder)
         request.Descending = (event.sortOrder < 0);
     }
     request.Sort += ',title,releasedate,season,episode'
 
-    if (event.first)
-      request.StartIndex = event.first;
-    if (event.rows) {
-      request.Count = event.rows;
-    }
-
     this.videoService.GetVideoList(request).subscribe(data => {
       let newList = data.VideoMetadataInfoList;
-      this.videos.length = data.VideoMetadataInfoList.TotalAvailable;
+      this.totalRecords = data.VideoMetadataInfoList.TotalAvailable;
+      this.videos.length = this.totalRecords;
       // populate page of virtual programs
-      this.videos.splice(newList.StartIndex, newList.Count,
+      this.videos.splice(newList.StartIndex, newList.VideoMetadataInfos.length,
         ...newList.VideoMetadataInfos);
       // notify of change
       this.videos = [...this.videos]
       this.refreshing = false;
+      this.showTable = true;
+      let row = this.rows.get(0);
+      if (row && row.nativeElement.offsetHeight)
+        this.virtualScrollItemSize = row.nativeElement.offsetHeight;
+      if (this.table) {
+        this.table.totalRecords = this.totalRecords;
+        this.table.virtualScrollItemSize = this.virtualScrollItemSize;
+      }
     });
 
   }
 
 
   reLoadVideos() {
-    this.table.resetScrollTop();
+    this.showTable = false;
     this.videos.length = 0;
-    this.lazyLoadEvent.first = 0;
-    this.lazyLoadEvent.rows = 100;
-    this.loadLazy(this.lazyLoadEvent);
+    this.refreshing = true;
+    this.loadLazy(({ first: 0, rows: 1 }));
   }
 
   showAllChange() {
-    this.refreshing = true;
     setTimeout(() => this.reLoadVideos(), 100);
   }
 

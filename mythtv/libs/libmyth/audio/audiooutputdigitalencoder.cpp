@@ -20,8 +20,8 @@ extern "C" {
 #define LOC QString("DEnc: ")
 
 AudioOutputDigitalEncoder::AudioOutputDigitalEncoder(void)
+  : m_outbuf(static_cast<uint8_t*>(av_mallocz(OUTBUFSIZE)))
 {
-    m_outbuf = static_cast<uint8_t*>(av_mallocz(OUTBUFSIZE));
     if (m_outbuf)
     {
         m_outSize = OUTBUFSIZE;
@@ -39,17 +39,17 @@ AudioOutputDigitalEncoder::~AudioOutputDigitalEncoder()
     Reset();
     if (m_outbuf)
     {
-        av_freep(&m_outbuf);
+        av_freep(reinterpret_cast<void*>(&m_outbuf));
         m_outSize = 0;
     }
     if (m_inbuf)
     {
-        av_freep(&m_inbuf);
+        av_freep(reinterpret_cast<void*>(&m_inbuf));
         m_inSize = 0;
     }
     if (m_framebuf)
     {
-        av_freep(&m_framebuf);
+        av_freep(reinterpret_cast<void*>(&m_framebuf));
     }
 }
 
@@ -174,7 +174,7 @@ int AudioOutputDigitalEncoder::Encode(void *input, int len, AudioFormat format)
 
     // Check if there is enough space in incoming buffer
     ssize_t required_len = m_inlen +
-        len * AudioOutputSettings::SampleSize(MYTH_SAMPLE_FORMAT) / sampleSize;
+        (len * AudioOutputSettings::SampleSize(MYTH_SAMPLE_FORMAT) / sampleSize);
 
     if (required_len > m_inSize)
     {
@@ -224,7 +224,8 @@ int AudioOutputDigitalEncoder::Encode(void *input, int len, AudioFormat format)
         AudioOutputSettings::SampleSize(MYTH_SAMPLE_FORMAT);
     if (!m_frame)
     {
-        if (!(m_frame = av_frame_alloc()))
+        m_frame = av_frame_alloc();
+        if (m_frame == nullptr)
         {
             m_inbuf = nullptr;
             m_inSize = 0;
@@ -265,7 +266,7 @@ int AudioOutputDigitalEncoder::Encode(void *input, int len, AudioFormat format)
         AudioOutputUtil::DeinterleaveSamples(
             MYTH_SAMPLE_FORMAT, channels,
             m_framebuf,
-            m_inbuf + static_cast<ptrdiff_t>(i) * size_channel * channels,
+            m_inbuf + (static_cast<ptrdiff_t>(i) * size_channel * channels),
             size_channel * channels);
 
         //  SUGGESTION
@@ -334,7 +335,7 @@ int AudioOutputDigitalEncoder::Encode(void *input, int len, AudioFormat format)
         m_inlen  -= m_samplesPerFrame * AudioOutputSettings::SampleSize(MYTH_SAMPLE_FORMAT);
     }
 
-    memmove(m_inbuf, m_inbuf + static_cast<ptrdiff_t>(i) * m_samplesPerFrame * AudioOutputSettings::SampleSize(MYTH_SAMPLE_FORMAT), m_inlen);
+    memmove(m_inbuf, m_inbuf + (static_cast<ptrdiff_t>(i) * m_samplesPerFrame * AudioOutputSettings::SampleSize(MYTH_SAMPLE_FORMAT)), m_inlen);
     return m_outlen;
 }
 

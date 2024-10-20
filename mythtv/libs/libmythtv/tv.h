@@ -1,12 +1,13 @@
 #ifndef TV_H
 #define TV_H
 
+#include <cstdint>
 #include <QString>
 
 class VBIMode
 {
   public:
-    enum vbimode_t
+    enum vbimode_t : std::uint8_t
     {
         None    = 0,
         PAL_TT  = 1,
@@ -16,16 +17,18 @@ class VBIMode
     static uint Parse(const QString& vbiformat)
     {
         QString fmt = vbiformat.toLower().left(3);
-        vbimode_t mode = None;
-        mode = (fmt == "pal") ? PAL_TT : ((fmt == "nts") ? NTSC_CC : None);
-        return (uint) mode;
+        if (fmt == "pal")
+            return PAL_TT;
+        if (fmt == "nts")
+            return NTSC_CC;
+        return None;
     }
 };
 
 /** \brief ChannelChangeDirection is an enumeration of possible channel
  *         changing directions.
  */
-enum ChannelChangeDirection
+enum ChannelChangeDirection : std::uint8_t
 {
     CHANNEL_DIRECTION_UP       = 0,
     CHANNEL_DIRECTION_DOWN     = 1,
@@ -34,20 +37,20 @@ enum ChannelChangeDirection
 };
 
 /// Used to request ProgramInfo for channel browsing.
-enum BrowseDirection
+enum BrowseDirection : std::int8_t
 {
-    BROWSE_INVALID = -1,
-    BROWSE_SAME = 0, ///< Fetch browse information on current channel and time
-    BROWSE_UP,       ///< Fetch information on previous channel
-    BROWSE_DOWN,     ///< Fetch information on next channel
-    BROWSE_LEFT,     ///< Fetch information on current channel in the past
-    BROWSE_RIGHT,    ///< Fetch information on current channel in the future
-    BROWSE_FAVORITE  ///< Fetch information on the next favorite channel
+    BROWSE_INVALID  = -1,
+    BROWSE_SAME     = 0, ///< Fetch browse information on current channel and time
+    BROWSE_UP       = 1, ///< Fetch information on previous channel
+    BROWSE_DOWN     = 2, ///< Fetch information on next channel
+    BROWSE_LEFT     = 3, ///< Fetch information on current channel in the past
+    BROWSE_RIGHT    = 4, ///< Fetch information on current channel in the future
+    BROWSE_FAVORITE = 5  ///< Fetch information on the next favorite channel
 };
 
 /** \brief TVState is an enumeration of the states used by TV and TVRec.
  */
-enum TVState
+enum TVState : std::int8_t
 {
     /** \brief Error State, if we ever try to enter this state errored is set.
      */
@@ -60,33 +63,33 @@ enum TVState
      *         recording and the user has control over the channel and
      *         the recorder to use.
      */
-    kState_WatchingLiveTV,
+    kState_WatchingLiveTV = 1,
     /** \brief Watching Pre-recorded is a TV only state for when we are
      *         watching a pre-existing recording.
      */
-    kState_WatchingPreRecorded,
+    kState_WatchingPreRecorded = 2,
     /** \brief Watching Video is the state when we are watching a video and is not
     *             a dvd or BD
     */
-    kState_WatchingVideo,
+    kState_WatchingVideo = 3,
     /** \brief Watching DVD is the state when we are watching a DVD */
-    kState_WatchingDVD,
+    kState_WatchingDVD = 4,
     /** \brief Watching BD is the state when we are watching a BD */
-    kState_WatchingBD,
+    kState_WatchingBD = 5,
     /** \brief Watching Recording is the state for when we are watching
      *         an in progress recording, but the user does not have control
      *         over the channel and recorder to use.
      */
-    kState_WatchingRecording,
+    kState_WatchingRecording = 6,
     /** \brief Recording Only is a TVRec only state for when we are recording
      *         a program, but there is no one currently watching it.
      */
-    kState_RecordingOnly,
+    kState_RecordingOnly = 7,
     /** \brief This is a placeholder state which we never actually enter,
      *         but is returned by GetState() when we are in the process
      *         of changing the state.
      */
-    kState_ChangingState,
+    kState_ChangingState = 8,
 };
 inline TVState myth_deque_init(const TVState */*state*/) { return (TVState)(0); }
 
@@ -94,7 +97,7 @@ QString StateToString(TVState state);
 
 /** \brief SleepStatus is an enumeration of the awake/sleep status of a slave.
  */
-enum SleepStatus {
+enum SleepStatus : std::uint8_t {
     /** \brief A slave is awake when it is connected to the master
       */
     sStatus_Awake         = 0x0,
@@ -117,7 +120,7 @@ enum SleepStatus {
     sStatus_Undefined     = 0x8
 };
 
-enum PictureAdjustType
+enum PictureAdjustType : std::uint8_t
 {
     kAdjustingPicture_None = 0,
     kAdjustingPicture_Playback,
@@ -127,13 +130,13 @@ enum PictureAdjustType
 QString toTypeString(PictureAdjustType type);
 QString toTitleString(PictureAdjustType type);
 
-enum CommSkipMode
+enum CommSkipMode : std::uint8_t
 {
     kCommSkipOff    = 0,
     kCommSkipOn     = 1,
     kCommSkipNotify = 2,
-    kCommSkipCount,
-    kCommSkipIncr,
+    kCommSkipCount  = 3,
+    kCommSkipIncr   = 4,
 };
 QString toString(CommSkipMode type);
 #endif

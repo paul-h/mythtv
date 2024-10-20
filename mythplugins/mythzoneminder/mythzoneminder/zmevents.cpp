@@ -13,6 +13,7 @@
  * ============================================================ */
 
 // C++
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 
@@ -110,7 +111,7 @@ bool ZMEvents::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "MENU")
@@ -141,13 +142,21 @@ bool ZMEvents::keyPressEvent(QKeyEvent *event)
             getEventList();
         }
         else if (action == "1")
+        {
             setGridLayout(1);
+        }
         else if (action == "2")
+        {
             setGridLayout(2);
+        }
         else if (action == "3")
+        {
             setGridLayout(3);
+        }
         else
+        {
             handled = false;
+        }
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -289,8 +298,7 @@ void ZMEvents::playerExited(void)
 {
     // refresh the grid and restore the saved position
 
-    if (m_savedPosition > m_eventList->size() - 1)
-        m_savedPosition = m_eventList->size() - 1;
+    m_savedPosition = std::min(m_savedPosition, m_eventList->size() - 1);
 
     updateUIList();
     m_eventGrid->SetItemCurrent(m_savedPosition);

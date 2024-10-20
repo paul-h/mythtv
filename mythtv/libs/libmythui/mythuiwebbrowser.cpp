@@ -7,6 +7,7 @@
 #include "mythuiwebbrowser.h"
 
 // c++
+#include <algorithm>
 #include <chrono> // for milliseconds
 #include <thread> // for sleep_for
 
@@ -354,11 +355,11 @@ QString MythWebPage::userAgentForUrl(const QUrl &url) const
  */
 MythWebView::MythWebView(QWidget *parent, MythUIWebBrowser *parentBrowser)
             : QWebView(parent),
-      m_webpage(new MythWebPage(this))
+      m_webpage(new MythWebPage(this)),
+      m_parentBrowser(parentBrowser),
+      m_api(new BrowserApi(this))
 {
     setPage(m_webpage);
-
-    m_parentBrowser = parentBrowser;
 
     connect(page(), &QWebPage::unsupportedContent,
             this, &MythWebView::handleUnsupportedContent);
@@ -368,7 +369,6 @@ MythWebView::MythWebView(QWidget *parent, MythUIWebBrowser *parentBrowser)
 
     page()->setForwardUnsupportedContent(true);
 
-    m_api = new BrowserApi(this);
     m_api->setWebView(this);
 }
 
@@ -417,7 +417,7 @@ void MythWebView::keyPressEvent(QKeyEvent *event)
 
         for (int i = 0; i < actions.size() && !handled; i++)
         {
-            QString action = actions[i];
+            const QString& action = actions[i];
             handled = true;
 
             if (action == "NEXTLINK")
@@ -556,7 +556,9 @@ void  MythWebView::doDownloadRequested(const QNetworkRequest &request)
             popupStack->AddScreen(input);
         }
         else
+        {
             delete input;
+        }
     }
 }
 
@@ -674,7 +676,7 @@ void MythWebView::customEvent(QEvent *event)
             {
                 int fileSize  = args[2].toInt();
                 int errorCode = args[4].toInt();
-                QString filename = args[1];
+                const QString& filename = args[1];
 
                 closeBusyPopup();
 
@@ -1171,13 +1173,7 @@ void MythUIWebBrowser::SetZoom(float zoom)
     if (!m_browser)
         return;
 
-    if (zoom < 0.3F)
-        zoom = 0.3F;
-
-    if (zoom > 5.0F)
-        zoom = 5.0F;
-
-    m_zoom = zoom;
+    m_zoom = std::clamp(zoom, 0.3F, 5.0F);
     m_browser->setZoomFactor(m_zoom);
     ResetScrollBars();
     UpdateBuffer();
@@ -1527,7 +1523,7 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
 
     for (int i = 0; i < actions.size() && !handled; i++)
     {
-        QString action = actions[i];
+        const QString& action = actions[i];
         handled = true;
 
         if (action == "TOGGLEINPUT")
@@ -1560,7 +1556,9 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
                 Scroll(0, -m_actualBrowserArea.height() / 10);
             }
             else
+            {
                 handled = false;
+            }
         }
         else if (action == "DOWN")
         {
@@ -1572,7 +1570,9 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
                 Scroll(0, m_actualBrowserArea.height() / 10);
             }
             else
+            {
                 handled = false;
+            }
         }
         else if (action == "LEFT")
         {
@@ -1583,7 +1583,9 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
                 Scroll(-m_actualBrowserArea.width() / 10, 0);
             }
             else
+            {
                 handled = false;
+            }
         }
         else if (action == "RIGHT")
         {
@@ -1595,7 +1597,9 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
                 Scroll(m_actualBrowserArea.width() / 10, 0);
             }
             else
+            {
                 handled = false;
+            }
         }
         else if (action == "PAGEUP")
         {
@@ -1642,7 +1646,9 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
             Forward();
         }
         else
+        {
             handled = false;
+        }
     }
 
     return handled;

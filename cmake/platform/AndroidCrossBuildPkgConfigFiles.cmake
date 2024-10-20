@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022-2023 David Hampton
+# Copyright (C) 2022-2024 David Hampton
 #
 # See the file LICENSE_FSF for licensing information.
 #
@@ -51,7 +51,6 @@ include(GetDefine)
 #
 get_define(vulkan/vulkan_core.h VK_HEADER_VERSION
            "^#define +VK_HEADER_VERSION +([0-9]+)$")
-get_define(zlib.h ZLIB_VERSION "^#define +ZLIB_VERSION +\"([^\"]+)\" *$")
 
 # There are no header files that provides exact version numbers for OpenGL.
 # These version numbers are based on the presence of #ifdef statements in the
@@ -64,7 +63,7 @@ set(GLES3_VERSION 3.2)
 #
 # Create all the pkgconfig files
 #
-foreach(NAME IN ITEMS egl glesv1_cm glesv2 glesv3 vulkan zlib)
+foreach(NAME IN ITEMS egl glesv1_cm glesv2 glesv3 vulkan)
   if(NOT EXISTS ${LIBS_INSTALL_PREFIX}/lib/pkgconfig/${NAME}.pc)
     message(
       STATUS "Created file ${LIBS_INSTALL_PREFIX}/lib/pkgconfig/${NAME}.pc")

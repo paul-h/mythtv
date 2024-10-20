@@ -45,6 +45,7 @@ JobQueue::JobQueue(bool master) :
 
 #ifndef USING_VALGRIND
     QMutexLocker locker(&m_queueThreadCondLock);
+    //NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
     m_processQueue = true;
     m_queueThread->start();
 #else
@@ -88,7 +89,7 @@ void JobQueue::customEvent(QEvent *e)
             QString msg;
             message = message.simplified();
             QStringList tokens = message.split(" ", Qt::SkipEmptyParts);
-            QString action = tokens[1];
+            const QString& action = tokens[1];
             int jobID = -1;
 
             if (tokens[2] == "ID")
@@ -2413,7 +2414,9 @@ void JobQueue::DoUserJobThread(int jobID)
                  pginfo->toString(ProgramInfo::kRecordingKey));
     }
     else
+    {
         msg = QString("Started %1 for jobID %2").arg(jobDesc).arg(jobID);
+    }
 
     LOG(VB_GENERAL, LOG_INFO, LOC + QString(msg.toLocal8Bit().constData()));
 
@@ -2465,7 +2468,9 @@ void JobQueue::DoUserJobThread(int jobID)
                      pginfo->toString(ProgramInfo::kRecordingKey));
         }
         else
+        {
             msg = QString("Finished %1 for jobID %2").arg(jobDesc).arg(jobID);
+        }
 
         LOG(VB_GENERAL, LOG_INFO, LOC + QString(msg.toLocal8Bit().constData()));
 

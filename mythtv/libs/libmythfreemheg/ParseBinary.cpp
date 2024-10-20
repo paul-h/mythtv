@@ -34,7 +34,7 @@ been done before the binary was produced.  Creates a MHParseNode tree structure.
 #include "Groups.h"
 #include "Logging.h"
 
-#define INDEFINITE_LENGTH   (-1)
+static constexpr int INDEFINITE_LENGTH { -1 };
 
 // Get the next byte.  In most all cases it's an error if we reach end-of-file
 // and we throw an exception.
@@ -111,7 +111,7 @@ int MHParseBinary::ParseInt(int endInt)
 MHParseNode *MHParseBinary::DoParse()
 {
     // Tag class
-    enum { Universal, Context/*, Pseudo*/ } tagClass = Universal;
+    enum : std::uint8_t { Universal, Context/*, Pseudo*/ } tagClass = Universal;
     // Byte count of end of this item.  Set to INDEFINITE_LENGTH if the length is Indefinite.
     int endOfItem = 0;
     unsigned int tagNumber = 0;

@@ -92,7 +92,9 @@ class VisualBase
 class VisFactory
 {
   public:
-    VisFactory() {m_pNextVisFactory = g_pVisFactories; g_pVisFactories = this;}
+    VisFactory()
+        : m_pNextVisFactory(g_pVisFactories)
+        { g_pVisFactories = this;}
     virtual ~VisFactory() = default;
     const VisFactory* next() const {return m_pNextVisFactory;}
     virtual const QString &name(void) const = 0;
@@ -121,7 +123,7 @@ class StereoScope : public VisualBase
   protected:
     QColor         m_startColor  {Qt::yellow};
     QColor         m_targetColor {Qt::red};
-    std::vector<double> m_magnitudes  {};
+    std::vector<double> m_magnitudes;
     QSize          m_size;
     bool const     m_rubberband  {RUBBERBAND};
     double const   m_falloff     {1.0};
@@ -202,7 +204,7 @@ class MelScale
     int range() const { return m_range; }
 
     void setMax(int maxscale, int maxrange, int maxfreq);
-    static double hz2mel(double hz) { return 1127 * log(1 + hz / 700); }
+    static double hz2mel(double hz) { return 1127 * log(1 + (hz / 700)); }
     static double mel2hz(double mel) { return 700 * (exp(mel / 1127) - 1); }
     int operator[](int index);
     QString note(int note);     // text of note, 0 - 125
@@ -372,7 +374,7 @@ struct piano_key_data {
     QColor          m_blackStartColor  {10,10,10};
     QColor          m_blackTargetColor {Qt::red};
 
-    std::vector<QRect> m_rects         {};
+    std::vector<QRect> m_rects;
     QSize           m_size;
 
     std::chrono::milliseconds m_offsetProcessed  {0ms};
@@ -380,7 +382,7 @@ struct piano_key_data {
     piano_key_data *m_pianoData        {nullptr};
     piano_audio    *m_audioData        {nullptr};
 
-    std::vector<double> m_magnitude    {};
+    std::vector<double> m_magnitude;
 };
 
 class AlbumArt : public VisualBase

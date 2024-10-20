@@ -108,11 +108,15 @@ HouseKeeperTask::HouseKeeperTask(const QString &dbTag, HouseKeeperScope scope,
 bool HouseKeeperTask::CheckRun(const QDateTime& now)
 {
     bool check = false;
-    if (!m_confirm && !m_running && (check = DoCheckRun(now)))
+    if (!m_confirm && !m_running)
     {
-        // if m_confirm is already set, the task is already in the queue
-        // and should not be queued a second time
-        m_confirm = true;
+        check = DoCheckRun(now);
+        if (check)
+        {
+            // if m_confirm is already set, the task is already in the queue
+            // and should not be queued a second time
+            m_confirm = true;
+        }
     }
     LOG(VB_GENERAL, LOG_DEBUG, QString("%1 Running? %2/In window? %3.")
         .arg(GetTag(), m_running ? "Yes" : "No", check ? "Yes" : "No"));
@@ -574,8 +578,8 @@ void HouseKeepingThread::run(void)
  *
  */
 HouseKeeper::HouseKeeper(void)
+  : m_timer(new QTimer(this))
 {
-    m_timer = new QTimer(this);
     connect(m_timer, &QTimer::timeout, this, &HouseKeeper::Run);
     m_timer->setInterval(1min);
     m_timer->setSingleShot(false);
@@ -845,8 +849,8 @@ void HouseKeeper::customEvent(QEvent *e)
             if (tokens.size() != 4)
                 return;
 
-            QString hostname = tokens[1];
-            QString tag = tokens[2];
+            const QString& hostname = tokens[1];
+            const QString& tag = tokens[2];
             QDateTime last = MythDate::fromString(tokens[3]);
             bool successful = me->Message().contains("SUCCESSFUL");
 

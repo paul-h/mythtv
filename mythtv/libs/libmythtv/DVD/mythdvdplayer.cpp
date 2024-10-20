@@ -1,3 +1,5 @@
+#include <algorithm>
+
 // MythTV
 #include "libmyth/audio/audiooutput.h"
 
@@ -360,7 +362,9 @@ void MythDVDPlayer::SetBookmark(bool Clear)
                 fields += dvdstate;
             }
             else
+            {
                 LOG(VB_PLAYBACK, LOG_INFO, LOC + "Clear bookmark");
+            }
 
             ProgramInfo::SaveDVDBookmark(fields);
 
@@ -489,7 +493,7 @@ void MythDVDPlayer::SetTrack(uint Type, uint TrackNo)
 {
     if (kTrackTypeAudio == Type)
     {
-        StreamInfo stream = m_decoder->GetTrackInfo(Type, static_cast<uint>(TrackNo));
+        StreamInfo stream = m_decoder->GetTrackInfo(Type, TrackNo);
         m_playerCtx->m_buffer->DVD()->SetTrack(Type, stream.m_stream_id);
     }
 
@@ -530,12 +534,12 @@ bool MythDVDPlayer::DoJumpChapter(int Chapter)
         if (Chapter < 0)
         {
             Chapter = current -1;
-            if (Chapter < 0) Chapter = 0;
+            Chapter = std::max(Chapter, 0);
         }
         else if (Chapter > total)
         {
             Chapter = current + 1;
-            if (Chapter > total) Chapter = total;
+            Chapter = std::min(Chapter, total);
         }
     }
 

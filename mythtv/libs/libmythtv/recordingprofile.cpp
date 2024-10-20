@@ -6,6 +6,7 @@
 #include "libmythbase/mythdb.h"
 #include "libmythbase/mythlogging.h"
 #include "v4l2util.h"
+#include <algorithm>
 #include <utility>
 
 QString RecordingProfileStorage::GetWhereClause(MSqlBindings &bindings) const
@@ -203,20 +204,26 @@ class MPEG2audType : public MythUIComboBoxSetting, public CodecParamStorage
 
         if ((val == "Layer I") && !m_allowLayer1)
         {
-            val = (m_allowLayer2) ? "Layer II" :
-                ((m_allowLayer3) ? "Layer III" : val);
+            if (m_allowLayer2)
+                val = "Layer II";
+            else if (m_allowLayer3)
+                val = "Layer III";
         }
 
         if ((val == "Layer II") && !m_allowLayer2)
         {
-            val = (m_allowLayer3) ? "Layer III" :
-                ((m_allowLayer1) ? "Layer I" : val);
+            if (m_allowLayer3)
+                val = "Layer III";
+            else if (m_allowLayer1)
+                val = "Layer I";
         }
 
         if ((val == "Layer III") && !m_allowLayer3)
         {
-            val = (m_allowLayer2) ? "Layer II" :
-                ((m_allowLayer1) ? "Layer I" : val);
+            if (m_allowLayer2)
+                val = "Layer II";
+            else if (m_allowLayer1)
+                val = "Layer I";
         }
 
         if (getValue() != val)
@@ -350,7 +357,7 @@ class MPEG2AudioBitrateSettings : public GroupSetting
         addTargetedChild(layers[1], new MPEG2audBitrateL2(parent));
         addTargetedChild(layers[2], new MPEG2audBitrateL3(parent));
 
-        uint desired_layer = std::max(std::min(3U, default_layer), 1U) - 1;
+        uint desired_layer = std::clamp(default_layer, 1U, 3U) - 1;
         int which = audType->getValueIndex(layers[desired_layer]);
         if (which >= 0)
             audType->setValue(which);
@@ -400,11 +407,11 @@ class AudioCompressionSettings : public GroupSetting
   public:
     AudioCompressionSettings(const RecordingProfile &parentProfile,
                              [[maybe_unused]] V4L2util* v4l2) :
-        m_parent(parentProfile)
+        m_parent(parentProfile),
+        m_codecName(new AudioCodecName(m_parent))
     {
         setName(QObject::tr("Audio Quality"));
 
-        m_codecName = new AudioCodecName(m_parent);
         addChild(m_codecName);
 
         QString label("MP3");
@@ -804,7 +811,7 @@ class MPEG2streamType : public MythUIComboBoxSetting, public CodecParamStorage
         MythUIComboBoxSetting(this),
         CodecParamStorage(this, parent, "mpeg2streamtype")
     {
-        if (maxopt > 8) maxopt = 8;
+        maxopt = std::min<uint>(maxopt, 8);
 
         setLabel(QObject::tr("Stream Type"));
 
@@ -830,7 +837,7 @@ class MPEG2aspectRatio : public MythUIComboBoxSetting, public CodecParamStorage
         MythUIComboBoxSetting(this),
         CodecParamStorage(this, parent, "mpeg2aspectratio")
     {
-        if (maxopt > 3) maxopt = 3;
+        maxopt = std::min<uint>(maxopt, 3);
 
         setLabel(QObject::tr("Aspect Ratio"));
 
@@ -894,11 +901,11 @@ class VideoCompressionSettings : public GroupSetting
   public:
     VideoCompressionSettings(const RecordingProfile &parentProfile,
                              [[maybe_unused]] V4L2util* v4l2) :
-        m_parent(parentProfile)
+        m_parent(parentProfile),
+        m_codecName(new VideoCodecName(m_parent))
     {
         setName(QObject::tr("Video Compression"));
 
-        m_codecName = new VideoCodecName(m_parent);
         addChild(m_codecName);
 
         QString label("RTjpeg");
@@ -1031,7 +1038,9 @@ class VideoCompressionSettings : public GroupSetting
                                              "medium_mpegbitratemode"));
                             }
                             else
+                            {
                                 bit_low->addChild(new BitrateMode(m_parent));
+                            }
                         }
                         else if (option.m_category == DriverOption::VIDEO_BITRATE)
                         {
@@ -1140,9 +1149,13 @@ class VideoCompressionSettings : public GroupSetting
                     m_codecName->addSelection(codec);
             }
             else if (groupType == "MPEG")
+            {
                m_codecName->addSelection("MPEG-2 Hardware Encoder");
+            }
             else if (groupType == "MJPEG")
+            {
                 m_codecName->addSelection("Hardware MJPEG");
+            }
             else if (groupType == "GO7007")
             {
                 m_codecName->addSelection("MPEG-4");
@@ -1386,10 +1399,6 @@ RecordingProfile::RecordingProfile(const QString& profName)
     setLabel(profName);
     addChild(m_name);
 
-    m_trFilters  = nullptr;
-    m_trLossless = nullptr;
-    m_trResize   = nullptr;
-
     if (!profName.isEmpty())
     {
         if (profName.startsWith("Transcoders"))
@@ -1402,7 +1411,9 @@ RecordingProfile::RecordingProfile(const QString& profName)
             addChild(m_trResize);
         }
         else
+        {
             addChild(new AutoTranscode(*this));
+        }
     }
     else
     {

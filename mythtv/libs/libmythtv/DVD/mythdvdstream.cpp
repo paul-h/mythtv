@@ -144,7 +144,7 @@ bool MythDVDStream::OpenFile(const QString &Filename, std::chrono::milliseconds 
                 name = QString("/VIDEO_TS/VTS_%1_%2.VOB").arg(title,2,10,QChar('0')).arg(part);
                 start = UDFFindFile(m_reader, qPrintable(name), &len);
                 if( start != 0 && len != 0 )
-                    m_blocks.append(BlockRange(start, Len2Blocks(len), title + part * kTitles));
+                    m_blocks.append(BlockRange(start, Len2Blocks(len), title + (part * kTitles)));
             }
         }
 
@@ -186,7 +186,11 @@ int MythDVDStream::SafeRead(void *Buffer, uint Size)
 
     // Are any blocks in the range encrypted?
     auto it = std::lower_bound(m_blocks.begin(), m_blocks.end(), BlockRange(m_pos, block, -1));
-    uint32_t b = (it == m_blocks.end()) ? block : (m_pos < it->Start() ? it->Start() - m_pos : 0);
+    uint32_t b {0};
+    if (it == m_blocks.end())
+        b = block;
+    else if (m_pos < it->Start())
+        b = it->Start() - m_pos;
     if (b)
     {
         // Read the beginning unencrypted blocks
@@ -207,8 +211,7 @@ int MythDVDStream::SafeRead(void *Buffer, uint Size)
     }
 
     b = it->End() - m_pos;
-    if (b > block)
-        b = block;
+    b = std::min(b, block);
 
     // Request new key if change in title
     int flags = DVDINPUT_READ_DECRYPT;

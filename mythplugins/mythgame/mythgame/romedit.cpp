@@ -20,9 +20,9 @@
 
 EditRomInfoDialog::EditRomInfoDialog(MythScreenStack *parent,
                                      const QString& name, RomInfo *romInfo)
-    : MythScreenType(parent, name)
+    : MythScreenType(parent, name),
+      m_workingRomInfo(new RomInfo(*romInfo))
 {
-    m_workingRomInfo = new RomInfo(*romInfo);
 }
 
 EditRomInfoDialog::~EditRomInfoDialog()
@@ -111,7 +111,9 @@ namespace
             popupStack->AddScreen(fb);
         }
         else
+        {
             delete fb;
+        }
     }
 
     const QString CEID_SCREENSHOTFILE = "screenshotfile";

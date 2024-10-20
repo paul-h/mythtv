@@ -720,18 +720,40 @@ bool V2Dvr::RescheduleRecordings(void)
 //
 /////////////////////////////////////////////////////////////////////////////
 
-bool V2Dvr::AllowReRecord ( int RecordedId )
+bool V2Dvr::AllowReRecord ( int RecordedId, int ChanId, const QDateTime &StartTime)
 {
-    if (RecordedId <= 0)
-        throw QString("RecordedId param is invalid.");
+    if (RecordedId > 0)
+    {
+        if (ChanId > 0 || StartTime.isValid())
+            throw QString("ERROR RecordedId param cannot be used with ChanId or StartTime.");
+    }
+    else if (ChanId > 0)
+    {
+        if (!StartTime.isValid())
+            throw QString("ERROR ChanId param requires a valid StartTime.");
+    }
+    else
+    {
+        throw QString("ERROR RecordedId or (ChanId and StartTime) required.");
+    }
 
-    RecordingInfo ri = RecordingInfo(RecordedId);
-
-    if (!ri.GetChanID())
-        throw QString("RecordedId %1 not found").arg(RecordedId);
-
-    ri.ForgetHistory();
-
+    if (RecordedId > 0)
+    {
+        RecordingInfo ri = RecordingInfo(RecordedId);
+        if (!ri.GetChanID())
+            throw QString("ERROR RecordedId %1 not found").arg(RecordedId);
+        ri.ForgetHistory();
+    }
+    else
+    {
+        ProgramInfo *progInfo = LoadProgramFromProgram(ChanId, StartTime);
+        if (progInfo == nullptr)
+            throw QString("ERROR Guide data for Chanid %1 at StartTime %2 not found")
+                .arg(ChanId).arg(StartTime.toString());
+        RecordingInfo recInfo(*progInfo);
+        recInfo.ForgetHistory();
+        delete progInfo;
+    }
     return true;
 }
 
@@ -885,7 +907,9 @@ bool V2Dvr::SetSavedBookmark( int RecordedId,
                 return false;
     }
     else
+    {
         position = Offset;
+    }
     ri.SaveBookmark(position);
     return true;
 }
@@ -901,6 +925,8 @@ bool V2Dvr::SetLastPlayPos( int RecordedId,
                             const QString &offsettype,
                             long Offset )
 {
+    LOG(VB_GENERAL, LOG_WARNING, "Deprecated, use Dvr/UpdateRecordedMetadata.");
+
     if ((RecordedId <= 0) &&
         (chanid <= 0 || !StartTime.isValid()))
         throw QString("Recorded ID or Channel ID and StartTime appears invalid.");
@@ -924,7 +950,9 @@ bool V2Dvr::SetLastPlayPos( int RecordedId,
                 return false;
     }
     else
+    {
         position = Offset;
+    }
     ri.SaveLastPlayPos(position);
     return true;
 }
@@ -1324,7 +1352,8 @@ V2TitleInfoList* V2Dvr::GetTitleInfoList()
 
 V2ProgramList* V2Dvr::GetConflictList( int  nStartIndex,
                                         int  nCount,
-                                        int  nRecordId       )
+                                        int  nRecordId,
+                                        const QString  &Sort )
 {
     auto *pPrograms = new V2ProgramList();
     int size = FillUpcomingList(pPrograms->GetPrograms(), pPrograms,
@@ -1332,7 +1361,8 @@ V2ProgramList* V2Dvr::GetConflictList( int  nStartIndex,
                                          nCount,
                                          true, // bShowAll,
                                          nRecordId,
-                                         RecStatus::Conflict); // nRecStatus );
+                                         RecStatus::Conflict,
+                                         Sort);
 
     pPrograms->setStartIndex    ( nStartIndex     );
     pPrograms->setCount         ( nCount          );
@@ -1348,7 +1378,8 @@ V2ProgramList* V2Dvr::GetUpcomingList( int  nStartIndex,
                                         int  nCount,
                                         bool bShowAll,
                                         int  nRecordId,
-                                        const QString & RecStatus )
+                                        const QString & RecStatus,
+                                        const QString  &Sort )
 {
     int nRecStatus = 0;
     if (!RecStatus.isEmpty())
@@ -1370,7 +1401,8 @@ V2ProgramList* V2Dvr::GetUpcomingList( int  nStartIndex,
                                          nCount,
                                          bShowAll,
                                          nRecordId,
-                                         nRecStatus );
+                                         nRecStatus,
+                                         Sort );
 
     pPrograms->setStartIndex    ( nStartIndex     );
     pPrograms->setCount         ( nCount          );
@@ -1531,7 +1563,9 @@ uint V2Dvr::AddRecordSchedule   (
     if (!rule.IsValid(msg))
         throw QString(msg);
 
-    rule.Save();
+    bool success = rule.Save();
+    if (!success)
+        throw QString("DATABASE ERROR: Check for duplicate recording rule");
 
     uint recid = rule.m_recordID;
 
@@ -1747,7 +1781,9 @@ bool V2Dvr::AddDontRecordSchedule(int nChanId, const QDateTime &dStartTime,
         recInfo.ApplyNeverRecord();
     }
     else
+    {
         recInfo.ApplyRecordStateChange(kDontRecord);
+    }
 
     return bResult;
 }
@@ -2125,7 +2161,9 @@ bool V2Dvr::UpdateRecordedMetadata ( uint             RecordedId,
                                      const QString   &Description,
                                      uint             Episode,
                                      const QString   &Inetref,
-                                           QDate      OriginalAirDate,
+                                     long             LastPlayOffset,
+                                     const QString   &LastPlayOffsetType,
+                                     QDate            OriginalAirDate,
                                      bool             Preserve,
                                      uint             Season,
                                      uint             Stars,
@@ -2166,7 +2204,9 @@ bool V2Dvr::UpdateRecordedMetadata ( uint             RecordedId,
                 return false;
         }
         else
+        {
             position = BookmarkOffset;
+        }
 
         ri.SaveBookmark(position);
     }
@@ -2222,6 +2262,35 @@ bool V2Dvr::UpdateRecordedMetadata ( uint             RecordedId,
 
     if (HAS_PARAMv2("Inetref"))
         pi.SaveInetRef(Inetref);
+
+    if (HAS_PARAMv2("LastPlayOffset"))
+    {
+
+        if (LastPlayOffset < 0)
+            throw QString("LastPlayOffset must be >= 0.");
+
+        uint64_t position = LastPlayOffset;
+        bool isend=true;
+
+        if (HAS_PARAMv2("LastPlayOffsetType"))
+        {
+            if (LastPlayOffsetType.toLower() == "position")
+            {
+                if (!ri.QueryPositionKeyFrame(&position, LastPlayOffset, isend))
+                        return false;
+            }
+            else if (LastPlayOffsetType.toLower() == "duration")
+            {
+                if (!ri.QueryDurationKeyFrame(&position, LastPlayOffset, isend))
+                        return false;
+            }
+        }
+
+        ri.SaveLastPlayPos(position);
+
+        return true;
+
+    }
 
     if (HAS_PARAMv2("OriginalAirDate"))
     {

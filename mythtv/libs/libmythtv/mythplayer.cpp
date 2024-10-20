@@ -80,7 +80,9 @@ const double MythPlayer::kSeekToEndOffset = 1.0;
 
 MythPlayer::MythPlayer(PlayerContext* Context, PlayerFlags Flags)
   : m_playerCtx(Context),
+    m_playerThread(QThread::currentThread()),
     m_playerFlags(Flags),
+    m_liveTV(Context->m_tvchain),
     //AV subtitles
     m_subReader(this),
     // CC608/708
@@ -88,12 +90,10 @@ MythPlayer::MythPlayer(PlayerContext* Context, PlayerFlags Flags)
     // Audio
     m_audio(this, (Flags & kAudioMuted) != 0)
 {
-    m_playerThread = QThread::currentThread();
 #ifdef Q_OS_ANDROID
     m_playerThreadId = gettid();
 #endif
     m_deleteMap.SetPlayerContext(m_playerCtx);
-    m_liveTV = m_playerCtx->m_tvchain;
 
     m_vbiMode = VBIMode::Parse(gCoreContext->GetSetting("VbiFormat"));
     m_captionsEnabledbyDefault = gCoreContext->GetBoolSetting("DefaultCCMode");
@@ -1502,7 +1502,7 @@ long long MythPlayer::CalcMaxFFTime(long long ffframes, bool setjump) const
     }
     else
     {
-        float secsMax = secsWritten - 2.F * maxtime;
+        float secsMax = secsWritten - (2.F * maxtime);
         if (secsMax <= 0.F)
             ret = 0;
         else if (secsMax < secsPlayed + ff)
@@ -1592,8 +1592,7 @@ bool MythPlayer::DoFastForward(uint64_t frames, double inaccuracy)
     if (!m_deleteMap.IsEditing() && IsInDelete(desiredFrame))
     {
         uint64_t endcheck = m_deleteMap.GetLastFrame();
-        if (desiredFrame > endcheck)
-            desiredFrame = endcheck;
+        desiredFrame = std::min(desiredFrame, endcheck);
     }
 
     uint64_t seeksnap_wanted = UINT64_MAX;
@@ -1847,12 +1846,12 @@ bool MythPlayer::DoJumpChapter(int chapter)
         if (chapter < 0)
         {
             chapter = current -1;
-            if (chapter < 0) chapter = 0;
+            chapter = std::max(chapter, 0);
         }
         else if (chapter > total)
         {
             chapter = current + 1;
-            if (chapter > total) chapter = total;
+            chapter = std::min(chapter, total);
         }
     }
 

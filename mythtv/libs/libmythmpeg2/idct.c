@@ -30,12 +30,14 @@
 #include "attributes.h"
 #include "mpeg2_internal.h"
 
+/* NOLINTBEGIN(modernize-macro-to-enum) */
 #define W1 2841 /* 2048 * sqrt (2) * cos (1 * pi / 16) */
 #define W2 2676 /* 2048 * sqrt (2) * cos (2 * pi / 16) */
 #define W3 2408 /* 2048 * sqrt (2) * cos (3 * pi / 16) */
 #define W5 1609 /* 2048 * sqrt (2) * cos (5 * pi / 16) */
 #define W6 1108 /* 2048 * sqrt (2) * cos (6 * pi / 16) */
 #define W7 565  /* 2048 * sqrt (2) * cos (7 * pi / 16) */
+/* NOLINTEND(modernize-macro-to-enum) */
 
 /* idct main entry point  */
 void (* mpeg2_idct_copy) (int16_t * block, uint8_t * dest, int stride);
@@ -48,7 +50,7 @@ void (* mpeg2_idct_add) (int last, int16_t * block,
  * to +-3826 - this is the worst case for a column IDCT where the
  * column inputs are 16-bit values.
  */
-uint8_t mpeg2_clip[3840 * 2 + 256];
+uint8_t mpeg2_clip[(3840 * 2) + 256];
 #define CLIP(i) ((mpeg2_clip + 3840)[i])
 
 #if 0
@@ -164,7 +166,7 @@ static void mpeg2_idct_copy_c (int16_t * block, uint8_t * dest,
     int i = 0;
 
     for (i = 0; i < 8; i++)
-	idct_row (block + 8 * i);
+	idct_row (block + (8 * i));
     for (i = 0; i < 8; i++)
 	idct_col (block + i);
     do {
@@ -192,7 +194,7 @@ static void mpeg2_idct_add_c (const int last, int16_t * block,
 
     if (last != 129 || (block[0] & (7 << 4)) == (4 << 4)) {
 	for (i = 0; i < 8; i++)
-	    idct_row (block + 8 * i);
+	    idct_row (block + (8 * i));
 	for (i = 0; i < 8; i++)
 	    idct_col (block + i);
 	do {
@@ -256,7 +258,7 @@ void mpeg2_idct_init (uint32_t accel)
 	mpeg2_idct_add = mpeg2_idct_add_alpha;
 	mpeg2_idct_alpha_init ();
 	for (int i = -3840; i < 3840 + 256; i++)
-	    CLIP(i) = (i < 0) ? 0 : ((i > 255) ? 255 : i);
+	    CLIP(i) = clamp(i, 0, 255);
     } else
     {
 	extern uint8_t mpeg2_scan_norm[64];
@@ -265,7 +267,7 @@ void mpeg2_idct_init (uint32_t accel)
 	mpeg2_idct_copy = mpeg2_idct_copy_c;
 	mpeg2_idct_add = mpeg2_idct_add_c;
 	for (int i = -3840; i < 3840 + 256; i++)
-	    CLIP(i) = (i < 0) ? 0 : ((i > 255) ? 255 : i);
+	    CLIP(i) = clamp(i, 0, 255);
 	for (int i = 0; i < 64; i++) {
 	    int j = mpeg2_scan_norm[i];
 	    mpeg2_scan_norm[i] = ((j & 0x36) >> 1) | ((j & 0x09) << 2);

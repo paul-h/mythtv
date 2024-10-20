@@ -2195,7 +2195,9 @@ void Scheduler::run(void)
                 }
             }
             else
+            {
                 break;
+            }
         }
 
         // Start any recordings that are due to be started
@@ -2231,9 +2233,12 @@ void Scheduler::run(void)
                                statuschanged);
             if (idleSince.isValid())
             {
-                nextWakeTime = MythDate::current().addSecs(
-                    (idleSince.addSecs((idleTimeoutSecs - 10s).count()) <= curtime) ? 1 :
-                    (idleSince.addSecs((idleTimeoutSecs - 30s).count()) <= curtime) ? 5 : 10);
+                int64_t secs {10};
+                if (idleSince.addSecs((idleTimeoutSecs - 10s).count()) <= curtime)
+                    secs = 1;
+                else if (idleSince.addSecs((idleTimeoutSecs - 30s).count()) <= curtime)
+                    secs = 5;
+                nextWakeTime = MythDate::current().addSecs(secs);
             }
         }
 
@@ -2383,10 +2388,10 @@ bool Scheduler::HandleReschedule(void)
 
             uint recordid = tokens[2].toUInt();
             uint findid = tokens[3].toUInt();
-            QString title = request[1];
-            QString subtitle = request[2];
-            QString descrip = request[3];
-            QString programid = request[4];
+            const QString& title = request[1];
+            const QString& subtitle = request[2];
+            const QString& descrip = request[3];
+            const QString& programid = request[4];
             runCheck = true;
             m_schedLock.unlock();
             m_recordMatchLock.lock();
@@ -2909,13 +2914,14 @@ void Scheduler::HandleRecordingStatusChange(
           m_schedAfterStartMap[ri.GetParentRecordingRuleID()]));
     ri.AddHistory(doSchedAfterStart);
 
-    QString msg = (RecStatus::Recording == recStatus) ?
-        QString("Started recording") :
-        ((RecStatus::Tuning == recStatus) ?
-         QString("Tuning recording") :
-         QString("Canceled recording (%1)")
-         .arg(RecStatus::toString(ri.GetRecordingStatus(), ri.GetRecordingRuleType())));
-
+    QString msg;
+    if (RecStatus::Recording == recStatus)
+        msg = QString("Started recording");
+    else if (RecStatus::Tuning == recStatus)
+        msg = QString("Tuning recording");
+    else
+        msg = QString("Canceled recording (%1)")
+            .arg(RecStatus::toString(ri.GetRecordingStatus(), ri.GetRecordingRuleType()));
     LOG(VB_GENERAL, LOG_INFO, QString("%1: %2").arg(msg, details));
 
     if ((RecStatus::Recording == recStatus) || (RecStatus::Tuning == recStatus))
@@ -3353,7 +3359,9 @@ bool Scheduler::CheckShutdownServer([[maybe_unused]] std::chrono::seconds prerol
         }
     }
     else
+    {
         retval = true; // allow shutdown if now command is set.
+    }
 
     return retval;
 }
@@ -3419,8 +3427,10 @@ void Scheduler::ShutdownServer(std::chrono::seconds prerollseconds,
                 );
         }
         else
+        {
             setwakeup_cmd.replace(
                 "$time", restarttime.toLocalTime().toString(wakeup_timeformat));
+        }
 
         LOG(VB_GENERAL, LOG_NOTICE,
             QString("Running the command to set the next "
@@ -5280,11 +5290,17 @@ int Scheduler::FillRecordingDir(
                         }
                     }
                     else if (recUsage.contains(kPlayerInUseID))
+                    {
                         weightOffset += weightPerPlayback;
+                    }
                     else if (recUsage == kFlaggerInUseID)
+                    {
                         weightOffset += weightPerCommFlag;
+                    }
                     else if (recUsage == kTranscoderInUseID)
+                    {
                         weightOffset += weightPerTranscode;
+                    }
 
                     if (weightOffset)
                     {
@@ -5716,8 +5732,10 @@ bool Scheduler::WasStartedAutomatically()
             autoStart = true;
         }
         else
+        {
             LOG(VB_GENERAL, LOG_DEBUG,
                 "NOT close to auto-start time, USER-initiated startup assumed");
+        }
     }
     else if (!s.isEmpty())
     {

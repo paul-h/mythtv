@@ -1,6 +1,7 @@
 
 #include "mythuitext.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include <QCoreApplication>
@@ -44,25 +45,7 @@ MythUIText::MythUIText(const QString &text, const MythFontProperties &font,
 #if 0 // Not currently used
     m_usingAltArea = false;
 #endif
-    m_shrinkNarrow = true;
-    m_multiLine = false;
 
-    m_scrollStartDelay = m_scrollReturnDelay = ScrollBounceDelay;
-    m_scrollPause = 0;
-    m_scrollForwardRate = m_scrollReturnRate = 1.0;
-    m_scrollBounce = false;
-    m_scrollOffset = 0;
-    m_scrollPos = 0;
-    m_scrollPosWhole = 0;
-    m_scrollDirection = ScrollNone;
-    m_scrolling = false;
-
-    m_textCase = CaseNormal;
-    m_ascent = m_descent = m_leftBearing = m_rightBearing = 0;
-    m_leading = 1;
-    m_extraLeading = 0;
-    m_lineHeight = 0;
-    m_textCursor = -1;
     m_enableInitiator = true;
 
     MythUIText::SetArea(MythRect(displayRect));
@@ -478,8 +461,8 @@ bool MythUIText::FormatTemplate(QString & paragraph, QTextLayout *layout)
     int end = 0;
     while ((pos = paragraph.indexOf("[font]", pos, Qt::CaseInsensitive)) != -1)
     {
-        if ((end = paragraph.indexOf("[/font]", pos + 1, Qt::CaseInsensitive))
-            != -1)
+        end = paragraph.indexOf("[/font]", pos + 1, Qt::CaseInsensitive);
+        if (end != -1)
         {
             if (range.length == -1)
             {
@@ -614,7 +597,9 @@ bool MythUIText::Layout(QString & paragraph, QTextLayout *layout, bool final,
                 overflow = true;
             }
             else
+            {
                 m_drawRect.setHeight(height);
+            }
             if (!m_multiLine)
                 overflow = true;
         }
@@ -637,12 +622,10 @@ bool MythUIText::Layout(QString & paragraph, QTextLayout *layout, bool final,
             QFontMetrics fm(GetFontProperties()->face());
 
             int bearing = fm.leftBearing(m_cutMessage[last_line]);
-            if (m_leftBearing > bearing)
-                m_leftBearing = bearing;
+            m_leftBearing = std::min(m_leftBearing, bearing);
             bearing = fm.rightBearing
                       (m_cutMessage[last_line + line.textLength() - 1]);
-            if (m_rightBearing > bearing)
-                m_rightBearing = bearing;
+            m_rightBearing = std::min(m_rightBearing, bearing);
         }
     }
 
@@ -718,8 +701,7 @@ bool MythUIText::GetNarrowWidth(const QStringList & paragraphs,
 
         if (height > m_drawRect.height())
         {
-            if (too_narrow < width)
-                too_narrow = width;
+            too_narrow = std::max<qreal>(too_narrow, width);
 
             // Too narrow?  How many lines didn't fit?
             qreal lines = roundf((height - m_drawRect.height()) / line_height);
@@ -736,8 +718,7 @@ bool MythUIText::GetNarrowWidth(const QStringList & paragraphs,
         }
         else
         {
-            if (best_width > width)
-                best_width = width;
+            best_width = std::min<qreal>(best_width, width);
 
             qreal lines = floor((m_area.height() - height) / line_height);
             if (lines >= 1)
@@ -754,16 +735,14 @@ bool MythUIText::GetNarrowWidth(const QStringList & paragraphs,
             {
                 // Is the last line fully used?
                 width -= (1.0 - last_line_width / width) / num_lines;
-                if (width > last_line_width)
-                    width = last_line_width;
+                width = std::min(width, last_line_width);
                 if (static_cast<int>(width) == last_width)
                 {
                     m_cutdown = cutdown;
                     return true;
                 }
             }
-            if (width < too_narrow)
-                width = too_narrow;
+            width = std::max<qreal>(width, too_narrow);
         }
         last_width = width;
     }
@@ -953,7 +932,9 @@ void MythUIText::FillCutMessage(void)
             min_rect.setWidth(m_minSize.x());
         }
         else
+        {
             m_drawRect.moveLeft(m_area.x());
+        }
 
         min_rect.moveLeft(m_area.x());
     }
@@ -969,7 +950,9 @@ void MythUIText::FillCutMessage(void)
             min_rect.setWidth(m_minSize.x());
         }
         else
+        {
             m_drawRect.moveRight(m_area.x() + m_area.width());
+        }
 
         min_rect.moveRight(m_area.x() + m_area.width());
     }
@@ -986,7 +969,9 @@ void MythUIText::FillCutMessage(void)
             min_rect.setHeight(m_minSize.y());
         }
         else
+        {
             m_drawRect.moveTop(m_area.y());
+        }
 
         min_rect.moveTop(m_area.y());
     }
@@ -1001,7 +986,9 @@ void MythUIText::FillCutMessage(void)
             min_rect.setHeight(m_minSize.y());
         }
         else
+        {
             m_drawRect.moveBottom(m_area.y() + m_area.height());
+        }
 
         min_rect.moveBottom(m_area.y() + m_area.height());
     }
@@ -1067,8 +1054,7 @@ int MythUIText::MoveCursor(int lines)
 
     int newLine = lineNo + lines;
 
-    if (newLine < 0)
-        newLine = 0;
+    newLine = std::max(newLine, 0);
 
     if (newLine >= lineCount)
         newLine = lineCount - 1;
@@ -1275,7 +1261,9 @@ void MythUIText::Pulse(void)
                         m_scrollPos = m_scrollPosWhole = 0;
                     }
                     else
+                    {
                         ShiftCanvas(shift, 0);
+                    }
                 }
                 else // scroll left
                 {
@@ -1287,7 +1275,9 @@ void MythUIText::Pulse(void)
                         m_scrollPos = m_scrollPosWhole = 0;
                     }
                     else
+                    {
                         ShiftCanvas(-shift, 0);
+                    }
                 }
                 break;
               case ScrollUp :
@@ -1324,7 +1314,9 @@ void MythUIText::Pulse(void)
                         m_scrollPos = m_scrollPosWhole = 0;
                     }
                     else
+                    {
                         ShiftCanvas(0, shift);
+                    }
                 }
                 else // scroll up
                 {
@@ -1336,7 +1328,9 @@ void MythUIText::Pulse(void)
                         m_scrollPos = m_scrollPosWhole = 0;
                     }
                     else
+                    {
                         ShiftCanvas(0, -shift);
+                    }
                 }
                 break;
               case ScrollNone:
@@ -1485,7 +1479,9 @@ bool MythUIText::ParseElement(
             CycleColor(m_startColor, m_endColor, m_numSteps);
         }
         else
+        {
             m_colorCycling = false;
+        }
 
         m_colorCycling = parseBool(element.attribute("disable"));
     }
@@ -1558,7 +1554,9 @@ bool MythUIText::ParseElement(
             m_scrolling = true;
         }
         else
+        {
             m_scrolling = false;
+        }
     }
     else if (element.tagName() == "case")
     {
